@@ -637,5 +637,78 @@ class NewMarksTest(unittest.TestCase):
         self.assertEqual([], self.new_ids(T2, [None, T2]))  # nothing older: no delta to show
 
 
+class CellAndTailTest(unittest.TestCase):
+    def test_every_node_carries_its_cell(self):
+        view = server.annotate(_map([_node("d1", status="proposed", decided_by="agent",
+                                           cites=[{"quote": "живая цитата отсюда, ход 2"}]),
+                                     _node("t1", kind="tacit")]), _turns(6))
+        self.assertEqual("inbox", _by_id(view, "d1")["cell"])
+        self.assertEqual("tacit", _by_id(view, "t1")["cell"])
+
+    def test_tail_is_the_turns_after_coverage(self):
+        view = server.annotate(_map([_node("d1", cites=[{"quote": "живая цитата отсюда, ход 2"}])]), _turns(5))
+        self.assertEqual(2, view["coverage"]["covered_to"])
+        self.assertEqual([3, 4, 5], [t["turn"] for t in view["tail"]])
+        self.assertEqual({"turn", "role", "text"}, set(view["tail"][0]))
+
+    def test_tail_text_is_capped(self):
+        long_turns = _turns(3, text="слово " * 100 + "ход %d")
+        view = server.annotate(_map([_node("d1", cites=[{"quote": "слово слово слово слово", "turn": 1}])]),
+                               long_turns)
+        self.assertEqual([2, 3], [t["turn"] for t in view["tail"]])
+        self.assertTrue(all(len(t["text"]) <= server.TAIL_TEXT_CAP for t in view["tail"]))
+        self.assertLess(server.TAIL_TEXT_CAP, len(long_turns[1]["text"]))
+
+    def test_tail_empty_without_coverage_or_transcript(self):
+        self.assertEqual([], server.annotate(_map([_node("o1", kind="open", status="proposed", cites=[])]), _turns(4))["tail"])
+        self.assertEqual([], server.annotate(_map([_node("d1")]), [], transcript_error="нет")["tail"])
+
+    def test_hook_and_root_in_the_view(self):
+        view = server.annotate(_map([]), [], session_info={"harness": "codex", "last_event_at": "2026-09-11T12:00:00Z"}, root="/x")
+        self.assertEqual({"installed": True, "harness": "codex", "last_event_at": "2026-09-11T12:00:00Z"}, view["hook"])
+        self.assertEqual("/x", view["root"])
+        view = server.annotate(_map([]), [])
+        self.assertEqual({"installed": False, "harness": None, "last_event_at": None}, view["hook"])
+        self.assertIsNone(view["root"])
+
+
+class SessionFileSourceTest(unittest.TestCase):
+    def setUp(self):
+        self.root = tempfile.mkdtemp(prefix="aang-src-")
+        self.addCleanup(shutil.rmtree, self.root, True)
+
+    def test_session_json_wins_over_lookup(self):
+        from aang import session
+        store.save(self.root, sample_map())
+        session.write(self.root, {"harness": "claude", "transcript_path": NORMAL})
+        source = server.TranscriptSource(roots=[], root=self.root)
+        turns, error = source.turns("does-not-matter")
+        self.assertIsNone(error)
+        self.assertEqual(NORMAL, source.path)
+
+    def test_explicit_path_still_wins_over_session_json(self):
+        from aang import session
+        store.save(self.root, sample_map())
+        session.write(self.root, {"transcript_path": os.path.join(FIXTURES, "tool_only.jsonl")})
+        source = server.TranscriptSource(path=NORMAL, roots=[], root=self.root)
+        source.turns()
+        self.assertEqual(NORMAL, source.path)
+
+    def test_stale_session_json_falls_back_to_lookup(self):
+        from aang import session
+        store.save(self.root, sample_map())
+        session.write(self.root, {"transcript_path": os.path.join(self.root, "gone.jsonl")})
+        source = server.TranscriptSource(roots=[os.path.join(FIXTURES, "projects")], root=self.root)
+        source.turns("aaaa1111-0000-0000-0000-000000000001")
+        self.assertTrue(source.path and source.path.endswith("aaaa1111-0000-0000-0000-000000000001.jsonl"))
+
+
+class ViewOverHttpHasNewKeysTest(ServerTestCase):
+    def test_api_map_carries_cell_tail_hook_root(self):
+        view = self.get_json("/api/map")
+        self.assertIn("tail", view); self.assertIn("hook", view); self.assertEqual(self.root, view["root"])
+        self.assertTrue(all("cell" in n for n in view["nodes"]))
+
+
 if __name__ == "__main__":
     unittest.main()
