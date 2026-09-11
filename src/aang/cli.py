@@ -1,4 +1,4 @@
-"""Command line: `aang view | check | export | merge`. Entry point is `main(argv)`.
+"""Command line: `aang view | check | export | merge | hook`. Entry point is `main(argv)`.
 
 `merge` is the only path that writes a regenerated map into `.aang/map.json`: the model
 writes `.aang/candidate.json`, `merge` resolves its citations to turn numbers, folds it
@@ -6,6 +6,8 @@ into the stored map through `store.merge` (hand edits survive — R6), validates
 `check` is the command a human trusts: it exits 1 when the map is invalid or any
 citation fails to resolve. Remarks (`schema.warnings`) print after the verdict and never
 change the exit code — a nudge that failed the build would teach people to ignore it.
+`hook` is the one verb a human never types: the harness runs it on every session event
+with the event JSON on stdin (see `hook.run`).
 """
 
 import argparse
@@ -13,7 +15,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import schema, server, session, store
+from . import hook, schema, server, session, store
 
 MARK_OK = "✓"
 MARK_BAD = "✗"
@@ -68,7 +70,14 @@ def _parser():  # type: () -> argparse.ArgumentParser
     p_merge.add_argument("--candidate", default=None, help="путь к кандидату (по умолчанию .aang/candidate.json)")
     p_merge.add_argument("--keep", action="store_true", help="не удалять кандидата после слияния")
     p_merge.set_defaults(func=cmd_merge)
+
+    p_hook = sub.add_parser("hook", help="обработать событие среды (stdin: JSON хука Claude Code / Codex)")
+    p_hook.set_defaults(func=cmd_hook)
     return parser
+
+
+def cmd_hook(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
+    return hook.run(sys.stdin.read(), dict(os.environ), out, err)
 
 
 def _source(args):  # type: (argparse.Namespace) -> server.TranscriptSource
