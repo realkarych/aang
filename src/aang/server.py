@@ -83,12 +83,13 @@ class TranscriptSource(object):
     transcripts can carry the same stamp, so a located path that is not the one indexed
     last is read again.
 
-    `path` pins a transcript file; otherwise the path `.aang/session.json` recorded for
-    `root` is used, and only when that is absent or stale is `session_id` (or, failing
-    that, the newest session of `root`'s own project) looked up under `roots`
-    (None → `~/.claude/projects` and `~/.codex/sessions`). Never raises: `turns()` returns
-    `(turns, error)` where `error` is a Russian string when the transcript is missing
-    or empty.
+    `path` and `session_id` are what the human asked for on the command line, so both
+    outrank the path `.aang/session.json` records for `root`; the session file is the
+    default, and only when it is absent or stale is an id (the one `turns()` is given,
+    usually the map's, or failing that the newest session of `root`'s own project)
+    looked up under `roots` (None → `~/.claude/projects` and `~/.codex/sessions`).
+    Never raises: `turns()` returns `(turns, error)` where `error` is a Russian string
+    when the transcript is missing or empty.
     """
 
     def __init__(self, path=None, session_id=None, roots=None, root=None):
@@ -103,9 +104,15 @@ class TranscriptSource(object):
         self._lock = threading.Lock()
 
     def locate(self, session_id=None):  # type: (Optional[str]) -> Optional[str]
+        """The transcript to read: an explicit flag first, then the session file, then a lookup.
+
+        An explicit `--session` skips the session file entirely — it would otherwise
+        answer with the transcript of whatever session is running right now, which is
+        exactly the one the flag was given to override.
+        """
         if self.pinned:
             return self.pinned
-        if self.root:
+        if self.root and not self.session_id:
             recorded = session.transcript_path(self.root)
             if recorded:
                 return recorded

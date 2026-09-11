@@ -72,9 +72,9 @@ replaced — your hand edits stay, decisions that changed are superseded rather 
 
 The four that work on a map take `--root DIR` (where `.aang/` lives, default `.`), and
 `--transcript PATH`, `--session ID`, `--transcript-root DIR` to say which transcript to check
-against. The default is the transcript `.aang/session.json` names — the hook writes it — else the
-session id recorded in the map, else the newest transcript under `~/.claude/projects` and
-`~/.codex/sessions`. `hook` and `install` take neither: the hook is told the project by the
+against. Either explicit flag wins outright; with neither, the transcript is the one
+`.aang/session.json` names — the hook writes it — else the session id recorded in the map, else
+the newest transcript under `~/.claude/projects` and `~/.codex/sessions`. `hook` and `install` take neither: the hook is told the project by the
 harness, and `install` works on your home directory.
 
 | command | what it does |

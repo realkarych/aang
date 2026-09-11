@@ -777,6 +777,15 @@ class SessionFileSourceTest(unittest.TestCase):
         source.turns()
         self.assertEqual(NORMAL, source.path)
 
+    def test_explicit_session_id_still_wins_over_session_json(self):
+        from aang import session
+        store.save(self.root, sample_map())
+        session.write(self.root, {"transcript_path": NORMAL})
+        source = server.TranscriptSource(session_id="aaaa1111-0000-0000-0000-000000000001",
+                                         roots=[os.path.join(FIXTURES, "projects")], root=self.root)
+        source.turns()
+        self.assertTrue(source.path and source.path.endswith("aaaa1111-0000-0000-0000-000000000001.jsonl"))
+
     def test_stale_session_json_falls_back_to_lookup(self):
         from aang import session
         store.save(self.root, sample_map())
