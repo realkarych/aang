@@ -204,6 +204,15 @@ class ViewerStringsTest(ServerTestCase):
             self.assertIn(word, text, word)
         self.assertNotIn("ordered(map)", page.split("function ordered(")[0])
 
+    def test_index_carries_the_timeline_words(self):
+        """The turn strip names itself the same way in three places: the section label, the
+        picture's alternative text, and the button that brings it back on a narrow screen. A node
+        whose citations never resolved to a turn is told so in words, not left off the axis."""
+        text = self.viewer_text()
+        for word in ("Ход сессии", "узлы по ходам", "показать ход сессии", "скрыть ход сессии",
+                     "без хода"):
+            self.assertIn(word, text, word)
+
     def test_index_is_self_contained(self):
         page = self.request("GET", "/")[2].decode("utf-8")
         self.assertIn('src="model.js"', page)

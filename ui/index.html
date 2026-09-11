@@ -154,7 +154,45 @@
   .tail li { font-family: var(--font-text); overflow-wrap: anywhere; }
   .tail li.r-user { color: var(--ink); }
   .tail .turn { font-family: var(--font-mono); font-size: 0.86em; color: var(--ink-3); margin-right: 6px; }
-  .timeline { max-width: 1400px; margin: 14px auto 0; overflow-x: auto; }
+  .timeline { max-width: 1400px; margin: 12px auto 0; }
+  .tl-scroll { overflow-x: auto; }
+  .tl-lane { stroke: var(--line); }
+  .tl-lane-label { font-family: var(--font-ui); font-size: 11px; fill: var(--ink-3); }
+  .tl-lane-label.k-tacit { fill: var(--tacit); }
+  .tl-lane-label.k-open { fill: var(--open); }
+  .tl-lane-label.k-decision { fill: var(--decision); }
+  .tl-axis { font-family: var(--font-mono); font-size: 10px; fill: var(--ink-3); }
+  .tl-hatch { stroke: var(--line); }
+  .tl-tail { fill: url(#hatch); }
+  .tl-cov { stroke: var(--ink-2); stroke-dasharray: 3 3; }
+  .tl-tick { stroke: var(--ink-2); }
+  .tl-arc { fill: none; stroke: var(--decision); stroke-width: 1.5; }
+  .tl-arc.in { stroke-dasharray: 4 3; }
+  .timeline .mark { cursor: pointer; }
+  .timeline .mark circle, .timeline .mark rect, .timeline .mark path { fill: currentColor; stroke: currentColor; }
+  .timeline .mark .hollow { fill: var(--panel); stroke-width: 2; }
+  .timeline .mark.c-inbox { color: var(--open); }
+  .timeline .mark.c-research, .timeline .mark.c-discuss { color: var(--warn); }
+  .timeline .mark.c-confirmed { color: var(--ok); }
+  .timeline .mark.c-rejected { color: var(--bad); }
+  .timeline .mark.c-tacit { color: var(--tacit); }
+  .timeline .mark.c-orphaned, .timeline .mark.c-hanging { color: var(--open); }
+  .timeline .mark.c-decisions { color: var(--ink-2); }
+  .timeline .mark.sup { color: var(--ink-3); }
+  .timeline .mark .ring { fill: none; stroke: currentColor; stroke-width: 1.5; opacity: 0.7; }
+  .timeline .mark .x, .timeline .mark .strike { stroke: var(--bad); stroke-width: 2; fill: none; }
+  .timeline .mark.sel circle, .timeline .mark.sel rect, .timeline .mark.sel path { stroke-width: 3; }
+  .timeline .mark.sel .ring { stroke-width: 3; opacity: 1; }
+  @media (prefers-reduced-motion: no-preference) {
+    .timeline .mark.appeared .ring { animation: aang-blink 1.2s 1; }
+    @keyframes aang-blink { 0%, 100% { opacity: 0.7; } 50% { opacity: 0; } }
+  }
+  .tl-toggle { display: none; margin: 8px 0 0; }
+  @media (max-width: 600px) {
+    .timeline { display: none; }
+    .timeline.shown { display: block; }
+    .tl-toggle { display: block; }
+  }
 
   /* ---------------------------------------------------------------- banners */
   .banner {
@@ -695,6 +733,7 @@
         <button type="button" class="btn" id="filter-reset" hidden>сбросить</button>
       </p>
       <p class="fcount" id="filter-count" hidden aria-live="polite"></p>
+      <p class="tl-toggle"><button type="button" class="btn" id="timeline-toggle" aria-controls="timeline" aria-expanded="false">показать ход сессии</button></p>
     </div>
     <section class="spine" id="spine" aria-label="Хребет разговора: все узлы карты"></section>
   </div>
@@ -959,6 +998,130 @@
     $("tail-list").innerHTML = tail.map(function (t) {
       return "<li class=\"r-" + esc(t.role) + "\"><span class=\"turn\">ход " + esc(t.turn) + "</span> " + esc(t.text) + "</li>";
     }).join("");
+  }
+
+  // ------------------------------------------------------------- timeline
+  // The x axis is the turn number at a fixed 12 px per turn, so a node never moves sideways as
+  // the map grows (U9); the left 60 px is the column for nodes whose citations never resolved to
+  // a turn. Below 900 px the three lanes fold into one and the kind is read from the shape alone.
+  var TL = { pxPerTurn: 12, laneHeight: 28, gutter: 60, stepDown: 6 };
+  var TL_NARROW = { pxPerTurn: 12, laneHeight: 0, gutter: 40, stepDown: 6 };
+  var tlOpts = null;
+
+  function tlPick() { return window.matchMedia("(max-width: 900px)").matches ? TL_NARROW : TL; }
+
+  function markShape(m, r) {
+    if (m.kind === "tacit") {
+      return "<path d=\"M" + m.x + " " + (m.y - r) + " L" + (m.x + r) + " " + m.y +
+        " L" + m.x + " " + (m.y + r) + " L" + (m.x - r) + " " + m.y + "Z\"/>";
+    }
+    if (m.kind === "open") {
+      return "<rect x=\"" + (m.x - r) + "\" y=\"" + (m.y - r) + "\" width=\"" + 2 * r + "\" height=\"" + 2 * r + "\"/>";
+    }
+    return "<circle cx=\"" + m.x + "\" cy=\"" + m.y + "\" r=\"" + r + "\"" +
+      (m.author === "agent" ? " class=\"hollow\"" : "") + "/>";
+  }
+
+  function renderTimeline(map) {
+    var el = $("timeline");
+    if (!map.nodes || !map.nodes.length || (map.errors || []).length) { el.hidden = true; return; }
+    el.hidden = false;
+    tlOpts = tlPick();
+    var o = tlOpts;
+    var lay = M.timelineLayout(map, o);
+    var r = 5, top = lay.height ? 0 : 12;
+    // With the lanes folded into one, two kinds on the same turn land on the same point: the
+    // ladder the model steps within a lane has to be stepped across the whole row instead.
+    if (!lay.height) {
+      var stack = {};
+      lay.marks.forEach(function (m) {
+        m.y = (stack[m.x] || 0) * o.stepDown;
+        stack[m.x] = (stack[m.x] || 0) + 1;
+      });
+    }
+    var deepest = 0;
+    var place = {};
+    lay.marks.forEach(function (m) { place[m.id] = m; if (m.y > deepest) deepest = m.y; });
+    var floor = Math.max(lay.height, deepest + r + 4);
+    var H = top + floor + 18;
+    var svg = "<svg width=\"" + lay.width + "\" height=\"" + H + "\" viewBox=\"0 0 " + lay.width + " " + H + "\"" +
+      " role=\"img\" aria-label=\"Ход сессии: узлы по ходам\">" +
+      "<defs><pattern id=\"hatch\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\">" +
+      "<path class=\"tl-hatch\" d=\"M0 6 L6 0\"/></pattern></defs>" +
+      "<g transform=\"translate(0 " + top + ")\">";
+    lay.lanes.forEach(function (l, i) {
+      if (!lay.height && i) return;
+      svg += "<line class=\"tl-lane\" x1=\"" + o.gutter + "\" y1=\"" + l.y + "\" x2=\"" + lay.width + "\" y2=\"" + l.y + "\"/>";
+      if (lay.height) {
+        svg += "<text class=\"tl-lane-label k-" + l.kind + "\" x=\"" + (o.gutter - 8) + "\" y=\"" + (l.y + 4) +
+          "\" text-anchor=\"end\">" + esc(KIND_MARK[l.kind]) + "</text>";
+      }
+    });
+    if (lay.coverage) {
+      svg += "<rect class=\"tl-tail\" x=\"" + lay.coverage.x + "\" y=\"0\" width=\"" +
+        Math.max(0, lay.width - lay.coverage.x) + "\" height=\"" + floor + "\"/>" +
+        "<line class=\"tl-cov\" x1=\"" + lay.coverage.x + "\" y1=\"0\" x2=\"" + lay.coverage.x + "\" y2=\"" + floor + "\"/>";
+      (map.tail || []).forEach(function (t) {
+        if (t.role !== "user") return;
+        var x = o.gutter + (t.turn - 1) * o.pxPerTurn;
+        svg += "<line class=\"tl-tick\" x1=\"" + x + "\" y1=\"" + (floor - 6) + "\" x2=\"" + x + "\" y2=\"" + floor + "\"/>";
+      });
+    }
+    var sel = state.selected ? place[state.selected] : null;
+    var node = sel ? byId(map, sel.id) : null;
+    if (node) {
+      neighbours(node, map).forEach(function (e) {
+        var other = place[e.id];
+        if (!other) return;
+        var mid = (sel.x + other.x) / 2;
+        var head = Math.min(sel.y, other.y) + top - 2;
+        var lift = Math.max(2, Math.min(40, Math.abs(sel.x - other.x) / 4 + 8, head));
+        svg += "<path class=\"tl-arc " + e.dir + "\" d=\"M" + sel.x + " " + sel.y + " Q " + mid + " " +
+          (Math.min(sel.y, other.y) - lift) + " " + other.x + " " + other.y + "\"/>";
+      });
+    }
+    lay.marks.forEach(function (m) {
+      var n = byId(map, m.id);
+      var cls = "mark k-" + m.kind + " c-" + m.cell + (m.author ? " a-" + m.author : "") +
+        (m.unseen ? " unseen" : "") + (m.superseded ? " sup" : "") + (m.rejected ? " rej" : "") +
+        (state.selected === m.id ? " sel" : "") + (state.appeared[m.id] ? " appeared" : "");
+      svg += "<g class=\"" + cls + "\" data-id=\"" + esc(m.id) + "\" tabindex=\"0\" role=\"button\">" +
+        "<title>" + esc(m.id) + (m.noTurn ? " · без хода" : " · ход " + m.turn) + " — " + esc(n ? n.question : "") + "</title>" +
+        (m.unseen ? "<circle class=\"ring\" cx=\"" + m.x + "\" cy=\"" + m.y + "\" r=\"" + (r + 3) + "\"/>" : "") +
+        markShape(m, r) +
+        (m.rejected ? "<path class=\"x\" d=\"M" + (m.x - r) + " " + (m.y - r) + " L" + (m.x + r) + " " + (m.y + r) +
+          " M" + (m.x + r) + " " + (m.y - r) + " L" + (m.x - r) + " " + (m.y + r) + "\"/>" : "") +
+        (m.superseded ? "<line class=\"strike\" x1=\"" + (m.x - r - 2) + "\" y1=\"" + m.y + "\" x2=\"" +
+          (m.x + r + 2) + "\" y2=\"" + m.y + "\"/>" : "") + "</g>";
+    });
+    svg += "</g>";
+    var total = (map.coverage && map.coverage.turns) || 0;
+    for (var t = 10; t <= total; t += 10) {
+      svg += "<text class=\"tl-axis\" x=\"" + (o.gutter + (t - 1) * o.pxPerTurn) + "\" y=\"" + (H - 4) +
+        "\" text-anchor=\"middle\">" + t + "</text>";
+    }
+    svg += "</svg>";
+    // Follow the right edge only for a reader who was already there; anyone who scrolled back to
+    // look at an early turn keeps their place when the map grows under them. The very first paint
+    // is not an update: it starts at turn one, where the lane labels are.
+    var scroll = el.querySelector(".tl-scroll");
+    var atEnd = !!scroll && scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 40;
+    var left = scroll ? scroll.scrollLeft : 0;
+    var focused = document.activeElement;
+    var refocus = focused && el.contains(focused) ? focused.getAttribute("data-id") : null;
+    el.innerHTML = "<div class=\"tl-scroll\">" + svg + "</div>";
+    scroll = el.querySelector(".tl-scroll");
+    scroll.scrollLeft = atEnd ? scroll.scrollWidth : left;
+    el.querySelectorAll("g.mark").forEach(function (g) {
+      g.addEventListener("click", function () { select(g.getAttribute("data-id"), true); });
+      g.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(g.getAttribute("data-id"), true); }
+      });
+    });
+    if (refocus) {
+      var again = el.querySelector("g.mark[data-id=\"" + CSS.escape(refocus) + "\"]");
+      if (again) again.focus();
+    }
   }
 
   // ------------------------------------------------------------- spine
@@ -1543,6 +1706,7 @@
     var hadFocus = $("spine").contains(document.activeElement);
     renderSpine(state.map);
     renderDetail(state.map);
+    renderTimeline(state.map);
     var row = $("spine").querySelector("[data-id=\"" + CSS.escape(id) + "\"]");
     if (row && hadFocus) row.focus({ preventScroll: true });
     if (row && scroll) row.scrollIntoView({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
@@ -1560,7 +1724,15 @@
     if (row) select(row.getAttribute("data-id"), true);
   });
   window.addEventListener("resize", function () {
-    if (state.map && !$("panes").hidden) drawArcs(state.map);
+    if (!state.map || $("panes").hidden) return;
+    drawArcs(state.map);
+    if (tlPick() !== tlOpts) renderTimeline(state.map);
+  });
+  $("timeline-toggle").addEventListener("click", function () {
+    var shown = $("timeline").classList.toggle("shown");
+    this.setAttribute("aria-expanded", shown ? "true" : "false");
+    this.textContent = shown ? "скрыть ход сессии" : "показать ход сессии";
+    if (shown && state.map) renderTimeline(state.map);
   });
 
   // ------------------------------------------------------------- search and filter controls
@@ -1622,14 +1794,12 @@
     var keep = !!(opts && opts.keepScroll);
     var y = window.scrollY;
     var spineTop = $("spine").scrollTop;
-    var timelineLeft = $("timeline").scrollLeft;
     if (state.editing && !byId(map, state.editing.id)) state.editing = null;
     if (state.verdict && !byId(map, state.verdict.id)) state.verdict = null;
     paintMap(map);
     if (!keep) return;
     window.scrollTo(0, y);
     $("spine").scrollTop = spineTop;
-    $("timeline").scrollLeft = timelineLeft;
   }
 
   function appearedIds(map) {
@@ -1661,11 +1831,13 @@
     if (errs.length) {
       $("panes").hidden = true;
       $("state-empty").hidden = true;
+      $("timeline").hidden = true;
       return;
     }
     if (!nodes.length) {
       $("panes").hidden = true;
       $("state-empty").hidden = false;
+      $("timeline").hidden = true;
       return;
     }
     $("state-empty").hidden = true;
@@ -1676,6 +1848,7 @@
     state.selected = wanted;
     renderSpine(map);
     renderDetail(map);
+    renderTimeline(map);
   }
 
   // The node id in `#hash`, or "" when there is none or it is not valid percent-encoding.
