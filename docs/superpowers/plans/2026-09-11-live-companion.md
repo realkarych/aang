@@ -21,6 +21,8 @@
 - Tests: `python3 -m unittest discover -s tests -t .` from the repo root (the `tests/__init__.py` + `-t .` layout puts `src` on the path through `tests/__init__.py`; keep it). Tests that run JS use `node` and are skipped without it (`@unittest.skipUnless(shutil.which("node"), ...)`), as in `tests/test_server.py::NewMarksTest`.
 - Commit after each task with the trailer lines from the session's attribution reminder.
 - Work in the worktree `/Users/karych/src/aang/.claude/worktrees/live-companion`, branch `worktree-live-companion`. Never `cd` to the main checkout.
+- **No line comments** (`# …`, `// …`) in any code you write or touch; module and function docstrings are allowed and are where the contract lives; `# type: (...) -> ...` hints are syntax, not comments, and stay. Where a task's code block above contains a `#` comment, drop the comment and keep the code (move a needed explanation into the docstring).
+- **Delivery in PRs under 400 lines** (tests and fixtures count): each PR holds 1–2 plan tasks; when a task's diff would exceed 400 lines, the implementer splits it into two commits that can be two PRs. The stack merges into `master` one PR after another; a later task may depend on an earlier PR being merged.
 
 ## File Structure
 
