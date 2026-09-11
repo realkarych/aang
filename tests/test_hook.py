@@ -1,8 +1,9 @@
 """Tests for `aang hook`.
 
-Every case drives `hook.run` with a JSON payload, the way a harness would, and reads
-back the answer and `.aang/`. `fixtures/normal.jsonl` is the transcript throughout: it
-indexes to 9 turns, 5 of them the user's.
+The turn numbers below come from `fixtures/normal.jsonl`: it indexes to 9 turns, 5 of
+them the user's, and 4 of those fall after turn 1 — the turn `StopTest.covered_map`
+cites. `TURNS` is what the hook records as `last_nudge_turn`, which is the transcript's
+length at nudge time.
 """
 
 import io
@@ -17,6 +18,9 @@ from aang import hook, session, store
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 NORMAL = os.path.join(FIXTURES, "normal.jsonl")
 NOW = "2026-09-11T12:30:00Z"
+
+TURNS = 9
+USER_TURNS_AFTER_FIRST = 4
 
 
 def a_map(*nodes, **kw):
@@ -185,3 +189,76 @@ class PromptTest(HookCase):
         ctx = self.context(out)["additionalContext"]
         self.assertIn("d1 — Вопрос d1?", ctx)
         self.assertNotIn("покрывает ходы до", ctx)
+
+
+class StopTest(HookCase):
+    def covered_map(self):
+        """A quote from turn 1 covers only turn 1, leaving 8 turns of tail, 4 of them the user's."""
+        return a_map(decision("d1", "Начнём с метрик"))
+
+    def set_nudge_turns(self, value):
+        with open(os.path.join(self.root, ".aang", "config.json"), "w") as handle:
+            json.dump({"nudge_turns": value}, handle)
+
+    def test_nudges_after_enough_user_turns_and_records_the_turn(self):
+        store.save(self.root, self.covered_map())
+        self.set_nudge_turns(2)
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True))
+        ans = json.loads(out)["hookSpecificOutput"]
+        self.assertEqual(("Stop", True), (ans["hookEventName"], ans["continueConversation"]))
+        self.assertIn("обнови карту", ans["continueReason"].lower())
+        self.assertIn("skill \"aang\"", ans["continueReason"])
+        self.assertIn("%d хода" % USER_TURNS_AFTER_FIRST, ans["continueReason"])
+        self.assertEqual(TURNS, session.read(self.root)["last_nudge_turn"])
+
+    def test_codex_answer_shape(self):
+        store.save(self.root, self.covered_map())
+        self.set_nudge_turns(2)
+        code, out, _ = self.run_hook(self.codex("Stop", stop_hook_active=False))
+        ans = json.loads(out)
+        self.assertEqual("block", ans["decision"])
+        self.assertIn("$aang", ans["reason"])
+
+    def test_silent_below_threshold(self):
+        store.save(self.root, self.covered_map())
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+                                     now="2026-09-11T12:05:00Z")
+        self.assertEqual("", out)
+
+    def test_minutes_rule(self):
+        store.save(self.root, self.covered_map())
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+                                     now="2026-09-11T12:20:00Z")
+        self.assertNotEqual("", out)
+
+    def test_no_double_nudge_and_no_nudge_while_candidate_exists(self):
+        store.save(self.root, self.covered_map())
+        session.write(self.root, {"last_nudge_turn": TURNS})
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+                                     now="2026-09-11T13:00:00Z")
+        self.assertEqual("", out)
+        session.write(self.root, {"last_nudge_turn": 0})
+        with open(store.candidate_path(self.root), "w") as handle:
+            handle.write("{}")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+                                     now="2026-09-11T13:00:00Z")
+        self.assertEqual("", out)
+
+    def test_claude_stop_hook_inactive_is_silent(self):
+        store.save(self.root, self.covered_map())
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False),
+                                     now="2026-09-11T13:00:00Z")
+        self.assertEqual("", out)
+
+    def test_missing_transcript_is_silent(self):
+        store.save(self.root, self.covered_map())
+        code, out, err = self.run_hook(self.claude("Stop", transcript_path=os.path.join(self.root, "none.jsonl"),
+                                                   turn_number=3, stop_hook_active=True),
+                                       now="2026-09-11T13:00:00Z")
+        self.assertEqual((0, ""), (code, out))
+
+    def test_nudges_when_nothing_is_covered_yet(self):
+        store.save(self.root, a_map(decision("d1", "цитаты нет в транскрипте")))
+        self.set_nudge_turns(4)
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True))
+        self.assertIn("обнови карту", json.loads(out)["hookSpecificOutput"]["continueReason"].lower())

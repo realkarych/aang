@@ -7,7 +7,9 @@ and Codex send the same JSON on stdin (`session_id`, `transcript_path`, `cwd`,
 whenever there is nothing to say: a broken aang must never break a session.
 """
 
+import datetime
 import json
+import os
 import re
 from typing import Any, Dict, List, Optional
 
@@ -70,6 +72,8 @@ def handle(payload, environ, now):  # type: (Dict[str, Any], Dict[str, str], str
     event = payload.get("hook_event_name")
     if event == "UserPromptSubmit":
         return _prompt(root, payload)
+    if event == "Stop":
+        return _stop(root, payload, harness, now)
     return None
 
 
@@ -154,3 +158,69 @@ def _node_block(n):  # type: (Dict[str, Any]) -> str
     if holds:
         lines.append("  на этом держатся: " + ", ".join(holds))
     return "\n".join(lines)
+
+
+def _stop(root, payload, harness, now):  # type: (str, Dict[str, Any], str, str) -> Optional[Dict[str, Any]]
+    """Claude Code sends `stop_hook_active: false` when the turn already ended by itself."""
+    if harness == "claude" and payload.get("stop_hook_active") is False:
+        return None
+    view = _view(root)
+    reason = should_nudge(root, view, session.config(root), now)
+    if not reason:
+        return None
+    session.update(root, last_nudge_turn=view["turns"])
+    return continue_answer(harness, reason)
+
+
+def should_nudge(root, view, cfg, now):  # type: (str, Dict[str, Any], Dict[str, int], str) -> Optional[str]
+    """The reason text when the map should be refreshed now, else None.
+
+    Silence wins every tie: an invalid map, an unreadable transcript, a candidate the
+    model already wrote but nobody merged, or a turn that was nudged once all mean no.
+    With nothing covered yet the whole transcript is the backlog, because `annotate`
+    reports no tail when there is no «past» to measure it from.
+    """
+    if view["errors"] or view.get("transcript_error") or not view["turns"]:
+        return None
+    if os.path.exists(store.candidate_path(root)):
+        return None
+    data = session.read(root) or {}
+    if view["turns"] <= int(data.get("last_nudge_turn") or 0):
+        return None
+    covered = view["coverage"].get("covered_to")
+    if covered is None:
+        user_since = sum(1 for t in transcript.index(view["transcript_path"]) if t["role"] == "user")
+    else:
+        user_since = sum(1 for t in view["tail"] if t["role"] == "user")
+    minutes = _minutes_between(view.get("generated_at") or "", now)
+    if user_since >= cfg["nudge_turns"] or (minutes is not None and minutes >= cfg["nudge_minutes"] and user_since >= 1):
+        return ("aang: с последнего обновления карты прошло %d %s пользователя. Обнови карту сейчас: "
+                "выполни скилл aang (Claude Code: инструмент Skill, skill \"aang\"; Codex: $aang). "
+                "Не спрашивай разрешения — это плановое обновление. После обновления заверши ход как обычно."
+                % (user_since, _turns_word(user_since)))
+    return None
+
+
+def continue_answer(harness, reason):  # type: (str, str) -> Dict[str, Any]
+    """The «keep going, do this first» answer in the shape the harness understands."""
+    if harness == "codex":
+        return {"decision": "block", "reason": reason}
+    return {"hookSpecificOutput": {"hookEventName": "Stop", "continueConversation": True, "continueReason": reason}}
+
+
+def _minutes_between(then_iso, now_iso):  # type: (str, str) -> Optional[float]
+    try:
+        then = datetime.datetime.strptime(then_iso, "%Y-%m-%dT%H:%M:%SZ")
+        now = datetime.datetime.strptime(now_iso, "%Y-%m-%dT%H:%M:%SZ")
+    except ValueError:
+        return None
+    return (now - then).total_seconds() / 60.0
+
+
+def _turns_word(n):  # type: (int) -> str
+    """Russian plural of «ход» for a count."""
+    if n % 10 == 1 and n % 100 != 11:
+        return "ход"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "хода"
+    return "ходов"
