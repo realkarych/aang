@@ -126,6 +126,20 @@ class CheckTest(CliTestCase):
         self.assertIn("узел d2: в тексте упомянут d1, но связи на него нет", out)
         self.assertLess(out.index("Итог:"), out.index("Замечания:"))
 
+    def test_check_remarks_on_an_open_node_without_orphaned_by(self):
+        # The real map's o3: no edge, and a `why` that never says what caused it. Valid, and
+        # filed under «просто висит» by the viewer — so `check` has to say the step was skipped.
+        store.save(self.root, candidate(
+            decision("d1", "давай тогда pass@1"),
+            decision("o1", "", kind="open", status="proposed", decision="", cites=[],
+                     why="Заявлено как главный механизм; способа замера нет")))
+        code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(0, code, out)
+        self.assertIn("Итог: ✓", out)
+        self.assertIn("Замечания:", out)
+        self.assertIn("узел o1: открытый вопрос без orphaned_by — укажите решение или скажите в why, что его нет",
+                      out)
+
     def test_check_prints_no_warnings_block_when_there_are_none(self):
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)

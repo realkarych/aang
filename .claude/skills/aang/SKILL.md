@@ -169,10 +169,22 @@ move into `relates`; it is the one edge that points at a later node, kept as it 
 it. Not a limitation to be clever around, a guarantee: you can only point at what you have already
 written, so an edge to a node that does not exist cannot be typed — and since no edge points down
 the list, no cycle is possible, which is why the validator checks direction and needs no cycle
-check. When a dependency seems to run forward — the foundation was noticed late and got a later
-id, as a tacit value usually does — the edge goes on the later node, saying what *it* rests on;
-the viewer shows both ends of every edge, so nothing is lost. `merge` refuses a forward edge
-(`ссылка вперёд`) and writes nothing.
+check. `merge` refuses a forward edge (`ссылка вперёд`) and writes nothing.
+
+**So the list order follows the dependency, not the discovery.** A tacit value is noticed late —
+it surfaces when something built on it goes wrong, long after the decisions that rest on it were
+made — but it was depended on early, and the edge has to be able to say so. The real case: `d7`
+(proof by verbatim quote) rests on `t5` (the three-word evidence threshold); with `t5` written
+eight nodes below `d7`, `d7 rests_on t5` cannot be typed, and «на этом держатся» under `t5` reads
+`d11, o6` — silently missing the one dependent the user selected `t5` to find. Do not invert the
+edge to get past the rule: `t5 rests_on d7` is a false statement, and the viewer would then tell
+the reader that changing `d7` breaks the threshold. Instead, **place a node in `nodes` before the
+first node that rests on it.** Its position is when it began to matter, not when you noticed it.
+Ids are permanent labels and carry no order — `t5` standing above `d7` is fine, and its id does
+not change — only the list position is checked, and `merge` takes the candidate's order, so on a
+repeat run a foundation moves up the moment you see what depends on it. The same holds for any
+foundation noticed late, not only a tacit one: whatever is depended on stands above whatever
+depends on it.
 
 **At most three per node, in total** — not three of each kind. The cap is on fan-out. Wanting a
 fourth means you are listing context, not dependency: keep the three whose change would move this
@@ -206,14 +218,20 @@ was raised and dropped, offered and not answered. If the decision that orphaned 
 map, that is usually a tacit you missed — your own silent choice while implementing — so add it
 with its citation and point at it; if it cannot earn a node, say in `why` that the cause is not on
 the map. An open node with neither edge nor sentence is a question you did not finish asking.
+`aang check` prints `△ узел o3: открытый вопрос без orphaned_by — укажите решение или скажите в
+why, что его нет` for every open node without the edge. The checker cannot read your sentence, so
+the remark stands on an honestly hanging question too; do not invent an edge to silence it — make
+sure the sentence is in `why`, and let it stand.
 
 **Write the edge where you would write the words.** When `why` or `consequence` is about to say
 «следствие d7», «держится на t2», «из-за d6», the edge is already in your head: put it in
 `relates` and let the prose keep the id if the sentence reads better with it. An id in prose with
 no edge is caught — `aang check` prints, after its verdict, a remark of the form
-`△ узел o1: в тексте упомянут d6, но связи на него нет`, or `… — d6 ниже по списку, связь
-ставится на нём` when the mentioned node is later in the list and the edge belongs on it. It is a
-remark, not a failure: the exit code does not change. Add the edge when the relation is real. When
+`△ узел o1: в тексте упомянут d6, но связи на него нет`, or `… — d6 ниже по списку: связь
+ставится на нём, или d6 поднимается выше` when the mentioned node is later in the list — either
+the later node is the one that depends (`d6 moots …`, `o6 orphaned_by …`: the edge goes on it), or
+this node rests on the later one, and then the later one moves up the list, as in «Backward only».
+It is a remark, not a failure: the exit code does not change. Add the edge when the relation is real. When
 the id is merely mentioned — an example, a «см. также», a «расходится с» that none of the three
 names — leave the prose as it is and let the remark stand; the vocabulary is poor on purpose, and
 bending `rests_on` into «связано с» would make every edge mean less.
@@ -327,7 +345,9 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 - `id`: `d1, d2…` for decisions, `t1…` tacit, `o1…` open, numbered in order of first appearance.
   Ids are permanent — never renumber, never reuse. If a node's kind changes later (a tacit the user
   then confirmed becomes a decision), keep its id; the prefix is a hint from birth, not a rule.
-- `nodes` in the order the conversation reached them; the viewer shows newest first.
+- `nodes` in the order the conversation reached them, with one override: a node stands above the
+  first node that rests on it, even when the conversation reached it later (see «Backward only»).
+  The viewer shows newest first.
 - `session_id`: leave it `""`. You do not know your own session id and must not guess one; the
   shell does — `merge` (step 6) is passed `--session "$CLAUDE_CODE_SESSION_ID"` and stamps the
   id it resolved into the map, and `aang check` prints which transcript file it used, so confirm
@@ -346,7 +366,8 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 3. With the nodes in order, walk them once more for edges: every `open` gets `orphaned_by` or its
    sentence in `why`; every id you typed into prose gets its edge or a reason it has none;
    `moots` on any decision that killed an older one without replacing it. An edge points only
-   upward in the list.
+   upward in the list: when one would point down — a tacit value under the decision that rests on
+   it — move the foundation up, above its first dependent, and then write the edge.
 4. Write `.aang/candidate.json` (create the directory if needed).
 5. Find the CLI, once, in a Bash call. It is `aang` on PATH when installed as the README says;
    otherwise it is `bin/aang` in the aang checkout, three levels up from this skill's directory —

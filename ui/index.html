@@ -780,21 +780,19 @@
     if (f.q && searchIndex(n).indexOf(f.q) < 0) return false;
     return true;
   }
-  // Nodes stamped with the latest `added_at` on the map are "new" (U7) — but only when the map
-  // carries at least two distinct stamps. One stamp across the map (the first run after
-  // stamping was introduced) is not a delta, and marking everything new would say nothing.
+  // A node is "new" (U7) when its `added_at` equals the map's `generated_at`: merge stamps both
+  // from one instant, so equality means "entered the map in the most recent merge" — and a run
+  // that added nothing moves `generated_at` past every stamp, clearing the marks. Not the latest
+  // stamp: that would stay lit on every later no-op run. And only when some node is older than
+  // this run: on a first run every node is new and marking all of them would say nothing.
   function newIds(map) {
-    var stamps = {};
-    var latest = "";
+    var out = {};
+    var older = false;
     (map.nodes || []).forEach(function (n) {
       if (!n.added_at) return;
-      stamps[n.added_at] = true;
-      if (n.added_at > latest) latest = n.added_at;
+      if (n.added_at === map.generated_at) out[n.id] = true; else older = true;
     });
-    var out = {};
-    if (Object.keys(stamps).length < 2) return out;
-    map.nodes.forEach(function (n) { if (n.added_at === latest) out[n.id] = true; });
-    return out;
+    return older ? out : {};
   }
 
   // ------------------------------------------------------------- header

@@ -2,6 +2,7 @@ import http.client
 import json
 import os
 import shutil
+import subprocess
 import tempfile
 import threading
 import unittest
@@ -552,7 +553,69 @@ class ViewShapeOverHttpTest(ServerTestCase):
             self.assertEqual([], node["related_by"])
         self.assertIsInstance(view["coverage"]["covered_to"], int)
         self.assertEqual(view["turns"], view["coverage"]["turns"])
-        self.assertEqual([], view["warnings"])
+        # The sample map's o1 is open with no `orphaned_by`: the one remark it earns
+        # travels with the map, so the viewer can show it (U8).
+        self.assertEqual(["узел o1: открытый вопрос без orphaned_by — укажите решение или скажите в why, что его нет"],
+                         view["warnings"])
+
+
+def _viewer_function(name):
+    """The source of one top-level `function <name>(...) {...}` in the real ui/index.html."""
+    with open(server._UI_PATH, encoding="utf-8") as handle:
+        page = handle.read()
+    start = page.index("function %s(" % name)
+    depth = 0
+    for i in range(start, len(page)):
+        if page[i] == "{":
+            depth += 1
+        elif page[i] == "}":
+            depth -= 1
+            if depth == 0:
+                return page[start:i + 1]
+    raise AssertionError("unbalanced braces in %s" % name)
+
+
+T1, T2, T3 = "2026-09-11T13:00:00Z", "2026-09-11T14:00:00Z", "2026-09-11T15:00:00Z"
+
+
+class NewMarksTest(unittest.TestCase):
+    """The viewer's «новое» marks (U7): a node is new when its `added_at` equals the map's
+    `generated_at` — both stamped by the same merge — so a run that added nothing clears them.
+    The function is lifted from the real page and run under node when node is on PATH."""
+
+    def test_the_rule_is_equality_with_generated_at(self):
+        src = _viewer_function("newIds")
+        self.assertIn("n.added_at === map.generated_at", src)
+        self.assertNotIn("latest", src)  # the "max stamp" rule stayed lit after a no-op run
+
+    def new_ids(self, generated_at, stamps):
+        nodes = [{"id": "n%d" % i} for i in range(len(stamps))]
+        for node, stamp in zip(nodes, stamps):
+            if stamp is not None:
+                node["added_at"] = stamp
+        script = (_viewer_function("newIds") + "\nprocess.stdout.write(JSON.stringify(Object.keys(newIds(%s))));"
+                  % json.dumps({"generated_at": generated_at, "nodes": nodes}))
+        done = subprocess.run(["node", "-e", script], capture_output=True, check=True)
+        return json.loads(done.stdout.decode("utf-8"))
+
+    @unittest.skipUnless(shutil.which("node"), "node not on PATH")
+    def test_first_run_marks_nothing(self):
+        # Every node entered with this run: that is not a delta, and marking all would say nothing.
+        self.assertEqual([], self.new_ids(T1, [T1, T1, T1]))
+
+    @unittest.skipUnless(shutil.which("node"), "node not on PATH")
+    def test_run_that_added_nodes_marks_exactly_those(self):
+        self.assertEqual(["n2", "n3"], self.new_ids(T2, [T1, T1, T2, T2]))
+
+    @unittest.skipUnless(shutil.which("node"), "node not on PATH")
+    def test_run_that_added_nothing_clears_the_marks(self):
+        # `generated_at` moved past every stamp: the previous run added nothing, so nothing is new.
+        self.assertEqual([], self.new_ids(T3, [T1, T1, T2, T2]))
+
+    @unittest.skipUnless(shutil.which("node"), "node not on PATH")
+    def test_unstamped_nodes_are_unknown_not_new(self):
+        self.assertEqual([], self.new_ids(T2, [None, None]))
+        self.assertEqual([], self.new_ids(T2, [None, T2]))  # nothing older: no delta to show
 
 
 if __name__ == "__main__":

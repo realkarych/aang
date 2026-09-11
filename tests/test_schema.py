@@ -309,8 +309,35 @@ class WarningsTest(unittest.TestCase):
         ws = schema.warnings(_map([_node("d1", why="см. d2"), _node("d2")]))
         self.assertEqual(1, len(ws))
         self.assertIn("узел d1", ws[0])
-        self.assertIn("d2 ниже по списку, связь ставится на нём", ws[0])
+        # Two honest fixes, not one: d2 depends on d1 and carries the edge, or d1 rests on
+        # d2 and d2 belongs above it (SKILL «Backward only»).
+        self.assertIn("d2 ниже по списку: связь ставится на нём, или d2 поднимается выше", ws[0])
         self.assertNotIn("связи на него нет", ws[0])
+
+    def test_open_node_without_orphaned_by_is_a_warning_not_an_error(self):
+        # U8's triage files this node under «просто висит» — true only if no decision caused
+        # it, which the checker cannot read from `why`; so the remark stands until the model
+        # either names the decision or has written that there is none.
+        m = _map([_node("d1"), _node("o1", kind="open", status="proposed",
+                                     why="Поднято и брошено, решения за этим нет")])
+        self.assertEqual([], schema.validate(m))
+        self.assertEqual(["узел o1: открытый вопрос без orphaned_by — укажите решение или скажите в why, что его нет"],
+                         schema.warnings(m))
+
+    def test_open_node_with_orphaned_by_is_not_warned(self):
+        m = _map([_node("d1"), _node("o1", kind="open", status="proposed",
+                                     relates=[{"to": "d1", "rel": "orphaned_by"}])])
+        self.assertEqual([], schema.warnings(m))
+
+    def test_open_node_with_only_rests_on_is_still_warned(self):
+        m = _map([_node("t1", kind="tacit"), _node("o1", kind="open", status="proposed",
+                                                    relates=[{"to": "t1", "rel": "rests_on"}])])
+        ws = schema.warnings(m)
+        self.assertEqual(1, len(ws))
+        self.assertIn("узел o1: открытый вопрос без orphaned_by", ws[0])
+
+    def test_only_open_nodes_are_asked_for_orphaned_by(self):
+        self.assertEqual([], schema.warnings(_map([_node("d1"), _node("t1", kind="tacit")])))
 
     def test_id_inside_a_word_is_not_a_mention(self):
         self.assertEqual([], schema.warnings(_map([_node("d11"), _node("d2", why="см. md11 и d11a")])))

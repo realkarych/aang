@@ -120,14 +120,16 @@ argument was had, and does not have it again.
 
 Relations between nodes are edges, not sentences. A node's `relates` holds up to three
 `{"to": <id>, "rel": ...}` entries, each pointing at a node **earlier in the list** — so an edge
-can only name something already written, and no cycle is possible. Three values of `rel`:
+can only name something already written, and no cycle is possible; a foundation noticed late (a
+tacit value, usually) is therefore placed above the first node that rests on it. Three values of `rel`:
 `orphaned_by` (on an open node: that decision left this question hanging), `rests_on` (this holds
 on that decision or tacit value), `moots` (on the newer decision: that one stopped mattering
 without being replaced — `superseded` is for a decision that *was* replaced). `superseded_by` is
 the fourth relation and stays its own field. The reverse side — «на этом держатся: d7, d11, o6» —
 is never stored: the server derives it for the viewer and the export, so the two sides cannot
 drift. The viewer files open nodes under «осиротело решениями» or «просто висит» by the presence
-of an `orphaned_by` edge, and nothing else.
+of an `orphaned_by` edge, and nothing else; `check` remarks on every open node without one, so a
+skipped edge cannot pass for an honestly hanging question.
 
 `added_at` is stamped by `merge` when a node first enters the map and never rewritten; the viewer
 marks nodes added since the previous run from it. A map written before the field existed has no

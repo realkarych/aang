@@ -262,9 +262,12 @@ def _validate_supersede_chains(nodes, ids):  # type: (List[Any], Dict[str, int])
 def warnings(map_dict):  # type: (Any) -> List[str]
     """Non-blocking remarks: the map is valid, but something is worth fixing.
 
-    Today: a node id mentioned in prose with no edge to it. Prose is invisible to the
-    structure, so the reader misses whatever it does not link. Unlike validate() after
-    normalize(), this never mutates its argument.
+    Today: a node id mentioned in prose with no edge to it — prose is invisible to the
+    structure, so the reader misses whatever it does not link — and an `open` node with no
+    `orphaned_by` edge: the viewer files it under «просто висит» (U8), which is only true
+    when no decision caused it, and the checker cannot read `why` to tell a skipped step
+    from an honest «ничего не осиротило». Unlike validate() after normalize(), this never
+    mutates its argument.
     """
     out = []  # type: List[str]
     nodes = map_dict.get("nodes") if isinstance(map_dict, dict) else None
@@ -302,13 +305,21 @@ def warnings(map_dict):  # type: (Any) -> List[str]
                 if found in positions and found != node_id:
                     mentioned.add(found)
         label = _node_label(node, pos)
+        if node.get("kind") == "open" and not any(
+                isinstance(r, dict) and r.get("rel") == "orphaned_by"
+                for r in (node.get("relates") or [])):
+            out.append("%s: открытый вопрос без orphaned_by — укажите решение или скажите в why, что его нет"
+                       % label)
         for missing in sorted(mentioned):
             if frozenset((node_id, missing)) in linked:
                 continue
             if positions[missing] > pos:
-                # The direction rule (U3) means this node cannot carry the edge itself.
-                out.append("%s: в тексте упомянут %s, но связи нет — %s ниже по списку, связь ставится на нём"
-                           % (label, missing, missing))
+                # The direction rule (U3) means this node cannot carry the edge itself: either
+                # the later node depends on this one and carries it, or this one rests on the
+                # later node and the later node belongs above it in the list.
+                out.append("%s: в тексте упомянут %s, но связи нет — %s ниже по списку: "
+                           "связь ставится на нём, или %s поднимается выше"
+                           % (label, missing, missing, missing))
             else:
                 out.append("%s: в тексте упомянут %s, но связи на него нет" % (label, missing))
     return out
