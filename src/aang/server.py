@@ -12,9 +12,13 @@ stamped `hand_edited: true`, which regeneration then preserves.
 
 Routes:
   GET  /                         ui/index.html
+  GET  /model.js                 ui/model.js
   GET  /api/map                  the map, every citation resolved, per-node `verified`,
                                  `related_by` and `cell`, top-level `coverage`, `warnings`,
                                  `tail`, `hook` and `root` (see `annotate`)
+  GET  /api/events               text/event-stream: `: connected`, then one
+                                 `data: {"changed": [...]}` per change of the map, of
+                                 `.aang/session.json` or of the transcript, `: ping` when idle
   POST /api/node/<id>            {"field": value, ...} → edit, `hand_edited: true`, save,
                                  return the map
   POST /api/node/<id>/verdict    {"verdict": ..., "text": ...} → `triage.apply_verdict`, save,
@@ -28,6 +32,7 @@ what it already shows.
 
 import json
 import os
+import queue
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
@@ -40,6 +45,7 @@ ALLOWED_ORIGIN_SCHEME = "http://"
 BIND_HOST = "127.0.0.1"
 DEFAULT_PORT = 8790
 MAX_BODY = 1 << 20
+PING_SECONDS = 30
 TAIL_TEXT_CAP = 200
 
 # Fields the viewer may change through POST. `id` is identity, `hand_edited` is set here,
@@ -51,12 +57,31 @@ EDITABLE_FIELDS = ("kind", "status", "superseded_by", "question", "decision", "w
 
 _UI_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                         "ui", "index.html")
+_MODEL_PATH = os.path.join(os.path.dirname(_UI_PATH), "model.js")
+
+_NEVER_LOOKED = object()
+
+
+def _stamp(path):  # type: (Optional[str]) -> Optional[Tuple[float, int]]
+    """`(mtime, size)` of a file — the cheapest «did it change?» there is — or None
+    when there is no such file. Never raises."""
+    if not path:
+        return None
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return (st.st_mtime, st.st_size)
 
 
 # ----------------------------------------------------------------------------- transcript
 
 class TranscriptSource(object):
     """Locates and indexes the session transcript, re-indexing only when the file changes.
+
+    Re-indexing is keyed on the path as well as on `(mtime, size)`: two different
+    transcripts can carry the same stamp, so a located path that is not the one indexed
+    last is read again.
 
     `path` pins a transcript file; otherwise the path `.aang/session.json` recorded for
     `root` is used, and only when that is absent or stale is `session_id` (or, failing
@@ -95,13 +120,10 @@ class TranscriptSource(object):
                 if wanted:
                     return [], "транскрипт сессии не найден: %s" % wanted
                 return [], "транскрипт сессии не найден"
+            moved = path != self.path
             self.path = path
-            try:
-                st = os.stat(path)
-                stamp = (st.st_mtime, st.st_size)
-            except OSError:
-                stamp = None
-            if stamp is None or stamp != self._stamp:
+            stamp = _stamp(path)
+            if stamp is None or stamp != self._stamp or moved:
                 self._turns = transcript.index(path)
                 self._stamp = stamp
             if not self._turns:
@@ -292,6 +314,16 @@ class Handler(BaseHTTPRequestHandler):
         turns, error = source.turns(map_dict.get("session_id") or None)
         return annotate(map_dict, turns, error, source.path, session.read(root), root)
 
+    def _file(self, path, ctype, missing):  # type: (str, str, str) -> None
+        """Serve one file of the built interface, or 404 with `missing` when it is absent."""
+        try:
+            with open(path, "rb") as handle:
+                body = handle.read()
+        except OSError:
+            self._text(404, missing)
+            return
+        self._send(200, body, ctype)
+
     def _gate(self):  # type: () -> bool
         if not self._host_allowed():
             self._text(403, "Запрос отклонён: заголовок Host не локальный. "
@@ -314,19 +346,56 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         root = self.server.root  # type: ignore[attr-defined]
         if path in ("/", "/index.html"):
-            ui_path = getattr(self.server, "ui_path", _UI_PATH)
-            try:
-                with open(ui_path, "rb") as handle:
-                    body = handle.read()
-            except OSError:
-                self._text(404, "ui/index.html не найден — интерфейс ещё не собран. "
-                                "Карта доступна на /api/map.")
-                return
-            self._send(200, body, "text/html; charset=utf-8")
+            self._file(getattr(self.server, "ui_path", _UI_PATH), "text/html; charset=utf-8",
+                       "ui/index.html не найден — интерфейс ещё не собран. "
+                       "Карта доступна на /api/map.")
+        elif path == "/model.js":
+            self._file(getattr(self.server, "model_path", _MODEL_PATH),
+                       "application/javascript; charset=utf-8",
+                       "ui/model.js не найден — интерфейс собран не полностью.")
         elif path == "/api/map":
             self._json(200, self._view(store.load(root)))
+        elif path == "/api/events":
+            self._events()
         else:
             self._text(404, "Нет такого пути: %s" % path)
+
+    def _events(self):  # type: () -> None
+        """The change stream the viewer listens to instead of polling `/api/map`.
+
+        The body never ends by itself, so `HEAD` is answered with the headers and nothing
+        else. The loop leaves when the viewer goes away (writing to a closed socket raises
+        an `OSError` — a broken pipe or a reset) and when the watcher stops and wakes every
+        subscriber with `None`, so closing the server does not wait out a ping.
+        """
+        if self.command == "HEAD":
+            self._send(200, b"", "text/event-stream; charset=utf-8")
+            return
+        watcher = self.server.watcher  # type: ignore[attr-defined]
+        events = watcher.subscribe()
+        try:
+            self.send_response(200)
+            self.send_header("Content-Type", "text/event-stream; charset=utf-8")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.end_headers()
+            self.wfile.write(b": connected\n\n")
+            self.wfile.flush()
+            while True:
+                try:
+                    event = events.get(timeout=PING_SECONDS)
+                except queue.Empty:
+                    frame = ": ping\n\n"
+                else:
+                    if event is None:
+                        return
+                    frame = "data: %s\n\n" % json.dumps(event, ensure_ascii=False)
+                self.wfile.write(frame.encode("utf-8"))
+                self.wfile.flush()
+        except OSError:
+            pass
+        finally:
+            watcher.unsubscribe(events)
 
     def do_POST(self):  # type: () -> None
         if not self._gate():
@@ -462,30 +531,129 @@ def _is_port(suffix):  # type: (str) -> bool
     return suffix.startswith(":") and suffix[1:].isdigit()
 
 
+# ----------------------------------------------------------------------------- watcher
+
+class Watcher(threading.Thread):
+    """Polls `(mtime, size)` of a few files and tells subscribers which label changed.
+
+    `paths_fn` returns `{label: path}` and is called on every tick, so it has to be cheap
+    (see `Server._watched_paths`); a label whose file is missing is watched as None and
+    its appearance is a change like any other. `stop()` also wakes every subscriber with
+    `None`, so a handler blocked on its queue ends its stream at once instead of waiting
+    out a ping. The stop flag is `_stopped`: `_stop` is a method of `Thread` itself, and
+    shadowing it breaks `join()`.
+    """
+
+    def __init__(self, paths_fn, interval=1.0):  # type: (Any, float) -> None
+        threading.Thread.__init__(self, daemon=True)
+        self.paths_fn = paths_fn
+        self.interval = interval
+        self._subs = []  # type: List[queue.Queue]
+        self._lock = threading.Lock()
+        self._stopped = threading.Event()
+        self._last = self.snapshot()
+
+    def snapshot(self):  # type: () -> Dict[str, Any]
+        return dict((label, _stamp(path)) for label, path in (self.paths_fn() or {}).items())
+
+    def subscribe(self):  # type: () -> queue.Queue
+        events = queue.Queue()  # type: queue.Queue
+        with self._lock:
+            self._subs.append(events)
+        return events
+
+    def unsubscribe(self, events):  # type: (queue.Queue) -> None
+        with self._lock:
+            if events in self._subs:
+                self._subs.remove(events)
+
+    def stop(self):  # type: () -> None
+        self._stopped.set()
+        self._publish(None)
+
+    def run(self):  # type: () -> None
+        while not self._stopped.wait(self.interval):
+            current = self.snapshot()
+            changed = sorted(label for label in set(current) | set(self._last)
+                             if current.get(label) != self._last.get(label))
+            self._last = current
+            if changed:
+                self._publish({"changed": changed})
+
+    def _publish(self, event):  # type: (Any) -> None
+        with self._lock:
+            subs = list(self._subs)
+        for events in subs:
+            events.put(event)
+
+
 # ----------------------------------------------------------------------------- server
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True
     allow_reuse_address = True
 
-    def __init__(self, address, root, transcript_source, ui_path=None, verbose=False):
-        # type: (Tuple[str, int], str, TranscriptSource, Optional[str], bool) -> None
+    def __init__(self, address, root, transcript_source, ui_path=None, verbose=False,
+                 watch_interval=1.0):
+        # type: (Tuple[str, int], str, TranscriptSource, Optional[str], bool, float) -> None
         self.root = root
         self.transcript_source = transcript_source
         self.ui_path = ui_path or _UI_PATH
         self.verbose = verbose
         self.write_lock = threading.Lock()
+        self._session_stamp = _NEVER_LOOKED  # type: Any
+        self._located = None  # type: Optional[str]
         ThreadingHTTPServer.__init__(self, address, Handler)
+        self.watcher = Watcher(self._watched_paths, interval=watch_interval)
+        self.watcher.start()
 
     @property
     def url(self):  # type: () -> str
         return "http://%s:%d/" % (BIND_HOST, self.server_address[1])
 
+    def _watched_paths(self):  # type: () -> Dict[str, Optional[str]]
+        """The three files the watcher polls: the map, `.aang/session.json`, the transcript.
 
-def make_server(root, port=DEFAULT_PORT, transcript_source=None, ui_path=None, verbose=False):
-    # type: (str, int, Optional[TranscriptSource], Optional[str], bool) -> Server
+        The session file is watched, not only read, so a hook that starts after the server
+        is noticed; the transcript is whatever that file (or a lookup) points at now.
+        """
+        session_path = os.path.join(store.map_dir(self.root), session.SESSION_FILE)
+        return {"map": store.map_path(self.root),
+                "session": session_path,
+                "transcript": self._transcript_path(session_path)}
+
+    def _transcript_path(self, session_path):  # type: (str) -> Optional[str]
+        """Where the transcript is, answered from cache whenever that is honest.
+
+        `TranscriptSource.locate` can end in `transcript.find_session`, which opens the head
+        of every candidate transcript under `~/.claude/projects` and `~/.codex/sessions`;
+        once a second that is far too much. So the answer is the path the last `turns()`
+        left on the source, or the one located here before, and a fresh lookup happens only
+        when there is none yet, when `.aang/session.json` changed since the last tick (the
+        hook rewrites it as the session runs) or when the remembered file is gone. The map's
+        `session_id` is read for the same reason: only when a lookup actually happens.
+
+        Called from the watcher thread only, which is what makes the two cached fields safe.
+        """
+        known = self.transcript_source.path or self._located
+        stamp = _stamp(session_path)
+        if stamp == self._session_stamp and (known is None or os.path.exists(known)):
+            return known
+        self._session_stamp = stamp
+        self._located = self.transcript_source.locate(store.load(self.root).get("session_id") or None)
+        return self._located
+
+    def server_close(self):  # type: () -> None
+        self.watcher.stop()
+        ThreadingHTTPServer.server_close(self)
+
+
+def make_server(root, port=DEFAULT_PORT, transcript_source=None, ui_path=None, verbose=False,
+                watch_interval=1.0):
+    # type: (str, int, Optional[TranscriptSource], Optional[str], bool, float) -> Server
     """A server bound to 127.0.0.1:`port` (0 picks a free port). Call `serve_forever()`."""
     source = transcript_source if transcript_source is not None else TranscriptSource(root=root)
     if source.root is None:
         source.root = root
-    return Server((BIND_HOST, port), root, source, ui_path=ui_path, verbose=verbose)
+    return Server((BIND_HOST, port), root, source, ui_path=ui_path, verbose=verbose,
+                  watch_interval=watch_interval)
