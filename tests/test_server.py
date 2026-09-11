@@ -1,6 +1,7 @@
 import http.client
 import json
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -166,8 +167,26 @@ class ViewerStringsTest(ServerTestCase):
                      # the reverse of `moots` is a status flag, as in the export, not a dependant
                      "неактуально", "это неактуальным", "ничего на этом не держится"):
             self.assertIn(word, page, word)
+        # Presence is not enough: with the labels of two relations swapped every string is still
+        # on the page, and the viewer then tells the reader the opposite of the export. So the
+        # check is the binding itself — the key, a colon, that label — tolerant of quoting and
+        # whitespace, not of the JS object literal pairing a key with someone else's words.
         for rel, label in store.REL_LABELS.items():
-            self.assertIn("\"" + label + "\"", page, rel)
+            binding = re.compile(r"(?<![\w$])" + re.escape(rel) + r"[\"']?\s*:\s*[\"']" +
+                                 re.escape(label) + r"[\"']")
+            self.assertTrue(binding.search(page),
+                            "%s: the viewer does not bind this key to %r (store.REL_LABELS)" % (rel, label))
+
+    def test_index_triage_titles_bound_to_the_orphan_predicate(self):
+        """The two open-question groups differ only by an `orphaned_by` edge; their titles are
+        plain strings, so presence would survive a swap that files every orphan under «Просто
+        висит». Pin each title to the predicate that follows it inside the GROUPS literal."""
+        page = self.request("GET", "/")[2].decode("utf-8")
+        self.assertIn("orphaned_by", store.REL_LABELS)
+        for title, predicate in (("Осиротело решениями", r"return hasRel\(n, \"orphaned_by\"\)"),
+                                 ("Просто висит", r"return !hasRel\(n, \"orphaned_by\"\)")):
+            self.assertTrue(re.search(r"title:\s*\"" + title + r"\"[^}]*" + predicate, page),
+                            "%s: not followed by %s" % (title, predicate))
 
     def test_index_is_self_contained(self):
         page = self.request("GET", "/")[2].decode("utf-8")
