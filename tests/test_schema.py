@@ -58,6 +58,30 @@ def valid_map():
     }
 
 
+def _node(node_id, kind="decision", status="accepted", relates=None, added_at="", **fields):
+    """A minimal valid node of the given kind; extra fields override the defaults."""
+    is_open = kind == "open"
+    node = {
+        "id": node_id,
+        "kind": kind,
+        "status": status,
+        "question": "q",
+        "decision": "" if is_open else "d",
+        "why": "w",
+        "cites": [] if is_open else [{"quote": "цитата"}],
+    }
+    if relates is not None:
+        node["relates"] = relates
+    if added_at:
+        node["added_at"] = added_at
+    node.update(fields)
+    return node
+
+
+def _map(nodes):
+    return {"version": 1, "nodes": nodes}
+
+
 class ValidateTest(unittest.TestCase):
     def assertError(self, map_dict, *needles):
         errors = schema.validate(map_dict)
@@ -200,6 +224,78 @@ class ValidateTest(unittest.TestCase):
         m["title"] = 5
         self.assertError(m, "title")
 
+    def test_relates_rejects_unknown_rel(self):
+        m = _map([_node("d1"), _node("d2", relates=[{"to": "d1", "rel": "зависит"}])])
+        self.assertTrue(any("rel" in e and "d2" in e for e in schema.validate(m)))
+
+    def test_relates_rejects_missing_target(self):
+        m = _map([_node("d1", relates=[{"to": "d9", "rel": "rests_on"}])])
+        self.assertTrue(any("d9" in e for e in schema.validate(m)))
+
+    def test_relates_rejects_self_reference(self):
+        m = _map([_node("d1", relates=[{"to": "d1", "rel": "rests_on"}])])
+        self.assertTrue(any("d1" in e for e in schema.validate(m)))
+
+    def test_relates_rejects_forward_reference(self):
+        # d1 стоит в списке раньше d2, поэтому d1 -> d2 это ссылка вперёд
+        m = _map([_node("d1", relates=[{"to": "d2", "rel": "rests_on"}]), _node("d2")])
+        self.assertTrue(any("вперёд" in e for e in schema.validate(m)))
+
+    def test_relates_caps_fan_out_at_three_total(self):
+        nodes = [_node("d1"), _node("d2"), _node("d3"), _node("d4")]
+        nodes.append(_node("d5", relates=[
+            {"to": "d1", "rel": "rests_on"}, {"to": "d2", "rel": "rests_on"},
+            {"to": "d3", "rel": "moots"}, {"to": "d4", "rel": "moots"}]))
+        self.assertTrue(any("не более трёх" in e for e in schema.validate(_map(nodes))))
+
+    def test_relates_allows_three(self):
+        nodes = [_node("d1"), _node("d2"), _node("d3")]
+        nodes.append(_node("d4", relates=[
+            {"to": "d1", "rel": "rests_on"}, {"to": "d2", "rel": "rests_on"},
+            {"to": "d3", "rel": "moots"}]))
+        self.assertEqual([], schema.validate(_map(nodes)))
+
+    def test_relates_must_be_a_list_of_objects(self):
+        self.assertTrue(any("relates" in e for e in schema.validate(_map([_node("d1", relates="d0")]))))
+        m = _map([_node("d1"), _node("d2", relates=["d1"])])
+        self.assertTrue(any("relates[0]" in e for e in schema.validate(m)))
+
+    def test_added_at_must_be_a_string(self):
+        self.assertTrue(any("added_at" in e for e in schema.validate(_map([_node("d1", added_at=5)]))))
+        self.assertEqual([], schema.validate(_map([_node("d1", added_at="2026-09-11T12:00:00Z")])))
+
+    def test_map_without_relates_still_valid(self):
+        self.assertEqual([], schema.validate(_map([_node("d1"), _node("d2")])))
+
+
+class WarningsTest(unittest.TestCase):
+    def test_prose_id_without_edge_is_a_warning_not_an_error(self):
+        m = _map([_node("d1"), _node("o1", kind="open", status="proposed",
+                                     why="Осиротело решением d1: продукт развернулся")])
+        self.assertEqual([], schema.validate(m))
+        self.assertTrue(any("d1" in w and "o1" in w for w in schema.warnings(m)))
+
+    def test_prose_id_with_edge_is_not_warned(self):
+        m = _map([_node("d1"), _node("o1", kind="open", status="proposed",
+                                     why="Осиротело решением d1",
+                                     relates=[{"to": "d1", "rel": "orphaned_by"}])])
+        self.assertEqual([], schema.warnings(m))
+
+    def test_prose_mention_of_nonexistent_id_is_not_warned(self):
+        m = _map([_node("d1", why="как в d99")])
+        self.assertEqual([], schema.warnings(m))
+
+    def test_superseded_by_counts_as_an_edge(self):
+        m = _map([_node("d1", status="superseded", superseded_by="d2", why="заменено d2"), _node("d2")])
+        self.assertEqual([], schema.warnings(m))
+
+    def test_self_mention_is_not_warned(self):
+        self.assertEqual([], schema.warnings(_map([_node("d1", why="см. d1")])))
+
+    def test_warnings_survive_garbage(self):
+        self.assertEqual([], schema.warnings(None))
+        self.assertEqual([], schema.warnings({"version": 1, "nodes": ["d1", None]}))
+
 
 class NormalizeTest(unittest.TestCase):
     def test_fills_defaults_in_place(self):
@@ -247,6 +343,18 @@ class NormalizeTest(unittest.TestCase):
         schema.normalize(m)
         self.assertEqual(m["nodes"], ["d1", None])
         self.assertTrue(schema.validate(m))
+
+    def test_normalize_fills_relates_and_added_at(self):
+        out = schema.normalize(_map([_node("d1")]))
+        self.assertEqual([], out["nodes"][0]["relates"])
+        self.assertEqual("", out["nodes"][0]["added_at"])
+
+    def test_normalize_keeps_relates_and_added_at(self):
+        m = _map([_node("d1"), _node("d2", relates=[{"to": "d1"}], added_at="2026-09-11T12:00:00Z")])
+        out = schema.normalize(m)
+        self.assertEqual([{"to": "d1", "rel": ""}], out["nodes"][1]["relates"])
+        self.assertEqual("2026-09-11T12:00:00Z", out["nodes"][1]["added_at"])
+        self.assertTrue(any("rel" in e for e in schema.validate(out)))
 
 
 if __name__ == "__main__":

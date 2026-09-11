@@ -7,6 +7,7 @@ downstream code never guards for absent keys. Neither raises on bad input.
 Error strings are user-facing (Russian); identifiers in them stay as written in the file.
 """
 
+import re
 from typing import Any, Dict, List, Optional
 
 VERSION = 1
@@ -14,6 +15,15 @@ VERSION = 1
 KINDS = ("decision", "tacit", "open")
 STATUSES = ("accepted", "superseded", "proposed")
 ROLES = ("user", "assistant")
+
+# Typed relations a node may declare in `relates`. `superseded_by` stays a separate field
+# (it sits on the old node, pointing forward) and does not move here.
+RELS = ("orphaned_by", "rests_on", "moots")
+MAX_RELATES = 3
+
+# Ids the model writes in prose ("Осиротело решением d6"); a warning when there is no edge.
+_PROSE_ID_RE = re.compile(r"\b([dto]\d+)\b")
+_PROSE_FIELDS = ("why", "consequence", "question", "decision")
 
 # Fields whose default is an empty string / list / bool / null.
 _TEXT_FIELDS = ("question", "decision", "why", "consequence")
@@ -155,6 +165,51 @@ def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int
     if hand_edited is not None and not isinstance(hand_edited, bool):
         errors.append("%s, поле hand_edited: ожидается true/false" % label)
 
+    added_at = node.get("added_at")
+    if added_at is not None and not _is_str(added_at):
+        errors.append("%s, поле added_at: ожидается строка (ISO-8601) или null" % label)
+
+    errors.extend(_validate_relates(node, pos, ids, label))
+    return errors
+
+
+def _validate_relates(node, pos, ids, label):  # type: (Dict[str, Any], int, Dict[str, int], str) -> List[str]
+    """Check `relates`: closed vocabulary, existing target, backward-only, at most three.
+
+    Backward-only is checked by list position: the target must sit earlier than the node.
+    That alone rules out cycles, so there is no separate cycle pass here.
+    """
+    errors = []  # type: List[str]
+    relates = node.get("relates")
+    if relates is None:
+        return errors
+    if not isinstance(relates, list):
+        return ["%s, поле relates: ожидается список объектов {\"to\": ..., \"rel\": ...}" % label]
+    if len(relates) > MAX_RELATES:
+        errors.append("%s, поле relates: не более трёх связей на узел, найдено %d"
+                      % (label, len(relates)))
+    node_id = node.get("id")
+    for i, rel in enumerate(relates):
+        where = "%s, поле relates[%d]" % (label, i)
+        if not isinstance(rel, dict):
+            errors.append("%s: ожидался объект {\"to\": ..., \"rel\": ...}" % where)
+            continue
+        target = rel.get("to")
+        kind = rel.get("rel")
+        if kind not in RELS:
+            errors.append("%s.rel: ожидается одно из %s, получено %r" % (where, "/".join(RELS), kind))
+        if not _is_str(target) or not target:
+            errors.append("%s.to: ожидается id узла (непустая строка)" % where)
+            continue
+        if target == node_id:
+            errors.append("%s.to: узел %s ссылается сам на себя" % (where, node_id))
+            continue
+        if target not in ids:
+            errors.append("%s.to: узла %s нет в карте" % (where, target))
+            continue
+        if ids[target] > pos:
+            errors.append("%s.to: ссылка вперёд на %s — связи указывают только на узлы выше по списку"
+                          % (where, target))
     return errors
 
 
@@ -203,6 +258,38 @@ def _validate_supersede_chains(nodes, ids):  # type: (List[Any], Dict[str, int])
     return errors
 
 
+def warnings(map_dict):  # type: (Any) -> List[str]
+    """Non-blocking remarks: the map is valid, but something is worth fixing.
+
+    Today: a node id mentioned in prose with no edge to it. Prose is invisible to the
+    structure, so the reader misses whatever it does not link.
+    """
+    out = []  # type: List[str]
+    data = normalize(map_dict)
+    nodes = data["nodes"]
+    ids = set(n.get("id") for n in nodes if isinstance(n, dict))
+    for pos, node in enumerate(nodes, 1):
+        if not isinstance(node, dict):
+            continue
+        node_id = node.get("id")
+        linked = set(r.get("to") for r in node.get("relates") or [] if isinstance(r, dict))
+        sup = node.get("superseded_by")
+        if sup:
+            linked.add(sup)
+        mentioned = set()  # type: set
+        for field in _PROSE_FIELDS:
+            value = node.get(field)
+            if not _is_str(value):
+                continue
+            for found in _PROSE_ID_RE.findall(value):
+                if found in ids and found != node_id:
+                    mentioned.add(found)
+        for missing in sorted(mentioned - linked):
+            out.append("%s: в тексте упомянут %s, но связи на него нет"
+                       % (_node_label(node, pos), missing))
+    return out
+
+
 def normalize(map_dict):  # type: (Any) -> Dict[str, Any]
     """Fill defaults in place and return the map.
 
@@ -231,6 +318,19 @@ def normalize(map_dict):  # type: (Any) -> Dict[str, Any]
         for field in _LIST_FIELDS:
             if node.get(field) is None:
                 node[field] = []
+        if node.get("added_at") is None:
+            node["added_at"] = ""
+        relates = node.get("relates")
+        if relates is None:
+            relates = []
+            node["relates"] = relates
+        if isinstance(relates, list):
+            for rel in relates:
+                if isinstance(rel, dict):
+                    if rel.get("to") is None:
+                        rel["to"] = ""
+                    if rel.get("rel") is None:
+                        rel["rel"] = ""
         cites = node.get("cites")
         if isinstance(cites, list):
             for cite in cites:
