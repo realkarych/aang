@@ -44,7 +44,7 @@ Python 3.9, standard library only. No dependencies, no build.
 git clone <this repo> ~/src/aang
 ln -s ~/src/aang/bin/aang ~/.local/bin/aang            # `aang` on PATH (any directory on PATH works)
 ln -s ~/src/aang/.claude/skills/aang ~/.claude/skills/aang   # `/aang` available in every project
-ln -s ~/src/aang/.claude/skills/aang ~/.agents/skills/aang   # `$aang` in Codex
+mkdir -p ~/.agents/skills && ln -s ~/src/aang/.claude/skills/aang ~/.agents/skills/aang   # `$aang` in Codex
 aang install                                           # live updates: hooks for Claude Code and Codex
 aang --help                                            # proves `~/.local/bin` is on PATH
 ```
