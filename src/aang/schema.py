@@ -165,9 +165,7 @@ def _validate_cite(cite, i, label):  # type: (Any, int, str) -> List[str]
         return ["%s: ожидался объект {\"quote\": ...}" % prefix]
     # The quote is the citation. A bare turn number is a guess (see docs/spec.md R4).
     if not _text(cite.get("quote")):
-        errors.append("%s.quote: обязательна дословная цитата" % prefix)
-    elif not _is_str(cite.get("quote")):
-        errors.append("%s.quote: ожидается строка" % prefix)
+        errors.append("%s.quote: обязательна дословная цитата (непустая строка)" % prefix)
     turn = cite.get("turn")
     if turn is not None and (isinstance(turn, bool) or not isinstance(turn, int) or turn < 1):
         errors.append("%s.turn: ожидается целое число от 1 или null" % prefix)

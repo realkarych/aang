@@ -45,10 +45,32 @@ class IndexTest(unittest.TestCase):
         self.assertNotIn("task-notification", texts)
         self.assertNotIn("file.txt", texts)  # tool_result content
 
-    def test_numbering_is_stable(self):
-        a = transcript.index(fixture("normal.jsonl"))
-        b = transcript.index(fixture("normal.jsonl"))
-        self.assertEqual(a, b)
+    def test_numbering_is_stable_as_a_live_file_grows(self):
+        # A live session keeps appending: tool records and control records must not
+        # renumber earlier turns, and only a new text-bearing message adds a turn.
+        before = transcript.index(fixture("normal.jsonl"))
+        tmp = tempfile.mkdtemp(prefix="aang-live-")
+        try:
+            path = os.path.join(tmp, "live.jsonl")
+            shutil.copyfile(fixture("normal.jsonl"), path)
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write('{"type": "assistant", "isSidechain": false, "uuid": "a-9-tool", "timestamp": "t", '
+                             '"message": {"id": "msg_a9", "role": "assistant", "content": '
+                             '[{"type": "tool_use", "id": "toolu_9", "name": "Bash", "input": {}}]}}\n')
+                handle.write('{"type": "user", "isSidechain": false, "uuid": "u-tr-9", "timestamp": "t", '
+                             '"message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "toolu_9", "content": "x"}]}}\n')
+                handle.write('{"type": "system", "subtype": "turn_duration", "durationMs": 1}\n')
+            self.assertEqual(transcript.index(path), before)
+            with open(path, "a", encoding="utf-8") as handle:
+                handle.write('{"type": "assistant", "isSidechain": false, "uuid": "a-9-text", "timestamp": "t", '
+                             '"message": {"id": "msg_a9", "role": "assistant", "content": '
+                             '[{"type": "text", "text": "Новый ход."}]}}\n')
+            after = transcript.index(path)
+            self.assertEqual(after[:-1], before)
+            self.assertEqual(after[-1]["turn"], len(before) + 1)
+            self.assertEqual(after[-1]["text"], "Новый ход.")
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
 
     def test_tool_only_assistant_records_produce_no_turns(self):
         turns = transcript.index(fixture("tool_only.jsonl"))
@@ -171,33 +193,103 @@ class ResolveTest(unittest.TestCase):
             self.assertEqual(r["matches"], [])
             self.assertIn("не найдена", r["reason"])
 
-    def test_edges_may_be_partial_words(self):
-        r = self.one({"quote": "лагаю pass@1 на отложенном набо"})
-        self.assertTrue(r["ok"], r["reason"])
-        self.assertEqual(r["turn"], 3)
+    def test_edge_words_must_be_whole(self):
+        # A partial word at the edge can flip meaning: never verify it.
+        turns = [
+            {"turn": 1, "role": "user", "ts": None, "uuid": "x",
+             "text": "It is impossible to ship this by Friday. Это бесполезно для нас сейчас."},
+        ]
+        for quote in ("possible to ship this by Friday",
+                      "лагаю pass@1 на отложенном набо",
+                      "полезно для нас сейчас",
+                      "It is impossible to ship this by Frida"):
+            r = transcript.resolve([{"quote": quote}], turns + self.turns)[0]
+            self.assertFalse(r["ok"], quote)
+            self.assertEqual(r["matches"], [], quote)
+        r = transcript.resolve([{"quote": "impossible to ship this by Friday"}], turns)[0]
+        self.assertTrue(r["ok"])
+        r = transcript.resolve([{"quote": "бесполезно для нас сейчас"}], turns)[0]
+        self.assertTrue(r["ok"])
 
-    def test_ellipsis_fragments_in_order(self):
-        r = self.one({"quote": "Предлагаю pass@1 на отложенном … маскирует нестабильность промпта"})
+    def test_ellipsis_fragments_in_order_and_never_clean(self):
+        r = self.one({"quote": "Предлагаю pass@1 на отложенном … k>1 маскирует нестабильность промпта"})
         self.assertTrue(r["ok"], r["reason"])
         self.assertEqual(r["turn"], 3)
-        r = self.one({"quote": "Предлагаю pass@1 на отложенном ... маскирует нестабильность промпта"})
+        self.assertIn("пропусками", r["reason"])
+        self.assertIn("пропущено 1 слово", r["reason"])  # "наборе" was skipped
+        r = self.one({"quote": "Предлагаю pass@1 на отложенном ... k>1 маскирует нестабильность промпта"})
         self.assertTrue(r["ok"], r["reason"])
+        self.assertTrue(r["reason"])
         # fragments in the wrong order do not verify
-        r = self.one({"quote": "маскирует нестабильность промпта … Предлагаю pass@1 на отложенном"})
+        r = self.one({"quote": "k>1 маскирует нестабильность промпта … Предлагаю pass@1 на отложенном"})
         self.assertFalse(r["ok"])
         # fragments from different turns do not verify
-        r = self.one({"quote": "Предлагаю pass@1 на отложенном … прогон дорожает втрое"})
+        r = self.one({"quote": "Предлагаю pass@1 на отложенном … нужно 500 примеров вместо 100"})
         self.assertFalse(r["ok"])
+        # a one-word elision that drops a negation is ok but visibly stitched
+        turns = [{"turn": 1, "role": "user", "ts": None, "uuid": "x",
+                  "text": "тезис про параллельности как бы не раскрыт в этом документе вообще"}]
+        r = transcript.resolve([{"quote": "тезис про параллельности как бы … раскрыт в этом документе вообще"}], turns)[0]
+        self.assertTrue(r["ok"])
+        self.assertIn("пропущено 1 слово", r["reason"])
+
+    def test_parenthesised_dots_in_code_are_not_an_ellipsis(self):
+        turns = [{"turn": 1, "role": "assistant", "ts": None, "uuid": "x",
+                  "text": "Call accounting is one function `_call_clauses(...) -> (clauses, accounted)` "
+                          "now, and nothing else changed."}]
+        r = transcript.resolve([{"quote": "one function _call_clauses(...) -> (clauses, accounted)"}], turns)[0]
+        self.assertTrue(r["ok"], r["reason"])
+        self.assertEqual(r["reason"], "")
+        # the editorial mark still elides
+        r = transcript.resolve([{"quote": "Call accounting is one function [...] now, and nothing else changed"}], turns)[0]
+        self.assertTrue(r["ok"], r["reason"])
+        self.assertIn("пропусками", r["reason"])
+
+    def test_ellipsis_gap_is_capped(self):
+        head = "первый фрагмент из четырёх слов"
+        tail = "последний фрагмент тоже четыре слова"
+        def turn_with_gap(n):
+            return [{"turn": 1, "role": "user", "ts": None, "uuid": "x",
+                     "text": head + " " + ("слово " * n) + tail}]
+        quote = head + " … " + tail
+        r = transcript.resolve([{"quote": quote}], turn_with_gap(transcript.MAX_GAP_TOKENS))[0]
+        self.assertTrue(r["ok"], r["reason"])
+        self.assertIn("пропущено %d слов" % transcript.MAX_GAP_TOKENS, r["reason"])
+        r = transcript.resolve([{"quote": quote}], turn_with_gap(transcript.MAX_GAP_TOKENS + 1))[0]
+        self.assertFalse(r["ok"])
+        self.assertIn("не найдена", r["reason"])
+
+    def test_ellipsis_search_is_not_greedy(self):
+        # The first fragment occurs twice; only the second occurrence is within reach of
+        # the second fragment. A greedy first-occurrence search would miss it.
+        text = ("наш общий план работы " + ("х " * (transcript.MAX_GAP_TOKENS + 5))
+                + "наш общий план работы и конечный результат его")
+        turns = [{"turn": 1, "role": "user", "ts": None, "uuid": "x", "text": text}]
+        r = transcript.resolve([{"quote": "наш общий план работы … конечный результат его"}], turns)[0]
+        self.assertFalse(r["ok"])  # fragment 2 is only 3 words: below the ellipsis minimum
+        r = transcript.resolve([{"quote": "наш общий план работы … и конечный результат его"}], turns)[0]
+        self.assertTrue(r["ok"], r["reason"])
+        self.assertIn("пропущено 0 слов", r["reason"])
 
     def test_short_quotes_and_short_fragments_are_never_ok(self):
-        for quote in ("pass@1", "давай", "Предлагаю pass@1 на отложенном … промпта", "…", "...", "— —", ""):
+        for quote in ("pass@1", "давай", "implementation", "пользователь", "нестабильность промпта",
+                      "да да да", "| | |", "| | | | |", "k>1 == <=",
+                      "Предлагаю pass@1 на отложенном … нестабильность промпта",  # 3-word fragment
+                      "…", "...", "— —", ""):
             r = self.one({"quote": quote})
             self.assertFalse(r["ok"], quote)
-            self.assertIsNone(r["turn"])
-        r = self.one({"quote": "pass@1"})
+            self.assertIsNone(r["turn"], quote)
+            self.assertEqual(r["matches"], [], quote)
+        r = self.one({"quote": "implementation"})
         self.assertIn("короткая", r["reason"])
+        r = self.one({"quote": "Предлагаю pass@1 на отложенном … нестабильность промпта"})
+        self.assertIn("в каждом фрагменте", r["reason"])
         r = self.one({"quote": "…"})
         self.assertIn("нет цитаты", r["reason"])
+        # the floor is exactly 3 words and 12 chars
+        r = self.one({"quote": "давай pass@1"})
+        self.assertTrue(r["ok"], r["reason"])
+        self.assertEqual(r["turn"], 4)
 
     def test_missing_quote_is_never_ok_even_with_a_valid_turn(self):
         r = self.one({"turn": 3})

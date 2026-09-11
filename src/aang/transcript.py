@@ -11,12 +11,15 @@ Quote matching rule (the security boundary of the tool):
   `< > = + | ~ $`) — separated by single spaces. Case, whitespace, all punctuation
   (quotes, dashes, commas, periods, brackets, `@ # % & / \\ _`), modifier symbols
   (backticks, `^`) and the letter `ё`/`е` distinction are ignored. A quote verifies iff
-  its canonical text is a substring of the turn's canonical text: every word of the
-  quote, in the quote's order, with nothing in between. Only the two outermost tokens
-  may match partially (a quote cut mid-word at its edges still verifies).
+  its canonical text occurs in the turn's canonical text **on token boundaries**: every
+  word of the quote, whole, in the quote's order, with nothing in between. No partial
+  words at the edges — `possible` must never verify against `impossible`.
+  A quote must contain at least 3 words (symbols do not count) and 12 characters.
   An ellipsis (`...` / `…`) inside a quote splits it into fragments that must each be
-  found, in order, in the same turn. Each fragment must be at least 3 words or 12
-  characters, so common words joined by ellipses cannot be assembled into a "quote".
+  found, in order, in the same turn, with at most 50 tokens elided between consecutive
+  fragments; each fragment then needs at least 4 words. A match that used an ellipsis is
+  `ok` but never "clean": its `reason` says how many words were skipped, so the viewer
+  can tell a verbatim citation from a stitched one.
 """
 
 import bisect
@@ -28,13 +31,17 @@ import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
 MESSAGE_TYPES = ("user", "assistant")
-MIN_QUOTE_TOKENS = 3
+MIN_QUOTE_WORDS = 3
+MIN_FRAGMENT_WORDS = 4  # per fragment, when the quote contains an ellipsis
 MIN_QUOTE_CHARS = 12
+MAX_GAP_TOKENS = 50  # tokens an ellipsis may skip between consecutive fragments
 EXCERPT_CONTEXT = 200
 EXCERPT_FALLBACK = 300
 EXCERPT_MAX = 1000
 
-_ELLIPSIS_RE = re.compile(r"(?:\.\s*){3,}|…")
+# `(...)` is a code placeholder, not an elision: `f(...)` is quoted verbatim. `[...]` still
+# splits — it is the editorial elision mark.
+_ELLIPSIS_RE = re.compile(r"(?<!\()(?:\.\s*){3,}|…")
 _MULTI_SPACE_RE = re.compile(r"\s+")
 
 
@@ -270,8 +277,13 @@ def _fragments(quote):  # type: (str) -> List[str]
     return out
 
 
-def _fragment_too_short(canon):  # type: (str) -> bool
-    return canon.count(" ") + 1 < MIN_QUOTE_TOKENS and len(canon) < MIN_QUOTE_CHARS
+def _word_count(canon):  # type: (str) -> int
+    """Word tokens only — a symbol token such as `|` or `>` is not evidence."""
+    return sum(1 for token in canon.split(" ") if token and _classify(token[0]) == "w")
+
+
+def _fragment_too_short(canon, min_words):  # type: (str, int) -> bool
+    return _word_count(canon) < min_words or len(canon) < MIN_QUOTE_CHARS
 
 
 class _Indexed(object):
@@ -283,24 +295,54 @@ class _Indexed(object):
         self.turn = turn
         self.canon, self.offsets, self.spans = _canon(turn.get("text") or "")
 
-    def find(self, fragments):  # type: (List[str]) -> Optional[Tuple[int, int]]
-        """Original-text span covering all fragments in order, or None."""
-        cursor = 0
-        first = None  # type: Optional[int]
-        last = 0
-        for fragment in fragments:
-            at = self.canon.find(fragment, cursor)
+    def _occurrences(self, fragment, from_tok, to_tok):  # type: (str, int, int) -> List[Tuple[int, int]]
+        """Token ranges where `fragment` occurs on token boundaries, starting within
+        [from_tok, to_tok]."""
+        out = []  # type: List[Tuple[int, int]]
+        if from_tok >= len(self.offsets):
+            return out
+        at = self.offsets[from_tok]
+        while True:
+            at = self.canon.find(fragment, at)
             if at < 0:
-                return None
-            start_tok = bisect.bisect_right(self.offsets, at) - 1
-            end_tok = bisect.bisect_right(self.offsets, at + len(fragment) - 1) - 1
-            if first is None:
-                first = self.spans[start_tok][0]
-            last = self.spans[end_tok][1]
-            cursor = at + len(fragment)
-        if first is None:
+                break
+            end = at + len(fragment)
+            starts_token = at == 0 or self.canon[at - 1] == " "
+            ends_token = end == len(self.canon) or self.canon[end] == " "
+            if starts_token and ends_token:
+                start_tok = bisect.bisect_right(self.offsets, at) - 1
+                if start_tok > to_tok:
+                    break
+                end_tok = bisect.bisect_right(self.offsets, end - 1) - 1
+                out.append((start_tok, end_tok))
+            at += 1
+        return out
+
+    def find(self, fragments):  # type: (List[str]) -> Optional[Tuple[int, int, int]]
+        """(start, end, skipped) in original text covering all fragments in order, or None.
+
+        Consecutive fragments may be at most MAX_GAP_TOKENS apart; `skipped` is the total
+        number of tokens elided. Occurrences are searched exhaustively within the gap
+        window, so a repeated first fragment cannot hide a valid later placement.
+        """
+        total = len(self.offsets)
+        if total == 0 or not fragments:
             return None
-        return first, last
+
+        def walk(k, from_tok, to_tok):  # type: (int, int, int) -> Optional[List[Tuple[int, int]]]
+            for start_tok, end_tok in self._occurrences(fragments[k], from_tok, to_tok):
+                if k + 1 == len(fragments):
+                    return [(start_tok, end_tok)]
+                rest = walk(k + 1, end_tok + 1, end_tok + 1 + MAX_GAP_TOKENS)
+                if rest is not None:
+                    return [(start_tok, end_tok)] + rest
+            return None
+
+        path = walk(0, 0, total - 1)
+        if path is None:
+            return None
+        skipped = sum(path[i + 1][0] - path[i][1] - 1 for i in range(len(path) - 1))
+        return self.spans[path[0][0]][0], self.spans[path[-1][1]][1], skipped
 
 
 # ----------------------------------------------------------------------------- resolve
@@ -358,14 +400,16 @@ def _resolve_one(cite, indexed, by_number, total):
     if not fragments:
         return _result(wanted_turn, _role(anchor), False, _fallback(anchor),
                        "нет цитаты — без дословной цитаты ссылку нельзя проверить", quote, [])
+    min_words = MIN_FRAGMENT_WORDS if len(fragments) > 1 else MIN_QUOTE_WORDS
     for fragment in fragments:
-        if _fragment_too_short(fragment):
+        if _fragment_too_short(fragment, min_words):
             return _result(wanted_turn, _role(anchor), False, _fallback(anchor),
                            "цитата слишком короткая, чтобы её проверить: «%s» "
-                           "(нужно минимум %d слова или %d символов)"
-                           % (fragment, MIN_QUOTE_TOKENS, MIN_QUOTE_CHARS), quote, [])
+                           "(нужно минимум %d слова и %d символов%s)"
+                           % (fragment, min_words, MIN_QUOTE_CHARS,
+                              " в каждом фрагменте" if len(fragments) > 1 else ""), quote, [])
 
-    matches = []  # type: List[Tuple[_Indexed, Tuple[int, int]]]
+    matches = []  # type: List[Tuple[_Indexed, Tuple[int, int, int]]]
     for item in indexed:
         span = item.find(fragments)
         if span is not None:
@@ -379,23 +423,28 @@ def _resolve_one(cite, indexed, by_number, total):
             if match_numbers:
                 reason += ", но встречается в %s" % _list_turns(match_numbers)
             return _result(wanted_turn, _role(anchor), False, _fallback(anchor), reason, quote, match_numbers)
-        return _finish(hit, wanted_role, "", quote, match_numbers)
+        return _finish(hit, wanted_role, [], len(fragments) > 1, quote, match_numbers)
 
     if not matches:
         return _result(None, None, False, "", "цитата не найдена ни в одном ходе транскрипта", quote, [])
     hit = matches[-1]
-    reason = ""
+    notes = []  # type: List[str]
     if len(matches) > 1:
-        reason = "цитата встречается в %s; показан последний" % _list_turns(match_numbers)
-    return _finish(hit, wanted_role, reason, quote, match_numbers)
+        notes.append("цитата встречается в %s; показан последний" % _list_turns(match_numbers))
+    return _finish(hit, wanted_role, notes, len(fragments) > 1, quote, match_numbers)
 
 
-def _finish(hit, wanted_role, reason, quote, match_numbers):
-    # type: (Tuple[_Indexed, Tuple[int, int]], Optional[str], str, str, List[int]) -> Dict[str, Any]
-    item, span = hit
+def _finish(hit, wanted_role, notes, elided, quote, match_numbers):
+    # type: (Tuple[_Indexed, Tuple[int, int, int]], Optional[str], List[str], bool, str, List[int]) -> Dict[str, Any]
+    item, (start, end, skipped) = hit
+    span = (start, end)
     number = item.turn["turn"]
     role = _role(item)
     excerpt = _excerpt(item.turn.get("text") or "", span)
+    # A stitched quote is never "clean": the viewer must be able to tell it apart.
+    if elided:
+        notes = ["цитата с пропусками: пропущено %d %s" % (skipped, _words(skipped))] + notes
+    reason = "; ".join(notes)
     if wanted_role is not None and role is not None and role != wanted_role:
         return _result(number, role, False, excerpt,
                        "цитата найдена в ходе %d, но это реплика %s, а в ссылке указано %s"
@@ -421,6 +470,15 @@ def _role(item):  # type: (Optional[_Indexed]) -> Optional[str]
         return None
     role = item.turn.get("role")
     return role if isinstance(role, str) else None
+
+
+def _words(n):  # type: (int) -> str
+    """Russian plural of «слово» for a count."""
+    if n % 10 == 1 and n % 100 != 11:
+        return "слово"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "слова"
+    return "слов"
 
 
 def _list_turns(numbers):  # type: (List[int]) -> str
