@@ -5,6 +5,14 @@ by verbatim quote; this module decides whether that quote really occurs in the s
 A quote that cannot be found leaves the citation unverified — that is the safe direction.
 Nothing here shells out, calls a model, or touches the network.
 
+Two harnesses write two formats, and both are read here. Claude Code keeps one record per
+line under `<root>/<project>/<id>.jsonl`, where a turn is a `user` or `assistant` record
+carrying `message.content`. Codex keeps a rollout under `<root>/YYYY/MM/DD/rollout-<ts>-<id>.jsonl`
+whose first line is a `session_meta` record; there a turn is a completed `UserMessage` or
+`AgentMessage` item of an `event_msg`. The format is decided by reading the file, never by
+its path, and `index` yields the same turn shape for both, so everything downstream —
+quote resolution included — is format-blind.
+
 Quote matching rule (the security boundary of the tool):
   Both quote and turn text are canonicalized to a sequence of tokens — words (letters,
   digits, marks), and meaning-bearing symbols (math/currency/other symbols such as
@@ -32,6 +40,11 @@ import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
 MESSAGE_TYPES = ("user", "assistant")
+
+CODEX_ROOT_MARK = "session_meta"
+CODEX_ITEM_ROLES = {"UserMessage": "user", "AgentMessage": "assistant"}
+CODEX_TEXT_TYPES = ("text", "Text", "input_text", "output_text")
+HEAD_LINES = 10
 
 # Text that arrives as a `user` record without a person having typed it: slash-command
 # echoes and their output, subagent reports and task notifications relayed into the
@@ -66,18 +79,16 @@ _MULTI_SPACE_RE = re.compile(r"\s+")
 # ----------------------------------------------------------------------------- find
 
 def default_roots():  # type: () -> List[str]
-    return [os.path.join(os.path.expanduser("~"), ".claude", "projects")]
+    return [os.path.join(os.path.expanduser("~"), ".claude", "projects"),
+            os.path.join(os.path.expanduser("~"), ".codex", "sessions")]
 
 
-def find_session(session_id=None, roots=None):  # type: (Optional[str], Optional[List[str]]) -> Optional[str]
-    """Path to a session JSONL under `<root>/<project>/`, or None.
-
-    With `session_id`: the file named `<session_id>.jsonl`, or a unique prefix match.
-    Without: the most recently modified session file. Subagent and memory transcripts
-    (`<project>/<session>/subagents/`, `<project>/memory/`) are never sessions.
-    Missing roots are a normal state.
-    """
-    candidates = []  # type: List[str]
+def _candidates(roots):  # type: (Optional[List[str]]) -> List[str]
+    """Every session file under the roots: Claude `<root>/<project>/<id>.jsonl`, Codex
+    `<root>/YYYY/MM/DD/rollout-<ts>-<id>.jsonl`. Subagent and memory files
+    (`<project>/<session>/subagents/`, `<project>/memory/`) are never sessions, and
+    missing roots are a normal state."""
+    out = []  # type: List[str]
     for root in roots if roots is not None else default_roots():
         try:
             root = os.path.expanduser(root)
@@ -85,21 +96,111 @@ def find_session(session_id=None, roots=None):  # type: (Optional[str], Optional
                 continue
             for path in glob.iglob(os.path.join(glob.escape(root), "*", "*.jsonl")):
                 if os.path.isfile(path):
-                    candidates.append(path)
+                    out.append(path)
+            for path in glob.iglob(os.path.join(glob.escape(root), "*", "*", "*", "rollout-*.jsonl")):
+                if os.path.isfile(path):
+                    out.append(path)
         except (OSError, ValueError):
             continue
+    return out
+
+
+def find_session(session_id=None, roots=None, cwd=None):
+    # type: (Optional[str], Optional[List[str]], Optional[str]) -> Optional[str]
+    """Path to a session transcript, or None.
+
+    With `session_id`: the Claude file `<id>.jsonl` or the Codex file `rollout-*-<id>.jsonl`,
+    else a unique prefix match on the file name. Without: among the candidates whose
+    project is `cwd` (when given and any match), the most recently modified; else the most
+    recently modified of all.
+    """
+    candidates = _candidates(roots)
     if not candidates:
         return None
 
     if session_id:
-        exact = [p for p in candidates if os.path.basename(p) == session_id + ".jsonl"]
+        exact = [p for p in candidates
+                 if os.path.basename(p) == session_id + ".jsonl"
+                 or os.path.basename(p).endswith("-" + session_id + ".jsonl")]
         if exact:
             return _newest(exact)
         prefixed = [p for p in candidates if os.path.basename(p).startswith(session_id)]
         if len(prefixed) == 1:
             return prefixed[0]
         return None
+    if cwd:
+        wanted = os.path.normpath(cwd)
+        mine = [p for p in candidates if project_of(p) == wanted]
+        if mine:
+            return _newest(mine)
     return _newest(candidates)
+
+
+def harness_of(path):  # type: (str) -> str
+    """Which harness wrote the transcript, read from the file, never guessed from its path."""
+    return "codex" if _codex_meta(path) is not None else "claude"
+
+
+def project_of(path):  # type: (str) -> Optional[str]
+    """The working directory the session ran in, as the transcript itself records it: Codex
+    in `session_meta.cwd`, Claude in the `cwd` its records carry.
+
+    The Claude project folder name is only the fallback, for a transcript that records no
+    `cwd`: the folder encodes the path with `/` → `-`, so decoding cannot tell
+    `/Users/x/proj-a` from `/Users/x/proj/a`. Lossy either way, this is a preference for
+    choosing among sessions, never an identity.
+    """
+    records = _head_records(path, HEAD_LINES)
+    meta = _codex_payload(records)
+    if meta is not None:
+        return _cwd_of(meta)
+    for record in records:
+        cwd = _cwd_of(record)
+        if cwd is not None:
+            return cwd
+    folder = os.path.basename(os.path.dirname(path))
+    if folder.startswith("-"):
+        return os.path.normpath("/" + folder[1:].replace("-", "/"))
+    return None
+
+
+def _cwd_of(record):  # type: (Dict[str, Any]) -> Optional[str]
+    cwd = record.get("cwd")
+    return os.path.normpath(cwd) if isinstance(cwd, str) and cwd else None
+
+
+def _codex_meta(path):  # type: (str) -> Optional[Dict[str, Any]]
+    """The `session_meta` payload when `path` is a Codex rollout, else None."""
+    return _codex_payload(_head_records(path, HEAD_LINES))
+
+
+def _codex_payload(records):  # type: (List[Dict[str, Any]]) -> Optional[Dict[str, Any]]
+    """`session_meta` is the first record a Codex rollout writes; anything else is Claude's."""
+    if not records:
+        return None
+    head = records[0]
+    if head.get("type") == CODEX_ROOT_MARK and isinstance(head.get("payload"), dict):
+        return head["payload"]
+    return None
+
+
+def _head_records(path, lines):  # type: (str, int) -> List[Dict[str, Any]]
+    """Records parsed from the first `lines` lines — the head of a transcript, where both
+    harnesses say what the session is: its format and the directory it ran in. Reading only
+    the head keeps a lookup across hundreds of sessions cheap; an unreadable file simply has
+    no head."""
+    out = []  # type: List[Dict[str, Any]]
+    try:
+        with open(path, "r", encoding="utf-8", errors="replace") as handle:
+            for number, line in enumerate(handle):
+                if number >= lines:
+                    break
+                record = _parse_line(line)
+                if record is not None:
+                    out.append(record)
+    except (OSError, TypeError):
+        return []
+    return out
 
 
 def _newest(paths):  # type: (List[str]) -> Optional[str]
@@ -129,6 +230,9 @@ def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[
     notifications, system reminders), and messages whose content is only tool_use /
     tool_result / thinking.
 
+    A Codex rollout is recognised by its `session_meta` first line and read by
+    `_index_codex` into turns of the same shape.
+
     `text` is the text blocks joined with newlines; `text_cap` truncates it (None keeps
     it whole so every sentence of a long turn stays citable). The file is streamed;
     malformed or truncated lines are skipped, since the session is usually still live.
@@ -140,6 +244,10 @@ def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[
         handle = open(path, "r", encoding="utf-8", errors="replace")
     except (OSError, TypeError):
         return turns
+
+    if _codex_meta(path) is not None:
+        with handle:
+            return _index_codex(handle, text_cap)
 
     group_id = None  # type: Optional[str]
     group = None  # type: Optional[Dict[str, Any]]
@@ -198,6 +306,34 @@ def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[
                     "ts": record.get("timestamp"),
                 }, text_cap)
         flush()
+    return turns
+
+
+def _index_codex(handle, text_cap):  # type: (Any, Optional[int]) -> List[Dict[str, Any]]
+    """Codex rollouts: one turn per completed UserMessage / AgentMessage item. The
+    `response_item` copies of the same messages (which also carry injected wrappers such
+    as `<environment_context>`) are ignored, so nothing arrives twice or unasked."""
+    turns = []  # type: List[Dict[str, Any]]
+    for line in handle:
+        record = _parse_line(line)
+        if record is None or record.get("type") != "event_msg":
+            continue
+        payload = record.get("payload")
+        if not isinstance(payload, dict) or payload.get("type") != "item_completed":
+            continue
+        item = payload.get("item")
+        if not isinstance(item, dict) or item.get("type") not in CODEX_ITEM_ROLES:
+            continue
+        parts = []  # type: List[str]
+        for block in item.get("content") or []:
+            if isinstance(block, dict) and block.get("type") in CODEX_TEXT_TYPES:
+                text = block.get("text")
+                if isinstance(text, str) and text.strip():
+                    parts.append(text)
+        if not parts:
+            continue
+        _append_turn(turns, {"role": CODEX_ITEM_ROLES[item["type"]], "parts": parts,
+                             "uuid": item.get("id"), "ts": record.get("timestamp")}, text_cap)
     return turns
 
 

@@ -413,5 +413,90 @@ class ResolveTest(unittest.TestCase):
         self.assertEqual([x["ok"] for x in r], [False, True])
 
 
+CODEX = os.path.join(FIXTURES, "codex.jsonl")
+CODEX_ROOT = os.path.join(FIXTURES, "codex-sessions")
+CLAUDE_ROOT = os.path.join(FIXTURES, "projects")
+
+
+class CodexIndexTest(unittest.TestCase):
+    def test_turns_come_from_item_completed_only(self):
+        turns = transcript.index(CODEX)
+        self.assertEqual([("user", 1), ("assistant", 2)], [(t["role"], t["turn"]) for t in turns])
+        self.assertIn("pass@1 на отложенном", turns[0]["text"])
+        self.assertNotIn("environment_context", turns[0]["text"])
+        self.assertEqual("2026-09-11T19:01:00.329Z", turns[0]["ts"])
+        self.assertEqual("um-1", turns[0]["uuid"])
+
+    def test_quotes_resolve_against_codex_turns(self):
+        turns = transcript.index(CODEX)
+        got = transcript.resolve([{"quote": "нужно 500 примеров вместо 100"}], turns)
+        self.assertTrue(got[0]["ok"])
+        self.assertEqual(2, got[0]["turn"])
+        self.assertEqual("assistant", got[0]["role"])
+
+    def test_harness_and_project(self):
+        self.assertEqual("codex", transcript.harness_of(CODEX))
+        self.assertEqual("/Users/x/proj-a", transcript.project_of(CODEX))
+        claude = os.path.join(CLAUDE_ROOT, "-Users-x-proj-a", "aaaa1111-0000-0000-0000-000000000001.jsonl")
+        self.assertEqual("claude", transcript.harness_of(claude))
+        self.assertEqual("/Users/x/proj-a", transcript.project_of(claude))
+
+
+class ProjectOfTest(unittest.TestCase):
+    """A project path with a `-` in it is an ordinary case (this repo's own worktree is one),
+    and the Claude folder name cannot encode it back: the transcript's `cwd` decides."""
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="aang-project-")
+        self.folder = os.path.join(self.tmp, "projects", "-Users-x-live-companion")
+        os.makedirs(self.folder)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def write(self, name, line):
+        path = os.path.join(self.folder, name)
+        with open(path, "w", encoding="utf-8") as handle:
+            handle.write(line + "\n")
+        return path
+
+    def test_recorded_cwd_wins_over_the_folder_name(self):
+        path = self.write("s1.jsonl", '{"type": "user", "uuid": "u-1", "cwd": "/Users/x/live-companion", '
+                                      '"message": {"role": "user", "content": "Привет."}}')
+        self.assertEqual("/Users/x/live-companion", transcript.project_of(path))
+        self.assertEqual(path, transcript.find_session(None, [os.path.join(self.tmp, "projects")],
+                                                       cwd="/Users/x/live-companion"))
+
+    def test_folder_name_is_the_lossy_fallback(self):
+        path = self.write("s2.jsonl", '{"type": "summary", "summary": "нет cwd в записи"}')
+        self.assertEqual(os.path.normpath("/Users/x/live/companion"), transcript.project_of(path))
+
+
+class CrossHarnessLookupTest(unittest.TestCase):
+    roots = [CLAUDE_ROOT, CODEX_ROOT]
+
+    def test_codex_id_found_by_suffix(self):
+        path = transcript.find_session("cccc2222-0000-0000-0000-000000000002", self.roots)
+        self.assertTrue(path and path.endswith("-cccc2222-0000-0000-0000-000000000002.jsonl"), path)
+
+    def test_claude_id_still_found(self):
+        path = transcript.find_session("aaaa1111-0000-0000-0000-000000000001", self.roots)
+        self.assertTrue(path and path.endswith("aaaa1111-0000-0000-0000-000000000001.jsonl"), path)
+
+    def test_cwd_wins_over_recency(self):
+        """Touch a proj-b transcript so it is newest; asking for proj-a must still return proj-a's."""
+        target = os.path.join(CODEX_ROOT, "2026", "09", "11",
+                              "rollout-2026-09-11T11-00-00-cccc2222-0000-0000-0000-000000000002.jsonl")
+        os.utime(target, None)
+        self.assertEqual(target, transcript.find_session(None, [CODEX_ROOT]))
+        got = transcript.find_session(None, self.roots, cwd="/Users/x/proj-a")
+        self.assertEqual("/Users/x/proj-a", transcript.project_of(got))
+
+    def test_default_roots_include_both_trees(self):
+        roots = transcript.default_roots()
+        self.assertTrue(any(r.endswith(os.path.join(".claude", "projects")) for r in roots))
+        self.assertTrue(any(r.endswith(os.path.join(".codex", "sessions")) for r in roots))
+
+
 if __name__ == "__main__":
     unittest.main()
