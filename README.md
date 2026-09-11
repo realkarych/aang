@@ -1,0 +1,167 @@
+# aang
+
+`/aang` is a Claude Code skill you run **deliberately, inside a long session**. It turns the
+conversation you are already having into a verifiable map of what that conversation decided —
+including the two things nobody writes down — opens a local viewer on it, and leaves a file behind.
+
+## The problem
+
+A long session is a keyhole: a large information space seen through a narrow viewport. Content
+scrolls away, so you cannot remember *where* something was, because it is no longer there. What is
+settled, what was assumed silently, and what is still open all live only in your head — and there
+is more of it than a head holds. You cannot point at a decision from an hour ago; you can only
+restate it.
+
+The expensive part is not the decisions you made on purpose. It is:
+
+- **tacit decisions** — a value that arrived from a previous run, a default, an example or an
+  offhand line, and started mattering without anyone choosing it;
+- **orphaned consequences** — something that follows from a decision, that nobody thought about
+  when the decision was made, and that nobody came back to.
+
+`/aang` exists to surface those two, with an ordinary decision record around them.
+
+## How it works
+
+When you type `/aang`, the model that has been in the conversation the whole time writes the map
+from its own context — not a summarizer reading a log afterwards. It writes a **candidate**
+(`.aang/candidate.json`), then runs `aang merge`, which does the one thing the model cannot do:
+find every quoted line in the session transcript and pin it to a turn. Then it opens the viewer.
+
+The transcript under `~/.claude/projects` is read for exactly one purpose — verifying citations.
+Nothing leaves the machine: the viewer binds `127.0.0.1` only and refuses any other `Host`.
+
+## Install
+
+Python 3.9, standard library only. No dependencies, no build.
+
+```sh
+git clone <this repo> ~/src/aang
+ln -s ~/src/aang/bin/aang ~/.local/bin/aang            # `aang` on PATH (any directory on PATH works)
+ln -s ~/src/aang/.claude/skills/aang ~/.claude/skills/aang   # `/aang` available in every project
+```
+
+Inside this repository the skill is already picked up from `.claude/skills/aang/`.
+
+## Use
+
+In a Claude Code session, when enough has happened to be worth mapping:
+
+```
+/aang
+```
+
+The model writes the candidate, merges it, checks it, starts the viewer and gives you the URL
+(`http://127.0.0.1:8790/`). Run it again later in the same session: the map is updated, not
+replaced — your hand edits stay, decisions that changed are superseded rather than rewritten.
+
+### The four commands
+
+All take `--root DIR` (where `.aang/` lives, default `.`), and `--session ID`,
+`--transcript PATH`, `--transcript-root DIR` to say which transcript to check against (default: the
+session id recorded in the map, else the newest transcript under `~/.claude/projects`).
+
+| command | what it does |
+|---|---|
+| `aang merge [--candidate PATH] [--keep]` | Validate `.aang/candidate.json`, resolve every quote to a turn, fold it into `.aang/map.json` preserving hand edits, delete the candidate. Exit 1 and nothing written when the candidate is invalid. A quote that is not found is saved with `turn: null` — the node stays, marked unverified. |
+| `aang check` | Validate the map and resolve every citation; print ✓/✗ per node and per quote with the reason. **Exit 1** when the map is invalid, any citation fails, or the transcript cannot be found. This is the command a human trusts. |
+| `aang view [--port 8790]` | Serve the viewer on `127.0.0.1` until Ctrl-C. |
+| `aang export [--out docs/decisions.md]` | Write the Markdown decision record — the human copy that gets committed. Superseded decisions kept and marked; unverified nodes marked. |
+
+## The map
+
+`.aang/map.json`:
+
+```json
+{
+  "version": 1,
+  "session_id": "7df13757-…",
+  "generated_at": "2026-09-11T12:00:00Z",
+  "title": "aang · пайплайн оценки",
+  "nodes": [
+    {
+      "id": "d1",
+      "kind": "decision",
+      "status": "accepted",
+      "superseded_by": null,
+      "question": "Чем мерить качество прогона?",
+      "decision": "pass@1 на отложенном наборе",
+      "why": "k>1 маскирует нестабильность промпта",
+      "against": ["Дисперсия выше, нужен набор существеннее"],
+      "consequence": "500 примеров вместо 100, прогон дорожает втрое",
+      "cites": [{"turn": 47, "role": "user", "quote": "давай pass@1"}],
+      "hand_edited": false
+    }
+  ]
+}
+```
+
+Three kinds of node:
+
+- **`decision`** — chosen on purpose. Carries the ADR fields: the question, the position taken,
+  why, what was said against it, what it committed us to, and a status.
+- **`tacit`** — in force, but nobody chose it. `why` says where the value came from. The viewer
+  shows these first.
+- **`open`** — a question nobody answered, or a consequence of a decision nobody came back to.
+  `decision` is empty; `why` says what raised it or which decision orphaned it.
+
+Statuses: `accepted`, `proposed`, `superseded`. **A decision is never edited.** When a conclusion
+changes, a new node is added and the old one gets `status: superseded` and `superseded_by: <id>`;
+it stays in the map, struck through, next to what replaced it — so the next reader sees the
+argument was had, and does not have it again.
+
+The grammar is deliberately poor (IBIS): a position answers a question, arguments attach to a
+position, anything may be questioned. Every node is one question with at most one position.
+
+Citations: every `decision` and `tacit` node cites at least one **verbatim quote** from the
+conversation. The model writes only `quote`; `merge` fills `turn` and `role` by finding the quote
+in the transcript. A turn number in the file therefore always means "found by aang", never
+"guessed". The viewer shows the surrounding transcript excerpt for each citation, so you can see
+the quote in context rather than trust it.
+
+## Correcting a map by hand
+
+The file is plain JSON, written with `indent=2` and real Unicode. Two ways to correct it:
+
+- **In the viewer** — every field has an edit button. Saving marks the node `hand_edited: true`
+  and re-resolves its citations immediately, so a corrected quote turns verified on the spot.
+- **In an editor** — edit `.aang/map.json` directly and set `"hand_edited": true` on the node you
+  changed. Run `aang check` afterwards: a typo that breaks the schema makes the viewer show the
+  errors instead of the map until it is fixed (a half-valid map is never rendered).
+
+What `hand_edited: true` buys you: the next `/aang` **cannot overwrite that node's text** and
+cannot drop it. The model's candidate is merged around it. The one thing a later run may still do
+to a hand-edited node is mark it superseded when the conversation genuinely moved past it — the
+words stay yours, the bookkeeping follows the conversation.
+
+Nodes the model wrote and you did not touch belong to the model: a later run replaces them or, if
+it no longer emits them, drops them. To remove a node for good, delete it from the file (if the
+model re-emits it, edit it and set `hand_edited` so your version wins). To add a node, add it with
+`hand_edited: true` and at least one verbatim quote.
+
+Never edit a decision's conclusion in place. Add the new decision and supersede the old one.
+
+## Trust model
+
+- **Every claim cites a quote.** A node without a resolving citation is shown as **unverified** in
+  the viewer, in `check`, and in the export — it is the model's claim, not a record.
+- A quote verifies only if those words occur, whole and in that order, in one turn of the
+  transcript. Case, punctuation and markdown are forgiven; a changed word, number or operator is
+  not. Three-word minimum; an elided quote (`…`) is accepted only in bounded form and is labelled
+  "with omissions".
+- What the checker cannot catch: a quote that is real but does not support the claim next to it.
+  That is why the viewer shows the excerpt around every quote. Read it.
+- The transcript is the most private thing on the machine. It is read locally, never copied, and
+  the server that shows excerpts from it answers loopback only.
+
+## Files
+
+| path | what |
+|---|---|
+| `.aang/map.json` | the map — machine copy, hand-editable |
+| `.aang/candidate.json` | what the model wrote this run; consumed by `merge` |
+| `docs/decisions.md` | `aang export` — the human copy to commit |
+| `.claude/skills/aang/SKILL.md` | the skill — the prompt that writes the map |
+| `docs/spec.md`, `docs/plan.md` | why it is shaped this way |
+
+Tests: `python3 -m unittest discover -s tests -t .`
