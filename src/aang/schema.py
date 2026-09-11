@@ -1,0 +1,255 @@
+"""Map schema: validation and default-filling for `.aang/map.json`.
+
+The format is pinned in docs/plan.md ("The map format"). `validate` returns a list of
+error strings (empty when the map is valid); `normalize` fills defaults in place so
+downstream code never guards for absent keys. Neither raises on bad input.
+
+Error strings are user-facing (Russian); identifiers in them stay as written in the file.
+"""
+
+from typing import Any, Dict, List, Optional
+
+VERSION = 1
+
+KINDS = ("decision", "tacit", "open")
+STATUSES = ("accepted", "superseded", "proposed")
+ROLES = ("user", "assistant")
+
+# Fields whose default is an empty string / list / bool / null.
+_TEXT_FIELDS = ("question", "decision", "why", "consequence")
+_LIST_FIELDS = ("against", "cites")
+
+
+def _is_str(value):  # type: (Any) -> bool
+    return isinstance(value, str)
+
+
+def _node_label(node, position):  # type: (Any, int) -> str
+    node_id = node.get("id") if isinstance(node, dict) else None
+    if _is_str(node_id) and node_id:
+        return "узел %s" % node_id
+    return "узел #%d" % position
+
+
+def validate(map_dict):  # type: (Any) -> List[str]
+    """Return a list of validation errors for a map; empty means valid.
+
+    Every error names the node (by id, or by position when it has no id) and the field.
+    """
+    errors = []  # type: List[str]
+    if not isinstance(map_dict, dict):
+        return ["карта: ожидался объект JSON, получен %s" % type(map_dict).__name__]
+
+    version = map_dict.get("version")
+    if version is None:
+        errors.append("карта, поле version: отсутствует")
+    elif version != VERSION or isinstance(version, bool):
+        errors.append("карта, поле version: ожидается %d, получено %r" % (VERSION, version))
+
+    for field in ("session_id", "generated_at", "title"):
+        if field in map_dict and map_dict[field] is not None and not _is_str(map_dict[field]):
+            errors.append("карта, поле %s: ожидается строка" % field)
+
+    nodes = map_dict.get("nodes")
+    if nodes is None:
+        errors.append("карта, поле nodes: отсутствует")
+        return errors
+    if not isinstance(nodes, list):
+        errors.append("карта, поле nodes: ожидается список")
+        return errors
+
+    # First pass: ids, so that supersede targets can be checked against the full set.
+    ids = {}  # type: Dict[str, int]
+    for pos, node in enumerate(nodes, 1):
+        if not isinstance(node, dict):
+            errors.append("узел #%d: ожидался объект, получен %s" % (pos, type(node).__name__))
+            continue
+        node_id = node.get("id")
+        if not _is_str(node_id) or not node_id.strip():
+            errors.append("узел #%d, поле id: отсутствует или пустой" % pos)
+            continue
+        if node_id in ids:
+            errors.append("узел %s, поле id: дубликат (уже есть узел #%d)" % (node_id, ids[node_id]))
+            continue
+        ids[node_id] = pos
+
+    for pos, node in enumerate(nodes, 1):
+        if not isinstance(node, dict):
+            continue
+        errors.extend(_validate_node(node, pos, ids))
+
+    errors.extend(_validate_supersede_chains(nodes, ids))
+    return errors
+
+
+def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int]) -> List[str]
+    errors = []  # type: List[str]
+    label = _node_label(node, pos)
+
+    kind = node.get("kind")
+    if kind not in KINDS:
+        errors.append("%s, поле kind: ожидается одно из %s, получено %r" % (label, "/".join(KINDS), kind))
+        kind = None
+
+    status = node.get("status")
+    if status not in STATUSES:
+        errors.append("%s, поле status: ожидается одно из %s, получено %r"
+                      % (label, "/".join(STATUSES), status))
+        status = None
+
+    superseded_by = node.get("superseded_by")
+    node_id = node.get("id")
+    if superseded_by is not None:
+        if not _is_str(superseded_by) or not superseded_by:
+            errors.append("%s, поле superseded_by: ожидается id узла или null" % label)
+        elif superseded_by == node_id:
+            errors.append("%s, поле superseded_by: узел не может заменять сам себя" % label)
+        elif superseded_by not in ids:
+            errors.append("%s, поле superseded_by: узла %s нет в карте" % (label, superseded_by))
+        if status is not None and status != "superseded":
+            errors.append("%s, поле status: указан superseded_by, но статус %s, а не superseded"
+                          % (label, status))
+    elif status == "superseded":
+        errors.append("%s, поле superseded_by: статус superseded, но не указано, чем заменён" % label)
+
+    for field in _TEXT_FIELDS:
+        value = node.get(field)
+        if value is not None and not _is_str(value):
+            errors.append("%s, поле %s: ожидается строка" % (label, field))
+
+    # Required text per kind. `open` is a question without an answer: decision must stay empty.
+    if kind is not None:
+        if not _text(node.get("question")):
+            errors.append("%s, поле question: обязательно для kind=%s" % (label, kind))
+        if kind in ("decision", "tacit"):
+            if not _text(node.get("decision")):
+                errors.append("%s, поле decision: обязательно для kind=%s" % (label, kind))
+            if not _text(node.get("why")):
+                errors.append("%s, поле why: обязательно для kind=%s" % (label, kind))
+        elif kind == "open" and _text(node.get("decision")):
+            errors.append("%s, поле decision: для kind=open должно быть пустым — "
+                          "если ответ есть, это decision, а не open" % label)
+
+    against = node.get("against")
+    if against is not None:
+        if not isinstance(against, list):
+            errors.append("%s, поле against: ожидается список строк" % label)
+        else:
+            for i, item in enumerate(against):
+                if not _is_str(item):
+                    errors.append("%s, поле against[%d]: ожидается строка" % (label, i))
+
+    cites = node.get("cites")
+    if cites is None:
+        cites = []
+    if not isinstance(cites, list):
+        errors.append("%s, поле cites: ожидается список" % label)
+    else:
+        if kind in ("decision", "tacit") and not cites:
+            errors.append("%s, поле cites: обязательно для kind=%s — без цитаты узел не проверить"
+                          % (label, kind))
+        for i, cite in enumerate(cites):
+            errors.extend(_validate_cite(cite, i, label))
+
+    hand_edited = node.get("hand_edited")
+    if hand_edited is not None and not isinstance(hand_edited, bool):
+        errors.append("%s, поле hand_edited: ожидается true/false" % label)
+
+    return errors
+
+
+def _validate_cite(cite, i, label):  # type: (Any, int, str) -> List[str]
+    errors = []  # type: List[str]
+    prefix = "%s, поле cites[%d]" % (label, i)
+    if not isinstance(cite, dict):
+        return ["%s: ожидался объект {\"quote\": ...}" % prefix]
+    # The quote is the citation. A bare turn number is a guess (see docs/spec.md R4).
+    if not _text(cite.get("quote")):
+        errors.append("%s.quote: обязательна дословная цитата" % prefix)
+    elif not _is_str(cite.get("quote")):
+        errors.append("%s.quote: ожидается строка" % prefix)
+    turn = cite.get("turn")
+    if turn is not None and (isinstance(turn, bool) or not isinstance(turn, int) or turn < 1):
+        errors.append("%s.turn: ожидается целое число от 1 или null" % prefix)
+    role = cite.get("role")
+    if role is not None and role not in ROLES:
+        errors.append("%s.role: ожидается user/assistant или null" % prefix)
+    return errors
+
+
+def _text(value):  # type: (Any) -> bool
+    return _is_str(value) and bool(value.strip())
+
+
+def _validate_supersede_chains(nodes, ids):  # type: (List[Any], Dict[str, int]) -> List[str]
+    """Report every node that sits on a cycle of `superseded_by` links."""
+    links = {}  # type: Dict[str, str]
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node_id = node.get("id")
+        target = node.get("superseded_by")
+        if _is_str(node_id) and node_id in ids and _is_str(target) and target in ids and target != node_id:
+            links[node_id] = target
+
+    errors = []  # type: List[str]
+    for start in links:
+        seen = set()  # type: set
+        current = start
+        while current in links and current not in seen:
+            seen.add(current)
+            current = links[current]
+        if current == start:
+            errors.append("узел %s, поле superseded_by: цикл замен (%s)"
+                          % (start, " -> ".join(list(seen) + [start])))
+    return errors
+
+
+def normalize(map_dict):  # type: (Any) -> Dict[str, Any]
+    """Fill defaults in place and return the map.
+
+    Does not repair errors: `version`, `id`, `kind`, `status` are never invented, so
+    validate() still reports them. Non-dict nodes and cites are left untouched.
+    """
+    if not isinstance(map_dict, dict) or not map_dict:
+        # Nothing to preserve: an absent/corrupt file loads as a valid empty map.
+        map_dict = empty_map()
+    for field in ("session_id", "generated_at", "title"):
+        if map_dict.get(field) is None:
+            map_dict[field] = ""
+    nodes = map_dict.get("nodes")
+    if not isinstance(nodes, list):
+        nodes = []
+        map_dict["nodes"] = nodes
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node.setdefault("superseded_by", None)
+        if node.get("hand_edited") is None:
+            node["hand_edited"] = False
+        for field in _TEXT_FIELDS:
+            if node.get(field) is None:
+                node[field] = ""
+        for field in _LIST_FIELDS:
+            if node.get(field) is None:
+                node[field] = []
+        cites = node.get("cites")
+        if isinstance(cites, list):
+            for cite in cites:
+                if isinstance(cite, dict):
+                    cite.setdefault("turn", None)
+                    cite.setdefault("role", None)
+                    if cite.get("quote") is None:
+                        cite["quote"] = ""
+    return map_dict
+
+
+def empty_map(session_id="", title=""):  # type: (str, str) -> Dict[str, Any]
+    """A valid, empty map — what a missing or corrupt file loads as."""
+    return {
+        "version": VERSION,
+        "session_id": session_id or "",
+        "generated_at": "",
+        "title": title or "",
+        "nodes": [],
+    }

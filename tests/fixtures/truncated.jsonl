@@ -1,0 +1,6 @@
+{"parentUuid": null, "isSidechain": false, "type": "user", "message": {"role": "user", "content": "Первая реплика пользователя."}, "uuid": "u-1", "timestamp": "2026-09-11T12:00:00.000Z", "sessionId": "11111111-2222-3333-4444-555555555555", "cwd": "/x"}
+this line is not json at all
+{"parentUuid": null, "isSidechain": false, "type": "assistant", "apiBlockIndex": 0, "message": {"model": "claude-fable-5-1", "id": "msg_c1", "type": "message", "role": "assistant", "content": [{"type": "text", "text": "Ответ ассистента целиком."}], "stop_reason": null, "usage": {"input_tokens": 1}}, "uuid": "c-1-text", "timestamp": "2026-09-11T12:00:01.000Z", "sessionId": "11111111-2222-3333-4444-555555555555", "cwd": "/x"}
+["a json array, not an object"]
+{"parentUuid": null, "isSidechain": false, "type": "user", "message": {"role": "user", "content": "Вторая реплика пользователя."}, "uuid": "u-2", "timestamp": "2026-09-11T12:00:02.000Z", "sessionId": "11111111-2222-3333-4444-555555555555", "cwd": "/x"}
+{"parentUuid": null, "isSidechain": false, "type": "assistant", "apiBlockIndex": 0, "message": {"model": "claude-fable-5-1", "id": "msg_c2", "type": "message", "role": "assistant", "content": [{"type": "text", "text": "Этот отв
