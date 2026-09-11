@@ -130,7 +130,13 @@ def run(targets, command, out, print_only=False):  # type: (List[Tuple[str, str]
 
 
 def _write(path, settings):  # type: (str, Dict[str, Any]) -> None
-    """Replace the settings file in one step, keeping its mode, so a crash cannot truncate it."""
+    """Replace the settings file in one step, keeping its mode, so a crash cannot truncate it.
+
+    The path is resolved first, because a settings file is often a symlink into a dotfiles
+    checkout: replacing the link would leave a plain file in `~/.claude` and the checkout
+    without the hooks, while the read side had already followed the link.
+    """
+    path = os.path.realpath(path)
     directory = os.path.dirname(path) or "."
     os.makedirs(directory, exist_ok=True)
     fd, tmp = tempfile.mkstemp(prefix=".%s-" % os.path.basename(path), suffix=".tmp", dir=directory)

@@ -111,6 +111,24 @@ class RunTest(unittest.TestCase):
         self.assertIn("внимание", out.getvalue())
         self.assertIn("hooks = false", out.getvalue())
 
+    def test_writes_through_a_symlinked_settings_file(self):
+        os.makedirs(os.path.join(self.home, ".claude"))
+        dotfiles = os.path.join(self.home, "dotfiles")
+        os.makedirs(dotfiles)
+        target = os.path.join(dotfiles, "settings.json")
+        with open(target, "w", encoding="utf-8") as h:
+            h.write('{"hooks": {"Stop": [{"hooks": [{"type": "command", "command": "bash other.sh"}]}]}}')
+        link = os.path.join(self.home, ".claude", "settings.json")
+        os.symlink(target, link)
+        out = io.StringIO()
+        self.assertEqual(0, install.run([("claude", link)], CMD, out))
+        self.assertTrue(os.path.islink(link))
+        stop = read_json(target)["hooks"]["Stop"]
+        self.assertEqual(["bash other.sh", CMD + " hook"],
+                         [hook["command"] for group in stop for hook in group["hooks"]])
+        self.assertEqual(["settings.json"], sorted(os.listdir(dotfiles)))
+        self.assertEqual(["settings.json"], sorted(os.listdir(os.path.join(self.home, ".claude"))))
+
     def test_codex_hooks_disabled_detection(self):
         path = os.path.join(self.home, "config.toml")
         with open(path, "w") as h:
