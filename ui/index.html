@@ -1002,9 +1002,6 @@
   }
 
   // ------------------------------------------------------------- timeline
-  // The x axis is the turn number at a fixed 12 px per turn, so a node never moves sideways as
-  // the map grows (U9); the left 60 px is the column for nodes whose citations never resolved to
-  // a turn. Below 900 px the three lanes fold into one and the kind is read from the shape alone.
   var TL = { pxPerTurn: 12, laneHeight: 28, gutter: 60, stepDown: 6 };
   var TL_NARROW = { pxPerTurn: 12, laneHeight: 0, gutter: 40, stepDown: 6 };
   var tlOpts = null;
@@ -1031,8 +1028,6 @@
     var o = tlOpts;
     var lay = M.timelineLayout(map, o);
     var r = 5, top = lay.height ? 0 : 12;
-    // With the lanes folded into one, two kinds on the same turn land on the same point: the
-    // ladder the model steps within a lane has to be stepped across the whole row instead.
     if (!lay.height) {
       var stack = {};
       lay.marks.forEach(function (m) {
@@ -1102,9 +1097,6 @@
         "\" text-anchor=\"middle\">" + t + "</text>";
     }
     svg += "</svg>";
-    // Follow the right edge only for a reader who was already there; anyone who scrolled back to
-    // look at an early turn keeps their place when the map grows under them. The very first paint
-    // is not an update: it starts at turn one, where the lane labels are.
     var scroll = el.querySelector(".tl-scroll");
     var atEnd = !!scroll && scroll.scrollLeft + scroll.clientWidth >= scroll.scrollWidth - 40;
     var left = scroll ? scroll.scrollLeft : 0;
