@@ -1,0 +1,504 @@
+{
+  "realEdges": {
+    "strong": 5,
+    "medium": 8,
+    "weak": 5,
+    "edgesPerNode_strong": "0.25",
+    "edgesPerNode_strongMedium": "0.65",
+    "edgesPerNode_all": "0.90",
+    "isolated_strongMedium": [
+      "d1",
+      "t2",
+      "t4",
+      "o4",
+      "o5"
+    ],
+    "isolated_all": [],
+    "degree_strongMedium": {
+      "d6": 5,
+      "d7": 3,
+      "d2": 2,
+      "d4": 2,
+      "d5": 2,
+      "o1": 2,
+      "d11": 2,
+      "d3": 1,
+      "t1": 1,
+      "t3": 1,
+      "o2": 1,
+      "o3": 1,
+      "t5": 1,
+      "t6": 1,
+      "o6": 1,
+      "d1": 0,
+      "t2": 0,
+      "t4": 0,
+      "o4": 0,
+      "o5": 0
+    },
+    "maxBackEdgesPerNode": 2
+  },
+  "synthDensity": {
+    "20": {
+      "n": 20,
+      "m": 13,
+      "mPerN": "0.65",
+      "maxDeg": 5,
+      "isolated": 5
+    },
+    "50": {
+      "n": 50,
+      "m": 36,
+      "mPerN": "0.72",
+      "maxDeg": 10,
+      "isolated": 19
+    },
+    "100": {
+      "n": 100,
+      "m": 76,
+      "mPerN": "0.76",
+      "maxDeg": 20,
+      "isolated": 37
+    },
+    "synth20prefix": {
+      "n": 20,
+      "m": 15,
+      "note": "first 20 of the synthetic session, to compare with the real 20-node map (13 edges)"
+    },
+    "100_dense": {
+      "n": 100,
+      "m": 116,
+      "mPerN": "1.16"
+    }
+  },
+  "layouts": {
+    "20": {
+      "force": {
+        "n": 20,
+        "m": 13,
+        "labelCollisions": 4,
+        "crossings": 1,
+        "edgeThroughLabel": 10,
+        "meanEdgePx": 193,
+        "fitScale": 1
+      },
+      "layeredFit": {
+        "n": 20,
+        "m": 13,
+        "labelCollisions": 0,
+        "crossings": 4,
+        "edgeThroughLabel": 13,
+        "meanEdgePx": 399
+      },
+      "layeredFixed14px": {
+        "n": 20,
+        "m": 13,
+        "labelCollisions": 0,
+        "crossings": 9,
+        "edgeThroughLabel": 20,
+        "meanEdgePx": 335,
+        "widthPx": 1018,
+        "screensWide": 0.7
+      }
+    },
+    "50": {
+      "force": {
+        "n": 50,
+        "m": 36,
+        "labelCollisions": 12,
+        "crossings": 14,
+        "edgeThroughLabel": 62,
+        "meanEdgePx": 166,
+        "fitScale": 0.63
+      },
+      "layeredFit": {
+        "n": 50,
+        "m": 36,
+        "labelCollisions": 0,
+        "crossings": 161,
+        "edgeThroughLabel": 153,
+        "meanEdgePx": 496
+      },
+      "layeredFixed14px": {
+        "n": 50,
+        "m": 36,
+        "labelCollisions": 0,
+        "crossings": 136,
+        "edgeThroughLabel": 93,
+        "meanEdgePx": 791,
+        "widthPx": 2642,
+        "screensWide": 1.9
+      }
+    },
+    "100": {
+      "force": {
+        "n": 100,
+        "m": 76,
+        "labelCollisions": 61,
+        "crossings": 66,
+        "edgeThroughLabel": 263,
+        "meanEdgePx": 157,
+        "fitScale": 0.47
+      },
+      "layeredFit": {
+        "n": 100,
+        "m": 76,
+        "labelCollisions": 0,
+        "crossings": 889,
+        "edgeThroughLabel": 516,
+        "meanEdgePx": 572
+      },
+      "layeredFixed14px": {
+        "n": 100,
+        "m": 76,
+        "labelCollisions": 0,
+        "crossings": 667,
+        "edgeThroughLabel": 212,
+        "meanEdgePx": 1913,
+        "widthPx": 5078,
+        "screensWide": 3.6
+      }
+    },
+    "100_dense": {
+      "force": {
+        "n": 100,
+        "m": 116,
+        "labelCollisions": 98,
+        "crossings": 245,
+        "edgeThroughLabel": 401,
+        "meanEdgePx": 188,
+        "fitScale": 0.5
+      }
+    },
+    "20_allTiers": {
+      "force": {
+        "n": 20,
+        "m": 18,
+        "labelCollisions": 0,
+        "crossings": 0,
+        "edgeThroughLabel": 7,
+        "meanEdgePx": 173,
+        "fitScale": 1
+      }
+    }
+  },
+  "stability": {
+    "20": {
+      "force_fresh": {
+        "movedNodes": 20,
+        "medianPx": 205,
+        "meanPx": 217,
+        "maxPx": 477,
+        "meanPctOfDiagonal": 13,
+        "stayedWithin20px": 0,
+        "pairOrderKept": "68%",
+        "sameQuadrant": "11/20"
+      },
+      "force_warmStart": {
+        "movedNodes": 20,
+        "medianPx": 133,
+        "meanPx": 196,
+        "maxPx": 481,
+        "meanPctOfDiagonal": 11.8,
+        "stayedWithin20px": 0,
+        "pairOrderKept": "69%",
+        "sameQuadrant": "12/20"
+      },
+      "force_pinnedOld": {
+        "movedNodes": 20,
+        "medianPx": 0,
+        "meanPx": 0,
+        "maxPx": 0,
+        "meanPctOfDiagonal": 0,
+        "stayedWithin20px": 20,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "20/20",
+        "note": "old nodes fixed; only the 3 new ones move",
+        "after": {
+          "n": 23,
+          "m": 16,
+          "labelCollisions": 8,
+          "crossings": 1,
+          "edgeThroughLabel": 15,
+          "meanEdgePx": 205,
+          "fitScale": 1
+        }
+      },
+      "layered_fitToWidth": {
+        "movedNodes": 20,
+        "medianPx": 80,
+        "meanPx": 69,
+        "maxPx": 113,
+        "meanPctOfDiagonal": 4.2,
+        "stayedWithin20px": 4,
+        "pairOrderKept": "92%",
+        "sameQuadrant": "19/20"
+      },
+      "layered_fixedScale": {
+        "movedNodes": 20,
+        "medianPx": 0,
+        "meanPx": 0,
+        "maxPx": 0,
+        "meanPctOfDiagonal": 0,
+        "stayedWithin20px": 20,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "20/20"
+      }
+    },
+    "50": {
+      "force_fresh": {
+        "movedNodes": 50,
+        "medianPx": 311,
+        "meanPx": 355,
+        "maxPx": 929,
+        "meanPctOfDiagonal": 21.3,
+        "stayedWithin20px": 0,
+        "pairOrderKept": "43%",
+        "sameQuadrant": "18/50"
+      },
+      "force_warmStart": {
+        "movedNodes": 50,
+        "medianPx": 284,
+        "meanPx": 285,
+        "maxPx": 592,
+        "meanPctOfDiagonal": 17.1,
+        "stayedWithin20px": 0,
+        "pairOrderKept": "52%",
+        "sameQuadrant": "27/50"
+      },
+      "force_pinnedOld": {
+        "movedNodes": 50,
+        "medianPx": 165,
+        "meanPx": 162,
+        "maxPx": 225,
+        "meanPctOfDiagonal": 9.8,
+        "stayedWithin20px": 0,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "35/50",
+        "note": "old nodes fixed; only the 3 new ones move",
+        "after": {
+          "n": 53,
+          "m": 39,
+          "labelCollisions": 19,
+          "crossings": 17,
+          "edgeThroughLabel": 76,
+          "meanEdgePx": 151,
+          "fitScale": 0.85
+        }
+      },
+      "layered_fitToWidth": {
+        "movedNodes": 50,
+        "medianPx": 14,
+        "meanPx": 15,
+        "maxPx": 38,
+        "meanPctOfDiagonal": 0.9,
+        "stayedWithin20px": 32,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "50/50"
+      },
+      "layered_fixedScale": {
+        "movedNodes": 50,
+        "medianPx": 0,
+        "meanPx": 0,
+        "maxPx": 0,
+        "meanPctOfDiagonal": 0,
+        "stayedWithin20px": 50,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "50/50"
+      }
+    },
+    "100": {
+      "force_fresh": {
+        "movedNodes": 100,
+        "medianPx": 171,
+        "meanPx": 212,
+        "maxPx": 800,
+        "meanPctOfDiagonal": 12.7,
+        "stayedWithin20px": 1,
+        "pairOrderKept": "59%",
+        "sameQuadrant": "63/100"
+      },
+      "force_warmStart": {
+        "movedNodes": 100,
+        "medianPx": 93,
+        "meanPx": 118,
+        "maxPx": 413,
+        "meanPctOfDiagonal": 7.1,
+        "stayedWithin20px": 10,
+        "pairOrderKept": "78%",
+        "sameQuadrant": "76/100"
+      },
+      "force_pinnedOld": {
+        "movedNodes": 100,
+        "medianPx": 219,
+        "meanPx": 213,
+        "maxPx": 349,
+        "meanPctOfDiagonal": 12.8,
+        "stayedWithin20px": 0,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "58/100",
+        "note": "old nodes fixed; only the 3 new ones move",
+        "after": {
+          "n": 103,
+          "m": 79,
+          "labelCollisions": 227,
+          "crossings": 74,
+          "edgeThroughLabel": 382,
+          "meanEdgePx": 117,
+          "fitScale": 0.71
+        }
+      },
+      "layered_fitToWidth": {
+        "movedNodes": 100,
+        "medianPx": 10,
+        "meanPx": 10,
+        "maxPx": 62,
+        "meanPctOfDiagonal": 0.6,
+        "stayedWithin20px": 97,
+        "pairOrderKept": "99%",
+        "sameQuadrant": "98/100"
+      },
+      "layered_fixedScale": {
+        "movedNodes": 100,
+        "medianPx": 0,
+        "meanPx": 0,
+        "maxPx": 0,
+        "meanPctOfDiagonal": 0,
+        "stayedWithin20px": 100,
+        "pairOrderKept": "100%",
+        "sameQuadrant": "100/100"
+      }
+    }
+  },
+  "incrementalPinned": {
+    "steps": [
+      {
+        "n": 23,
+        "fitScale": 1,
+        "m": 16,
+        "labelCollisions": 6,
+        "crossings": 0,
+        "edgeThroughLabel": 14,
+        "meanEdgePx": 223
+      },
+      {
+        "n": 50,
+        "fitScale": 0.79,
+        "m": 36,
+        "labelCollisions": 24,
+        "crossings": 27,
+        "edgeThroughLabel": 83,
+        "meanEdgePx": 225
+      },
+      {
+        "n": 100,
+        "fitScale": 0.54,
+        "m": 76,
+        "labelCollisions": 176,
+        "crossings": 162,
+        "edgeThroughLabel": 564,
+        "meanEdgePx": 187
+      }
+    ],
+    "freshAt50": {
+      "n": 50,
+      "m": 36,
+      "labelCollisions": 12,
+      "crossings": 14,
+      "edgeThroughLabel": 62,
+      "meanEdgePx": 166,
+      "fitScale": 0.63
+    },
+    "freshAt100": {
+      "n": 100,
+      "m": 76,
+      "labelCollisions": 61,
+      "crossings": 66,
+      "edgeThroughLabel": 263,
+      "meanEdgePx": 157,
+      "fitScale": 0.47
+    }
+  },
+  "arcList": {
+    "20_spine": {
+      "n": 20,
+      "m": 13,
+      "order": "spine",
+      "arcCrossings": 17,
+      "meanArcSpanRows": 5.1,
+      "arcsLongerThanOneScreen": 0,
+      "labelCollisions": 0,
+      "heightPx": 936,
+      "screensTall": 1
+    },
+    "20_time": {
+      "n": 20,
+      "m": 13,
+      "order": "time",
+      "arcCrossings": 3,
+      "meanArcSpanRows": 4.4,
+      "arcsLongerThanOneScreen": 0,
+      "labelCollisions": 0,
+      "heightPx": 936,
+      "screensTall": 1
+    },
+    "50_spine": {
+      "n": 50,
+      "m": 36,
+      "order": "spine",
+      "arcCrossings": 218,
+      "meanArcSpanRows": 22.6,
+      "arcsLongerThanOneScreen": 22,
+      "labelCollisions": 0,
+      "heightPx": 2316,
+      "screensTall": 2.6
+    },
+    "50_time": {
+      "n": 50,
+      "m": 36,
+      "order": "time",
+      "arcCrossings": 140,
+      "meanArcSpanRows": 16.3,
+      "arcsLongerThanOneScreen": 15,
+      "labelCollisions": 0,
+      "heightPx": 2316,
+      "screensTall": 2.6
+    },
+    "100_spine": {
+      "n": 100,
+      "m": 76,
+      "order": "spine",
+      "arcCrossings": 1083,
+      "meanArcSpanRows": 46.4,
+      "arcsLongerThanOneScreen": 59,
+      "labelCollisions": 0,
+      "heightPx": 4616,
+      "screensTall": 5.1
+    },
+    "100_time": {
+      "n": 100,
+      "m": 76,
+      "order": "time",
+      "arcCrossings": 774,
+      "meanArcSpanRows": 38.8,
+      "arcsLongerThanOneScreen": 52,
+      "labelCollisions": 0,
+      "heightPx": 4616,
+      "screensTall": 5.1
+    }
+  },
+  "arcListStability": {
+    "spineOrder": {
+      "rowsShifted": 20,
+      "maxRowShift": 3,
+      "relativeOrderKept": "100%",
+      "shiftsPerRow": "11111122222233333333"
+    },
+    "timeOrder": {
+      "rowsShifted": 0,
+      "maxRowShift": 0,
+      "relativeOrderKept": "100%"
+    },
+    "note": "a shift of k rows = k×46px straight down; every other node keeps its row"
+  }
+}

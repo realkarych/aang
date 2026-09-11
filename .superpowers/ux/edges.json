@@ -1,0 +1,25 @@
+{
+  "_note": "Hand-derived from .aang/map.json (20 nodes). Tier: strong = typed edge or the other node named by id in prose; medium = referent unambiguous from prose but not named by id; weak = plausible, a model would assert it inconsistently. Direction: source -> target reads as 'source <rel> target'.",
+  "edges": [
+    {"s": "d3",  "t": "d4",  "rel": "superseded_by",  "tier": "strong", "evidence": "typed field superseded_by"},
+    {"s": "o1",  "t": "d6",  "rel": "orphaned_by",    "tier": "strong", "evidence": "o1.why: «Осиротело решением d6»"},
+    {"s": "o6",  "t": "d7",  "rel": "consequence_of", "tier": "strong", "evidence": "o6.why: «Следствие d7»"},
+    {"s": "t6",  "t": "t1",  "rel": "conflicts_with", "tier": "strong", "evidence": "t6.consequence: «Расходится с t1»"},
+    {"s": "d11", "t": "d5",  "rel": "raised_by",      "tier": "strong", "evidence": "d11.why: «узел d5 цитировал вопрос пользователя»"},
+
+    {"s": "t3",  "t": "d2",  "rel": "derives_from",   "tier": "medium", "evidence": "identical quote, turn 5; t3.why «прозвучало один раз в скобках при постановке задачи» = d2's citation"},
+    {"s": "d6",  "t": "d5",  "rel": "revises",        "tier": "medium", "evidence": "d6.why «снимаются тревоги, протухание и бдительность» undoes d5's frame; d5.consequence «половина из них отпала вместе с разворотом на /aang»"},
+    {"s": "d4",  "t": "d6",  "rel": "made_moot_by",   "tier": "medium", "evidence": "d6.why «снимается … протухание» — протухание is d3/d4's threshold"},
+    {"s": "o1",  "t": "d2",  "rel": "consequence_of", "tier": "medium", "evidence": "o1 is about subagent-flow, which d2.consequence names as its product"},
+    {"s": "t5",  "t": "d7",  "rel": "parameter_of",   "tier": "medium", "evidence": "t5 thresholds belong to d7's matcher; both cite the Task 1 review that found three holes"},
+    {"s": "d11", "t": "d7",  "rel": "refines",        "tier": "medium", "evidence": "the quote-must-contain rule is a rule about d7's citation mechanism"},
+    {"s": "o2",  "t": "d6",  "rel": "questions",      "tier": "medium", "evidence": "o2.why «вызов руками» is d6's «вызываемый вручную»"},
+    {"s": "o3",  "t": "d6",  "rel": "questions",      "tier": "medium", "evidence": "o3.why «главный механизм, ради которого /aang существует»"},
+
+    {"s": "t4",  "t": "d6",  "rel": "parameter_of",   "tier": "weak",   "evidence": "IBIS is the notation of the map d6 draws; same turn 37 as the conductor page"},
+    {"s": "o4",  "t": "d2",  "rel": "consequence_of", "tier": "weak",   "evidence": "the four review files are artefacts of the subagent-driven process"},
+    {"s": "o5",  "t": "d2",  "rel": "consequence_of", "tier": "weak",   "evidence": "the branch is the product of the subagent-driven work"},
+    {"s": "t1",  "t": "d1",  "rel": "same_turn",      "tier": "weak",   "evidence": "both cite turn 2; t1 says the language came from that first message"},
+    {"s": "t2",  "t": "d6",  "rel": "parameter_of",   "tier": "weak",   "evidence": "t2.consequence «стало аргументом в пользу инструмента»"}
+  ]
+}
