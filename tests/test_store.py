@@ -182,6 +182,49 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(ids(merged), ["d1", "d2", "d3"])
         self.assertEqual(schema.validate(merged), [])
 
+    def test_reemitted_superseded_node_keeps_its_stored_text(self):
+        # The model re-emits the superseded node (as the skill asks) but with different
+        # words. History is not edited (R2): the stored text is exactly what stops the
+        # argument being had again, so the candidate's version is ignored in full.
+        old = a_map(node("d1", status="superseded", superseded_by="d2", decision="старое",
+                         why="старая причина", against=["старый довод"],
+                         cites=[{"turn": 3, "role": "user", "quote": "старая цитата"}]),
+                    node("d2"))
+        new = a_map(node("d1", status="superseded", superseded_by="d2", decision="переписано",
+                         why="новая причина", against=[], kind="tacit",
+                         cites=[{"turn": None, "role": None, "quote": "другая цитата"}]),
+                    node("d2"), node("d3"))
+        merged = store.merge(old, new)
+        self.assertEqual(ids(merged), ["d1", "d2", "d3"])
+        d1 = merged["nodes"][0]
+        self.assertEqual(d1["decision"], "старое")
+        self.assertEqual(d1["why"], "старая причина")
+        self.assertEqual(d1["against"], ["старый довод"])
+        self.assertEqual(d1["kind"], "decision")
+        self.assertEqual(d1["cites"][0]["quote"], "старая цитата")
+        self.assertEqual(d1["cites"][0]["turn"], 3)
+        self.assertEqual(d1["status"], "superseded")
+        self.assertEqual(d1["superseded_by"], "d2")
+        self.assertFalse(d1["hand_edited"])  # frozen as history, not promoted to a hand edit
+        self.assertEqual(schema.validate(merged), [])
+
+    def test_regeneration_never_unsupersedes_or_repoints_a_superseded_node(self):
+        # Un-superseding is refused for the same reason: the record that the
+        # conversation moved on is history too. So is the pointer to what replaced it.
+        old = a_map(node("d1", status="superseded", superseded_by="d2", decision="старое"),
+                    node("d2"), node("d3"))
+        revived = a_map(node("d1", decision="снова актуально"), node("d2"), node("d3"))
+        merged = store.merge(old, revived)
+        d1 = merged["nodes"][0]
+        self.assertEqual(d1["status"], "superseded")
+        self.assertEqual(d1["superseded_by"], "d2")
+        self.assertEqual(d1["decision"], "старое")
+        self.assertEqual(schema.validate(merged), [])
+        repointed = a_map(node("d1", status="superseded", superseded_by="d3"), node("d2"), node("d3"))
+        merged2 = store.merge(old, repointed)
+        self.assertEqual(merged2["nodes"][0]["superseded_by"], "d2")
+        self.assertEqual(schema.validate(merged2), [])
+
     def test_kind_conflict_hand_edited_keeps_its_kind(self):
         old = a_map(node("t1", kind="tacit", hand_edited=True))
         new = a_map(node("t1", kind="decision"))

@@ -240,10 +240,10 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
   Ids are permanent — never renumber, never reuse. If a node's kind changes later (a tacit the user
   then confirmed becomes a decision), keep its id; the prefix is a hint from birth, not a rule.
 - `nodes` in the order the conversation reached them; the viewer shows newest first.
-- `session_id`: this session is `${CLAUDE_SESSION_ID}` — use that. If the previous line shows
-  the literal text `${CLAUDE_SESSION_ID}` rather than an id, leave `""`: merge then takes the
-  newest transcript and records its id, and `aang check` prints which file it used, so confirm it
-  is this one.
+- `session_id`: leave it `""`. You do not know your own session id and must not guess one; the
+  shell does — `merge` (step 5) is passed `--session "$CLAUDE_CODE_SESSION_ID"` and stamps the
+  id it resolved into the map, and `aang check` prints which transcript file it used, so confirm
+  it is this session. On a repeat run the map already records it.
 - `generated_at`: now, ISO 8601 UTC (`date -u +%Y-%m-%dT%H:%M:%SZ`).
 - `title`: `<project> · <what this session was about>`, short.
 - Text fields in the language the conversation was held in. A sentence or two each; the map is a
@@ -256,16 +256,31 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 2. Think through the tacit questions, then the open questions, then the decisions. Apply the
    selectivity test to each node.
 3. Write `.aang/candidate.json` (create the directory if needed).
-4. Run `aang merge --session <session_id>` (omit `--session` if you left `session_id` empty). If
-   `aang` is not on PATH, it is `bin/aang` in the aang checkout, which this skill lives in:
-   `"$(cd "${CLAUDE_SKILL_DIR}" && pwd -P)/../../../bin/aang"`.
+4. Find the CLI, once, in a Bash call. It is `aang` on PATH when installed as the README says;
+   otherwise it is `bin/aang` in the aang checkout, three levels up from this skill's directory —
+   the harness printed `Base directory for this skill: <dir>` when this skill loaded, and that
+   directory is usually a symlink into the checkout, hence `pwd -P`. This prints the path, trying
+   PATH, then the base directory, then the parents of the current directory; replace `<dir>`:
+
+   ```sh
+   command -v aang 2>/dev/null \
+     || ls "$(cd "$(cd "<dir>" 2>/dev/null && pwd -P)/../../.." 2>/dev/null && pwd -P)/bin/aang" 2>/dev/null \
+     || { d="$PWD"; while [ "$d" != / ] && [ ! -x "$d/bin/aang" ]; do d="$(dirname "$d")"; done; ls "$d/bin/aang" 2>/dev/null; }
+   ```
+
+   Use the absolute path it printed as `aang` in every command below — shell variables do not
+   survive between Bash calls, so do not store it in one. If it printed nothing, stop and tell the
+   user `aang` is not installed (README, Install).
+5. Run `aang merge --session "$CLAUDE_CODE_SESSION_ID"` — the variable, literally, in the Bash
+   command; the shell expands it, you never see or type the id. An empty variable is the same as
+   no `--session`: merge then takes the newest transcript and stamps its id.
    It validates the candidate, finds each quote in the transcript, fills in turns,
    merges into `.aang/map.json` preserving hand edits, and prints what it kept, added, dropped, and
    which quotes it could not find.
    - Exit 1 with `невалиден`: the candidate broke the schema; the errors name node and field.
      Nothing was written. Fix the candidate and run again.
-   - Exit 0 with `не найдено: N`: those nodes are in the map, unverified. See step 5.
-5. Run `aang check` (same `--session`). It prints every node with ✓/✗ and the reason for each failing quote, and exits
+   - Exit 0 with `не найдено: N`: those nodes are in the map, unverified. See step 6.
+6. Run `aang check` (same `--session`). It prints every node with ✓/✗ and the reason for each failing quote, and exits
    1 if any citation failed. For each ✗: if you misquoted a line you clearly remember, write a
    corrected candidate (same ids, all nodes) and merge again — **once**. Do not iterate hunting for
    a quote that resolves; after one correction pass, whatever is still ✗ stays unverified, and you
@@ -273,10 +288,10 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    says what the node says** — the number, the name, the position. If it does not, replace it with
    the line that does (this counts as the one correction pass) or drop it and let the node stand
    unverified. A ✓ beside a quote that does not support the node is worse than a ✗.
-6. Start the viewer in the background: `aang view` (same `--session`; it serves until stopped —
+7. Start the viewer in the background: `aang view` (same `--session`; it serves until stopped —
    use the Bash tool's background mode). Its output carries the URL, `http://127.0.0.1:8790/` by default; if the port is
    taken it exits 1 — retry with `--port 8791`.
-7. Tell the user, briefly: the URL; how many tacit / open / decision nodes; which nodes are
+8. Tell the user, briefly: the URL; how many tacit / open / decision nodes; which nodes are
    unverified and, in one line each, why. Do not paste the map — the viewer is for that. Mention
    that `aang export` writes `docs/decisions.md` if they want the record committed.
 
@@ -290,8 +305,9 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 - **Only nodes present in `.aang/map.json`.** A node you emitted in an earlier run that is no longer
   in the file was removed by the user. That is a hand edit — the most basic one. Do not bring it
   back, however true it still seems; if you believe it matters, say so to the user instead.
-- Superseded nodes are history: merge keeps them even if you forget them, but re-emit them anyway,
-  text unchanged, so the record and the candidate agree.
+- Superseded nodes are history: merge keeps them even if you forget them, and keeps their stored
+  text, status and `superseded_by` whatever you write — it will not reword, revive or repoint one.
+  Re-emit them anyway, unchanged, so the record and the candidate agree.
 - Nodes marked `hand_edited: true` are the user's: merge keeps their text regardless of what you
   write, and you cannot overwrite them. You may still supersede one — write it with
   `status: superseded` and `superseded_by`, and merge applies exactly that and nothing else.

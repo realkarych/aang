@@ -120,10 +120,13 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     - A node not hand-edited in `old` is replaced by `new`'s node of the same id in full
       (kind included), and dropped when `new` omits it — that is what "regeneration of
       everything else" means.
-    - Except a node already `superseded` in `old`: it survives when `new` omits it, hand-
-      edited or not. A superseded decision is history (R2), and a regeneration that
-      forgot to re-emit it has no business retracting it — the next reader would find
-      only the replacement and propose the old position again.
+    - Except a node already `superseded` in `old`: it is frozen, hand-edited or not. It
+      survives when `new` omits it, and when `new` re-emits it, every field of the stored
+      node wins — content, `status` and `superseded_by` alike. A superseded decision is
+      history (R2): a regeneration that forgot it has no business retracting it (the
+      next reader would find only the replacement and propose the old position again),
+      one that reworded it would be editing a decision, and one that un-supersedes or
+      repoints it would be rewriting the record that the conversation moved on.
     - An old node that a surviving node points at through `superseded_by` is kept too
       (transitively), so the result stays valid and the superseded decision stays visible.
     - Order: `new`'s order; old-only survivors are inserted after their nearest surviving
@@ -147,7 +150,9 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
             continue
         seen.add(node_id)
         previous = old_by_id.get(node_id)
-        if previous is not None and previous.get("hand_edited") is True:
+        if previous is not None and previous.get("status") == "superseded":
+            result.append(copy.deepcopy(previous))  # history: nothing in `new` applies
+        elif previous is not None and previous.get("hand_edited") is True:
             result.append(_merge_hand_edited(previous, incoming))
         else:
             incoming["hand_edited"] = False

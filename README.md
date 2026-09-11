@@ -40,7 +40,12 @@ Python 3.9, standard library only. No dependencies, no build.
 git clone <this repo> ~/src/aang
 ln -s ~/src/aang/bin/aang ~/.local/bin/aang            # `aang` on PATH (any directory on PATH works)
 ln -s ~/src/aang/.claude/skills/aang ~/.claude/skills/aang   # `/aang` available in every project
+aang --help                                            # proves `~/.local/bin` is on PATH
 ```
+
+`aang` on PATH is the normal case: `/aang` runs `aang merge`, `aang check`, `aang view` by that
+name. Without it the skill falls back to `bin/aang` in the checkout it lives in, found through the
+skill's own directory, which works but leaves the first run to a path lookup.
 
 Inside this repository the skill is already picked up from `.claude/skills/aang/`.
 

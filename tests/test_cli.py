@@ -255,6 +255,17 @@ class MergeTest(CliTestCase):
         self.assertEqual(code, 0, out)
         self.assertEqual(store.load(self.root)["session_id"], "bbbb2222-0000-0000-0000-000000000002")
 
+    def test_empty_session_flag_is_the_same_as_none(self):
+        # The skill passes `--session "$CLAUDE_CODE_SESSION_ID"` straight through; if the
+        # variable is empty in some context the merge must degrade to "nobody named one".
+        roots = self._two_projects()
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
+        code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots,
+                                      "--session", "")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(store.load(self.root)["session_id"], "bbbb2222-0000-0000-0000-000000000002")
+        self.assertNotIn("транскрипт сессии не найден", out + err)
+
     def test_keep_flag_leaves_candidate(self):
         cand_path = self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, _, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL, "--keep")
