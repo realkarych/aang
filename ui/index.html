@@ -127,6 +127,13 @@
   }
   .counts b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
   .counts .bad-count { color: var(--bad); }
+  .meta .cov { color: var(--ink); }
+  .meta .cov b { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .warnings { font-family: var(--font-ui); font-size: 13px; color: var(--warn); margin: 8px 0 0; }
+  .warnings summary { cursor: pointer; font-weight: 600; }
+  .warnings ul { margin: 4px 0 0; padding-left: 20px; color: var(--ink-2); }
+  .warnings li { margin: 2px 0; }
+  .warnings .idc { font-family: var(--font-mono); font-size: 0.9em; }
 
   /* ---------------------------------------------------------------- banners */
   .banner {
@@ -158,6 +165,7 @@
     gap: 18px;
     align-items: start;
   }
+  .left { min-width: 0; }
   .spine, .detail {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -186,7 +194,7 @@
     gap: 2px 10px;
     border-top: 1px solid var(--line);
   }
-  .spine h2:first-child { border-top: 0; }
+  .spine h2:first-child, .spine .arcs + h2 { border-top: 0; }
   .spine h2 small { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-size: 12px; }
   .spine h2 .k { font-family: var(--font-ui); white-space: nowrap; }
   .spine h2.k-tacit { color: var(--tacit); }
@@ -194,6 +202,30 @@
   .spine h2.k-decision { color: var(--decision); }
   .spine ol { list-style: none; margin: 0; padding: 0 0 6px; }
   .spine .empty-group { padding: 4px 14px 10px; color: var(--ink-3); font-style: italic; font-size: 14px; }
+  /* The left 24px of the spine is a gutter: the arcs of the selected node are drawn there,
+     ending on the coloured kind-border of each neighbour's row. */
+  .spine { position: relative; padding-left: 24px; }
+  .arcs { position: absolute; left: 0; top: 0; width: 24px; height: 100%; pointer-events: none; overflow: visible; }
+  .arcs path { fill: none; stroke: var(--link); stroke-width: 1.5; }
+  .arcs path.in { stroke-dasharray: 4 3; }
+  .arcs circle { fill: var(--link); }
+  .spine .item {
+    position: relative;
+    border-left: 4px solid var(--line-strong);
+  }
+  .spine .item + .item { border-top: 1px solid var(--line); }
+  .spine .item.k-decision { border-left-style: solid; border-left-color: var(--decision); }
+  .spine .item.k-tacit { border-left-style: dashed; border-left-color: var(--tacit); }
+  .spine .item.k-open { border-left-style: dotted; border-left-color: var(--open); }
+  .spine .item:hover { background: var(--panel-2); }
+  .spine .item.sel { background: var(--sel); }
+  .spine .item.sel::after {
+    content: "";
+    position: absolute; right: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--ink);
+  }
+  .spine .item.near { background: color-mix(in srgb, var(--sel) 55%, transparent); }
+  .spine .item.near .idc { color: var(--link); font-weight: 700; }
   .row {
     display: grid;
     grid-template-columns: 22px 1fr auto;
@@ -202,22 +234,10 @@
     text-align: left;
     background: transparent;
     border: 0;
-    border-left: 4px solid var(--line-strong);
-    padding: 10px 14px 10px 10px;
+    padding: 10px 14px 6px 10px;
     cursor: pointer;
-    position: relative;
   }
-  .row + .row, li + li .row { border-top: 1px solid var(--line); }
-  .row:hover { background: var(--panel-2); }
-  .row[aria-current="true"] { background: var(--sel); }
-  .row[aria-current="true"]::after {
-    content: "";
-    position: absolute; right: 0; top: 0; bottom: 0; width: 3px;
-    background: var(--ink);
-  }
-  .row.k-decision { border-left-style: solid; border-left-color: var(--decision); }
-  .row.k-tacit { border-left-style: dashed; border-left-color: var(--tacit); }
-  .row.k-open { border-left-style: dotted; border-left-color: var(--open); }
+  .row:focus-visible { outline-offset: -2px; }
   .row .mark {
     font-family: var(--font-ui);
     font-size: 14px;
@@ -288,6 +308,99 @@
   .tag.kind-decision { color: var(--decision); border-color: var(--decision); }
   .tag.linkish { cursor: pointer; }
   .tag.linkish:hover { background: var(--panel-2); }
+  .tag.new { color: var(--ink); border-color: var(--ink); background: var(--mark); font-weight: 600; }
+
+  /* ---------------------------------------------------------------- chips (neighbours in the row) */
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 6px;
+    padding: 0 14px 10px 42px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+  }
+  .chips .none { color: var(--ink-3); font-style: italic; }
+  .chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    padding: 1px 7px;
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    background: var(--panel);
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    line-height: 1.5;
+    cursor: pointer;
+    max-width: 100%;
+  }
+  .chip:hover { background: var(--panel-2); color: var(--ink); border-color: var(--ink-2); }
+  .chip .mono { color: var(--ink); }
+  .chip .arrow { color: var(--ink-3); }
+  @media (max-width: 480px) { .chips { padding-left: 10px; } }
+
+  /* ---------------------------------------------------------------- search and filters */
+  .tools {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-bottom: 0;
+    padding: 12px 14px 10px;
+    font-family: var(--font-ui);
+  }
+  .tools input[type="search"] {
+    width: 100%;
+    padding: 7px 10px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    background: var(--panel);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: 15px;
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  .tools input[type="search"]::placeholder { color: var(--ink-3); font-style: italic; }
+  .filters { margin: 8px 0 0; display: flex; flex-wrap: wrap; gap: 6px 14px; align-items: center; }
+  .filters .fg { display: inline-flex; flex-wrap: wrap; gap: 4px; }
+  .tog {
+    padding: 1px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--ink-2);
+    font-family: var(--font-ui);
+    font-size: 12px;
+    line-height: 1.6;
+    cursor: pointer;
+  }
+  .tog:hover { background: var(--panel-2); color: var(--ink); }
+  .tog[aria-pressed="true"] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+  .tog.k-decision[aria-pressed="true"] { background: var(--decision); border-color: var(--decision); }
+  .tog.k-tacit[aria-pressed="true"] { background: var(--tacit); border-color: var(--tacit); }
+  .tog.k-open[aria-pressed="true"] { background: var(--open); border-color: var(--open); }
+  .fcount { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-2); }
+  .fcount b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .spine .empty-group.filtered { font-style: normal; }
+
+  /* ---------------------------------------------------------------- neighbourhood (detail) */
+  .links { margin: 12px 0 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+  .links h3 {
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .links h3.holds { color: var(--ink); font-size: 13px; letter-spacing: 0.04em; margin-top: 10px; }
+  .links h3.holds .mono { text-transform: none; letter-spacing: 0; font-size: 13px; color: var(--link); }
+  .links ul { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 4px; }
+  .links li { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; overflow-wrap: anywhere; }
+  .links li .rel { font-family: var(--font-ui); font-size: 12px; color: var(--ink-2); }
+  .links li .qq { color: var(--ink-2); font-size: 14px; }
+  .links .none { color: var(--ink-3); font-style: italic; }
 
   /* ---------------------------------------------------------------- detail */
   .detail .kicker {
@@ -462,8 +575,13 @@
     <span id="meta-session">сессия: <code>—</code></span>
     <span id="meta-generated">сформировано: —</span>
     <span id="meta-transcript">транскрипт: загружаю…</span>
+    <span id="meta-coverage" class="cov" hidden></span>
   </p>
   <p class="counts" id="counts"><span>Читаю карту с <code>/api/map</code>…</span></p>
+  <details class="warnings" id="warnings" hidden>
+    <summary id="warnings-summary"></summary>
+    <ul id="warnings-list"></ul>
+  </details>
 </header>
 
 <section class="banner bad" id="banner-errors" hidden aria-live="polite">
@@ -491,7 +609,31 @@
 </section>
 
 <main class="panes" id="panes" hidden>
-  <section class="spine" id="spine" aria-label="Хребет разговора: все узлы карты"></section>
+  <div class="left">
+    <div class="tools" id="tools">
+      <label class="visually-hidden" for="search">Поиск по карте: слово или id узла</label>
+      <input id="search" type="search" placeholder="найти слово — или id узла: d4, t5, o1" autocomplete="off" spellcheck="false">
+      <p class="filters" id="filters">
+        <span class="fg" data-group="kind" role="group" aria-label="Вид">
+          <button type="button" class="tog k-decision" data-v="decision" aria-pressed="false">решение</button>
+          <button type="button" class="tog k-tacit" data-v="tacit" aria-pressed="false">неявное</button>
+          <button type="button" class="tog k-open" data-v="open" aria-pressed="false">открытое</button>
+        </span>
+        <span class="fg" data-group="status" role="group" aria-label="Статус">
+          <button type="button" class="tog" data-v="accepted" aria-pressed="false">принято</button>
+          <button type="button" class="tog" data-v="superseded" aria-pressed="false">заменено</button>
+          <button type="button" class="tog" data-v="proposed" aria-pressed="false">предложено</button>
+        </span>
+        <span class="fg" data-group="verified" role="group" aria-label="Проверенность">
+          <button type="button" class="tog" data-v="yes" aria-pressed="false">проверено</button>
+          <button type="button" class="tog" data-v="no" aria-pressed="false">не проверено</button>
+        </span>
+        <button type="button" class="btn" id="filter-reset" hidden>сбросить</button>
+      </p>
+      <p class="fcount" id="filter-count" hidden aria-live="polite"></p>
+    </div>
+    <section class="spine" id="spine" aria-label="Хребет разговора: все узлы карты"></section>
+  </div>
   <section class="detail" id="detail" aria-label="Выбранный узел" aria-live="polite"></section>
 </main>
 
@@ -500,6 +642,7 @@
   <p><span class="k open">Открытое</span> — вопрос или следствие, к которому никто не вернулся. Точечная линия слева.</p>
   <p><span class="k decision">Решение</span> — принято намеренно; заменённое остаётся в списке зачёркнутым и называет замену.</p>
   <p><b>Проверено</b> значит: каждая цитата узла найдена дословно в транскрипте сессии. Всё остальное сказано прямо: «не проверено», «нет цитат», «не проверялось».</p>
+  <p><b>Связи</b> — чипы под строкой: → от этого узла к другому, ← с другого узла на этот. Обратная сторона считается сервером, модель её не пишет. Дуги слева рисуются только у выбранного узла.</p>
 </footer>
 
 <script>
@@ -508,15 +651,31 @@
 
   var KIND_LABEL = { decision: "решение", tacit: "неявное решение", open: "открытый вопрос" };
   var KIND_MARK = { decision: "■", tacit: "◪", open: "□" };
+  // Open nodes are triaged by the presence of an `orphaned_by` edge (U8): the orphaned come first,
+  // because a question a decision left hanging is what the tool exists for.
   var GROUPS = [
-    { kind: "tacit", title: "Неявные решения", sub: "приняты без того, чтобы кто-то выбирал" },
-    { kind: "open", title: "Открытое", sub: "вопросы и следствия, к которым не вернулись" },
-    { kind: "decision", title: "Решения", sub: "приняты намеренно; заменённые остаются" }
+    { kind: "tacit", title: "Неявные решения", sub: "приняты без того, чтобы кто-то выбирал",
+      empty: "нет" },
+    { kind: "open", title: "Осиротело решениями", sub: "вопросы, которые повисли из-за принятого решения",
+      pick: function (n) { return hasRel(n, "orphaned_by"); }, empty: "ничего не осиротело — или связи не проставлены" },
+    { kind: "open", title: "Просто висит", sub: "к этому не вернулись; какое решение виновато — не названо",
+      pick: function (n) { return !hasRel(n, "orphaned_by"); }, empty: "ничего не повисло — или модель не заметила" },
+    { kind: "decision", title: "Решения", sub: "приняты намеренно; заменённые остаются", empty: "нет" }
   ];
   var STATUS_LABEL = { accepted: "принято", superseded: "заменено", proposed: "предложено" };
   var ROLE_LABEL = { user: "человек", assistant: "модель" };
+  // Same three strings as store.REL_LABELS on the Python side (the export uses them); the test
+  // suite checks this page carries every one of them. `superseded_by` is the fourth relation of
+  // the map, an older field, and reads the same way in a chip.
+  var REL_LABEL = {
+    orphaned_by: "осиротело решением",
+    rests_on: "опирается на",
+    moots: "сделало неактуальным",
+    superseded_by: "заменено"
+  };
 
-  var state = { map: null, selected: null, editing: null, openCites: {} };
+  var state = { map: null, selected: null, editing: null, openCites: {},
+                filter: { q: "", kind: [], status: [], verified: [] }, newIds: {} };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -567,6 +726,73 @@
     return many;
   }
 
+  // ------------------------------------------------------------- relations
+  function hasRel(n, rel) {
+    return (n.relates || []).some(function (r) { return r.rel === rel; });
+  }
+  // Every edge touching the node, both directions. `relates` is what the file declares;
+  // `related_by` is the reverse index the server derived (U4). `superseded_by` lives on the old
+  // node and is folded in here so the neighbourhood is the whole picture, not three quarters.
+  function neighbours(n, map) {
+    var out = [];
+    (n.relates || []).forEach(function (r) { out.push({ id: r.to, rel: r.rel, dir: "out" }); });
+    if (n.superseded_by) out.push({ id: n.superseded_by, rel: "superseded_by", dir: "out" });
+    (n.related_by || []).forEach(function (r) { out.push({ id: r.from, rel: r.rel, dir: "in" }); });
+    map.nodes.forEach(function (m) {
+      if (m.superseded_by === n.id) out.push({ id: m.id, rel: "superseded_by", dir: "in" });
+    });
+    return out;
+  }
+  // "→ опирается на t5" from the node; "← o6 опирается на" onto it — the label is the same,
+  // the direction is read from the arrow.
+  function chipHtml(e, map, cls) {
+    var target = byId(map, e.id);
+    var label = REL_LABEL[e.rel] || e.rel;
+    var title = target ? esc(target.question) : "такого узла в карте нет";
+    var inner = e.dir === "out"
+      ? "<span class=\"arrow\" aria-hidden=\"true\">→</span> " + esc(label) + " <span class=\"mono\">" + esc(e.id) + "</span>"
+      : "<span class=\"arrow\" aria-hidden=\"true\">←</span> <span class=\"mono\">" + esc(e.id) + "</span> " + esc(label);
+    return "<button type=\"button\" class=\"" + cls + "\" data-goto=\"" + esc(e.id) + "\" title=\"" + title + "\">" +
+      "<span class=\"visually-hidden\">" + (e.dir === "out" ? "" : "на этот узел: ") + "</span>" + inner + "</button>";
+  }
+
+  // ------------------------------------------------------------- search and filters
+  // Node text and the quoted words of its citations; transcript excerpts stay out (U5): they
+  // are the neighbourhood of every quote, so with them everything matches.
+  function searchIndex(n) {
+    var parts = [n.question, n.decision, n.why, n.consequence];
+    (n.against || []).forEach(function (a) { parts.push(a); });
+    (n.cites || []).forEach(function (c) { parts.push(c.quote); });   // quote, not excerpt
+    return parts.join(" ").toLowerCase().replace(/\s+/g, " ");
+  }
+  function normQuery(q) { return String(q || "").trim().toLowerCase().replace(/\s+/g, " "); }
+  function filterActive(f) {
+    return !!(f.q || f.kind.length || f.status.length || f.verified.length);
+  }
+  function passes(n, f) {
+    if (f.kind.length && f.kind.indexOf(n.kind) < 0) return false;
+    if (f.status.length && f.status.indexOf(n.status) < 0) return false;
+    if (f.verified.length && f.verified.indexOf(n.verified ? "yes" : "no") < 0) return false;
+    if (f.q && searchIndex(n).indexOf(f.q) < 0) return false;
+    return true;
+  }
+  // Nodes stamped with the latest `added_at` on the map are "new" (U7) — but only when the map
+  // carries at least two distinct stamps. One stamp across the map (the first run after
+  // stamping was introduced) is not a delta, and marking everything new would say nothing.
+  function newIds(map) {
+    var stamps = {};
+    var latest = "";
+    (map.nodes || []).forEach(function (n) {
+      if (!n.added_at) return;
+      stamps[n.added_at] = true;
+      if (n.added_at > latest) latest = n.added_at;
+    });
+    var out = {};
+    if (Object.keys(stamps).length < 2) return out;
+    map.nodes.forEach(function (n) { if (n.added_at === latest) out[n.id] = true; });
+    return out;
+  }
+
   // ------------------------------------------------------------- header
   function renderHeader(map) {
     $("title").textContent = map.title || "Что решила эта сессия";
@@ -586,17 +812,41 @@
         (map.transcript_path ? " <code title=\"" + esc(map.transcript_path) + "\">" + esc(shortPath(map.transcript_path)) + "</code>" : "");
     }
 
+    // Coverage (U6): the largest turn a resolved citation reaches, against the transcript as it
+    // is right now — the session keeps growing after the map was written.
+    var cov = map.coverage || {};
+    var covEl = $("meta-coverage");
+    covEl.hidden = false;
+    if (map.transcript_error) {
+      covEl.textContent = "покрытие: неизвестно — транскрипт недоступен";
+    } else if (cov.covered_to == null) {
+      covEl.textContent = "покрытие: ни одна цитата не разрешена";
+    } else {
+      covEl.innerHTML = "покрыто до хода <b>" + esc(cov.covered_to) + "</b> из <b>" + esc(cov.turns || 0) + "</b>";
+      covEl.title = "Наибольший ход среди найденных цитат карты — и число ходов в транскрипте сейчас. Всё после — карта не видела.";
+    }
+
+    var warns = map.warnings || [];
+    $("warnings").hidden = !warns.length;
+    if (warns.length) {
+      $("warnings-summary").textContent = "⚠ " + warns.length + " " + plural(warns.length, "предупреждение", "предупреждения", "предупреждений") + " проверки";
+      $("warnings-list").innerHTML = warns.map(function (w) {
+        return "<li>" + esc(w).replace(/\b([dto]\d+)\b/g, "<span class=\"idc\">$1</span>") + "</li>";
+      }).join("");
+    }
+
     var nodes = map.nodes || [];
     if (map.errors && map.errors.length) {
       $("counts").innerHTML = "<span class=\"bad-count\"><b>" + map.errors.length + "</b> " + plural(map.errors.length, "ошибка", "ошибки", "ошибок") + " в карте — узлы не показаны</span>";
       return;
     }
-    var c = { tacit: 0, open: 0, decision: 0, superseded: 0, unverified: 0, edited: 0 };
+    var c = { tacit: 0, open: 0, decision: 0, superseded: 0, unverified: 0, edited: 0, fresh: 0 };
     nodes.forEach(function (n) {
       c[n.kind] = (c[n.kind] || 0) + 1;
       if (n.status === "superseded") c.superseded++;
       if (!n.verified) c.unverified++;
       if (n.hand_edited) c.edited++;
+      if (state.newIds[n.id]) c.fresh++;
     });
     var parts = [
       "<span><b>" + nodes.length + "</b> " + plural(nodes.length, "узел", "узла", "узлов") + "</span>",
@@ -610,6 +860,7 @@
       parts.push("<span>все узлы проверены</span>");
     }
     if (c.edited) parts.push("<span>✎ правлено вручную: <b>" + c.edited + "</b></span>");
+    if (c.fresh) parts.push("<span><span class=\"tag new\">новое</span> с прошлого запуска: <b>" + c.fresh + "</b></span>");
     $("counts").innerHTML = parts.join("");
   }
   function shortPath(p) {
@@ -620,20 +871,33 @@
   // ------------------------------------------------------------- spine
   function renderSpine(map) {
     var groups = ordered(map);
-    var html = "";
+    var f = state.filter;
+    var active = filterActive(f);
+    var sel = state.selected ? byId(map, state.selected) : null;
+    var near = {};
+    if (sel) neighbours(sel, map).forEach(function (e) { near[e.id] = true; });
+    var shown = 0;
+    var html = "<svg class=\"arcs\" id=\"arcs\" aria-hidden=\"true\"></svg>";
     GROUPS.forEach(function (g) {
-      var list = groups[g.kind];
+      var all = groups[g.kind].filter(function (n) { return !g.pick || g.pick(n); });
+      var list = active ? all.filter(function (n) { return passes(n, f); }) : all;
+      shown += list.length;
       html += "<h2 class=\"k-" + g.kind + "\"><span class=\"k\">" + esc(KIND_MARK[g.kind]) + " " + esc(g.title) + "</span><small>" + esc(g.sub) + "</small></h2>";
       if (!list.length) {
-        html += "<p class=\"empty-group\">" + (g.kind === "open" ? "ничего не повисло — или модель не заметила" : "нет") + "</p>";
+        html += all.length
+          ? "<p class=\"empty-group filtered\">скрыто фильтром: " + all.length + "</p>"
+          : "<p class=\"empty-group\">" + esc(g.empty) + "</p>";
         return;
       }
       html += "<ol>";
       list.forEach(function (n) {
         var v = verifyState(n, map);
         var sup = n.status === "superseded";
-        html += "<li><button type=\"button\" class=\"row k-" + n.kind + (sup ? " superseded" : "") + "\" data-id=\"" + esc(n.id) + "\"" +
-          " aria-current=\"" + (state.selected === n.id ? "true" : "false") + "\">" +
+        var isSel = state.selected === n.id;
+        var edges = neighbours(n, map);
+        html += "<li class=\"item k-" + n.kind + (isSel ? " sel" : near[n.id] ? " near" : "") + "\" data-item=\"" + esc(n.id) + "\">" +
+          "<button type=\"button\" class=\"row" + (sup ? " superseded" : "") + "\" data-id=\"" + esc(n.id) + "\"" +
+          " aria-current=\"" + (isSel ? "true" : "false") + "\">" +
           "<span class=\"mark\" aria-hidden=\"true\">" + esc(KIND_MARK[n.kind]) + "</span>" +
           "<span class=\"body\">" +
             "<span class=\"visually-hidden\">" + esc(KIND_LABEL[n.kind]) + ". </span>" +
@@ -644,16 +908,73 @@
             (n.why ? "<span class=\"w\" title=\"" + esc(n.why) + "\">" + esc(n.why) + "</span>" : "") +
           "</span>" +
           "<span class=\"state\">" +
-            "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + (sup && n.superseded_by ? " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>" : "") + "</span>" +
+            // An open question proposes nothing: its `proposed` status stays in the detail pane only.
+            (n.kind === "open" && n.status === "proposed" ? "" :
+              "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + (sup && n.superseded_by ? " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>" : "") + "</span>") +
             "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
             (n.hand_edited ? "<span class=\"tag edited\">✎ правлено</span>" : "") +
+            (state.newIds[n.id] ? "<span class=\"tag new\">новое</span>" : "") +
           "</span>" +
           "<span class=\"idc mono\">" + esc(n.id) + "</span>" +
-          "</button></li>";
+          "</button>" +
+          "<div class=\"chips\">" +
+            (edges.length
+              ? edges.map(function (e) { return chipHtml(e, map, "chip"); }).join("")
+              : "<span class=\"none\">ни с чем не связано</span>") +
+          "</div></li>";
       });
       html += "</ol>";
     });
     $("spine").innerHTML = html;
+    $("spine").querySelectorAll(".chip[data-goto]").forEach(function (b) {
+      b.addEventListener("click", function () { select(b.getAttribute("data-goto"), true); });
+    });
+    renderFilterCount(map, shown);
+    drawArcs(map);
+  }
+
+  function renderFilterCount(map, shown) {
+    var total = (map.nodes || []).length;
+    var f = state.filter;
+    var el = $("filter-count");
+    var active = filterActive(f);
+    $("filter-reset").hidden = !active;
+    if (!active) { el.hidden = true; el.textContent = ""; return; }
+    el.hidden = false;
+    el.innerHTML = "скрыто <b>" + (total - shown) + "</b> из <b>" + total + "</b>" +
+      (shown ? "" : " — ничего не подходит");
+  }
+
+  // Arcs from the selected row to each neighbour's row, drawn in the spine's left gutter.
+  // Only the selected node gets them: their count is its degree (≤ 3 declared, by the schema),
+  // so they read at any map size. The full tangle is never drawn — past ~30 rows it is noise.
+  function drawArcs(map) {
+    var svg = $("arcs");
+    if (!svg) return;
+    var sel = state.selected ? byId(map, state.selected) : null;
+    var spine = $("spine");
+    var from = sel && spine.querySelector("[data-item=\"" + CSS.escape(sel.id) + "\"]");
+    if (!sel || !from) { svg.innerHTML = ""; return; }
+    var base = spine.getBoundingClientRect();
+    var yOf = function (item) {
+      var q = item.querySelector(".q") || item;
+      var r = q.getBoundingClientRect();
+      return r.top - base.top + r.height / 2;
+    };
+    var y0 = yOf(from);
+    var G = 24;
+    var paths = "";
+    neighbours(sel, map).forEach(function (e) {
+      var item = spine.querySelector("[data-item=\"" + CSS.escape(e.id) + "\"]");
+      if (!item) return;   // filtered out, or not in the map
+      var y1 = yOf(item);
+      var bulge = Math.max(6, Math.min(22, Math.abs(y1 - y0) / 6));
+      paths += "<path class=\"" + e.dir + "\" d=\"M" + G + " " + y0.toFixed(1) +
+        " C " + (G - bulge).toFixed(1) + " " + y0.toFixed(1) + ", " + (G - bulge).toFixed(1) + " " + y1.toFixed(1) + ", " + G + " " + y1.toFixed(1) + "\"/>" +
+        "<circle cx=\"" + G + "\" cy=\"" + y1.toFixed(1) + "\" r=\"2.5\"/>";
+    });
+    svg.setAttribute("height", spine.scrollHeight);
+    svg.innerHTML = paths ? paths + "<circle cx=\"" + G + "\" cy=\"" + y0.toFixed(1) + "\" r=\"3.5\"/>" : "";
   }
 
   // ------------------------------------------------------------- detail
@@ -676,8 +997,10 @@
       "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + "</span>" +
       "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
       (n.hand_edited ? "<span class=\"tag edited\" title=\"Поля этого узла правил человек; регенерация их не тронет\">✎ правлено вручную</span>" : "") +
+      (state.newIds[n.id] ? "<span class=\"tag new\" title=\"Появилось с прошлого запуска\">новое</span>" : "") +
       "</p>";
     html += "<h2 class=\"q\">" + esc(n.question) + "</h2>";
+    html += linksHtml(n, map);
 
     if (sup && n.superseded_by) {
       var by = byId(map, n.superseded_by);
@@ -704,6 +1027,7 @@
     html += field(n, "status", "Статус", statusVal(n, map));
     html += field(n, "kind", "Класс", "<span class=\"val\">" + esc(KIND_LABEL[n.kind]) + " <span class=\"mono\">(" + esc(n.kind) + ")</span></span>");
     html += field(n, "cites", "Цитаты", citesVal(n, map));
+    if (n.added_at) html += fieldRO("Добавлено", "<span class=\"val\">" + esc(whenText(n.added_at)) + "</span>");
     html += "</dl>";
     html += "<p class=\"rule-note\">Правка исправляет запись, а не переигрывает решение. Если вывод изменился — добавьте новый узел в <code>.aang/map.json</code>, а этому поставьте статус «заменено» и укажите, чем.</p>";
     el.innerHTML = html;
@@ -724,6 +1048,34 @@
       return "<p class=\"notice loose\"><b>✓ Проверено, с оговоркой.</b> Все цитаты найдены, но не все — как ровный дословный кусок; оговорка стоит у каждой.</p>";
     }
     return "";
+  }
+
+  // The neighbourhood: what this node declares, then what the server found pointing at it.
+  // "На этом держатся" is the answer to "what breaks if I change this" — one look, nothing missed.
+  function linksHtml(n, map) {
+    var edges = neighbours(n, map);
+    var out = edges.filter(function (e) { return e.dir === "out"; });
+    var into = edges.filter(function (e) { return e.dir === "in"; });
+    var html = "<section class=\"links\" aria-label=\"Связи узла\"><h3>Связи</h3>";
+    if (!edges.length) return html + "<p class=\"none\">ни с чем не связано</p></section>";
+    var li = function (e) {
+      var t = byId(map, e.id);
+      return "<li>" + chipHtml(e, map, "chip") +
+        (t ? "<span class=\"qq\">" + esc(t.question) + "</span>" : "<span class=\"qq\"><b>такого узла в карте нет</b></span>") + "</li>";
+    };
+    if (out.length) html += "<ul>" + out.map(li).join("") + "</ul>";
+    if (into.length) {
+      html += "<h3 class=\"holds\">На этом держатся: " + into.map(function (e) { return "<span class=\"mono\">" + esc(e.id) + "</span>"; }).join(", ") + "</h3>" +
+        "<ul>" + into.map(li).join("") + "</ul>";
+    }
+    return html + "</section>";
+  }
+  function fieldRO(label, valueHtml) {
+    return "<div class=\"f\"><dt>" + esc(label) + "</dt><dd>" + valueHtml + "</dd></div>";
+  }
+  function whenText(iso) {
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? iso : d.toLocaleString("ru-RU", { dateStyle: "medium", timeStyle: "short" });
   }
 
   function textVal(s, strike, emptyText) {
@@ -965,6 +1317,50 @@
     var row = ev.target.closest && ev.target.closest(".row");
     if (row) select(row.getAttribute("data-id"), true);
   });
+  window.addEventListener("resize", function () {
+    if (state.map && !$("panes").hidden) drawArcs(state.map);
+  });
+
+  // ------------------------------------------------------------- search and filter controls
+  var search = $("search");
+  search.addEventListener("input", function () {
+    var q = normQuery(search.value);
+    // An id typed whole is a jump, not a filter: the list stays put and scrolls to the node.
+    if (state.map && byId(state.map, q)) {
+      state.filter.q = "";
+      select(q, true);
+      $("filter-count").hidden = false;
+      $("filter-count").innerHTML = "выбран узел <b class=\"mono\">" + esc(q) + "</b>";
+      return;
+    }
+    state.filter.q = q;
+    if (state.map && !$("panes").hidden) renderSpine(state.map);
+  });
+  search.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Escape") return;
+    ev.preventDefault();
+    search.value = "";
+    state.filter.q = "";
+    if (state.map && !$("panes").hidden) renderSpine(state.map);
+  });
+  $("filters").addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest(".tog");
+    if (!b) return;
+    var group = b.parentNode.getAttribute("data-group");
+    var v = b.getAttribute("data-v");
+    var list = state.filter[group];
+    var i = list.indexOf(v);
+    if (i < 0) list.push(v); else list.splice(i, 1);
+    b.setAttribute("aria-pressed", i < 0 ? "true" : "false");
+    if (state.map && !$("panes").hidden) renderSpine(state.map);
+  });
+  $("filter-reset").addEventListener("click", function () {
+    state.filter = { q: "", kind: [], status: [], verified: [] };
+    search.value = "";
+    $("filters").querySelectorAll(".tog").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
+    if (state.map && !$("panes").hidden) renderSpine(state.map);
+    search.focus();
+  });
   $("spine").addEventListener("keydown", function (ev) {
     if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
     var rows = Array.prototype.slice.call($("spine").querySelectorAll(".row"));
@@ -979,6 +1375,7 @@
   // ------------------------------------------------------------- top-level states
   function applyMap(map) {
     state.map = map;
+    state.newIds = newIds(map);
     renderHeader(map);
 
     var errs = map.errors || [];
