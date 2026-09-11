@@ -9,12 +9,11 @@ change the exit code — a nudge that failed the build would teach people to ign
 """
 
 import argparse
-import datetime
 import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import schema, server, store
+from . import schema, server, session, store
 
 MARK_OK = "✓"
 MARK_BAD = "✗"
@@ -345,4 +344,4 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
 
 def _now_iso():  # type: () -> str
     """Current UTC time as `2026-09-11T12:00:00Z` — the form the map format documents."""
-    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    return session.now_iso()
