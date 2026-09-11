@@ -65,7 +65,7 @@ session id recorded in the map, else the newest transcript under `~/.claude/proj
 | command | what it does |
 |---|---|
 | `aang merge [--candidate PATH] [--keep]` | Validate `.aang/candidate.json`, resolve every quote to a turn, fold it into `.aang/map.json` preserving hand edits, delete the candidate. Exit 1 and nothing written when the candidate is invalid. A quote that is not found is saved with `turn: null` — the node stays, marked unverified. |
-| `aang check` | Validate the map and resolve every citation; print ✓/✗ per node and per quote with the reason. **Exit 1** when the map is invalid, any citation fails, or the transcript cannot be found. This is the command a human trusts. |
+| `aang check` | Validate the map and resolve every citation; print ✓/✗ per node and per quote with the reason, △ for a node with no citations at all. **Exit 1** when the map is invalid, any citation fails, or the transcript cannot be found. This is the command a human trusts. |
 | `aang view [--port 8790]` | Serve the viewer on `127.0.0.1` until Ctrl-C. |
 | `aang export [--out docs/decisions.md]` | Write the Markdown decision record — the human copy that gets committed. Superseded decisions kept and marked; unverified nodes marked. |
 
@@ -90,7 +90,7 @@ session id recorded in the map, else the newest transcript under `~/.claude/proj
       "why": "k>1 маскирует нестабильность промпта",
       "against": ["Дисперсия выше, нужен набор существеннее"],
       "consequence": "500 примеров вместо 100, прогон дорожает втрое",
-      "cites": [{"turn": 47, "role": "user", "quote": "давай pass@1"}],
+      "cites": [{"turn": 47, "role": "user", "quote": "давай pass@1 на отложенном наборе"}],
       "hand_edited": false
     }
   ]
@@ -136,22 +136,28 @@ to a hand-edited node is mark it superseded when the conversation genuinely move
 words stay yours, the bookkeeping follows the conversation.
 
 Nodes the model wrote and you did not touch belong to the model: a later run replaces them or, if
-it no longer emits them, drops them. To remove a node for good, delete it from the file (if the
-model re-emits it, edit it and set `hand_edited` so your version wins). To add a node, add it with
+it no longer emits them, drops them. Two exceptions: a `superseded` node is history and survives a
+run that forgot it, and a node you **deleted** from the file stays deleted — the skill re-emits only
+what is in `.aang/map.json`, so a deletion is a hand edit like any other. To add a node, add it with
 `hand_edited: true` and at least one verbatim quote.
 
 Never edit a decision's conclusion in place. Add the new decision and supersede the old one.
 
 ## Trust model
 
+- **A ✓ means the words were said, not that they mean this.** The checker proves that the quote
+  occurs in the transcript; whether it supports the claim beside it is for you to read. The skill's
+  rule is that the quote must contain what the node states — the number, the name, the position —
+  and the viewer shows the excerpt around every quote so you can see for yourself. Read it.
 - **Every claim cites a quote.** A node without a resolving citation is shown as **unverified** in
   the viewer, in `check`, and in the export — it is the model's claim, not a record.
 - A quote verifies only if those words occur, whole and in that order, in one turn of the
   transcript. Case, punctuation and markdown are forgiven; a changed word, number or operator is
-  not. Three-word minimum; an elided quote (`…`) is accepted only in bounded form and is labelled
-  "with omissions".
-- What the checker cannot catch: a quote that is real but does not support the claim next to it.
-  That is why the viewer shows the excerpt around every quote. Read it.
+  not. Three-word minimum (a word has a letter in it — symbols and bare numbers do not count); an
+  elided quote (`…`) is accepted only in bounded form and is labelled "with omissions".
+- Only the conversation is indexed: what the user typed and what the model replied. Slash-command
+  output, relayed subagent reports, task notifications and system reminders arrive in the
+  transcript as `user` records, and the indexer drops them — a quote from one never resolves.
 - The transcript is the most private thing on the machine. It is read locally, never copied, and
   the server that shows excerpts from it answers loopback only.
 

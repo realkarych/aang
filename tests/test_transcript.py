@@ -20,12 +20,12 @@ class IndexTest(unittest.TestCase):
                          ["user", "user", "assistant", "user", "assistant",
                           "user", "user", "assistant", "assistant"])
         self.assertEqual([t["uuid"] for t in turns],
-                         ["u-cmd", "u-1", "a-1-text", "u-2", "a-2-text",
+                         ["u-0", "u-1", "a-1-text", "u-2", "a-2-text",
                           "u-3a", "u-3b", "a-3-text", "a-4-text"])
         self.assertTrue(turns[1]["text"].startswith("Чем мерить"))
         self.assertEqual(turns[1]["ts"], "2026-09-11T10:00:01.000Z")
         # user list content: only text blocks, image ignored
-        self.assertEqual(turns[3]["text"], "давай pass@1")
+        self.assertEqual(turns[3]["text"], "давай тогда pass@1")
 
     def test_assistant_message_split_across_records_is_one_turn(self):
         turns = transcript.index(fixture("normal.jsonl"))
@@ -77,6 +77,35 @@ class IndexTest(unittest.TestCase):
         self.assertEqual(len(turns), 1)
         self.assertEqual(turns[0]["role"], "user")
         self.assertEqual(turns[0]["text"], "Запусти тесты.")
+
+    def test_injected_user_records_are_not_turns(self):
+        # Slash-command echoes, relayed subagent reports, task notifications, system
+        # reminders and compaction summaries arrive as `user` records nobody typed.
+        # None of it may become a turn — a quote from it would verify as the user's words.
+        turns = transcript.index(fixture("injected.jsonl"))
+        self.assertEqual([t["uuid"] for t in turns], ["u-real-1", "a-1", "u-mixed", "a-2"])
+        self.assertEqual([t["role"] for t in turns], ["user", "assistant", "user", "assistant"])
+        texts = "\n".join(t["text"] for t in turns)
+        for injected in ("command-name", "Set model to", "DONE_WITH_CONCERNS", "outranks everything",
+                         "Another Claude session", "task-notification", "finished the whole review",
+                         "system-reminder", "opened the file", "being continued"):
+            self.assertNotIn(injected, texts, injected)
+        # a real message that shares a record with a system reminder keeps its own text
+        self.assertEqual(turns[2]["text"], "Поднимай порог до трёх суток, выходные должны переживать.")
+
+    def test_injected_text_never_resolves(self):
+        turns = transcript.index(fixture("injected.jsonl"))
+        for quote in ("Task 1 status: DONE_WITH_CONCERNS. Commit 71e0779 on main",
+                      "Stale `error` outranks everything, forever",
+                      "Set model to `Fable 5.1` and saved as your default",
+                      "Agent finished the whole review",
+                      "the user said поднимай порог до трёх суток"):
+            r = transcript.resolve([{"quote": quote}], turns)[0]
+            self.assertFalse(r["ok"], quote)
+            self.assertIsNone(r["turn"], quote)
+        r = transcript.resolve([{"quote": "Поднимай порог до трёх суток"}], turns)[0]
+        self.assertTrue(r["ok"])
+        self.assertEqual(r["role"], "user")
 
     def test_truncated_and_malformed_lines_are_skipped(self):
         turns = transcript.index(fixture("truncated.jsonl"))
@@ -287,7 +316,7 @@ class ResolveTest(unittest.TestCase):
         r = self.one({"quote": "…"})
         self.assertIn("нет цитаты", r["reason"])
         # the floor is exactly 3 words and 12 chars
-        r = self.one({"quote": "давай pass@1"})
+        r = self.one({"quote": "давай тогда pass@1"})
         self.assertTrue(r["ok"], r["reason"])
         self.assertEqual(r["turn"], 4)
 
@@ -378,7 +407,7 @@ class ResolveTest(unittest.TestCase):
         self.assertFalse(r[0]["ok"])
 
     def test_results_keep_input_order(self):
-        cites = [{"quote": "давай pass@1 и всё"}, {"quote": "k>1 маскирует нестабильность промпта"}]
+        cites = [{"quote": "давай тогда pass@1 и всё"}, {"quote": "k>1 маскирует нестабильность промпта"}]
         r = transcript.resolve(cites, self.turns)
         self.assertEqual([x["quote"] for x in r], [c["quote"] for c in cites])
         self.assertEqual([x["ok"] for x in r], [False, True])

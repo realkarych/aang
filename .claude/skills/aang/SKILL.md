@@ -77,7 +77,11 @@ there"? Then it is `tacit`. If the answer is "we discussed it and picked it", it
 Fields: `question` is the question nobody asked ("What sample size are we evaluating on?");
 `decision` is the value in force; `why` is **where it came from** (the viewer labels this field
 "origin" on tacit nodes); `consequence` is what now depends on it. `status: accepted` — it is in
-force, that is the point. Cite the line where it first appeared or was first relied on.
+force, that is the point. Cite the line that **states the value** — the number, the name, the
+version — if anyone ever said it aloud. Most tacit values were never said: then cite the line where
+it was first *relied on* (the reply that used it, the offhand remark it came from) and say in `why`
+that the value itself was never stated in the conversation. That is an honest weak citation. A line
+that merely shows the topic came up is not a citation at all.
 
 ### `open` — raised and never answered, or orphaned by a decision
 
@@ -102,9 +106,11 @@ nobody went back. For each decision in your map, ask:
 Fields: `question` is the hanging thing phrased as a question; `decision` stays empty — it has no
 answer, that is what makes it open (the validator rejects an `open` with a decision); `why` says
 why it hangs and, for an orphaned consequence, **which decision orphaned it** (name the node id);
-`status: proposed`. Cite the turn that raised it, or the decision that orphaned it — a consequence
-you derive now may cite the decision it follows from. Only consequences you can trace to a specific
-node; a generic risk with no decision behind it is not part of the record.
+`status: proposed`. Cite the line that raised it. For a consequence you derive now, there is no
+line that raised it — cite the decision it follows from: **quote the line where that decision was
+made, the same quote its node carries** (copy it from that node's `cites`), and name the node id in
+`why`. A cite has no field for a node id; `{"quote": "d3"}` is not a citation. Only consequences you
+can trace to a specific node; a generic risk with no decision behind it is not part of the record.
 
 ### `decision` — chosen on purpose
 
@@ -138,7 +144,7 @@ replaced it — instead of finding only B and proposing A again.
 
 A wrong map is worse than no map: it launders a guess into a record. The citation is the only thing
 standing between the two. Every node cites at least one verbatim quote from the conversation
-(`open` may cite the decision that orphaned it, or nothing).
+(`open` may carry the quote of the decision that orphaned it, or nothing).
 
 ```json
 "cites": [{"quote": "давай pass@1 на отложенном наборе"}]
@@ -154,24 +160,50 @@ What resolves — this is how the checker works:
   forgiven. A changed word, a changed number, a changed operator (`<` vs `>`), a dropped word, a
   reordered phrase are not.
 - **At least three real words and twelve characters.** Symbols and bare numbers do not count as
-  words. `pass@1` fails; `давай pass@1` passes. Aim for a full clause, 6–20 words — enough to carry
-  the meaning, including the negation if there is one (`не надо` and `надо` are different decisions).
+  words. `pass@1` fails; so does `давай pass@1` (two words and a number); `давай pass@1 на отложенном`
+  passes. Aim for a full clause, 6–20 words — enough to carry the meaning, including the negation if
+  there is one (`не надо` and `надо` are different decisions).
 - **One contiguous run, whole words at both ends.** Do not stitch scattered fragments with `...`.
   If you must elide, every fragment needs at least four words, the gap at most 50 words, and the
   citation is shown as "with omissions" — verbatim is always better. Avoid quoting text that itself
   contains `...` or `…`; the checker reads those as elisions.
 - **From the conversation only**: what the user typed and what you wrote in your replies. Tool
-  calls, tool output, file contents you read, your own thinking, a subagent's report, and text
-  injected by skills or the system are not in the transcript index and will not resolve.
+  calls, tool output, file contents you read, your own thinking, a subagent's report, a task
+  notification, slash-command output and text injected by skills or the system are not the
+  conversation. The indexer strips them, so they will not resolve — and if one ever did, it would
+  be a ✓ beside words the user never said. Do not cite them.
 - Prefer the user's words for something the user decided; your proposal plus the user's reply when
   the user agreed to yours. A node may carry several cites — the decision, and where its consequence
   surfaced.
 
 When a quote does not resolve, the node still merges; it is saved with `turn: null` and shown as
 **unverified**. That is the correct outcome for an uncertain memory. Never polish a quote into
-something that sounds right, and never pick a nearby line that resolves but does not say what the
-node claims — a quote that verifies but does not support the claim is the one failure the checker
-cannot catch, and it is the worst one available.
+something that sounds right.
+
+### The quote must contain what the node states
+
+The checker proves that the words were said. It cannot prove that they mean what the node says —
+that is your job, and it is the rule that matters most:
+
+- **The quote contains the thing the node states.** A `decision` of "72 hours" cites a line with
+  "72" in it. A `decision` naming a mechanism cites the sentence that names it. A `tacit` value
+  cites the line that states the value, or — when nobody ever said it — the line it was relied on,
+  with `why` saying so. A `why` cites the argument, not the conclusion.
+- **A line proving the topic was discussed is not a citation.** "Let's talk about thresholds" does
+  not support "the threshold is 24 hours". The first words of the message that started the topic
+  do not support what the topic concluded.
+- **A user's question is never the support for the assistant's answer.** "What should the
+  principles be?" does not verify "it is supervisory control, not visualization" — the sentence
+  that says so is in the reply. Cite the reply; cite the question only for a node about the
+  question (an `open` it raised, a `tacit` it introduced).
+- **Prefer the line that says it over the line that resolves easily.** The sentence that actually
+  states the position is usually longer, further away and harder to remember exactly than a short
+  nearby line on the same topic. Cite it anyway. If you cannot recall it verbatim, the node is
+  unverified — that is honest. A short line that resolves but does not say it is a ✓ next to a
+  guess, the one failure the checker cannot catch and the worst one available.
+- **Weak and honest beats strong-looking and wrong.** When no line states what the node states,
+  cite what you have and say in `why` that it was never stated. The reader then knows exactly how
+  much the ✓ means.
 
 ## The file
 
@@ -237,7 +269,10 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    1 if any citation failed. For each ✗: if you misquoted a line you clearly remember, write a
    corrected candidate (same ids, all nodes) and merge again — **once**. Do not iterate hunting for
    a quote that resolves; after one correction pass, whatever is still ✗ stays unverified, and you
-   say so.
+   say so. Then the check the tool cannot do: **for every ✓, re-read the quote and ask whether it
+   says what the node says** — the number, the name, the position. If it does not, replace it with
+   the line that does (this counts as the one correction pass) or drop it and let the node stand
+   unverified. A ✓ beside a quote that does not support the node is worse than a ✗.
 6. Start the viewer in the background: `aang view` (same `--session`; it serves until stopped —
    use the Bash tool's background mode). Its output carries the URL, `http://127.0.0.1:8790/` by default; if the port is
    taken it exits 1 — retry with `--port 8791`.
@@ -249,8 +284,14 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 
 `/aang` is usually run more than once. Merge matches nodes by id:
 
-- **Re-emit every node** that is still true, with its existing id, superseded ones included — a
-  node you leave out is dropped (unless hand-edited). Then add the new ones.
+- **Re-emit every node in `.aang/map.json`** that is still true, with its existing id, superseded
+  ones included — a node you leave out is dropped (unless hand-edited or superseded; merge keeps
+  those). Then add the new ones.
+- **Only nodes present in `.aang/map.json`.** A node you emitted in an earlier run that is no longer
+  in the file was removed by the user. That is a hand edit — the most basic one. Do not bring it
+  back, however true it still seems; if you believe it matters, say so to the user instead.
+- Superseded nodes are history: merge keeps them even if you forget them, but re-emit them anyway,
+  text unchanged, so the record and the candidate agree.
 - Nodes marked `hand_edited: true` are the user's: merge keeps their text regardless of what you
   write, and you cannot overwrite them. You may still supersede one — write it with
   `status: superseded` and `superseded_by`, and merge applies exactly that and nothing else.

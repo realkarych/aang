@@ -120,6 +120,10 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     - A node not hand-edited in `old` is replaced by `new`'s node of the same id in full
       (kind included), and dropped when `new` omits it — that is what "regeneration of
       everything else" means.
+    - Except a node already `superseded` in `old`: it survives when `new` omits it, hand-
+      edited or not. A superseded decision is history (R2), and a regeneration that
+      forgot to re-emit it has no business retracting it — the next reader would find
+      only the replacement and propose the old position again.
     - An old node that a surviving node points at through `superseded_by` is kept too
       (transitively), so the result stays valid and the superseded decision stays visible.
     - Order: `new`'s order; old-only survivors are inserted after their nearest surviving
@@ -149,8 +153,10 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
             incoming["hand_edited"] = False
             result.append(incoming)
 
-    # Old-only nodes: hand-edited ones survive; so does anything a survivor supersedes into.
-    keep = set(n["id"] for n in old_nodes if n.get("hand_edited") is True) - seen
+    # Old-only nodes: hand-edited and superseded ones survive; so does anything a
+    # survivor supersedes into.
+    keep = set(n["id"] for n in old_nodes
+               if n.get("hand_edited") is True or n.get("status") == "superseded") - seen
     keep |= _supersede_closure(result + [old_by_id[i] for i in keep], old_by_id, seen | keep)
     for node in old_nodes:
         node_id = node["id"]

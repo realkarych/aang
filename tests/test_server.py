@@ -21,7 +21,7 @@ def sample_map():
         "nodes": [
             {"id": "d1", "kind": "decision", "status": "accepted", "question": "Чем мерить?",
              "decision": "pass@1", "why": "k>1 маскирует",
-             "cites": [{"quote": "давай pass@1"}, {"quote": "Ещё вариант: pass@5", "turn": 3}]},
+             "cites": [{"quote": "давай тогда pass@1"}, {"quote": "Ещё вариант: pass@5", "turn": 3}]},
             {"id": "d2", "kind": "decision", "status": "accepted", "question": "Сколько?",
              "decision": "500", "why": "так сказали",
              "cites": [{"quote": "нужно 500 примеров вместо 100"}, {"quote": "этого никто не говорил"}]},

@@ -155,6 +155,33 @@ class MergeTest(unittest.TestCase):
         merged = store.merge(a_map(node("d1"), node("d2")), a_map(node("d2")))
         self.assertEqual(ids(merged), ["d2"])
 
+    def test_superseded_node_survives_when_new_omits_it(self):
+        # Run two: the model re-emits what it still believes and forgets the history.
+        # d1 → d2 is a record of an argument already had; it must not be retracted.
+        old = a_map(node("d1", status="superseded", superseded_by="d2", decision="старое"),
+                    node("d2"))
+        new = a_map(node("d2"), node("d3"))
+        merged = store.merge(old, new)
+        self.assertEqual(ids(merged), ["d1", "d2", "d3"])
+        d1 = merged["nodes"][0]
+        self.assertEqual(d1["status"], "superseded")
+        self.assertEqual(d1["superseded_by"], "d2")
+        self.assertEqual(d1["decision"], "старое")
+        self.assertFalse(d1["hand_edited"])
+        self.assertEqual(schema.validate(merged), [])
+        # and again — history is kept across every later regeneration, with its target
+        merged2 = store.merge(merged, a_map(node("d3")))
+        self.assertEqual(ids(merged2), ["d1", "d2", "d3"])
+        self.assertEqual(schema.validate(merged2), [])
+
+    def test_superseded_node_omitted_together_with_its_replacement(self):
+        # The replacement is dropped by the model too: the old node still stays, and
+        # so does its target (the closure keeps the map valid).
+        old = a_map(node("d1", status="superseded", superseded_by="d2"), node("d2"), node("d3"))
+        merged = store.merge(old, a_map(node("d3")))
+        self.assertEqual(ids(merged), ["d1", "d2", "d3"])
+        self.assertEqual(schema.validate(merged), [])
+
     def test_kind_conflict_hand_edited_keeps_its_kind(self):
         old = a_map(node("t1", kind="tacit", hand_edited=True))
         new = a_map(node("t1", kind="decision"))
@@ -245,7 +272,7 @@ class FillTurnsTest(unittest.TestCase):
         self.turns = transcript.index(os.path.join(FIXTURES, "normal.jsonl"))
 
     def test_fills_turn_and_role_from_quote(self):
-        m = a_map(node("d1", cites=[{"quote": "давай pass@1"},
+        m = a_map(node("d1", cites=[{"quote": "давай тогда pass@1"},
                                     {"quote": "нужно 500 примеров вместо 100", "role": "assistant"}]))
         report = store.fill_turns(m, self.turns)
         cites = m["nodes"][0]["cites"]
@@ -255,7 +282,7 @@ class FillTurnsTest(unittest.TestCase):
         self.assertEqual([r["node_id"] for r in report], ["d1", "d1"])
 
     def test_model_supplied_turn_is_discarded_and_recomputed(self):
-        m = a_map(node("d1", cites=[{"turn": 2, "quote": "давай pass@1"}]))
+        m = a_map(node("d1", cites=[{"turn": 2, "quote": "давай тогда pass@1"}]))
         store.fill_turns(m, self.turns)
         self.assertEqual(m["nodes"][0]["cites"][0]["turn"], 4)
 
@@ -266,7 +293,7 @@ class FillTurnsTest(unittest.TestCase):
         self.assertFalse(report[0]["ok"])
 
     def test_no_turns_leaves_everything_null(self):
-        m = a_map(node("d1", cites=[{"quote": "давай pass@1"}]))
+        m = a_map(node("d1", cites=[{"quote": "давай тогда pass@1"}]))
         store.fill_turns(m, [])
         self.assertIsNone(m["nodes"][0]["cites"][0]["turn"])
 

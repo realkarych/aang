@@ -11,12 +11,13 @@ import argparse
 import datetime
 import os
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from . import schema, server, store
 
 MARK_OK = "✓"
 MARK_BAD = "✗"
+MARK_NONE = "△"  # nothing to check — the viewer uses the same glyph
 
 
 def main(argv=None, stdout=None, stderr=None):  # type: (Optional[List[str]], Any, Any) -> int
@@ -124,10 +125,10 @@ def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         out.write("Транскрипт: %s\n" % transcript_error)
     else:
         out.write("Транскрипт: %s (%d ходов)\n" % (source.path, len(turns)))
-    failed = _print_nodes(view["nodes"], out)
+    failed, uncited = _print_nodes(view["nodes"], out)
     total_cites = sum(len(n["cites"]) for n in view["nodes"])
-    out.write("\nУзлов: %d, цитат: %d, не подтверждено: %d\n"
-              % (len(view["nodes"]), total_cites, failed))
+    out.write("\nУзлов: %d, цитат: %d, не подтверждено: %d, узлов без цитат: %d\n"
+              % (len(view["nodes"]), total_cites, failed, uncited))
     if transcript_error:
         out.write("Итог: %s карта не проверена — транскрипт недоступен\n" % MARK_BAD)
         return 1
@@ -135,14 +136,26 @@ def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         out.write("Итог: %s карта не подтверждена — исправьте или удалите узлы с ненайденными цитатами\n"
                   % MARK_BAD)
         return 1
+    # A node with nothing to cite (an `open` may have none) is not a failure, but it is
+    # not verified either — say so next to the verdict rather than above it.
+    if uncited:
+        out.write("Итог: %s каждая цитата найдена в транскрипте; %s %d %s без цитат — не проверить\n"
+                  % (MARK_OK, MARK_NONE, uncited, _nodes_word(uncited)))
+        return 0
     out.write("Итог: %s каждая цитата найдена в транскрипте\n" % MARK_OK)
     return 0
 
 
-def _print_nodes(nodes, out):  # type: (List[Dict[str, Any]], Any) -> int
+def _print_nodes(nodes, out):  # type: (List[Dict[str, Any]], Any) -> Tuple[int, int]
+    """Print every node; return (failing citations, nodes with no citation at all)."""
     failed = 0
+    uncited = 0
     for node in nodes:
-        mark = MARK_OK if node["verified"] else MARK_BAD
+        if not node["cites"]:
+            uncited += 1
+            mark = MARK_NONE
+        else:
+            mark = MARK_OK if node["verified"] else MARK_BAD
         status = node["status"]
         if node.get("superseded_by"):
             status += " → %s" % node["superseded_by"]
@@ -163,7 +176,16 @@ def _print_nodes(nodes, out):  # type: (List[Dict[str, Any]], Any) -> int
                 failed += 1
                 out.write("    %s %s «%s»\n        %s\n"
                           % (MARK_BAD, where, _clip(cite["quote"], 70), cite["reason"]))
-    return failed
+    return failed, uncited
+
+
+def _nodes_word(n):  # type: (int) -> str
+    """Russian plural of «узел» for a count."""
+    if n % 10 == 1 and n % 100 != 11:
+        return "узел"
+    if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
+        return "узла"
+    return "узлов"
 
 
 def _clip(text, limit):  # type: (Any, int) -> str
@@ -262,6 +284,8 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     old_ids = set(n["id"] for n in old["nodes"] if isinstance(n, dict))
     new_ids = set(n["id"] for n in candidate["nodes"])
     kept = [n["id"] for n in merged["nodes"] if n["hand_edited"]]
+    history = [n["id"] for n in merged["nodes"]
+               if n["id"] not in new_ids and not n["hand_edited"] and n["status"] == "superseded"]
     added = [n["id"] for n in merged["nodes"] if n["id"] not in old_ids]
     dropped = sorted(old_ids - set(n["id"] for n in merged["nodes"]))
     missed = [r for r in resolved if not r["ok"]]
@@ -273,6 +297,8 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         out.write("  правки сохранены: %s\n" % ", ".join(kept))
     if dropped:
         out.write("  убраны (нет в кандидате и не правились): %s\n" % ", ".join(dropped))
+    if history:
+        out.write("  заменённые сохранены (нет в кандидате, но это история): %s\n" % ", ".join(history))
     ignored = sorted(new_ids & set(kept))
     if ignored:
         out.write("  кандидат не тронул правленные: %s\n" % ", ".join(ignored))

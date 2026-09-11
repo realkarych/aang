@@ -52,7 +52,7 @@ class CheckTest(CliTestCase):
         self.assertIn("Карты нет", err)
 
     def test_valid_map_all_cites_found_exits_0(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
         code, out, err = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 0, out + err)
@@ -61,7 +61,7 @@ class CheckTest(CliTestCase):
         self.assertIn("✓ каждая цитата найдена", out)
 
     def test_bad_citation_exits_1_and_names_node(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("d2", "фраза, которой в сессии не было")))
         code, out, err = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 1)
@@ -70,13 +70,13 @@ class CheckTest(CliTestCase):
         self.assertIn("не подтверждено: 1", out)
 
     def test_wrong_turn_number_exits_1(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1", cites=[{"turn": 2, "quote": "давай pass@1"}])))
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1", cites=[{"turn": 2, "quote": "давай тогда pass@1"}])))
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 1)
         self.assertIn("не найдена в ходе 2", out)
 
     def test_invalid_map_exits_1_with_errors(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1", status="done")))
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1", status="done")))
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 1)
         self.assertIn("невалидна", out)
@@ -91,7 +91,7 @@ class CheckTest(CliTestCase):
         self.assertIn("не читается", err)
 
     def test_missing_transcript_exits_1_but_prints_map(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1")))
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", MISSING)
         self.assertEqual(code, 1)
         self.assertIn("транскрипт сессии не найден", out)
@@ -99,11 +99,27 @@ class CheckTest(CliTestCase):
 
     def test_open_node_without_cites_is_reported_not_fatal(self):
         store.save(self.root, candidate(
-            decision("d1", "давай pass@1"),
+            decision("d1", "давай тогда pass@1"),
             {"id": "o1", "kind": "open", "status": "proposed", "question": "Кто платит?", "why": "следствие"}))
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 0, out)
         self.assertIn("нет цитат", out)
+        # Not a failure, not a pass: a third mark, counted in the summary, and never a
+        # ✗ above a ✓ verdict.
+        self.assertIn("△ o1", out)
+        self.assertIn("✓ d1", out)
+        self.assertNotIn("✗", out)
+        self.assertIn("узлов без цитат: 1", out)
+        self.assertIn("Итог: ✓", out)
+        self.assertIn("1 узел без цитат", out)
+
+    def test_clean_map_summary_has_no_uncited_note(self):
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
+        code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(code, 0, out)
+        self.assertIn("узлов без цитат: 0", out)
+        self.assertNotIn("без цитат —", out)
+        self.assertNotIn("△", out)
 
 
 class MergeTest(CliTestCase):
@@ -124,8 +140,8 @@ class MergeTest(CliTestCase):
         self.assertTrue(os.path.exists(path))  # a refused candidate is left for inspection
 
     def test_invalid_candidate_exits_1_with_named_errors(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1")))
-        self.write_candidate(candidate(decision("d1", "давай pass@1", kind="wat"),
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1", kind="wat"),
                                        decision("d2", "")))
         code, _, err = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 1)
@@ -136,7 +152,7 @@ class MergeTest(CliTestCase):
 
     def test_merge_fills_turns_records_session_and_consumes_candidate(self):
         cand_path = self.write_candidate(candidate(
-            decision("d1", "давай pass@1"),
+            decision("d1", "давай тогда pass@1"),
             decision("t1", "нужно 500 примеров вместо 100", kind="tacit"),
             decision("d2", "выдуманная цитата, которой не было", cites=[{"turn": 7, "quote": "выдуманная цитата, которой не было"}])))
         code, out, err = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
@@ -159,7 +175,7 @@ class MergeTest(CliTestCase):
         self.assertIn("✗ d2", out)
 
     def test_merge_stamps_generated_at_with_current_utc_time(self):
-        cand = candidate(decision("d1", "давай pass@1"))
+        cand = candidate(decision("d1", "давай тогда pass@1"))
         cand["generated_at"] = "1999-01-01T00:00:00Z"  # the model's guess is not trusted
         self.write_candidate(cand)
         before = time.time()
@@ -172,7 +188,7 @@ class MergeTest(CliTestCase):
         self.assertLessEqual(parsed, time.time() + 1)
 
     def test_generated_at_is_stamped_even_when_candidate_has_none(self):
-        cand = candidate(decision("d1", "давай pass@1"))
+        cand = candidate(decision("d1", "давай тогда pass@1"))
         cand["generated_at"] = ""
         self.write_candidate(cand)
         self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
@@ -198,13 +214,13 @@ class MergeTest(CliTestCase):
     def test_second_merge_keeps_the_maps_session_when_candidate_has_none(self):
         roots = self._two_projects()
         # first merge names session A explicitly; the map records it
-        self.write_candidate(candidate(decision("d1", "давай pass@1")))
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots,
                                       "--session", "aaaa1111-0000-0000-0000-000000000001")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(store.load(self.root)["session_id"], "aaaa1111-0000-0000-0000-000000000001")
         # second merge: candidate has no session id, and another project's session B is newer
-        self.write_candidate(candidate(decision("d1", "давай pass@1"),
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
                                        decision("d2", "нужно 500 примеров вместо 100")))
         code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
         self.assertEqual(code, 0, out + err)
@@ -220,10 +236,10 @@ class MergeTest(CliTestCase):
 
     def test_candidate_session_id_still_wins_over_the_maps(self):
         roots = self._two_projects()
-        old = candidate(decision("d1", "давай pass@1"))
+        old = candidate(decision("d1", "давай тогда pass@1"))
         old["session_id"] = "aaaa1111-0000-0000-0000-000000000001"
         store.save(self.root, old)
-        cand = candidate(decision("d1", "давай pass@1"))
+        cand = candidate(decision("d1", "давай тогда pass@1"))
         cand["session_id"] = "bbbb2222-0000-0000-0000-000000000002"
         self.write_candidate(cand)
         code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
@@ -234,19 +250,19 @@ class MergeTest(CliTestCase):
 
     def test_newest_session_is_taken_and_stamped_only_when_nobody_names_one(self):
         roots = self._two_projects()
-        self.write_candidate(candidate(decision("d1", "давай pass@1")))
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
         self.assertEqual(code, 0, out)
         self.assertEqual(store.load(self.root)["session_id"], "bbbb2222-0000-0000-0000-000000000002")
 
     def test_keep_flag_leaves_candidate(self):
-        cand_path = self.write_candidate(candidate(decision("d1", "давай pass@1")))
+        cand_path = self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, _, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL, "--keep")
         self.assertEqual(code, 0)
         self.assertTrue(os.path.exists(cand_path))
 
     def test_missing_transcript_merges_with_null_turns(self):
-        self.write_candidate(candidate(decision("d1", "давай pass@1")))
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript", MISSING)
         self.assertEqual(code, 0)
         self.assertIn("ходы не проставлены", out)
@@ -254,7 +270,7 @@ class MergeTest(CliTestCase):
 
     def test_second_regeneration_preserves_hand_edit(self):
         # 1. generate
-        self.write_candidate(candidate(decision("d1", "давай pass@1", why="модель v1"),
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1", why="модель v1"),
                                        decision("d2", "нужно 500 примеров вместо 100")))
         self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
         # 2. hand-edit the file
@@ -263,7 +279,7 @@ class MergeTest(CliTestCase):
         m["nodes"][0]["hand_edited"] = True
         store.save(self.root, m)
         # 3. regenerate: model rewrites d1, drops d2, adds d3
-        self.write_candidate(candidate(decision("d1", "давай pass@1", why="модель v2"),
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1", why="модель v2"),
                                        decision("d3", "Ещё вариант: pass@5")))
         code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 0, out)
@@ -276,9 +292,9 @@ class MergeTest(CliTestCase):
         self.assertEqual(self.run_cli("check", "--root", self.root, "--transcript", NORMAL)[0], 0)
 
     def test_broken_hand_edit_blocks_merge_and_keeps_map(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1", hand_edited=True,
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1", hand_edited=True,
                                                  status="superseded", superseded_by="ghost")))
-        self.write_candidate(candidate(decision("d2", "давай pass@1")))
+        self.write_candidate(candidate(decision("d2", "давай тогда pass@1")))
         code, _, err = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 1)
         self.assertIn("не сохранена", err)
@@ -286,7 +302,7 @@ class MergeTest(CliTestCase):
         self.assertEqual([n["id"] for n in store.load(self.root)["nodes"]], ["d1"])
 
     def test_explicit_candidate_path(self):
-        path = self.write_candidate(candidate(decision("d1", "давай pass@1")),
+        path = self.write_candidate(candidate(decision("d1", "давай тогда pass@1")),
                                     name=os.path.join(self.root, "elsewhere.json"))
         code, _, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL, "--candidate", path)
         self.assertEqual(code, 0)
@@ -295,7 +311,7 @@ class MergeTest(CliTestCase):
 
 class ExportTest(CliTestCase):
     def test_writes_markdown_under_root(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("d2", "чего не было", question="Второй?")))
         code, out, _ = self.run_cli("export", "--root", self.root, "--transcript", NORMAL,
                                     "--out", os.path.join("docs", "decisions.md"))
@@ -310,7 +326,7 @@ class ExportTest(CliTestCase):
         self.assertIn("не проверено: 1", out)
 
     def test_unreachable_transcript_is_stated_not_reported_as_not_found(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("o1", "", kind="open", status="proposed", decision="", cites=[])))
         code, out, _ = self.run_cli("export", "--root", self.root, "--transcript", MISSING,
                                     "--out", "d.md")
@@ -325,7 +341,7 @@ class ExportTest(CliTestCase):
         self.assertIn("не проверялось: 2 — транскрипт недоступен", out)
 
     def test_node_without_citations_is_not_reported_as_not_found(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("o1", "", kind="open", status="proposed", decision="", cites=[])))
         code, out, _ = self.run_cli("export", "--root", self.root, "--transcript", NORMAL, "--out", "d.md")
         self.assertEqual(code, 0, out)
@@ -336,7 +352,7 @@ class ExportTest(CliTestCase):
         self.assertNotIn("Не проверено", text)
 
     def test_invalid_map_is_not_exported(self):
-        store.save(self.root, candidate(decision("d1", "давай pass@1", kind="nope")))
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1", kind="nope")))
         code, _, err = self.run_cli("export", "--root", self.root, "--transcript", NORMAL,
                                     "--out", "d.md")
         self.assertEqual(code, 1)

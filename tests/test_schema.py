@@ -34,7 +34,7 @@ def valid_map():
                 "why": "k>1 маскирует нестабильность промпта",
                 "against": ["Дисперсия выше, нужен набор существеннее"],
                 "consequence": "500 примеров вместо 100, прогон дорожает втрое",
-                "cites": [{"quote": "давай pass@1"}],
+                "cites": [{"quote": "давай тогда pass@1"}],
                 "hand_edited": False,
             },
             {
@@ -183,14 +183,14 @@ class ValidateTest(unittest.TestCase):
     def test_cite_requires_quote(self):
         self.assertError(self.mutate("d3", cites=[{"turn": 4}]), "узел d3", "cites[0].quote")
         self.assertError(self.mutate("d3", cites=[{"quote": "   "}]), "узел d3", "cites[0].quote")
-        self.assertError(self.mutate("d3", cites=["давай pass@1"]), "узел d3", "cites[0]")
+        self.assertError(self.mutate("d3", cites=["давай тогда pass@1"]), "узел d3", "cites[0]")
 
     def test_cite_turn_and_role(self):
-        self.assertError(self.mutate("d3", cites=[{"turn": 0, "quote": "давай pass@1"}]), "cites[0].turn")
-        self.assertError(self.mutate("d3", cites=[{"turn": "4", "quote": "давай pass@1"}]), "cites[0].turn")
-        self.assertError(self.mutate("d3", cites=[{"turn": True, "quote": "давай pass@1"}]), "cites[0].turn")
-        self.assertError(self.mutate("d3", cites=[{"role": "system", "quote": "давай pass@1"}]), "cites[0].role")
-        self.assertEqual(schema.validate(self.mutate("d3", cites=[{"turn": None, "role": None, "quote": "давай pass@1"}])), [])
+        self.assertError(self.mutate("d3", cites=[{"turn": 0, "quote": "давай тогда pass@1"}]), "cites[0].turn")
+        self.assertError(self.mutate("d3", cites=[{"turn": "4", "quote": "давай тогда pass@1"}]), "cites[0].turn")
+        self.assertError(self.mutate("d3", cites=[{"turn": True, "quote": "давай тогда pass@1"}]), "cites[0].turn")
+        self.assertError(self.mutate("d3", cites=[{"role": "system", "quote": "давай тогда pass@1"}]), "cites[0].role")
+        self.assertEqual(schema.validate(self.mutate("d3", cites=[{"turn": None, "role": None, "quote": "давай тогда pass@1"}])), [])
 
     def test_hand_edited_must_be_bool(self):
         self.assertError(self.mutate("d3", hand_edited="yes"), "узел d3", "hand_edited")
@@ -205,7 +205,7 @@ class NormalizeTest(unittest.TestCase):
     def test_fills_defaults_in_place(self):
         m = {"version": 1, "nodes": [{"id": "d1", "kind": "decision", "status": "accepted",
                                        "question": "q", "decision": "d", "why": "w",
-                                       "cites": [{"quote": "давай pass@1"}]}]}
+                                       "cites": [{"quote": "давай тогда pass@1"}]}]}
         out = schema.normalize(m)
         self.assertIs(out, m)
         self.assertEqual(m["title"], "")
@@ -216,7 +216,7 @@ class NormalizeTest(unittest.TestCase):
         self.assertIs(node["hand_edited"], False)
         self.assertEqual(node["against"], [])
         self.assertEqual(node["consequence"], "")
-        self.assertEqual(node["cites"][0], {"quote": "давай pass@1", "turn": None, "role": None})
+        self.assertEqual(node["cites"][0], {"quote": "давай тогда pass@1", "turn": None, "role": None})
         self.assertEqual(schema.validate(m), [])
 
     def test_does_not_invent_identity_fields(self):

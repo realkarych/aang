@@ -14,7 +14,8 @@ Quote matching rule (the security boundary of the tool):
   its canonical text occurs in the turn's canonical text **on token boundaries**: every
   word of the quote, whole, in the quote's order, with nothing in between. No partial
   words at the edges — `possible` must never verify against `impossible`.
-  A quote must contain at least 3 words (symbols do not count) and 12 characters.
+  A quote must contain at least 3 words (a word is a token with a letter in it —
+  symbols and bare numbers do not count) and 12 characters.
   An ellipsis (`...` / `…`) inside a quote splits it into fragments that must each be
   found, in order, in the same turn, with at most 50 tokens elided between consecutive
   fragments; each fragment then needs at least 4 words. A match that used an ellipsis is
@@ -31,6 +32,23 @@ import unicodedata
 from typing import Any, Dict, List, Optional, Tuple
 
 MESSAGE_TYPES = ("user", "assistant")
+
+# Text that arrives as a `user` record without a person having typed it: slash-command
+# echoes and their output, subagent reports and task notifications relayed into the
+# session, system reminders. A text part that opens with one of these is not the
+# conversation and is never indexed — otherwise a subagent's sentence would verify as
+# the user's words.
+INJECTED_PREFIXES = (
+    "<command-name>",
+    "<command-message>",
+    "<command-args>",
+    "<local-command-stdout>",
+    "<local-command-caveat>",
+    "<task-notification",
+    "<teammate-message",
+    "<system-reminder>",
+    "Another Claude session sent a message",
+)
 MIN_QUOTE_WORDS = 3
 MIN_FRAGMENT_WORDS = 4  # per fragment, when the quote contains an ellipsis
 MIN_QUOTE_CHARS = 12
@@ -105,8 +123,11 @@ def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[
     A turn is a top-level message: a `user` or `assistant` record carrying text. An
     assistant message is written as one record per content block, all sharing
     `message.id`; consecutive records with the same id form one turn. Skipped: control
-    records, `isSidechain`, `isMeta` (injected content, not the person's words), and
-    messages whose content is only tool_use / tool_result / thinking.
+    records, `isSidechain`, `isMeta` and `isCompactSummary` (injected content and the
+    model's own summary, not the person's words), user text parts that open with an
+    `INJECTED_PREFIXES` wrapper (slash-command echoes, relayed subagent reports, task
+    notifications, system reminders), and messages whose content is only tool_use /
+    tool_result / thinking.
 
     `text` is the text blocks joined with newlines; `text_cap` truncates it (None keeps
     it whole so every sentence of a long turn stays citable). The file is streamed;
@@ -135,12 +156,14 @@ def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[
             rtype = record.get("type")
             if rtype not in MESSAGE_TYPES:
                 continue
-            if record.get("isSidechain") or record.get("isMeta"):
+            if record.get("isSidechain") or record.get("isMeta") or record.get("isCompactSummary"):
                 continue
             message = record.get("message")
             if not isinstance(message, dict):
                 continue
             parts = _text_parts(message.get("content"))
+            if rtype == "user":
+                parts = [part for part in parts if not _injected(part)]
 
             if rtype == "assistant":
                 message_id = message.get("id")
@@ -200,6 +223,12 @@ def _text_parts(content):  # type: (Any) -> List[str]
                 if isinstance(text, str) and text.strip():
                     parts.append(text)
     return parts
+
+
+def _injected(part):  # type: (str) -> bool
+    """True for a user text part nobody typed — see INJECTED_PREFIXES."""
+    head = part.lstrip()
+    return any(head.startswith(prefix) for prefix in INJECTED_PREFIXES)
 
 
 def _append_turn(turns, group, text_cap):  # type: (List[Dict[str, Any]], Dict[str, Any], Optional[int]) -> None
@@ -278,8 +307,13 @@ def _fragments(quote):  # type: (str) -> List[str]
 
 
 def _word_count(canon):  # type: (str) -> int
-    """Word tokens only — a symbol token such as `|` or `>` is not evidence."""
-    return sum(1 for token in canon.split(" ") if token and _classify(token[0]) == "w")
+    """Tokens with a letter in them — a symbol such as `|` or a bare number such as
+    `16` is not evidence, so `«16 коммитов, 15»` is one word, not three."""
+    return sum(1 for token in canon.split(" ") if _has_letter(token))
+
+
+def _has_letter(token):  # type: (str) -> bool
+    return any(unicodedata.category(char)[0] == "L" for char in token)
 
 
 def _fragment_too_short(canon, min_words):  # type: (str, int) -> bool
