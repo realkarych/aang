@@ -161,7 +161,9 @@ class ViewerStringsTest(ServerTestCase):
         uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed."""
         page = self.request("GET", "/")[2].decode("utf-8")
         for word in ("скрыто", "ни с чем не связано", "На этом держатся", "покрыто до хода",
-                     "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое"):
+                     "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое",
+                     # the reverse of `moots` is a status flag, as in the export, not a dependant
+                     "неактуально", "это неактуальным", "ничего на этом не держится"):
             self.assertIn(word, page, word)
         for rel, label in store.REL_LABELS.items():
             self.assertIn("\"" + label + "\"", page, rel)

@@ -279,6 +279,9 @@
     .row .state { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 6px; }
     .row .w { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   }
+  /* For a tacit node `why` is the payload — where the unchosen decision came from — so the
+     row shows all of it instead of an ellipsis (spec: «видно происхождение, а не обрезок»). */
+  .item.k-tacit .row .w { white-space: normal; display: block; overflow: visible; text-overflow: clip; -webkit-line-clamp: none; }
 
   /* ---------------------------------------------------------------- tags */
   .tag {
@@ -297,6 +300,7 @@
   }
   .tag.status-superseded { text-decoration: line-through; }
   .tag.status-proposed { border-style: dashed; font-style: italic; }
+  .tag.mooted { color: var(--warn); border-color: var(--warn); border-style: dashed; }
   .tag.v-ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
   .tag.v-loose { color: var(--ok); border-color: var(--ok); border-style: dashed; background: transparent; }
   .tag.v-bad { color: var(--bad); border-color: var(--bad); border-style: dashed; background: var(--bad-bg); font-weight: 600; }
@@ -905,12 +909,13 @@
             (n.kind === "open"
               ? "<span class=\"d none\">без ответа</span>"
               : "<span class=\"d\">" + esc(n.decision) + "</span>") +
-            (n.why ? "<span class=\"w\" title=\"" + esc(n.why) + "\">" + esc(n.why) + "</span>" : "") +
+            (n.why ? "<span class=\"w\"" + (n.kind === "tacit" ? "" : " title=\"" + esc(n.why) + "\"") + ">" + esc(n.why) + "</span>" : "") +
           "</span>" +
           "<span class=\"state\">" +
             // An open question proposes nothing: its `proposed` status stays in the detail pane only.
             (n.kind === "open" && n.status === "proposed" ? "" :
               "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + (sup && n.superseded_by ? " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>" : "") + "</span>") +
+            (mootedBy(n).length ? "<span class=\"tag mooted\">неактуально</span>" : "") +
             "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
             (n.hand_edited ? "<span class=\"tag edited\">✎ правлено</span>" : "") +
             (state.newIds[n.id] ? "<span class=\"tag new\">новое</span>" : "") +
@@ -990,11 +995,13 @@
     var sup = n.status === "superseded";
     el.className = "detail" + (sup ? " superseded" : "");
     var replaces = map.nodes.filter(function (m) { return m.superseded_by === n.id; });
+    var mooted = mootedBy(n);
 
     var html = "<p class=\"kicker\">" +
       "<span class=\"tag kind-" + esc(n.kind) + "\">" + esc(KIND_MARK[n.kind]) + " " + esc(KIND_LABEL[n.kind]) + "</span>" +
       "<span class=\"idc mono\">" + esc(n.id) + "</span>" +
       "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + "</span>" +
+      (mooted.length ? "<span class=\"tag mooted\" title=\"Другое решение сделало это неактуальным, не заменив\">неактуально</span>" : "") +
       "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
       (n.hand_edited ? "<span class=\"tag edited\" title=\"Поля этого узла правил человек; регенерация их не тронет\">✎ правлено вручную</span>" : "") +
       (state.newIds[n.id] ? "<span class=\"tag new\" title=\"Появилось с прошлого запуска\">новое</span>" : "") +
@@ -1006,6 +1013,16 @@
       var by = byId(map, n.superseded_by);
       html += "<p class=\"notice\">Заменено узлом <button type=\"button\" class=\"tag linkish\" data-goto=\"" + esc(n.superseded_by) + "\"><span class=\"mono\">" + esc(n.superseded_by) + "</span></button>" +
         (by ? " — " + esc(by.question) : " — <b>такого узла в карте нет</b>") + ". Остаётся в карте, чтобы тот же спор не вести второй раз.</p>";
+    }
+    // A mooted decision is dead without a successor; the status field still says «принято»,
+    // so this is the one place the pane says otherwise.
+    if (mooted.length) {
+      html += "<p class=\"notice warn\">Неактуально — " + mooted.map(function (id) {
+        var by = byId(map, id);
+        return "<button type=\"button\" class=\"tag linkish\" data-goto=\"" + esc(id) + "\"><span class=\"mono\">" + esc(id) + "</span></button>" +
+          (by ? " (" + esc(by.question) + ")" : " (<b>такого узла в карте нет</b>)");
+      }).join(", ") + " " + (mooted.length === 1 ? "сделало" : "сделали") +
+        " это неактуальным, ничем не заменив. Остаётся в карте, чтобы тот же спор не вести второй раз.</p>";
     }
     if (replaces.length) {
       html += "<p class=\"notice\">Заменяет: " + replaces.map(function (r) {
@@ -1052,12 +1069,23 @@
 
   // The neighbourhood: what this node declares, then what the server found pointing at it.
   // "На этом держатся" is the answer to "what breaks if I change this" — one look, nothing missed.
+  // Only the reverse of `rests_on` and `orphaned_by` means that. The reverse of `moots` says this
+  // node is dead and the reverse of `superseded_by` that it replaced another: both are status, not
+  // dependants, and go next to the status (the «неактуально» tag, the «Заменяет» notice) — the
+  // same split the export makes.
+  var HOLDS = { rests_on: true, orphaned_by: true };
+  function mootedBy(n) {
+    return (n.related_by || []).filter(function (r) { return r.rel === "moots"; }).map(function (r) { return r.from; });
+  }
   function linksHtml(n, map) {
     var edges = neighbours(n, map);
     var out = edges.filter(function (e) { return e.dir === "out"; });
-    var into = edges.filter(function (e) { return e.dir === "in"; });
+    var into = edges.filter(function (e) { return e.dir === "in" && HOLDS[e.rel]; });
     var html = "<section class=\"links\" aria-label=\"Связи узла\"><h3>Связи</h3>";
     if (!edges.length) return html + "<p class=\"none\">ни с чем не связано</p></section>";
+    // Only killed or replaced something: the status notices below say so; here the honest line
+    // is that nothing depends on it.
+    if (!out.length && !into.length) return html + "<p class=\"none\">ничего на этом не держится</p></section>";
     var li = function (e) {
       var t = byId(map, e.id);
       return "<li>" + chipHtml(e, map, "chip") +
