@@ -433,19 +433,20 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    survive between Bash calls, so do not store it in one. If it printed nothing, stop and tell the
    user `aang` is not installed (README, Install).
 6. Run `aang merge` — no `--session`: merge knows the session from `.aang/session.json`, written by
-   the hook; without it, it takes the newest transcript under `~/.claude/projects` or
-   `~/.codex/sessions` and prints which. Read that line and confirm it is this session. It
-   validates the candidate, finds each quote in the transcript, fills in turns, merges into
-   `.aang/map.json` preserving hand edits, and prints what it kept, added, dropped, and which
-   quotes it could not find.
+   the hook; without that file it falls back to the session id the map already records, and only a
+   map that names none takes the newest transcript under `~/.claude/projects` or
+   `~/.codex/sessions`. It prints which file it read and how it knew — read that line and confirm
+   it is this session. It validates the candidate, finds each quote in the transcript, fills in
+   turns, merges into `.aang/map.json` preserving hand edits, and prints what it kept, added,
+   dropped, and which quotes it could not find.
    - Exit 1 with `невалиден`: the candidate broke the schema; the errors name node and field.
      Nothing was written. Fix the candidate and run again.
    - Exit 0 with `не найдено: N`: those nodes are in the map, unverified. See step 7.
-7. Run `aang check` — no `--session` either: it finds the transcript the same way, from
-   `.aang/session.json` and otherwise the newest one, and prints which; confirm it is this session.
-   It prints every node with ✓/✗ and the reason for each failing quote, and exits 1 if any
-   citation failed. For each ✗: if you misquoted a line you clearly remember, write a
-   corrected candidate (same ids, all nodes) and merge again — **once**. Do not iterate hunting for
+7. Run `aang check` — no `--session` either: it finds the transcript exactly as `merge` did, and
+   prints which file that was; confirm again that it is this session. It prints every node with
+   ✓/✗ and the reason for each failing quote, and exits 1 if any citation failed. For each ✗: if
+   you misquoted a line you clearly remember, write a corrected candidate (same ids, all nodes)
+   and merge again — **once**. Do not iterate hunting for
    a quote that resolves; after one correction pass, whatever is still ✗ stays unverified, and you
    say so. Then the check the tool cannot do: **for every ✓, re-read the quote and ask whether it
    says what the node says** — the number, the name, the position. If it does not, replace it with
@@ -454,10 +455,10 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    After the verdict `check` may print `Замечания` — ids mentioned in prose with no edge. They
    fail nothing; fold them into the same correction pass: add the edge where the relation is real
    (on the later node, when the remark says so), and leave a bare mention alone.
-8. Start the viewer in the background: `aang view` — again no `--session`; it reads the transcript
-   from `.aang/session.json`, else the newest one, and its header names the file, so the user can
-   confirm it is this session. It serves until stopped — use the Bash tool's background mode. Its
-   output carries the URL, `http://127.0.0.1:8790/` by default. If `aang view` prints
+8. Start the viewer in the background: `aang view` — again no `--session`; it finds the transcript
+   the same way, and its header names the file, so the user can confirm it is this session too. It
+   serves until stopped — use the Bash tool's background mode. Its output carries the URL,
+   `http://127.0.0.1:8790/` by default. If `aang view` prints
    `уже запущен`, the viewer is already open on that URL — do not start another. If the port is
    held by something else it exits 1 — retry with `--port 8791`.
 9. Tell the user, briefly: the URL; how many tacit / open / decision nodes; how many of the open
@@ -465,8 +466,11 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    your own proposals (`proposed`, `decided_by: agent`) plus the open questions the user has not
    marked seen; which nodes are unverified and, in one line each, why. Do not paste the map — the
    viewer is for that. Mention that `aang export` writes `docs/decisions.md` if they want the
-   record committed. If the hook is not installed — `merge` said it took the newest transcript, or
-   there is no `.aang/session.json` — add one line: `aang install` connects live updates.
+   record committed. On a repeat run — there was a map before this one — no `.aang/session.json`
+   (or a `merge` line saying it took the newest transcript) means the hook is not installed: add
+   one line, `aang install` connects live updates. On the first run in a project, say nothing: the
+   hook does nothing until `.aang/map.json` exists, so even an installed one has had nothing to
+   record yet and starts at the next event.
 
 ## Running again in the same session
 

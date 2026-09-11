@@ -89,7 +89,9 @@ harness, and `install` works on your home directory.
 ## Live
 
 `aang install` connects `aang hook` to three events; each of them records which transcript this
-session is writing into `.aang/session.json`, so `merge`, `check` and the viewer stop guessing. On
+session is writing into `.aang/session.json`, so `merge`, `check` and the viewer stop guessing. In
+a project with no `.aang/map.json` the hook does nothing at all — it starts at the first event
+after `/aang` has written a map — which is what makes installing it once, globally, safe. On
 `UserPromptSubmit` the hook adds to your prompt whatever the viewer has to say — the verdicts you
 pressed since the last turn, and, when you name a node by id («что с d4?»), that node in full:
 question, status, author, its relations and what rests on it. On `Stop` it asks the agent to
@@ -102,8 +104,9 @@ In the viewer every node sits in a cell — Входящее, Ресерч, Об
 then the tacit values, the open questions and whatever is none of those — and carries the verdicts
 that apply to it, **подтвердить · в ресерч · обсудить · отвергнуть**, with an optional comment:
 pressing one edits the map at once and writes a line to `.aang/outbox.jsonl`, which the hook hands
-to the agent with your next prompt. The page follows the files by itself, so a merge, a verdict or a new turn in the
-transcript redraws it without losing your selection, your scroll or a half-typed edit.
+to the agent with your next prompt. The page follows the files by itself, so a merge, a verdict or
+a new turn in the transcript redraws it without losing your selection, your scroll or a half-typed
+edit.
 `.aang/map.json` is the record and belongs in git; `.aang/session.json`, `.aang/outbox.jsonl` and
 `.aang/candidate.json` are this machine's working state and belong in `.gitignore` — `merge` says
 so in one line while they are not there, and never edits the file itself.
