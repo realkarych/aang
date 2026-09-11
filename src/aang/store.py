@@ -27,6 +27,11 @@ CANDIDATE_FILE = "candidate.json"
 # aang's own stamp and is never taken from a candidate — see `merge` and `stamp_added_at`.
 CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites", "relates")
 
+# Fields `server.annotate` derives for the view and nothing may write into the file: the
+# reverse index (U4 — stored, it would drift from the forward side) and the verification
+# verdict. `merge` strips them from every node, whatever the candidate or the old file said.
+VIEW_FIELDS = ("related_by", "verified")
+
 
 # ----------------------------------------------------------------------------- paths
 
@@ -129,17 +134,26 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
       next reader would find only the replacement and propose the old position again),
       one that reworded it would be editing a decision, and one that un-supersedes or
       repoints it would be rewriting the record that the conversation moved on.
-    - An old node that a surviving node points at through `superseded_by` is kept too
-      (transitively), so the result stays valid and the superseded decision stays visible.
+    - An old node that a surviving node points at — through `superseded_by` or `relates`
+      — is kept too (transitively), so the result stays valid and the record the edge
+      makes stays readable. A protected node's edges are as permanent as the node, so
+      their targets are pinned for the same reason; without this the candidate omitting
+      a target would make the merged map invalid and refuse every merge until a human
+      edited the file.
     - `relates` follows the same three classes: frozen and hand-edited nodes keep their
       edges (a regeneration that dropped them would be retracting a record), an ordinary
       node takes the candidate's edges — that is what regenerating the node means.
+    - `related_by` and `verified` (`VIEW_FIELDS`) never reach the file: they are derived
+      for the view and a stored copy would be read as fact by the next reader of
+      `map.json` after it had gone stale.
     - `added_at` is when the node first entered the stored map. A node that existed in
       `old` keeps its stamp whatever the candidate says; a node new to the map gets none
       here — the model cannot know when it appeared, so a candidate's `added_at` is a
       guess and is dropped, like a candidate's `turn`. `stamp_added_at` fills it after.
     - Order: `new`'s order; old-only survivors are inserted after their nearest surviving
-      old predecessor, so they keep their place in the timeline.
+      old predecessor, so they keep their place in the timeline. Then, only where a kept
+      edge would point forward (the candidate put a protected node above its target),
+      the source is moved down below its target — see `_targets_first`.
     Top-level fields come from `new` when non-empty, else from `old`.
     Inputs are not mutated.
     """
@@ -169,16 +183,21 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
             result.append(incoming)
 
     # Old-only nodes: hand-edited and superseded ones survive; so does anything a
-    # survivor supersedes into.
+    # survivor points at, through `superseded_by` or `relates`.
     keep = set(n["id"] for n in old_nodes
                if n.get("hand_edited") is True or n.get("status") == "superseded") - seen
-    keep |= _supersede_closure(result + [old_by_id[i] for i in keep], old_by_id, seen | keep)
+    keep |= _target_closure(result + [old_by_id[i] for i in keep], old_by_id, seen | keep)
     for node in old_nodes:
         node_id = node["id"]
         if node_id not in keep or node_id in seen:
             continue
         seen.add(node_id)
         result.insert(_insert_index(result, old_nodes, node_id), node)
+
+    for node in result:
+        for field in VIEW_FIELDS:
+            node.pop(field, None)
+    result = _targets_first(result)
 
     # Not repaired here: a dangling `superseded_by` (possible only if `old` was already
     # invalid) is left for `validate` to report, so the caller refuses to save it.
@@ -203,20 +222,59 @@ def _merge_hand_edited(previous, incoming):  # type: (Dict[str, Any], Dict[str, 
     return node
 
 
-def _supersede_closure(nodes, old_by_id, present):
+def _target_closure(nodes, old_by_id, present):
     # type: (List[Dict[str, Any]], Dict[str, Dict[str, Any]], set) -> set
-    """Ids of old nodes reachable through `superseded_by` from `nodes` and absent from `present`."""
+    """Ids of old nodes reachable through `superseded_by` or `relates` from `nodes` and absent from `present`."""
     needed = set()  # type: set
     frontier = list(nodes)
     while frontier:
         node = frontier.pop()
-        target = node.get("superseded_by")
-        if not isinstance(target, str) or target in present or target in needed:
-            continue
-        if target in old_by_id:
-            needed.add(target)
-            frontier.append(old_by_id[target])
+        for target in _targets(node):
+            if target in present or target in needed:
+                continue
+            if target in old_by_id:
+                needed.add(target)
+                frontier.append(old_by_id[target])
     return needed
+
+
+def _targets(node):  # type: (Dict[str, Any]) -> List[str]
+    """Every id `node` points at: its `superseded_by`, then each `relates.to`."""
+    out = []  # type: List[str]
+    if isinstance(node.get("superseded_by"), str):
+        out.append(node["superseded_by"])
+    for rel in node.get("relates") or []:
+        if isinstance(rel, dict) and isinstance(rel.get("to"), str):
+            out.append(rel["to"])
+    return out
+
+
+def _targets_first(nodes):  # type: (List[Dict[str, Any]]) -> List[Dict[str, Any]]
+    """`nodes` reordered so every `relates` target precedes its source, moving as little as possible.
+
+    The candidate's own edges point backward (it was validated), but a protected node
+    keeps edges the candidate no longer orders for: put above its target, it would be a
+    forward reference and the whole merge refused over an order the model chose. Taking
+    the earliest node whose targets are all placed leaves an order that already works
+    untouched. Nodes on a cycle (a kept edge against a candidate edge — a real conflict)
+    are appended as they came, for `validate` to report. `superseded_by` may point
+    forward and is not an ordering constraint.
+    """
+    by_id = dict((n["id"], n) for n in nodes)
+    out = []  # type: List[Dict[str, Any]]
+    placed = set()  # type: set
+    pending = list(nodes)
+    while pending:
+        for i, node in enumerate(pending):
+            targets = [r.get("to") for r in (node.get("relates") or []) if isinstance(r, dict)]
+            if all(t in placed or t not in by_id for t in targets):
+                out.append(pending.pop(i))
+                placed.add(node["id"])
+                break
+        else:
+            out.extend(pending)
+            break
+    return out
 
 
 def _insert_index(result, old_nodes, node_id):  # type: (List[Dict[str, Any]], List[Dict[str, Any]], str) -> int
@@ -234,10 +292,12 @@ def _insert_index(result, old_nodes, node_id):  # type: (List[Dict[str, Any]], L
 def stamp_added_at(map_dict, now_iso):  # type: (Dict[str, Any], str) -> Dict[str, Any]
     """Give every node without an `added_at` the stamp `now_iso`; an existing one is kept.
 
-    Called after `merge`, so the nodes it fills are the ones that just entered the map —
-    plus, once, every node of a map written before `added_at` existed. Those all get the
-    same instant: honest ("unknown, seen from here on"), not a reconstruction of when
-    each one really appeared. Mutates and returns `map_dict`.
+    Called after `merge`, so the nodes it fills are the ones that just entered the map.
+    `cmd_merge` also calls it once on a map written before `added_at` existed, before
+    merging, with that map's `generated_at`: the node was present when that map was
+    generated — a fact, not a reconstruction of when it really appeared — and it keeps
+    that first run's own arrivals apart from the backfilled ones. Mutates and returns
+    `map_dict`.
     """
     for node in map_dict.get("nodes") or []:
         if isinstance(node, dict) and not node.get("added_at"):
@@ -292,6 +352,15 @@ REL_LABELS = {
     "orphaned_by": "осиротело решением",
     "rests_on": "опирается на",
     "moots": "сделало неактуальным",
+}
+
+# The same edges read from the target's section, node first again: «d6 оставило висеть
+# o3», «t5 на этом держится d7». The reverse of `moots` is not a line in the list but a
+# flag next to the status — «d5 сделало это неактуальным» — because it says the node is
+# dead, and that belongs where «заменено» is, not three sections away on the killer.
+REL_LABELS_BACK = {
+    "orphaned_by": "оставило висеть",
+    "rests_on": "на этом держится",
 }
 
 
@@ -350,9 +419,22 @@ def _node_markdown(node, by_id, transcript_error=None):
     out.append("### %s · %s" % (node.get("id"), heading))
     out.append("")
 
+    # Both sides of every edge: what the node declares (`relates`), what the server found
+    # pointing at it (`related_by`, U4) and `superseded_by` either way. Without the reverse
+    # side a mooted node, a depended-on one and an isolated one all read the same.
+    relates = [r for r in (node.get("relates") or []) if isinstance(r, dict) and r.get("to")]
+    related_by = [r for r in (node.get("related_by") or []) if isinstance(r, dict) and r.get("from")]
+    mooted_by = [r["from"] for r in related_by if r.get("rel") == "moots"]
+    replaces = [i for i, n in by_id.items()
+                if node.get("id") and n.get("superseded_by") == node["id"]]
+
     flags = ["**Статус:** %s" % STATUS_RU.get(node.get("status"), node.get("status"))]
     if superseded and node.get("superseded_by"):
         flags.append("**Заменено:** %s" % _node_ref(node["superseded_by"], by_id))
+    if mooted_by:
+        flags.append("**Неактуально** — %s %s это неактуальным"
+                     % (", ".join(_node_ref(i, by_id) for i in mooted_by),
+                        "сделало" if len(mooted_by) == 1 else "сделали"))
     if node.get("verified") is False:
         if transcript_error:
             flags.append("**Не проверялось** — транскрипт недоступен")
@@ -366,14 +448,25 @@ def _node_markdown(node, by_id, transcript_error=None):
     out.append("")
 
     # Edges sit with the status, before the prose: for an `open` node "orphaned by d6" is
-    # the first thing to know, and the prose may not repeat it.
-    relates = [r for r in (node.get("relates") or []) if isinstance(r, dict) and r.get("to")]
-    if relates:
+    # the first thing to know, and the prose may not repeat it. Declared edges first,
+    # then what points here. A node with nothing either way says so, in the viewer's
+    # words: that nothing rests on it is information too.
+    edges = []  # type: List[str]
+    for rel in relates:
+        edges.append("%s %s" % (REL_LABELS.get(rel.get("rel"), rel.get("rel")), _node_ref(rel["to"], by_id)))
+    for rel in related_by:
+        if rel.get("rel") in REL_LABELS_BACK:
+            edges.append("%s %s" % (REL_LABELS_BACK[rel["rel"]], _node_ref(rel["from"], by_id)))
+    for node_id in replaces:
+        edges.append("заменяет %s" % _node_ref(node_id, by_id))
+    if edges:
         out.append("**Связи:**")
         out.append("")
-        for rel in relates:
-            out.append("- %s %s" % (REL_LABELS.get(rel.get("rel"), rel.get("rel")),
-                                    _node_ref(rel["to"], by_id)))
+        for edge in edges:
+            out.append("- %s" % edge)
+        out.append("")
+    elif not (superseded and node.get("superseded_by")) and not mooted_by:
+        out.append("**Связи:** ни с чем не связано")
         out.append("")
 
     if node.get("decision"):

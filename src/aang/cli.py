@@ -274,10 +274,14 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     if not session_id and source.path:
         candidate["session_id"] = os.path.splitext(os.path.basename(source.path))[0]
     # The map is generated here, not by the model, so the timestamps are stamped here:
-    # `generated_at` on the map, `added_at` on every node that has none after the merge
-    # (the ones that just arrived — and, once, every node of a map older than the field).
+    # `generated_at` on the map, `added_at` on every node that has none after the merge.
+    # A map older than the field is backfilled first, with its own `generated_at` — the
+    # node was there when that map was generated, which is a fact — so the nodes this
+    # run adds still stand apart from the twenty that were merely never stamped. Only a
+    # map that names no `generated_at` gets `now` for them too.
     now = _now_iso()
     candidate["generated_at"] = now
+    store.stamp_added_at(old, old.get("generated_at") or now)
 
     merged = store.stamp_added_at(store.merge(old, candidate), now)
     errors = schema.validate(merged)
@@ -301,6 +305,9 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     kept = [n["id"] for n in merged["nodes"] if n["hand_edited"]]
     history = [n["id"] for n in merged["nodes"]
                if n["id"] not in new_ids and not n["hand_edited"] and n["status"] == "superseded"]
+    # Ordinary old nodes the candidate omitted but a kept node's edge still points at.
+    pinned = [n["id"] for n in merged["nodes"]
+              if n["id"] not in new_ids and not n["hand_edited"] and n["status"] != "superseded"]
     added = [n["id"] for n in merged["nodes"] if n["id"] not in old_ids]
     dropped = sorted(old_ids - set(n["id"] for n in merged["nodes"]))
     missed = [r for r in resolved if not r["ok"]]
@@ -314,6 +321,9 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         out.write("  убраны (нет в кандидате и не правились): %s\n" % ", ".join(dropped))
     if history:
         out.write("  заменённые сохранены (нет в кандидате, но это история): %s\n" % ", ".join(history))
+    if pinned:
+        out.write("  сохранены (нет в кандидате, но на них ссылаются сохранённые узлы): %s\n"
+                  % ", ".join(pinned))
     ignored = sorted(new_ids & set(kept))
     if ignored:
         out.write("  кандидат не тронул правленные: %s\n" % ", ".join(ignored))

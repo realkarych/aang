@@ -240,7 +240,8 @@ class MergeTest(CliTestCase):
         self.assertEqual("2030-01-01T00:00:00Z", by_id["d2"]["added_at"])
 
     def test_merge_stamps_nodes_of_a_map_written_before_added_at_existed(self):
-        # Every pre-existing node gets the same instant: "seen from here on", no invented past.
+        # Every pre-existing node gets the same instant — the old map's `generated_at`,
+        # when it was demonstrably there — not an invented past and not "now".
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
@@ -248,7 +249,46 @@ class MergeTest(CliTestCase):
         with mock.patch.object(cli, "_now_iso", return_value="2030-01-01T00:00:00Z"):
             self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
         stamps = set(n["added_at"] for n in store.load(self.root)["nodes"])
-        self.assertEqual(set(["2030-01-01T00:00:00Z"]), stamps)
+        self.assertEqual(set(["2026-09-11T12:00:00Z"]), stamps)
+
+    def test_first_run_after_the_upgrade_keeps_its_own_delta(self):
+        # The nodes this very run adds must not melt into the backfilled ones (U7).
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
+                                        decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
+                                       decision("t1", "нужно 500 примеров вместо 100", kind="tacit"),
+                                       decision("d2", "Ещё вариант: pass@5"),
+                                       decision("d3", "давай тогда pass@1")))
+        with mock.patch.object(cli, "_now_iso", return_value="2030-01-01T00:00:00Z"):
+            self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
+        by_id = dict((n["id"], n["added_at"]) for n in store.load(self.root)["nodes"])
+        self.assertEqual({"d1": "2026-09-11T12:00:00Z", "t1": "2026-09-11T12:00:00Z",
+                          "d2": "2030-01-01T00:00:00Z", "d3": "2030-01-01T00:00:00Z"}, by_id)
+
+    def test_pre_field_map_without_generated_at_is_backfilled_with_now(self):
+        old = candidate(decision("d1", "давай тогда pass@1"))
+        old["generated_at"] = ""
+        store.save(self.root, old)
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
+        with mock.patch.object(cli, "_now_iso", return_value="2030-01-01T00:00:00Z"):
+            self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
+        self.assertEqual("2030-01-01T00:00:00Z", store.load(self.root)["nodes"][0]["added_at"])
+
+    def test_merge_keeps_and_names_the_target_of_a_frozen_edge(self):
+        # t1 is tacit; d1 rests on it and was later superseded by d3. A candidate that
+        # emits only d3 used to make the merged map invalid and refuse every merge.
+        store.save(self.root, candidate(
+            decision("t1", "Ещё вариант: pass@5", kind="tacit"),
+            decision("d1", "давай тогда pass@1", status="superseded", superseded_by="d3",
+                     relates=[{"to": "t1", "rel": "rests_on"}]),
+            decision("d3", "нужно 500 примеров вместо 100")))
+        self.write_candidate(candidate(decision("d3", "нужно 500 примеров вместо 100")))
+        code, out, err = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(code, 0, err)
+        self.assertEqual(["t1", "d1", "d3"], [n["id"] for n in store.load(self.root)["nodes"]])
+        self.assertIn("сохранены (нет в кандидате, но на них ссылаются сохранённые узлы): t1", out)
+        self.assertIn("заменённые сохранены (нет в кандидате, но это история): d1", out)
+        self.assertNotIn("убраны", out)
 
     def _two_projects(self):
         """A transcript root with session A (this map's) and a newer session B elsewhere."""
@@ -417,6 +457,30 @@ class ExportTest(CliTestCase):
         self.assertIn("**Нет цитат** — узел нельзя проверить", text.split("### o1")[1])
         self.assertNotIn("не найдена", text)
         self.assertNotIn("Не проверено", text)
+
+    def test_export_shows_both_sides_of_every_relation(self):
+        # Through the real path: `annotate` derives `related_by`, the document prints it.
+        store.save(self.root, candidate(
+            decision("t1", "Ещё вариант: pass@5", kind="tacit", question="Остаться на 3.9?"),
+            decision("d1", "давай тогда pass@1", question="Чем мерить?",
+                     relates=[{"to": "t1", "rel": "rests_on"}]),
+            decision("d4", "давай тогда pass@1", question="Порог 72 часа?"),
+            decision("d5", "нужно 500 примеров вместо 100", question="Разворот?",
+                     relates=[{"to": "d4", "rel": "moots"}]),
+            decision("o1", "", kind="open", status="proposed", question="Хвост?", decision="",
+                     cites=[], relates=[{"to": "d1", "rel": "orphaned_by"}]),
+            decision("o2", "", kind="open", status="proposed", question="Кто платит?", decision="",
+                     cites=[])))
+        code, out, _ = self.run_cli("export", "--root", self.root, "--transcript", NORMAL, "--out", "d.md")
+        self.assertEqual(code, 0, out)
+        with open(os.path.join(self.root, "d.md"), encoding="utf-8") as handle:
+            text = handle.read()
+        section = lambda i: text.split("### %s" % i)[1].split("###")[0]
+        self.assertIn("- на этом держится d1 (Чем мерить?)", section("t1"))
+        self.assertIn("- оставило висеть o1 (Хвост?)", section("d1"))
+        self.assertIn("**Неактуально** — d5 (Разворот?) сделало это неактуальным", section("d4"))
+        self.assertIn("**Связи:** ни с чем не связано", section("o2"))
+        self.assertNotIn("ни с чем не связано", section("d4") + section("t1") + section("d1"))
 
     def test_invalid_map_is_not_exported(self):
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1", kind="nope")))

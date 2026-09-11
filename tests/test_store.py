@@ -390,6 +390,73 @@ class RelatesMergeTest(unittest.TestCase):
         out = store.merge(old, new)
         self.assertEqual([], [n for n in out["nodes"] if n["id"] == "d1"][0]["relates"])
 
+    # A protected node's edges are permanent, so their targets are too: the candidate
+    # omitting a target must not leave the map invalid and every later merge refused.
+
+    def test_target_of_a_frozen_nodes_edge_survives_when_the_candidate_drops_it(self):
+        old = a_map(node("t1", kind="tacit"),
+                    node("d1", status="superseded", superseded_by="d3",
+                         relates=[{"to": "t1", "rel": "rests_on"}]),
+                    node("d3"))
+        out = store.merge(old, a_map(node("d3")))
+        self.assertEqual(["t1", "d1", "d3"], ids(out))
+        self.assertEqual(schema.validate(out), [])
+
+    def test_target_of_a_hand_edited_nodes_edge_survives_when_the_candidate_drops_it(self):
+        old = a_map(node("d1"), node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "rests_on"}]))
+        out = store.merge(old, a_map(node("d2")))
+        self.assertEqual(["d1", "d2"], ids(out))
+        self.assertFalse([n for n in out["nodes"] if n["id"] == "d1"][0]["hand_edited"])
+        self.assertEqual(schema.validate(out), [])
+
+    def test_pinned_target_brings_its_own_targets_along(self):
+        old = a_map(node("t1", kind="tacit"),
+                    node("d1", relates=[{"to": "t1", "rel": "rests_on"}]),
+                    node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "moots"}]))
+        out = store.merge(old, a_map(node("d2")))
+        self.assertEqual(["t1", "d1", "d2"], ids(out))
+        self.assertEqual(schema.validate(out), [])
+
+    def test_protected_node_reordered_above_its_target_is_moved_back_below_it(self):
+        old = a_map(node("d1"), node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "rests_on"}]))
+        out = store.merge(old, a_map(node("d2"), node("d1")))
+        self.assertEqual(["d1", "d2"], ids(out))
+        self.assertEqual(schema.validate(out), [])
+
+    def test_reorder_moves_along_a_candidate_node_that_rests_on_the_protected_one(self):
+        old = a_map(node("d1"), node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "rests_on"}]))
+        new = a_map(node("d2"), node("d3", relates=[{"to": "d2", "rel": "rests_on"}]), node("d1"))
+        out = store.merge(old, new)
+        self.assertEqual(["d1", "d2", "d3"], ids(out))
+        self.assertEqual(schema.validate(out), [])
+
+    def test_an_order_that_already_works_is_left_alone(self):
+        old = a_map(node("d1"), node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "rests_on"}]),
+                    node("d3", hand_edited=True))
+        new = a_map(node("d4"), node("d1"), node("d5", relates=[{"to": "d4", "rel": "moots"}]))
+        self.assertEqual(["d4", "d1", "d2", "d3", "d5"], ids(store.merge(old, new)))
+
+    def test_contradicting_edges_are_left_for_validate(self):
+        # The human says d2 rests on d1; the model now says d1 rests on d2. No order
+        # satisfies both — that is a real conflict, and refusing it is right.
+        old = a_map(node("d1"), node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "rests_on"}]))
+        out = store.merge(old, a_map(node("d2"), node("d1", relates=[{"to": "d2", "rel": "rests_on"}])))
+        self.assertEqual(["d2", "d1"], ids(out))
+        self.assertTrue(any("ссылка вперёд" in e for e in schema.validate(out)))
+
+    def test_merge_strips_related_by_and_verified_from_the_candidate(self):
+        # Both are derived for the view (U4); stored, a stale copy would be read as fact.
+        new = a_map(node("d1", related_by=[{"from": "ghost", "rel": "moots"}], verified=True))
+        out = store.merge(a_map(), new)
+        self.assertNotIn("related_by", out["nodes"][0])
+        self.assertNotIn("verified", out["nodes"][0])
+
+    def test_merge_strips_a_stale_related_by_from_protected_nodes_too(self):
+        old = a_map(node("d1", hand_edited=True, related_by=[{"from": "ghost", "rel": "moots"}]),
+                    node("d2", status="superseded", superseded_by="d1", related_by=[]))
+        out = store.merge(old, a_map(node("d1")))
+        self.assertFalse(any("related_by" in n for n in out["nodes"]))
+
 
 class FillTurnsTest(unittest.TestCase):
     def setUp(self):
@@ -507,10 +574,57 @@ class ExportTest(unittest.TestCase):
         for rel in schema.RELS:
             self.assertIn("- %s d0 (База?)" % store.REL_LABELS[rel], md)
 
-    def test_export_says_nothing_when_there_are_no_relations(self):
-        md = store.export_markdown(a_map(node("d1")))
-        self.assertNotIn("осиротело", md)
-        self.assertNotIn("Связи", md)
+    def test_export_says_an_isolated_node_is_related_to_nothing(self):
+        # The viewer's words: that nothing rests on a node is information too.
+        md = store.export_markdown(a_map(node("d1", related_by=[])))
+        self.assertIn("**Связи:** ни с чем не связано", md)
+        self.assertNotIn("**Связи:**\n", md)
+
+    def test_export_shows_the_reverse_side_on_the_target(self):
+        m = a_map(node("t1", kind="tacit", question="Остаться на 3.9?",
+                       related_by=[{"from": "d1", "rel": "rests_on"}]),
+                  node("d1", question="Чем мерить?", relates=[{"to": "t1", "rel": "rests_on"}],
+                       related_by=[{"from": "o1", "rel": "orphaned_by"}]),
+                  node("o1", kind="open", status="proposed", question="Что с хвостом?", decision="",
+                       cites=[], relates=[{"to": "d1", "rel": "orphaned_by"}], related_by=[]))
+        md = store.export_markdown(m)
+        t1 = md.split("### t1")[1].split("###")[0]
+        d1 = md.split("### d1")[1].split("###")[0]
+        self.assertIn("- на этом держится d1 (Чем мерить?)", t1)
+        self.assertIn("- опирается на t1 (Остаться на 3.9?)", d1)
+        self.assertIn("- оставило висеть o1 (Что с хвостом?)", d1)
+        self.assertNotIn("ни с чем не связано", t1 + d1)
+
+    def test_export_marks_a_mooted_node_on_the_node_itself(self):
+        # The spec's own case: d4 is dead and must not be shown alive while the killer
+        # sits three sections away.
+        m = a_map(node("d4", question="Порог 72 часа?", related_by=[{"from": "d5", "rel": "moots"}]),
+                  node("d5", question="Разворот на /aang?", relates=[{"to": "d4", "rel": "moots"}],
+                       related_by=[]))
+        md = store.export_markdown(m)
+        d4 = md.split("### d4")[1].split("###")[0]
+        status = d4.split("**Статус:**")[1].split("\n")[0]
+        self.assertIn("**Неактуально** — d5 (Разворот на /aang?) сделало это неактуальным", status)
+        self.assertNotIn("ни с чем не связано", d4)
+        self.assertIn("- сделало неактуальным d4 (Порог 72 часа?)", md.split("### d5")[1].split("###")[0])
+
+    def test_export_agrees_the_verb_with_several_mooters(self):
+        m = a_map(node("d1", related_by=[{"from": "d2", "rel": "moots"}, {"from": "d3", "rel": "moots"}]),
+                  node("d2", relates=[{"to": "d1", "rel": "moots"}]),
+                  node("d3", relates=[{"to": "d1", "rel": "moots"}]))
+        md = store.export_markdown(m)
+        self.assertIn("d2 (Вопрос d2?), d3 (Вопрос d3?) сделали это неактуальным", md)
+
+    def test_export_superseded_pair_is_not_isolated(self):
+        m = a_map(node("d1", question="Старый?", status="superseded", superseded_by="d2", related_by=[]),
+                  node("d2", question="Новый?", related_by=[]))
+        md = store.export_markdown(m)
+        self.assertNotIn("ни с чем не связано", md)
+        self.assertIn("- заменяет d1 (Старый?)", md.split("### d2")[1].split("###")[0])
+
+    def test_export_reverse_labels_cover_the_vocabulary(self):
+        # `moots` reads back as the status flag, the other two as lines in the list.
+        self.assertEqual(sorted(list(store.REL_LABELS_BACK) + ["moots"]), sorted(schema.RELS))
 
     def test_empty_map_exports_a_document(self):
         text = store.export_markdown({})

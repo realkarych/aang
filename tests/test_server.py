@@ -291,9 +291,31 @@ class EditTest(ServerTestCase):
         self.assertFalse(store.load(self.root)["nodes"][0]["hand_edited"])
 
     def test_protected_and_unknown_fields_400(self):
-        for body in ({"id": "d9"}, {"hand_edited": False}, {"verified": True}, {"colour": "red"}):
+        for body in ({"id": "d9"}, {"hand_edited": False}, {"verified": True}, {"colour": "red"},
+                     {"related_by": []}, {"added_at": "2026-01-01T00:00:00Z"}):
             self.assertEqual(self.request("POST", "/api/node/d1", body=body)[0], 400, body)
         self.assertFalse(store.load(self.root)["nodes"][0]["hand_edited"])
+
+    def test_relates_is_edited_like_any_other_field(self):
+        status, _, data = self.request("POST", "/api/node/d2",
+                                       body={"relates": [{"to": "d1", "rel": "rests_on"}]})
+        self.assertEqual(status, 200, data)
+        view = json.loads(data.decode("utf-8"))
+        self.assertEqual([{"from": "d2", "rel": "rests_on"}], view["nodes"][0]["related_by"])
+        on_disk = store.load(self.root)["nodes"][1]
+        self.assertEqual([{"to": "d1", "rel": "rests_on"}], on_disk["relates"])
+        self.assertTrue(on_disk["hand_edited"])
+        self.assertNotIn("related_by", on_disk)
+
+    def test_forward_relates_edit_is_refused_with_the_schema_error(self):
+        status, _, data = self.request("POST", "/api/node/d1",
+                                       body={"relates": [{"to": "d2", "rel": "rests_on"}]})
+        self.assertEqual(status, 422, data)
+        errors = json.loads(data.decode("utf-8"))["errors"]
+        self.assertTrue(any("d1" in e and "relates[0].to" in e and "ссылка вперёд" in e for e in errors), errors)
+        on_disk = store.load(self.root)["nodes"][0]
+        self.assertEqual([], on_disk["relates"])
+        self.assertFalse(on_disk["hand_edited"])
 
     def test_bad_bodies(self):
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)

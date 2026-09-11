@@ -32,9 +32,12 @@ BIND_HOST = "127.0.0.1"
 DEFAULT_PORT = 8790
 MAX_BODY = 1 << 20
 
-# Fields the viewer may change through POST. `id` is identity, `hand_edited` is set here.
+# Fields the viewer may change through POST. `id` is identity, `hand_edited` is set here,
+# `added_at` is aang's stamp and `related_by` is derived (U4). `relates` is content a human
+# corrects like any other field; a bad edge (wrong vocabulary, forward reference, missing
+# target, over the cap) is refused by the validation every edit passes through, with 422.
 EDITABLE_FIELDS = ("kind", "status", "superseded_by", "question", "decision", "why",
-                   "against", "consequence", "cites")
+                   "against", "consequence", "cites", "relates")
 
 _UI_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                         "ui", "index.html")
