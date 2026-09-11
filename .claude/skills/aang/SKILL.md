@@ -1,7 +1,6 @@
 ---
 name: aang
-description: Map what this session decided — the decisions, the values that started mattering without anyone choosing them, and the questions and consequences left hanging — as a verifiable file with a local viewer. Run when the user types /aang, usually deep into a long session.
-disable-model-invocation: true
+description: Map what this session decided — the decisions, the values that started mattering without anyone choosing them, and the questions and consequences left hanging — as a verifiable file with a local viewer. Run when the user types /aang, or when the aang hook tells you to refresh the map; never on your own initiative.
 ---
 
 # /aang — write down what this session decided
@@ -15,9 +14,9 @@ session transcript by `aang`, shown in a local viewer.
 You have the whole conversation in context. That is the entire reason this map can be good: the
 participant writes it, not a summarizer reading a log afterwards.
 
-- Do not open, grep or index the transcript under `~/.claude/projects`. Do not re-read project
-  files "to refresh". Do not hand this to a subagent — it was not here, it would have to read the
-  log, and that is precisely the post-hoc summary this tool exists to avoid.
+- Do not open, grep or index the transcript under `~/.claude/projects` or `~/.codex/sessions`. Do
+  not re-read project files "to refresh". Do not hand this to a subagent — it was not here, it
+  would have to read the log, and that is precisely the post-hoc summary this tool exists to avoid.
 - The one thing you do not know is **turn numbers**. You never counted them. Never write one. You
   cite by verbatim quote (below) and `aang merge` finds the turn.
 - Do read `.aang/map.json` if it exists. That is the previous map, not the transcript, and you need
@@ -127,7 +126,42 @@ A question that was answered, and acted on or agreed to. Fields (ADR):
 - `consequence` — what it committed us to, what it cost, what it changed downstream. `""` when
   genuinely nothing.
 - `status` — `accepted` when the user agreed or acted on it; `proposed` when it was put forward and
-  neither agreed to nor objected to; `superseded` when a later node replaced it.
+  neither agreed to nor objected to; `superseded` when a later node replaced it; `rejected` when
+  the user said no — keep the node, put the reason in `against`.
+- `decided_by` — `user` when the user chose or agreed in words or by acting; `agent` when you chose
+  and the user has not yet weighed in — then `status: proposed`.
+- `triage` — `research` / `discuss` when the user said «изучи» / «обсудим»; `null` otherwise. Only
+  on `proposed` decisions and `open` nodes.
+
+## Пачка в конце шага
+
+A long step ends in a batch: a few things you settled yourself, a couple of things you are handing
+to the user to look at, one thing you want confirmed. That batch is the map's raw material, and
+each part of it has a shape. Lay it out like this.
+
+- **What you decided yourself** is a `decision` with `status: proposed` and `decided_by: agent`.
+  Never `accepted` — that is for after the user agreed, in words or by acting on it. The call was
+  real and belongs on the map; the status is what says nobody else has weighed in yet, and the
+  viewer keeps it in «Входящем» until someone does.
+- **«Обрати внимание на X», «запусти Z»** — something you are handing over — is an `open` node
+  with `orphaned_by` on the decision it follows from, and a `why` that says whom it is addressed
+  to. You did not answer it, you passed it on; that is what makes it open and not a decision.
+- **«Уточни, правильно ли ABC»** is an `open` node whose `why` says the question is addressed to
+  the user. A question with an addressee gets answered; a question with none reads as a musing and
+  hangs on the map forever.
+- **A verdict the user gave in the chat** — «нет», «давай изучим», «обсудим потом», «да, так» — is
+  not prose to record. It is `status` / `triage` / `decided_by`, written on the next refresh:
+  «да, так» → `status: accepted`, `decided_by: user`; «нет» → `status: rejected`, with what they
+  said in `against`; «давай изучим» → `triage: research`; «обсудим потом» → `triage: discuss` —
+  and either of those last two also puts the node back to `status: proposed`, because a thing
+  under question is not a settled thing. A verdict on an `open` node answers it instead: what the
+  user said becomes its `decision`, `decided_by: user`, and the node is a decision from then on —
+  an open question is the one thing that can be neither accepted nor rejected. The same four
+  verdicts arrive from the viewer through `.aang/outbox.jsonl` (Procedure, step 0); they mean the
+  same thing and are written the same way.
+- **Rejected stays as `rejected`, never deleted.** The node remains with the reason in `against`.
+  That is what stops the next session from proposing the same thing again; deleting it throws away
+  the only thing the rejection bought.
 
 ## The grammar
 
@@ -320,6 +354,8 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
       "id": "d1",
       "kind": "decision",
       "status": "accepted",
+      "decided_by": "user",
+      "triage": null,
       "superseded_by": null,
       "question": "Чем мерить качество прогона?",
       "decision": "pass@1 на отложенном наборе",
@@ -334,9 +370,15 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 }
 ```
 
-- `kind`: `decision` | `tacit` | `open`. `status`: `accepted` | `superseded` | `proposed`.
-  `superseded_by` is an existing node id, or `null`; `status: superseded` requires it and it
-  requires `status: superseded`.
+- `kind`: `decision` | `tacit` | `open`. `status`: `accepted` | `superseded` | `proposed` |
+  `rejected`. `superseded_by` is an existing node id, or `null`; `status: superseded` requires it
+  and it requires `status: superseded`.
+- `decided_by`: only on a `decision` — on a `tacit` or an `open` the validator refuses it. `null`
+  (or absent) when you genuinely cannot tell who decided; the viewer then shows «решил: ?», which
+  is honest, and «agent» would not be.
+- `triage`: `research` | `discuss` | `null`, and only on a `proposed` decision or an `open` node —
+  on `accepted`, `rejected` and `superseded` the validator refuses it, because a thing under
+  question is not a settled thing.
 - `relates`: the edges (see "Relations"), each `{"to": <id above in the list>, "rel": ...}`, at
   most three. `[]` when none — and on an `open`, `[]` means `why` says that no decision caused it.
 - `added_at`: never write it. `merge` stamps it when a node first enters the map and never
@@ -349,9 +391,9 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
   first node that rests on it, even when the conversation reached it later (see «Backward only»).
   The viewer shows newest first.
 - `session_id`: leave it `""`. You do not know your own session id and must not guess one; the
-  shell does — `merge` (step 6) is passed `--session "$CLAUDE_CODE_SESSION_ID"` and stamps the
-  id it resolved into the map, and `aang check` prints which transcript file it used, so confirm
-  it is this session. On a repeat run the map already records it.
+  hook does — it writes `.aang/session.json`, and `merge` (step 6) resolves the transcript from
+  there, stamps the session into the map and prints which file it read, so confirm it is this
+  session. On a repeat run the map already records it.
 - `generated_at`: now, ISO 8601 UTC (`date -u +%Y-%m-%dT%H:%M:%SZ`).
 - `title`: `<project> · <what this session was about>`, short.
 - Text fields in the language the conversation was held in. A sentence or two each; the map is a
@@ -360,6 +402,12 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 
 ## Procedure
 
+0. If `.aang/outbox.jsonl` exists and is not empty, read it: each line is a verdict the user gave
+   in the viewer (`confirmed` / `rejected` / `research` / `discuss` on a node, with an optional
+   text). Carry every verdict into the candidate — `status: rejected`, `triage: research|discuss`,
+   an answered `open` becomes a `decision` with `decided_by: user` — and after a successful merge
+   empty the file (`: > .aang/outbox.jsonl`). The user already told you this; arriving at the
+   opposite answer without saying why is the one thing that makes the viewer's buttons useless.
 1. If `.aang/map.json` exists, read it. Note every id and every `hand_edited: true`.
 2. Think through the tacit questions, then the open questions, then the decisions. Apply the
    selectivity test to each node.
@@ -384,17 +432,19 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    Use the absolute path it printed as `aang` in every command below — shell variables do not
    survive between Bash calls, so do not store it in one. If it printed nothing, stop and tell the
    user `aang` is not installed (README, Install).
-6. Run `aang merge --session "$CLAUDE_CODE_SESSION_ID"` — the variable, literally, in the Bash
-   command; the shell expands it, you never see or type the id. An empty variable is the same as
-   no `--session`: merge then takes the newest transcript and stamps its id.
-   It validates the candidate, finds each quote in the transcript, fills in turns,
-   merges into `.aang/map.json` preserving hand edits, and prints what it kept, added, dropped, and
-   which quotes it could not find.
+6. Run `aang merge` — no `--session`: merge knows the session from `.aang/session.json`, written by
+   the hook; without it, it takes the newest transcript under `~/.claude/projects` or
+   `~/.codex/sessions` and prints which. Read that line and confirm it is this session. It
+   validates the candidate, finds each quote in the transcript, fills in turns, merges into
+   `.aang/map.json` preserving hand edits, and prints what it kept, added, dropped, and which
+   quotes it could not find.
    - Exit 1 with `невалиден`: the candidate broke the schema; the errors name node and field.
      Nothing was written. Fix the candidate and run again.
    - Exit 0 with `не найдено: N`: those nodes are in the map, unverified. See step 7.
-7. Run `aang check` (same `--session`). It prints every node with ✓/✗ and the reason for each failing quote, and exits
-   1 if any citation failed. For each ✗: if you misquoted a line you clearly remember, write a
+7. Run `aang check` — no `--session` either: it finds the transcript the same way, from
+   `.aang/session.json` and otherwise the newest one, and prints which; confirm it is this session.
+   It prints every node with ✓/✗ and the reason for each failing quote, and exits 1 if any
+   citation failed. For each ✗: if you misquoted a line you clearly remember, write a
    corrected candidate (same ids, all nodes) and merge again — **once**. Do not iterate hunting for
    a quote that resolves; after one correction pass, whatever is still ✗ stays unverified, and you
    say so. Then the check the tool cannot do: **for every ✓, re-read the quote and ask whether it
@@ -404,13 +454,19 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    After the verdict `check` may print `Замечания` — ids mentioned in prose with no edge. They
    fail nothing; fold them into the same correction pass: add the edge where the relation is real
    (on the later node, when the remark says so), and leave a bare mention alone.
-8. Start the viewer in the background: `aang view` (same `--session`; it serves until stopped —
-   use the Bash tool's background mode). Its output carries the URL, `http://127.0.0.1:8790/` by default; if the port is
-   taken it exits 1 — retry with `--port 8791`.
+8. Start the viewer in the background: `aang view` — again no `--session`; it reads the transcript
+   from `.aang/session.json`, else the newest one, and its header names the file, so the user can
+   confirm it is this session. It serves until stopped — use the Bash tool's background mode. Its
+   output carries the URL, `http://127.0.0.1:8790/` by default. If `aang view` prints
+   `уже запущен`, the viewer is already open on that URL — do not start another. If the port is
+   held by something else it exits 1 — retry with `--port 8791`.
 9. Tell the user, briefly: the URL; how many tacit / open / decision nodes; how many of the open
-   ones a decision orphaned and how many merely hang; which nodes are unverified and, in one line
-   each, why. Do not paste the map — the viewer is for that. Mention
-   that `aang export` writes `docs/decisions.md` if they want the record committed.
+   ones a decision orphaned and how many merely hang; how many nodes are waiting in «Входящем» —
+   your own proposals (`proposed`, `decided_by: agent`) plus the open questions the user has not
+   marked seen; which nodes are unverified and, in one line each, why. Do not paste the map — the
+   viewer is for that. Mention that `aang export` writes `docs/decisions.md` if they want the
+   record committed. If the hook is not installed — `merge` said it took the newest transcript, or
+   there is no `.aang/session.json` — add one line: `aang install` connects live updates.
 
 ## Running again in the same session
 
@@ -447,6 +503,11 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
   edits on the next run.
 - Guess a turn number. Invent, tidy or translate a quote.
 - Write `related_by` or `added_at`, or an edge that points down the list.
+- Write `seen_at`. It records when the user last looked at the node — the server stamps it when
+  they press «видел», and `merge` drops it from a candidate like a turn number.
+- Mark an `open` node `accepted` or `rejected`: answer it (it becomes a decision) or leave it. The
+  validator refuses both, because an open question with a verdict on it is a decision nobody wrote
+  down.
 - Mark a mooted decision `superseded`: nothing replaced it, and `superseded_by` would have nothing
   to point at. The edge is `moots`, on the decision that killed it.
 - Delegate to a subagent.
