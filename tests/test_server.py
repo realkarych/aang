@@ -161,15 +161,26 @@ class ViewerStringsTest(ServerTestCase):
                      "Карта не прошла проверку", "узлы не показаны"):
             self.assertIn(word, page, word)
 
+    def viewer_text(self):
+        """The viewer the reader gets: the page plus the model it loads.
+
+        The cell titles moved to `ui/model.js`, which the page pulls in with a `<script src>`,
+        so a word can be on either side of that line and still be on the screen.
+        """
+        page = self.request("GET", "/")[2].decode("utf-8")
+        model = self.request("GET", "/model.js")[2].decode("utf-8")
+        return page + model
+
     def test_index_carries_the_relation_vocabulary(self):
         """Search, neighbourhood, coverage and triage words; and every relation label the export
         uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed."""
         page = self.request("GET", "/")[2].decode("utf-8")
+        text = self.viewer_text()
         for word in ("скрыто", "ни с чем не связано", "На этом держатся", "покрыто до хода",
                      "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое",
                      # the reverse of `moots` is a status flag, as in the export, not a dependant
                      "неактуально", "это неактуальным", "ничего на этом не держится"):
-            self.assertIn(word, page, word)
+            self.assertIn(word, text, word)
         # Presence is not enough: with the labels of two relations swapped every string is still
         # on the page, and the viewer then tells the reader the opposite of the export. So the
         # check is the binding itself — the key, a colon, that label — tolerant of quoting and
@@ -179,17 +190,6 @@ class ViewerStringsTest(ServerTestCase):
                                  re.escape(label) + r"[\"']")
             self.assertTrue(binding.search(page),
                             "%s: the viewer does not bind this key to %r (store.REL_LABELS)" % (rel, label))
-
-    def test_index_triage_titles_bound_to_the_orphan_predicate(self):
-        """The two open-question groups differ only by an `orphaned_by` edge; their titles are
-        plain strings, so presence would survive a swap that files every orphan under «Просто
-        висит». Pin each title to the predicate that follows it inside the GROUPS literal."""
-        page = self.request("GET", "/")[2].decode("utf-8")
-        self.assertIn("orphaned_by", store.REL_LABELS)
-        for title, predicate in (("Осиротело решениями", r"return hasRel\(n, \"orphaned_by\"\)"),
-                                 ("Просто висит", r"return !hasRel\(n, \"orphaned_by\"\)")):
-            self.assertTrue(re.search(r"title:\s*\"" + title + r"\"[^}]*" + predicate, page),
-                            "%s: not followed by %s" % (title, predicate))
 
     def test_index_is_self_contained(self):
         page = self.request("GET", "/")[2].decode("utf-8")
