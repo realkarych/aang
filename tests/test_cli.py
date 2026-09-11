@@ -6,6 +6,7 @@ import shutil
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 from aang import cli, store
 
@@ -113,6 +114,32 @@ class CheckTest(CliTestCase):
         self.assertIn("Итог: ✓", out)
         self.assertIn("1 узел без цитат", out)
 
+    def test_check_prints_warnings_but_still_exits_zero(self):
+        # The map is valid, but d2's prose names d1 and there is no edge to it: a nudge
+        # under its own heading, after the verdict, and not a failure.
+        store.save(self.root, candidate(
+            decision("d1", "давай тогда pass@1"),
+            decision("d2", "нужно 500 примеров вместо 100", why="следует из d1")))
+        code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(0, code, out)
+        self.assertIn("Замечания:", out)
+        self.assertIn("узел d2: в тексте упомянут d1, но связи на него нет", out)
+        self.assertLess(out.index("Итог:"), out.index("Замечания:"))
+
+    def test_check_prints_no_warnings_block_when_there_are_none(self):
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
+        code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(0, code, out)
+        self.assertNotIn("Замечания", out)
+
+    def test_check_warnings_do_not_rescue_a_failing_map(self):
+        store.save(self.root, candidate(
+            decision("d1", "давай тогда pass@1"),
+            decision("d2", "фраза, которой в сессии не было", why="следует из d1")))
+        code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(1, code)
+        self.assertIn("Замечания:", out)
+
     def test_clean_map_summary_has_no_uncited_note(self):
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
@@ -193,6 +220,35 @@ class MergeTest(CliTestCase):
         self.write_candidate(cand)
         self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
         self.assertNotEqual(store.load(self.root)["generated_at"], "")
+
+    def test_merge_stamps_added_at_once_and_keeps_it_on_regeneration(self):
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
+        self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
+        saved = store.load(self.root)
+        first = saved["nodes"][0]["added_at"]
+        self.assertRegex(first, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertEqual(first, saved["generated_at"])  # one instant for both stamps
+        # Second run: d1 rewritten (with a model-guessed added_at), d2 new.
+        self.write_candidate(candidate(
+            decision("d1", "давай тогда pass@1", why="переписано", added_at="1999-01-01T00:00:00Z"),
+            decision("d2", "нужно 500 примеров вместо 100")))
+        with mock.patch.object(cli, "_now_iso", return_value="2030-01-01T00:00:00Z"):
+            self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
+        by_id = dict((n["id"], n) for n in store.load(self.root)["nodes"])
+        self.assertEqual(first, by_id["d1"]["added_at"])
+        self.assertEqual("переписано", by_id["d1"]["why"])
+        self.assertEqual("2030-01-01T00:00:00Z", by_id["d2"]["added_at"])
+
+    def test_merge_stamps_nodes_of_a_map_written_before_added_at_existed(self):
+        # Every pre-existing node gets the same instant: "seen from here on", no invented past.
+        store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
+                                        decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
+        self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
+                                       decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
+        with mock.patch.object(cli, "_now_iso", return_value="2030-01-01T00:00:00Z"):
+            self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
+        stamps = set(n["added_at"] for n in store.load(self.root)["nodes"])
+        self.assertEqual(set(["2030-01-01T00:00:00Z"]), stamps)
 
     def _two_projects(self):
         """A transcript root with session A (this map's) and a newer session B elsewhere."""

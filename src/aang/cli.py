@@ -4,7 +4,8 @@
 writes `.aang/candidate.json`, `merge` resolves its citations to turn numbers, folds it
 into the stored map through `store.merge` (hand edits survive — R6), validates, saves.
 `check` is the command a human trusts: it exits 1 when the map is invalid or any
-citation fails to resolve.
+citation fails to resolve. Remarks (`schema.warnings`) print after the verdict and never
+change the exit code — a nudge that failed the build would teach people to ignore it.
 """
 
 import argparse
@@ -129,21 +130,32 @@ def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     total_cites = sum(len(n["cites"]) for n in view["nodes"])
     out.write("\nУзлов: %d, цитат: %d, не подтверждено: %d, узлов без цитат: %d\n"
               % (len(view["nodes"]), total_cites, failed, uncited))
+    code, verdict = _verdict(transcript_error, failed, uncited)
+    out.write("Итог: %s\n" % verdict)
+
+    # Remarks come after the verdict and do not touch the exit code: the map is valid and
+    # verified, something in it is merely worth a look.
+    remarks = schema.warnings(map_dict)
+    if remarks:
+        out.write("\nЗамечания:\n")
+        for remark in remarks:
+            out.write("  %s %s\n" % (MARK_NONE, remark))
+    return code
+
+
+def _verdict(transcript_error, failed, uncited):  # type: (Optional[str], int, int) -> Tuple[int, str]
+    """Exit code and the one-line verdict for `check`."""
     if transcript_error:
-        out.write("Итог: %s карта не проверена — транскрипт недоступен\n" % MARK_BAD)
-        return 1
+        return 1, "%s карта не проверена — транскрипт недоступен" % MARK_BAD
     if failed:
-        out.write("Итог: %s карта не подтверждена — исправьте или удалите узлы с ненайденными цитатами\n"
-                  % MARK_BAD)
-        return 1
+        return 1, ("%s карта не подтверждена — исправьте или удалите узлы с ненайденными цитатами"
+                   % MARK_BAD)
     # A node with nothing to cite (an `open` may have none) is not a failure, but it is
     # not verified either — say so next to the verdict rather than above it.
     if uncited:
-        out.write("Итог: %s каждая цитата найдена в транскрипте; %s %d %s без цитат — не проверить\n"
-                  % (MARK_OK, MARK_NONE, uncited, _nodes_word(uncited)))
-        return 0
-    out.write("Итог: %s каждая цитата найдена в транскрипте\n" % MARK_OK)
-    return 0
+        return 0, ("%s каждая цитата найдена в транскрипте; %s %d %s без цитат — не проверить"
+                   % (MARK_OK, MARK_NONE, uncited, _nodes_word(uncited)))
+    return 0, "%s каждая цитата найдена в транскрипте" % MARK_OK
 
 
 def _print_nodes(nodes, out):  # type: (List[Dict[str, Any]], Any) -> Tuple[int, int]
@@ -261,10 +273,13 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     resolved = store.fill_turns(candidate, turns)
     if not session_id and source.path:
         candidate["session_id"] = os.path.splitext(os.path.basename(source.path))[0]
-    # The map is generated here, not by the model, so the timestamp is stamped here.
-    candidate["generated_at"] = _now_iso()
+    # The map is generated here, not by the model, so the timestamps are stamped here:
+    # `generated_at` on the map, `added_at` on every node that has none after the merge
+    # (the ones that just arrived — and, once, every node of a map older than the field).
+    now = _now_iso()
+    candidate["generated_at"] = now
 
-    merged = store.merge(old, candidate)
+    merged = store.stamp_added_at(store.merge(old, candidate), now)
     errors = schema.validate(merged)
     if errors:
         err.write("Результат слияния невалиден, карта не сохранена:\n")

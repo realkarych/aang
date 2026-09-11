@@ -23,7 +23,9 @@ CANDIDATE_FILE = "candidate.json"
 
 # Fields a human authors. `merge` never lets a regeneration touch these on a
 # hand-edited node. `status`/`superseded_by` are structural bookkeeping — see `merge`.
-CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites")
+# `relates` rides with the content (a hand-edited node keeps its edges), `added_at` is
+# aang's own stamp and is never taken from a candidate — see `merge` and `stamp_added_at`.
+CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites", "relates")
 
 
 # ----------------------------------------------------------------------------- paths
@@ -129,6 +131,13 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
       repoints it would be rewriting the record that the conversation moved on.
     - An old node that a surviving node points at through `superseded_by` is kept too
       (transitively), so the result stays valid and the superseded decision stays visible.
+    - `relates` follows the same three classes: frozen and hand-edited nodes keep their
+      edges (a regeneration that dropped them would be retracting a record), an ordinary
+      node takes the candidate's edges — that is what regenerating the node means.
+    - `added_at` is when the node first entered the stored map. A node that existed in
+      `old` keeps its stamp whatever the candidate says; a node new to the map gets none
+      here — the model cannot know when it appeared, so a candidate's `added_at` is a
+      guess and is dropped, like a candidate's `turn`. `stamp_added_at` fills it after.
     - Order: `new`'s order; old-only survivors are inserted after their nearest surviving
       old predecessor, so they keep their place in the timeline.
     Top-level fields come from `new` when non-empty, else from `old`.
@@ -156,6 +165,7 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
             result.append(_merge_hand_edited(previous, incoming))
         else:
             incoming["hand_edited"] = False
+            incoming["added_at"] = previous.get("added_at", "") if previous is not None else ""
             result.append(incoming)
 
     # Old-only nodes: hand-edited and superseded ones survive; so does anything a
@@ -221,6 +231,20 @@ def _insert_index(result, old_nodes, node_id):  # type: (List[Dict[str, Any]], L
     return 0 if predecessor is None else predecessor + 1
 
 
+def stamp_added_at(map_dict, now_iso):  # type: (Dict[str, Any], str) -> Dict[str, Any]
+    """Give every node without an `added_at` the stamp `now_iso`; an existing one is kept.
+
+    Called after `merge`, so the nodes it fills are the ones that just entered the map —
+    plus, once, every node of a map written before `added_at` existed. Those all get the
+    same instant: honest ("unknown, seen from here on"), not a reconstruction of when
+    each one really appeared. Mutates and returns `map_dict`.
+    """
+    for node in map_dict.get("nodes") or []:
+        if isinstance(node, dict) and not node.get("added_at"):
+            node["added_at"] = now_iso
+    return map_dict
+
+
 # ----------------------------------------------------------------------------- turns
 
 def fill_turns(map_dict, turns):  # type: (Dict[str, Any], List[Dict[str, Any]]) -> List[Dict[str, Any]]
@@ -258,6 +282,17 @@ KIND_TITLES = (
 )
 
 STATUS_RU = {"accepted": "принято", "superseded": "заменено", "proposed": "предложено"}
+
+# How a relation reads in the committed record, node first: «o3 осиротело решением d6»,
+# «d7 опирается на t5», «d9 сделало неактуальным o2». Neuter, because the subject is the
+# node as a thing — «решение», «следствие» — not the person who made it. The viewer
+# (ui/index.html) carries the same three strings for its chips and a test compares them;
+# change one, change both.
+REL_LABELS = {
+    "orphaned_by": "осиротело решением",
+    "rests_on": "опирается на",
+    "moots": "сделало неактуальным",
+}
 
 
 def export_markdown(map_dict, transcript_error=None):  # type: (Dict[str, Any], Optional[str]) -> str
@@ -317,11 +352,7 @@ def _node_markdown(node, by_id, transcript_error=None):
 
     flags = ["**Статус:** %s" % STATUS_RU.get(node.get("status"), node.get("status"))]
     if superseded and node.get("superseded_by"):
-        target = by_id.get(node["superseded_by"])
-        label = node["superseded_by"]
-        if target is not None and target.get("question"):
-            label += " (%s)" % target["question"]
-        flags.append("**Заменено:** %s" % label)
+        flags.append("**Заменено:** %s" % _node_ref(node["superseded_by"], by_id))
     if node.get("verified") is False:
         if transcript_error:
             flags.append("**Не проверялось** — транскрипт недоступен")
@@ -333,6 +364,17 @@ def _node_markdown(node, by_id, transcript_error=None):
         flags.append("_исправлено вручную_")
     out.append("  ".join(flags))
     out.append("")
+
+    # Edges sit with the status, before the prose: for an `open` node "orphaned by d6" is
+    # the first thing to know, and the prose may not repeat it.
+    relates = [r for r in (node.get("relates") or []) if isinstance(r, dict) and r.get("to")]
+    if relates:
+        out.append("**Связи:**")
+        out.append("")
+        for rel in relates:
+            out.append("- %s %s" % (REL_LABELS.get(rel.get("rel"), rel.get("rel")),
+                                    _node_ref(rel["to"], by_id)))
+        out.append("")
 
     if node.get("decision"):
         out.append("**Решение:** %s" % _strike(node["decision"], superseded))
@@ -365,6 +407,14 @@ def _node_markdown(node, by_id, transcript_error=None):
             out.append("- %s: «%s»%s" % (where, (cite.get("quote") or "").strip(), marker))
         out.append("")
     return out
+
+
+def _node_ref(node_id, by_id):  # type: (str, Dict[Any, Dict[str, Any]]) -> str
+    """`d6 (Какой порог?)` — an id a reader can find, with the question so they need not."""
+    target = by_id.get(node_id)
+    if target is not None and target.get("question"):
+        return "%s (%s)" % (node_id, target["question"])
+    return node_id
 
 
 def _strike(text, superseded):  # type: (str, bool) -> str

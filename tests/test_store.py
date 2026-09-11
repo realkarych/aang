@@ -310,6 +310,87 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(third["nodes"][0]["decision"], "человек поправил")
 
 
+class AddedAtTest(unittest.TestCase):
+    def test_stamp_added_at_only_fills_missing(self):
+        m = {"version": 1, "nodes": [{"id": "d1", "added_at": "2026-01-01T00:00:00Z"},
+                                     {"id": "d2"}]}
+        out = store.stamp_added_at(m, "2026-09-11T12:00:00Z")
+        self.assertEqual("2026-01-01T00:00:00Z", out["nodes"][0]["added_at"])
+        self.assertEqual("2026-09-11T12:00:00Z", out["nodes"][1]["added_at"])
+
+    def test_stamp_fills_empty_string_too(self):
+        # normalize() turns an absent `added_at` into "" — that is still "missing".
+        m = a_map(node("d1", added_at=""))
+        out = store.stamp_added_at(m, "2026-09-11T12:00:00Z")
+        self.assertEqual("2026-09-11T12:00:00Z", out["nodes"][0]["added_at"])
+
+    def test_merge_preserves_added_at_of_existing_node(self):
+        old = a_map(node("d1", added_at="2026-01-01T00:00:00Z"))
+        new = a_map(node("d1", why="переписано моделью"))
+        out = store.merge(old, new)
+        self.assertEqual("2026-01-01T00:00:00Z", out["nodes"][0]["added_at"])
+        self.assertEqual("переписано моделью", out["nodes"][0]["why"])
+
+    def test_merge_keeps_added_at_of_hand_edited_and_frozen_nodes(self):
+        old = a_map(node("d1", status="superseded", superseded_by="d2", added_at="2026-01-01T00:00:00Z"),
+                    node("d2", hand_edited=True, added_at="2026-01-02T00:00:00Z"))
+        new = a_map(node("d1", status="superseded", superseded_by="d2", added_at="2026-09-11T00:00:00Z"),
+                    node("d2", added_at="2026-09-11T00:00:00Z"))
+        out = store.merge(old, new)
+        by_id = dict((n["id"], n) for n in out["nodes"])
+        self.assertEqual("2026-01-01T00:00:00Z", by_id["d1"]["added_at"])
+        self.assertEqual("2026-01-02T00:00:00Z", by_id["d2"]["added_at"])
+
+    def test_merge_discards_added_at_the_model_wrote_for_a_new_node(self):
+        # Like `turn` and `generated_at`: a timestamp in map.json always means "stamped by
+        # aang", never "guessed by the model". stamp_added_at fills it after merge.
+        out = store.merge(a_map(), a_map(node("d1", added_at="1999-01-01T00:00:00Z")))
+        self.assertEqual("", out["nodes"][0]["added_at"])
+
+
+class RelatesMergeTest(unittest.TestCase):
+    def test_merge_keeps_relates_of_frozen_superseded_node(self):
+        old = a_map(node("d0"), node("d2"),
+                    node("d1", status="superseded", superseded_by="d2",
+                         relates=[{"to": "d0", "rel": "rests_on"}]))
+        new = a_map(node("d0"), node("d2"),
+                    node("d1", status="superseded", superseded_by="d2", relates=[]))
+        out = store.merge(old, new)
+        frozen = [n for n in out["nodes"] if n["id"] == "d1"][0]
+        self.assertEqual([{"to": "d0", "rel": "rests_on"}], frozen["relates"])
+        self.assertEqual(schema.validate(out), [])
+
+    def test_merge_keeps_relates_of_hand_edited_node(self):
+        old = a_map(node("d0"), node("d1", hand_edited=True,
+                                      relates=[{"to": "d0", "rel": "rests_on"}]))
+        new = a_map(node("d0"), node("d1", relates=[]))
+        out = store.merge(old, new)
+        kept = [n for n in out["nodes"] if n["id"] == "d1"][0]
+        self.assertEqual([{"to": "d0", "rel": "rests_on"}], kept["relates"])
+
+    def test_merge_never_rewrites_relates_of_hand_edited_node(self):
+        old = a_map(node("d0"), node("t1", kind="tacit"),
+                    node("d1", hand_edited=True, relates=[{"to": "d0", "rel": "rests_on"}]))
+        new = a_map(node("d0"), node("t1", kind="tacit"),
+                    node("d1", relates=[{"to": "t1", "rel": "moots"}]))
+        out = store.merge(old, new)
+        kept = [n for n in out["nodes"] if n["id"] == "d1"][0]
+        self.assertEqual([{"to": "d0", "rel": "rests_on"}], kept["relates"])
+
+    def test_merge_takes_relates_from_candidate_for_ordinary_node(self):
+        old = a_map(node("d0"), node("d1"))
+        new = a_map(node("d0"), node("d1", relates=[{"to": "d0", "rel": "rests_on"}]))
+        out = store.merge(old, new)
+        updated = [n for n in out["nodes"] if n["id"] == "d1"][0]
+        self.assertEqual([{"to": "d0", "rel": "rests_on"}], updated["relates"])
+
+    def test_merge_drops_relates_the_candidate_dropped_for_ordinary_node(self):
+        old = a_map(node("d0"), node("d1", relates=[{"to": "d0", "rel": "rests_on"}]))
+        new = a_map(node("d0"), node("d1"))
+        out = store.merge(old, new)
+        self.assertEqual([], [n for n in out["nodes"] if n["id"] == "d1"][0]["relates"])
+
+
 class FillTurnsTest(unittest.TestCase):
     def setUp(self):
         self.turns = transcript.index(os.path.join(FIXTURES, "normal.jsonl"))
@@ -408,6 +489,28 @@ class ExportTest(unittest.TestCase):
         notfound = store.export_markdown(a_map(node("d1", verified=False)))
         lines = [t.split("**Статус:**")[1].split("\n")[0] for t in (unchecked, nocites, notfound)]
         self.assertEqual(len(set(lines)), 3, lines)
+
+    def test_export_lists_relations_in_words(self):
+        m = a_map(node("d1", question="Порог?"),
+                  node("o1", kind="open", status="proposed", question="Что с хвостом?",
+                       decision="", cites=[], relates=[{"to": "d1", "rel": "orphaned_by"}]))
+        md = store.export_markdown(m)
+        self.assertIn("осиротело решением d1 (Порог?)", md)
+        self.assertIn("**Связи:**", md)
+
+    def test_export_has_a_label_for_every_relation_kind(self):
+        self.assertEqual(sorted(store.REL_LABELS), sorted(schema.RELS))
+        nodes = [node("d0", question="База?")]
+        for i, rel in enumerate(schema.RELS, 1):
+            nodes.append(node("d%d" % i, relates=[{"to": "d0", "rel": rel}]))
+        md = store.export_markdown(a_map(*nodes))
+        for rel in schema.RELS:
+            self.assertIn("- %s d0 (База?)" % store.REL_LABELS[rel], md)
+
+    def test_export_says_nothing_when_there_are_no_relations(self):
+        md = store.export_markdown(a_map(node("d1")))
+        self.assertNotIn("осиротело", md)
+        self.assertNotIn("Связи", md)
 
     def test_empty_map_exports_a_document(self):
         text = store.export_markdown({})
