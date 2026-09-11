@@ -382,5 +382,144 @@ class AnnotateTest(unittest.TestCase):
         self.assertNotIn("ok", m["nodes"][0]["cites"][0])
 
 
+def _turns(n, text="живая цитата отсюда, ход %d"):
+    """`n` synthetic turns shaped like `transcript.index` output, each carrying the quote."""
+    return [{"turn": i, "role": "user" if i % 2 else "assistant", "ts": None, "uuid": "",
+             "text": text % i} for i in range(1, n + 1)]
+
+
+def _node(node_id, kind="decision", status="accepted", **fields):
+    """A valid node. A decision needs a citation, so the default is one that resolves
+    nowhere in `_turns` — it satisfies the validator without covering any turn."""
+    node = {"id": node_id, "kind": kind, "status": status, "question": "вопрос %s" % node_id,
+            "cites": []}
+    if kind != "open":
+        node["decision"] = "решение %s" % node_id
+        node["why"] = "потому что"
+        node["cites"] = [{"quote": "цитата, которой нет ни в одном ходе"}]
+    node.update(fields)
+    return node
+
+
+def _map(nodes):
+    return {"version": 1, "session_id": "s1", "generated_at": "2026-09-11T12:00:00Z",
+            "title": "тест", "nodes": nodes}
+
+
+def _by_id(view, node_id):
+    return [n for n in view["nodes"] if n["id"] == node_id][0]
+
+
+class ReverseIndexTest(unittest.TestCase):
+    def test_annotate_builds_reverse_index(self):
+        m = _map([_node("d1"), _node("o1", kind="open", status="proposed",
+                                     relates=[{"to": "d1", "rel": "orphaned_by"}])])
+        view = server.annotate(m, _turns(3))
+        self.assertEqual([{"from": "o1", "rel": "orphaned_by"}], _by_id(view, "d1")["related_by"])
+
+    def test_annotate_reverse_index_is_empty_list_not_missing(self):
+        view = server.annotate(_map([_node("d1")]), _turns(3))
+        self.assertEqual([], view["nodes"][0]["related_by"])
+
+    def test_source_node_keeps_its_forward_edges_and_gets_empty_reverse(self):
+        m = _map([_node("d1"), _node("d2", relates=[{"to": "d1", "rel": "rests_on"}])])
+        view = server.annotate(m, _turns(3))
+        d2 = _by_id(view, "d2")
+        self.assertEqual([{"to": "d1", "rel": "rests_on"}], d2["relates"])
+        self.assertEqual([], d2["related_by"])
+
+    def test_reverse_index_follows_map_order_with_several_sources(self):
+        m = _map([_node("d1"),
+                  _node("d2", relates=[{"to": "d1", "rel": "rests_on"}]),
+                  _node("o1", kind="open", status="proposed",
+                        relates=[{"to": "d1", "rel": "orphaned_by"}, {"to": "d2", "rel": "moots"}])])
+        view = server.annotate(m, _turns(3))
+        self.assertEqual([{"from": "d2", "rel": "rests_on"}, {"from": "o1", "rel": "orphaned_by"}],
+                         _by_id(view, "d1")["related_by"])
+        self.assertEqual([{"from": "o1", "rel": "moots"}], _by_id(view, "d2")["related_by"])
+
+    def test_related_by_written_into_the_file_is_replaced_by_the_derived_one(self):
+        # U4: the reverse side is never stored; whatever the file claims is discarded.
+        m = _map([_node("d1", related_by=[{"from": "ghost", "rel": "rests_on"}]),
+                  _node("d2", relates=[{"to": "d1", "rel": "rests_on"}])])
+        view = server.annotate(m, _turns(3))
+        self.assertEqual([{"from": "d2", "rel": "rests_on"}], _by_id(view, "d1")["related_by"])
+
+    def test_reverse_index_is_built_without_a_transcript(self):
+        m = _map([_node("d1"), _node("d2", relates=[{"to": "d1", "rel": "rests_on"}])])
+        view = server.annotate(m, [], "нет транскрипта")
+        self.assertEqual([{"from": "d2", "rel": "rests_on"}], _by_id(view, "d1")["related_by"])
+
+
+class CoverageTest(unittest.TestCase):
+    def test_annotate_reports_coverage(self):
+        m = _map([_node("d1", cites=[{"quote": "живая цитата отсюда", "turn": 5}])])
+        view = server.annotate(m, _turns(12))
+        self.assertEqual({"covered_to": 5, "turns": 12}, view["coverage"])
+
+    def test_coverage_is_none_when_nothing_resolved(self):
+        view = server.annotate(_map([_node("d1")]), _turns(12))
+        self.assertIsNone(view["coverage"]["covered_to"])
+        self.assertEqual(12, view["coverage"]["turns"])
+
+    def test_unresolved_citation_does_not_extend_coverage(self):
+        # U6: a claim nobody could verify does not extend the map's reach.
+        m = _map([_node("d1", cites=[{"quote": "живая цитата отсюда", "turn": 5}]),
+                  _node("d2", cites=[{"quote": "этого нигде нет в тексте", "turn": 9}])])
+        view = server.annotate(m, _turns(12))
+        self.assertFalse(_by_id(view, "d2")["cites"][0]["ok"])
+        self.assertEqual(5, view["coverage"]["covered_to"])
+
+    def test_coverage_takes_the_largest_resolved_turn_across_nodes(self):
+        m = _map([_node("d1", cites=[{"quote": "живая цитата отсюда", "turn": 2}]),
+                  _node("d2", cites=[{"quote": "живая цитата отсюда", "turn": 7},
+                                     {"quote": "живая цитата отсюда", "turn": 4}])])
+        view = server.annotate(m, _turns(9))
+        self.assertEqual({"covered_to": 7, "turns": 9}, view["coverage"])
+
+    def test_coverage_counts_a_turn_filled_in_from_the_quote(self):
+        m = _map([_node("d1", cites=[{"quote": "только здесь и нигде больше"}])])
+        turns = _turns(6)
+        turns[3]["text"] = "а вот только здесь и нигде больше"  # turn 4
+        view = server.annotate(m, turns)
+        self.assertEqual({"covered_to": 4, "turns": 6}, view["coverage"])
+
+    def test_coverage_without_transcript_is_none_of_zero(self):
+        m = _map([_node("d1", cites=[{"quote": "живая цитата отсюда", "turn": 5}])])
+        view = server.annotate(m, [], "нет транскрипта")
+        self.assertEqual({"covered_to": None, "turns": 0}, view["coverage"])
+
+
+class WarningsInViewTest(unittest.TestCase):
+    def test_warnings_travel_with_the_map(self):
+        m = _map([_node("d1"), _node("d2", why="держится на d1, но ребра нет")])
+        view = server.annotate(m, _turns(3))
+        self.assertEqual(1, len(view["warnings"]))
+        self.assertIn("d1", view["warnings"][0])
+
+    def test_warnings_empty_list_when_clean(self):
+        m = _map([_node("d1"), _node("d2", why="держится на d1",
+                                     relates=[{"to": "d1", "rel": "rests_on"}])])
+        view = server.annotate(m, _turns(3))
+        self.assertEqual([], view["warnings"])
+
+    def test_invalid_map_keeps_the_shape(self):
+        view = server.annotate({"version": 1, "nodes": [{"id": "x"}]}, _turns(3))
+        self.assertTrue(view["errors"])
+        self.assertEqual([], view["nodes"])
+        self.assertEqual({"covered_to": None, "turns": 3}, view["coverage"])
+        self.assertEqual([], view["warnings"])
+
+
+class ViewShapeOverHttpTest(ServerTestCase):
+    def test_api_map_carries_reverse_index_coverage_and_warnings(self):
+        view = self.get_json("/api/map")
+        for node in view["nodes"]:
+            self.assertEqual([], node["related_by"])
+        self.assertIsInstance(view["coverage"]["covered_to"], int)
+        self.assertEqual(view["turns"], view["coverage"]["turns"])
+        self.assertEqual([], view["warnings"])
+
+
 if __name__ == "__main__":
     unittest.main()

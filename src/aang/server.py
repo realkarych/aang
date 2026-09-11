@@ -12,7 +12,8 @@ stamped `hand_edited: true`, which regeneration then preserves.
 
 Routes:
   GET  /                 ui/index.html
-  GET  /api/map          the map, every citation resolved, per-node `verified` (see `annotate`)
+  GET  /api/map          the map, every citation resolved, per-node `verified` and
+                         `related_by`, top-level `coverage` and `warnings` (see `annotate`)
   POST /api/node/<id>    {"field": value, ...} → edit, `hand_edited: true`, save, return the map
 """
 
@@ -100,7 +101,17 @@ def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
     a node with nothing to check is not verified. With `transcript_error` set, nothing
     is resolved and every node is `verified: false`.
 
-    An invalid map is never rendered: `errors` is non-empty and `nodes` is empty.
+    `related_by` on each node is the reverse of everyone else's `relates` — derived here,
+    never stored, so the two sides cannot disagree (spec U4); a node nothing points at
+    gets `[]`, not a missing key. Whatever the file claims under that key is discarded.
+
+    `coverage` is `{"covered_to": int|None, "turns": int}`: the largest turn among the
+    citations that resolved `ok` (a claim nobody could verify extends nothing) against
+    the transcript's length right now, never a stored count (spec U6). `warnings` is
+    `schema.warnings` so remarks travel with the map instead of being recomputed.
+
+    An invalid map is never rendered: `errors` is non-empty and `nodes` is empty; the
+    other keys keep their shape (`coverage` with `covered_to: null`, `warnings: []`).
     """
     map_dict = schema.normalize(json.loads(json.dumps(map_dict)))
     errors = schema.validate(map_dict)
@@ -113,10 +124,15 @@ def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
         "transcript_error": transcript_error,
         "turns": len(turns) if not transcript_error else 0,
         "errors": errors,
+        "coverage": {"covered_to": None, "turns": 0},
+        "warnings": [],
         "nodes": [],
     }
+    view["coverage"]["turns"] = view["turns"]
     if errors:
         return view
+    view["warnings"] = schema.warnings(map_dict)
+    covered = []  # type: List[int]
     for node in map_dict["nodes"]:
         cites = node.get("cites") or []
         if transcript_error:
@@ -125,7 +141,19 @@ def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
             resolved = transcript.resolve(cites, turns)
         node["cites"] = resolved
         node["verified"] = bool(resolved) and all(c["ok"] for c in resolved)
+        covered.extend(c["turn"] for c in resolved if c["ok"] and isinstance(c["turn"], int))
         view["nodes"].append(node)
+
+    reverse = {}  # type: Dict[str, List[Dict[str, str]]]
+    for node in view["nodes"]:
+        for rel in node.get("relates") or []:
+            target = rel.get("to")
+            if target:
+                reverse.setdefault(target, []).append({"from": node["id"], "rel": rel.get("rel", "")})
+    for node in view["nodes"]:
+        node["related_by"] = reverse.get(node["id"], [])
+
+    view["coverage"]["covered_to"] = max(covered) if covered else None
     return view
 
 
