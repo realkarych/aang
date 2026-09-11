@@ -161,8 +161,14 @@ def _node_block(n):  # type: (Dict[str, Any]) -> str
 
 
 def _stop(root, payload, harness, now):  # type: (str, Dict[str, Any], str, str) -> Optional[Dict[str, Any]]
-    """Claude Code sends `stop_hook_active: false` when the turn already ended by itself."""
-    if harness == "claude" and payload.get("stop_hook_active") is False:
+    """Nudge on an ordinary stop; stay out of the way of one already under way.
+
+    Both harnesses send `stop_hook_active: true` when the turn is only continuing
+    because a stop hook asked for it. Nudging there would answer our own nudge and
+    spin the session, so true is the one value that buys silence; an ordinary stop
+    sends false or nothing at all.
+    """
+    if payload.get("stop_hook_active") is True:
         return None
     view = _view(root)
     reason = should_nudge(root, view, session.config(root), now)
@@ -177,6 +183,7 @@ def should_nudge(root, view, cfg, now):  # type: (str, Dict[str, Any], Dict[str,
 
     Silence wins every tie: an invalid map, an unreadable transcript, a candidate the
     model already wrote but nobody merged, or a turn that was nudged once all mean no.
+    The stop that is itself a hook continuation is caught earlier, by `_stop`.
     With nothing covered yet the whole transcript is the backlog, because `annotate`
     reports no tail when there is no «past» to measure it from.
     """

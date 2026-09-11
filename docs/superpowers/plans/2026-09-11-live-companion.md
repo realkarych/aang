@@ -1863,7 +1863,7 @@ class StopTest(HookCase):
         store.save(self.root, self.covered_map())
         with open(os.path.join(self.root, ".aang", "config.json"), "w") as h:
             json.dump({"nudge_turns": 2}, h)
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True))
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False))
         ans = json.loads(out)["hookSpecificOutput"]
         self.assertEqual(("Stop", True), (ans["hookEventName"], ans["continueConversation"]))
         self.assertIn("обнови карту", ans["continueReason"].lower())
@@ -1881,34 +1881,34 @@ class StopTest(HookCase):
 
     def test_silent_below_threshold(self):
         store.save(self.root, self.covered_map())  # 2 user turns since coverage < default 5
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True), now="2026-09-11T12:05:00Z")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False), now="2026-09-11T12:05:00Z")
         self.assertEqual("", out)
 
     def test_minutes_rule(self):
         store.save(self.root, self.covered_map())
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True), now="2026-09-11T12:20:00Z")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False), now="2026-09-11T12:20:00Z")
         self.assertNotEqual("", out)
 
     def test_no_double_nudge_and_no_nudge_while_candidate_exists(self):
         store.save(self.root, self.covered_map())
         session.write(self.root, {"last_nudge_turn": 6})
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True), now="2026-09-11T13:00:00Z")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False), now="2026-09-11T13:00:00Z")
         self.assertEqual("", out)
         session.write(self.root, {"last_nudge_turn": 0})
         with open(store.candidate_path(self.root), "w") as h:
             h.write("{}")
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True), now="2026-09-11T13:00:00Z")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False), now="2026-09-11T13:00:00Z")
         self.assertEqual("", out)
 
-    def test_claude_stop_hook_inactive_is_silent(self):
+    def test_stop_hook_already_active_is_silent(self):
         store.save(self.root, self.covered_map())
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False), now="2026-09-11T13:00:00Z")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True), now="2026-09-11T13:00:00Z")
         self.assertEqual("", out)
 
     def test_missing_transcript_is_silent(self):
         store.save(self.root, self.covered_map())
         code, out, err = self.run_hook(self.claude("Stop", transcript_path=os.path.join(self.root, "none.jsonl"),
-                                                   turn_number=3, stop_hook_active=True), now="2026-09-11T13:00:00Z")
+                                                   turn_number=3, stop_hook_active=False), now="2026-09-11T13:00:00Z")
         self.assertEqual((0, ""), (code, out))
 ```
 
@@ -2058,7 +2058,7 @@ def _node_block(n, by_id):  # type: (Dict[str, Any], Dict[str, Dict[str, Any]]) 
 
 
 def _stop(root, payload, harness, now):  # type: (str, Dict[str, Any], str, str) -> Optional[Dict[str, Any]]
-    if harness == "claude" and payload.get("stop_hook_active") is False:
+    if payload.get("stop_hook_active") is True:
         return None
     view = _view(root)
     reason = should_nudge(root, view, session.config(root), now)

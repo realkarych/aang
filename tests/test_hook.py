@@ -203,7 +203,7 @@ class StopTest(HookCase):
     def test_nudges_after_enough_user_turns_and_records_the_turn(self):
         store.save(self.root, self.covered_map())
         self.set_nudge_turns(2)
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True))
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False))
         ans = json.loads(out)["hookSpecificOutput"]
         self.assertEqual(("Stop", True), (ans["hookEventName"], ans["continueConversation"]))
         self.assertIn("обнови карту", ans["continueReason"].lower())
@@ -221,44 +221,52 @@ class StopTest(HookCase):
 
     def test_silent_below_threshold(self):
         store.save(self.root, self.covered_map())
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False),
                                      now="2026-09-11T12:05:00Z")
         self.assertEqual("", out)
 
     def test_minutes_rule(self):
         store.save(self.root, self.covered_map())
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False),
                                      now="2026-09-11T12:20:00Z")
         self.assertNotEqual("", out)
 
     def test_no_double_nudge_and_no_nudge_while_candidate_exists(self):
         store.save(self.root, self.covered_map())
         session.write(self.root, {"last_nudge_turn": TURNS})
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False),
                                      now="2026-09-11T13:00:00Z")
         self.assertEqual("", out)
         session.write(self.root, {"last_nudge_turn": 0})
         with open(store.candidate_path(self.root), "w") as handle:
             handle.write("{}")
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False),
+                                     now="2026-09-11T13:00:00Z")
+        self.assertEqual("", out)
+
+    def test_stop_hook_already_active_is_silent(self):
+        store.save(self.root, self.covered_map())
+        self.set_nudge_turns(2)
         code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True),
                                      now="2026-09-11T13:00:00Z")
         self.assertEqual("", out)
 
-    def test_claude_stop_hook_inactive_is_silent(self):
+    def test_codex_stop_hook_already_active_is_silent(self):
         store.save(self.root, self.covered_map())
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False),
+        self.set_nudge_turns(2)
+        code, out, _ = self.run_hook(self.codex("Stop", stop_hook_active=True),
                                      now="2026-09-11T13:00:00Z")
         self.assertEqual("", out)
 
     def test_missing_transcript_is_silent(self):
         store.save(self.root, self.covered_map())
         code, out, err = self.run_hook(self.claude("Stop", transcript_path=os.path.join(self.root, "none.jsonl"),
-                                                   turn_number=3, stop_hook_active=True),
+                                                   turn_number=3, stop_hook_active=False),
                                        now="2026-09-11T13:00:00Z")
         self.assertEqual((0, ""), (code, out))
 
     def test_nudges_when_nothing_is_covered_yet(self):
         store.save(self.root, a_map(decision("d1", "цитаты нет в транскрипте")))
         self.set_nudge_turns(4)
-        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=True))
+        code, out, _ = self.run_hook(self.claude("Stop", turn_number=3, stop_hook_active=False))
         self.assertIn("обнови карту", json.loads(out)["hookSpecificOutput"]["continueReason"].lower())
