@@ -74,7 +74,6 @@
     line-height: 1.45;
     padding-block: 0 32px;
     padding-inline: 16px;
-    overflow-x: hidden;
     -webkit-text-size-adjust: 100%;
   }
   button, select, textarea, input { font: inherit; color: inherit; }
@@ -228,9 +227,11 @@
   .k-decision .mark { color: var(--decision); }
   .k-tacit .mark { color: var(--tacit); }
   .k-open .mark { color: var(--open); }
-  .row .body { min-width: 0; }
-  .row .q { display: block; font-weight: 600; line-height: 1.3; }
-  .row .d { display: block; margin-top: 2px; line-height: 1.35; }
+  /* Questions and decisions are about paths, URLs and identifiers: an unbroken token
+     must wrap, never run over the detail pane or widen the page. */
+  .row .body { min-width: 0; overflow-wrap: anywhere; }
+  .row .q { display: block; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+  .row .d { display: block; margin-top: 2px; line-height: 1.35; overflow-wrap: anywhere; }
   .row .d.none { color: var(--ink-3); font-style: italic; }
   .row .w {
     display: block;
@@ -303,6 +304,7 @@
     line-height: 1.25;
     margin: 0 0 6px;
     text-wrap: balance;
+    overflow-wrap: anywhere;
   }
   .detail.superseded h2.q { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ink-2); }
   .detail .notice {
@@ -751,7 +753,7 @@
         where += "<span class=\"turn\">ход " + esc(c.turn) + "</span>";
         if (c.role) where += "<span>" + esc(ROLE_LABEL[c.role] || c.role) + "</span>";
       } else {
-        where += "<span class=\"turn\">ход не найден</span>";
+        where += "<span class=\"turn\">" + (st === "unchecked" ? "ход не указан" : "ход не найден") + "</span>";
         if (c.role) where += "<span>ожидалась реплика: " + esc(ROLE_LABEL[c.role] || c.role) + "</span>";
       }
       if (c.matches && c.matches.length > 1) {
@@ -1002,11 +1004,17 @@
     $("state-empty").hidden = true;
     $("panes").hidden = false;
     var wanted = state.selected;
-    if (!wanted && location.hash.length > 1) wanted = decodeURIComponent(location.hash.slice(1));
+    if (!wanted) wanted = hashId();
     if (!wanted || !byId(map, wanted)) wanted = flatOrder(map)[0].id;
     state.selected = wanted;
     renderSpine(map);
     renderDetail(map);
+  }
+
+  // The node id in `#hash`, or "" when there is none or it is not valid percent-encoding.
+  function hashId() {
+    if (location.hash.length < 2) return "";
+    try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ""; }
   }
 
   function load() {
@@ -1023,7 +1031,7 @@
   $("reload-1").addEventListener("click", load);
   $("reload-2").addEventListener("click", load);
   window.addEventListener("hashchange", function () {
-    var id = decodeURIComponent(location.hash.slice(1));
+    var id = hashId();
     if (state.map && id && id !== state.selected) select(id, true);
   });
   load();

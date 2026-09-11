@@ -4,6 +4,12 @@ Binds `127.0.0.1`, never `0.0.0.0`, and answers 403 to any request whose `Host` 
 `127.0.0.1` / `localhost` / `[::1]`. Without that check a web page could rebind its DNS
 name to 127.0.0.1 and read the session transcript through the browser.
 
+A `POST` is additionally refused (403) when the browser reports an `Origin` other than
+the viewer's own, and (415) unless the body is declared `application/json`. The Host
+check alone does not stop a page on any other site from sending a `text/plain` POST to
+127.0.0.1 while `aang view` runs; that page could rewrite the map and have its garbage
+stamped `hand_edited: true`, which regeneration then preserves.
+
 Routes:
   GET  /                 ui/index.html
   GET  /api/map          the map, every citation resolved, per-node `verified` (see `annotate`)
@@ -20,6 +26,7 @@ from urllib.parse import unquote, urlsplit
 from . import schema, store, transcript
 
 ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]")
+ALLOWED_ORIGIN_SCHEME = "http://"
 BIND_HOST = "127.0.0.1"
 DEFAULT_PORT = 8790
 MAX_BODY = 1 << 20
@@ -156,6 +163,39 @@ class Handler(BaseHTTPRequestHandler):
             host = host.rsplit(":", 1)[0]
         return host in ALLOWED_HOSTS
 
+    def _origin_allowed(self):  # type: () -> bool
+        """True without an `Origin` header (curl, the CLI) or with one naming this server.
+
+        Browsers send `Origin` on every POST, so a cross-site page cannot omit it; a
+        missing header means a non-browser client, which the Host check already covers.
+        """
+        origin = self.headers.get("Origin")
+        if origin is None:
+            return True
+        origin = origin.strip().lower()
+        if not origin.startswith(ALLOWED_ORIGIN_SCHEME):
+            return False
+        host = origin[len(ALLOWED_ORIGIN_SCHEME):]
+        if "/" in host or not host:
+            return False
+        if host.startswith("["):
+            end = host.find("]")
+            if end < 0:
+                return False
+            host, port = host[:end + 1], host[end + 1:]
+        elif ":" in host:
+            host, port = host.rsplit(":", 1)
+            port = ":" + port
+        else:
+            port = ""
+        if port and not _is_port(port):
+            return False
+        return host in ALLOWED_HOSTS
+
+    def _content_type_is_json(self):  # type: () -> bool
+        ctype = (self.headers.get("Content-Type") or "").split(";", 1)[0].strip().lower()
+        return ctype == "application/json"
+
     def _send(self, status, body, content_type):  # type: (int, bytes, str) -> None
         self.send_response(status)
         self.send_header("Content-Type", content_type)
@@ -217,6 +257,13 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # type: () -> None
         if not self._gate():
             return
+        if not self._origin_allowed():
+            self._json(403, {"errors": ["запрос отклонён: Origin %r не локальный — писать в карту может "
+                                        "только сам интерфейс aang" % self.headers.get("Origin")]})
+            return
+        if not self._content_type_is_json():
+            self._json(415, {"errors": ["ожидается Content-Type: application/json"]})
+            return
         path = urlsplit(self.path).path
         if not path.startswith("/api/node/"):
             self._text(404, "Нет такого пути: %s" % path)
@@ -273,6 +320,11 @@ class Handler(BaseHTTPRequestHandler):
             self._json(413, {"errors": ["тело запроса больше %d байт" % MAX_BODY]})
             return None
         return self.rfile.read(length) if length else b""
+
+
+def _is_port(suffix):  # type: (str) -> bool
+    """`:8790` → True; anything else (empty, `:`, `:x`, `:80:80`) → False."""
+    return suffix.startswith(":") and suffix[1:].isdigit()
 
 
 # ----------------------------------------------------------------------------- server

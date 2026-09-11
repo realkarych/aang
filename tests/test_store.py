@@ -297,11 +297,47 @@ class ExportTest(unittest.TestCase):
         m = a_map(node("d1", hand_edited=True))
         m["nodes"][0]["verified"] = False
         m["nodes"][0]["cites"][0]["ok"] = False
-        text = store.export_markdown(m, transcript_error="транскрипт сессии не найден")
-        self.assertIn("Не проверено", text)
+        text = store.export_markdown(m)
+        self.assertIn("**Не проверено** — цитата не найдена в транскрипте", text)
         self.assertIn("исправлено вручную", text)
-        self.assertIn("не подтверждена", text)
-        self.assertIn("Цитаты не проверены: транскрипт сессии не найден", text)
+        self.assertIn("ход не найден: «давай pass@1 на отложенном» — не подтверждена", text)
+
+    def test_missing_transcript_says_unchecked_not_not_found(self):
+        # nothing was searched, so the document must not claim a citation was looked for
+        m = a_map(node("d1"), node("o1", kind="open", status="proposed", cites=[]))
+        for n in m["nodes"]:
+            n["verified"] = False
+            for c in n["cites"]:
+                c["ok"] = False
+        text = store.export_markdown(m, transcript_error="транскрипт сессии не найден: s1")
+        self.assertIn("> Цитаты не проверены: транскрипт сессии не найден: s1", text)
+        self.assertEqual(text.count("**Не проверялось** — транскрипт недоступен"), 2)
+        self.assertIn("ход не указан: «давай pass@1 на отложенном»", text)
+        sections = text.split("###", 1)[1]  # the blockquote above may say "не найден"
+        self.assertNotIn("не найден", sections)
+        self.assertNotIn("не подтверждена", sections)
+        self.assertNotIn("Не проверено", sections)
+        self.assertNotIn("Нет цитат", sections)
+
+    def test_node_without_citations_says_so(self):
+        m = a_map(node("o1", kind="open", status="proposed", cites=[]),
+                  node("d1"))
+        m["nodes"][0]["verified"] = False
+        m["nodes"][1]["verified"] = True
+        m["nodes"][1]["cites"][0]["ok"] = True
+        text = store.export_markdown(m)
+        o1 = text.split("### o1")[1].split("###")[0]
+        self.assertIn("**Нет цитат** — узел нельзя проверить", o1)
+        self.assertNotIn("не найдена", o1)
+        self.assertNotIn("Не проверено", text)
+        self.assertNotIn("не подтверждена", text)
+
+    def test_the_three_unverified_states_use_different_words(self):
+        unchecked = store.export_markdown(a_map(node("d1", verified=False)), transcript_error="нет")
+        nocites = store.export_markdown(a_map(node("d1", verified=False, cites=[])))
+        notfound = store.export_markdown(a_map(node("d1", verified=False)))
+        lines = [t.split("**Статус:**")[1].split("\n")[0] for t in (unchecked, nocites, notfound)]
+        self.assertEqual(len(set(lines)), 3, lines)
 
     def test_empty_map_exports_a_document(self):
         text = store.export_markdown({})

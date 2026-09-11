@@ -29,7 +29,8 @@ from its own context — not a summarizer reading a log afterwards. It writes a 
 find every quoted line in the session transcript and pin it to a turn. Then it opens the viewer.
 
 The transcript under `~/.claude/projects` is read for exactly one purpose — verifying citations.
-Nothing leaves the machine: the viewer binds `127.0.0.1` only and refuses any other `Host`.
+Nothing leaves the machine: the viewer binds `127.0.0.1` only and refuses any other `Host`, and only
+the viewer's own origin may write the map — a page on another site cannot POST into it.
 
 ## Install
 

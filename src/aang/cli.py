@@ -8,6 +8,7 @@ citation fails to resolve.
 """
 
 import argparse
+import datetime
 import os
 import sys
 from typing import Any, Dict, List, Optional
@@ -193,7 +194,9 @@ def cmd_export(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         handle.write(text)
     unverified = sum(1 for n in view["nodes"] if not n["verified"])
     out.write("Записано: %s (%d узлов" % (out_path, len(view["nodes"])))
-    if unverified:
+    if transcript_error:
+        out.write(", не проверялось: %d — транскрипт недоступен, помечены в документе" % unverified)
+    elif unverified:
         out.write(", не проверено: %d — помечены в документе" % unverified)
     out.write(")\n")
     return 0
@@ -220,17 +223,25 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
             err.write("  %s %s\n" % (MARK_BAD, error))
         return 1
 
-    # Turn numbers come from the transcript, never from the model.
+    old = store.load(root)
+    old_errors = schema.validate(old)
+
+    # Turn numbers come from the transcript, never from the model. The model does not
+    # know its own session id, so a candidate without one resolves against the session
+    # the map already records; only when neither names one is the newest transcript
+    # taken, and its name stamped, so a later merge cannot re-point the map at whatever
+    # session happens to be newest.
     source = _source(args)
-    turns, transcript_error = source.turns(candidate.get("session_id") or None)
+    session_id = candidate.get("session_id") or old.get("session_id") or None
+    turns, transcript_error = source.turns(session_id)
     if transcript_error:
         out.write("Транскрипт: %s — цитаты не проверены, ходы не проставлены\n" % transcript_error)
     resolved = store.fill_turns(candidate, turns)
-    if not candidate.get("session_id") and source.path:
+    if not session_id and source.path:
         candidate["session_id"] = os.path.splitext(os.path.basename(source.path))[0]
+    # The map is generated here, not by the model, so the timestamp is stamped here.
+    candidate["generated_at"] = _now_iso()
 
-    old = store.load(root)
-    old_errors = schema.validate(old)
     merged = store.merge(old, candidate)
     errors = schema.validate(merged)
     if errors:
@@ -279,3 +290,8 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         except OSError:
             pass
     return 0
+
+
+def _now_iso():  # type: () -> str
+    """Current UTC time as `2026-09-11T12:00:00Z` — the form the map format documents."""
+    return datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")

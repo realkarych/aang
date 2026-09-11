@@ -287,12 +287,17 @@ def export_markdown(map_dict, transcript_error=None):  # type: (Dict[str, Any], 
             lines.append("_%s_" % subtitle)
         lines.append("")
         for node in reversed(group):
-            lines.extend(_node_markdown(node, by_id))
+            lines.extend(_node_markdown(node, by_id, transcript_error))
     return "\n".join(lines).rstrip("\n") + "\n"
 
 
-def _node_markdown(node, by_id):  # type: (Dict[str, Any], Dict[Any, Dict[str, Any]]) -> List[str]
+def _node_markdown(node, by_id, transcript_error=None):
+    # type: (Dict[str, Any], Dict[Any, Dict[str, Any]], Optional[str]) -> List[str]
+    """One `###` section. The unverified line keeps three states apart, as the viewer
+    and `check` do: nothing was searched (no transcript), nothing to search for (no
+    citations), searched and not found. Only the last one may say "не найдена"."""
     out = []  # type: List[str]
+    cites = [c for c in (node.get("cites") or []) if isinstance(c, dict)]
     superseded = node.get("status") == "superseded"
     question = node.get("question") or "(без вопроса)"
     heading = "~~%s~~" % question if superseded else question
@@ -307,7 +312,12 @@ def _node_markdown(node, by_id):  # type: (Dict[str, Any], Dict[Any, Dict[str, A
             label += " (%s)" % target["question"]
         flags.append("**Заменено:** %s" % label)
     if node.get("verified") is False:
-        flags.append("**Не проверено** — цитата не найдена в транскрипте")
+        if transcript_error:
+            flags.append("**Не проверялось** — транскрипт недоступен")
+        elif not cites:
+            flags.append("**Нет цитат** — узел нельзя проверить")
+        else:
+            flags.append("**Не проверено** — цитата не найдена в транскрипте")
     if node.get("hand_edited"):
         flags.append("_исправлено вручную_")
     out.append("  ".join(flags))
@@ -329,15 +339,18 @@ def _node_markdown(node, by_id):  # type: (Dict[str, Any], Dict[Any, Dict[str, A
     if node.get("consequence"):
         out.append("**Следствие:** %s" % node["consequence"])
         out.append("")
-    cites = [c for c in (node.get("cites") or []) if isinstance(c, dict)]
     if cites:
         out.append("**Цитаты:**")
         out.append("")
         for cite in cites:
-            where = "ход %s" % cite["turn"] if cite.get("turn") is not None else "ход не найден"
+            if cite.get("turn") is not None:
+                where = "ход %s" % cite["turn"]
+            else:
+                where = "ход не указан" if transcript_error else "ход не найден"
             if cite.get("role"):
                 where += ", %s" % cite["role"]
-            marker = "" if cite.get("ok", True) else " — не подтверждена"
+            checked = not transcript_error and cite.get("ok", True) is False
+            marker = " — не подтверждена" if checked else ""
             out.append("- %s: «%s»%s" % (where, (cite.get("quote") or "").strip(), marker))
         out.append("")
     return out

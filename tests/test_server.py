@@ -33,6 +33,7 @@ def sample_map():
 
 class ServerTestCase(unittest.TestCase):
     transcript = NORMAL
+    ui_path = None  # None → a stub page written in setUp; a path → serve that file
 
     def setUp(self):
         self.root = tempfile.mkdtemp(prefix="aang-srv-")
@@ -42,7 +43,7 @@ class ServerTestCase(unittest.TestCase):
             handle.write("<title>aang</title><p>привет</p>")
         store.save(self.root, sample_map())
         source = server.TranscriptSource(path=self.transcript, roots=[])
-        self.srv = server.make_server(self.root, 0, source, ui_path=self.ui)
+        self.srv = server.make_server(self.root, 0, source, ui_path=self.ui_path or self.ui)
         self.port = self.srv.server_address[1]
         self.thread = threading.Thread(target=self.srv.serve_forever, kwargs={"poll_interval": 0.02},
                                        daemon=True)
@@ -50,16 +51,20 @@ class ServerTestCase(unittest.TestCase):
         self.addCleanup(self.srv.server_close)
         self.addCleanup(self.srv.shutdown)
 
-    def request(self, method, path, body=None, host="127.0.0.1", send_host=True):
+    def request(self, method, path, body=None, host="127.0.0.1", send_host=True,
+                origin=None, content_type="application/json"):
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
         try:
             conn.putrequest(method, path, skip_host=True)
             if send_host:
                 conn.putheader("Host", host)
+            if origin is not None:
+                conn.putheader("Origin", origin)
             payload = None
             if body is not None:
                 payload = json.dumps(body).encode("utf-8")
-                conn.putheader("Content-Type", "application/json")
+                if content_type is not None:
+                    conn.putheader("Content-Type", content_type)
                 conn.putheader("Content-Length", str(len(payload)))
             conn.endheaders(payload)
             resp = conn.getresponse()
@@ -137,6 +142,27 @@ class RoutesTest(ServerTestCase):
         self.assertEqual(view["errors"], [])
 
 
+class ViewerStringsTest(ServerTestCase):
+    """The real ui/index.html: the words the trust model rests on must survive a rename."""
+    ui_path = server._UI_PATH
+
+    def test_index_carries_the_verification_vocabulary(self):
+        status, ctype, data = self.request("GET", "/")
+        self.assertEqual(status, 200)
+        self.assertEqual(ctype, "text/html; charset=utf-8")
+        page = data.decode("utf-8")
+        for word in ("\"проверено\"", "проверено, с оговоркой", "\"не проверено\"", "нет цитат", "не проверялось",
+                     "ход не найден", "ход не указан", "правлено вручную", "заменено",
+                     "Карта не прошла проверку", "узлы не показаны"):
+            self.assertIn(word, page, word)
+
+    def test_index_is_self_contained(self):
+        page = self.request("GET", "/")[2].decode("utf-8")
+        self.assertNotIn("http://", page)
+        self.assertNotIn("https://", page)
+        self.assertNotIn("overflow-x: hidden", page)  # would only mask a layout that widens the page
+
+
 class HostCheckTest(ServerTestCase):
     def test_accepted_hosts(self):
         for host in ("127.0.0.1", "127.0.0.1:%d" % self.port, "localhost", "localhost:1",
@@ -158,6 +184,67 @@ class HostCheckTest(ServerTestCase):
         status, _, _ = self.request("POST", "/api/node/d1", body={"why": "x"}, host="evil.example")
         self.assertEqual(status, 403)
         self.assertFalse(store.load(self.root)["nodes"][0]["hand_edited"])
+
+
+class CrossSiteWriteTest(ServerTestCase):
+    """A page on another origin must not be able to write the map (the Host check alone
+    lets a browser POST to 127.0.0.1 from anywhere)."""
+
+    def assert_untouched(self):
+        self.assertFalse(any(n["hand_edited"] for n in store.load(self.root)["nodes"]))
+
+    def test_reviewers_cross_site_post_is_refused(self):
+        status, ctype, data = self.request(
+            "POST", "/api/node/d2", body={"why": "WRITTEN BY A CROSS-SITE PAGE", "question": "pwned"},
+            origin="https://evil.example", content_type="text/plain")
+        self.assertEqual(status, 403, data)
+        self.assertIn("Origin", data.decode("utf-8"))
+        self.assert_untouched()
+        self.assertEqual(store.load(self.root)["nodes"][1]["why"], "так сказали")
+
+    def test_foreign_origins_403(self):
+        for origin in ("https://evil.example", "http://evil.example", "http://127.0.0.1.evil.example",
+                       "http://127.0.0.1.evil.example:%d" % self.port, "https://127.0.0.1:%d" % self.port,
+                       "http://localhost:%d/" % self.port, "http://localhost:x", "http://[::1]:%d:1" % self.port,
+                       "http://[::1", "null", "", "http://", "file://"):
+            status, _, data = self.request("POST", "/api/node/d1", body={"why": "x"}, origin=origin)
+            self.assertEqual(status, 403, (origin, data))
+        self.assert_untouched()
+
+    def test_own_origins_accepted(self):
+        for origin in ("http://127.0.0.1:%d" % self.port, "http://localhost:%d" % self.port,
+                       "http://[::1]:%d" % self.port, "http://127.0.0.1", "HTTP://LOCALHOST:%d" % self.port):
+            status, _, data = self.request("POST", "/api/node/d1", body={"why": origin}, origin=origin)
+            self.assertEqual(status, 200, (origin, data))
+        self.assertEqual(store.load(self.root)["nodes"][0]["why"], "HTTP://LOCALHOST:%d" % self.port)
+
+    def test_non_json_content_type_415(self):
+        for ctype in ("text/plain", "multipart/form-data", "application/x-www-form-urlencoded",
+                      "application/jsonx", None):
+            status, _, data = self.request("POST", "/api/node/d1", body={"why": "x"}, content_type=ctype)
+            self.assertEqual(status, 415, (ctype, data))
+            self.assertIn("application/json", data.decode("utf-8"))
+        self.assert_untouched()
+
+    def test_json_content_type_variants_accepted(self):
+        for ctype in ("application/json", "application/json; charset=utf-8", "Application/JSON"):
+            status, _, data = self.request("POST", "/api/node/d1", body={"why": ctype}, content_type=ctype)
+            self.assertEqual(status, 200, (ctype, data))
+
+    def test_viewers_own_request_shape_still_works(self):
+        # exactly what ui/index.html sends: same-origin Origin + application/json
+        status, _, data = self.request("POST", "/api/node/d2", body={"why": "из интерфейса"},
+                                       origin="http://127.0.0.1:%d" % self.port,
+                                       content_type="application/json")
+        self.assertEqual(status, 200, data)
+        self.assertTrue(store.load(self.root)["nodes"][1]["hand_edited"])
+
+    def test_origin_and_content_type_checked_before_the_body_is_touched(self):
+        # a 404 path or a bad body must not leak past a foreign Origin
+        status, _, _ = self.request("POST", "/nope", body={"why": "x"}, origin="https://evil.example")
+        self.assertEqual(status, 403)
+        status, _, _ = self.request("POST", "/api/node/zzz", body={"why": "x"}, content_type="text/plain")
+        self.assertEqual(status, 415)
 
 
 class EditTest(ServerTestCase):
@@ -200,7 +287,8 @@ class EditTest(ServerTestCase):
 
     def test_bad_bodies(self):
         conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
-        conn.request("POST", "/api/node/d1", body=b"{not json", headers={"Content-Length": "9"})
+        conn.request("POST", "/api/node/d1", body=b"{not json",
+                     headers={"Content-Length": "9", "Content-Type": "application/json"})
         self.assertEqual(conn.getresponse().status, 400)
         conn.close()
         self.assertEqual(self.request("POST", "/api/node/d1", body=[1, 2])[0], 400)

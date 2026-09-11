@@ -1,8 +1,10 @@
 import io
 import json
 import os
+import re
 import shutil
 import tempfile
+import time
 import unittest
 
 from aang import cli, store
@@ -156,6 +158,87 @@ class MergeTest(CliTestCase):
         self.assertEqual(code, 1)
         self.assertIn("✗ d2", out)
 
+    def test_merge_stamps_generated_at_with_current_utc_time(self):
+        cand = candidate(decision("d1", "давай pass@1"))
+        cand["generated_at"] = "1999-01-01T00:00:00Z"  # the model's guess is not trusted
+        self.write_candidate(cand)
+        before = time.time()
+        code, _, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(code, 0)
+        stamp = store.load(self.root)["generated_at"]
+        self.assertRegex(stamp, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        parsed = time.mktime(time.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ")) - time.timezone
+        self.assertGreaterEqual(int(parsed), int(before) - 1)
+        self.assertLessEqual(parsed, time.time() + 1)
+
+    def test_generated_at_is_stamped_even_when_candidate_has_none(self):
+        cand = candidate(decision("d1", "давай pass@1"))
+        cand["generated_at"] = ""
+        self.write_candidate(cand)
+        self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
+        self.assertNotEqual(store.load(self.root)["generated_at"], "")
+
+    def _two_projects(self):
+        """A transcript root with session A (this map's) and a newer session B elsewhere."""
+        roots = os.path.join(self.root, "projects")
+        a_dir = os.path.join(roots, "-Users-x-proj-a")
+        b_dir = os.path.join(roots, "-Users-x-proj-b")
+        os.makedirs(a_dir)
+        os.makedirs(b_dir)
+        a_path = os.path.join(a_dir, "aaaa1111-0000-0000-0000-000000000001.jsonl")
+        b_path = os.path.join(b_dir, "bbbb2222-0000-0000-0000-000000000002.jsonl")
+        shutil.copy(NORMAL, a_path)
+        with open(b_path, "w", encoding="utf-8") as handle:
+            handle.write(json.dumps({"type": "user", "uuid": "b1", "message": {
+                "role": "user", "content": "Совсем другая сессия, в которой этих слов нет."}}) + "\n")
+        os.utime(a_path, (1000000000, 1000000000))
+        os.utime(b_path, (2000000000, 2000000000))
+        return roots
+
+    def test_second_merge_keeps_the_maps_session_when_candidate_has_none(self):
+        roots = self._two_projects()
+        # first merge names session A explicitly; the map records it
+        self.write_candidate(candidate(decision("d1", "давай pass@1")))
+        code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots,
+                                      "--session", "aaaa1111-0000-0000-0000-000000000001")
+        self.assertEqual(code, 0, out + err)
+        self.assertEqual(store.load(self.root)["session_id"], "aaaa1111-0000-0000-0000-000000000001")
+        # second merge: candidate has no session id, and another project's session B is newer
+        self.write_candidate(candidate(decision("d1", "давай pass@1"),
+                                       decision("d2", "нужно 500 примеров вместо 100")))
+        code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
+        self.assertEqual(code, 0, out + err)
+        saved = store.load(self.root)
+        self.assertEqual(saved["session_id"], "aaaa1111-0000-0000-0000-000000000001")
+        by_id = dict((n["id"], n) for n in saved["nodes"])
+        self.assertEqual(by_id["d1"]["cites"][0]["turn"], 4)   # resolved against A, not B
+        self.assertEqual(by_id["d2"]["cites"][0]["turn"], 5)
+        self.assertIn("не найдено: 0", out)
+        self.assertNotIn("bbbb2222", out + err)
+        code, out, _ = self.run_cli("check", "--root", self.root, "--transcript-root", roots)
+        self.assertEqual(code, 0, out)
+
+    def test_candidate_session_id_still_wins_over_the_maps(self):
+        roots = self._two_projects()
+        old = candidate(decision("d1", "давай pass@1"))
+        old["session_id"] = "aaaa1111-0000-0000-0000-000000000001"
+        store.save(self.root, old)
+        cand = candidate(decision("d1", "давай pass@1"))
+        cand["session_id"] = "bbbb2222-0000-0000-0000-000000000002"
+        self.write_candidate(cand)
+        code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
+        self.assertEqual(code, 0, out)
+        saved = store.load(self.root)
+        self.assertEqual(saved["session_id"], "bbbb2222-0000-0000-0000-000000000002")
+        self.assertIsNone(saved["nodes"][0]["cites"][0]["turn"])  # B has no such words
+
+    def test_newest_session_is_taken_and_stamped_only_when_nobody_names_one(self):
+        roots = self._two_projects()
+        self.write_candidate(candidate(decision("d1", "давай pass@1")))
+        code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(store.load(self.root)["session_id"], "bbbb2222-0000-0000-0000-000000000002")
+
     def test_keep_flag_leaves_candidate(self):
         cand_path = self.write_candidate(candidate(decision("d1", "давай pass@1")))
         code, _, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL, "--keep")
@@ -225,6 +308,32 @@ class ExportTest(CliTestCase):
         self.assertLess(text.index("### d2"), text.index("### d1"))  # newest first
         self.assertIn("Не проверено", text.split("### d2")[1].split("###")[0])
         self.assertIn("не проверено: 1", out)
+
+    def test_unreachable_transcript_is_stated_not_reported_as_not_found(self):
+        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+                                        decision("o1", "", kind="open", status="proposed", decision="", cites=[])))
+        code, out, _ = self.run_cli("export", "--root", self.root, "--transcript", MISSING,
+                                    "--out", "d.md")
+        self.assertEqual(code, 0, out)
+        with open(os.path.join(self.root, "d.md"), encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertIn("> Цитаты не проверены: транскрипт сессии не найден", text)
+        self.assertEqual(text.count("**Не проверялось** — транскрипт недоступен"), 2)
+        self.assertNotIn("не найдена", text)
+        self.assertNotIn("не подтверждена", text)
+        self.assertNotIn("Не проверено", text)
+        self.assertIn("не проверялось: 2 — транскрипт недоступен", out)
+
+    def test_node_without_citations_is_not_reported_as_not_found(self):
+        store.save(self.root, candidate(decision("d1", "давай pass@1"),
+                                        decision("o1", "", kind="open", status="proposed", decision="", cites=[])))
+        code, out, _ = self.run_cli("export", "--root", self.root, "--transcript", NORMAL, "--out", "d.md")
+        self.assertEqual(code, 0, out)
+        with open(os.path.join(self.root, "d.md"), encoding="utf-8") as handle:
+            text = handle.read()
+        self.assertIn("**Нет цитат** — узел нельзя проверить", text.split("### o1")[1])
+        self.assertNotIn("не найдена", text)
+        self.assertNotIn("Не проверено", text)
 
     def test_invalid_map_is_not_exported(self):
         store.save(self.root, candidate(decision("d1", "давай pass@1", kind="nope")))
