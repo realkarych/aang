@@ -413,5 +413,79 @@ class NormalizeTest(unittest.TestCase):
         self.assertTrue(any("rel" in e for e in schema.validate(out)))
 
 
+class TriageFieldsTest(unittest.TestCase):
+    def errors(self, *nodes):
+        return schema.validate(schema.normalize(_map(list(nodes))))
+
+    def test_rejected_is_a_status(self):
+        self.assertEqual([], self.errors(_node("d1", status="rejected")))
+        self.assertEqual([], self.errors(_node("t1", kind="tacit", status="rejected")))
+
+    def test_open_cannot_be_rejected_or_accepted(self):
+        errs = self.errors(_node("o1", kind="open", status="rejected", decision=""))
+        self.assertTrue(any("узел o1, поле status" in e and "open" in e for e in errs), errs)
+
+    def test_decided_by_only_on_decisions(self):
+        self.assertEqual([], self.errors(_node("d1", decided_by="user")))
+        self.assertEqual([], self.errors(_node("d1", decided_by="agent")))
+        self.assertEqual([], self.errors(_node("d1")))  # absent is unknown, not an error
+        errs = self.errors(_node("d1", decided_by="nobody"))
+        self.assertTrue(any("узел d1, поле decided_by" in e for e in errs), errs)
+        errs = self.errors(_node("t1", kind="tacit", decided_by="user"))
+        self.assertTrue(any("узел t1, поле decided_by" in e and "tacit" in e for e in errs), errs)
+        errs = self.errors(_node("o1", kind="open", decision="", decided_by="user"))
+        self.assertTrue(any("узел o1, поле decided_by" in e for e in errs), errs)
+
+    def test_triage_vocabulary_and_placement(self):
+        self.assertEqual([], self.errors(_node("d1", status="proposed", triage="research")))
+        self.assertEqual([], self.errors(_node("o1", kind="open", status="proposed", decision="", triage="discuss")))
+        self.assertEqual([], self.errors(_node("d1", triage=None)))
+        errs = self.errors(_node("d1", status="proposed", triage="later"))
+        self.assertTrue(any("узел d1, поле triage" in e and "research/discuss" in e for e in errs), errs)
+        for status in ("accepted", "rejected"):
+            errs = self.errors(_node("d1", status=status, triage="research"))
+            self.assertTrue(any("узел d1, поле triage" in e and status in e for e in errs), (status, errs))
+        errs = self.errors(_node("d1", status="superseded", superseded_by="d2", triage="research"), _node("d2"))
+        self.assertTrue(any("узел d1, поле triage" in e for e in errs), errs)
+
+    def test_seen_at_is_string_or_null(self):
+        self.assertEqual([], self.errors(_node("d1", seen_at="2026-09-11T12:00:00Z")))
+        self.assertEqual([], self.errors(_node("d1", seen_at=None)))
+        errs = self.errors(_node("d1", seen_at=5))
+        self.assertTrue(any("узел d1, поле seen_at" in e for e in errs), errs)
+
+    def test_normalize_fills_the_three_fields(self):
+        m = schema.normalize(_map([_node("d1")]))
+        n = m["nodes"][0]
+        self.assertIn("decided_by", n); self.assertIsNone(n["decided_by"])
+        self.assertIn("triage", n); self.assertIsNone(n["triage"])
+        self.assertIn("seen_at", n); self.assertIsNone(n["seen_at"])
+
+    def test_user_hand_made_decision_may_have_no_cites(self):
+        self.assertEqual([], self.errors(_node("d1", decided_by="user", hand_edited=True, cites=[])))
+        errs = self.errors(_node("d1", decided_by="agent", hand_edited=True, cites=[]))
+        self.assertTrue(any("узел d1, поле cites" in e for e in errs), errs)
+        errs = self.errors(_node("d1", decided_by="user", hand_edited=False, cites=[]))
+        self.assertTrue(any("узел d1, поле cites" in e for e in errs), errs)
+
+
+class DecidedByRemarkTest(unittest.TestCase):
+    def test_user_claim_without_user_quote_is_a_remark(self):
+        node = _node("d1", decided_by="user")
+        node["cites"] = [{"quote": "три слова тут есть", "turn": 2, "role": "assistant"}]
+        out = schema.warnings(_map([node]))
+        self.assertIn("узел d1: заявлено решение пользователя, но среди цитат нет его слов", out)
+
+    def test_user_claim_with_a_user_quote_is_silent(self):
+        node = _node("d1", decided_by="user")
+        node["cites"] = [{"quote": "три слова тут есть", "turn": 2, "role": "user"}]
+        self.assertEqual([], [w for w in schema.warnings(_map([node])) if "decided_by" in w or "пользователя" in w])
+
+    def test_agent_claim_never_remarks(self):
+        node = _node("d1", decided_by="agent")
+        node["cites"] = [{"quote": "три слова тут есть", "turn": 2, "role": "user"}]
+        self.assertEqual([], [w for w in schema.warnings(_map([node])) if "пользователя" in w])
+
+
 if __name__ == "__main__":
     unittest.main()

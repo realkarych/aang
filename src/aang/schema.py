@@ -1,8 +1,8 @@
 """Map schema: validation and default-filling for `.aang/map.json`.
 
-The format is pinned in docs/plan.md ("The map format"); `relates` and `added_at` are
-specified in docs/superpowers/specs/2026-09-11-map-relations-and-search-design.md. `validate` returns a list of
-error strings (empty when the map is valid); `normalize` fills defaults in place so
+The format is pinned in docs/plan.md ("The map format"); `relates`, `added_at`, `decided_by`,
+`triage`, and `seen_at` are specified in docs/superpowers/specs/2026-09-11-map-relations-and-search-design.md.
+`validate` returns a list of error strings (empty when the map is valid); `normalize` fills defaults in place so
 downstream code never guards for absent keys. Neither raises on bad input.
 
 Error strings are user-facing (Russian); identifiers in them stay as written in the file.
@@ -14,8 +14,11 @@ from typing import Any, Dict, List, Optional
 VERSION = 1
 
 KINDS = ("decision", "tacit", "open")
-STATUSES = ("accepted", "superseded", "proposed")
+STATUSES = ("accepted", "superseded", "proposed", "rejected")
+DECIDERS = ("user", "agent")
+TRIAGES = ("research", "discuss")
 ROLES = ("user", "assistant")
+_TRIAGE_STATUSES = ("proposed",)
 
 # Typed relations a node may declare in `relates`. `superseded_by` stays a separate field
 # (it sits on the old node, pointing forward) and does not move here.
@@ -108,6 +111,10 @@ def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int
                       % (label, "/".join(STATUSES), status))
         status = None
 
+    if kind == "open" and status in ("accepted", "rejected"):
+        errors.append("%s, поле status: для kind=open допустимы только proposed/superseded — "
+                      "открытый вопрос нельзя принять или отвергнуть, только ответить" % label)
+
     superseded_by = node.get("superseded_by")
     node_id = node.get("id")
     if superseded_by is not None:
@@ -157,8 +164,12 @@ def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int
         errors.append("%s, поле cites: ожидается список" % label)
     else:
         if kind in ("decision", "tacit") and not cites:
-            errors.append("%s, поле cites: обязательно для kind=%s — без цитаты узел не проверить"
-                          % (label, kind))
+            # Exception: a decision node with hand_edited: true AND decided_by: "user" may have no cites
+            decided_by = node.get("decided_by")
+            hand_edited = node.get("hand_edited")
+            if not (kind == "decision" and hand_edited is True and decided_by == "user"):
+                errors.append("%s, поле cites: обязательно для kind=%s — без цитаты узел не проверить"
+                              % (label, kind))
         for i, cite in enumerate(cites):
             errors.extend(_validate_cite(cite, i, label))
 
@@ -169,6 +180,26 @@ def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int
     added_at = node.get("added_at")
     if added_at is not None and not _is_str(added_at):
         errors.append("%s, поле added_at: ожидается строка (ISO-8601) или null" % label)
+
+    decided_by = node.get("decided_by")
+    if decided_by is not None:
+        if decided_by not in DECIDERS:
+            errors.append("%s, поле decided_by: ожидается user/agent или null, получено %r" % (label, decided_by))
+        elif kind is not None and kind != "decision":
+            errors.append("%s, поле decided_by: только у решений, а это kind=%s" % (label, kind))
+
+    triage = node.get("triage")
+    if triage is not None:
+        if triage not in TRIAGES:
+            errors.append("%s, поле triage: ожидается одно из %s или null, получено %r"
+                          % (label, "/".join(TRIAGES), triage))
+        elif status is not None and status not in _TRIAGE_STATUSES:
+            errors.append("%s, поле triage: под вопросом может быть только proposed, а статус %s"
+                          % (label, status))
+
+    seen_at = node.get("seen_at")
+    if seen_at is not None and not _is_str(seen_at):
+        errors.append("%s, поле seen_at: ожидается строка (ISO-8601) или null" % label)
 
     errors.extend(_validate_relates(node, pos, ids, label))
     return errors
@@ -310,6 +341,9 @@ def warnings(map_dict):  # type: (Any) -> List[str]
                 for r in (node.get("relates") or [])):
             out.append("%s: открытый вопрос без orphaned_by — укажите решение или скажите в why, что его нет"
                        % label)
+        if node.get("decided_by") == "user" and not any(
+                isinstance(c, dict) and c.get("role") == "user" for c in (node.get("cites") or [])):
+            out.append("%s: заявлено решение пользователя, но среди цитат нет его слов" % label)
         for missing in sorted(mentioned):
             if frozenset((node_id, missing)) in linked:
                 continue
@@ -355,6 +389,8 @@ def normalize(map_dict):  # type: (Any) -> Dict[str, Any]
                 node[field] = []
         if node.get("added_at") is None:
             node["added_at"] = ""
+        for field in ("decided_by", "triage", "seen_at"):
+            node.setdefault(field, None)
         relates = node.get("relates")
         if relates is None:
             relates = []
