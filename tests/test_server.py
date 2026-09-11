@@ -191,6 +191,19 @@ class ViewerStringsTest(ServerTestCase):
             self.assertTrue(binding.search(page),
                             "%s: the viewer does not bind this key to %r (store.REL_LABELS)" % (rel, label))
 
+    def test_index_carries_the_cells_verdicts_and_live_words(self):
+        """The cells, the verdict buttons, the hook line and the live-updates words. The last
+        assertion pins that the old kind-ordering pair is gone: the spine is grouped by the
+        cells of `ui/model.js`, the one place the rule lives."""
+        page = self.request("GET", "/")[2].decode("utf-8")
+        text = self.viewer_text()
+        for word in ("Входящее", "Ресерч", "Обсудить", "Подтверждено", "Отвергнуто", "ничего нового",
+                     "подтвердить", "в ресерч", "обсудить", "отвергнуть", "видел", "скопировать ссылку",
+                     "не на карте", "хук не установлен", "aang install", "связь потеряна", "/api/events",
+                     "решил: вы", "решил: агент", "\"мои\"", "\"агента\""):
+            self.assertIn(word, text, word)
+        self.assertNotIn("ordered(map)", page.split("function ordered(")[0])
+
     def test_index_is_self_contained(self):
         page = self.request("GET", "/")[2].decode("utf-8")
         self.assertIn('src="model.js"', page)
