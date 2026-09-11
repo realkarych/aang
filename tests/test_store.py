@@ -501,8 +501,8 @@ class ExportTest(unittest.TestCase):
                  cites=[], why="никто не вернулся"),
         )
         text = store.export_markdown(m)
-        self.assertLess(text.index("Неявные решения"), text.index("Открытое"))
-        self.assertLess(text.index("Открытое"), text.index("## Решения"))
+        self.assertLess(text.index("## Входящее"), text.index("## Неявные решения"))
+        self.assertLess(text.index("## Неявные решения"), text.index("## Решения"))
         self.assertLess(text.index("Второй вопрос?"), text.index("Первый вопрос?"))
         self.assertIn("~~Первый вопрос?~~", text)
         self.assertIn("**Заменено:** d2", text)
@@ -629,6 +629,58 @@ class ExportTest(unittest.TestCase):
     def test_empty_map_exports_a_document(self):
         text = store.export_markdown({})
         self.assertTrue(text.startswith("# Карта решений"))
+
+
+class SeenAndCellMergeTest(unittest.TestCase):
+    def node(self, node_id, **fields):
+        base = {"id": node_id, "kind": "decision", "status": "accepted", "question": "В?",
+                "decision": "Р", "why": "п", "cites": [{"quote": "три слова тут есть"}]}
+        base.update(fields)
+        return base
+
+    def test_seen_at_survives_a_regeneration_and_is_never_taken_from_the_candidate(self):
+        old = {"version": 1, "nodes": [self.node("d1", seen_at="2026-09-11T12:00:00Z", added_at="2026-09-11T11:00:00Z")]}
+        new = {"version": 1, "nodes": [self.node("d1", seen_at="2026-09-11T13:00:00Z", why="переписано"),
+                                       self.node("d2", seen_at="2026-09-11T13:00:00Z")]}
+        merged = store.merge(old, new)
+        by_id = dict((n["id"], n) for n in merged["nodes"])
+        self.assertEqual("2026-09-11T12:00:00Z", by_id["d1"]["seen_at"])
+        self.assertEqual("переписано", by_id["d1"]["why"])
+        self.assertIsNone(by_id["d2"]["seen_at"])
+
+    def test_cell_is_stripped_like_related_by(self):
+        old = {"version": 1, "nodes": [self.node("d1", cell="inbox")]}
+        new = {"version": 1, "nodes": [self.node("d1", cell="rejected")]}
+        self.assertNotIn("cell", store.merge(old, new)["nodes"][0])
+        self.assertIn("cell", store.VIEW_FIELDS)
+
+    def test_decided_by_and_triage_travel_with_the_candidate_and_stick_on_hand_edits(self):
+        old = {"version": 1, "nodes": [self.node("d1", status="proposed", decided_by="agent", triage="research"),
+                                       self.node("d2", status="rejected", decided_by="user", hand_edited=True)]}
+        new = {"version": 1, "nodes": [self.node("d1", status="accepted", decided_by="user"),
+                                       self.node("d2", status="accepted", decided_by="agent")]}
+        by_id = dict((n["id"], n) for n in store.merge(old, new)["nodes"])
+        self.assertEqual(("accepted", "user", None), (by_id["d1"]["status"], by_id["d1"]["decided_by"], by_id["d1"]["triage"]))
+        self.assertEqual(("rejected", "user"), (by_id["d2"]["status"], by_id["d2"]["decided_by"]))
+
+
+class CellExportTest(unittest.TestCase):
+    def test_sections_follow_the_cells(self):
+        m = {"version": 1, "title": "т", "nodes": [
+            {"id": "d1", "kind": "decision", "status": "accepted", "decided_by": "user", "question": "Принято?", "decision": "да", "why": "п", "cites": []},
+            {"id": "d2", "kind": "decision", "status": "proposed", "decided_by": "agent", "question": "Предложено агентом?", "decision": "да", "why": "п", "cites": []},
+            {"id": "d3", "kind": "decision", "status": "rejected", "decided_by": "agent", "question": "Отвергнуто?", "decision": "да", "why": "п", "against": ["нет"], "cites": []},
+            {"id": "o1", "kind": "open", "status": "proposed", "triage": "research", "question": "Изучить?", "why": "п", "cites": []},
+            {"id": "t1", "kind": "tacit", "status": "accepted", "question": "Неявно?", "decision": "да", "why": "п", "cites": []},
+        ]}
+        text = store.export_markdown(m)
+        heads = [line for line in text.splitlines() if line.startswith("## ")]
+        self.assertEqual(["## Входящее", "## Ресерч", "## Подтверждено", "## Отвергнуто", "## Неявные решения"], heads)
+        self.assertIn("**Статус:** отвергнуто", text)
+        self.assertIn("**Решил:** вы", text)
+        self.assertIn("**Решил:** агент", text)
+        self.assertIn("**Под вопросом:** ресерч", text)
+        self.assertNotIn("seen_at", text)
 
 
 if __name__ == "__main__":
