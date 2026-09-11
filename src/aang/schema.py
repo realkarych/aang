@@ -1,6 +1,7 @@
 """Map schema: validation and default-filling for `.aang/map.json`.
 
-The format is pinned in docs/plan.md ("The map format"). `validate` returns a list of
+The format is pinned in docs/plan.md ("The map format"); `relates` and `added_at` are
+specified in docs/superpowers/specs/2026-09-11-map-relations-and-search-design.md. `validate` returns a list of
 error strings (empty when the map is valid); `normalize` fills defaults in place so
 downstream code never guards for absent keys. Neither raises on bad input.
 
@@ -262,31 +263,54 @@ def warnings(map_dict):  # type: (Any) -> List[str]
     """Non-blocking remarks: the map is valid, but something is worth fixing.
 
     Today: a node id mentioned in prose with no edge to it. Prose is invisible to the
-    structure, so the reader misses whatever it does not link.
+    structure, so the reader misses whatever it does not link. Unlike validate() after
+    normalize(), this never mutates its argument.
     """
     out = []  # type: List[str]
-    data = normalize(map_dict)
-    nodes = data["nodes"]
-    ids = set(n.get("id") for n in nodes if isinstance(n, dict))
+    nodes = map_dict.get("nodes") if isinstance(map_dict, dict) else None
+    if not isinstance(nodes, list):
+        return out
+    positions = {}  # type: Dict[str, int]
+    for pos, node in enumerate(nodes, 1):
+        if isinstance(node, dict) and _is_str(node.get("id")) and node["id"] not in positions:
+            positions[node["id"]] = pos
+
+    # An edge lives on one end only (`relates` on the later node, `superseded_by` on the
+    # earlier), so coverage is map-wide: a mention counts as linked if the unordered pair
+    # {mentioner, mentioned} carries an edge in either direction.
+    linked = set()  # type: set
+    for node in nodes:
+        if not isinstance(node, dict):
+            continue
+        node_id = node.get("id")
+        targets = [r.get("to") for r in (node.get("relates") or []) if isinstance(r, dict)]
+        targets.append(node.get("superseded_by"))
+        for target in targets:
+            if _is_str(target) and target and target != node_id:
+                linked.add(frozenset((node_id, target)))
+
     for pos, node in enumerate(nodes, 1):
         if not isinstance(node, dict):
             continue
         node_id = node.get("id")
-        linked = set(r.get("to") for r in node.get("relates") or [] if isinstance(r, dict))
-        sup = node.get("superseded_by")
-        if sup:
-            linked.add(sup)
         mentioned = set()  # type: set
         for field in _PROSE_FIELDS:
             value = node.get(field)
             if not _is_str(value):
                 continue
             for found in _PROSE_ID_RE.findall(value):
-                if found in ids and found != node_id:
+                if found in positions and found != node_id:
                     mentioned.add(found)
-        for missing in sorted(mentioned - linked):
-            out.append("%s: в тексте упомянут %s, но связи на него нет"
-                       % (_node_label(node, pos), missing))
+        label = _node_label(node, pos)
+        for missing in sorted(mentioned):
+            if frozenset((node_id, missing)) in linked:
+                continue
+            if positions[missing] > pos:
+                # The direction rule (U3) means this node cannot carry the edge itself.
+                out.append("%s: в тексте упомянут %s, но связи нет — %s ниже по списку, связь ставится на нём"
+                           % (label, missing, missing))
+            else:
+                out.append("%s: в тексте упомянут %s, но связи на него нет" % (label, missing))
     return out
 
 

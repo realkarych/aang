@@ -264,6 +264,14 @@ class ValidateTest(unittest.TestCase):
         self.assertTrue(any("added_at" in e for e in schema.validate(_map([_node("d1", added_at=5)]))))
         self.assertEqual([], schema.validate(_map([_node("d1", added_at="2026-09-11T12:00:00Z")])))
 
+    def test_relates_two_cycle_is_rejected_by_direction(self):
+        # Direction is the cycle check: one edge of any cycle must point forward.
+        m = _map([_node("d1", relates=[{"to": "d2", "rel": "rests_on"}]),
+                  _node("d2", relates=[{"to": "d1", "rel": "moots"}])])
+        errors = schema.validate(m)
+        self.assertTrue(any("узел d1" in e and "вперёд" in e for e in errors))
+        self.assertFalse(any("узел d2" in e for e in errors))
+
     def test_map_without_relates_still_valid(self):
         self.assertEqual([], schema.validate(_map([_node("d1"), _node("d2")])))
 
@@ -291,6 +299,27 @@ class WarningsTest(unittest.TestCase):
 
     def test_self_mention_is_not_warned(self):
         self.assertEqual([], schema.warnings(_map([_node("d1", why="см. d1")])))
+
+    def test_edge_on_later_node_covers_earlier_mention(self):
+        # d1 cannot carry an edge to d2 (direction rule); the edge on d2 must count for d1.
+        m = _map([_node("d1", why="см. d2"), _node("d2", relates=[{"to": "d1", "rel": "moots"}])])
+        self.assertEqual([], schema.warnings(m))
+
+    def test_uncovered_forward_mention_says_where_the_edge_belongs(self):
+        ws = schema.warnings(_map([_node("d1", why="см. d2"), _node("d2")]))
+        self.assertEqual(1, len(ws))
+        self.assertIn("узел d1", ws[0])
+        self.assertIn("d2 ниже по списку, связь ставится на нём", ws[0])
+        self.assertNotIn("связи на него нет", ws[0])
+
+    def test_id_inside_a_word_is_not_a_mention(self):
+        self.assertEqual([], schema.warnings(_map([_node("d11"), _node("d2", why="см. md11 и d11a")])))
+
+    def test_warnings_do_not_mutate_the_map(self):
+        m = _map([_node("d1")])
+        schema.warnings(m)
+        self.assertNotIn("relates", m["nodes"][0])
+        self.assertNotIn("added_at", m["nodes"][0])
 
     def test_warnings_survive_garbage(self):
         self.assertEqual([], schema.warnings(None))
