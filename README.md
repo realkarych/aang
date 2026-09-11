@@ -70,7 +70,7 @@ session id recorded in the map, else the newest transcript under `~/.claude/proj
 | command | what it does |
 |---|---|
 | `aang merge [--candidate PATH] [--keep]` | Validate `.aang/candidate.json`, resolve every quote to a turn, fold it into `.aang/map.json` preserving hand edits, delete the candidate. Exit 1 and nothing written when the candidate is invalid. A quote that is not found is saved with `turn: null` — the node stays, marked unverified. |
-| `aang check` | Validate the map and resolve every citation; print ✓/✗ per node and per quote with the reason, △ for a node with no citations at all. **Exit 1** when the map is invalid, any citation fails, or the transcript cannot be found. This is the command a human trusts. |
+| `aang check` | Validate the map and resolve every citation; print ✓/✗ per node and per quote with the reason, △ for a node with no citations at all. **Exit 1** when the map is invalid, any citation fails, or the transcript cannot be found. After the verdict, remarks (△) for node ids mentioned in prose with no edge to them — a nudge, never a failure. This is the command a human trusts. |
 | `aang view [--port 8790]` | Serve the viewer on `127.0.0.1` until Ctrl-C. |
 | `aang export [--out docs/decisions.md]` | Write the Markdown decision record — the human copy that gets committed. Superseded decisions kept and marked; unverified nodes marked. |
 
@@ -96,6 +96,8 @@ session id recorded in the map, else the newest transcript under `~/.claude/proj
       "against": ["Дисперсия выше, нужен набор существеннее"],
       "consequence": "500 примеров вместо 100, прогон дорожает втрое",
       "cites": [{"turn": 47, "role": "user", "quote": "давай pass@1 на отложенном наборе"}],
+      "relates": [],
+      "added_at": "2026-09-11T12:00:00Z",
       "hand_edited": false
     }
   ]
@@ -109,12 +111,27 @@ Three kinds of node:
 - **`tacit`** — in force, but nobody chose it. `why` says where the value came from. The viewer
   shows these first.
 - **`open`** — a question nobody answered, or a consequence of a decision nobody came back to.
-  `decision` is empty; `why` says what raised it or which decision orphaned it.
+  `decision` is empty; `relates` names the decision that orphaned it, or `why` says nothing did.
 
 Statuses: `accepted`, `proposed`, `superseded`. **A decision is never edited.** When a conclusion
 changes, a new node is added and the old one gets `status: superseded` and `superseded_by: <id>`;
 it stays in the map, struck through, next to what replaced it — so the next reader sees the
 argument was had, and does not have it again.
+
+Relations between nodes are edges, not sentences. A node's `relates` holds up to three
+`{"to": <id>, "rel": ...}` entries, each pointing at a node **earlier in the list** — so an edge
+can only name something already written, and no cycle is possible. Three values of `rel`:
+`orphaned_by` (on an open node: that decision left this question hanging), `rests_on` (this holds
+on that decision or tacit value), `moots` (on the newer decision: that one stopped mattering
+without being replaced — `superseded` is for a decision that *was* replaced). `superseded_by` is
+the fourth relation and stays its own field. The reverse side — «на этом держатся: d7, d11, o6» —
+is never stored: the server derives it for the viewer and the export, so the two sides cannot
+drift. The viewer files open nodes under «осиротело решениями» or «просто висит» by the presence
+of an `orphaned_by` edge, and nothing else.
+
+`added_at` is stamped by `merge` when a node first enters the map and never rewritten; the viewer
+marks nodes added since the previous run from it. A map written before the field existed has no
+stamp: that is "unknown", not "old", and the viewer shows no mark rather than a wrong one.
 
 The grammar is deliberately poor (IBIS): a position answers a question, arguments attach to a
 position, anything may be questioned. Every node is one question with at most one position.
@@ -145,6 +162,12 @@ it no longer emits them, drops them. Two exceptions: a `superseded` node is hist
 run that forgot it, and a node you **deleted** from the file stays deleted — the skill re-emits only
 what is in `.aang/map.json`, so a deletion is a hand edit like any other. To add a node, add it with
 `hand_edited: true` and at least one verbatim quote.
+
+Relations are corrected like any other field — in the viewer (`relates` is editable, as is
+`superseded_by`) or in the file. A bad edge — an unknown id, a pointer down the list, a fourth
+entry, a `rel` outside the three — is refused with the schema error naming the node and the entry,
+in the viewer as in `aang check`. A hand-edited node keeps its edges across regeneration, and a
+node its edges point at is kept with it even when the next run forgets that target.
 
 Never edit a decision's conclusion in place. Add the new decision and supersede the old one.
 

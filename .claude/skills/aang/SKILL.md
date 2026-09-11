@@ -105,12 +105,14 @@ nobody went back. For each decision in your map, ask:
 
 Fields: `question` is the hanging thing phrased as a question; `decision` stays empty — it has no
 answer, that is what makes it open (the validator rejects an `open` with a decision); `why` says
-why it hangs and, for an orphaned consequence, **which decision orphaned it** (name the node id);
-`status: proposed`. Cite the line that raised it. For a consequence you derive now, there is no
-line that raised it — cite the decision it follows from: **quote the line where that decision was
-made, the same quote its node carries** (copy it from that node's `cites`), and name the node id in
-`why`. A cite has no field for a node id; `{"quote": "d3"}` is not a citation. Only consequences you
-can trace to a specific node; a generic risk with no decision behind it is not part of the record.
+why it hangs; for an orphaned consequence, **the decision that orphaned it is an edge** —
+`relates: [{"to": "d6", "rel": "orphaned_by"}]` (see "Relations") — and `why` may name the id
+again if the sentence needs it, but the edge is the record, the prose is not; `status: proposed`.
+Cite the line that raised it. For a consequence you derive now, there is no line that raised it —
+cite the decision it follows from: **quote the line where that decision was made, the same quote
+its node carries** (copy it from that node's `cites`), and put the edge in `relates`. A cite has
+no field for a node id; `{"quote": "d3"}` is not a citation. Only consequences you can trace to a
+specific node; a generic risk with no decision behind it is not part of the record.
 
 ### `decision` — chosen on purpose
 
@@ -132,13 +134,93 @@ A question that was answered, and acted on or agreed to. Fields (ADR):
 IBIS, deliberately poor: positions answer questions; arguments attach to positions; anything may be
 questioned. In this file that means: one node is one question with at most one position and its
 arguments. Two positions on the same question are two nodes with the same `question`, at most one
-of them `accepted`. A questioned decision is an `open` node whose `why` names it.
+of them `accepted`. A questioned decision is an `open` node that points at it (`orphaned_by`,
+below).
 
 **A decision is never edited.** If the conclusion changed, add a new node and set the old one's
 `status` to `superseded` with `superseded_by` pointing at the new id; leave its text as it was.
 The old node stays visible, struck through, next to what replaced it. That is what stops the
 argument from being re-litigated: the next reader sees that A was decided, why, and that B then
 replaced it — instead of finding only B and proposing A again.
+
+## Relations — an edge, not a sentence
+
+«Осиротело решением d6» inside `why` is true and invisible: the reader who does not read that
+field never learns it, and the viewer cannot show what holds on `t5`, or sort the open questions
+into the ones a decision orphaned and the ones that merely hang, from words. A relation between
+two nodes is written as an edge; the prose may repeat it, and never replaces it:
+
+```json
+"relates": [{"to": "d7", "rel": "orphaned_by"}, {"to": "t5", "rel": "rests_on"}]
+```
+
+Three values of `rel`, on three kinds of node:
+
+| `rel` | on which node | means |
+|---|---|---|
+| `orphaned_by` | the `open` node | that decision left this question hanging — it would not exist without it |
+| `rests_on` | the dependent node | this holds on that decision or tacit value; if that moves, this moves |
+| `moots` | the newer decision | that decision stopped mattering because of this one — and nothing replaced it |
+
+`superseded_by` is the fourth relation and **stays its own field on the old node**. It does not
+move into `relates`; it is the one edge that points at a later node, kept as it is for that reason.
+
+**Backward only.** An edge sits on the node that comes later in `nodes` and points at one above
+it. Not a limitation to be clever around, a guarantee: you can only point at what you have already
+written, so an edge to a node that does not exist cannot be typed — and since no edge points down
+the list, no cycle is possible, which is why the validator checks direction and needs no cycle
+check. When a dependency seems to run forward — the foundation was noticed late and got a later
+id, as a tacit value usually does — the edge goes on the later node, saying what *it* rests on;
+the viewer shows both ends of every edge, so nothing is lost. `merge` refuses a forward edge
+(`ссылка вперёд`) and writes nothing.
+
+**At most three per node, in total** — not three of each kind. The cap is on fan-out. Wanting a
+fourth means you are listing context, not dependency: keep the three whose change would move this
+node, and tell the user what you left out. For the same reason do not point every later node at
+the decision that started the work: «everything rests on the product» is not information.
+`rests_on` names a specific value or mechanism, not the project a node belongs to.
+
+**`moots` against `superseded_by`.** Both are about a decision no longer in force. The question
+that tells them apart: *did a new decision answer the same question differently?* Then the old one
+is `status: superseded` with `superseded_by` pointing at the new one. *Or did the question itself
+stop mattering, so that nobody answers it any more?* Then the new decision `moots` the old one,
+and the old one keeps its status — there is no replacement to point at, and it was never wrong.
+The real case: `d4`, the 72-hour threshold after which a waiting task stops claiming attention,
+was never replaced by another threshold. It died when the product turned into `/aang` (`d6`), a
+tool invoked by hand that watches nothing and so has no queue to age. `d4` is not superseded;
+`d6` `moots` it. Without that edge the map showed `d4` as `accepted` and alive, and the next reader
+would have defended a number nothing uses.
+
+**`orphaned_by` against `rests_on`, on an `open` node.** *Would this question exist at all
+without that decision?* `orphaned_by`. *Does what happens to it depend on a value that could
+move?* `rests_on`. One node may carry both: `o6` (a quote that begins right after a standalone
+«не» passes and inverts the meaning) is `orphaned_by` `d7` — proof by verbatim quote is what lets
+a fragment inside a negation through — and `rests_on` `t5`, because how often it bites is set by
+the three-word threshold.
+
+**Every `open` node carries `orphaned_by`, or says in `why` that nothing did.** This is what the
+viewer's triage is drawn from: an open node with `orphaned_by` is filed under «осиротело
+решениями», one without under «просто висит», and nothing else decides it. So for every open node
+either name the decision in `relates`, or write, in a sentence, that no decision caused it — it
+was raised and dropped, offered and not answered. If the decision that orphaned it is not in the
+map, that is usually a tacit you missed — your own silent choice while implementing — so add it
+with its citation and point at it; if it cannot earn a node, say in `why` that the cause is not on
+the map. An open node with neither edge nor sentence is a question you did not finish asking.
+
+**Write the edge where you would write the words.** When `why` or `consequence` is about to say
+«следствие d7», «держится на t2», «из-за d6», the edge is already in your head: put it in
+`relates` and let the prose keep the id if the sentence reads better with it. An id in prose with
+no edge is caught — `aang check` prints, after its verdict, a remark of the form
+`△ узел o1: в тексте упомянут d6, но связи на него нет`, or `… — d6 ниже по списку, связь
+ставится на нём` when the mentioned node is later in the list and the edge belongs on it. It is a
+remark, not a failure: the exit code does not change. Add the edge when the relation is real. When
+the id is merely mentioned — an example, a «см. также», a «расходится с» that none of the three
+names — leave the prose as it is and let the remark stand; the vocabulary is poor on purpose, and
+bending `rests_on` into «связано с» would make every edge mean less.
+
+**You never write `related_by`.** «На этом держатся: d7, d11, o6» is the reverse of everyone
+else's `relates`, computed by the server when the map is shown; `merge` strips it from every node.
+Writing it is work thrown away, and a stored copy would be wrong the moment one node changed.
 
 ## Citations — the only defense
 
@@ -227,6 +309,7 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
       "against": ["Дисперсия выше, нужен набор существеннее"],
       "consequence": "500 примеров вместо 100, прогон дорожает втрое",
       "cites": [{"quote": "давай pass@1 на отложенном наборе"}],
+      "relates": [],
       "hand_edited": false
     }
   ]
@@ -236,12 +319,17 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 - `kind`: `decision` | `tacit` | `open`. `status`: `accepted` | `superseded` | `proposed`.
   `superseded_by` is an existing node id, or `null`; `status: superseded` requires it and it
   requires `status: superseded`.
+- `relates`: the edges (see "Relations"), each `{"to": <id above in the list>, "rel": ...}`, at
+  most three. `[]` when none — and on an `open`, `[]` means `why` says that no decision caused it.
+- `added_at`: never write it. `merge` stamps it when a node first enters the map and never
+  rewrites it; the viewer's «новое» marks come from it. A value from you would be a guess, like a
+  turn number, and is dropped the same way. `related_by`: never — the server derives it.
 - `id`: `d1, d2…` for decisions, `t1…` tacit, `o1…` open, numbered in order of first appearance.
   Ids are permanent — never renumber, never reuse. If a node's kind changes later (a tacit the user
   then confirmed becomes a decision), keep its id; the prefix is a hint from birth, not a rule.
 - `nodes` in the order the conversation reached them; the viewer shows newest first.
 - `session_id`: leave it `""`. You do not know your own session id and must not guess one; the
-  shell does — `merge` (step 5) is passed `--session "$CLAUDE_CODE_SESSION_ID"` and stamps the
+  shell does — `merge` (step 6) is passed `--session "$CLAUDE_CODE_SESSION_ID"` and stamps the
   id it resolved into the map, and `aang check` prints which transcript file it used, so confirm
   it is this session. On a repeat run the map already records it.
 - `generated_at`: now, ISO 8601 UTC (`date -u +%Y-%m-%dT%H:%M:%SZ`).
@@ -255,8 +343,12 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 1. If `.aang/map.json` exists, read it. Note every id and every `hand_edited: true`.
 2. Think through the tacit questions, then the open questions, then the decisions. Apply the
    selectivity test to each node.
-3. Write `.aang/candidate.json` (create the directory if needed).
-4. Find the CLI, once, in a Bash call. It is `aang` on PATH when installed as the README says;
+3. With the nodes in order, walk them once more for edges: every `open` gets `orphaned_by` or its
+   sentence in `why`; every id you typed into prose gets its edge or a reason it has none;
+   `moots` on any decision that killed an older one without replacing it. An edge points only
+   upward in the list.
+4. Write `.aang/candidate.json` (create the directory if needed).
+5. Find the CLI, once, in a Bash call. It is `aang` on PATH when installed as the README says;
    otherwise it is `bin/aang` in the aang checkout, three levels up from this skill's directory —
    the harness printed `Base directory for this skill: <dir>` when this skill loaded, and that
    directory is usually a symlink into the checkout, hence `pwd -P`. This prints the path, trying
@@ -271,7 +363,7 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    Use the absolute path it printed as `aang` in every command below — shell variables do not
    survive between Bash calls, so do not store it in one. If it printed nothing, stop and tell the
    user `aang` is not installed (README, Install).
-5. Run `aang merge --session "$CLAUDE_CODE_SESSION_ID"` — the variable, literally, in the Bash
+6. Run `aang merge --session "$CLAUDE_CODE_SESSION_ID"` — the variable, literally, in the Bash
    command; the shell expands it, you never see or type the id. An empty variable is the same as
    no `--session`: merge then takes the newest transcript and stamps its id.
    It validates the candidate, finds each quote in the transcript, fills in turns,
@@ -279,8 +371,8 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    which quotes it could not find.
    - Exit 1 with `невалиден`: the candidate broke the schema; the errors name node and field.
      Nothing was written. Fix the candidate and run again.
-   - Exit 0 with `не найдено: N`: those nodes are in the map, unverified. See step 6.
-6. Run `aang check` (same `--session`). It prints every node with ✓/✗ and the reason for each failing quote, and exits
+   - Exit 0 with `не найдено: N`: those nodes are in the map, unverified. See step 7.
+7. Run `aang check` (same `--session`). It prints every node with ✓/✗ and the reason for each failing quote, and exits
    1 if any citation failed. For each ✗: if you misquoted a line you clearly remember, write a
    corrected candidate (same ids, all nodes) and merge again — **once**. Do not iterate hunting for
    a quote that resolves; after one correction pass, whatever is still ✗ stays unverified, and you
@@ -288,11 +380,15 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
    says what the node says** — the number, the name, the position. If it does not, replace it with
    the line that does (this counts as the one correction pass) or drop it and let the node stand
    unverified. A ✓ beside a quote that does not support the node is worse than a ✗.
-7. Start the viewer in the background: `aang view` (same `--session`; it serves until stopped —
+   After the verdict `check` may print `Замечания` — ids mentioned in prose with no edge. They
+   fail nothing; fold them into the same correction pass: add the edge where the relation is real
+   (on the later node, when the remark says so), and leave a bare mention alone.
+8. Start the viewer in the background: `aang view` (same `--session`; it serves until stopped —
    use the Bash tool's background mode). Its output carries the URL, `http://127.0.0.1:8790/` by default; if the port is
    taken it exits 1 — retry with `--port 8791`.
-8. Tell the user, briefly: the URL; how many tacit / open / decision nodes; which nodes are
-   unverified and, in one line each, why. Do not paste the map — the viewer is for that. Mention
+9. Tell the user, briefly: the URL; how many tacit / open / decision nodes; how many of the open
+   ones a decision orphaned and how many merely hang; which nodes are unverified and, in one line
+   each, why. Do not paste the map — the viewer is for that. Mention
    that `aang export` writes `docs/decisions.md` if they want the record committed.
 
 ## Running again in the same session
@@ -311,6 +407,14 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 - Nodes marked `hand_edited: true` are the user's: merge keeps their text regardless of what you
   write, and you cannot overwrite them. You may still supersede one — write it with
   `status: superseded` and `superseded_by`, and merge applies exactly that and nothing else.
+- **Edges are part of the node** and travel with it. Re-emit each node with its `relates`; an
+  ordinary node re-emitted without them loses them, because it was regenerated — that is what
+  re-emitting means. Adding an edge to an old node is the usual second-run gain: an `open` from
+  the first run that a decision since then orphaned, a decision that mooted an older one.
+- Frozen (superseded) and hand-edited nodes keep the edges they have, whatever you write — merge
+  will not add, drop or repoint one. If a hand-edited node needs an edge, tell the user. A node
+  such a kept edge points at is kept too, even when you leave it out, and merge says so
+  (`сохранены (нет в кандидате, но на них ссылаются сохранённые узлы)`).
 - A conclusion that changed since the last map: new node, old one superseded. Never rewrite the
   old one's text.
 - A node you now think was wrong (not superseded — wrong): leave it out, and tell the user you
@@ -321,5 +425,8 @@ Write `.aang/candidate.json` — never `.aang/map.json`. Exactly this shape:
 - Write `.aang/map.json` directly. It bypasses the merge and silently destroys the user's hand
   edits on the next run.
 - Guess a turn number. Invent, tidy or translate a quote.
+- Write `related_by` or `added_at`, or an edge that points down the list.
+- Mark a mooted decision `superseded`: nothing replaced it, and `superseded_by` would have nothing
+  to point at. The edge is `moots`, on the decision that killed it.
 - Delegate to a subagent.
 - Record the conversation. Record what it decided, assumed and left hanging.
