@@ -438,12 +438,18 @@ def _gitignore_missing(root):  # type: (str) -> List[str]
     this machine's working state and committing them is noise at best. The file is read,
     never written — a hint a human can ignore, not an edit they did not ask for. A
     blanket `.aang/` (or `.aang`) covers everything, so nothing is missing then.
+
+    `.gitignore` has no declared encoding, and by the time this runs the map is already
+    saved: a stray Latin-1 byte in somebody's comment must not turn a finished merge into
+    a traceback. Undecodable bytes are replaced, which can only garble a line that was
+    never one of the three names anyway.
     """
     wanted = [".aang/candidate.json", ".aang/session.json", ".aang/outbox.jsonl"]
     try:
-        with open(os.path.join(root, ".gitignore"), "r", encoding="utf-8") as handle:
+        with open(os.path.join(root, ".gitignore"), "r",
+                  encoding="utf-8", errors="replace") as handle:
             lines = set(line.strip() for line in handle)
-    except OSError:
+    except (OSError, ValueError):
         lines = set()
     if ".aang/" in lines or ".aang" in lines:
         return []

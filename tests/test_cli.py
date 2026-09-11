@@ -539,6 +539,18 @@ class SessionJsonInCliTest(CliTestCase):
         code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
         self.assertNotIn(".gitignore", out)
 
+    def test_merge_survives_a_gitignore_that_is_not_utf8(self):
+        with open(os.path.join(self.root, ".gitignore"), "wb") as h:
+            h.write(b"# caf\xe9\n.aang/candidate.json\n")
+        self.write_candidate(decision("d1", "давай тогда pass@1"))
+        code, out, err = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(0, code, err)
+        hints = [line for line in out.splitlines() if line.startswith("Совет:")]
+        self.assertEqual(1, len(hints), out)
+        self.assertIn(".aang/session.json", hints[0])
+        self.assertIn(".aang/outbox.jsonl", hints[0])
+        self.assertNotIn("candidate.json", hints[0])
+
     def test_check_uses_session_json_too(self):
         from aang import session
         self.write_candidate(decision("d1", "давай тогда pass@1"))
