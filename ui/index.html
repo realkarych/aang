@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<link rel="icon" href="data:,">
+<title>aang · карта решений сессии</title>
+<style>
+  /* ---------------------------------------------------------------- tokens */
+  :root {
+    color-scheme: light dark;
+    --bg: #f4f1e9;
+    --panel: #fdfbf6;
+    --panel-2: #f0ece2;
+    --ink: #1e1a14;
+    --ink-2: #5a5346;
+    --ink-3: #8b8375;
+    --line: #dad3c4;
+    --line-strong: #b5ac9a;
+    --sel: #e9e3d3;
+    --decision: #2c5a86;
+    --tacit: #955500;
+    --open: #6a4c9e;
+    --ok: #256e44;
+    --ok-bg: #e1f0e5;
+    --bad: #b0261f;
+    --bad-bg: #fae3e0;
+    --warn: #7d5300;
+    --warn-bg: #fbeecb;
+    --mark: #fff1a3;
+    --focus: #1a63c9;
+    --link: #1f5ba8;
+    --font-text: Charter, "Bitstream Charter", "Iowan Old Style", Georgia, "Noto Serif", "Times New Roman", serif;
+    --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+    --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #151310;
+      --panel: #1d1a15;
+      --panel-2: #24201a;
+      --ink: #ece6d9;
+      --ink-2: #b4ab9b;
+      --ink-3: #807869;
+      --line: #36312a;
+      --line-strong: #4f483c;
+      --sel: #2b261f;
+      --decision: #85b4e3;
+      --tacit: #e3a53f;
+      --open: #b9a0e6;
+      --ok: #72c692;
+      --ok-bg: #173322;
+      --bad: #f28b80;
+      --bad-bg: #40201c;
+      --warn: #e8b85a;
+      --warn-bg: #3a2e12;
+      --mark: #5b4a0f;
+      --focus: #7fbaff;
+      --link: #8ab8f0;
+    }
+  }
+
+  /* ---------------------------------------------------------------- base */
+  * { box-sizing: border-box; }
+  html { height: 100%; }
+  body {
+    margin: 0;
+    min-height: 100%;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: 15px;
+    line-height: 1.45;
+    padding-block: 0 32px;
+    padding-inline: 16px;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+  }
+  button, select, textarea, input { font: inherit; color: inherit; }
+  code, .mono { font-family: var(--font-mono); font-size: 0.86em; font-variant-numeric: tabular-nums; }
+  a { color: var(--link); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .ui { font-family: var(--font-ui); }
+
+  /* ---------------------------------------------------------------- header */
+  .top {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding-block: 20px 14px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .top .brand {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    margin: 0 0 6px;
+  }
+  .top h1 {
+    font-size: clamp(20px, 2.4vw, 28px);
+    font-weight: 500;
+    margin: 0 0 8px;
+    line-height: 1.2;
+    text-wrap: balance;
+  }
+  .meta {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-2);
+    margin: 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 18px;
+  }
+  .meta .sep::before { content: ""; }
+  .counts {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-2);
+    margin: 8px 0 0;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+  }
+  .counts b { font-weight: 600; color: var(--ink); font-variant-numeric: tabular-nums; }
+  .counts .bad-count { color: var(--bad); }
+
+  /* ---------------------------------------------------------------- banners */
+  .banner {
+    max-width: 1400px;
+    margin: 14px auto 0;
+    padding: 12px 14px 12px 16px;
+    border: 1px solid var(--line-strong);
+    border-left: 5px solid var(--warn);
+    background: var(--warn-bg);
+    font-family: var(--font-ui);
+    font-size: 14px;
+  }
+  .banner.bad { border-left-color: var(--bad); background: var(--bad-bg); }
+  .banner.bad .glyph { color: var(--bad); }
+  .banner.warn .glyph { color: var(--warn); }
+  .banner h2 { font-size: 15px; margin: 0 0 4px; font-weight: 600; }
+  .banner p { margin: 4px 0; }
+  .banner ol { margin: 6px 0 0; padding-left: 22px; }
+  .banner li { margin: 2px 0; font-family: var(--font-text); }
+  .banner code { background: color-mix(in srgb, var(--panel) 60%, transparent); padding: 1px 4px; border-radius: 3px; }
+  .glyph { font-family: var(--font-ui); font-weight: 700; }
+
+  /* ---------------------------------------------------------------- panes */
+  .panes {
+    max-width: 1400px;
+    margin: 16px auto 0;
+    display: grid;
+    grid-template-columns: minmax(300px, 5fr) minmax(320px, 7fr);
+    gap: 18px;
+    align-items: start;
+  }
+  .spine, .detail {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    min-width: 0;
+  }
+  .spine { padding: 0; }
+  .detail { padding: 18px 22px 22px; position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: auto; }
+  @media (max-width: 860px) {
+    .panes { grid-template-columns: 1fr; }
+    .detail { position: static; max-height: none; padding: 16px 14px 18px; }
+  }
+
+  /* ---------------------------------------------------------------- spine */
+  .spine h2 {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    font-weight: 600;
+    margin: 0;
+    padding: 12px 14px 6px;
+    color: var(--ink-2);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 2px 10px;
+    border-top: 1px solid var(--line);
+  }
+  .spine h2:first-child { border-top: 0; }
+  .spine h2 small { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-size: 12px; }
+  .spine h2 .k { font-family: var(--font-ui); white-space: nowrap; }
+  .spine h2.k-tacit { color: var(--tacit); }
+  .spine h2.k-open { color: var(--open); }
+  .spine h2.k-decision { color: var(--decision); }
+  .spine ol { list-style: none; margin: 0; padding: 0 0 6px; }
+  .spine .empty-group { padding: 4px 14px 10px; color: var(--ink-3); font-style: italic; font-size: 14px; }
+  .row {
+    display: grid;
+    grid-template-columns: 22px 1fr auto;
+    gap: 2px 10px;
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: 0;
+    border-left: 4px solid var(--line-strong);
+    padding: 10px 14px 10px 10px;
+    cursor: pointer;
+    position: relative;
+  }
+  .row + .row, li + li .row { border-top: 1px solid var(--line); }
+  .row:hover { background: var(--panel-2); }
+  .row[aria-current="true"] { background: var(--sel); }
+  .row[aria-current="true"]::after {
+    content: "";
+    position: absolute; right: 0; top: 0; bottom: 0; width: 3px;
+    background: var(--ink);
+  }
+  .row.k-decision { border-left-style: solid; border-left-color: var(--decision); }
+  .row.k-tacit { border-left-style: dashed; border-left-color: var(--tacit); }
+  .row.k-open { border-left-style: dotted; border-left-color: var(--open); }
+  .row .mark {
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    text-align: center;
+  }
+  .k-decision .mark { color: var(--decision); }
+  .k-tacit .mark { color: var(--tacit); }
+  .k-open .mark { color: var(--open); }
+  .row .body { min-width: 0; }
+  .row .q { display: block; font-weight: 600; line-height: 1.3; }
+  .row .d { display: block; margin-top: 2px; line-height: 1.35; }
+  .row .d.none { color: var(--ink-3); font-style: italic; }
+  .row .w {
+    display: block;
+    margin-top: 3px;
+    color: var(--ink-2);
+    font-size: 13.5px;
+    line-height: 1.35;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .row .state {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    white-space: nowrap;
+  }
+  .row .idc { grid-column: 1; grid-row: 2; font-size: 11px; color: var(--ink-3); text-align: center; align-self: start; }
+  .row.superseded .q, .row.superseded .d { text-decoration: line-through; text-decoration-thickness: 1.5px; color: var(--ink-2); }
+  @media (max-width: 480px) {
+    .row { grid-template-columns: 22px 1fr; }
+    .row .state { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 6px; }
+    .row .w { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
+  }
+
+  /* ---------------------------------------------------------------- tags */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 1px 7px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    line-height: 1.5;
+    color: var(--ink-2);
+    background: transparent;
+    white-space: nowrap;
+  }
+  .tag.status-superseded { text-decoration: line-through; }
+  .tag.status-proposed { border-style: dashed; font-style: italic; }
+  .tag.v-ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
+  .tag.v-loose { color: var(--ok); border-color: var(--ok); border-style: dashed; background: transparent; }
+  .tag.v-bad { color: var(--bad); border-color: var(--bad); border-style: dashed; background: var(--bad-bg); font-weight: 600; }
+  .tag.v-none { color: var(--bad); border-color: var(--bad); border-style: dotted; background: transparent; font-weight: 600; }
+  .tag.v-unchecked { color: var(--warn); border-color: var(--warn); border-style: dotted; background: var(--warn-bg); font-weight: 600; }
+  .tag.edited { color: var(--ink); border-color: var(--ink); }
+  .tag.kind-tacit { color: var(--tacit); border-color: var(--tacit); border-style: dashed; }
+  .tag.kind-open { color: var(--open); border-color: var(--open); border-style: dotted; }
+  .tag.kind-decision { color: var(--decision); border-color: var(--decision); }
+  .tag.linkish { cursor: pointer; }
+  .tag.linkish:hover { background: var(--panel-2); }
+
+  /* ---------------------------------------------------------------- detail */
+  .detail .kicker {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    margin: 0 0 10px;
+    font-family: var(--font-ui);
+    font-size: 12px;
+    color: var(--ink-2);
+  }
+  .detail .kicker .idc { font-size: 13px; color: var(--ink); }
+  .detail h2.q {
+    font-size: clamp(19px, 2vw, 24px);
+    font-weight: 500;
+    line-height: 1.25;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .detail.superseded h2.q { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--ink-2); }
+  .detail .notice {
+    font-family: var(--font-ui);
+    font-size: 13px;
+    padding: 8px 12px;
+    margin: 8px 0 14px;
+    border-left: 4px solid var(--line-strong);
+    background: var(--panel-2);
+  }
+  .detail .notice.bad { border-left-color: var(--bad); background: var(--bad-bg); }
+  .detail .notice.warn { border-left-color: var(--warn); background: var(--warn-bg); }
+  .detail .notice.ok { border-left-color: var(--ok); background: var(--ok-bg); }
+  .detail .notice.loose { border-left-color: var(--ok); border-left-style: dashed; }
+  .adr { margin: 12px 0 0; }
+  .adr .f { display: grid; grid-template-columns: 112px 1fr; gap: 6px 16px; padding: 10px 0; border-top: 1px solid var(--line); }
+  @media (max-width: 560px) { .adr .f { grid-template-columns: 1fr; gap: 2px; } }
+  .adr dt {
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    padding-top: 3px;
+  }
+  .adr dd { margin: 0; min-width: 0; }
+  .adr .val { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .adr .val.empty { color: var(--ink-3); font-style: italic; }
+  .adr .val.strike { text-decoration: line-through; color: var(--ink-2); }
+  .adr ul.against { margin: 0; padding-left: 20px; }
+  .adr ul.against li { margin: 2px 0; }
+  .fld { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: start; }
+  .btn {
+    font-family: var(--font-ui);
+    font-size: 12px;
+    padding: 3px 9px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    background: var(--panel);
+    color: var(--ink-2);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .btn:hover { background: var(--panel-2); color: var(--ink); }
+  .btn.primary { color: var(--panel); background: var(--ink); border-color: var(--ink); }
+  .btn.primary:hover { background: var(--ink-2); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .editor { display: grid; gap: 8px; }
+  .editor textarea, .editor select, .editor input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid var(--line-strong);
+    border-radius: 3px;
+    background: var(--panel);
+    color: var(--ink);
+    font-family: var(--font-text);
+    font-size: 15px;
+    line-height: 1.4;
+  }
+  .editor textarea { min-height: 84px; resize: vertical; }
+  .editor .hint { font-family: var(--font-ui); font-size: 12px; color: var(--ink-3); }
+  .editor .actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .editor .err { font-family: var(--font-ui); font-size: 13px; color: var(--bad); font-weight: 600; }
+  .editor .err ul { margin: 4px 0 0; padding-left: 18px; font-weight: 400; }
+  .rule-note { font-family: var(--font-ui); font-size: 12px; color: var(--ink-3); margin: 14px 0 0; line-height: 1.4; }
+
+  /* ---------------------------------------------------------------- citations */
+  .cites { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .cite { border: 1px solid var(--line); border-left-width: 4px; background: var(--panel); }
+  .cite.ok { border-left-color: var(--ok); }
+  .cite.loose { border-left-color: var(--ok); border-left-style: dashed; }
+  .cite.bad { border-left-color: var(--bad); border-left-style: dashed; background: color-mix(in srgb, var(--bad-bg) 45%, var(--panel)); }
+  .cite.unchecked { border-left-color: var(--warn); border-left-style: dotted; }
+  .cite summary {
+    cursor: pointer;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    gap: 2px 8px;
+    list-style: none;
+  }
+  .cite summary::-webkit-details-marker { display: none; }
+  .cite summary .g { font-family: var(--font-ui); font-weight: 700; }
+  .cite.ok summary .g, .cite.loose summary .g { color: var(--ok); }
+  .cite.bad summary .g { color: var(--bad); }
+  .cite.unchecked summary .g { color: var(--warn); }
+  .cite summary .where { font-family: var(--font-ui); font-size: 12px; color: var(--ink-2); display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; }
+  .cite summary .where .turn { font-family: var(--font-mono); font-variant-numeric: tabular-nums; color: var(--ink); }
+  .cite summary .quote { grid-column: 2; font-style: italic; }
+  .cite summary .quote::before { content: "«"; }
+  .cite summary .quote::after { content: "»"; }
+  .cite summary .reason { grid-column: 2; font-family: var(--font-ui); font-size: 12.5px; }
+  .cite.bad summary .reason { color: var(--bad); font-weight: 600; }
+  .cite.loose summary .reason { color: var(--ok); }
+  .cite.unchecked summary .reason { color: var(--warn); font-weight: 600; }
+  .cite summary .prove { grid-column: 2; font-family: var(--font-ui); font-size: 11.5px; color: var(--link); }
+  .cite[open] summary .prove { color: var(--ink-3); }
+  .cite .excerpt {
+    margin: 0 10px 10px 36px;
+    padding: 10px 12px;
+    border-left: 2px solid var(--line-strong);
+    background: var(--panel-2);
+    font-size: 14px;
+    line-height: 1.5;
+    overflow-wrap: anywhere;
+  }
+  .cite .excerpt mark { background: var(--mark); color: inherit; padding: 0 1px; box-shadow: 0 1px 0 var(--ok); }
+  .cite .excerpt .ex-label { display: block; font-family: var(--font-ui); font-size: 11.5px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); margin-bottom: 6px; }
+  .cite .excerpt .nohl { font-family: var(--font-ui); font-size: 12px; color: var(--ink-3); display: block; margin-top: 6px; }
+  .cite .excerpt.none { color: var(--ink-2); font-style: italic; }
+  @media (max-width: 560px) { .cite .excerpt { margin-left: 10px; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .cite .excerpt { animation: reveal 160ms ease-out; }
+    @keyframes reveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
+  }
+
+  /* ---------------------------------------------------------------- states */
+  .state-panel {
+    max-width: 1400px;
+    margin: 16px auto 0;
+    padding: 18px 22px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+  }
+  .state-panel h2 { margin: 0 0 8px; font-size: 18px; font-weight: 500; }
+  .state-panel p { margin: 6px 0; }
+  .state-panel code { background: var(--panel-2); padding: 1px 4px; }
+
+  /* ---------------------------------------------------------------- legend */
+  .legend {
+    max-width: 1400px;
+    margin: 18px auto 0;
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    color: var(--ink-2);
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 8px 24px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+  }
+  .legend p { margin: 0; }
+  .legend .k { font-weight: 700; }
+  .legend .k.tacit { color: var(--tacit); }
+  .legend .k.open { color: var(--open); }
+  .legend .k.decision { color: var(--decision); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <p class="brand">aang · карта решений</p>
+  <h1 id="title">Что решила эта сессия</h1>
+  <p class="meta" id="meta">
+    <span id="meta-session">сессия: <code>—</code></span>
+    <span id="meta-generated">сформировано: —</span>
+    <span id="meta-transcript">транскрипт: загружаю…</span>
+  </p>
+  <p class="counts" id="counts"><span>Читаю карту с <code>/api/map</code>…</span></p>
+</header>
+
+<section class="banner bad" id="banner-errors" hidden aria-live="polite">
+  <h2><span class="glyph">✗</span> Карта не прошла проверку — узлы не показаны</h2>
+  <p>Ничего из карты не отрисовано: показать половину невалидной карты значило бы выдать догадку за запись. Исправьте <code>.aang/map.json</code> и обновите страницу.</p>
+  <ol id="errors-list"></ol>
+  <p><button class="btn" type="button" id="reload-1">Проверить снова</button></p>
+</section>
+
+<section class="banner warn" id="banner-transcript" hidden aria-live="polite">
+  <h2><span class="glyph">⊘</span> Транскрипт недоступен — цитаты не проверялись</h2>
+  <p id="transcript-error-text"></p>
+  <p>Все узлы ниже помечены «не проверялось». Это не значит, что они ложны, — проверить было нечем. Запустите <code>aang view</code> с <code>--transcript ПУТЬ</code> или <code>--session ID</code>.</p>
+</section>
+
+<section class="banner bad" id="banner-fetch" hidden aria-live="polite">
+  <h2><span class="glyph">✗</span> Сервер не отвечает</h2>
+  <p id="fetch-error-text"></p>
+  <p><button class="btn" type="button" id="reload-2">Попробовать снова</button></p>
+</section>
+
+<section class="state-panel" id="state-empty" hidden>
+  <h2>В карте пока нет узлов</h2>
+  <p>Карта валидна, но пуста. Внутри сессии вызовите <code>/aang</code> — модель запишет кандидата в <code>.aang/candidate.json</code>, а <code>aang merge</code> вольёт его в <code>.aang/map.json</code>, сохранив ручные правки.</p>
+</section>
+
+<main class="panes" id="panes" hidden>
+  <section class="spine" id="spine" aria-label="Хребет разговора: все узлы карты"></section>
+  <section class="detail" id="detail" aria-label="Выбранный узел" aria-live="polite"></section>
+</main>
+
+<footer class="legend" id="legend">
+  <p><span class="k tacit">Неявное</span> — значение, которое стало важным без того, чтобы его кто-то выбрал. Пунктирная линия слева.</p>
+  <p><span class="k open">Открытое</span> — вопрос или следствие, к которому никто не вернулся. Точечная линия слева.</p>
+  <p><span class="k decision">Решение</span> — принято намеренно; заменённое остаётся в списке зачёркнутым и называет замену.</p>
+  <p><b>Проверено</b> значит: каждая цитата узла найдена дословно в транскрипте сессии. Всё остальное сказано прямо: «не проверено», «нет цитат», «не проверялось».</p>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  var KIND_LABEL = { decision: "решение", tacit: "неявное решение", open: "открытый вопрос" };
+  var KIND_MARK = { decision: "■", tacit: "◪", open: "□" };
+  var GROUPS = [
+    { kind: "tacit", title: "Неявные решения", sub: "приняты без того, чтобы кто-то выбирал" },
+    { kind: "open", title: "Открытое", sub: "вопросы и следствия, к которым не вернулись" },
+    { kind: "decision", title: "Решения", sub: "приняты намеренно; заменённые остаются" }
+  ];
+  var STATUS_LABEL = { accepted: "принято", superseded: "заменено", proposed: "предложено" };
+  var ROLE_LABEL = { user: "человек", assistant: "модель" };
+
+  var state = { map: null, selected: null, editing: null, openCites: {} };
+
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  };
+  var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  // ------------------------------------------------------------- verification vocabulary
+  // The five states a node can be in, told apart by word and glyph, never by colour alone.
+  function verifyState(node, map) {
+    if (map.transcript_error) return { cls: "v-unchecked", glyph: "⊘", text: "не проверялось" };
+    var cites = node.cites || [];
+    if (!cites.length) return { cls: "v-none", glyph: "△", text: "нет цитат" };
+    var bad = cites.filter(function (c) { return !c.ok; }).length;
+    if (bad) return { cls: "v-bad", glyph: "✗", text: "не проверено" + (cites.length > 1 ? " (" + bad + " из " + cites.length + ")" : "") };
+    var loose = cites.some(function (c) { return c.reason; });
+    if (loose) return { cls: "v-loose", glyph: "✓", text: "проверено, с оговоркой" };
+    return { cls: "v-ok", glyph: "✓", text: "проверено" };
+  }
+  function citeState(c, map) {
+    if (map.transcript_error) return "unchecked";
+    if (!c.ok) return "bad";
+    if (c.reason) return "loose";
+    return "ok";
+  }
+
+  // ------------------------------------------------------------- ordering
+  function ordered(map) {
+    var byKind = { tacit: [], open: [], decision: [] };
+    map.nodes.forEach(function (n) { (byKind[n.kind] || byKind.decision).push(n); });
+    Object.keys(byKind).forEach(function (k) { byKind[k].reverse(); }); // newest first
+    return byKind;
+  }
+  function flatOrder(map) {
+    var b = ordered(map);
+    return b.tacit.concat(b.open, b.decision);
+  }
+  function byId(map, id) {
+    for (var i = 0; i < map.nodes.length; i++) if (map.nodes[i].id === id) return map.nodes[i];
+    return null;
+  }
+  function plural(n, one, few, many) {
+    var m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20)) return few;
+    return many;
+  }
+
+  // ------------------------------------------------------------- header
+  function renderHeader(map) {
+    $("title").textContent = map.title || "Что решила эта сессия";
+    document.title = map.title || "aang · карта решений сессии";
+    $("meta-session").innerHTML = "сессия: <code>" + esc(map.session_id || "—") + "</code>";
+    var when = "—";
+    if (map.generated_at) {
+      var d = new Date(map.generated_at);
+      when = isNaN(d.getTime()) ? map.generated_at : d.toLocaleString("ru-RU", { dateStyle: "medium", timeStyle: "short" });
+    }
+    $("meta-generated").textContent = "сформировано: " + when;
+    if (map.transcript_error) {
+      $("meta-transcript").innerHTML = "транскрипт: <b class=\"glyph\" style=\"color:var(--warn)\">⊘ недоступен</b>";
+    } else {
+      var t = map.turns || 0;
+      $("meta-transcript").innerHTML = "транскрипт: " + t + " " + plural(t, "ход", "хода", "ходов") +
+        (map.transcript_path ? " <code title=\"" + esc(map.transcript_path) + "\">" + esc(shortPath(map.transcript_path)) + "</code>" : "");
+    }
+
+    var nodes = map.nodes || [];
+    if (map.errors && map.errors.length) {
+      $("counts").innerHTML = "<span class=\"bad-count\"><b>" + map.errors.length + "</b> " + plural(map.errors.length, "ошибка", "ошибки", "ошибок") + " в карте — узлы не показаны</span>";
+      return;
+    }
+    var c = { tacit: 0, open: 0, decision: 0, superseded: 0, unverified: 0, edited: 0 };
+    nodes.forEach(function (n) {
+      c[n.kind] = (c[n.kind] || 0) + 1;
+      if (n.status === "superseded") c.superseded++;
+      if (!n.verified) c.unverified++;
+      if (n.hand_edited) c.edited++;
+    });
+    var parts = [
+      "<span><b>" + nodes.length + "</b> " + plural(nodes.length, "узел", "узла", "узлов") + "</span>",
+      "<span><b>" + c.tacit + "</b> " + plural(c.tacit, "неявное", "неявных", "неявных") + "</span>",
+      "<span><b>" + c.open + "</b> " + plural(c.open, "открытый", "открытых", "открытых") + "</span>",
+      "<span><b>" + c.decision + "</b> " + plural(c.decision, "решение", "решения", "решений") + (c.superseded ? " (заменено: " + c.superseded + ")" : "") + "</span>"
+    ];
+    if (c.unverified) {
+      parts.push("<span class=\"bad-count\"><b>" + c.unverified + "</b> " + (map.transcript_error ? "не проверялось" : "не проверено") + "</span>");
+    } else if (nodes.length) {
+      parts.push("<span>все узлы проверены</span>");
+    }
+    if (c.edited) parts.push("<span>✎ правлено вручную: <b>" + c.edited + "</b></span>");
+    $("counts").innerHTML = parts.join("");
+  }
+  function shortPath(p) {
+    var segs = p.split("/");
+    return segs.length > 2 ? "…/" + segs.slice(-2).join("/") : p;
+  }
+
+  // ------------------------------------------------------------- spine
+  function renderSpine(map) {
+    var groups = ordered(map);
+    var html = "";
+    GROUPS.forEach(function (g) {
+      var list = groups[g.kind];
+      html += "<h2 class=\"k-" + g.kind + "\"><span class=\"k\">" + esc(KIND_MARK[g.kind]) + " " + esc(g.title) + "</span><small>" + esc(g.sub) + "</small></h2>";
+      if (!list.length) {
+        html += "<p class=\"empty-group\">" + (g.kind === "open" ? "ничего не повисло — или модель не заметила" : "нет") + "</p>";
+        return;
+      }
+      html += "<ol>";
+      list.forEach(function (n) {
+        var v = verifyState(n, map);
+        var sup = n.status === "superseded";
+        html += "<li><button type=\"button\" class=\"row k-" + n.kind + (sup ? " superseded" : "") + "\" data-id=\"" + esc(n.id) + "\"" +
+          " aria-current=\"" + (state.selected === n.id ? "true" : "false") + "\">" +
+          "<span class=\"mark\" aria-hidden=\"true\">" + esc(KIND_MARK[n.kind]) + "</span>" +
+          "<span class=\"body\">" +
+            "<span class=\"visually-hidden\">" + esc(KIND_LABEL[n.kind]) + ". </span>" +
+            "<span class=\"q\">" + esc(n.question) + "</span>" +
+            (n.kind === "open"
+              ? "<span class=\"d none\">без ответа</span>"
+              : "<span class=\"d\">" + esc(n.decision) + "</span>") +
+            (n.why ? "<span class=\"w\" title=\"" + esc(n.why) + "\">" + esc(n.why) + "</span>" : "") +
+          "</span>" +
+          "<span class=\"state\">" +
+            "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + (sup && n.superseded_by ? " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>" : "") + "</span>" +
+            "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
+            (n.hand_edited ? "<span class=\"tag edited\">✎ правлено</span>" : "") +
+          "</span>" +
+          "<span class=\"idc mono\">" + esc(n.id) + "</span>" +
+          "</button></li>";
+      });
+      html += "</ol>";
+    });
+    $("spine").innerHTML = html;
+  }
+
+  // ------------------------------------------------------------- detail
+  function renderDetail(map) {
+    var el = $("detail");
+    var n = state.selected ? byId(map, state.selected) : null;
+    if (!n) {
+      el.className = "detail";
+      el.innerHTML = "<p class=\"notice\">Выберите узел слева.</p>";
+      return;
+    }
+    var v = verifyState(n, map);
+    var sup = n.status === "superseded";
+    el.className = "detail" + (sup ? " superseded" : "");
+    var replaces = map.nodes.filter(function (m) { return m.superseded_by === n.id; });
+
+    var html = "<p class=\"kicker\">" +
+      "<span class=\"tag kind-" + esc(n.kind) + "\">" + esc(KIND_MARK[n.kind]) + " " + esc(KIND_LABEL[n.kind]) + "</span>" +
+      "<span class=\"idc mono\">" + esc(n.id) + "</span>" +
+      "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + "</span>" +
+      "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
+      (n.hand_edited ? "<span class=\"tag edited\" title=\"Поля этого узла правил человек; регенерация их не тронет\">✎ правлено вручную</span>" : "") +
+      "</p>";
+    html += "<h2 class=\"q\">" + esc(n.question) + "</h2>";
+
+    if (sup && n.superseded_by) {
+      var by = byId(map, n.superseded_by);
+      html += "<p class=\"notice\">Заменено узлом <button type=\"button\" class=\"tag linkish\" data-goto=\"" + esc(n.superseded_by) + "\"><span class=\"mono\">" + esc(n.superseded_by) + "</span></button>" +
+        (by ? " — " + esc(by.question) : " — <b>такого узла в карте нет</b>") + ". Остаётся в карте, чтобы тот же спор не вести второй раз.</p>";
+    }
+    if (replaces.length) {
+      html += "<p class=\"notice\">Заменяет: " + replaces.map(function (r) {
+        return "<button type=\"button\" class=\"tag linkish\" data-goto=\"" + esc(r.id) + "\"><span class=\"mono\">" + esc(r.id) + "</span></button> " + esc(r.question);
+      }).join("; ") + "</p>";
+    }
+    html += verifyNotice(n, v, map);
+
+    html += "<dl class=\"adr\">";
+    html += field(n, "question", "Вопрос", textVal(n.question, sup));
+    if (n.kind === "open") {
+      html += field(n, "decision", "Решение", "<span class=\"val empty\">нет — вопрос открыт</span>");
+    } else {
+      html += field(n, "decision", "Решение", textVal(n.decision, sup));
+    }
+    html += field(n, "why", n.kind === "tacit" ? "Откуда взялось" : "Почему", textVal(n.why, false));
+    html += field(n, "against", "Против", againstVal(n.against));
+    html += field(n, "consequence", "Следствие", textVal(n.consequence, false, n.kind === "open" ? "не названо — само по себе повод для узла" : "не названо"));
+    html += field(n, "status", "Статус", statusVal(n, map));
+    html += field(n, "kind", "Класс", "<span class=\"val\">" + esc(KIND_LABEL[n.kind]) + " <span class=\"mono\">(" + esc(n.kind) + ")</span></span>");
+    html += field(n, "cites", "Цитаты", citesVal(n, map));
+    html += "</dl>";
+    html += "<p class=\"rule-note\">Правка исправляет запись, а не переигрывает решение. Если вывод изменился — добавьте новый узел в <code>.aang/map.json</code>, а этому поставьте статус «заменено» и укажите, чем.</p>";
+    el.innerHTML = html;
+    bindDetail(el, n, map);
+  }
+
+  function verifyNotice(n, v, map) {
+    if (map.transcript_error) {
+      return "<p class=\"notice warn\"><b>⊘ Не проверялось.</b> Транскрипт недоступен, цитаты сверить было не с чем. Это не «узел ложен», это «проверка не состоялась».</p>";
+    }
+    if (v.cls === "v-none") {
+      return "<p class=\"notice bad\"><b>△ Нет цитат.</b> Узел ни на что не ссылается — проверить его нельзя, и он считается непроверенным. Добавьте дословную цитату из сессии.</p>";
+    }
+    if (v.cls === "v-bad") {
+      return "<p class=\"notice bad\"><b>✗ Не проверено.</b> Хотя бы одна цитата не найдена в транскрипте — ниже сказано, какая и почему. Пока она не найдена, это утверждение модели, а не запись.</p>";
+    }
+    if (v.cls === "v-loose") {
+      return "<p class=\"notice loose\"><b>✓ Проверено, с оговоркой.</b> Все цитаты найдены, но не все — как ровный дословный кусок; оговорка стоит у каждой.</p>";
+    }
+    return "";
+  }
+
+  function textVal(s, strike, emptyText) {
+    if (!s || !String(s).trim()) return "<span class=\"val empty\">" + esc(emptyText || "не указано") + "</span>";
+    return "<span class=\"val" + (strike ? " strike" : "") + "\">" + esc(s) + "</span>";
+  }
+  function againstVal(list) {
+    list = (list || []).filter(function (x) { return x && String(x).trim(); });
+    if (!list.length) return "<span class=\"val empty\">аргументов против не записано</span>";
+    return "<ul class=\"against\">" + list.map(function (a) { return "<li>" + esc(a) + "</li>"; }).join("") + "</ul>";
+  }
+  function statusVal(n, map) {
+    var s = "<span class=\"val\">" + esc(STATUS_LABEL[n.status] || n.status) + " <span class=\"mono\">(" + esc(n.status) + ")</span>";
+    if (n.status === "superseded" && n.superseded_by) s += " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>";
+    return s + "</span>";
+  }
+
+  function citesVal(n, map) {
+    var cites = n.cites || [];
+    if (!cites.length) return "<span class=\"val empty\">цитат нет — узел не на что опереть</span>";
+    var html = "<ul class=\"cites\">";
+    cites.forEach(function (c, i) {
+      var st = citeState(c, map);
+      var key = n.id + ":" + i;
+      var where = "";
+      if (c.turn != null) {
+        where += "<span class=\"turn\">ход " + esc(c.turn) + "</span>";
+        if (c.role) where += "<span>" + esc(ROLE_LABEL[c.role] || c.role) + "</span>";
+      } else {
+        where += "<span class=\"turn\">ход не найден</span>";
+        if (c.role) where += "<span>ожидалась реплика: " + esc(ROLE_LABEL[c.role] || c.role) + "</span>";
+      }
+      if (c.matches && c.matches.length > 1) {
+        where += "<span title=\"Та же фраза есть в нескольких ходах\">встречается в ходах " + c.matches.map(esc).join(", ") + "</span>";
+      }
+      var glyph = st === "ok" || st === "loose" ? "✓" : st === "bad" ? "✗" : "⊘";
+      html += "<li><details class=\"cite " + st + "\"" + (state.openCites[key] ? " open" : "") + " data-key=\"" + esc(key) + "\">" +
+        "<summary>" +
+          "<span class=\"g\" aria-hidden=\"true\">" + glyph + "</span>" +
+          "<span class=\"where\"><span class=\"visually-hidden\">" + (st === "bad" ? "не найдена. " : st === "loose" ? "найдена с оговоркой. " : st === "ok" ? "найдена. " : "не проверялась. ") + "</span>" + where + "</span>" +
+          "<span class=\"quote\">" + esc(c.quote) + "</span>" +
+          (c.reason ? "<span class=\"reason\">" + esc(c.reason) + "</span>" : "") +
+          (c.excerpt ? "<span class=\"prove\">" + (state.openCites[key] ? "свернуть" : "показать в транскрипте") + "</span>" : "") +
+        "</summary>";
+      if (c.excerpt) {
+        var hl = highlight(c.excerpt, c.quote);
+        html += "<div class=\"excerpt\"><span class=\"ex-label\">Транскрипт" + (c.turn != null ? ", ход " + esc(c.turn) : "") + (c.ok ? "" : " — цитаты в нём нет; показано начало хода") + "</span>" +
+          hl.html + (c.ok && !hl.found ? "<span class=\"nohl\">Совпадение найдено сервером; выделить его дословно в этом фрагменте не удалось.</span>" : "") + "</div>";
+      } else {
+        html += "<div class=\"excerpt none\">" + (map.transcript_error ? "Транскрипт недоступен — показать нечего." : "Фрагмента нет: цитата не привязана ни к одному ходу.") + "</div>";
+      }
+      html += "</details></li>";
+    });
+    return html + "</ul>";
+  }
+
+  // Wrap the quoted words inside the excerpt. Mirrors the server's canonicalization loosely:
+  // case-insensitive, any punctuation/whitespace between words, е≡ё, "…" splits fragments.
+  function highlight(excerpt, quote) {
+    var safe = esc(excerpt);
+    if (!quote) return { html: safe, found: false };
+    var frags = String(quote).split(/(?:\.\s*){3,}|…/).map(function (f) {
+      return f.split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+    }).filter(function (f) { return f.length; });
+    if (!frags.length) return { html: safe, found: false };
+    var tok = function (t) {
+      return t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/[её]/gi, "[её]");
+    };
+    var pattern = frags.map(function (words, fi) {
+      return words.map(function (w, wi) {
+        var body = tok(w);
+        if (fi === 0 && wi === 0) body = "[\\p{L}\\p{N}]*" + body;
+        if (fi === frags.length - 1 && wi === words.length - 1) body = body + "[\\p{L}\\p{N}]*";
+        return body;
+      }).join("[^\\p{L}\\p{N}]+");
+    }).join("[\\s\\S]{0,600}?");
+    var re;
+    try { re = new RegExp(pattern, "iu"); } catch (e) { return { html: safe, found: false }; }
+    var m = re.exec(excerpt);
+    if (!m) return { html: safe, found: false };
+    var a = m.index, b = a + m[0].length;
+    return { html: esc(excerpt.slice(0, a)) + "<mark>" + esc(excerpt.slice(a, b)) + "</mark>" + esc(excerpt.slice(b)), found: true };
+  }
+
+  // ------------------------------------------------------------- fields and editing
+  function field(n, name, label, valueHtml) {
+    var editing = state.editing && state.editing.id === n.id && state.editing.field === name;
+    return "<div class=\"f\" data-field=\"" + esc(name) + "\"><dt>" + esc(label) + "</dt><dd>" +
+      (editing ? editorHtml(n, name) :
+        "<div class=\"fld\"><div>" + valueHtml + "</div><button type=\"button\" class=\"btn\" data-edit=\"" + esc(name) + "\" aria-label=\"Править: " + esc(label) + "\">править</button></div>") +
+      "</dd></div>";
+  }
+
+  function editorHtml(n, name) {
+    var e = state.editing;
+    var html = "<form class=\"editor\" data-form=\"" + esc(name) + "\">";
+    if (name === "against") {
+      html += "<label class=\"visually-hidden\" for=\"ed-input\">Аргументы против, по одному на строку</label>" +
+        "<textarea id=\"ed-input\" name=\"value\">" + esc((n.against || []).join("\n")) + "</textarea>" +
+        "<span class=\"hint\">По одному аргументу на строку.</span>";
+    } else if (name === "cites") {
+      html += "<label class=\"visually-hidden\" for=\"ed-input\">Цитаты, по одной на строку</label>" +
+        "<textarea id=\"ed-input\" name=\"value\">" + esc((n.cites || []).map(function (c) { return c.quote; }).join("\n")) + "</textarea>" +
+        "<span class=\"hint\">По одной дословной цитате на строку. Номер хода находит сервер; цитаты, которые вы не тронули, сохранят свой ход.</span>";
+    } else if (name === "status") {
+      var others = state.map.nodes.filter(function (m) { return m.id !== n.id; });
+      html += "<label class=\"hint\" for=\"ed-input\">Статус</label>" +
+        "<select id=\"ed-input\" name=\"value\">" + ["accepted", "superseded", "proposed"].map(function (s) {
+          return "<option value=\"" + s + "\"" + (n.status === s ? " selected" : "") + ">" + esc(STATUS_LABEL[s]) + " (" + s + ")</option>";
+        }).join("") + "</select>" +
+        "<label class=\"hint\" for=\"ed-by\">Чем заменён (только для статуса «заменено»)</label>" +
+        "<select id=\"ed-by\" name=\"superseded_by\"><option value=\"\">—</option>" + others.map(function (m) {
+          return "<option value=\"" + esc(m.id) + "\"" + (n.superseded_by === m.id ? " selected" : "") + ">" + esc(m.id) + " — " + esc(clip(m.question, 60)) + "</option>";
+        }).join("") + "</select>";
+    } else if (name === "kind") {
+      html += "<label class=\"visually-hidden\" for=\"ed-input\">Класс узла</label>" +
+        "<select id=\"ed-input\" name=\"value\">" + ["decision", "tacit", "open"].map(function (k) {
+          return "<option value=\"" + k + "\"" + (n.kind === k ? " selected" : "") + ">" + esc(KIND_LABEL[k]) + " (" + k + ")</option>";
+        }).join("") + "</select>" +
+        "<span class=\"hint\">Открытый вопрос не может иметь решения; решение и неявное обязаны иметь решение, «почему» и хотя бы одну цитату.</span>";
+    } else {
+      html += "<label class=\"visually-hidden\" for=\"ed-input\">" + esc(name) + "</label>" +
+        "<textarea id=\"ed-input\" name=\"value\">" + esc(n[name] || "") + "</textarea>";
+    }
+    html += "<div class=\"actions\"><button type=\"submit\" class=\"btn primary\"" + (e.busy ? " disabled" : "") + ">Сохранить</button>" +
+      "<button type=\"button\" class=\"btn\" data-cancel=\"1\">Отмена</button>" +
+      (e.busy ? "<span class=\"hint\">сохраняю…</span>" : "") + "</div>";
+    if (e.errors && e.errors.length) {
+      html += "<div class=\"err\" role=\"alert\">✗ Не сохранено — сервер отверг правку:<ul>" + e.errors.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") + "</ul></div>";
+    }
+    return html + "</form>";
+  }
+  function clip(s, n) { s = String(s || ""); return s.length > n ? s.slice(0, n - 1) + "…" : s; }
+
+  function bindDetail(el, n, map) {
+    el.querySelectorAll("[data-goto]").forEach(function (b) {
+      b.addEventListener("click", function () { select(b.getAttribute("data-goto"), true); });
+    });
+    el.querySelectorAll("[data-edit]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        state.editing = { id: n.id, field: b.getAttribute("data-edit"), errors: null, busy: false };
+        renderDetail(state.map);
+        var input = $("ed-input");
+        if (input) input.focus();
+      });
+    });
+    el.querySelectorAll("details.cite").forEach(function (d) {
+      d.addEventListener("toggle", function () {
+        state.openCites[d.getAttribute("data-key")] = d.open;
+        var p = d.querySelector(".prove");
+        if (p) p.textContent = d.open ? "свернуть" : "показать в транскрипте";
+      });
+    });
+    var form = el.querySelector("form.editor");
+    if (form) {
+      form.addEventListener("submit", function (ev) { ev.preventDefault(); submitEdit(n, form); });
+      var cancel = form.querySelector("[data-cancel]");
+      cancel.addEventListener("click", function () {
+        var f = state.editing.field;
+        state.editing = null;
+        renderDetail(state.map);
+        var back = el.querySelector("[data-edit=\"" + f + "\"]");
+        if (back) back.focus();
+      });
+      form.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape") { ev.preventDefault(); cancel.click(); }
+      });
+    }
+  }
+
+  function submitEdit(n, form) {
+    var name = state.editing.field;
+    var body = {};
+    var raw = form.elements.value ? form.elements.value.value : "";
+    if (name === "against") {
+      body.against = raw.split("\n").map(function (s) { return s.trim(); }).filter(Boolean);
+    } else if (name === "cites") {
+      var old = n.cites || [];
+      body.cites = raw.split("\n").map(function (s) { return s.trim(); }).filter(Boolean).map(function (q) {
+        var same = null;
+        for (var i = 0; i < old.length; i++) if (old[i].quote === q) { same = old[i]; break; }
+        return same ? { turn: same.turn, role: same.role, quote: q } : { turn: null, role: null, quote: q };
+      });
+    } else if (name === "status") {
+      body.status = raw;
+      var by = form.elements.superseded_by.value;
+      body.superseded_by = raw === "superseded" && by ? by : null;
+    } else if (name === "kind") {
+      body.kind = raw;
+    } else {
+      body[name] = raw;
+    }
+    state.editing.busy = true;
+    state.editing.errors = null;
+    renderDetail(state.map);
+    fetch("/api/node/" + encodeURIComponent(n.id), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (j) { return { ok: r.ok, status: r.status, json: j }; });
+    }).then(function (res) {
+      if (!res.ok) {
+        state.editing.busy = false;
+        state.editing.errors = (res.json && res.json.errors && res.json.errors.length) ? res.json.errors : ["HTTP " + res.status];
+        renderDetail(state.map);
+        return;
+      }
+      state.editing = null;
+      applyMap(res.json);
+      var back = $("detail").querySelector("[data-edit=\"" + name + "\"]");
+      if (back) back.focus();
+    }).catch(function (err) {
+      state.editing.busy = false;
+      state.editing.errors = ["сервер не ответил: " + (err && err.message ? err.message : err)];
+      renderDetail(state.map);
+    });
+  }
+
+  // ------------------------------------------------------------- selection
+  function select(id, scroll) {
+    if (!state.map || !byId(state.map, id)) return;
+    state.selected = id;
+    state.editing = null;
+    if (history.replaceState) history.replaceState(null, "", "#" + encodeURIComponent(id));
+    // The spine is re-rendered, which drops keyboard focus; put it back on the selected row.
+    var hadFocus = $("spine").contains(document.activeElement);
+    renderSpine(state.map);
+    renderDetail(state.map);
+    var row = $("spine").querySelector("[data-id=\"" + CSS.escape(id) + "\"]");
+    if (row && hadFocus) row.focus({ preventScroll: true });
+    if (row && scroll) row.scrollIntoView({ block: "nearest", behavior: reducedMotion ? "auto" : "smooth" });
+    if (scroll && window.matchMedia("(max-width: 860px)").matches) {
+      $("detail").scrollIntoView({ block: "start", behavior: reducedMotion ? "auto" : "smooth" });
+    }
+  }
+
+  $("spine").addEventListener("click", function (ev) {
+    var row = ev.target.closest && ev.target.closest(".row");
+    if (row) select(row.getAttribute("data-id"), true);
+  });
+  $("spine").addEventListener("keydown", function (ev) {
+    if (ev.key !== "ArrowDown" && ev.key !== "ArrowUp") return;
+    var rows = Array.prototype.slice.call($("spine").querySelectorAll(".row"));
+    var i = rows.indexOf(document.activeElement);
+    if (i < 0) return;
+    ev.preventDefault();
+    var j = ev.key === "ArrowDown" ? Math.min(rows.length - 1, i + 1) : Math.max(0, i - 1);
+    rows[j].focus();
+    select(rows[j].getAttribute("data-id"), false);
+  });
+
+  // ------------------------------------------------------------- top-level states
+  function applyMap(map) {
+    state.map = map;
+    renderHeader(map);
+
+    var errs = map.errors || [];
+    $("banner-fetch").hidden = true;
+    $("banner-errors").hidden = !errs.length;
+    if (errs.length) {
+      $("errors-list").innerHTML = errs.map(function (e) { return "<li>" + esc(e) + "</li>"; }).join("");
+    }
+    $("banner-transcript").hidden = !map.transcript_error;
+    if (map.transcript_error) $("transcript-error-text").innerHTML = "<b>" + esc(map.transcript_error) + "</b>";
+
+    var nodes = map.nodes || [];
+    if (errs.length) {
+      $("panes").hidden = true;
+      $("state-empty").hidden = true;
+      return;
+    }
+    if (!nodes.length) {
+      $("panes").hidden = true;
+      $("state-empty").hidden = false;
+      return;
+    }
+    $("state-empty").hidden = true;
+    $("panes").hidden = false;
+    var wanted = state.selected;
+    if (!wanted && location.hash.length > 1) wanted = decodeURIComponent(location.hash.slice(1));
+    if (!wanted || !byId(map, wanted)) wanted = flatOrder(map)[0].id;
+    state.selected = wanted;
+    renderSpine(map);
+    renderDetail(map);
+  }
+
+  function load() {
+    fetch("/api/map", { cache: "no-store" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(applyMap).catch(function (err) {
+      $("banner-fetch").hidden = false;
+      $("fetch-error-text").textContent = "Не удалось прочитать /api/map: " + (err && err.message ? err.message : err) + ". Запущен ли aang view?";
+      $("counts").innerHTML = "<span class=\"bad-count\">карта не загружена</span>";
+      $("meta-transcript").textContent = "транскрипт: —";
+    });
+  }
+  $("reload-1").addEventListener("click", load);
+  $("reload-2").addEventListener("click", load);
+  window.addEventListener("hashchange", function () {
+    var id = decodeURIComponent(location.hash.slice(1));
+    if (state.map && id && id !== state.selected) select(id, true);
+  });
+  load();
+})();
+</script>
+</body>
+</html>
