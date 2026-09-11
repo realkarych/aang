@@ -1,4 +1,4 @@
-"""Command line: `aang view | check | export | merge | hook`. Entry point is `main(argv)`.
+"""Command line: `aang view | check | export | merge | hook | install`. Entry is `main(argv)`.
 
 `merge` is the only path that writes a regenerated map into `.aang/map.json`: the model
 writes `.aang/candidate.json`, `merge` resolves its citations to turn numbers, folds it
@@ -7,7 +7,7 @@ into the stored map through `store.merge` (hand edits survive — R6), validates
 citation fails to resolve. Remarks (`schema.warnings`) print after the verdict and never
 change the exit code — a nudge that failed the build would teach people to ignore it.
 `hook` is the one verb a human never types: the harness runs it on every session event
-with the event JSON on stdin (see `hook.run`).
+with the event JSON on stdin (see `hook.run`). `install` is what puts `hook` there.
 """
 
 import argparse
@@ -15,7 +15,7 @@ import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import hook, schema, server, session, store
+from . import hook, install, schema, server, session, store
 
 MARK_OK = "✓"
 MARK_BAD = "✗"
@@ -73,11 +73,38 @@ def _parser():  # type: () -> argparse.ArgumentParser
 
     p_hook = sub.add_parser("hook", help="обработать событие среды (stdin: JSON хука Claude Code / Codex)")
     p_hook.set_defaults(func=cmd_hook)
+
+    p_install = sub.add_parser("install", help="подключить `aang hook` к Claude Code и Codex (идемпотентно)")
+    p_install.add_argument("--claude", action="store_true", help="только ~/.claude/settings.json")
+    p_install.add_argument("--codex", action="store_true", help="только ~/.codex/hooks.json")
+    p_install.add_argument("--print", action="store_true", dest="print_only", help="показать результат, ничего не писать")
+    p_install.set_defaults(func=cmd_install)
     return parser
 
 
 def cmd_hook(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     return hook.run(sys.stdin.read(), dict(os.environ), out, err)
+
+
+def cmd_install(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
+    targets = install.default_targets()
+    if args.claude or args.codex:
+        wanted = set(h for h, flag in (("claude", args.claude), ("codex", args.codex)) if flag)
+        targets = [t for t in targets if t[0] in wanted]
+    if not targets:
+        err.write("Не найдено ни ~/.claude, ни ~/.codex — устанавливать некуда.\n")
+        return 1
+    return install.run(targets, _aang_command(), out, print_only=args.print_only)
+
+
+def _aang_command():  # type: () -> str
+    """The command the hook will run: this launcher's real path, so it does not need `PATH`.
+
+    Anything else — `python3 -m aang.cli`, a test runner — falls back to the bare name,
+    which is the only thing that could work from another process anyway.
+    """
+    argv0 = os.path.realpath(sys.argv[0]) if sys.argv and sys.argv[0] else ""
+    return argv0 if os.path.basename(argv0) == "aang" else "aang"
 
 
 def _source(args):  # type: (argparse.Namespace) -> server.TranscriptSource
