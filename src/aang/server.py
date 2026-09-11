@@ -644,7 +644,16 @@ class Server(ThreadingHTTPServer):
         return self._located
 
     def server_close(self):  # type: () -> None
-        self.watcher.stop()
+        """Stop the watcher, then the socket.
+
+        A failed `bind` makes `TCPServer.__init__` call this to release the socket, and
+        that happens before there is a watcher — so the attribute is asked for, not
+        assumed. Without that, a taken port surfaces as `AttributeError` instead of the
+        `OSError` the caller is waiting for, and the socket leaks.
+        """
+        watcher = getattr(self, "watcher", None)
+        if watcher is not None:
+            watcher.stop()
         ThreadingHTTPServer.server_close(self)
 
 

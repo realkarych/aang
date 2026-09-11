@@ -11,6 +11,8 @@ with the event JSON on stdin (see `hook.run`). `install` is what puts `hook` the
 """
 
 import argparse
+import http.client
+import json
 import os
 import sys
 from typing import Any, Dict, List, Optional, Tuple
@@ -107,9 +109,27 @@ def _aang_command():  # type: () -> str
     return argv0 if os.path.basename(argv0) == "aang" else "aang"
 
 
-def _source(args):  # type: (argparse.Namespace) -> server.TranscriptSource
+def _source(args, root):  # type: (argparse.Namespace, str) -> server.TranscriptSource
+    """The transcript for `root`: `--transcript`, else `.aang/session.json`, else a lookup.
+
+    `root` is what makes the hook's record count: without it the source falls straight
+    through to a search under `~/.claude/projects`, and the session the harness actually
+    named is the one thing that cannot be guessed from a directory.
+    """
     return server.TranscriptSource(path=args.transcript, session_id=args.session,
-                                   roots=args.transcript_roots)
+                                   roots=args.transcript_roots, root=root)
+
+
+def _source_origin(args, root, source):
+    # type: (argparse.Namespace, str, server.TranscriptSource) -> str
+    """Where `source` found its transcript, in the words `merge` prints after the path."""
+    if args.transcript:
+        return "по --transcript"
+    if source.path and session.transcript_path(root) == source.path:
+        return "из .aang/session.json"
+    if args.session:
+        return "по --session"
+    return "самый свежий"
 
 
 # ----------------------------------------------------------------------------- view
@@ -117,8 +137,12 @@ def _source(args):  # type: (argparse.Namespace) -> server.TranscriptSource
 def cmd_view(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     root = os.path.abspath(args.root)
     try:
-        srv = server.make_server(root, args.port, _source(args), verbose=args.verbose)
+        srv = server.make_server(root, args.port, _source(args, root), verbose=args.verbose)
     except OSError as exc:
+        running = _running_here(args.port, root)
+        if running:
+            out.write("aang: уже запущен — %s\n" % running)
+            return 0
         err.write("Не удалось занять порт %d: %s\n" % (args.port, exc))
         return 1
     out.write("aang: карта %s\n" % store.map_path(root))
@@ -131,6 +155,29 @@ def cmd_view(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     finally:
         srv.server_close()
     return 0
+
+
+def _running_here(port, root):  # type: (int, str) -> Optional[str]
+    """URL of an `aang view` already serving `root` on `port`, else None.
+
+    The port being taken is not by itself good news — anything at all could hold it — so
+    the answer comes from `/api/map`, which names the root it serves. A different root,
+    a non-aang server, silence: None, and the caller reports the port as busy.
+    """
+    conn = None  # type: Optional[http.client.HTTPConnection]
+    try:
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=1)
+        conn.request("GET", "/api/map", headers={"Host": "127.0.0.1"})
+        resp = conn.getresponse()
+        data = json.loads(resp.read().decode("utf-8")) if resp.status == 200 else None
+    except (OSError, ValueError, http.client.HTTPException):
+        return None
+    finally:
+        if conn is not None:
+            conn.close()
+    if isinstance(data, dict) and data.get("root") == root:
+        return "http://127.0.0.1:%d/" % port
+    return None
 
 
 # ----------------------------------------------------------------------------- check
@@ -153,7 +200,7 @@ def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
             out.write("  %s %s\n" % (MARK_BAD, error))
         return 1
 
-    source = _source(args)
+    source = _source(args, root)
     turns, transcript_error = source.turns(map_dict.get("session_id") or None)
     view = server.annotate(map_dict, turns, transcript_error, source.path)
     out.write("Карта: %s\n" % path)
@@ -251,7 +298,7 @@ def cmd_export(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
         for error in errors:
             err.write("  %s %s\n" % (MARK_BAD, error))
         return 1
-    source = _source(args)
+    source = _source(args, root)
     turns, transcript_error = source.turns(map_dict.get("session_id") or None)
     view = server.annotate(map_dict, turns, transcript_error, source.path)
     text = store.export_markdown(view, transcript_error)
@@ -300,11 +347,13 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     # the map already records; only when neither names one is the newest transcript
     # taken, and its name stamped, so a later merge cannot re-point the map at whatever
     # session happens to be newest.
-    source = _source(args)
+    source = _source(args, root)
     session_id = candidate.get("session_id") or old.get("session_id") or None
     turns, transcript_error = source.turns(session_id)
     if transcript_error:
         out.write("Транскрипт: %s — цитаты не проверены, ходы не проставлены\n" % transcript_error)
+    else:
+        out.write("Транскрипт: %s (%s)\n" % (source.path, _source_origin(args, root, source)))
     resolved = store.fill_turns(candidate, turns)
     if not session_id and source.path:
         candidate["session_id"] = os.path.splitext(os.path.basename(source.path))[0]
@@ -375,7 +424,30 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
             os.unlink(cand_path)
         except OSError:
             pass
+
+    missing = _gitignore_missing(root)
+    if missing:
+        out.write("Совет: добавьте в .gitignore проекта — %s\n" % ", ".join(missing))
     return 0
+
+
+def _gitignore_missing(root):  # type: (str) -> List[str]
+    """The `.aang/` scratch files the project's `.gitignore` does not cover yet.
+
+    Only `map.json` is the record; the candidate, the session record and the outbox are
+    this machine's working state and committing them is noise at best. The file is read,
+    never written — a hint a human can ignore, not an edit they did not ask for. A
+    blanket `.aang/` (or `.aang`) covers everything, so nothing is missing then.
+    """
+    wanted = [".aang/candidate.json", ".aang/session.json", ".aang/outbox.jsonl"]
+    try:
+        with open(os.path.join(root, ".gitignore"), "r", encoding="utf-8") as handle:
+            lines = set(line.strip() for line in handle)
+    except OSError:
+        lines = set()
+    if ".aang/" in lines or ".aang" in lines:
+        return []
+    return [w for w in wanted if w not in lines]
 
 
 def _now_iso():  # type: () -> str
