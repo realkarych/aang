@@ -135,6 +135,26 @@
   .warnings li { margin: 2px 0; }
   .warnings .idc { font-family: var(--font-mono); font-size: 0.9em; }
   .counts .cell-inbox b { color: var(--open); }
+  #meta-live { color: var(--warn); }
+
+  /* ---------------------------------------------------------------- tail and timeline */
+  .tail {
+    max-width: 1400px;
+    margin: 14px auto 0;
+    padding: 8px 14px;
+    border: 1px solid var(--line);
+    border-left: 5px solid var(--open);
+    background: var(--panel);
+    font-family: var(--font-ui);
+    font-size: 13px;
+    color: var(--ink-2);
+  }
+  .tail summary { cursor: pointer; font-weight: 600; color: var(--ink); }
+  .tail ol { margin: 6px 0 2px; padding-left: 20px; display: grid; gap: 4px; }
+  .tail li { font-family: var(--font-text); overflow-wrap: anywhere; }
+  .tail li.r-user { color: var(--ink); }
+  .tail .turn { font-family: var(--font-mono); font-size: 0.86em; color: var(--ink-3); margin-right: 6px; }
+  .timeline { max-width: 1400px; margin: 14px auto 0; overflow-x: auto; }
 
   /* ---------------------------------------------------------------- banners */
   .banner {
@@ -199,6 +219,8 @@
   .spine h2 small { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-size: 12px; }
   .spine h2 .k { font-family: var(--font-ui); white-space: nowrap; }
   .spine h2.cell-inbox { color: var(--open); border-top-color: var(--open); }
+  .spine h2 .btn { margin-left: auto; }
+  .spine li.unseen .q::before { content: "●"; color: var(--open); font-size: 0.72em; vertical-align: 0.18em; margin-right: 6px; }
   .spine h2.k-tacit { color: var(--tacit); }
   .spine h2.k-open { color: var(--open); }
   .spine h2.k-decision { color: var(--decision); }
@@ -348,6 +370,7 @@
   .chip:hover { background: var(--panel-2); color: var(--ink); border-color: var(--ink-2); }
   .chip .mono { color: var(--ink); }
   .chip .arrow { color: var(--ink-3); }
+  .chips .btn { margin-left: auto; }
   @media (max-width: 480px) { .chips { padding-left: 10px; } }
 
   /* ---------------------------------------------------------------- search and filters */
@@ -496,6 +519,26 @@
   .editor .err ul { margin: 4px 0 0; padding-left: 18px; font-weight: 400; }
   .rule-note { font-family: var(--font-ui); font-size: 12px; color: var(--ink-3); margin: 14px 0 0; line-height: 1.4; }
 
+  /* ---------------------------------------------------------------- verdict */
+  .verdict { margin: 12px 0 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+  .verdict h3 {
+    font-family: var(--font-ui);
+    font-size: 11.5px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ink-3);
+    font-weight: 600;
+    margin: 0 0 6px;
+  }
+  .vbtns { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .btn.tiny { font-size: 11px; padding: 1px 7px; }
+  .btn.v-confirmed { color: var(--ok); border-color: var(--ok); }
+  .btn.v-rejected { color: var(--bad); border-color: var(--bad); }
+  .btn.v-research, .btn.v-discuss { color: var(--open); border-color: var(--open); }
+  .btn.v-confirmed.primary { color: var(--panel); background: var(--ok); border-color: var(--ok); }
+  .btn.v-rejected.primary { color: var(--panel); background: var(--bad); border-color: var(--bad); }
+  .btn.v-research.primary, .btn.v-discuss.primary { color: var(--panel); background: var(--open); border-color: var(--open); }
+
   /* ---------------------------------------------------------------- citations */
   .cites { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .cite { border: 1px solid var(--line); border-left-width: 4px; background: var(--panel); }
@@ -588,6 +631,8 @@
     <span id="meta-generated">сформировано: —</span>
     <span id="meta-transcript">транскрипт: загружаю…</span>
     <span id="meta-coverage" class="cov" hidden></span>
+    <span id="meta-hook"></span>
+    <span id="meta-live" hidden></span>
   </p>
   <p class="counts" id="counts"><span>Читаю карту с <code>/api/map</code>…</span></p>
   <details class="warnings" id="warnings" hidden>
@@ -595,6 +640,11 @@
     <ul id="warnings-list"></ul>
   </details>
 </header>
+
+<section class="tail" id="tail" hidden>
+  <details><summary id="tail-summary"></summary><ol id="tail-list"></ol></details>
+</section>
+<section class="timeline" id="timeline" aria-label="Ход сессии" hidden></section>
 
 <section class="banner bad" id="banner-errors" hidden aria-live="polite">
   <h2><span class="glyph">✗</span> Карта не прошла проверку — узлы не показаны</h2>
@@ -669,6 +719,7 @@
   var M = window.AangModel;
   var AUTHOR_LABEL = { user: "решил: вы", agent: "решил: агент", unknown: "решил: ?" };
   var AUTHOR_FILTER = [{ v: "user", label: "мои" }, { v: "agent", label: "агента" }];
+  var VERDICT_LABEL = { confirmed: "подтвердить", research: "в ресерч", discuss: "обсудить", rejected: "отвергнуть" };
   var COUNTED_CELLS = ["inbox", "research", "discuss", "confirmed", "rejected"];
   var STATUS_LABEL = { accepted: "принято", superseded: "заменено", proposed: "предложено", rejected: "отвергнуто" };
   var ROLE_LABEL = { user: "человек", assistant: "модель" };
@@ -682,8 +733,9 @@
     superseded_by: "заменено"
   };
 
-  var state = { map: null, selected: null, editing: null, openCites: {},
-                filter: { q: "", kind: [], status: [], verified: [], author: [] }, newIds: {} };
+  var state = { map: null, selected: null, editing: null, verdict: null, openCites: {},
+                filter: { q: "", kind: [], status: [], verified: [], author: [] },
+                newIds: {}, appeared: {}, seenPending: {}, lastBodyHash: null };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -830,6 +882,7 @@
       covEl.innerHTML = "покрыто до хода <b>" + esc(cov.covered_to) + "</b> из <b>" + esc(cov.turns || 0) + "</b>";
       covEl.title = "Наибольший ход среди найденных цитат карты — и число ходов в транскрипте сейчас. Всё после — карта не видела.";
     }
+    renderHook(map.hook || {});
 
     var warns = map.warnings || [];
     $("warnings").hidden = !warns.length;
@@ -882,6 +935,32 @@
     return segs.length > 2 ? "…/" + segs.slice(-2).join("/") : p;
   }
 
+  function renderHook(hk) {
+    if (!hk.installed) {
+      $("meta-hook").innerHTML = "хук не установлен — <code>aang install</code>";
+      return;
+    }
+    var ago = null;
+    if (hk.last_event_at) {
+      var mins = Math.round((Date.now() - new Date(hk.last_event_at).getTime()) / 60000);
+      ago = isNaN(mins) ? null : mins;
+    }
+    $("meta-hook").textContent = "хук: " + (hk.harness || "?") +
+      (ago === null ? "" : ago > 30 ? ", сигнала не было " + ago + " мин" : ", сигнал " + ago + " мин назад");
+  }
+
+  function renderTail(map) {
+    var tail = map.tail || [];
+    $("tail").hidden = !tail.length;
+    if (!tail.length) return;
+    var mine = tail.filter(function (t) { return t.role === "user"; }).length;
+    $("tail-summary").textContent = "не на карте: " + tail.length + " " + plural(tail.length, "ход", "хода", "ходов") +
+      ", " + mine + " " + plural(mine, "ваш", "ваших", "ваших");
+    $("tail-list").innerHTML = tail.map(function (t) {
+      return "<li class=\"r-" + esc(t.role) + "\"><span class=\"turn\">ход " + esc(t.turn) + "</span> " + esc(t.text) + "</li>";
+    }).join("");
+  }
+
   // ------------------------------------------------------------- spine
   function renderSpine(map) {
     var groups = grouped(map);
@@ -897,7 +976,9 @@
       if (!all.length && c.key !== "inbox") return;
       var list = active ? all.filter(function (n) { return passes(n, f); }) : all;
       shown += list.length;
-      html += "<h2 class=\"cell-" + c.key + "\"><span class=\"k\">" + esc(c.title) + "</span><small>" + esc(c.sub) + "</small></h2>";
+      html += "<h2 class=\"cell-" + c.key + "\"><span class=\"k\">" + esc(c.title) + "</span><small>" + esc(c.sub) + "</small>" +
+        (c.key === "inbox" && all.some(M.isUnseen) ? "<button type=\"button\" class=\"btn\" data-seen-all=\"1\">видел всё</button>" : "") +
+        "</h2>";
       if (!list.length) {
         html += all.length
           ? "<p class=\"empty-group filtered\">скрыто фильтром: " + all.length + "</p>"
@@ -909,9 +990,10 @@
         var v = verifyState(n, map);
         var sup = n.status === "superseded";
         var isSel = state.selected === n.id;
+        var unseen = M.isUnseen(n);
         var author = M.authorOf(n);
         var edges = neighbours(n, map);
-        html += "<li class=\"item k-" + n.kind + (isSel ? " sel" : near[n.id] ? " near" : "") + "\" data-item=\"" + esc(n.id) + "\">" +
+        html += "<li class=\"item k-" + n.kind + (unseen ? " unseen" : "") + (isSel ? " sel" : near[n.id] ? " near" : "") + "\" data-item=\"" + esc(n.id) + "\">" +
           "<button type=\"button\" class=\"row" + (sup ? " superseded" : "") + "\" data-id=\"" + esc(n.id) + "\"" +
           " aria-current=\"" + (isSel ? "true" : "false") + "\">" +
           "<span class=\"mark\" aria-hidden=\"true\">" + esc(KIND_MARK[n.kind]) + "</span>" +
@@ -939,6 +1021,7 @@
             (edges.length
               ? edges.map(function (e) { return chipHtml(e, map, "chip"); }).join("")
               : "<span class=\"none\">ни с чем не связано</span>") +
+            (unseen ? "<button type=\"button\" class=\"btn tiny\" data-seen=\"" + esc(n.id) + "\">видел</button>" : "") +
           "</div></li>";
       });
       html += "</ol>";
@@ -1020,6 +1103,7 @@
       (state.newIds[n.id] ? "<span class=\"tag new\" title=\"Появилось с прошлого запуска\">новое</span>" : "") +
       "</p>";
     html += "<h2 class=\"q\">" + esc(n.question) + "</h2>";
+    html += verdictHtml(n);
     html += linksHtml(n, map);
 
     if (sup && n.superseded_by) {
@@ -1062,6 +1146,33 @@
     html += "<p class=\"rule-note\">Правка исправляет запись, а не переигрывает решение. Если вывод изменился — добавьте новый узел в <code>.aang/map.json</code>, а этому поставьте статус «заменено» и укажите, чем.</p>";
     el.innerHTML = html;
     bindDetail(el, n, map);
+  }
+
+  function verdictHtml(n) {
+    var buttons = M.verdictButtons(n);
+    if (!buttons.length) return "";
+    var v = state.verdict && state.verdict.id === n.id ? state.verdict : null;
+    var html = "<section class=\"verdict\" aria-label=\"Вердикт\"><h3>Вердикт</h3><p class=\"vbtns\">" +
+      buttons.map(function (b) {
+        return "<button type=\"button\" class=\"btn v-" + b + (v && v.kind === b ? " primary" : "") +
+          "\" data-verdict=\"" + b + "\">" + esc(VERDICT_LABEL[b]) + "</button>";
+      }).join("") +
+      "<button type=\"button\" class=\"btn\" data-copy=\"1\" title=\"Скопировать id и вопрос для промпта\">скопировать ссылку</button>" +
+      (M.isUnseen(n) ? "<button type=\"button\" class=\"btn\" data-seen=\"" + esc(n.id) + "\">видел</button>" : "") +
+      "</p>";
+    if (v) {
+      var need = n.kind === "open" && (v.kind === "confirmed" || v.kind === "rejected");
+      html += "<form class=\"editor\" data-verdict-form=\"1\"><label class=\"hint\" for=\"vd-text\">" +
+        (v.kind === "confirmed" && n.kind === "open" ? "Ответ (станет решением)"
+          : v.kind === "rejected" ? "Почему" : "Комментарий (необязательно)") + "</label>" +
+        "<textarea id=\"vd-text\" name=\"text\"" + (need ? " required" : "") + ">" + esc(v.text || "") + "</textarea>" +
+        "<div class=\"actions\"><button type=\"submit\" class=\"btn primary\"" + (v.busy ? " disabled" : "") + ">" + esc(VERDICT_LABEL[v.kind]) + "</button>" +
+        "<button type=\"button\" class=\"btn\" data-cancel-verdict=\"1\">Отмена</button>" +
+        (v.busy ? "<span class=\"hint\">отправляю…</span>" : "") + "</div>" +
+        (v.errors ? "<div class=\"err\" role=\"alert\">✗ " + v.errors.map(esc).join("<br>") + "</div>" : "") +
+        "</form>";
+    }
+    return html + "</section>";
   }
 
   function verifyNotice(n, v, map) {
@@ -1263,6 +1374,31 @@
         if (input) input.focus();
       });
     });
+    el.querySelectorAll("[data-verdict]").forEach(function (b) {
+      b.addEventListener("click", function () {
+        var kind = b.getAttribute("data-verdict");
+        state.verdict = { id: n.id, kind: kind, text: "", busy: false, errors: null };
+        renderDetail(state.map);
+        var box = $("vd-text");
+        if (box) box.focus();
+      });
+    });
+    el.querySelectorAll("[data-seen]").forEach(function (b) {
+      b.addEventListener("click", function () { markSeen(b.getAttribute("data-seen")); });
+    });
+    var copy = el.querySelector("[data-copy]");
+    if (copy) copy.addEventListener("click", function () { copyLink(n); });
+    var vform = el.querySelector("form[data-verdict-form]");
+    if (vform) {
+      var vtext = vform.querySelector("#vd-text");
+      vtext.addEventListener("input", function () { state.verdict.text = vtext.value; });
+      vform.addEventListener("submit", function (ev) { ev.preventDefault(); submitVerdict(n, vtext.value); });
+      var vcancel = vform.querySelector("[data-cancel-verdict]");
+      vcancel.addEventListener("click", function () { state.verdict = null; renderDetail(state.map); });
+      vform.addEventListener("keydown", function (ev) {
+        if (ev.key === "Escape") { ev.preventDefault(); vcancel.click(); }
+      });
+    }
     el.querySelectorAll("details.cite").forEach(function (d) {
       d.addEventListener("toggle", function () {
         state.openCites[d.getAttribute("data-key")] = d.open;
@@ -1270,7 +1406,7 @@
         if (p) p.textContent = d.open ? "свернуть" : "показать в транскрипте";
       });
     });
-    var form = el.querySelector("form.editor");
+    var form = el.querySelector("form.editor[data-form]");
     if (form) {
       form.addEventListener("submit", function (ev) { ev.preventDefault(); submitEdit(n, form); });
       var cancel = form.querySelector("[data-cancel]");
@@ -1312,13 +1448,7 @@
     state.editing.busy = true;
     state.editing.errors = null;
     renderDetail(state.map);
-    fetch("/api/node/" + encodeURIComponent(n.id), {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body)
-    }).then(function (r) {
-      return r.json().then(function (j) { return { ok: r.ok, status: r.status, json: j }; });
-    }).then(function (res) {
+    postJson("/api/node/" + encodeURIComponent(n.id), body).then(function (res) {
       if (!res.ok) {
         state.editing.busy = false;
         state.editing.errors = (res.json && res.json.errors && res.json.errors.length) ? res.json.errors : ["HTTP " + res.status];
@@ -1336,11 +1466,78 @@
     });
   }
 
+  // ------------------------------------------------------------- verdict, seen, copy
+  function postJson(url, body) {
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.text().then(function (text) {
+        var parsed;
+        try { parsed = JSON.parse(text); } catch (e) { throw new Error("ответ сервера не JSON"); }
+        if (r.ok) state.lastBodyHash = hashOf(text);
+        return { ok: r.ok, status: r.status, json: parsed };
+      });
+    });
+  }
+
+  function submitVerdict(n, text) {
+    var v = state.verdict;
+    v.text = text;
+    v.busy = true;
+    v.errors = null;
+    renderDetail(state.map);
+    postJson("/api/node/" + encodeURIComponent(n.id) + "/verdict", { verdict: v.kind, text: text }).then(function (res) {
+      if (!res.ok) {
+        v.busy = false;
+        v.errors = (res.json && res.json.errors && res.json.errors.length) ? res.json.errors : ["HTTP " + res.status];
+        renderDetail(state.map);
+        return;
+      }
+      state.verdict = null;
+      applyMap(res.json, { keepScroll: true });
+    }).catch(function (err) {
+      v.busy = false;
+      v.errors = ["сервер не ответил: " + (err && err.message ? err.message : err)];
+      renderDetail(state.map);
+    });
+  }
+
+  function markSeen(id) {
+    if (state.seenPending[id]) return Promise.resolve();
+    state.seenPending[id] = true;
+    return postJson("/api/node/" + encodeURIComponent(id) + "/seen", {}).then(function (res) {
+      delete state.seenPending[id];
+      if (res.ok) applyMap(res.json, { keepScroll: true });
+    }).catch(function () {
+      delete state.seenPending[id];
+    });
+  }
+
+  function markSeenAll() {
+    var chain = Promise.resolve();
+    ((state.map && state.map.nodes) || []).forEach(function (n) {
+      if ((n.cell || M.cellOf(n)) !== "inbox" || !M.isUnseen(n)) return;
+      chain = chain.then(function () { return markSeen(n.id); });
+    });
+  }
+
+  function copyLink(n) {
+    var text = n.id + " — " + n.question;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).catch(function () { window.prompt("Скопируйте:", text); });
+    } else {
+      window.prompt("Скопируйте:", text);
+    }
+  }
+
   // ------------------------------------------------------------- selection
   function select(id, scroll) {
     if (!state.map || !byId(state.map, id)) return;
     state.selected = id;
     state.editing = null;
+    state.verdict = null;
     if (history.replaceState) history.replaceState(null, "", "#" + encodeURIComponent(id));
     // The spine is re-rendered, which drops keyboard focus; put it back on the selected row.
     var hadFocus = $("spine").contains(document.activeElement);
@@ -1355,7 +1552,11 @@
   }
 
   $("spine").addEventListener("click", function (ev) {
-    var row = ev.target.closest && ev.target.closest(".row");
+    if (!ev.target.closest) return;
+    var seen = ev.target.closest("[data-seen]");
+    if (seen) { markSeen(seen.getAttribute("data-seen")); return; }
+    if (ev.target.closest("[data-seen-all]")) { markSeenAll(); return; }
+    var row = ev.target.closest(".row");
     if (row) select(row.getAttribute("data-id"), true);
   });
   window.addEventListener("resize", function () {
@@ -1417,10 +1618,35 @@
   });
 
   // ------------------------------------------------------------- top-level states
-  function applyMap(map) {
+  function applyMap(map, opts) {
+    var keep = !!(opts && opts.keepScroll);
+    var y = window.scrollY;
+    var spineTop = $("spine").scrollTop;
+    var timelineLeft = $("timeline").scrollLeft;
+    if (state.editing && !byId(map, state.editing.id)) state.editing = null;
+    if (state.verdict && !byId(map, state.verdict.id)) state.verdict = null;
+    paintMap(map);
+    if (!keep) return;
+    window.scrollTo(0, y);
+    $("spine").scrollTop = spineTop;
+    $("timeline").scrollLeft = timelineLeft;
+  }
+
+  function appearedIds(map) {
+    if (!state.map) return {};
+    var before = {};
+    (state.map.nodes || []).forEach(function (n) { before[n.id] = true; });
+    var out = {};
+    (map.nodes || []).forEach(function (n) { if (!before[n.id]) out[n.id] = true; });
+    return out;
+  }
+
+  function paintMap(map) {
+    state.appeared = appearedIds(map);
     state.map = map;
     state.newIds = newIds(map);
     renderHeader(map);
+    renderTail(map);
 
     var errs = map.errors || [];
     $("banner-fetch").hidden = true;
@@ -1458,24 +1684,64 @@
     try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ""; }
   }
 
-  function load() {
+  function hashOf(s) {
+    var h = 5381;
+    for (var i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+    return h;
+  }
+
+  function load(opts) {
     fetch("/api/map", { cache: "no-store" }).then(function (r) {
       if (!r.ok) throw new Error("HTTP " + r.status);
-      return r.json();
-    }).then(applyMap).catch(function (err) {
+      return r.text();
+    }).then(function (body) {
+      $("banner-fetch").hidden = true;
+      var h = hashOf(body);
+      if (h === state.lastBodyHash) return;
+      state.lastBodyHash = h;
+      applyMap(JSON.parse(body), opts);
+    }).catch(function (err) {
       $("banner-fetch").hidden = false;
       $("fetch-error-text").textContent = "Не удалось прочитать /api/map: " + (err && err.message ? err.message : err) + ". Запущен ли aang view?";
       $("counts").innerHTML = "<span class=\"bad-count\">карта не загружена</span>";
       $("meta-transcript").textContent = "транскрипт: —";
     });
   }
-  $("reload-1").addEventListener("click", load);
-  $("reload-2").addEventListener("click", load);
+
+  function connectEvents() {
+    if (!window.EventSource) return;
+    var es = new EventSource("/api/events");
+    var lostTimer = null;
+    es.onopen = function () {
+      clearTimeout(lostTimer);
+      $("meta-live").hidden = true;
+    };
+    es.onmessage = function (ev) {
+      var data;
+      try { data = JSON.parse(ev.data); } catch (e) { return; }
+      if (data && data.changed) load({ keepScroll: true });
+    };
+    es.onerror = function () {
+      clearTimeout(lostTimer);
+      lostTimer = setTimeout(function () {
+        $("meta-live").hidden = false;
+        $("meta-live").textContent = "связь потеряна — переподключаюсь";
+      }, 5000);
+    };
+  }
+
+  function reload() {
+    state.lastBodyHash = null;
+    load();
+  }
+  $("reload-1").addEventListener("click", reload);
+  $("reload-2").addEventListener("click", reload);
   window.addEventListener("hashchange", function () {
     var id = hashId();
     if (state.map && id && id !== state.selected) select(id, true);
   });
   load();
+  connectEvents();
 })();
 </script>
 </body>
