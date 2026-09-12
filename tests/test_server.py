@@ -10,7 +10,7 @@ import threading
 import time
 import unittest
 
-from aang import server, store, triage
+from aang import schema, server, store, triage
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 NORMAL = os.path.join(FIXTURES, "normal.jsonl")
@@ -203,6 +203,27 @@ class ViewerStringsTest(ServerTestCase):
                      "решил: вы", "решил: агент", "\"мои\"", "\"агента\""):
             self.assertIn(word, text, word)
         self.assertNotIn("ordered(map)", page.split("function ordered(")[0])
+
+    def test_index_carries_the_timeline_words(self):
+        """The turn strip names itself the same way in three places: the section label, the
+        picture's alternative text, and the button that brings it back on a narrow screen. A node
+        whose citations never resolved to a turn is told so in words, not left off the axis."""
+        text = self.viewer_text()
+        for word in ("Ход сессии", "узлы по ходам", "показать ход сессии", "скрыть ход сессии",
+                     "без хода"):
+            self.assertIn(word, text, word)
+
+    def test_index_editor_keeps_its_draft_and_every_status(self):
+        """Two things a live re-render must not cost the reader. The text typed into an open
+        editor: it is kept in `state.editing.value`, not in the DOM the re-render replaces. And a
+        status the map can hold: an option list short of `schema.STATUSES` leaves a node whose
+        status is missing from it showing someone else's, and «сохранить» then writes that."""
+        page = self.request("GET", "/")[2].decode("utf-8")
+        self.assertIn("state.editing.value", page)
+        options = re.search(r"\[([^\]]*)\]\.map\(function \(s\) \{", page)
+        self.assertTrue(options, "the status editor's option list is not where it was")
+        for status in schema.STATUSES:
+            self.assertIn("\"%s\"" % status, options.group(1), status)
 
     def test_index_is_self_contained(self):
         page = self.request("GET", "/")[2].decode("utf-8")
