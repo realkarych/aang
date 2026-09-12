@@ -7,6 +7,11 @@ empty map, never as an exception.
 
 The model never writes `map.json` directly: it writes `.aang/candidate.json`, and
 `aang merge` (cli.py) folds that into the map through `merge` here.
+
+The three relation labels (`REL_LABELS`) are also carried by ui/index.html for the
+viewer's chips and a test compares the two copies: change one, change both. They are
+neuter because the subject is the node as a thing — «решение», «следствие» — not the
+person who decided.
 """
 
 import copy
@@ -21,24 +26,13 @@ MAP_DIR = ".aang"
 MAP_FILE = "map.json"
 CANDIDATE_FILE = "candidate.json"
 
-# Fields a human authors. `merge` never lets a regeneration touch these on a
-# hand-edited node. `status`/`superseded_by` are structural bookkeeping — see `merge`.
-# `relates` rides with the content (a hand-edited node keeps its edges); `added_at` and
-# `seen_at` are aang's own stamps (`STAMP_FIELDS`) and are never taken from a candidate —
-# see `merge` and `stamp_added_at`.
 CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites", "relates",
                   "decided_by", "triage")
 
-# Fields `server.annotate` derives for the view and nothing may write into the file: the
-# reverse index (U4 — stored, it would drift from the forward side), the verification
-# verdict and the triage cell (`triage.cell` — a rule, not a field). `merge` strips them
-# from every node, whatever the candidate or the old file said.
 VIEW_FIELDS = ("related_by", "verified", "cell")
 
 STAMP_FIELDS = ("added_at", "seen_at")
 
-
-# ----------------------------------------------------------------------------- paths
 
 def map_dir(root):  # type: (str) -> str
     return os.path.join(root, MAP_DIR)
@@ -51,8 +45,6 @@ def map_path(root):  # type: (str) -> str
 def candidate_path(root):  # type: (str) -> str
     return os.path.join(map_dir(root), CANDIDATE_FILE)
 
-
-# ----------------------------------------------------------------------------- load / save
 
 def read_json(path):  # type: (str) -> Optional[Dict[str, Any]]
     """The JSON object in `path`, or None when the file is absent, unreadable or not an object."""
@@ -114,8 +106,6 @@ def _mode_for(target):  # type: (str) -> int
         return 0o666 & ~_UMASK
 
 
-# ----------------------------------------------------------------------------- merge
-
 def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     """Fold a regenerated map `new` into the stored map `old` without losing human work.
 
@@ -162,6 +152,8 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
       old predecessor, so they keep their place in the timeline. Then, only where a kept
       edge would point forward (the candidate put a protected node above its target),
       the source is moved down below its target — see `_targets_first`.
+    - A dangling `superseded_by` is not repaired here — it is possible only when `old` was
+      already invalid — so `validate` reports it and the caller refuses to save.
     Top-level fields come from `new` when non-empty, else from `old`.
     Inputs are not mutated.
     """
@@ -182,7 +174,7 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
         seen.add(node_id)
         previous = old_by_id.get(node_id)
         if previous is not None and previous.get("status") == "superseded":
-            result.append(copy.deepcopy(previous))  # history: nothing in `new` applies
+            result.append(copy.deepcopy(previous))
         elif previous is not None and previous.get("hand_edited") is True:
             result.append(_merge_hand_edited(previous, incoming))
         else:
@@ -193,8 +185,6 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
                 incoming["added_at"] = ""
             result.append(incoming)
 
-    # Old-only nodes: hand-edited and superseded ones survive; so does anything a
-    # survivor points at, through `superseded_by` or `relates`.
     keep = set(n["id"] for n in old_nodes
                if n.get("hand_edited") is True or n.get("status") == "superseded") - seen
     keep |= _target_closure(result + [old_by_id[i] for i in keep], old_by_id, seen | keep)
@@ -210,8 +200,6 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
             node.pop(field, None)
     result = _targets_first(result)
 
-    # Not repaired here: a dangling `superseded_by` (possible only if `old` was already
-    # invalid) is left for `validate` to report, so the caller refuses to save it.
     merged = {
         "version": schema.VERSION,
         "session_id": new.get("session_id") or old.get("session_id") or "",
@@ -316,8 +304,6 @@ def stamp_added_at(map_dict, now_iso):  # type: (Dict[str, Any], str) -> Dict[st
     return map_dict
 
 
-# ----------------------------------------------------------------------------- turns
-
 def fill_turns(map_dict, turns):  # type: (Dict[str, Any], List[Dict[str, Any]]) -> List[Dict[str, Any]]
     """Set every citation's `turn` (and `role` when absent) by finding its quote in `turns`.
 
@@ -344,29 +330,18 @@ def fill_turns(map_dict, turns):  # type: (Dict[str, Any], List[Dict[str, Any]])
     return report
 
 
-# ----------------------------------------------------------------------------- export
-
 STATUS_RU = {"accepted": "принято", "superseded": "заменено", "proposed": "предложено",
              "rejected": "отвергнуто"}
 
 DECIDER_RU = {"user": "вы", "agent": "агент"}
 TRIAGE_RU = {"research": "ресерч", "discuss": "обсуждение"}
 
-# How a relation reads in the committed record, node first: «o3 осиротело решением d6»,
-# «d7 опирается на t5», «d9 сделало неактуальным o2». Neuter, because the subject is the
-# node as a thing — «решение», «следствие» — not the person who made it. The viewer
-# (ui/index.html) carries the same three strings for its chips and a test compares them;
-# change one, change both.
 REL_LABELS = {
     "orphaned_by": "осиротело решением",
     "rests_on": "опирается на",
     "moots": "сделало неактуальным",
 }
 
-# The same edges read from the target's section, node first again: «d6 оставило висеть
-# o3», «t5 на этом держится d7». The reverse of `moots` is not a line in the list but a
-# flag next to the status — «d5 сделало это неактуальным» — because it says the node is
-# dead, and that belongs where «заменено» is, not three sections away on the killer.
 REL_LABELS_BACK = {
     "orphaned_by": "оставило висеть",
     "rests_on": "на этом держится",
@@ -421,7 +396,16 @@ def _node_markdown(node, by_id, transcript_error=None):
     # type: (Dict[str, Any], Dict[Any, Dict[str, Any]], Optional[str]) -> List[str]
     """One `###` section. The unverified line keeps three states apart, as the viewer
     and `check` do: nothing was searched (no transcript), nothing to search for (no
-    citations), searched and not found. Only the last one may say "не найдена"."""
+    citations), searched and not found. Only the last one may say "не найдена".
+
+    Edges sit with the status, before the prose, both sides of each: what the node
+    declares (`relates`), what was found pointing at it (`related_by`, U4) and
+    `superseded_by` either way. Without the reverse side a mooted node, a depended-on one
+    and an isolated one all read the same, and for an `open` node "осиротело решением d6"
+    is the first thing to know. The reverse of `moots` is not a line in that list but a
+    flag beside the status, because it says the node is dead. A node with nothing either
+    way says so, in the viewer's words: that nothing rests on it is information too.
+    """
     out = []  # type: List[str]
     cites = [c for c in (node.get("cites") or []) if isinstance(c, dict)]
     superseded = node.get("status") == "superseded"
@@ -430,9 +414,6 @@ def _node_markdown(node, by_id, transcript_error=None):
     out.append("### %s · %s" % (node.get("id"), heading))
     out.append("")
 
-    # Both sides of every edge: what the node declares (`relates`), what the server found
-    # pointing at it (`related_by`, U4) and `superseded_by` either way. Without the reverse
-    # side a mooted node, a depended-on one and an isolated one all read the same.
     relates = [r for r in (node.get("relates") or []) if isinstance(r, dict) and r.get("to")]
     related_by = [r for r in (node.get("related_by") or []) if isinstance(r, dict) and r.get("from")]
     mooted_by = [r["from"] for r in related_by if r.get("rel") == "moots"]
@@ -462,10 +443,6 @@ def _node_markdown(node, by_id, transcript_error=None):
     out.append("  ".join(flags))
     out.append("")
 
-    # Edges sit with the status, before the prose: for an `open` node "orphaned by d6" is
-    # the first thing to know, and the prose may not repeat it. Declared edges first,
-    # then what points here. A node with nothing either way says so, in the viewer's
-    # words: that nothing rests on it is information too.
     edges = []  # type: List[str]
     for rel in relates:
         edges.append("%s %s" % (REL_LABELS.get(rel.get("rel"), rel.get("rel")), _node_ref(rel["to"], by_id)))

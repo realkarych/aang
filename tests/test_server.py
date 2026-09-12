@@ -37,7 +37,7 @@ def sample_map():
 
 class ServerTestCase(unittest.TestCase):
     transcript = NORMAL
-    ui_path = None  # None → a stub page written in setUp; a path → serve that file
+    ui_path = None
 
     def setUp(self):
         self.root = tempfile.mkdtemp(prefix="aang-srv-")
@@ -117,8 +117,8 @@ class RoutesTest(ServerTestCase):
         self.assertEqual(view["errors"], [])
         by_id = dict((n["id"], n) for n in view["nodes"])
         self.assertTrue(by_id["d1"]["verified"])
-        self.assertFalse(by_id["d2"]["verified"])   # one citation is invented
-        self.assertFalse(by_id["o1"]["verified"])   # nothing to verify
+        self.assertFalse(by_id["d2"]["verified"])
+        self.assertFalse(by_id["o1"]["verified"])
         c0, c1 = by_id["d1"]["cites"]
         self.assertEqual(sorted(c0), ["excerpt", "matches", "ok", "quote", "reason", "role", "turn"])
         self.assertEqual((c0["turn"], c0["role"], c0["ok"]), (4, "user", True))
@@ -175,20 +175,19 @@ class ViewerStringsTest(ServerTestCase):
         """Search, neighbourhood, coverage and triage words; and every relation label the export
         uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed.
         «Окрестность» heads the mini-graph over the list; the two strings after it are the
-        lines that read its sides."""
+        lines that read its sides. Presence alone would miss two labels swapped — every
+        string would still be on the page while the viewer told the reader the opposite of
+        the export — so the second half checks the binding itself: the key, a colon, that
+        label, tolerant of quoting and whitespace but not of a key paired with someone
+        else's words."""
         page = self.request("GET", "/")[2].decode("utf-8")
         text = self.viewer_text()
         for word in ("скрыто", "ни с чем не связано", "На этом держатся", "покрыто до хода",
                      "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое",
                      "Окрестность", "слева — на чём держится и что осиротило",
                      "справа — что держится на нём",
-                     # the reverse of `moots` is a status flag, as in the export, not a dependant
                      "неактуально", "это неактуальным", "ничего на этом не держится"):
             self.assertIn(word, text, word)
-        # Presence is not enough: with the labels of two relations swapped every string is still
-        # on the page, and the viewer then tells the reader the opposite of the export. So the
-        # check is the binding itself — the key, a colon, that label — tolerant of quoting and
-        # whitespace, not of the JS object literal pairing a key with someone else's words.
         for rel, label in store.REL_LABELS.items():
             binding = re.compile(r"(?<![\w$])" + re.escape(rel) + r"[\"']?\s*:\s*[\"']" +
                                  re.escape(label) + r"[\"']")
@@ -234,7 +233,7 @@ class ViewerStringsTest(ServerTestCase):
         self.assertIn('src="model.js"', page)
         self.assertNotIn("http://", page)
         self.assertNotIn("https://", page)
-        self.assertNotIn("overflow-x: hidden", page)  # would only mask a layout that widens the page
+        self.assertNotIn("overflow-x: hidden", page)
 
 
 class HostCheckTest(ServerTestCase):
@@ -306,7 +305,6 @@ class CrossSiteWriteTest(ServerTestCase):
             self.assertEqual(status, 200, (ctype, data))
 
     def test_viewers_own_request_shape_still_works(self):
-        # exactly what ui/index.html sends: same-origin Origin + application/json
         status, _, data = self.request("POST", "/api/node/d2", body={"why": "из интерфейса"},
                                        origin="http://127.0.0.1:%d" % self.port,
                                        content_type="application/json")
@@ -314,7 +312,6 @@ class CrossSiteWriteTest(ServerTestCase):
         self.assertTrue(store.load(self.root)["nodes"][1]["hand_edited"])
 
     def test_origin_and_content_type_checked_before_the_body_is_touched(self):
-        # a 404 path or a bad body must not leak past a foreign Origin
         status, _, _ = self.request("POST", "/nope", body={"why": "x"}, origin="https://evil.example")
         self.assertEqual(status, 403)
         status, _, _ = self.request("POST", "/api/node/zzz", body={"why": "x"}, content_type="text/plain")
@@ -336,7 +333,6 @@ class EditTest(ServerTestCase):
         self.assertEqual(on_disk["why"], "поправил человек")
         self.assertEqual(on_disk["against"], ["минус"])
         self.assertTrue(on_disk["hand_edited"])
-        # the resolution results are not persisted, only the citation
         self.assertNotIn("ok", on_disk["cites"][0])
         self.assertNotIn("verified", on_disk)
 
@@ -414,7 +410,6 @@ class MissingTranscriptTest(ServerTestCase):
             for cite in node["cites"]:
                 self.assertFalse(cite["ok"])
                 self.assertIn("не проверено", cite["reason"])
-        # the file's own turn number is echoed, nothing is invented
         self.assertEqual(view["nodes"][0]["cites"][1]["turn"], 3)
         self.assertIsNone(view["nodes"][0]["cites"][0]["turn"])
 
@@ -559,7 +554,6 @@ class ReverseIndexTest(unittest.TestCase):
         self.assertEqual([{"from": "o1", "rel": "moots"}], _by_id(view, "d2")["related_by"])
 
     def test_related_by_written_into_the_file_is_replaced_by_the_derived_one(self):
-        # U4: the reverse side is never stored; whatever the file claims is discarded.
         m = _map([_node("d1", related_by=[{"from": "ghost", "rel": "rests_on"}]),
                   _node("d2", relates=[{"to": "d1", "rel": "rests_on"}])])
         view = server.annotate(m, _turns(3))
@@ -583,7 +577,6 @@ class CoverageTest(unittest.TestCase):
         self.assertEqual(12, view["coverage"]["turns"])
 
     def test_unresolved_citation_does_not_extend_coverage(self):
-        # U6: a claim nobody could verify does not extend the map's reach.
         m = _map([_node("d1", cites=[{"quote": "живая цитата отсюда", "turn": 5}]),
                   _node("d2", cites=[{"quote": "этого нигде нет в тексте", "turn": 9}])])
         view = server.annotate(m, _turns(12))
@@ -600,7 +593,7 @@ class CoverageTest(unittest.TestCase):
     def test_coverage_counts_a_turn_filled_in_from_the_quote(self):
         m = _map([_node("d1", cites=[{"quote": "только здесь и нигде больше"}])])
         turns = _turns(6)
-        turns[3]["text"] = "а вот только здесь и нигде больше"  # turn 4
+        turns[3]["text"] = "а вот только здесь и нигде больше"
         view = server.annotate(m, turns)
         self.assertEqual({"covered_to": 4, "turns": 6}, view["coverage"])
 
@@ -638,8 +631,6 @@ class ViewShapeOverHttpTest(ServerTestCase):
             self.assertEqual([], node["related_by"])
         self.assertIsInstance(view["coverage"]["covered_to"], int)
         self.assertEqual(view["turns"], view["coverage"]["turns"])
-        # The sample map's o1 is open with no `orphaned_by`: the one remark it earns
-        # travels with the map, so the viewer can show it (U8).
         self.assertEqual(["узел o1: открытый вопрос без orphaned_by — укажите решение или скажите в why, что его нет"],
                          view["warnings"])
 
@@ -689,7 +680,7 @@ class NewMarksTest(unittest.TestCase):
     def test_the_rule_is_equality_with_generated_at(self):
         src = _viewer_function("newIds")
         self.assertIn("n.added_at === map.generated_at", src)
-        self.assertNotIn("latest", src)  # the "max stamp" rule stayed lit after a no-op run
+        self.assertNotIn("latest", src)
 
     def new_ids(self, generated_at, stamps):
         nodes = [{"id": "n%d" % i} for i in range(len(stamps))]
@@ -703,7 +694,6 @@ class NewMarksTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "node not on PATH")
     def test_first_run_marks_nothing(self):
-        # Every node entered with this run: that is not a delta, and marking all would say nothing.
         self.assertEqual([], self.new_ids(T1, [T1, T1, T1]))
 
     @unittest.skipUnless(shutil.which("node"), "node not on PATH")
@@ -712,13 +702,12 @@ class NewMarksTest(unittest.TestCase):
 
     @unittest.skipUnless(shutil.which("node"), "node not on PATH")
     def test_run_that_added_nothing_clears_the_marks(self):
-        # `generated_at` moved past every stamp: the previous run added nothing, so nothing is new.
         self.assertEqual([], self.new_ids(T3, [T1, T1, T2, T2]))
 
     @unittest.skipUnless(shutil.which("node"), "node not on PATH")
     def test_unstamped_nodes_are_unknown_not_new(self):
         self.assertEqual([], self.new_ids(T2, [None, None]))
-        self.assertEqual([], self.new_ids(T2, [None, T2]))  # nothing older: no delta to show
+        self.assertEqual([], self.new_ids(T2, [None, T2]))
 
 
 class CellAndTailTest(unittest.TestCase):

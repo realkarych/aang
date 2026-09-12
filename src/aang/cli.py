@@ -21,7 +21,7 @@ from . import hook, install, schema, server, session, store
 
 MARK_OK = "✓"
 MARK_BAD = "✗"
-MARK_NONE = "△"  # nothing to check — the viewer uses the same glyph
+MARK_NONE = "△"
 
 
 def main(argv=None, stdout=None, stderr=None):  # type: (Optional[List[str]], Any, Any) -> int
@@ -132,8 +132,6 @@ def _source_origin(args, root, source):
     return "самый свежий"
 
 
-# ----------------------------------------------------------------------------- view
-
 def cmd_view(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     root = os.path.abspath(args.root)
     try:
@@ -180,8 +178,6 @@ def _running_here(port, root):  # type: (int, str) -> Optional[str]
     return None
 
 
-# ----------------------------------------------------------------------------- check
-
 def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     root = os.path.abspath(args.root)
     path = store.map_path(root)
@@ -215,8 +211,6 @@ def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     code, verdict = _verdict(transcript_error, failed, uncited)
     out.write("Итог: %s\n" % verdict)
 
-    # Remarks come after the verdict and do not touch the exit code: the map is valid and
-    # verified, something in it is merely worth a look.
     remarks = schema.warnings(map_dict)
     if remarks:
         out.write("\nЗамечания:\n")
@@ -226,14 +220,16 @@ def cmd_check(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
 
 
 def _verdict(transcript_error, failed, uncited):  # type: (Optional[str], int, int) -> Tuple[int, str]
-    """Exit code and the one-line verdict for `check`."""
+    """Exit code and the one-line verdict for `check`.
+
+    A node with nothing to cite (an `open` may have none) is neither a failure nor a
+    verification, so its count rides next to the verdict rather than above it.
+    """
     if transcript_error:
         return 1, "%s карта не проверена — транскрипт недоступен" % MARK_BAD
     if failed:
         return 1, ("%s карта не подтверждена — исправьте или удалите узлы с ненайденными цитатами"
                    % MARK_BAD)
-    # A node with nothing to cite (an `open` may have none) is not a failure, but it is
-    # not verified either — say so next to the verdict rather than above it.
     if uncited:
         return 0, ("%s каждая цитата найдена в транскрипте; %s %d %s без цитат — не проверить"
                    % (MARK_OK, MARK_NONE, uncited, _nodes_word(uncited)))
@@ -287,8 +283,6 @@ def _clip(text, limit):  # type: (Any, int) -> str
     return text if len(text) <= limit else text[:limit - 1] + "…"
 
 
-# ----------------------------------------------------------------------------- export
-
 def cmd_export(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     root = os.path.abspath(args.root)
     map_dict = store.load(root)
@@ -318,9 +312,19 @@ def cmd_export(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     return 0
 
 
-# ----------------------------------------------------------------------------- merge
-
 def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
+    """Resolve the candidate's citations, fold it into the stored map, validate, save.
+
+    Turn numbers and timestamps come from here, never from the model. The model does not
+    know its own session id, so a candidate without one resolves against the session the
+    map already records; only when neither names one is the newest transcript taken, and
+    its name stamped, so a later merge cannot re-point the map at whatever session happens
+    to be newest. `generated_at` is stamped on the map and `added_at` on every node that
+    has none. A map older than the field is backfilled first with its own `generated_at`,
+    since the node was there when that map was generated, so the nodes this run adds still
+    stand apart from those that were merely never stamped; only a map that names no
+    `generated_at` gets `now` for them too.
+    """
     root = os.path.abspath(args.root)
     cand_path = args.candidate or store.candidate_path(root)
     if not os.path.isfile(cand_path):
@@ -342,11 +346,6 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     old = store.load(root)
     old_errors = schema.validate(old)
 
-    # Turn numbers come from the transcript, never from the model. The model does not
-    # know its own session id, so a candidate without one resolves against the session
-    # the map already records; only when neither names one is the newest transcript
-    # taken, and its name stamped, so a later merge cannot re-point the map at whatever
-    # session happens to be newest.
     source = _source(args, root)
     session_id = candidate.get("session_id") or old.get("session_id") or None
     turns, transcript_error = source.turns(session_id)
@@ -357,12 +356,6 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     resolved = store.fill_turns(candidate, turns)
     if not session_id and source.path:
         candidate["session_id"] = os.path.splitext(os.path.basename(source.path))[0]
-    # The map is generated here, not by the model, so the timestamps are stamped here:
-    # `generated_at` on the map, `added_at` on every node that has none after the merge.
-    # A map older than the field is backfilled first, with its own `generated_at` — the
-    # node was there when that map was generated, which is a fact — so the nodes this
-    # run adds still stand apart from the twenty that were merely never stamped. Only a
-    # map that names no `generated_at` gets `now` for them too.
     now = _now_iso()
     candidate["generated_at"] = now
     store.stamp_added_at(old, old.get("generated_at") or now)
@@ -389,7 +382,6 @@ def cmd_merge(args, out, err):  # type: (argparse.Namespace, Any, Any) -> int
     kept = [n["id"] for n in merged["nodes"] if n["hand_edited"]]
     history = [n["id"] for n in merged["nodes"]
                if n["id"] not in new_ids and not n["hand_edited"] and n["status"] == "superseded"]
-    # Ordinary old nodes the candidate omitted but a kept node's edge still points at.
     pinned = [n["id"] for n in merged["nodes"]
               if n["id"] not in new_ids and not n["hand_edited"] and n["status"] != "superseded"]
     added = [n["id"] for n in merged["nodes"] if n["id"] not in old_ids]

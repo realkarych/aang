@@ -7,7 +7,6 @@
 <link rel="icon" href="data:,">
 <title>aang · карта решений сессии</title>
 <style>
-  /* ---------------------------------------------------------------- tokens */
   :root {
     color-scheme: light dark;
     --bg: #f4f1e9;
@@ -61,7 +60,6 @@
     }
   }
 
-  /* ---------------------------------------------------------------- base */
   * { box-sizing: border-box; }
   html { height: 100%; }
   body {
@@ -84,7 +82,6 @@
   .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ui { font-family: var(--font-ui); }
 
-  /* ---------------------------------------------------------------- header */
   .top {
     max-width: 1400px;
     margin: 0 auto;
@@ -137,7 +134,6 @@
   .counts .cell-inbox b { color: var(--open); }
   #meta-live { color: var(--warn); }
 
-  /* ---------------------------------------------------------------- tail and timeline */
   .tail {
     max-width: 1400px;
     margin: 14px auto 0;
@@ -194,7 +190,6 @@
     .tl-toggle { display: block; }
   }
 
-  /* ---------------------------------------------------------------- banners */
   .banner {
     max-width: 1400px;
     margin: 14px auto 0;
@@ -215,7 +210,6 @@
   .banner code { background: color-mix(in srgb, var(--panel) 60%, transparent); padding: 1px 4px; border-radius: 3px; }
   .glyph { font-family: var(--font-ui); font-weight: 700; }
 
-  /* ---------------------------------------------------------------- panes */
   .panes {
     max-width: 1400px;
     margin: 16px auto 0;
@@ -237,7 +231,6 @@
     .detail { position: static; max-height: none; padding: 16px 14px 18px; }
   }
 
-  /* ---------------------------------------------------------------- spine */
   .spine h2 {
     font-family: var(--font-ui);
     font-size: 12px;
@@ -264,8 +257,6 @@
   .spine h2.k-decision { color: var(--decision); }
   .spine ol { list-style: none; margin: 0; padding: 0 0 6px; }
   .spine .empty-group { padding: 4px 14px 10px; color: var(--ink-3); font-style: italic; font-size: 14px; }
-  /* The left 24px of the spine is a gutter: the arcs of the selected node are drawn there,
-     ending on the coloured kind-border of each neighbour's row. */
   .spine { position: relative; padding-left: 24px; }
   .arcs { position: absolute; left: 0; top: 0; width: 24px; height: 100%; pointer-events: none; overflow: visible; }
   .arcs path { fill: none; stroke: var(--link); stroke-width: 1.5; }
@@ -309,8 +300,6 @@
   .k-decision .mark { color: var(--decision); }
   .k-tacit .mark { color: var(--tacit); }
   .k-open .mark { color: var(--open); }
-  /* Questions and decisions are about paths, URLs and identifiers: an unbroken token
-     must wrap, never run over the detail pane or widen the page. */
   .row .body { min-width: 0; overflow-wrap: anywhere; }
   .row .q { display: block; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
   .row .d { display: block; margin-top: 2px; line-height: 1.35; overflow-wrap: anywhere; }
@@ -341,11 +330,8 @@
     .row .state { grid-column: 2; flex-direction: row; flex-wrap: wrap; align-items: center; margin-top: 6px; }
     .row .w { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
   }
-  /* For a tacit node `why` is the payload — where the unchosen decision came from — so the
-     row shows all of it instead of an ellipsis (spec: «видно происхождение, а не обрезок»). */
   .item.k-tacit .row .w { white-space: normal; display: block; overflow: visible; text-overflow: clip; -webkit-line-clamp: none; }
 
-  /* ---------------------------------------------------------------- tags */
   .tag {
     display: inline-flex;
     align-items: center;
@@ -380,7 +366,6 @@
   .tag.linkish:hover { background: var(--panel-2); }
   .tag.new { color: var(--ink); border-color: var(--ink); background: var(--mark); font-weight: 600; }
 
-  /* ---------------------------------------------------------------- chips (neighbours in the row) */
   .chips {
     display: flex;
     flex-wrap: wrap;
@@ -411,7 +396,6 @@
   .chips .btn { margin-left: auto; }
   @media (max-width: 480px) { .chips { padding-left: 10px; } }
 
-  /* ---------------------------------------------------------------- search and filters */
   .tools {
     background: var(--panel);
     border: 1px solid var(--line);
@@ -456,7 +440,6 @@
   .fcount b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .spine .empty-group.filtered { font-style: normal; }
 
-  /* ---------------------------------------------------------------- neighbourhood (detail) */
   .links, .hood { margin: 12px 0 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
   .links h3, .hood h3 {
     font-family: var(--font-ui);
@@ -485,7 +468,6 @@
   .he { stroke: var(--ink-2); }
   .hl { font: 10px var(--font-ui); fill: var(--ink-2); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; }
 
-  /* ---------------------------------------------------------------- detail */
   .detail .kicker {
     display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
     margin: 0 0 10px;
@@ -567,7 +549,6 @@
   .editor .err ul { margin: 4px 0 0; padding-left: 18px; font-weight: 400; }
   .rule-note { font-family: var(--font-ui); font-size: 12px; color: var(--ink-3); margin: 14px 0 0; line-height: 1.4; }
 
-  /* ---------------------------------------------------------------- verdict */
   .verdict { margin: 12px 0 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
   .verdict h3 {
     font-family: var(--font-ui);
@@ -587,7 +568,6 @@
   .btn.v-rejected.primary { color: var(--panel); background: var(--bad); border-color: var(--bad); }
   .btn.v-research.primary, .btn.v-discuss.primary { color: var(--panel); background: var(--open); border-color: var(--open); }
 
-  /* ---------------------------------------------------------------- citations */
   .cites { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
   .cite { border: 1px solid var(--line); border-left-width: 4px; background: var(--panel); }
   .cite.ok { border-left-color: var(--ok); }
@@ -637,7 +617,6 @@
     @keyframes reveal { from { opacity: 0; transform: translateY(-3px); } to { opacity: 1; transform: none; } }
   }
 
-  /* ---------------------------------------------------------------- states */
   .state-panel {
     max-width: 1400px;
     margin: 16px auto 0;
@@ -649,7 +628,6 @@
   .state-panel p { margin: 6px 0; }
   .state-panel code { background: var(--panel-2); padding: 1px 4px; }
 
-  /* ---------------------------------------------------------------- legend */
   .legend {
     max-width: 1400px;
     margin: 18px auto 0;
@@ -773,9 +751,6 @@
   var DRAFT_FIELDS = ["ed-input", "ed-by", "vd-text"];
   var STATUS_LABEL = { accepted: "принято", superseded: "заменено", proposed: "предложено", rejected: "отвергнуто" };
   var ROLE_LABEL = { user: "человек", assistant: "модель" };
-  // Same three strings as store.REL_LABELS on the Python side (the export uses them); the test
-  // suite checks this page carries every one of them. `superseded_by` is the fourth relation of
-  // the map, an older field, and reads the same way in a chip.
   var REL_LABEL = {
     orphaned_by: "осиротело решением",
     rests_on: "опирается на",
@@ -795,8 +770,6 @@
   };
   var reducedMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  // ------------------------------------------------------------- verification vocabulary
-  // The five states a node can be in, told apart by word and glyph, never by colour alone.
   function verifyState(node, map) {
     if (map.transcript_error) return { cls: "v-unchecked", glyph: "⊘", text: "не проверялось" };
     var cites = node.cites || [];
@@ -814,7 +787,6 @@
     return "ok";
   }
 
-  // ------------------------------------------------------------- ordering
   function grouped(map) {
     var out = {};
     M.CELLS.forEach(function (c) { out[c.key] = []; });
@@ -837,10 +809,6 @@
     return many;
   }
 
-  // ------------------------------------------------------------- relations
-  // Every edge touching the node, both directions. `relates` is what the file declares;
-  // `related_by` is the reverse index the server derived (U4). `superseded_by` lives on the old
-  // node and is folded in here so the neighbourhood is the whole picture, not three quarters.
   function neighbours(n, map) {
     var out = [];
     (n.relates || []).forEach(function (r) { out.push({ id: r.to, rel: r.rel, dir: "out" }); });
@@ -851,8 +819,6 @@
     });
     return out;
   }
-  // "→ опирается на t5" from the node; "← o6 опирается на" onto it — the label is the same,
-  // the direction is read from the arrow.
   function chipHtml(e, map, cls) {
     var target = byId(map, e.id);
     var label = REL_LABEL[e.rel] || e.rel;
@@ -864,13 +830,10 @@
       "<span class=\"visually-hidden\">" + (e.dir === "out" ? "" : "на этот узел: ") + "</span>" + inner + "</button>";
   }
 
-  // ------------------------------------------------------------- search and filters
-  // Node text and the quoted words of its citations; transcript excerpts stay out (U5): they
-  // are the neighbourhood of every quote, so with them everything matches.
   function searchIndex(n) {
     var parts = [n.question, n.decision, n.why, n.consequence];
     (n.against || []).forEach(function (a) { parts.push(a); });
-    (n.cites || []).forEach(function (c) { parts.push(c.quote); });   // quote, not excerpt
+    (n.cites || []).forEach(function (c) { parts.push(c.quote); });
     return parts.join(" ").toLowerCase().replace(/\s+/g, " ");
   }
   function normQuery(q) { return String(q || "").trim().toLowerCase().replace(/\s+/g, " "); }
@@ -885,11 +848,6 @@
     if (f.q && searchIndex(n).indexOf(f.q) < 0) return false;
     return true;
   }
-  // A node is "new" (U7) when its `added_at` equals the map's `generated_at`: merge stamps both
-  // from one instant, so equality means "entered the map in the most recent merge" — and a run
-  // that added nothing moves `generated_at` past every stamp, clearing the marks. Not the latest
-  // stamp: that would stay lit on every later no-op run. And only when some node is older than
-  // this run: on a first run every node is new and marking all of them would say nothing.
   function newIds(map) {
     var out = {};
     var older = false;
@@ -900,7 +858,6 @@
     return older ? out : {};
   }
 
-  // ------------------------------------------------------------- header
   function renderHeader(map) {
     $("title").textContent = map.title || "Что решила эта сессия";
     document.title = map.title || "aang · карта решений сессии";
@@ -919,8 +876,6 @@
         (map.transcript_path ? " <code title=\"" + esc(map.transcript_path) + "\">" + esc(shortPath(map.transcript_path)) + "</code>" : "");
     }
 
-    // Coverage (U6): the largest turn a resolved citation reaches, against the transcript as it
-    // is right now — the session keeps growing after the map was written.
     var cov = map.coverage || {};
     var covEl = $("meta-coverage");
     covEl.hidden = false;
@@ -1011,7 +966,6 @@
     }).join("");
   }
 
-  // ------------------------------------------------------------- timeline
   var TL = { pxPerTurn: 12, laneHeight: 28, gutter: 60, stepDown: 6 };
   var TL_NARROW = { pxPerTurn: 12, laneHeight: 0, gutter: 40, stepDown: 6 };
   var tlOpts = null;
@@ -1127,7 +1081,6 @@
     }
   }
 
-  // ------------------------------------------------------------- spine
   function renderSpine(map) {
     var groups = grouped(map);
     var f = state.filter;
@@ -1172,7 +1125,6 @@
             (n.why ? "<span class=\"w\"" + (n.kind === "tacit" ? "" : " title=\"" + esc(n.why) + "\"") + ">" + esc(n.why) + "</span>" : "") +
           "</span>" +
           "<span class=\"state\">" +
-            // An open question proposes nothing: its `proposed` status stays in the detail pane only.
             (n.kind === "open" && n.status === "proposed" ? "" :
               "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + (sup && n.superseded_by ? " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>" : "") + "</span>") +
             (mootedBy(n).length ? "<span class=\"tag mooted\">неактуально</span>" : "") +
@@ -1212,9 +1164,6 @@
       (shown ? "" : " — ничего не подходит");
   }
 
-  // Arcs from the selected row to each neighbour's row, drawn in the spine's left gutter.
-  // Only the selected node gets them: their count is its degree (≤ 3 declared, by the schema),
-  // so they read at any map size. The full tangle is never drawn — past ~30 rows it is noise.
   function drawArcs(map) {
     var svg = $("arcs");
     if (!svg) return;
@@ -1233,7 +1182,7 @@
     var paths = "";
     neighbours(sel, map).forEach(function (e) {
       var item = spine.querySelector("[data-item=\"" + CSS.escape(e.id) + "\"]");
-      if (!item) return;   // filtered out, or not in the map
+      if (!item) return;
       var y1 = yOf(item);
       var bulge = Math.max(6, Math.min(22, Math.abs(y1 - y0) / 6));
       paths += "<path class=\"" + e.dir + "\" d=\"M" + G + " " + y0.toFixed(1) +
@@ -1244,7 +1193,6 @@
     svg.innerHTML = paths ? paths + "<circle cx=\"" + G + "\" cy=\"" + y0.toFixed(1) + "\" r=\"3.5\"/>" : "";
   }
 
-  // ------------------------------------------------------------- detail
   function renderDetail(map) {
     var el = $("detail");
     var n = state.selected ? byId(map, state.selected) : null;
@@ -1278,8 +1226,6 @@
       html += "<p class=\"notice\">Заменено узлом <button type=\"button\" class=\"tag linkish\" data-goto=\"" + esc(n.superseded_by) + "\"><span class=\"mono\">" + esc(n.superseded_by) + "</span></button>" +
         (by ? " — " + esc(by.question) : " — <b>такого узла в карте нет</b>") + ". Остаётся в карте, чтобы тот же спор не вести второй раз.</p>";
     }
-    // A mooted decision is dead without a successor; the status field still says «принято»,
-    // so this is the one place the pane says otherwise.
     if (mooted.length) {
       html += "<p class=\"notice warn\">Неактуально — " + mooted.map(function (id) {
         var by = byId(map, id);
@@ -1395,12 +1341,6 @@
       "<p class=\"hint\">слева — на чём держится и что осиротило; справа — что держится на нём</p></section>";
   }
 
-  // The neighbourhood: what this node declares, then what the server found pointing at it.
-  // "На этом держатся" is the answer to "what breaks if I change this" — one look, nothing missed.
-  // Only the reverse of `rests_on` and `orphaned_by` means that. The reverse of `moots` says this
-  // node is dead and the reverse of `superseded_by` that it replaced another: both are status, not
-  // dependants, and go next to the status (the «неактуально» tag, the «Заменяет» notice) — the
-  // same split the export makes.
   var HOLDS = { rests_on: true, orphaned_by: true };
   function mootedBy(n) {
     return (n.related_by || []).filter(function (r) { return r.rel === "moots"; }).map(function (r) { return r.from; });
@@ -1411,8 +1351,6 @@
     var into = edges.filter(function (e) { return e.dir === "in" && HOLDS[e.rel]; });
     var html = "<section class=\"links\" aria-label=\"Связи узла\"><h3>Связи</h3>";
     if (!edges.length) return html + "<p class=\"none\">ни с чем не связано</p></section>";
-    // Only killed or replaced something: the status notices below say so; here the honest line
-    // is that nothing depends on it.
     if (!out.length && !into.length) return html + "<p class=\"none\">ничего на этом не держится</p></section>";
     var li = function (e) {
       var t = byId(map, e.id);
@@ -1488,8 +1426,6 @@
     return html + "</ul>";
   }
 
-  // Wrap the quoted words inside the excerpt. Mirrors the server's canonicalization loosely:
-  // case-insensitive, any punctuation/whitespace between words, е≡ё, "…" splits fragments.
   function highlight(excerpt, quote) {
     var safe = esc(excerpt);
     if (!quote) return { html: safe, found: false };
@@ -1516,7 +1452,6 @@
     return { html: esc(excerpt.slice(0, a)) + "<mark>" + esc(excerpt.slice(a, b)) + "</mark>" + esc(excerpt.slice(b)), found: true };
   }
 
-  // ------------------------------------------------------------- fields and editing
   function field(n, name, label, valueHtml) {
     var editing = state.editing && state.editing.id === n.id && state.editing.field === name;
     return "<div class=\"f\" data-field=\"" + esc(name) + "\"><dt>" + esc(label) + "</dt><dd>" +
@@ -1699,7 +1634,6 @@
     });
   }
 
-  // ------------------------------------------------------------- verdict, seen, copy
   function postJson(url, body) {
     return fetch(url, {
       method: "POST",
@@ -1765,14 +1699,12 @@
     }
   }
 
-  // ------------------------------------------------------------- selection
   function select(id, scroll) {
     if (!state.map || !byId(state.map, id)) return;
     state.selected = id;
     state.editing = null;
     state.verdict = null;
     if (history.replaceState) history.replaceState(null, "", "#" + encodeURIComponent(id));
-    // The spine is re-rendered, which drops keyboard focus; put it back on the selected row.
     var hadFocus = $("spine").contains(document.activeElement);
     renderSpine(state.map);
     renderDetail(state.map);
@@ -1805,14 +1737,12 @@
     if (shown && state.map) renderTimeline(state.map);
   });
 
-  // ------------------------------------------------------------- search and filter controls
   $("filter-author").innerHTML = AUTHOR_FILTER.map(function (a) {
     return "<button type=\"button\" class=\"tog author-" + a.v + "\" data-v=\"" + a.v + "\" aria-pressed=\"false\">" + esc(a.label) + "</button>";
   }).join("");
   var search = $("search");
   search.addEventListener("input", function () {
     var q = normQuery(search.value);
-    // An id typed whole is a jump, not a filter: the list stays put and scrolls to the node.
     if (state.map && byId(state.map, q)) {
       state.filter.q = "";
       select(q, true);
@@ -1859,7 +1789,6 @@
     select(rows[j].getAttribute("data-id"), false);
   });
 
-  // ------------------------------------------------------------- top-level states
   function applyMap(map, opts) {
     var keep = !!(opts && opts.keepScroll);
     var y = window.scrollY;
@@ -1945,7 +1874,6 @@
     renderTimeline(map);
   }
 
-  // The node id in `#hash`, or "" when there is none or it is not valid percent-encoding.
   function hashId() {
     if (location.hash.length < 2) return "";
     try { return decodeURIComponent(location.hash.slice(1)); } catch (e) { return ""; }

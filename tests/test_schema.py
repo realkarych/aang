@@ -164,7 +164,6 @@ class ValidateTest(unittest.TestCase):
         m["nodes"][0]["superseded_by"] = "t1"
         m["nodes"][2]["status"] = "superseded"
         m["nodes"][2]["superseded_by"] = "d3"
-        # d1 -> t1 -> d3, no cycle
         self.assertEqual(schema.validate(m), [])
         m["nodes"][1]["status"] = "superseded"
         m["nodes"][1]["superseded_by"] = "d1"
@@ -237,7 +236,6 @@ class ValidateTest(unittest.TestCase):
         self.assertTrue(any("d1" in e for e in schema.validate(m)))
 
     def test_relates_rejects_forward_reference(self):
-        # d1 стоит в списке раньше d2, поэтому d1 -> d2 это ссылка вперёд
         m = _map([_node("d1", relates=[{"to": "d2", "rel": "rests_on"}]), _node("d2")])
         self.assertTrue(any("вперёд" in e for e in schema.validate(m)))
 
@@ -265,7 +263,6 @@ class ValidateTest(unittest.TestCase):
         self.assertEqual([], schema.validate(_map([_node("d1", added_at="2026-09-11T12:00:00Z")])))
 
     def test_relates_two_cycle_is_rejected_by_direction(self):
-        # Direction is the cycle check: one edge of any cycle must point forward.
         m = _map([_node("d1", relates=[{"to": "d2", "rel": "rests_on"}]),
                   _node("d2", relates=[{"to": "d1", "rel": "moots"}])])
         errors = schema.validate(m)
@@ -301,7 +298,6 @@ class WarningsTest(unittest.TestCase):
         self.assertEqual([], schema.warnings(_map([_node("d1", why="см. d1")])))
 
     def test_edge_on_later_node_covers_earlier_mention(self):
-        # d1 cannot carry an edge to d2 (direction rule); the edge on d2 must count for d1.
         m = _map([_node("d1", why="см. d2"), _node("d2", relates=[{"to": "d1", "rel": "moots"}])])
         self.assertEqual([], schema.warnings(m))
 
@@ -309,15 +305,10 @@ class WarningsTest(unittest.TestCase):
         ws = schema.warnings(_map([_node("d1", why="см. d2"), _node("d2")]))
         self.assertEqual(1, len(ws))
         self.assertIn("узел d1", ws[0])
-        # Two honest fixes, not one: d2 depends on d1 and carries the edge, or d1 rests on
-        # d2 and d2 belongs above it (SKILL «Backward only»).
         self.assertIn("d2 ниже по списку: связь ставится на нём, или d2 поднимается выше", ws[0])
         self.assertNotIn("связи на него нет", ws[0])
 
     def test_open_node_without_orphaned_by_is_a_warning_not_an_error(self):
-        # U8's triage files this node under «просто висит» — true only if no decision caused
-        # it, which the checker cannot read from `why`; so the remark stands until the model
-        # either names the decision or has written that there is none.
         m = _map([_node("d1"), _node("o1", kind="open", status="proposed",
                                      why="Поднято и брошено, решения за этим нет")])
         self.assertEqual([], schema.validate(m))
@@ -428,7 +419,7 @@ class TriageFieldsTest(unittest.TestCase):
     def test_decided_by_only_on_decisions(self):
         self.assertEqual([], self.errors(_node("d1", decided_by="user")))
         self.assertEqual([], self.errors(_node("d1", decided_by="agent")))
-        self.assertEqual([], self.errors(_node("d1")))  # absent is unknown, not an error
+        self.assertEqual([], self.errors(_node("d1")))
         errs = self.errors(_node("d1", decided_by="nobody"))
         self.assertTrue(any("узел d1, поле decided_by" in e for e in errs), errs)
         errs = self.errors(_node("t1", kind="tacit", decided_by="user"))
