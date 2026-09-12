@@ -512,5 +512,85 @@ class ParserTest(CliTestCase):
         self.assertIn("view", out)
 
 
+class SessionJsonInCliTest(CliTestCase):
+    def write_candidate(self, *nodes):
+        os.makedirs(os.path.join(self.root, ".aang"), exist_ok=True)
+        with open(store.candidate_path(self.root), "w", encoding="utf-8") as h:
+            json.dump(candidate(*nodes), h)
+
+    def test_merge_takes_the_transcript_from_session_json_and_says_so(self):
+        from aang import session
+        session.write(self.root, {"harness": "codex", "transcript_path": NORMAL})
+        self.write_candidate(decision("d1", "давай тогда pass@1"))
+        code, out, err = self.run_cli("merge", "--root", self.root,
+                                      "--transcript-root", os.path.join(self.root, "nowhere"))
+        self.assertEqual(0, code, err)
+        self.assertIn("из .aang/session.json", out)
+        self.assertIn("найдено: 1", out)
+
+    def test_merge_hints_gitignore_once(self):
+        self.write_candidate(decision("d1", "давай тогда pass@1"))
+        code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        self.assertIn(".gitignore", out)
+        self.assertIn("outbox.jsonl", out)
+        with open(os.path.join(self.root, ".gitignore"), "w") as h:
+            h.write(".aang/candidate.json\n.aang/session.json\n.aang/outbox.jsonl\n")
+        self.write_candidate(decision("d1", "давай тогда pass@1"))
+        code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        self.assertNotIn(".gitignore", out)
+
+    def test_merge_survives_a_gitignore_that_is_not_utf8(self):
+        with open(os.path.join(self.root, ".gitignore"), "wb") as h:
+            h.write(b"# caf\xe9\n.aang/candidate.json\n")
+        self.write_candidate(decision("d1", "давай тогда pass@1"))
+        code, out, err = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        self.assertEqual(0, code, err)
+        hints = [line for line in out.splitlines() if line.startswith("Совет:")]
+        self.assertEqual(1, len(hints), out)
+        self.assertIn(".aang/session.json", hints[0])
+        self.assertIn(".aang/outbox.jsonl", hints[0])
+        self.assertNotIn("candidate.json", hints[0])
+
+    def test_check_uses_session_json_too(self):
+        from aang import session
+        self.write_candidate(decision("d1", "давай тогда pass@1"))
+        self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
+        session.write(self.root, {"harness": "claude", "transcript_path": NORMAL})
+        code, out, _ = self.run_cli("check", "--root", self.root,
+                                    "--transcript-root", os.path.join(self.root, "nowhere"))
+        self.assertEqual(0, code, out)
+
+
+class ViewReuseTest(CliTestCase):
+    def test_second_view_on_the_same_root_prints_the_running_url(self):
+        import threading
+        from aang import server
+        store.save(self.root, candidate())
+        srv = server.make_server(self.root, 0,
+                                 server.TranscriptSource(path=NORMAL, roots=[], root=self.root))
+        port = srv.server_address[1]
+        thread = threading.Thread(target=srv.serve_forever, kwargs={"poll_interval": 0.02}, daemon=True)
+        thread.start()
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        code, out, err = self.run_cli("view", "--root", self.root, "--port", str(port))
+        self.assertEqual(0, code, err)
+        self.assertIn("уже запущен", out)
+        self.assertIn("http://127.0.0.1:%d/" % port, out)
+
+    def test_port_held_by_someone_else_is_still_an_error(self):
+        import socket
+        other = tempfile.mkdtemp(prefix="aang-other-")
+        self.addCleanup(shutil.rmtree, other, True)
+        sock = socket.socket()
+        sock.bind(("127.0.0.1", 0))
+        sock.listen(1)
+        self.addCleanup(sock.close)
+        code, out, err = self.run_cli("view", "--root", self.root,
+                                      "--port", str(sock.getsockname()[1]))
+        self.assertEqual(1, code)
+        self.assertIn("порт", err.lower())
+
+
 if __name__ == "__main__":
     unittest.main()
