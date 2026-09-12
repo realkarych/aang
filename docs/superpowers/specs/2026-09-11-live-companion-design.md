@@ -37,8 +37,9 @@
   Продолжить ход из `Stop`: Claude Code — `{"hookSpecificOutput": {"hookEventName": "Stop",
   "continueConversation": true, "continueReason": "…"}}`, Codex — `{"decision": "block",
   "reason": "…"}`. Claude Code дополнительно даёт в `Stop` поля `turn_number` и
-  `stop_hook_active`; у Claude Code есть предохранитель: не больше 8 продолжений подряд на один
-  промпт.
+  `stop_hook_active` — последний равен `true`, когда ход продолжается по требованию самого
+  stop-хука, и `false` (или отсутствует) на обычной остановке; у Claude Code есть предохранитель:
+  не больше 8 продолжений подряд на один промпт. У Codex поле то же и значит то же.
 - **Транскрипт Codex**: `~/.codex/sessions/ГГГГ/ММ/ДД/rollout-<ts>-<session_id>.jsonl`. Первая
   строка — `{"type": "session_meta", "payload": {"id": …, "cwd": …}}`. Реплики чисто читаются из
   `{"type": "event_msg", "payload": {"type": "item_completed", "item": {"type": "UserMessage" |
@@ -210,7 +211,8 @@
 
 - `user_turns_since ≥ 5` **или** (`minutes_since ≥ 15` и `user_turns_since ≥ 1`);
 - последний ход транскрипта `> last_nudge_turn` (не пинать дважды на одном месте);
-- Claude Code: `stop_hook_active` не `false`;
+- `stop_hook_active` не `true` — иначе это уже продолжение по хуку, и второй пинок зациклил бы
+  сессию;
 - `candidate.json` не существует (модель ещё в процессе прошлого обновления — не мешать).
 
 Пороги читаются из `.aang/config.json` (`{"nudge_turns": 5, "nudge_minutes": 15}`), если файл
@@ -412,7 +414,7 @@ SVG-лента между шапкой и списком, высота ~110 px, 
 - `store`: `merge` сохраняет `seen_at`, выкидывает `seen_at`/`related_by`/`cell` из кандидата,
   переносит `decided_by`/`triage`/`rejected`; экспорт с ячейками.
 - `hook`: все три события × две среды; форма ответов; `session.json`; пинок при 5 ходах и при
-  15 минутах, отсутствие пинка при `last_nudge_turn`, при `stop_hook_active: false`, при
+  15 минутах, отсутствие пинка при `last_nudge_turn`, при `stop_hook_active: true`, при
   существующем `candidate.json`; outbox подмешивается и очищается только после вывода; дейксис
   только по существующим id, не больше пяти; отсутствие карты — пустой stdout, код 0; битый
   stdin — код 0.

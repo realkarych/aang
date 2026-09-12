@@ -173,12 +173,13 @@ class ViewerStringsTest(ServerTestCase):
 
     def test_index_carries_the_relation_vocabulary(self):
         """Search, neighbourhood, coverage and triage words; and every relation label the export
-        uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed."""
+        uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed.
+        «Окрестность» heads the mini-graph over the list; the two strings after it are the
+        lines that read its sides."""
         page = self.request("GET", "/")[2].decode("utf-8")
         text = self.viewer_text()
         for word in ("скрыто", "ни с чем не связано", "На этом держатся", "покрыто до хода",
                      "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое",
-                     # the mini-graph over the list: its heading, and the line that reads it
                      "Окрестность", "слева — на чём держится и что осиротило",
                      "справа — что держится на нём",
                      # the reverse of `moots` is a status flag, as in the export, not a dependant
@@ -777,6 +778,15 @@ class SessionFileSourceTest(unittest.TestCase):
         source.turns()
         self.assertEqual(NORMAL, source.path)
 
+    def test_explicit_session_id_still_wins_over_session_json(self):
+        from aang import session
+        store.save(self.root, sample_map())
+        session.write(self.root, {"transcript_path": NORMAL})
+        source = server.TranscriptSource(session_id="aaaa1111-0000-0000-0000-000000000001",
+                                         roots=[os.path.join(FIXTURES, "projects")], root=self.root)
+        source.turns()
+        self.assertTrue(source.path and source.path.endswith("aaaa1111-0000-0000-0000-000000000001.jsonl"))
+
     def test_stale_session_json_falls_back_to_lookup(self):
         from aang import session
         store.save(self.root, sample_map())
@@ -837,6 +847,18 @@ class VerdictRouteTest(ServerTestCase):
         status, _, _ = self.request("POST", "/api/node/d1/verdict", {"verdict": "rejected"}, origin="http://evil.example")
         self.assertEqual(403, status)
         self.assertEqual("accepted", [n for n in store.load(self.root)["nodes"] if n["id"] == "d1"][0]["status"])
+
+    def test_unwritable_outbox_is_500_and_says_the_map_was_saved(self):
+        """A directory where the outbox file belongs: the append fails after the save.
+
+        The two writes have already parted ways by then, so the answer says which one
+        landed rather than pretending the verdict never happened.
+        """
+        os.makedirs(os.path.join(store.map_dir(self.root), "outbox.jsonl"))
+        status, _, data = self.request("POST", "/api/node/d1/verdict", {"verdict": "rejected", "text": "нет"})
+        self.assertEqual(500, status, data)
+        self.assertIn("карта сохранена", json.loads(data)["errors"][0])
+        self.assertEqual("rejected", [n for n in store.load(self.root)["nodes"] if n["id"] == "d1"][0]["status"])
 
 
 class SeenRouteTest(ServerTestCase):

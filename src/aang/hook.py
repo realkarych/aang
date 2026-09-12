@@ -161,8 +161,14 @@ def _node_block(n):  # type: (Dict[str, Any]) -> str
 
 
 def _stop(root, payload, harness, now):  # type: (str, Dict[str, Any], str, str) -> Optional[Dict[str, Any]]
-    """Claude Code sends `stop_hook_active: false` when the turn already ended by itself."""
-    if harness == "claude" and payload.get("stop_hook_active") is False:
+    """Nudge on an ordinary stop; stay out of the way of one already under way.
+
+    Both harnesses send `stop_hook_active: true` when the turn is only continuing
+    because a stop hook asked for it. Nudging there would answer our own nudge and
+    spin the session, so true is the one value that buys silence; an ordinary stop
+    sends false or nothing at all.
+    """
+    if payload.get("stop_hook_active") is True:
         return None
     view = _view(root)
     reason = should_nudge(root, view, session.config(root), now)
@@ -177,6 +183,7 @@ def should_nudge(root, view, cfg, now):  # type: (str, Dict[str, Any], Dict[str,
 
     Silence wins every tie: an invalid map, an unreadable transcript, a candidate the
     model already wrote but nobody merged, or a turn that was nudged once all mean no.
+    The stop that is itself a hook continuation is caught earlier, by `_stop`.
     With nothing covered yet the whole transcript is the backlog, because `annotate`
     reports no tail when there is no «past» to measure it from.
     """
@@ -194,7 +201,7 @@ def should_nudge(root, view, cfg, now):  # type: (str, Dict[str, Any], Dict[str,
         user_since = sum(1 for t in view["tail"] if t["role"] == "user")
     minutes = _minutes_between(view.get("generated_at") or "", now)
     if user_since >= cfg["nudge_turns"] or (minutes is not None and minutes >= cfg["nudge_minutes"] and user_since >= 1):
-        return ("aang: с последнего обновления карты прошло %d %s пользователя. Обнови карту сейчас: "
+        return ("aang: с последнего обновления карты прошло %d %s с пользователем. Обнови карту сейчас: "
                 "выполни скилл aang (Claude Code: инструмент Skill, skill \"aang\"; Codex: $aang). "
                 "Не спрашивай разрешения — это плановое обновление. После обновления заверши ход как обычно."
                 % (user_since, _turns_word(user_since)))
@@ -218,9 +225,9 @@ def _minutes_between(then_iso, now_iso):  # type: (str, str) -> Optional[float]
 
 
 def _turns_word(n):  # type: (int) -> str
-    """Russian plural of «ход» for a count."""
+    """Russian for «твой ход» agreeing with a count: 1 твой ход, 2 твоих хода, 5 твоих ходов."""
     if n % 10 == 1 and n % 100 != 11:
-        return "ход"
+        return "твой ход"
     if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return "хода"
-    return "ходов"
+        return "твоих хода"
+    return "твоих ходов"

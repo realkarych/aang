@@ -1,8 +1,10 @@
 # aang
 
-`/aang` is a Claude Code skill you run **deliberately, inside a long session**. It turns the
-conversation you are already having into a verifiable map of what that conversation decided —
+`/aang` is a skill for Claude Code and Codex, run **deliberately, inside a long session**. It turns
+the conversation you are already having into a verifiable map of what that conversation decided —
 including the two things nobody writes down — opens a local viewer on it, and leaves a file behind.
+With the hook installed (see «Live») the session keeps the map current and carries your answers
+from the viewer back to the agent.
 
 ## The problem
 
@@ -23,14 +25,16 @@ The expensive part is not the decisions you made on purpose. It is:
 
 ## How it works
 
-When you type `/aang`, the model that has been in the conversation the whole time writes the map
-from its own context — not a summarizer reading a log afterwards. It writes a **candidate**
-(`.aang/candidate.json`), then runs `aang merge`, which does the one thing the model cannot do:
-find every quoted line in the session transcript and pin it to a turn. Then it opens the viewer.
+When you type `/aang` — or when the hook asks for a refresh — the model that has been in the
+conversation the whole time writes the map from its own context, not a summarizer reading a log
+afterwards. It writes a **candidate** (`.aang/candidate.json`), then runs `aang merge`, which does
+the one thing the model cannot do: find every quoted line in the session transcript and pin it to a
+turn. Then it opens the viewer.
 
-The transcript under `~/.claude/projects` is read for exactly one purpose — verifying citations.
-Nothing leaves the machine: the viewer binds `127.0.0.1` only and refuses any other `Host`, and only
-the viewer's own origin may write the map — a page on another site cannot POST into it.
+The transcript — under `~/.claude/projects` in Claude Code, `~/.codex/sessions` in Codex — is read
+for exactly one purpose: verifying citations. Nothing leaves the machine: the viewer binds
+`127.0.0.1` only and refuses any other `Host`, and only the viewer's own origin may write the map —
+a page on another site cannot POST into it.
 
 ## Install
 
@@ -40,6 +44,8 @@ Python 3.9, standard library only. No dependencies, no build.
 git clone <this repo> ~/src/aang
 ln -s ~/src/aang/bin/aang ~/.local/bin/aang            # `aang` on PATH (any directory on PATH works)
 ln -s ~/src/aang/.claude/skills/aang ~/.claude/skills/aang   # `/aang` available in every project
+mkdir -p ~/.agents/skills && ln -s ~/src/aang/.claude/skills/aang ~/.agents/skills/aang   # `$aang` in Codex
+aang install                                           # live updates: hooks for Claude Code and Codex
 aang --help                                            # proves `~/.local/bin` is on PATH
 ```
 
@@ -51,7 +57,8 @@ Inside this repository the skill is already picked up from `.claude/skills/aang/
 
 ## Use
 
-In a Claude Code session, when enough has happened to be worth mapping:
+In a session, when enough has happened to be worth mapping — `/aang` in Claude Code, `$aang` in
+Codex:
 
 ```
 /aang
@@ -61,18 +68,48 @@ The model writes the candidate, merges it, checks it, starts the viewer and give
 (`http://127.0.0.1:8790/`). Run it again later in the same session: the map is updated, not
 replaced — your hand edits stay, decisions that changed are superseded rather than rewritten.
 
-### The four commands
+### The commands
 
-All take `--root DIR` (where `.aang/` lives, default `.`), and `--session ID`,
-`--transcript PATH`, `--transcript-root DIR` to say which transcript to check against (default: the
-session id recorded in the map, else the newest transcript under `~/.claude/projects`).
+The four that work on a map take `--root DIR` (where `.aang/` lives, default `.`), and
+`--transcript PATH`, `--session ID`, `--transcript-root DIR` to say which transcript to check
+against. Either explicit flag wins outright; with neither, the transcript is the one
+`.aang/session.json` names — the hook writes it — else the session id recorded in the map, else
+the newest transcript under `~/.claude/projects` and `~/.codex/sessions`. `hook` and `install` take neither: the hook is told the project by the
+harness, and `install` works on your home directory.
 
 | command | what it does |
 |---|---|
-| `aang merge [--candidate PATH] [--keep]` | Validate `.aang/candidate.json`, resolve every quote to a turn, fold it into `.aang/map.json` preserving hand edits, delete the candidate. Exit 1 and nothing written when the candidate is invalid. A quote that is not found is saved with `turn: null` — the node stays, marked unverified. |
+| `aang merge [--candidate PATH] [--keep]` | Validate `.aang/candidate.json`, resolve every quote to a turn, fold it into `.aang/map.json` preserving hand edits, delete the candidate. Exit 1 and nothing written when the candidate is invalid. A quote that is not found is saved with `turn: null` — the node stays, marked unverified. Prints which transcript it read and how it knew: `из .aang/session.json`, `по --transcript`, `по --session`, or `самый свежий`. |
 | `aang check` | Validate the map and resolve every citation; print ✓/✗ per node and per quote with the reason, △ for a node with no citations at all. **Exit 1** when the map is invalid, any citation fails, or the transcript cannot be found. After the verdict, remarks (△) for node ids mentioned in prose with no edge to them — a nudge, never a failure. This is the command a human trusts. |
-| `aang view [--port 8790]` | Serve the viewer on `127.0.0.1` until Ctrl-C. |
-| `aang export [--out docs/decisions.md]` | Write the Markdown decision record — the human copy that gets committed. Superseded decisions kept and marked; unverified nodes marked. |
+| `aang view [--port 8790]` | Serve the viewer on `127.0.0.1` until Ctrl-C. When the port is already held by an `aang view` on the same map, it prints `уже запущен` with that URL and exits 0 instead of starting a second server. |
+| `aang export [--out docs/decisions.md]` | Write the Markdown decision record — the human copy that gets committed. Superseded decisions kept and marked; unverified nodes marked. Grouped by the viewer's cells. |
+| `aang hook` | Called by the harness on `SessionStart`, `UserPromptSubmit` and `Stop`; reads the event as JSON on stdin. Not for humans. Always exits 0 and says nothing when there is nothing to say, so a broken aang cannot break a session. |
+| `aang install [--claude] [--codex] [--print]` | Register `aang hook` in `~/.claude/settings.json` and `~/.codex/hooks.json` for those three events, idempotently: an aang entry that is already there is left alone, and so is everyone else's. Without a flag, every harness whose directory exists. `--print` shows the resulting JSON and writes nothing. |
+
+## Live
+
+`aang install` connects `aang hook` to three events; each of them records which transcript this
+session is writing into `.aang/session.json`, so `merge`, `check` and the viewer stop guessing. In
+a project with no `.aang/map.json` the hook does nothing at all — it starts at the first event
+after `/aang` has written a map — which is what makes installing it once, globally, safe. On
+`UserPromptSubmit` the hook adds to your prompt whatever the viewer has to say — the verdicts you
+pressed since the last turn, and, when you name a node by id («что с d4?»), that node in full:
+question, status, author, its relations and what rests on it. On `Stop` it asks the agent to
+refresh the map once it has fallen behind — five of your turns past the last one the map cites, or
+fifteen minutes and at least one turn — and never twice at the same point in the transcript;
+`.aang/config.json` (`{"nudge_turns": 5, "nudge_minutes": 15}`) changes those two numbers, and
+there is no command for it.
+
+In the viewer every node sits in a cell — Входящее, Ресерч, Обсудить, Подтверждено, Отвергнуто,
+then the tacit values, the open questions and whatever is none of those — and carries the verdicts
+that apply to it, **подтвердить · в ресерч · обсудить · отвергнуть**, with an optional comment:
+pressing one edits the map at once and writes a line to `.aang/outbox.jsonl`, which the hook hands
+to the agent with your next prompt. The page follows the files by itself, so a merge, a verdict or
+a new turn in the transcript redraws it without losing your selection, your scroll or a half-typed
+edit.
+`.aang/map.json` is the record and belongs in git; `.aang/session.json`, `.aang/outbox.jsonl` and
+`.aang/candidate.json` are this machine's working state and belong in `.gitignore` — `merge` says
+so in one line while they are not there, and never edits the file itself.
 
 ## The map
 
@@ -89,6 +126,9 @@ session id recorded in the map, else the newest transcript under `~/.claude/proj
       "id": "d1",
       "kind": "decision",
       "status": "accepted",
+      "decided_by": "user",
+      "triage": null,
+      "seen_at": null,
       "superseded_by": null,
       "question": "Чем мерить качество прогона?",
       "decision": "pass@1 на отложенном наборе",
@@ -113,10 +153,23 @@ Three kinds of node:
 - **`open`** — a question nobody answered, or a consequence of a decision nobody came back to.
   `decision` is empty; `relates` names the decision that orphaned it, or `why` says nothing did.
 
-Statuses: `accepted`, `proposed`, `superseded`. **A decision is never edited.** When a conclusion
-changes, a new node is added and the old one gets `status: superseded` and `superseded_by: <id>`;
-it stays in the map, struck through, next to what replaced it — so the next reader sees the
-argument was had, and does not have it again.
+Statuses: `accepted`, `proposed`, `superseded`, `rejected`. `rejected` is the one the user pressed
+«отвергнуть» on, or said no to: the node stays in the map with the reason in `against`, because a
+record of what was turned down is what stops the next session from proposing it again. An `open`
+node can be neither `accepted` nor `rejected` — answering it makes it a decision.
+
+Three more fields carry state around the ADR text. `decided_by` is `user` or `agent`, on a
+`decision` and nowhere else; absent means «unknown», and the viewer shows «решил: ?» rather than
+blame the agent for it. `triage` is `research` or `discuss` — «under question» — and is valid only
+on a `proposed` decision or an `open` node. `seen_at` is the server's stamp of when you last
+pressed «видел» on a node: nothing else writes it, `merge` keeps it as it keeps `added_at`, and the
+export leaves it out. From these, and from `kind`, the viewer derives each node's **cell** — the
+group it is filed under, Входящее first, as «Live» lists them — and the export groups by the same
+rule. The cell is a rule, never a stored field.
+
+**A decision is never edited.** When a conclusion changes, a new node is added and the old one gets
+`status: superseded` and `superseded_by: <id>`; it stays in the map, struck through, next to what
+replaced it — so the next reader sees the argument was had, and does not have it again.
 
 Relations between nodes are edges, not sentences. A node's `relates` holds up to three
 `{"to": <id>, "rel": ...}` entries, each pointing at a node **earlier in the list** — so an edge
@@ -197,6 +250,9 @@ Never edit a decision's conclusion in place. Add the new decision and supersede 
 |---|---|
 | `.aang/map.json` | the map — machine copy, hand-editable |
 | `.aang/candidate.json` | what the model wrote this run; consumed by `merge` |
+| `.aang/session.json` | which transcript this session writes — the hook writes it, `merge`, `check` and `view` read it |
+| `.aang/outbox.jsonl` | the verdicts you pressed in the viewer, one per line, until the hook hands them to the agent |
+| `.aang/config.json` | yours, optional: `nudge_turns` and `nudge_minutes` for the `Stop` hook |
 | `docs/decisions.md` | `aang export` — the human copy to commit |
 | `.claude/skills/aang/SKILL.md` | the skill — the prompt that writes the map |
 | `docs/spec.md`, `docs/plan.md` | why it is shaped this way |
