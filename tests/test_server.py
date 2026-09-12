@@ -710,5 +710,75 @@ class ViewOverHttpHasNewKeysTest(ServerTestCase):
         self.assertTrue(all("cell" in n for n in view["nodes"]))
 
 
+class VerdictRouteTest(ServerTestCase):
+    def outbox(self):
+        from aang import session
+        return session.outbox_read(self.root)
+
+    def test_confirm_open_with_text(self):
+        status, _, data = self.request("POST", "/api/node/o1/verdict", {"verdict": "confirmed", "text": "Платит заказчик"})
+        self.assertEqual(200, status, data)
+        view = json.loads(data)
+        o1 = _by_id(view, "o1")
+        self.assertEqual(("decision", "Платит заказчик", "accepted", "user", True, "confirmed"),
+                         (o1["kind"], o1["decision"], o1["status"], o1["decided_by"], o1["hand_edited"], o1["cell"]))
+        saved = store.load(self.root)
+        self.assertEqual("decision", [n for n in saved["nodes"] if n["id"] == "o1"][0]["kind"])
+        self.assertEqual([("confirmed", "o1", "Платит заказчик")], [(e["kind"], e["node"], e["text"]) for e in self.outbox()])
+
+    def test_confirm_open_without_text_is_422_and_writes_nothing(self):
+        status, _, data = self.request("POST", "/api/node/o1/verdict", {"verdict": "confirmed", "text": ""})
+        self.assertEqual(422, status, data)
+        self.assertIn("ответ", json.loads(data)["errors"][0])
+        self.assertEqual("open", [n for n in store.load(self.root)["nodes"] if n["id"] == "o1"][0]["kind"])
+        self.assertEqual([], self.outbox())
+
+    def test_reject_and_research(self):
+        status, _, data = self.request("POST", "/api/node/d1/verdict", {"verdict": "rejected", "text": "нет"})
+        self.assertEqual(200, status, data)
+        d1 = _by_id(json.loads(data), "d1")
+        self.assertEqual(("rejected", ["нет"], "rejected"), (d1["status"], d1["against"], d1["cell"]))
+        status, _, data = self.request("POST", "/api/node/d2/verdict", {"verdict": "research"})
+        self.assertEqual(200, status, data)
+        d2 = _by_id(json.loads(data), "d2")
+        self.assertEqual(("proposed", "research", "research"), (d2["status"], d2["triage"], d2["cell"]))
+        self.assertEqual(["rejected", "research"], [e["kind"] for e in self.outbox()])
+
+    def test_bad_bodies_and_unknown_node(self):
+        self.assertEqual(400, self.request("POST", "/api/node/d1/verdict", {"text": "x"})[0])
+        self.assertEqual(422, self.request("POST", "/api/node/d1/verdict", {"verdict": "maybe"})[0])
+        self.assertEqual(404, self.request("POST", "/api/node/zz/verdict", {"verdict": "rejected"})[0])
+        self.assertEqual([], self.outbox())
+
+    def test_cross_site_verdict_is_refused(self):
+        status, _, _ = self.request("POST", "/api/node/d1/verdict", {"verdict": "rejected"}, origin="http://evil.example")
+        self.assertEqual(403, status)
+        self.assertEqual("accepted", [n for n in store.load(self.root)["nodes"] if n["id"] == "d1"][0]["status"])
+
+
+class SeenRouteTest(ServerTestCase):
+    def test_seen_stamps_without_hand_edit_or_outbox(self):
+        from aang import session
+        status, _, data = self.request("POST", "/api/node/o1/seen", {})
+        self.assertEqual(200, status, data)
+        o1 = _by_id(json.loads(data), "o1")
+        self.assertRegex(o1["seen_at"], r"Z$")
+        self.assertFalse(o1["hand_edited"])
+        self.assertEqual("hanging", o1["cell"])
+        self.assertEqual([], session.outbox_read(self.root))
+
+    def test_unknown_node_404(self):
+        self.assertEqual(404, self.request("POST", "/api/node/zz/seen", {})[0])
+
+
+class EditNewFieldsTest(ServerTestCase):
+    def test_decided_by_and_triage_are_editable(self):
+        status, _, data = self.request("POST", "/api/node/d1", {"decided_by": "agent", "status": "proposed", "triage": "discuss"})
+        self.assertEqual(200, status, data)
+        self.assertEqual("discuss", _by_id(json.loads(data), "d1")["cell"])
+        status, _, data = self.request("POST", "/api/node/o1", {"decided_by": "user"})
+        self.assertEqual(422, status, data)
+
+
 if __name__ == "__main__":
     unittest.main()

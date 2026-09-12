@@ -11,11 +11,19 @@ check alone does not stop a page on any other site from sending a `text/plain` P
 stamped `hand_edited: true`, which regeneration then preserves.
 
 Routes:
-  GET  /                 ui/index.html
-  GET  /api/map          the map, every citation resolved, per-node `verified`,
-                         `related_by` and `cell`, top-level `coverage`, `warnings`,
-                         `tail`, `hook` and `root` (see `annotate`)
-  POST /api/node/<id>    {"field": value, ...} → edit, `hand_edited: true`, save, return the map
+  GET  /                         ui/index.html
+  GET  /api/map                  the map, every citation resolved, per-node `verified`,
+                                 `related_by` and `cell`, top-level `coverage`, `warnings`,
+                                 `tail`, `hook` and `root` (see `annotate`)
+  POST /api/node/<id>            {"field": value, ...} → edit, `hand_edited: true`, save,
+                                 return the map
+  POST /api/node/<id>/verdict    {"verdict": ..., "text": ...} → `triage.apply_verdict`, save,
+                                 append the verdict to the outbox, return the map
+  POST /api/node/<id>/seen       {} → `seen_at` = now, save, return the map; not a hand edit
+                                 and nothing for the agent to pick up
+
+Every POST answers with the whole map, so the viewer never has to merge a patch into
+what it already shows.
 """
 
 import json
@@ -39,7 +47,7 @@ TAIL_TEXT_CAP = 200
 # corrects like any other field; a bad edge (wrong vocabulary, forward reference, missing
 # target, over the cap) is refused by the validation every edit passes through, with 422.
 EDITABLE_FIELDS = ("kind", "status", "superseded_by", "question", "decision", "why",
-                   "against", "consequence", "cites", "relates")
+                   "against", "consequence", "cites", "relates", "decided_by", "triage")
 
 _UI_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
                         "ui", "index.html")
@@ -334,23 +342,43 @@ class Handler(BaseHTTPRequestHandler):
         if not path.startswith("/api/node/"):
             self._text(404, "Нет такого пути: %s" % path)
             return
-        node_id = unquote(path[len("/api/node/"):])
+        rest = unquote(path[len("/api/node/"):])
+        parts = rest.split("/")
+        node_id = parts[0]
+        action = parts[1] if len(parts) == 2 else ("" if len(parts) == 1 else None)
+        if action is None or not node_id:
+            self._text(404, "Нет такого пути: %s" % path)
+            return
         body = self._read_body()
         if body is None:
             return
         try:
-            edit = json.loads(body.decode("utf-8"))
+            payload = json.loads(body.decode("utf-8")) if body else {}
         except (ValueError, UnicodeDecodeError):
             self._json(400, {"errors": ["тело запроса — не JSON"]})
             return
-        if not isinstance(edit, dict) or not edit:
-            self._json(400, {"errors": ["ожидался объект {\"поле\": значение, …}"]})
+        if not isinstance(payload, dict):
+            self._json(400, {"errors": ["ожидался объект JSON"]})
             return
-        unknown = [k for k in edit if k not in EDITABLE_FIELDS]
-        if unknown:
-            self._json(400, {"errors": ["поле нельзя менять через API: %s" % ", ".join(sorted(unknown))]})
-            return
+        if action == "":
+            self._post_edit(node_id, payload)
+        elif action == "verdict":
+            self._post_verdict(node_id, payload)
+        elif action == "seen":
+            self._post_seen(node_id)
+        else:
+            self._text(404, "Нет такого пути: %s" % path)
 
+    def _mutate(self, node_id, change, after_save=None):
+        # type: (str, Any, Any) -> None
+        """Load under the write lock, apply `change(node) -> Optional[str]`, validate, save,
+        run `after_save(node)`, answer with the view.
+
+        Errors: 404 unknown node, 409 a map that was already invalid before the change
+        (the file is a human's to fix, not ours to overwrite), 422 a change refused by the
+        verdict rule or by the schema, 500 a save that failed. Nothing reaches the disk —
+        neither the map nor the outbox — unless the whole chain succeeded.
+        """
         root = self.server.root  # type: ignore[attr-defined]
         with self.server.write_lock:  # type: ignore[attr-defined]
             map_dict = store.load(root)
@@ -363,8 +391,10 @@ class Handler(BaseHTTPRequestHandler):
             if before:
                 self._json(409, {"errors": ["карта невалидна, сначала исправьте файл .aang/map.json"] + before})
                 return
-            node.update(edit)
-            node["hand_edited"] = True
+            refused = change(node)
+            if refused:
+                self._json(422, {"errors": [refused]})
+                return
             errors = schema.validate(schema.normalize(map_dict))
             if errors:
                 self._json(422, {"errors": errors})
@@ -374,7 +404,46 @@ class Handler(BaseHTTPRequestHandler):
             except OSError as exc:
                 self._json(500, {"errors": ["не удалось сохранить карту: %s" % exc]})
                 return
+            if after_save is not None:
+                after_save(node)
         self._json(200, self._view(map_dict))
+
+    def _post_edit(self, node_id, edit):  # type: (str, Dict[str, Any]) -> None
+        """A human's correction of any field the viewer may touch — stamped `hand_edited`."""
+        if not edit:
+            self._json(400, {"errors": ["ожидался объект {\"поле\": значение, …}"]})
+            return
+        unknown = [k for k in edit if k not in EDITABLE_FIELDS]
+        if unknown:
+            self._json(400, {"errors": ["поле нельзя менять через API: %s" % ", ".join(sorted(unknown))]})
+            return
+
+        def apply_edit(node):  # type: (Dict[str, Any]) -> Optional[str]
+            node.update(edit)
+            node["hand_edited"] = True
+            return None
+
+        self._mutate(node_id, apply_edit)
+
+    def _post_verdict(self, node_id, payload):  # type: (str, Dict[str, Any]) -> None
+        """A verdict from the viewer: the node changes, and the agent hears about it."""
+        verdict = payload.get("verdict")
+        text = payload.get("text") or ""
+        if not isinstance(verdict, str) or not isinstance(text, str):
+            self._json(400, {"errors": ["ожидался объект {\"verdict\": …, \"text\": …}"]})
+            return
+        root = self.server.root  # type: ignore[attr-defined]
+        self._mutate(node_id,
+                     lambda node: triage.apply_verdict(node, verdict, text),
+                     lambda node: session.outbox_append(root, verdict, node_id, text.strip()))
+
+    def _post_seen(self, node_id):  # type: (str) -> None
+        """«Я это видел» — a stamp, not an edit: no `hand_edited`, nothing for the agent."""
+        def stamp(node):  # type: (Dict[str, Any]) -> Optional[str]
+            node["seen_at"] = session.now_iso()
+            return None
+
+        self._mutate(node_id, stamp)
 
     def _read_body(self):  # type: () -> Optional[bytes]
         try:
