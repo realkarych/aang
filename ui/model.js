@@ -21,6 +21,7 @@
     { key: "rejected", title: "Отвергнуто", sub: "остаётся в записи, чтобы не предлагать снова" }
   ];
   var NAME_WORDS = 3;
+  var SPACE_RUN = /[\u0009-\u000d\u001c-\u001f\u0020\u0085\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000]+/;
   var EDGE_LABELS = { rests_on: "держится на", orphaned_by: "осиротело", moots: "обесценило", superseded_by: "заменено на" };
 
   function emptyMap() {
@@ -50,7 +51,7 @@
   }
 
   function collapse(name) {
-    return String(name).split(/\s+/).filter(Boolean).join(" ");
+    return String(name).split(SPACE_RUN).filter(Boolean).join(" ");
   }
 
   function topicKey(name) {
@@ -65,7 +66,7 @@
   }
 
   function fallbackName(n) {
-    var words = String(n.question || "").split(/\s+/).filter(Boolean);
+    var words = String(n.question || "").split(SPACE_RUN).filter(Boolean);
     if (!words.length) return String(n.id || "");
     var name = words.slice(0, NAME_WORDS).join(" ");
     return words.length > NAME_WORDS ? name + "…" : name;

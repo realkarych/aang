@@ -1199,6 +1199,23 @@ def _topic_nodes():
     ]
 
 
+def _whitespace_nodes():
+    r"""Python's `str.split()` folds U+001C-U+001F and U+0085; JS `\s` folds U+FEFF instead.
+    `schema.validate` stores any of these in a `topic`, so both spellings are reachable."""
+    def node(node_id, topic, added_at):
+        return {"id": node_id, "kind": "decision", "status": "accepted", "topic": topic,
+                "question": "Вопрос?", "decision": "да",
+                "relates": [], "superseded_by": None, "added_at": added_at}
+
+    return [
+        node("w1", "a\u0085b", "2026-09-11T10:00:00Z"),
+        node("w2", "a\u001cb", "2026-09-11T10:01:00Z"),
+        node("w3", "a b", "2026-09-11T10:02:00Z"),
+        node("w4", "c\ufeffd", "2026-09-11T10:03:00Z"),
+        node("w5", "c d", "2026-09-11T10:04:00Z"),
+    ]
+
+
 def _spelling_nodes():
     """Two components under one topic key, the group's own spelling listed between them:
     the name is the earliest-listed node that carries a topic, not the node that opened
@@ -1245,6 +1262,13 @@ class BlocksModelTest(unittest.TestCase):
         got = _model_call("M.topicsOf(%s)" % json.dumps(nodes))
         self.assertEqual(blocks.topics(nodes), got)
         self.assertEqual([{"name": "вьюер", "ids": ["a1", "b1", "a2"]}], got)
+
+    def test_topic_keys_fold_the_whitespace_python_folds(self):
+        nodes = _whitespace_nodes()
+        got = _model_call("M.topicsOf(%s)" % json.dumps(nodes))
+        self.assertEqual(blocks.topics(nodes), got)
+        self.assertEqual(["c d", "c\ufeffd", "a b"], [g["name"] for g in got])
+        self.assertEqual([["w5"], ["w4"], ["w1", "w2", "w3"]], [g["ids"] for g in got])
 
     def test_topics_nobody_named_are_called_by_the_first_words_of_the_question(self):
         nodes = [dict(n, topic=None) for n in _topic_nodes()]
