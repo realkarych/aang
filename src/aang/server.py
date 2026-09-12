@@ -12,8 +12,9 @@ stamped `hand_edited: true`, which regeneration then preserves.
 
 Routes:
   GET  /                 ui/index.html
-  GET  /api/map          the map, every citation resolved, per-node `verified` and
-                         `related_by`, top-level `coverage` and `warnings` (see `annotate`)
+  GET  /api/map          the map, every citation resolved, per-node `verified`,
+                         `related_by` and `cell`, top-level `coverage`, `warnings`,
+                         `tail`, `hook` and `root` (see `annotate`)
   POST /api/node/<id>    {"field": value, ...} → edit, `hand_edited: true`, save, return the map
 """
 
@@ -24,13 +25,14 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import unquote, urlsplit
 
-from . import schema, store, transcript
+from . import schema, session, store, transcript, triage
 
 ALLOWED_HOSTS = ("127.0.0.1", "localhost", "[::1]")
 ALLOWED_ORIGIN_SCHEME = "http://"
 BIND_HOST = "127.0.0.1"
 DEFAULT_PORT = 8790
 MAX_BODY = 1 << 20
+TAIL_TEXT_CAP = 200
 
 # Fields the viewer may change through POST. `id` is identity, `hand_edited` is set here,
 # `added_at` is aang's stamp and `related_by` is derived (U4). `relates` is content a human
@@ -48,17 +50,20 @@ _UI_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.
 class TranscriptSource(object):
     """Locates and indexes the session transcript, re-indexing only when the file changes.
 
-    `path` pins a transcript file; otherwise `session_id` (or, failing that, the newest
-    session) is looked up under `roots` (None → `~/.claude/projects`). Never raises:
-    `turns()` returns `(turns, error)` where `error` is a Russian string when the
-    transcript is missing or empty.
+    `path` pins a transcript file; otherwise the path `.aang/session.json` recorded for
+    `root` is used, and only when that is absent or stale is `session_id` (or, failing
+    that, the newest session of `root`'s own project) looked up under `roots`
+    (None → `~/.claude/projects` and `~/.codex/sessions`). Never raises: `turns()` returns
+    `(turns, error)` where `error` is a Russian string when the transcript is missing
+    or empty.
     """
 
-    def __init__(self, path=None, session_id=None, roots=None):
-        # type: (Optional[str], Optional[str], Optional[List[str]]) -> None
+    def __init__(self, path=None, session_id=None, roots=None, root=None):
+        # type: (Optional[str], Optional[str], Optional[List[str]], Optional[str]) -> None
         self.pinned = path
         self.session_id = session_id
         self.roots = roots
+        self.root = root
         self.path = None  # type: Optional[str]
         self._stamp = None  # type: Optional[Tuple[float, int]]
         self._turns = []  # type: List[Dict[str, Any]]
@@ -67,7 +72,11 @@ class TranscriptSource(object):
     def locate(self, session_id=None):  # type: (Optional[str]) -> Optional[str]
         if self.pinned:
             return self.pinned
-        return transcript.find_session(self.session_id or session_id or None, self.roots)
+        if self.root:
+            recorded = session.transcript_path(self.root)
+            if recorded:
+                return recorded
+        return transcript.find_session(self.session_id or session_id or None, self.roots, cwd=self.root)
 
     def turns(self, session_id=None):  # type: (Optional[str]) -> Tuple[List[Dict[str, Any]], Optional[str]]
         with self._lock:
@@ -94,8 +103,8 @@ class TranscriptSource(object):
 
 # ----------------------------------------------------------------------------- view
 
-def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
-    # type: (Any, List[Dict[str, Any]], Optional[str], Optional[str]) -> Dict[str, Any]
+def annotate(map_dict, turns, transcript_error=None, transcript_path=None, session_info=None, root=None):
+    # type: (Any, List[Dict[str, Any]], Optional[str], Optional[str], Optional[Dict[str, Any]], Optional[str]) -> Dict[str, Any]
     """The map as `/api/map` serves it — the one place `verified` is derived.
 
     Each citation is replaced by its resolution (`turn` filled from the quote when the
@@ -113,8 +122,16 @@ def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
     the transcript's length right now, never a stored count (spec U6). `warnings` is
     `schema.warnings` so remarks travel with the map instead of being recomputed.
 
+    `cell` on each node is `triage.cell` — derived here like `verified`, never stored.
+    `tail` is what the map does not account for yet: the turns past `covered_to`, each
+    `{"turn", "role", "text"}` with the text cut to `TAIL_TEXT_CAP`. It is empty when
+    nothing is covered (there is no «past» to show) or the transcript is unreadable.
+    `hook` reports `.aang/session.json` (`installed`, `harness`, `last_event_at`) and
+    `root` is the project the map belongs to, so the viewer can name both.
+
     An invalid map is never rendered: `errors` is non-empty and `nodes` is empty; the
-    other keys keep their shape (`coverage` with `covered_to: null`, `warnings: []`).
+    other keys keep their shape (`coverage` with `covered_to: null`, `warnings: []`,
+    `tail: []`).
     """
     map_dict = schema.normalize(json.loads(json.dumps(map_dict)))
     errors = schema.validate(map_dict)
@@ -123,12 +140,15 @@ def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
         "session_id": map_dict.get("session_id", ""),
         "generated_at": map_dict.get("generated_at", ""),
         "title": map_dict.get("title", ""),
+        "root": root,
         "transcript_path": transcript_path,
         "transcript_error": transcript_error,
         "turns": len(turns) if not transcript_error else 0,
         "errors": errors,
         "coverage": {"covered_to": None, "turns": 0},
         "warnings": [],
+        "hook": _hook_info(session_info),
+        "tail": [],
         "nodes": [],
     }
     view["coverage"]["turns"] = view["turns"]
@@ -155,9 +175,23 @@ def annotate(map_dict, turns, transcript_error=None, transcript_path=None):
                 reverse.setdefault(target, []).append({"from": node["id"], "rel": rel.get("rel", "")})
     for node in view["nodes"]:
         node["related_by"] = reverse.get(node["id"], [])
+        node["cell"] = triage.cell(node)
 
-    view["coverage"]["covered_to"] = max(covered) if covered else None
+    covered_to = max(covered) if covered else None
+    view["coverage"]["covered_to"] = covered_to
+    if covered_to is not None and not transcript_error:
+        view["tail"] = [{"turn": t["turn"], "role": t["role"],
+                         "text": (t.get("text") or "")[:TAIL_TEXT_CAP]}
+                        for t in turns if t["turn"] > covered_to]
     return view
+
+
+def _hook_info(session_info):  # type: (Optional[Dict[str, Any]]) -> Dict[str, Any]
+    """What `.aang/session.json` says about the hook: absent means it never ran."""
+    info = session_info if isinstance(session_info, dict) else None
+    return {"installed": info is not None,
+            "harness": info.get("harness") if info else None,
+            "last_event_at": info.get("last_event_at") if info else None}
 
 
 def _unresolved(cite, reason):  # type: (Dict[str, Any], str) -> Dict[str, Any]
@@ -245,9 +279,10 @@ class Handler(BaseHTTPRequestHandler):
         self._send(status, (message + "\n").encode("utf-8"), "text/plain; charset=utf-8")
 
     def _view(self, map_dict):  # type: (Dict[str, Any]) -> Dict[str, Any]
+        root = self.server.root  # type: ignore[attr-defined]
         source = self.server.transcript_source  # type: ignore[attr-defined]
         turns, error = source.turns(map_dict.get("session_id") or None)
-        return annotate(map_dict, turns, error, source.path)
+        return annotate(map_dict, turns, error, source.path, session.read(root), root)
 
     def _gate(self):  # type: () -> bool
         if not self._host_allowed():
@@ -381,5 +416,7 @@ class Server(ThreadingHTTPServer):
 def make_server(root, port=DEFAULT_PORT, transcript_source=None, ui_path=None, verbose=False):
     # type: (str, int, Optional[TranscriptSource], Optional[str], bool) -> Server
     """A server bound to 127.0.0.1:`port` (0 picks a free port). Call `serve_forever()`."""
-    source = transcript_source if transcript_source is not None else TranscriptSource()
+    source = transcript_source if transcript_source is not None else TranscriptSource(root=root)
+    if source.root is None:
+        source.root = root
     return Server((BIND_HOST, port), root, source, ui_path=ui_path, verbose=verbose)
