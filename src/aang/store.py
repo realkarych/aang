@@ -20,7 +20,7 @@ import os
 import tempfile
 from typing import Any, Dict, List, Optional
 
-from . import schema, transcript, triage
+from . import blocks, schema, transcript
 
 MAP_DIR = ".aang"
 MAP_FILE = "map.json"
@@ -350,10 +350,10 @@ REL_LABELS_BACK = {
 def export_markdown(map_dict, transcript_error=None):  # type: (Dict[str, Any], Optional[str]) -> str
     """A decision record for humans to commit: newest first, superseded kept and marked.
 
-    Sections are the triage cells in `triage.CELLS` order — the viewer's order, so the
-    committed document and the screen read the same way — and an empty cell is omitted.
-    The cell is derived here and never read off the node. "Newest" is the end of `nodes`
-    — nodes are appended in conversation order. When nodes carry `verified`
+    Sections are the three blocks of `blocks.BLOCKS`, then `###` per topic in
+    `blocks.topics` order, then one `####` per node, newest first; a superseded node prints
+    under «Решено» inside its topic, struck, next to what replaced it. "Newest" is the end
+    of `nodes` — nodes are appended in conversation order. When nodes carry `verified`
     (see server.annotate), unverified ones are marked; a missing transcript is stated.
     """
     map_dict = schema.normalize(copy.deepcopy(map_dict))
@@ -377,23 +377,34 @@ def export_markdown(map_dict, transcript_error=None):  # type: (Dict[str, Any], 
 
     nodes = [n for n in map_dict["nodes"] if isinstance(n, dict)]
     by_id = dict((n.get("id"), n) for n in nodes)
-    for key, title, subtitle in triage.CELLS:
-        group = [n for n in nodes if triage.cell(n) == key]
-        if not group:
+    groups = blocks.topics(nodes)
+    for key, title, subtitle in blocks.BLOCKS:
+        wanted = set(n.get("id") for n in nodes if _export_block(n) == key)
+        if not wanted:
             continue
         lines.append("## %s" % title)
-        if subtitle:
-            lines.append("")
-            lines.append("_%s_" % subtitle)
         lines.append("")
-        for node in reversed(group):
-            lines.extend(_node_markdown(node, by_id, transcript_error))
+        lines.append("_%s_" % subtitle)
+        lines.append("")
+        for group in groups:
+            ids = [i for i in group["ids"] if i in wanted]
+            if not ids:
+                continue
+            lines.append("### %s" % group["name"])
+            lines.append("")
+            for node_id in reversed(ids):
+                lines.extend(_node_markdown(by_id[node_id], by_id, transcript_error))
     return "\n".join(lines).rstrip("\n") + "\n"
+
+
+def _export_block(node):  # type: (Dict[str, Any]) -> str
+    """A superseded node prints under «Решено», struck, next to what replaced it."""
+    return blocks.block(node) or "decided"
 
 
 def _node_markdown(node, by_id, transcript_error=None):
     # type: (Dict[str, Any], Dict[Any, Dict[str, Any]], Optional[str]) -> List[str]
-    """One `###` section. The unverified line keeps three states apart, as the viewer
+    """One `####` section. The unverified line keeps three states apart, as the viewer
     and `check` do: nothing was searched (no transcript), nothing to search for (no
     citations), searched and not found. Only the last one may say "не найдена".
 
@@ -410,7 +421,7 @@ def _node_markdown(node, by_id, transcript_error=None):
     superseded = node.get("status") == "superseded"
     question = node.get("question") or "(без вопроса)"
     heading = "~~%s~~" % question if superseded else question
-    out.append("### %s · %s" % (node.get("id"), heading))
+    out.append("#### %s · %s" % (node.get("id"), heading))
     out.append("")
 
     relates = [r for r in (node.get("relates") or []) if isinstance(r, dict) and r.get("to")]
