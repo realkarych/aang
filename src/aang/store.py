@@ -27,11 +27,11 @@ MAP_FILE = "map.json"
 CANDIDATE_FILE = "candidate.json"
 
 CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites", "relates",
-                  "decided_by", "triage")
+                  "decided_by", "triage", "topic")
 
 VIEW_FIELDS = ("related_by", "verified", "cell")
 
-STAMP_FIELDS = ("added_at", "seen_at")
+STAMP_FIELDS = ("added_at",)
 
 
 def map_dir(root):  # type: (str) -> str
@@ -112,7 +112,7 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     Nodes match by `id`. Rules, in order:
     - A node hand-edited in `old` keeps every content field (`CONTENT_FIELDS`: `kind`,
       `question`, `decision`, `why`, `against`, `consequence`, `cites`, `decided_by`,
-      `triage`) and stays `hand_edited`,
+      `triage`, `topic`) and stays `hand_edited`,
       whether or not `new` has a node with that id. It survives even when `new` omits it.
     - One exception, and only in the superseding direction: when `new` marks a
       hand-edited node `superseded` by a node that exists in the result and the old node
@@ -142,12 +142,11 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     - `related_by`, `verified` and `cell` (`VIEW_FIELDS`) never reach the file: they are
       derived for the view and a stored copy would be read as fact by the next reader of
       `map.json` after it had gone stale.
-    - `added_at` and `seen_at` (`STAMP_FIELDS`) are aang's own stamps: always kept from
-      the stored node, never taken from a candidate. `added_at` is when the node first
-      entered the stored map, `seen_at` when you last looked at it — the model knows
-      neither, so a candidate's stamp is a guess and is dropped, like a candidate's
-      `turn`. A node new to the map gets neither here: `stamp_added_at` fills `added_at`
-      right after, and `seen_at` stays null until you actually see the node.
+    - `added_at` (`STAMP_FIELDS`) is aang's own stamp: always kept from the stored node,
+      never taken from a candidate. It is when the node first entered the stored map —
+      the model does not know that, so a candidate's stamp is a guess and is dropped,
+      like a candidate's `turn`. A node new to the map gets none here: `stamp_added_at`
+      fills `added_at` right after.
     - Order: `new`'s order; old-only survivors are inserted after their nearest surviving
       old predecessor, so they keep their place in the timeline. Then, only where a kept
       edge would point forward (the candidate put a protected node above its target),

@@ -439,18 +439,12 @@ class TriageFieldsTest(unittest.TestCase):
         errs = self.errors(_node("d1", status="superseded", superseded_by="d2", triage="research"), _node("d2"))
         self.assertTrue(any("узел d1, поле triage" in e for e in errs), errs)
 
-    def test_seen_at_is_string_or_null(self):
-        self.assertEqual([], self.errors(_node("d1", seen_at="2026-09-11T12:00:00Z")))
-        self.assertEqual([], self.errors(_node("d1", seen_at=None)))
-        errs = self.errors(_node("d1", seen_at=5))
-        self.assertTrue(any("узел d1, поле seen_at" in e for e in errs), errs)
-
     def test_normalize_fills_the_three_fields(self):
         m = schema.normalize(_map([_node("d1")]))
         n = m["nodes"][0]
         self.assertIn("decided_by", n); self.assertIsNone(n["decided_by"])
         self.assertIn("triage", n); self.assertIsNone(n["triage"])
-        self.assertIn("seen_at", n); self.assertIsNone(n["seen_at"])
+        self.assertIn("topic", n); self.assertIsNone(n["topic"])
 
     def test_user_hand_made_decision_may_have_no_cites(self):
         self.assertEqual([], self.errors(_node("d1", decided_by="user", hand_edited=True, cites=[])))
@@ -476,6 +470,28 @@ class DecidedByRemarkTest(unittest.TestCase):
         node = _node("d1", decided_by="agent")
         node["cites"] = [{"quote": "три слова тут есть", "turn": 2, "role": "user"}]
         self.assertEqual([], [w for w in schema.warnings(_map([node])) if "пользователя" in w])
+
+
+class TopicTest(unittest.TestCase):
+    def test_topic_is_a_short_string_or_null(self):
+        self.assertEqual([], schema.validate(_map([_node("d1", topic="размер PR")])))
+        self.assertEqual([], schema.validate(_map([_node("d1", topic=None)])))
+        errors = schema.validate(_map([_node("d1", topic=5)]))
+        self.assertTrue(any("поле topic" in e and "строка" in e for e in errors), errors)
+        self.assertEqual([], schema.validate(_map([_node("d1", topic="x" * schema.TOPIC_MAX)])))
+        errors = schema.validate(_map([_node("d1", topic="x" * (schema.TOPIC_MAX + 1))]))
+        self.assertTrue(any("поле topic" in e and str(schema.TOPIC_MAX) in e for e in errors), errors)
+
+    def test_normalize_fills_topic_and_blanks_an_empty_one(self):
+        m = schema.normalize(_map([_node("d1")]))
+        self.assertIsNone(m["nodes"][0]["topic"])
+        m = schema.normalize(_map([_node("d1", topic="   ")]))
+        self.assertIsNone(m["nodes"][0]["topic"])
+
+    def test_normalize_drops_seen_at(self):
+        m = schema.normalize(_map([_node("d1", seen_at="2026-09-11T12:00:00Z")]))
+        self.assertNotIn("seen_at", m["nodes"][0])
+        self.assertEqual([], schema.validate(m))
 
 
 if __name__ == "__main__":
