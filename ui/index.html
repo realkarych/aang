@@ -134,6 +134,7 @@
   .warnings ul { margin: 4px 0 0; padding-left: 20px; color: var(--ink-2); }
   .warnings li { margin: 2px 0; }
   .warnings .idc { font-family: var(--font-mono); font-size: 0.9em; }
+  .counts .cell-inbox b { color: var(--open); }
 
   /* ---------------------------------------------------------------- banners */
   .banner {
@@ -197,6 +198,7 @@
   .spine h2:first-child, .spine .arcs + h2 { border-top: 0; }
   .spine h2 small { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--ink-3); font-size: 12px; }
   .spine h2 .k { font-family: var(--font-ui); white-space: nowrap; }
+  .spine h2.cell-inbox { color: var(--open); border-top-color: var(--open); }
   .spine h2.k-tacit { color: var(--tacit); }
   .spine h2.k-open { color: var(--open); }
   .spine h2.k-decision { color: var(--decision); }
@@ -299,6 +301,10 @@
     white-space: nowrap;
   }
   .tag.status-superseded { text-decoration: line-through; }
+  .tag.status-rejected { text-decoration: line-through; color: var(--bad); }
+  .tag.author-user { color: var(--ok); border-color: var(--ok); }
+  .tag.author-agent { color: var(--decision); border-color: var(--decision); }
+  .tag.author-unknown { color: var(--ink-3); border-style: dotted; }
   .tag.status-proposed { border-style: dashed; font-style: italic; }
   .tag.mooted { color: var(--warn); border-color: var(--warn); border-style: dashed; }
   .tag.v-ok { color: var(--ok); border-color: var(--ok); background: var(--ok-bg); }
@@ -383,6 +389,8 @@
   .tog.k-decision[aria-pressed="true"] { background: var(--decision); border-color: var(--decision); }
   .tog.k-tacit[aria-pressed="true"] { background: var(--tacit); border-color: var(--tacit); }
   .tog.k-open[aria-pressed="true"] { background: var(--open); border-color: var(--open); }
+  .tog.author-user[aria-pressed="true"] { background: var(--ok); border-color: var(--ok); }
+  .tog.author-agent[aria-pressed="true"] { background: var(--decision); border-color: var(--decision); }
   .fcount { margin: 8px 0 0; font-size: 12.5px; color: var(--ink-2); }
   .fcount b { color: var(--ink); font-variant-numeric: tabular-nums; }
   .spine .empty-group.filtered { font-style: normal; }
@@ -627,7 +635,9 @@
           <button type="button" class="tog" data-v="accepted" aria-pressed="false">принято</button>
           <button type="button" class="tog" data-v="superseded" aria-pressed="false">заменено</button>
           <button type="button" class="tog" data-v="proposed" aria-pressed="false">предложено</button>
+          <button type="button" class="tog" data-v="rejected" aria-pressed="false">отвергнуто</button>
         </span>
+        <span class="fg" data-group="author" role="group" aria-label="Автор" id="filter-author"></span>
         <span class="fg" data-group="verified" role="group" aria-label="Проверенность">
           <button type="button" class="tog" data-v="yes" aria-pressed="false">проверено</button>
           <button type="button" class="tog" data-v="no" aria-pressed="false">не проверено</button>
@@ -656,18 +666,11 @@
 
   var KIND_LABEL = { decision: "решение", tacit: "неявное решение", open: "открытый вопрос" };
   var KIND_MARK = { decision: "■", tacit: "◪", open: "□" };
-  // Open nodes are triaged by the presence of an `orphaned_by` edge (U8): the orphaned come first,
-  // because a question a decision left hanging is what the tool exists for.
-  var GROUPS = [
-    { kind: "tacit", title: "Неявные решения", sub: "приняты без того, чтобы кто-то выбирал",
-      empty: "нет" },
-    { kind: "open", title: "Осиротело решениями", sub: "вопросы, которые повисли из-за принятого решения",
-      pick: function (n) { return hasRel(n, "orphaned_by"); }, empty: "ничего не осиротело — или связи не проставлены" },
-    { kind: "open", title: "Просто висит", sub: "к этому не вернулись; какое решение виновато — не названо",
-      pick: function (n) { return !hasRel(n, "orphaned_by"); }, empty: "ничего не повисло — или модель не заметила" },
-    { kind: "decision", title: "Решения", sub: "приняты намеренно; заменённые остаются", empty: "нет" }
-  ];
-  var STATUS_LABEL = { accepted: "принято", superseded: "заменено", proposed: "предложено" };
+  var M = window.AangModel;
+  var AUTHOR_LABEL = { user: "решил: вы", agent: "решил: агент", unknown: "решил: ?" };
+  var AUTHOR_FILTER = [{ v: "user", label: "мои" }, { v: "agent", label: "агента" }];
+  var COUNTED_CELLS = ["inbox", "research", "discuss", "confirmed", "rejected"];
+  var STATUS_LABEL = { accepted: "принято", superseded: "заменено", proposed: "предложено", rejected: "отвергнуто" };
   var ROLE_LABEL = { user: "человек", assistant: "модель" };
   // Same three strings as store.REL_LABELS on the Python side (the export uses them); the test
   // suite checks this page carries every one of them. `superseded_by` is the fourth relation of
@@ -680,7 +683,7 @@
   };
 
   var state = { map: null, selected: null, editing: null, openCites: {},
-                filter: { q: "", kind: [], status: [], verified: [] }, newIds: {} };
+                filter: { q: "", kind: [], status: [], verified: [], author: [] }, newIds: {} };
 
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) {
@@ -710,15 +713,16 @@
   }
 
   // ------------------------------------------------------------- ordering
-  function ordered(map) {
-    var byKind = { tacit: [], open: [], decision: [] };
-    map.nodes.forEach(function (n) { (byKind[n.kind] || byKind.decision).push(n); });
-    Object.keys(byKind).forEach(function (k) { byKind[k].reverse(); }); // newest first
-    return byKind;
+  function grouped(map) {
+    var out = {};
+    M.CELLS.forEach(function (c) { out[c.key] = []; });
+    map.nodes.forEach(function (n) { (out[n.cell] || out[M.cellOf(n)]).push(n); });
+    Object.keys(out).forEach(function (k) { out[k].reverse(); });
+    return out;
   }
   function flatOrder(map) {
-    var b = ordered(map);
-    return b.tacit.concat(b.open, b.decision);
+    var g = grouped(map);
+    return M.CELLS.reduce(function (acc, c) { return acc.concat(g[c.key]); }, []);
   }
   function byId(map, id) {
     for (var i = 0; i < map.nodes.length; i++) if (map.nodes[i].id === id) return map.nodes[i];
@@ -732,9 +736,6 @@
   }
 
   // ------------------------------------------------------------- relations
-  function hasRel(n, rel) {
-    return (n.relates || []).some(function (r) { return r.rel === rel; });
-  }
   // Every edge touching the node, both directions. `relates` is what the file declares;
   // `related_by` is the reverse index the server derived (U4). `superseded_by` lives on the old
   // node and is folded in here so the neighbourhood is the whole picture, not three quarters.
@@ -772,11 +773,12 @@
   }
   function normQuery(q) { return String(q || "").trim().toLowerCase().replace(/\s+/g, " "); }
   function filterActive(f) {
-    return !!(f.q || f.kind.length || f.status.length || f.verified.length);
+    return !!(f.q || f.kind.length || f.status.length || f.verified.length || f.author.length);
   }
   function passes(n, f) {
     if (f.kind.length && f.kind.indexOf(n.kind) < 0) return false;
     if (f.status.length && f.status.indexOf(n.status) < 0) return false;
+    if (f.author.length && f.author.indexOf(M.authorOf(n)) < 0) return false;
     if (f.verified.length && f.verified.indexOf(n.verified ? "yes" : "no") < 0) return false;
     if (f.q && searchIndex(n).indexOf(f.q) < 0) return false;
     return true;
@@ -844,19 +846,28 @@
       return;
     }
     var c = { tacit: 0, open: 0, decision: 0, superseded: 0, unverified: 0, edited: 0, fresh: 0 };
+    var cells = {};
     nodes.forEach(function (n) {
       c[n.kind] = (c[n.kind] || 0) + 1;
+      var key = n.cell || M.cellOf(n);
+      cells[key] = (cells[key] || 0) + 1;
       if (n.status === "superseded") c.superseded++;
       if (!n.verified) c.unverified++;
       if (n.hand_edited) c.edited++;
       if (state.newIds[n.id]) c.fresh++;
     });
-    var parts = [
+    var parts = [];
+    M.CELLS.forEach(function (cell) {
+      if (COUNTED_CELLS.indexOf(cell.key) < 0) return;
+      if (cell.key !== "inbox" && !cells[cell.key]) return;
+      parts.push("<span class=\"cell-count cell-" + cell.key + "\">" + esc(cell.title) + ": <b>" + (cells[cell.key] || 0) + "</b></span>");
+    });
+    parts = parts.concat([
       "<span><b>" + nodes.length + "</b> " + plural(nodes.length, "узел", "узла", "узлов") + "</span>",
       "<span><b>" + c.tacit + "</b> " + plural(c.tacit, "неявное", "неявных", "неявных") + "</span>",
       "<span><b>" + c.open + "</b> " + plural(c.open, "открытый", "открытых", "открытых") + "</span>",
       "<span><b>" + c.decision + "</b> " + plural(c.decision, "решение", "решения", "решений") + (c.superseded ? " (заменено: " + c.superseded + ")" : "") + "</span>"
-    ];
+    ]);
     if (c.unverified) {
       parts.push("<span class=\"bad-count\"><b>" + c.unverified + "</b> " + (map.transcript_error ? "не проверялось" : "не проверено") + "</span>");
     } else if (nodes.length) {
@@ -873,7 +884,7 @@
 
   // ------------------------------------------------------------- spine
   function renderSpine(map) {
-    var groups = ordered(map);
+    var groups = grouped(map);
     var f = state.filter;
     var active = filterActive(f);
     var sel = state.selected ? byId(map, state.selected) : null;
@@ -881,15 +892,16 @@
     if (sel) neighbours(sel, map).forEach(function (e) { near[e.id] = true; });
     var shown = 0;
     var html = "<svg class=\"arcs\" id=\"arcs\" aria-hidden=\"true\"></svg>";
-    GROUPS.forEach(function (g) {
-      var all = groups[g.kind].filter(function (n) { return !g.pick || g.pick(n); });
+    M.CELLS.forEach(function (c) {
+      var all = groups[c.key];
+      if (!all.length && c.key !== "inbox") return;
       var list = active ? all.filter(function (n) { return passes(n, f); }) : all;
       shown += list.length;
-      html += "<h2 class=\"k-" + g.kind + "\"><span class=\"k\">" + esc(KIND_MARK[g.kind]) + " " + esc(g.title) + "</span><small>" + esc(g.sub) + "</small></h2>";
+      html += "<h2 class=\"cell-" + c.key + "\"><span class=\"k\">" + esc(c.title) + "</span><small>" + esc(c.sub) + "</small></h2>";
       if (!list.length) {
         html += all.length
           ? "<p class=\"empty-group filtered\">скрыто фильтром: " + all.length + "</p>"
-          : "<p class=\"empty-group\">" + esc(g.empty) + "</p>";
+          : "<p class=\"empty-group\">ничего нового</p>";
         return;
       }
       html += "<ol>";
@@ -897,6 +909,7 @@
         var v = verifyState(n, map);
         var sup = n.status === "superseded";
         var isSel = state.selected === n.id;
+        var author = M.authorOf(n);
         var edges = neighbours(n, map);
         html += "<li class=\"item k-" + n.kind + (isSel ? " sel" : near[n.id] ? " near" : "") + "\" data-item=\"" + esc(n.id) + "\">" +
           "<button type=\"button\" class=\"row" + (sup ? " superseded" : "") + "\" data-id=\"" + esc(n.id) + "\"" +
@@ -915,6 +928,7 @@
             (n.kind === "open" && n.status === "proposed" ? "" :
               "<span class=\"tag status-" + esc(n.status) + "\">" + esc(STATUS_LABEL[n.status] || n.status) + (sup && n.superseded_by ? " → <span class=\"mono\">" + esc(n.superseded_by) + "</span>" : "") + "</span>") +
             (mootedBy(n).length ? "<span class=\"tag mooted\">неактуально</span>" : "") +
+            (author ? "<span class=\"tag author-" + author + "\">" + esc(AUTHOR_LABEL[author]) + "</span>" : "") +
             "<span class=\"tag " + v.cls + "\"><span aria-hidden=\"true\">" + v.glyph + "</span> " + esc(v.text) + "</span>" +
             (n.hand_edited ? "<span class=\"tag edited\">✎ правлено</span>" : "") +
             (state.newIds[n.id] ? "<span class=\"tag new\">новое</span>" : "") +
@@ -1349,6 +1363,9 @@
   });
 
   // ------------------------------------------------------------- search and filter controls
+  $("filter-author").innerHTML = AUTHOR_FILTER.map(function (a) {
+    return "<button type=\"button\" class=\"tog author-" + a.v + "\" data-v=\"" + a.v + "\" aria-pressed=\"false\">" + esc(a.label) + "</button>";
+  }).join("");
   var search = $("search");
   search.addEventListener("input", function () {
     var q = normQuery(search.value);
@@ -1382,7 +1399,7 @@
     if (state.map && !$("panes").hidden) renderSpine(state.map);
   });
   $("filter-reset").addEventListener("click", function () {
-    state.filter = { q: "", kind: [], status: [], verified: [] };
+    state.filter = { q: "", kind: [], status: [], verified: [], author: [] };
     search.value = "";
     $("filters").querySelectorAll(".tog").forEach(function (b) { b.setAttribute("aria-pressed", "false"); });
     if (state.map && !$("panes").hidden) renderSpine(state.map);
