@@ -10,7 +10,7 @@ import threading
 import time
 import unittest
 
-from aang import schema, server, store, triage
+from aang import blocks, schema, server, store, triage
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 NORMAL = os.path.join(FIXTURES, "normal.jsonl")
@@ -1161,6 +1161,163 @@ class ModelJsTest(unittest.TestCase):
             offered.update(_model_call("M.verdictButtons({kind:'%s', status:'%s'})" % (kind, status)))
         self.assertTrue(offered)
         self.assertEqual(set(), offered - set(triage.VERDICTS))
+
+
+def _grid_nodes():
+    """Every combination the block and line rules distinguish."""
+    out = []
+    i = 0
+    for kind in ("decision", "tacit", "open"):
+        for status in ("accepted", "proposed", "rejected", "superseded"):
+            for decided_by in (None, "user", "agent"):
+                for triage_value in (None, "research", "discuss"):
+                    i += 1
+                    out.append({"id": "n%d" % i, "kind": kind, "status": status, "decided_by": decided_by,
+                                "triage": triage_value, "question": "вопрос %d" % i, "decision": "решение %d" % i,
+                                "superseded_by": "n1" if status == "superseded" else None,
+                                "relates": [], "topic": None, "added_at": ""})
+    return out
+
+
+def _topic_nodes():
+    return [
+        {"id": "t1", "kind": "tacit", "status": "accepted", "topic": "Вьюер", "question": "Порт?",
+         "decision": "8790", "relates": [], "superseded_by": None, "added_at": "2026-09-11T10:00:00Z"},
+        {"id": "d1", "kind": "decision", "status": "accepted", "topic": None, "question": "Как читать?",
+         "decision": "файлы", "relates": [{"to": "t1", "rel": "rests_on"}], "superseded_by": None,
+         "added_at": "2026-09-11T11:00:00Z"},
+        {"id": "d2", "kind": "decision", "status": "superseded", "topic": None, "question": "Сколько портов?",
+         "decision": "два", "relates": [], "superseded_by": "d3", "added_at": "2026-09-11T11:00:00Z"},
+        {"id": "d3", "kind": "decision", "status": "accepted", "topic": "вьюер ", "question": "Сколько портов?",
+         "decision": "один", "relates": [], "superseded_by": None, "added_at": "2026-09-11T12:00:00Z"},
+        {"id": "o1", "kind": "open", "status": "proposed", "topic": None,
+         "question": "Кто платит за это всё?", "decision": "", "relates": [], "superseded_by": None,
+         "added_at": "2026-09-11T09:00:00Z"},
+        {"id": "d4", "kind": "decision", "status": "rejected", "topic": "модели", "question": "Sonnet?",
+         "decision": "sonnet для ревью", "relates": [{"to": "o1", "rel": "moots"}], "superseded_by": None,
+         "added_at": "2026-09-11T12:30:00Z"},
+    ]
+
+
+def _whitespace_nodes():
+    r"""Python's `str.split()` folds U+001C-U+001F and U+0085; JS `\s` folds U+FEFF instead.
+    `schema.validate` stores any of these in a `topic`, so both spellings are reachable."""
+    def node(node_id, topic, added_at):
+        return {"id": node_id, "kind": "decision", "status": "accepted", "topic": topic,
+                "question": "Вопрос?", "decision": "да",
+                "relates": [], "superseded_by": None, "added_at": added_at}
+
+    return [
+        node("w1", "a\u0085b", "2026-09-11T10:00:00Z"),
+        node("w2", "a\u001cb", "2026-09-11T10:01:00Z"),
+        node("w3", "a b", "2026-09-11T10:02:00Z"),
+        node("w4", "c\ufeffd", "2026-09-11T10:03:00Z"),
+        node("w5", "c d", "2026-09-11T10:04:00Z"),
+    ]
+
+
+def _spelling_nodes():
+    """Two components under one topic key, the group's own spelling listed between them:
+    the name is the earliest-listed node that carries a topic, not the node that opened
+    the group."""
+    return [
+        {"id": "a1", "kind": "decision", "status": "accepted", "topic": None, "question": "Первый?",
+         "decision": "да", "relates": [{"to": "a2", "rel": "rests_on"}], "superseded_by": None,
+         "added_at": "2026-09-11T10:00:00Z"},
+        {"id": "b1", "kind": "decision", "status": "accepted", "topic": "вьюер", "question": "Второй?",
+         "decision": "да", "relates": [], "superseded_by": None, "added_at": "2026-09-11T10:00:00Z"},
+        {"id": "a2", "kind": "decision", "status": "accepted", "topic": "ВЬЮЕР", "question": "Третий?",
+         "decision": "да", "relates": [], "superseded_by": None, "added_at": "2026-09-11T10:00:00Z"},
+    ]
+
+
+@unittest.skipUnless(shutil.which("node"), "node is not on PATH")
+class BlocksModelTest(unittest.TestCase):
+    """ui/model.js and src/aang/blocks.py are two copies of one rule; these keep them equal."""
+
+    def test_blocks_match_python(self):
+        self.assertEqual([list(b) for b in blocks.BLOCKS],
+                         _model_call("M.BLOCKS.map(function (b) { return [b.key, b.title, b.sub]; })"))
+
+    def test_block_of_agrees_with_python_on_a_grid(self):
+        nodes = _grid_nodes()
+        got = _model_call("%s.map(M.blockOf)" % json.dumps(nodes))
+        self.assertEqual([blocks.block(n) for n in nodes], got)
+
+    def test_line_of_agrees_with_python_on_a_grid(self):
+        nodes = _grid_nodes()
+        got = _model_call("%s.map(function (n) { var l = M.lineOf(n); return [l.glyph, l.verb, l.text]; })"
+                          % json.dumps(nodes))
+        self.assertEqual([list(blocks.line(n)) for n in nodes], got)
+
+    def test_topics_agree_with_python(self):
+        nodes = _topic_nodes()
+        got = _model_call("M.topicsOf(%s)" % json.dumps(nodes))
+        self.assertEqual(blocks.topics(nodes), got)
+        self.assertEqual(["модели", "Вьюер"], [g["name"] for g in got])
+        self.assertEqual(["o1", "d4"], got[0]["ids"])
+
+    def test_topic_name_is_the_earliest_listed_spelling_not_the_lent_one(self):
+        nodes = _spelling_nodes()
+        got = _model_call("M.topicsOf(%s)" % json.dumps(nodes))
+        self.assertEqual(blocks.topics(nodes), got)
+        self.assertEqual([{"name": "вьюер", "ids": ["a1", "b1", "a2"]}], got)
+
+    def test_topic_keys_fold_the_whitespace_python_folds(self):
+        nodes = _whitespace_nodes()
+        got = _model_call("M.topicsOf(%s)" % json.dumps(nodes))
+        self.assertEqual(blocks.topics(nodes), got)
+        self.assertEqual(["c d", "c\ufeffd", "a b"], [g["name"] for g in got])
+        self.assertEqual([["w5"], ["w4"], ["w1", "w2", "w3"]], [g["ids"] for g in got])
+
+    def test_topics_nobody_named_are_called_by_the_first_words_of_the_question(self):
+        nodes = [dict(n, topic=None) for n in _topic_nodes()]
+        got = _model_call("M.topicsOf(%s)" % json.dumps(nodes))
+        self.assertEqual(blocks.topics(nodes), got)
+        self.assertEqual(["Кто платит за…", "Сколько портов?", "Порт?"], [g["name"] for g in got])
+
+    def test_topics_agree_with_python_on_a_grid(self):
+        """The grid joins many nodes through `superseded_by`; the two union-finds must cut
+        the same components and order them the same way."""
+        nodes = _grid_nodes()
+        self.assertEqual(blocks.topics(nodes), _model_call("M.topicsOf(%s)" % json.dumps(nodes)))
+
+    def test_is_new(self):
+        self.assertEqual([False, True, False, False], _model_call(
+            "[M.isNew({added_at: '2026-09-11T10:00:00Z'}, ''), M.isNew({added_at: '2026-09-11T10:00:00Z'}, '2026-09-11T09:00:00Z'),"
+            " M.isNew({added_at: '2026-09-11T10:00:00Z'}, '2026-09-11T10:00:00Z'), M.isNew({added_at: ''}, '2026-09-11T09:00:00Z')]"))
+
+    def test_topic_layout_places_every_node_in_its_lane_and_fits_the_width(self):
+        nodes = [n for n in _topic_nodes() if n["id"] in ("t1", "d1", "d2", "d3")]
+        for width in (450, 750):
+            lay = _model_call("M.topicLayout(%s, %d)" % (json.dumps(nodes), width))
+            self.assertEqual({"t1", "d1", "d2", "d3"}, set(b["id"] for b in lay["boxes"]))
+            self.assertEqual(["decided", "open", "rejected"], [l["key"] for l in lay["lanes"]])
+            lanes = dict((l["key"], l) for l in lay["lanes"])
+            for box in lay["boxes"]:
+                self.assertGreaterEqual(box["x"], 0)
+                self.assertLessEqual(box["x"] + box["w"], width)
+                self.assertEqual("decided", box["lane"])
+                lane = lanes[box["lane"]]
+                self.assertGreaterEqual(box["y"], lane["y"])
+                self.assertLessEqual(box["y"] + box["h"], lane["y"] + lane["height"])
+            self.assertTrue([b for b in lay["boxes"] if b["id"] == "d2"][0]["struck"])
+            self.assertEqual(lay["height"], sum(l["height"] for l in lay["lanes"]))
+            self.assertGreater(lay["height"], 0)
+
+    def test_topic_layout_edges_join_boxes_and_count_the_outside(self):
+        nodes = [n for n in _topic_nodes() if n["id"] in ("t1", "d1", "d2", "d3", "d4")]
+        lay = _model_call("M.topicLayout(%s, 600)" % json.dumps(nodes))
+        boxes = dict((b["id"], b) for b in lay["boxes"])
+        edges = dict(((e["from"], e["to"]), e) for e in lay["edges"])
+        self.assertEqual({("d1", "t1"), ("d2", "d3")}, set(edges))
+        self.assertEqual("держится на", edges[("d1", "t1")]["label"])
+        self.assertEqual("заменено на", edges[("d2", "d3")]["label"])
+        e = edges[("d1", "t1")]
+        self.assertEqual((boxes["d1"]["x"] + boxes["d1"]["w"] / 2, boxes["t1"]["x"] + boxes["t1"]["w"] / 2),
+                         (e["x1"], e["x2"]))
+        self.assertEqual({"d4": 1}, lay["outside"])
+        self.assertEqual("rejected", boxes["d4"]["lane"])
 
 
 if __name__ == "__main__":
