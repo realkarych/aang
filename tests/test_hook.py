@@ -208,7 +208,7 @@ class StopTest(HookCase):
         self.assertEqual(("Stop", True), (ans["hookEventName"], ans["continueConversation"]))
         self.assertIn("обнови карту", ans["continueReason"].lower())
         self.assertIn("skill \"aang\"", ans["continueReason"])
-        self.assertIn("%d хода" % USER_TURNS_AFTER_FIRST, ans["continueReason"])
+        self.assertIn("прошло %d твоих хода с пользователем" % USER_TURNS_AFTER_FIRST, ans["continueReason"])
         self.assertEqual(TURNS, session.read(self.root)["last_nudge_turn"])
 
     def test_codex_answer_shape(self):

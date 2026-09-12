@@ -2083,7 +2083,7 @@ def should_nudge(root, view, cfg, now):  # type: (str, Dict[str, Any], Dict[str,
         sum(1 for t in view["tail"] if t["role"] == "user")
     minutes = _minutes_between(view.get("generated_at") or "", now)
     if user_since >= cfg["nudge_turns"] or (minutes is not None and minutes >= cfg["nudge_minutes"] and user_since >= 1):
-        return ("aang: с последнего обновления карты прошло %d %s пользователя. Обнови карту сейчас: "
+        return ("aang: с последнего обновления карты прошло %d %s с пользователем. Обнови карту сейчас: "
                 "выполни скилл aang (Claude Code: инструмент Skill, skill \"aang\"; Codex: $aang). "
                 "Не спрашивай разрешения — это плановое обновление. После обновления заверши ход как обычно."
                 % (user_since, _turns_word(user_since)))
@@ -2120,10 +2120,10 @@ def _minutes_between(then_iso, now_iso):  # type: (str, str) -> Optional[float]
 
 def _turns_word(n):  # type: (int) -> str
     if n % 10 == 1 and n % 100 != 11:
-        return "ход"
+        return "твой ход"
     if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14:
-        return "хода"
-    return "ходов"
+        return "твоих хода"
+    return "твоих ходов"
 ```
 
 Move `import os` to the top of the module. In `src/aang/cli.py` add the verb:
