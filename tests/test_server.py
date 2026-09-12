@@ -1,4 +1,5 @@
 import http.client
+import itertools
 import json
 import os
 import re
@@ -9,7 +10,7 @@ import threading
 import time
 import unittest
 
-from aang import server, store
+from aang import server, store, triage
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
 NORMAL = os.path.join(FIXTURES, "normal.jsonl")
@@ -192,6 +193,7 @@ class ViewerStringsTest(ServerTestCase):
 
     def test_index_is_self_contained(self):
         page = self.request("GET", "/")[2].decode("utf-8")
+        self.assertIn('src="model.js"', page)
         self.assertNotIn("http://", page)
         self.assertNotIn("https://", page)
         self.assertNotIn("overflow-x: hidden", page)  # would only mask a layout that widens the page
@@ -605,19 +607,37 @@ class ViewShapeOverHttpTest(ServerTestCase):
 
 
 def _viewer_function(name):
-    """The source of one top-level `function <name>(...) {...}` in the real ui/index.html."""
-    with open(server._UI_PATH, encoding="utf-8") as handle:
-        page = handle.read()
-    start = page.index("function %s(" % name)
-    depth = 0
-    for i in range(start, len(page)):
-        if page[i] == "{":
-            depth += 1
-        elif page[i] == "}":
-            depth -= 1
-            if depth == 0:
-                return page[start:i + 1]
-    raise AssertionError("unbalanced braces in %s" % name)
+    """The source of one top-level `function <name>(...) {...}` from ui/index.html or ui/model.js."""
+    for path in (server._UI_PATH, server._MODEL_PATH):
+        with open(path, encoding="utf-8") as handle:
+            page = handle.read()
+        start = page.find("function %s(" % name)
+        if start < 0:
+            continue
+        depth = 0
+        for i in range(start, len(page)):
+            if page[i] == "{":
+                depth += 1
+            elif page[i] == "}":
+                depth -= 1
+                if depth == 0:
+                    return page[start:i + 1]
+        raise AssertionError("unbalanced braces in %s" % name)
+    raise AssertionError("no function %s in the viewer" % name)
+
+
+def _model_call(expr):
+    """Evaluate `expr` against ui/model.js under node; return the parsed JSON result."""
+    with open(server._MODEL_PATH, encoding="utf-8") as handle:
+        source = handle.read()
+    script = ("var module = {exports: {}}; var window = {};\n" + source +
+              "\nvar M = module.exports; process.stdout.write(JSON.stringify(" + expr + "));")
+    done = subprocess.run(["node", "-e", script], capture_output=True, check=True)
+    return json.loads(done.stdout.decode("utf-8"))
+
+
+_TIMELINE_OPTS = "{pxPerTurn: 12, laneHeight: 28, gutter: 60, stepDown: 6}"
+_NEIGHBOURHOOD_OPTS = "{width: 320, height: 180, max: 6}"
 
 
 T1, T2, T3 = "2026-09-11T13:00:00Z", "2026-09-11T14:00:00Z", "2026-09-11T15:00:00Z"
@@ -912,6 +932,182 @@ class ModelJsRouteTest(ServerTestCase):
         else:
             self.assertEqual(404, status)
             self.assertIn("model.js".encode("utf-8"), data)
+
+
+@unittest.skipUnless(shutil.which("node"), "node not on PATH")
+class ModelJsTest(unittest.TestCase):
+    """ui/model.js is the viewer's pure half: no DOM, so node can run it and these tests can
+    hold it to the same rules the Python side follows."""
+
+    def test_cells_match_python_order(self):
+        keys = _model_call("M.CELLS.map(function (c) { return c.key; })")
+        self.assertEqual([c[0] for c in triage.CELLS], keys)
+
+    def test_cell_titles_match_python(self):
+        """The headings live once per language; a rewording on one side must not leave the
+        viewer calling a cell something the export never calls it."""
+        got = _model_call("M.CELLS.map(function (c) { return [c.key, c.title, c.sub]; })")
+        self.assertEqual([list(c) for c in triage.CELLS], got)
+
+    def test_cell_of_agrees_with_python_on_a_grid(self):
+        cases = []
+        for kind, status, decided_by, tri, seen in itertools.product(
+                ("decision", "tacit", "open"), ("accepted", "proposed", "superseded", "rejected"),
+                (None, "user", "agent"), (None, "research", "discuss"),
+                (None, "2026-09-11T11:00:00Z", "2026-09-11T13:00:00Z")):
+            cases.append({"id": "x", "kind": kind, "status": status, "decided_by": decided_by,
+                          "triage": tri, "seen_at": seen, "added_at": "2026-09-11T12:00:00Z",
+                          "relates": [{"to": "d0", "rel": "orphaned_by"}]
+                                     if kind == "open" and status == "proposed" else []})
+        got = _model_call("%s.map(M.cellOf)" % json.dumps(cases))
+        self.assertEqual([triage.cell(c) for c in cases], got)
+
+    def test_unseen_agrees_with_python(self):
+        cases = []
+        for seen, added in itertools.product((None, "", "2026-09-11T11:00:00Z", "2026-09-11T13:00:00Z"),
+                                             (None, "", "2026-09-11T12:00:00Z")):
+            cases.append({"id": "x", "seen_at": seen, "added_at": added})
+        got = _model_call("%s.map(M.isUnseen)" % json.dumps(cases))
+        self.assertEqual([triage.is_unseen(c) for c in cases], got)
+
+    def test_author_is_named_only_for_decisions(self):
+        self.assertEqual(["user", "agent", "unknown", None], _model_call(
+            "[{kind:'decision', decided_by:'user'}, {kind:'decision', decided_by:'agent'},"
+            " {kind:'decision'}, {kind:'open', decided_by:'user'}].map(M.authorOf)"))
+
+    def test_first_turn_is_the_earliest_verified_citation(self):
+        self.assertEqual([3, None, None], _model_call(
+            "[{cites:[{turn:9, ok:true}, {turn:3, ok:true}, {turn:1, ok:false}]},"
+            " {cites:[{turn:2, ok:false}]}, {cites:[]}].map(M.firstTurn)"))
+
+    def test_timeline_positions_are_a_function_of_turn_and_kind(self):
+        m = {"coverage": {"covered_to": 4, "turns": 10}, "nodes": [
+            {"id": "d1", "kind": "decision", "status": "accepted", "cites": [{"turn": 3, "ok": True}]},
+            {"id": "d2", "kind": "decision", "status": "accepted", "cites": [{"turn": 3, "ok": True}]},
+            {"id": "t1", "kind": "tacit", "status": "accepted",
+             "cites": [{"turn": 1, "ok": True}, {"turn": 9, "ok": True}]},
+            {"id": "o1", "kind": "open", "status": "proposed", "cites": []}]}
+        lay = _model_call("M.timelineLayout(%s, %s)" % (json.dumps(m), _TIMELINE_OPTS))
+        marks = dict((k["id"], k) for k in lay["marks"])
+        self.assertEqual(60 + 2 * 12, marks["d1"]["x"])
+        self.assertEqual(marks["d1"]["x"], marks["d2"]["x"])
+        self.assertEqual(marks["d1"]["y"] + 6, marks["d2"]["y"])
+        self.assertEqual(60, marks["t1"]["x"])
+        self.assertTrue(marks["o1"]["noTurn"])
+        self.assertEqual(30, marks["o1"]["x"])
+        self.assertEqual(["tacit", "open", "decision"], [lane["kind"] for lane in lay["lanes"]])
+        self.assertEqual(60 + 4 * 12, lay["coverage"]["x"])
+        self.assertEqual(60 + 10 * 12, lay["width"])
+
+    def test_a_later_map_moves_nothing_that_was_already_there(self):
+        """U9: a mark sits where its turn and kind put it, so a longer session and new nodes
+        leave every earlier mark exactly where the reader last saw it."""
+        m = {"coverage": {"covered_to": 4, "turns": 10}, "nodes": [
+            {"id": "d1", "kind": "decision", "status": "accepted", "cites": [{"turn": 3, "ok": True}]},
+            {"id": "d2", "kind": "decision", "status": "accepted", "cites": [{"turn": 3, "ok": True}]},
+            {"id": "t1", "kind": "tacit", "status": "accepted", "cites": [{"turn": 1, "ok": True}]},
+            {"id": "o1", "kind": "open", "status": "proposed", "cites": []}]}
+        lay = _model_call("M.timelineLayout(%s, %s)" % (json.dumps(m), _TIMELINE_OPTS))
+        grown = dict(m)
+        grown["coverage"] = {"covered_to": 12, "turns": 30}
+        grown["nodes"] = m["nodes"] + [{"id": "d3", "kind": "decision", "status": "accepted",
+                                        "cites": [{"turn": 20, "ok": True}]}]
+        lay2 = _model_call("M.timelineLayout(%s, %s)" % (json.dumps(grown), _TIMELINE_OPTS))
+        old = dict((k["id"], (k["x"], k["y"])) for k in lay["marks"])
+        for k in lay2["marks"]:
+            if k["id"] in old:
+                self.assertEqual(old[k["id"]], (k["x"], k["y"]), k["id"])
+
+    def test_timeline_without_coverage_says_so(self):
+        lay = _model_call("M.timelineLayout({nodes: []}, %s)" % _TIMELINE_OPTS)
+        self.assertIsNone(lay["coverage"])
+        self.assertEqual([], lay["marks"])
+
+    def test_timeline_is_wide_enough_for_a_turn_past_the_count(self):
+        m = {"coverage": {"covered_to": 2, "turns": 4}, "nodes": [
+            {"id": "d1", "kind": "decision", "status": "accepted", "cites": [{"turn": 9, "ok": True}]}]}
+        lay = _model_call("M.timelineLayout(%s, %s)" % (json.dumps(m), _TIMELINE_OPTS))
+        marks = dict((k["id"], k) for k in lay["marks"])
+        self.assertEqual(60 + 8 * 12, marks["d1"]["x"])
+        self.assertEqual(60 + 9 * 12, lay["width"])
+
+    def test_neighbourhood_layout(self):
+        m = {"nodes": [
+            {"id": "t5", "kind": "tacit", "relates": [],
+             "related_by": [{"from": "d7", "rel": "rests_on"}, {"from": "o6", "rel": "rests_on"}]},
+            {"id": "d7", "kind": "decision", "relates": [{"to": "t5", "rel": "rests_on"}],
+             "related_by": [{"from": "o6", "rel": "orphaned_by"}], "superseded_by": None},
+            {"id": "o6", "kind": "open",
+             "relates": [{"to": "d7", "rel": "orphaned_by"}, {"to": "t5", "rel": "rests_on"}], "related_by": []},
+            {"id": "d8", "kind": "decision", "relates": [], "related_by": [], "superseded_by": "d7"}]}
+        lay = _model_call("M.neighbourhoodLayout(%s, %s, %s)"
+                          % (json.dumps(m["nodes"][1]), json.dumps(m), _NEIGHBOURHOOD_OPTS))
+        self.assertEqual("d7", lay["center"]["id"])
+        self.assertEqual(["t5"], [n["id"] for n in lay["left"]])
+        self.assertEqual(["o6"], [n["id"] for n in lay["right"]])
+        self.assertEqual([], lay["top"])
+        self.assertEqual(["d8"], [n["id"] for n in lay["bottom"]])
+        self.assertEqual(0, lay["overflow"])
+        self.assertTrue(all(n["x"] < 160 for n in lay["left"]) and all(n["x"] > 160 for n in lay["right"]))
+
+    def test_neighbourhood_keeps_the_relation_of_every_edge(self):
+        """A slot without its `rel` is an unlabelled arc: the reader could not tell what holds
+        what up. What supersedes this node goes above it, what it superseded below."""
+        m = {"nodes": [
+            {"id": "t5", "kind": "tacit", "relates": [], "related_by": [{"from": "d7", "rel": "rests_on"}]},
+            {"id": "d7", "kind": "decision", "relates": [{"to": "t5", "rel": "rests_on"}],
+             "related_by": [{"from": "o6", "rel": "orphaned_by"}], "superseded_by": "d9"},
+            {"id": "d9", "kind": "decision", "relates": [], "related_by": []}]}
+        lay = _model_call("M.neighbourhoodLayout(%s, %s, %s)"
+                          % (json.dumps(m["nodes"][1]), json.dumps(m), _NEIGHBOURHOOD_OPTS))
+        self.assertEqual([("t5", "rests_on")], [(n["id"], n["rel"]) for n in lay["left"]])
+        self.assertEqual([("o6", "orphaned_by")], [(n["id"], n["rel"]) for n in lay["right"]])
+        self.assertEqual([("d9", "superseded_by")], [(n["id"], n["rel"]) for n in lay["top"]])
+
+    def test_neighbourhood_overflow(self):
+        rb = [{"from": "o%d" % i, "rel": "rests_on"} for i in range(1, 10)]
+        m = {"nodes": [{"id": "t1", "kind": "tacit", "relates": [], "related_by": rb}] +
+             [{"id": "o%d" % i, "kind": "open", "relates": [{"to": "t1", "rel": "rests_on"}],
+               "related_by": []} for i in range(1, 10)]}
+        lay = _model_call("M.neighbourhoodLayout(%s, %s, %s)"
+                          % (json.dumps(m["nodes"][0]), json.dumps(m), _NEIGHBOURHOOD_OPTS))
+        self.assertEqual(6, len(lay["right"]))
+        self.assertEqual(4, lay["overflow"])
+        self.assertEqual("+4", lay["right"][-1]["id"])
+        self.assertEqual(4, lay["right"][-1]["overflow"])
+
+    def test_neighbourhood_overflow_trims_the_sides_in_turn(self):
+        """Nine neighbours over four sides: five survive, taken from the front of each side in
+        the order the map lists them, and no one side carries the whole loss."""
+        centre = {"id": "c", "kind": "decision", "superseded_by": "s",
+                  "relates": [{"to": "l%d" % i, "rel": "rests_on"} for i in range(1, 4)],
+                  "related_by": [{"from": "r%d" % i, "rel": "rests_on"} for i in range(1, 5)]}
+        m = {"nodes": [centre, {"id": "b1", "kind": "decision", "superseded_by": "c"}]}
+        lay = _model_call("M.neighbourhoodLayout(%s, %s, %s)"
+                          % (json.dumps(centre), json.dumps(m), _NEIGHBOURHOOD_OPTS))
+        self.assertEqual(4, lay["overflow"])
+        kept = dict((side, [n["id"] for n in lay[side] if "overflow" not in n])
+                    for side in ("left", "right", "top", "bottom"))
+        self.assertEqual(5, sum(len(ids) for ids in kept.values()))
+        self.assertEqual(["l1", "l2"], kept["left"])
+        self.assertEqual(["r1", "r2", "r3"], kept["right"])
+        self.assertEqual("+4", lay["right"][-1]["id"])
+
+    def test_verdict_buttons(self):
+        self.assertEqual([], _model_call("M.verdictButtons({kind:'decision', status:'superseded'})"))
+        self.assertEqual(["confirmed"], _model_call("M.verdictButtons({kind:'decision', status:'rejected'})"))
+        self.assertEqual(["research", "discuss", "rejected"],
+                         _model_call("M.verdictButtons({kind:'decision', status:'accepted'})"))
+        self.assertEqual(["confirmed", "research", "discuss", "rejected"],
+                         _model_call("M.verdictButtons({kind:'open', status:'proposed'})"))
+
+    def test_every_offered_button_is_a_verdict_python_accepts(self):
+        offered = set()
+        for kind, status in itertools.product(("decision", "tacit", "open"),
+                                              ("accepted", "proposed", "superseded", "rejected")):
+            offered.update(_model_call("M.verdictButtons({kind:'%s', status:'%s'})" % (kind, status)))
+        self.assertTrue(offered)
+        self.assertEqual(set(), offered - set(triage.VERDICTS))
 
 
 if __name__ == "__main__":
