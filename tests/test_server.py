@@ -173,12 +173,13 @@ class ViewerStringsTest(ServerTestCase):
 
     def test_index_carries_the_relation_vocabulary(self):
         """Search, neighbourhood, coverage and triage words; and every relation label the export
-        uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed."""
+        uses, so the Python and JS copies of REL_LABELS cannot drift apart unnoticed.
+        «Окрестность» heads the mini-graph over the list; the two strings after it are the
+        lines that read its sides."""
         page = self.request("GET", "/")[2].decode("utf-8")
         text = self.viewer_text()
         for word in ("скрыто", "ни с чем не связано", "На этом держатся", "покрыто до хода",
                      "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое",
-                     # the mini-graph over the list: its heading, and the line that reads it
                      "Окрестность", "слева — на чём держится и что осиротило",
                      "справа — что держится на нём",
                      # the reverse of `moots` is a status flag, as in the export, not a dependant
