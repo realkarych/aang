@@ -469,7 +469,7 @@ class FillTurnsTest(unittest.TestCase):
 
 
 class ExportTest(unittest.TestCase):
-    def test_newest_first_superseded_marked_valuable_kinds_first(self):
+    def test_newest_first_superseded_marked_blocks_in_order(self):
         m = a_map(
             node("d1", question="Первый вопрос?", status="superseded", superseded_by="d2",
                  decision="старое"),
@@ -480,15 +480,15 @@ class ExportTest(unittest.TestCase):
                  cites=[], why="никто не вернулся"),
         )
         text = store.export_markdown(m)
-        self.assertLess(text.index("## Входящее"), text.index("## Неявные решения"))
-        self.assertLess(text.index("## Неявные решения"), text.index("## Решения"))
-        self.assertLess(text.index("Второй вопрос?"), text.index("Первый вопрос?"))
+        self.assertLess(text.index("## Решено"), text.index("## Под вопросом"))
+        self.assertLess(text.index("#### d2 · Второй вопрос?"),
+                        text.index("#### d1 · ~~Первый вопрос?~~"))
         self.assertIn("~~Первый вопрос?~~", text)
         self.assertIn("**Заменено:** d2", text)
         self.assertIn("- контраргумент", text)
         self.assertIn("**Следствие:** следствие", text)
         self.assertIn("«давай pass@1 на отложенном»", text)
-        self.assertNotIn("**Решение:**", text.split("### o1")[1].split("###")[0])
+        self.assertNotIn("**Решение:**", text.split("#### o1")[1].split("###")[0])
 
     def test_marks_unverified_and_hand_edited(self):
         m = a_map(node("d1", hand_edited=True))
@@ -509,7 +509,7 @@ class ExportTest(unittest.TestCase):
         self.assertIn("> Цитаты не проверены: транскрипт сессии не найден: s1", text)
         self.assertEqual(text.count("**Не проверялось** — транскрипт недоступен"), 2)
         self.assertIn("ход не указан: «давай pass@1 на отложенном»", text)
-        sections = text.split("###", 1)[1]
+        sections = text.split("####", 1)[1]
         self.assertNotIn("не найден", sections)
         self.assertNotIn("не подтверждена", sections)
         self.assertNotIn("Не проверено", sections)
@@ -522,7 +522,7 @@ class ExportTest(unittest.TestCase):
         m["nodes"][1]["verified"] = True
         m["nodes"][1]["cites"][0]["ok"] = True
         text = store.export_markdown(m)
-        o1 = text.split("### o1")[1].split("###")[0]
+        o1 = text.split("#### o1")[1].split("###")[0]
         self.assertIn("**Нет цитат** — узел нельзя проверить", o1)
         self.assertNotIn("не найдена", o1)
         self.assertNotIn("Не проверено", text)
@@ -565,8 +565,8 @@ class ExportTest(unittest.TestCase):
                   node("o1", kind="open", status="proposed", question="Что с хвостом?", decision="",
                        cites=[], relates=[{"to": "d1", "rel": "orphaned_by"}], related_by=[]))
         md = store.export_markdown(m)
-        t1 = md.split("### t1")[1].split("###")[0]
-        d1 = md.split("### d1")[1].split("###")[0]
+        t1 = md.split("#### t1")[1].split("###")[0]
+        d1 = md.split("#### d1")[1].split("###")[0]
         self.assertIn("- на этом держится d1 (Чем мерить?)", t1)
         self.assertIn("- опирается на t1 (Остаться на 3.9?)", d1)
         self.assertIn("- оставило висеть o1 (Что с хвостом?)", d1)
@@ -577,11 +577,11 @@ class ExportTest(unittest.TestCase):
                   node("d5", question="Разворот на /aang?", relates=[{"to": "d4", "rel": "moots"}],
                        related_by=[]))
         md = store.export_markdown(m)
-        d4 = md.split("### d4")[1].split("###")[0]
+        d4 = md.split("#### d4")[1].split("###")[0]
         status = d4.split("**Статус:**")[1].split("\n")[0]
         self.assertIn("**Неактуально** — d5 (Разворот на /aang?) сделало это неактуальным", status)
         self.assertNotIn("ни с чем не связано", d4)
-        self.assertIn("- сделало неактуальным d4 (Порог 72 часа?)", md.split("### d5")[1].split("###")[0])
+        self.assertIn("- сделало неактуальным d4 (Порог 72 часа?)", md.split("#### d5")[1].split("###")[0])
 
     def test_export_agrees_the_verb_with_several_mooters(self):
         m = a_map(node("d1", related_by=[{"from": "d2", "rel": "moots"}, {"from": "d3", "rel": "moots"}]),
@@ -595,7 +595,7 @@ class ExportTest(unittest.TestCase):
                   node("d2", question="Новый?", related_by=[]))
         md = store.export_markdown(m)
         self.assertNotIn("ни с чем не связано", md)
-        self.assertIn("- заменяет d1 (Старый?)", md.split("### d2")[1].split("###")[0])
+        self.assertIn("- заменяет d1 (Старый?)", md.split("#### d2")[1].split("###")[0])
 
     def test_export_reverse_labels_cover_the_vocabulary(self):
         self.assertEqual(sorted(list(store.REL_LABELS_BACK) + ["moots"]), sorted(schema.RELS))
@@ -643,23 +643,49 @@ class TopicAndCellMergeTest(unittest.TestCase):
         self.assertEqual(("rejected", "user"), (by_id["d2"]["status"], by_id["d2"]["decided_by"]))
 
 
-class CellExportTest(unittest.TestCase):
-    def test_sections_follow_the_cells(self):
-        m = {"version": 1, "title": "т", "nodes": [
-            {"id": "d1", "kind": "decision", "status": "accepted", "decided_by": "user", "question": "Принято?", "decision": "да", "why": "п", "cites": []},
-            {"id": "d2", "kind": "decision", "status": "proposed", "decided_by": "agent", "question": "Предложено агентом?", "decision": "да", "why": "п", "cites": []},
-            {"id": "d3", "kind": "decision", "status": "rejected", "decided_by": "agent", "question": "Отвергнуто?", "decision": "да", "why": "п", "against": ["нет"], "cites": []},
-            {"id": "o1", "kind": "open", "status": "proposed", "triage": "research", "question": "Изучить?", "why": "п", "cites": []},
-            {"id": "t1", "kind": "tacit", "status": "accepted", "question": "Неявно?", "decision": "да", "why": "п", "cites": []},
+class BlockExportTest(unittest.TestCase):
+    def node(self, node_id, **extra):
+        base = {"id": node_id, "kind": "decision", "status": "accepted", "question": "Вопрос %s?" % node_id,
+                "decision": "решение %s" % node_id, "why": "почему", "against": [], "consequence": "",
+                "cites": [], "relates": [], "superseded_by": None, "topic": None}
+        base.update(extra)
+        return base
+
+    def a_map(self):
+        return {"version": 1, "title": "т", "nodes": [
+            self.node("d1", decided_by="user", topic="модели"),
+            self.node("d2", status="superseded", superseded_by="d3", topic="порт"),
+            self.node("d3", decided_by="agent", topic="порт"),
+            self.node("o1", kind="open", status="proposed", decision="", triage="research",
+                      topic="модели"),
+            self.node("d4", status="rejected", topic="модели"),
         ]}
-        text = store.export_markdown(m)
-        heads = [line for line in text.splitlines() if line.startswith("## ")]
-        self.assertEqual(["## Входящее", "## Ресерч", "## Подтверждено", "## Отвергнуто", "## Неявные решения"], heads)
-        self.assertIn("**Статус:** отвергнуто", text)
+
+    def test_sections_are_blocks_then_topics_then_nodes(self):
+        text = store.export_markdown(self.a_map())
+        heads = [line for line in text.splitlines() if line.startswith("#")]
+        self.assertEqual(["# т",
+                          "## Решено",
+                          "### модели", "#### d1 · Вопрос d1?",
+                          "### порт", "#### d3 · Вопрос d3?", "#### d2 · ~~Вопрос d2?~~",
+                          "## Под вопросом",
+                          "### модели", "#### o1 · Вопрос o1?",
+                          "## Отвергнуто",
+                          "### модели", "#### d4 · Вопрос d4?"],
+                         heads)
+
+    def test_the_flags_name_the_decider_the_triage_and_the_rejection(self):
+        text = store.export_markdown(self.a_map())
         self.assertIn("**Решил:** вы", text)
         self.assertIn("**Решил:** агент", text)
         self.assertIn("**Под вопросом:** ресерч", text)
-        self.assertNotIn("seen_at", text)
+        self.assertIn("**Статус:** отвергнуто", text)
+
+    def test_an_empty_block_is_omitted(self):
+        text = store.export_markdown({"version": 1, "nodes": [self.node("d1", topic="x")]})
+        self.assertIn("## Решено", text)
+        self.assertNotIn("## Под вопросом", text)
+        self.assertNotIn("## Отвергнуто", text)
 
 
 if __name__ == "__main__":

@@ -420,9 +420,9 @@ class ExportTest(CliTestCase):
         self.assertTrue(os.path.exists(path))
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
-        self.assertIn("### d1", text)
-        self.assertLess(text.index("### d2"), text.index("### d1"))
-        self.assertIn("Не проверено", text.split("### d2")[1].split("###")[0])
+        self.assertIn("#### d1", text)
+        self.assertLess(text.index("#### d2"), text.index("#### d1"))
+        self.assertIn("Не проверено", text.split("#### d2")[1].split("###")[0])
         self.assertIn("не проверено: 1", out)
 
     def test_unreachable_transcript_is_stated_not_reported_as_not_found(self):
@@ -447,7 +447,7 @@ class ExportTest(CliTestCase):
         self.assertEqual(code, 0, out)
         with open(os.path.join(self.root, "d.md"), encoding="utf-8") as handle:
             text = handle.read()
-        self.assertIn("**Нет цитат** — узел нельзя проверить", text.split("### o1")[1])
+        self.assertIn("**Нет цитат** — узел нельзя проверить", text.split("#### o1")[1])
         self.assertNotIn("не найдена", text)
         self.assertNotIn("Не проверено", text)
 
@@ -467,7 +467,7 @@ class ExportTest(CliTestCase):
         self.assertEqual(code, 0, out)
         with open(os.path.join(self.root, "d.md"), encoding="utf-8") as handle:
             text = handle.read()
-        section = lambda i: text.split("### %s" % i)[1].split("###")[0]
+        section = lambda i: text.split("#### %s" % i)[1].split("###")[0]
         self.assertIn("- на этом держится d1 (Чем мерить?)", section("t1"))
         self.assertIn("- оставило висеть o1 (Хвост?)", section("d1"))
         self.assertIn("**Неактуально** — d5 (Разворот?) сделало это неактуальным", section("d4"))
