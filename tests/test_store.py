@@ -651,15 +651,18 @@ class BlockExportTest(unittest.TestCase):
         base.update(extra)
         return base
 
-    def test_sections_are_blocks_then_topics_then_nodes(self):
-        m = {"version": 1, "title": "т", "nodes": [
-            self.node("d1", topic="модели"),
+    def a_map(self):
+        return {"version": 1, "title": "т", "nodes": [
+            self.node("d1", decided_by="user", topic="модели"),
             self.node("d2", status="superseded", superseded_by="d3", topic="порт"),
-            self.node("d3", topic="порт"),
-            self.node("o1", kind="open", status="proposed", decision="", topic="модели"),
+            self.node("d3", decided_by="agent", topic="порт"),
+            self.node("o1", kind="open", status="proposed", decision="", triage="research",
+                      topic="модели"),
             self.node("d4", status="rejected", topic="модели"),
         ]}
-        text = store.export_markdown(m)
+
+    def test_sections_are_blocks_then_topics_then_nodes(self):
+        text = store.export_markdown(self.a_map())
         heads = [line for line in text.splitlines() if line.startswith("#")]
         self.assertEqual(["# т",
                           "## Решено",
@@ -670,6 +673,13 @@ class BlockExportTest(unittest.TestCase):
                           "## Отвергнуто",
                           "### модели", "#### d4 · Вопрос d4?"],
                          heads)
+
+    def test_the_flags_name_the_decider_the_triage_and_the_rejection(self):
+        text = store.export_markdown(self.a_map())
+        self.assertIn("**Решил:** вы", text)
+        self.assertIn("**Решил:** агент", text)
+        self.assertIn("**Под вопросом:** ресерч", text)
+        self.assertIn("**Статус:** отвергнуто", text)
 
     def test_an_empty_block_is_omitted(self):
         text = store.export_markdown({"version": 1, "nodes": [self.node("d1", topic="x")]})
