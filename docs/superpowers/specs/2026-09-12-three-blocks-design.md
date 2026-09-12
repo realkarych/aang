@@ -139,8 +139,8 @@ BLOCKS = (
 - `hook`, `root`, `errors`, `warnings`, `transcript_error` остаются; `warnings` экран не показывает
   (они для `aang check`), но клиенты API их получают как прежде.
 
-Маршруты `POST /api/node/<id>/verdict` и `POST /api/node/<id>/seen`, `_mutate`, `_post_verdict`,
-`_post_seen` и `do_POST` целиком удаляются; на `POST` отвечает стандартный `BaseHTTPRequestHandler`
+Маршруты `POST /api/node/<id>` (правка полей), `POST /api/node/<id>/verdict` и `POST /api/node/<id>/seen`,
+`_mutate`, `_post_edit`, `_post_verdict`, `_post_seen`, `EDITABLE_FIELDS`, `write_lock` и `do_POST` целиком удаляются; на `POST` отвечает стандартный `BaseHTTPRequestHandler`
 (501). `GET /api/events` и `Watcher` остаются как есть.
 
 ## Хук, сессия, скилл
