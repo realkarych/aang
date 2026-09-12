@@ -82,9 +82,12 @@ def topics(nodes):  # type: (List[Any]) -> List[Dict[str, Any]]
     A node with a `topic` is in that topic. A node without one joins the connected
     component its edges (`relates`, `superseded_by`, both directions) put it in: the
     component's earliest named node lends its topic, and a component nobody named is
-    called by the first three words of its earliest question. Topics sort by the latest
-    `added_at` among their nodes, then by the latest list position — the topic that
-    moved last comes first. Non-dict entries and nodes without an id are skipped.
+    called by the first three words of its earliest question. Two spellings of one topic
+    are one topic, shown under the spelling of the earliest-listed node in it that carries
+    a `topic`; a topic nobody named is shown under the name its earliest component lent
+    it. Topics sort by the latest `added_at` among their nodes, then by the latest list
+    position — the topic that moved last comes first. Non-dict entries and nodes without
+    an id are skipped.
     """
     nodes = [n for n in nodes if isinstance(n, dict) and isinstance(n.get("id"), str) and n["id"]]
     index = dict((n["id"], i) for i, n in enumerate(nodes))
@@ -109,30 +112,31 @@ def topics(nodes):  # type: (List[Any]) -> List[Dict[str, Any]]
     for n in nodes:
         members.setdefault(find(n["id"]), []).append(n["id"])
 
-    groups = {}  # type: Dict[str, Dict[str, Any]]
-
-    def add(name, node_id):  # type: (str, str) -> None
-        key = topic_key(name)
-        group = groups.get(key)
-        if group is None:
-            group = groups[key] = {"name": " ".join(name.split()), "ids": []}
-        group["ids"].append(node_id)
+    keyed = {}  # type: Dict[str, List[str]]
+    lent_names = {}  # type: Dict[str, str]
 
     for root in sorted(members, key=lambda r: index[r]):
         ids = members[root]
         named = [i for i in ids if topic_key(by_id[i].get("topic"))]
         lent = by_id[named[0]]["topic"] if named else _fallback_name(by_id[ids[0]])
+        if not named:
+            lent_names.setdefault(topic_key(lent), " ".join(lent.split()))
         for i in ids:
             own = by_id[i].get("topic")
-            add(own if topic_key(own) else lent, i)
+            keyed.setdefault(topic_key(own if topic_key(own) else lent), []).append(i)
+
+    out = []  # type: List[Dict[str, Any]]
+    for key, ids in keyed.items():
+        ids.sort(key=lambda i: index[i])
+        spelled = [i for i in ids if topic_key(by_id[i].get("topic"))]
+        name = " ".join(by_id[spelled[0]]["topic"].split()) if spelled else lent_names[key]
+        out.append({"name": name, "ids": ids})
 
     def rank(group):  # type: (Dict[str, Any]) -> Tuple[str, int]
         ids = group["ids"]
         return (max(str(by_id[i].get("added_at") or "") for i in ids), max(index[i] for i in ids))
 
-    out = sorted(groups.values(), key=rank, reverse=True)
-    for group in out:
-        group["ids"].sort(key=lambda i: index[i])
+    out.sort(key=rank, reverse=True)
     return out
 
 

@@ -26,6 +26,9 @@ class BlockTest(unittest.TestCase):
         self.assertEqual("decided", blocks.block(node("d1")))
         self.assertEqual("decided", blocks.block(node("t1", kind="tacit")))
 
+    def test_triage_opens_even_an_accepted_decision(self):
+        self.assertEqual("open", blocks.block(node("d1", triage="research")))
+
     def test_blocks_are_ordered_and_titled(self):
         self.assertEqual(["decided", "open", "rejected"], [k for k, _, _ in blocks.BLOCKS])
         self.assertEqual({"decided": "Решено", "open": "Под вопросом", "rejected": "Отвергнуто"},
@@ -50,6 +53,10 @@ class LineTest(unittest.TestCase):
         self.assertEqual(("●", "заменено", "решение d1"),
                          blocks.line(node("d1", status="superseded", superseded_by="d2")))
 
+    def test_a_rejected_tacit_reads_rejected(self):
+        self.assertEqual(("✖", "отвергнуто", "решение t1"),
+                         blocks.line(node("t1", kind="tacit", status="rejected")))
+
     def test_open_text_is_the_question_and_missing_text_is_empty(self):
         self.assertEqual("вопрос o1", blocks.line(node("o1", kind="open", status="proposed", decision=""))[2])
         self.assertEqual("", blocks.line(node("d1", decision=None))[2])
@@ -70,6 +77,14 @@ class TopicsTest(unittest.TestCase):
         groups = blocks.topics([node("d1", topic="Модели"), node("d2", topic="вьюер"),
                                 node("d3", topic="модели ")])
         self.assertEqual([("Модели", ["d1", "d3"]), ("вьюер", ["d2"])], self.names(groups))
+
+    def test_the_displayed_spelling_is_the_earliest_named_nodes(self):
+        groups = blocks.topics([
+            node("n0", relates=[{"to": "n2", "rel": "rests_on"}]),
+            node("n1", topic="MODELI"),
+            node("n2", topic="Modeli"),
+        ])
+        self.assertEqual([("MODELI", ["n0", "n1", "n2"])], self.names(groups))
 
     def test_unnamed_nodes_join_the_component_of_their_edges(self):
         groups = blocks.topics([
