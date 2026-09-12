@@ -452,8 +452,10 @@ class Handler(BaseHTTPRequestHandler):
 
         Errors: 404 unknown node, 409 a map that was already invalid before the change
         (the file is a human's to fix, not ours to overwrite), 422 a change refused by the
-        verdict rule or by the schema, 500 a save that failed. Nothing reaches the disk —
-        neither the map nor the outbox — unless the whole chain succeeded.
+        verdict rule or by the schema, 500 a save that failed. Nothing reaches the disk
+        until every check has passed; past that point the two writes can part ways, and a
+        saved map whose outbox line was not written answers 500 saying exactly that, so
+        the human knows the agent will not hear about this verdict.
         """
         root = self.server.root  # type: ignore[attr-defined]
         with self.server.write_lock:  # type: ignore[attr-defined]
@@ -481,7 +483,11 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(500, {"errors": ["не удалось сохранить карту: %s" % exc]})
                 return
             if after_save is not None:
-                after_save(node)
+                try:
+                    after_save(node)
+                except OSError as exc:
+                    self._json(500, {"errors": ["карта сохранена, но событие для агента не записано: %s" % exc]})
+                    return
         self._json(200, self._view(map_dict))
 
     def _post_edit(self, node_id, edit):  # type: (str, Dict[str, Any]) -> None

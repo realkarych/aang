@@ -848,6 +848,18 @@ class VerdictRouteTest(ServerTestCase):
         self.assertEqual(403, status)
         self.assertEqual("accepted", [n for n in store.load(self.root)["nodes"] if n["id"] == "d1"][0]["status"])
 
+    def test_unwritable_outbox_is_500_and_says_the_map_was_saved(self):
+        """A directory where the outbox file belongs: the append fails after the save.
+
+        The two writes have already parted ways by then, so the answer says which one
+        landed rather than pretending the verdict never happened.
+        """
+        os.makedirs(os.path.join(store.map_dir(self.root), "outbox.jsonl"))
+        status, _, data = self.request("POST", "/api/node/d1/verdict", {"verdict": "rejected", "text": "нет"})
+        self.assertEqual(500, status, data)
+        self.assertIn("карта сохранена", json.loads(data)["errors"][0])
+        self.assertEqual("rejected", [n for n in store.load(self.root)["nodes"] if n["id"] == "d1"][0]["status"])
+
 
 class SeenRouteTest(ServerTestCase):
     def test_seen_stamps_without_hand_edit_or_outbox(self):
