@@ -15,7 +15,7 @@ import os
 import tempfile
 from typing import Any, Dict, List, Optional
 
-from . import schema, transcript
+from . import schema, transcript, triage
 
 MAP_DIR = ".aang"
 MAP_FILE = "map.json"
@@ -23,14 +23,19 @@ CANDIDATE_FILE = "candidate.json"
 
 # Fields a human authors. `merge` never lets a regeneration touch these on a
 # hand-edited node. `status`/`superseded_by` are structural bookkeeping — see `merge`.
-# `relates` rides with the content (a hand-edited node keeps its edges), `added_at` is
-# aang's own stamp and is never taken from a candidate — see `merge` and `stamp_added_at`.
-CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites", "relates")
+# `relates` rides with the content (a hand-edited node keeps its edges); `added_at` and
+# `seen_at` are aang's own stamps (`STAMP_FIELDS`) and are never taken from a candidate —
+# see `merge` and `stamp_added_at`.
+CONTENT_FIELDS = ("kind", "question", "decision", "why", "against", "consequence", "cites", "relates",
+                  "decided_by", "triage")
 
 # Fields `server.annotate` derives for the view and nothing may write into the file: the
-# reverse index (U4 — stored, it would drift from the forward side) and the verification
-# verdict. `merge` strips them from every node, whatever the candidate or the old file said.
-VIEW_FIELDS = ("related_by", "verified")
+# reverse index (U4 — stored, it would drift from the forward side), the verification
+# verdict and the triage cell (`triage.cell` — a rule, not a field). `merge` strips them
+# from every node, whatever the candidate or the old file said.
+VIEW_FIELDS = ("related_by", "verified", "cell")
+
+STAMP_FIELDS = ("added_at", "seen_at")
 
 
 # ----------------------------------------------------------------------------- paths
@@ -115,8 +120,9 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     """Fold a regenerated map `new` into the stored map `old` without losing human work.
 
     Nodes match by `id`. Rules, in order:
-    - A node hand-edited in `old` keeps every content field (`kind`, `question`,
-      `decision`, `why`, `against`, `consequence`, `cites`) and stays `hand_edited`,
+    - A node hand-edited in `old` keeps every content field (`CONTENT_FIELDS`: `kind`,
+      `question`, `decision`, `why`, `against`, `consequence`, `cites`, `decided_by`,
+      `triage`) and stays `hand_edited`,
       whether or not `new` has a node with that id. It survives even when `new` omits it.
     - One exception, and only in the superseding direction: when `new` marks a
       hand-edited node `superseded` by a node that exists in the result and the old node
@@ -143,13 +149,15 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
     - `relates` follows the same three classes: frozen and hand-edited nodes keep their
       edges (a regeneration that dropped them would be retracting a record), an ordinary
       node takes the candidate's edges — that is what regenerating the node means.
-    - `related_by` and `verified` (`VIEW_FIELDS`) never reach the file: they are derived
-      for the view and a stored copy would be read as fact by the next reader of
+    - `related_by`, `verified` and `cell` (`VIEW_FIELDS`) never reach the file: they are
+      derived for the view and a stored copy would be read as fact by the next reader of
       `map.json` after it had gone stale.
-    - `added_at` is when the node first entered the stored map. A node that existed in
-      `old` keeps its stamp whatever the candidate says; a node new to the map gets none
-      here — the model cannot know when it appeared, so a candidate's `added_at` is a
-      guess and is dropped, like a candidate's `turn`. `stamp_added_at` fills it after.
+    - `added_at` and `seen_at` (`STAMP_FIELDS`) are aang's own stamps: always kept from
+      the stored node, never taken from a candidate. `added_at` is when the node first
+      entered the stored map, `seen_at` when you last looked at it — the model knows
+      neither, so a candidate's stamp is a guess and is dropped, like a candidate's
+      `turn`. A node new to the map gets neither here: `stamp_added_at` fills `added_at`
+      right after, and `seen_at` stays null until you actually see the node.
     - Order: `new`'s order; old-only survivors are inserted after their nearest surviving
       old predecessor, so they keep their place in the timeline. Then, only where a kept
       edge would point forward (the candidate put a protected node above its target),
@@ -179,7 +187,10 @@ def merge(old, new):  # type: (Any, Any) -> Dict[str, Any]
             result.append(_merge_hand_edited(previous, incoming))
         else:
             incoming["hand_edited"] = False
-            incoming["added_at"] = previous.get("added_at", "") if previous is not None else ""
+            for field in STAMP_FIELDS:
+                incoming[field] = previous.get(field) if previous is not None else None
+            if incoming.get("added_at") is None:
+                incoming["added_at"] = ""
             result.append(incoming)
 
     # Old-only nodes: hand-edited and superseded ones survive; so does anything a
@@ -335,13 +346,11 @@ def fill_turns(map_dict, turns):  # type: (Dict[str, Any], List[Dict[str, Any]])
 
 # ----------------------------------------------------------------------------- export
 
-KIND_TITLES = (
-    ("tacit", "Неявные решения", "решения, которых никто не принимал осознанно"),
-    ("open", "Открытое", "вопросы и следствия, к которым никто не вернулся"),
-    ("decision", "Решения", ""),
-)
+STATUS_RU = {"accepted": "принято", "superseded": "заменено", "proposed": "предложено",
+             "rejected": "отвергнуто"}
 
-STATUS_RU = {"accepted": "принято", "superseded": "заменено", "proposed": "предложено"}
+DECIDER_RU = {"user": "вы", "agent": "агент"}
+TRIAGE_RU = {"research": "ресерч", "discuss": "обсуждение"}
 
 # How a relation reads in the committed record, node first: «o3 осиротело решением d6»,
 # «d7 опирается на t5», «d9 сделало неактуальным o2». Neuter, because the subject is the
@@ -367,8 +376,10 @@ REL_LABELS_BACK = {
 def export_markdown(map_dict, transcript_error=None):  # type: (Dict[str, Any], Optional[str]) -> str
     """A decision record for humans to commit: newest first, superseded kept and marked.
 
-    Tacit and open nodes come before ordinary decisions (R3). "Newest" is the end of
-    `nodes` — nodes are appended in conversation order. When nodes carry `verified`
+    Sections are the triage cells in `triage.CELLS` order — the viewer's order, so the
+    committed document and the screen read the same way — and an empty cell is omitted.
+    The cell is derived here and never read off the node. "Newest" is the end of `nodes`
+    — nodes are appended in conversation order. When nodes carry `verified`
     (see server.annotate), unverified ones are marked; a missing transcript is stated.
     """
     map_dict = schema.normalize(copy.deepcopy(map_dict))
@@ -392,8 +403,8 @@ def export_markdown(map_dict, transcript_error=None):  # type: (Dict[str, Any], 
 
     nodes = [n for n in map_dict["nodes"] if isinstance(n, dict)]
     by_id = dict((n.get("id"), n) for n in nodes)
-    for kind, title, subtitle in KIND_TITLES:
-        group = [n for n in nodes if n.get("kind") == kind]
+    for key, title, subtitle in triage.CELLS:
+        group = [n for n in nodes if triage.cell(n) == key]
         if not group:
             continue
         lines.append("## %s" % title)
@@ -429,6 +440,10 @@ def _node_markdown(node, by_id, transcript_error=None):
                 if node.get("id") and n.get("superseded_by") == node["id"]]
 
     flags = ["**Статус:** %s" % STATUS_RU.get(node.get("status"), node.get("status"))]
+    if node.get("kind") == "decision" and node.get("decided_by") in DECIDER_RU:
+        flags.append("**Решил:** %s" % DECIDER_RU[node["decided_by"]])
+    if node.get("triage") in TRIAGE_RU:
+        flags.append("**Под вопросом:** %s" % TRIAGE_RU[node["triage"]])
     if superseded and node.get("superseded_by"):
         flags.append("**Заменено:** %s" % _node_ref(node["superseded_by"], by_id))
     if mooted_by:
