@@ -48,10 +48,6 @@ MAX_BODY = 1 << 20
 PING_SECONDS = 30
 TAIL_TEXT_CAP = 200
 
-# Fields the viewer may change through POST. `id` is identity, `hand_edited` is set here,
-# `added_at` is aang's stamp and `related_by` is derived (U4). `relates` is content a human
-# corrects like any other field; a bad edge (wrong vocabulary, forward reference, missing
-# target, over the cap) is refused by the validation every edit passes through, with 422.
 EDITABLE_FIELDS = ("kind", "status", "superseded_by", "question", "decision", "why",
                    "against", "consequence", "cites", "relates", "decided_by", "triage")
 
@@ -73,8 +69,6 @@ def _stamp(path):  # type: (Optional[str]) -> Optional[Tuple[float, int]]
         return None
     return (st.st_mtime, st.st_size)
 
-
-# ----------------------------------------------------------------------------- transcript
 
 class TranscriptSource(object):
     """Locates and indexes the session transcript, re-indexing only when the file changes.
@@ -137,8 +131,6 @@ class TranscriptSource(object):
                 return [], "транскрипт %s пуст или нечитаем" % path
             return self._turns, None
 
-
-# ----------------------------------------------------------------------------- view
 
 def annotate(map_dict, turns, transcript_error=None, transcript_path=None, session_info=None, root=None):
     # type: (Any, List[Dict[str, Any]], Optional[str], Optional[str], Optional[Dict[str, Any]], Optional[str]) -> Dict[str, Any]
@@ -243,13 +235,9 @@ def _unresolved(cite, reason):  # type: (Dict[str, Any], str) -> Dict[str, Any]
     }
 
 
-# ----------------------------------------------------------------------------- handler
-
 class Handler(BaseHTTPRequestHandler):
     server_version = "aang/0.1"
     sys_version = ""
-
-    # --- helpers
 
     def _host_allowed(self):  # type: () -> bool
         host = self.headers.get("Host")
@@ -341,8 +329,6 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, fmt, *args):  # type: (str, *Any) -> None
         if getattr(self.server, "verbose", False):
             BaseHTTPRequestHandler.log_message(self, fmt, *args)
-
-    # --- routes
 
     def do_HEAD(self):  # type: () -> None
         self.do_GET()
@@ -491,7 +477,14 @@ class Handler(BaseHTTPRequestHandler):
         self._json(200, self._view(map_dict))
 
     def _post_edit(self, node_id, edit):  # type: (str, Dict[str, Any]) -> None
-        """A human's correction of any field the viewer may touch — stamped `hand_edited`."""
+        """A human's correction of any field the viewer may touch — stamped `hand_edited`.
+
+        `EDITABLE_FIELDS` leaves out what is not a human's to set through the API: `id` is
+        identity, `hand_edited` is set here, `added_at` is aang's stamp and `related_by` is
+        derived (U4). `relates` is content corrected like any other field; a bad edge —
+        wrong vocabulary, forward reference, missing target, over the cap — is refused by
+        the validation every edit passes through, with 422.
+        """
         if not edit:
             self._json(400, {"errors": ["ожидался объект {\"поле\": значение, …}"]})
             return
@@ -543,8 +536,6 @@ def _is_port(suffix):  # type: (str) -> bool
     """`:8790` → True; anything else (empty, `:`, `:x`, `:80:80`) → False."""
     return suffix.startswith(":") and suffix[1:].isdigit()
 
-
-# ----------------------------------------------------------------------------- watcher
 
 class Watcher(threading.Thread):
     """Polls `(mtime, size)` of a few files and tells subscribers which label changed.
@@ -599,8 +590,6 @@ class Watcher(threading.Thread):
         for events in subs:
             events.put(event)
 
-
-# ----------------------------------------------------------------------------- server
 
 class Server(ThreadingHTTPServer):
     daemon_threads = True

@@ -22,16 +22,12 @@ TRIAGES = ("research", "discuss")
 _TRIAGE_STATUSES = ("proposed",)
 ROLES = ("user", "assistant")
 
-# Typed relations a node may declare in `relates`. `superseded_by` stays a separate field
-# (it sits on the old node, pointing forward) and does not move here.
 RELS = ("orphaned_by", "rests_on", "moots")
 MAX_RELATES = 3
 
-# Ids the model writes in prose ("Осиротело решением d6"); a warning when there is no edge.
 _PROSE_ID_RE = re.compile(r"\b([dto]\d+)\b")
 _PROSE_FIELDS = ("why", "consequence", "question", "decision")
 
-# Fields whose default is an empty string / list / bool / null.
 _TEXT_FIELDS = ("question", "decision", "why", "consequence")
 _LIST_FIELDS = ("against", "cites")
 
@@ -74,7 +70,6 @@ def validate(map_dict):  # type: (Any) -> List[str]
         errors.append("карта, поле nodes: ожидается список")
         return errors
 
-    # First pass: ids, so that supersede targets can be checked against the full set.
     ids = {}  # type: Dict[str, int]
     for pos, node in enumerate(nodes, 1):
         if not isinstance(node, dict):
@@ -137,7 +132,6 @@ def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int
         if value is not None and not _is_str(value):
             errors.append("%s, поле %s: ожидается строка" % (label, field))
 
-    # Required text per kind. `open` is a question without an answer: decision must stay empty.
     if kind is not None:
         if not _text(node.get("question")):
             errors.append("%s, поле question: обязательно для kind=%s" % (label, kind))
@@ -209,7 +203,8 @@ def _validate_relates(node, pos, ids, label):  # type: (Dict[str, Any], int, Dic
     """Check `relates`: closed vocabulary, existing target, backward-only, at most three.
 
     Backward-only is checked by list position: the target must sit earlier than the node.
-    That alone rules out cycles, so there is no separate cycle pass here.
+    That alone rules out cycles, so there is no separate cycle pass here. `superseded_by`
+    is not one of `RELS`: it sits on the superseded node and points forward instead.
     """
     errors = []  # type: List[str]
     relates = node.get("relates")
@@ -246,11 +241,13 @@ def _validate_relates(node, pos, ids, label):  # type: (Dict[str, Any], int, Dic
 
 
 def _validate_cite(cite, i, label):  # type: (Any, int, str) -> List[str]
+    """Errors for one `cites[i]` entry. The quote is the citation and a bare turn number
+    is a guess (docs/spec.md R4), so `quote` is required where `turn` and `role` are
+    only checked for shape."""
     errors = []  # type: List[str]
     prefix = "%s, поле cites[%d]" % (label, i)
     if not isinstance(cite, dict):
         return ["%s: ожидался объект {\"quote\": ...}" % prefix]
-    # The quote is the citation. A bare turn number is a guess (see docs/spec.md R4).
     if not _text(cite.get("quote")):
         errors.append("%s.quote: обязательна дословная цитата (непустая строка)" % prefix)
     turn = cite.get("turn")
@@ -299,6 +296,11 @@ def warnings(map_dict):  # type: (Any) -> List[str]
     when no decision caused it, and the checker cannot read `why` to tell a skipped step
     from an honest «ничего не осиротило». Unlike validate() after normalize(), this never
     mutates its argument.
+
+    An edge lives on one end only, so a mention counts as linked when the unordered pair
+    carries an edge in either direction. A mention of a node lower in the list cannot be
+    answered by an edge here: the direction rule (U3) puts it on that node, or that node
+    above this one, and the remark says which.
     """
     out = []  # type: List[str]
     nodes = map_dict.get("nodes") if isinstance(map_dict, dict) else None
@@ -309,9 +311,6 @@ def warnings(map_dict):  # type: (Any) -> List[str]
         if isinstance(node, dict) and _is_str(node.get("id")) and node["id"] not in positions:
             positions[node["id"]] = pos
 
-    # An edge lives on one end only (`relates` on the later node, `superseded_by` on the
-    # earlier), so coverage is map-wide: a mention counts as linked if the unordered pair
-    # {mentioner, mentioned} carries an edge in either direction.
     linked = set()  # type: set
     for node in nodes:
         if not isinstance(node, dict):
@@ -348,9 +347,6 @@ def warnings(map_dict):  # type: (Any) -> List[str]
             if frozenset((node_id, missing)) in linked:
                 continue
             if positions[missing] > pos:
-                # The direction rule (U3) means this node cannot carry the edge itself: either
-                # the later node depends on this one and carries it, or this one rests on the
-                # later node and the later node belongs above it in the list.
                 out.append("%s: в тексте упомянут %s, но связи нет — %s ниже по списку: "
                            "связь ставится на нём, или %s поднимается выше"
                            % (label, missing, missing, missing))
@@ -366,7 +362,6 @@ def normalize(map_dict):  # type: (Any) -> Dict[str, Any]
     validate() still reports them. Non-dict nodes and cites are left untouched.
     """
     if not isinstance(map_dict, dict) or not map_dict:
-        # Nothing to preserve: an absent/corrupt file loads as a valid empty map.
         map_dict = empty_map()
     for field in ("session_id", "generated_at", "title"):
         if map_dict.get(field) is None:

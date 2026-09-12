@@ -71,7 +71,7 @@ class LoadSaveTest(unittest.TestCase):
         self.assertEqual(path, store.map_path(self.root))
         with open(path, encoding="utf-8") as handle:
             raw = handle.read()
-        self.assertIn("Чем мерить?", raw)  # ensure_ascii=False: the file is hand-editable
+        self.assertIn("Чем мерить?", raw)
         self.assertEqual(store.load(self.root), schema.normalize(copy.deepcopy(m)))
 
     def test_save_leaves_no_temp_file(self):
@@ -82,7 +82,7 @@ class LoadSaveTest(unittest.TestCase):
     def test_new_file_is_readable_and_existing_mode_is_kept(self):
         store.save(self.root, a_map(node("d1")))
         mode = os.stat(store.map_path(self.root)).st_mode & 0o777
-        self.assertNotEqual(mode, 0o600)  # not mkstemp's private default
+        self.assertNotEqual(mode, 0o600)
         os.chmod(store.map_path(self.root), 0o600)
         store.save(self.root, a_map(node("d2")))
         self.assertEqual(os.stat(store.map_path(self.root)).st_mode & 0o777, 0o600)
@@ -114,7 +114,7 @@ class LoadSaveTest(unittest.TestCase):
             with self.assertRaises(OSError):
                 store.save(self.root, a_map(node("d1"), node("d2")))
         with open(store.map_path(self.root), encoding="utf-8") as handle:
-            json.load(handle)  # still parses
+            json.load(handle)
         self.assertEqual(ids(store.load(self.root)), ["d1"])
         self.assertEqual(sorted(os.listdir(store.map_dir(self.root))), ["map.json"])
 
@@ -156,8 +156,6 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(ids(merged), ["d2"])
 
     def test_superseded_node_survives_when_new_omits_it(self):
-        # Run two: the model re-emits what it still believes and forgets the history.
-        # d1 → d2 is a record of an argument already had; it must not be retracted.
         old = a_map(node("d1", status="superseded", superseded_by="d2", decision="старое"),
                     node("d2"))
         new = a_map(node("d2"), node("d3"))
@@ -169,23 +167,17 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(d1["decision"], "старое")
         self.assertFalse(d1["hand_edited"])
         self.assertEqual(schema.validate(merged), [])
-        # and again — history is kept across every later regeneration, with its target
         merged2 = store.merge(merged, a_map(node("d3")))
         self.assertEqual(ids(merged2), ["d1", "d2", "d3"])
         self.assertEqual(schema.validate(merged2), [])
 
     def test_superseded_node_omitted_together_with_its_replacement(self):
-        # The replacement is dropped by the model too: the old node still stays, and
-        # so does its target (the closure keeps the map valid).
         old = a_map(node("d1", status="superseded", superseded_by="d2"), node("d2"), node("d3"))
         merged = store.merge(old, a_map(node("d3")))
         self.assertEqual(ids(merged), ["d1", "d2", "d3"])
         self.assertEqual(schema.validate(merged), [])
 
     def test_reemitted_superseded_node_keeps_its_stored_text(self):
-        # The model re-emits the superseded node (as the skill asks) but with different
-        # words. History is not edited (R2): the stored text is exactly what stops the
-        # argument being had again, so the candidate's version is ignored in full.
         old = a_map(node("d1", status="superseded", superseded_by="d2", decision="старое",
                          why="старая причина", against=["старый довод"],
                          cites=[{"turn": 3, "role": "user", "quote": "старая цитата"}]),
@@ -205,12 +197,10 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(d1["cites"][0]["turn"], 3)
         self.assertEqual(d1["status"], "superseded")
         self.assertEqual(d1["superseded_by"], "d2")
-        self.assertFalse(d1["hand_edited"])  # frozen as history, not promoted to a hand edit
+        self.assertFalse(d1["hand_edited"])
         self.assertEqual(schema.validate(merged), [])
 
     def test_regeneration_never_unsupersedes_or_repoints_a_superseded_node(self):
-        # Un-superseding is refused for the same reason: the record that the
-        # conversation moved on is history too. So is the pointer to what replaced it.
         old = a_map(node("d1", status="superseded", superseded_by="d2", decision="старое"),
                     node("d2"), node("d3"))
         revived = a_map(node("d1", decision="снова актуально"), node("d2"), node("d3"))
@@ -238,7 +228,7 @@ class MergeTest(unittest.TestCase):
         d1 = merged["nodes"][0]
         self.assertEqual(d1["status"], "superseded")
         self.assertEqual(d1["superseded_by"], "d2")
-        self.assertEqual(d1["decision"], "правка")  # content untouched
+        self.assertEqual(d1["decision"], "правка")
         self.assertTrue(d1["hand_edited"])
         self.assertEqual(schema.validate(merged), [])
 
@@ -254,7 +244,6 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(merged2["nodes"][0]["superseded_by"], "d2")
 
     def test_supersede_target_of_kept_node_is_retained(self):
-        # d1 (hand-edited) is superseded by d2 which the model forgot; d2 by d3, also forgotten.
         old = a_map(node("d1", hand_edited=True, status="superseded", superseded_by="d2"),
                     node("d2", status="superseded", superseded_by="d3"),
                     node("d3"))
@@ -296,7 +285,6 @@ class MergeTest(unittest.TestCase):
         self.assertEqual(store.merge(None, {"version": 1, "nodes": ["junk", 3]})["nodes"], [])
 
     def test_second_regeneration_keeps_hand_edit(self):
-        # generate → hand-edit → regenerate → the edit is still there (R6)
         first = store.merge({}, a_map(node("d1", decision="модель v1"), node("t1", kind="tacit")))
         first["nodes"][0]["decision"] = "человек поправил"
         first["nodes"][0]["hand_edited"] = True
@@ -319,7 +307,6 @@ class AddedAtTest(unittest.TestCase):
         self.assertEqual("2026-09-11T12:00:00Z", out["nodes"][1]["added_at"])
 
     def test_stamp_fills_empty_string_too(self):
-        # normalize() turns an absent `added_at` into "" — that is still "missing".
         m = a_map(node("d1", added_at=""))
         out = store.stamp_added_at(m, "2026-09-11T12:00:00Z")
         self.assertEqual("2026-09-11T12:00:00Z", out["nodes"][0]["added_at"])
@@ -342,8 +329,6 @@ class AddedAtTest(unittest.TestCase):
         self.assertEqual("2026-01-02T00:00:00Z", by_id["d2"]["added_at"])
 
     def test_merge_discards_added_at_the_model_wrote_for_a_new_node(self):
-        # Like `turn` and `generated_at`: a timestamp in map.json always means "stamped by
-        # aang", never "guessed by the model". stamp_added_at fills it after merge.
         out = store.merge(a_map(), a_map(node("d1", added_at="1999-01-01T00:00:00Z")))
         self.assertEqual("", out["nodes"][0]["added_at"])
 
@@ -390,9 +375,6 @@ class RelatesMergeTest(unittest.TestCase):
         out = store.merge(old, new)
         self.assertEqual([], [n for n in out["nodes"] if n["id"] == "d1"][0]["relates"])
 
-    # A protected node's edges are permanent, so their targets are too: the candidate
-    # omitting a target must not leave the map invalid and every later merge refused.
-
     def test_target_of_a_frozen_nodes_edge_survives_when_the_candidate_drops_it(self):
         old = a_map(node("t1", kind="tacit"),
                     node("d1", status="superseded", superseded_by="d3",
@@ -437,15 +419,12 @@ class RelatesMergeTest(unittest.TestCase):
         self.assertEqual(["d4", "d1", "d2", "d3", "d5"], ids(store.merge(old, new)))
 
     def test_contradicting_edges_are_left_for_validate(self):
-        # The human says d2 rests on d1; the model now says d1 rests on d2. No order
-        # satisfies both — that is a real conflict, and refusing it is right.
         old = a_map(node("d1"), node("d2", hand_edited=True, relates=[{"to": "d1", "rel": "rests_on"}]))
         out = store.merge(old, a_map(node("d2"), node("d1", relates=[{"to": "d2", "rel": "rests_on"}])))
         self.assertEqual(["d2", "d1"], ids(out))
         self.assertTrue(any("ссылка вперёд" in e for e in schema.validate(out)))
 
     def test_merge_strips_related_by_and_verified_from_the_candidate(self):
-        # Both are derived for the view (U4); stored, a stale copy would be read as fact.
         new = a_map(node("d1", related_by=[{"from": "ghost", "rel": "moots"}], verified=True))
         out = store.merge(a_map(), new)
         self.assertNotIn("related_by", out["nodes"][0])
@@ -521,7 +500,6 @@ class ExportTest(unittest.TestCase):
         self.assertIn("ход не найден: «давай pass@1 на отложенном» — не подтверждена", text)
 
     def test_missing_transcript_says_unchecked_not_not_found(self):
-        # nothing was searched, so the document must not claim a citation was looked for
         m = a_map(node("d1"), node("o1", kind="open", status="proposed", cites=[]))
         for n in m["nodes"]:
             n["verified"] = False
@@ -531,7 +509,7 @@ class ExportTest(unittest.TestCase):
         self.assertIn("> Цитаты не проверены: транскрипт сессии не найден: s1", text)
         self.assertEqual(text.count("**Не проверялось** — транскрипт недоступен"), 2)
         self.assertIn("ход не указан: «давай pass@1 на отложенном»", text)
-        sections = text.split("###", 1)[1]  # the blockquote above may say "не найден"
+        sections = text.split("###", 1)[1]
         self.assertNotIn("не найден", sections)
         self.assertNotIn("не подтверждена", sections)
         self.assertNotIn("Не проверено", sections)
@@ -575,7 +553,6 @@ class ExportTest(unittest.TestCase):
             self.assertIn("- %s d0 (База?)" % store.REL_LABELS[rel], md)
 
     def test_export_says_an_isolated_node_is_related_to_nothing(self):
-        # The viewer's words: that nothing rests on a node is information too.
         md = store.export_markdown(a_map(node("d1", related_by=[])))
         self.assertIn("**Связи:** ни с чем не связано", md)
         self.assertNotIn("**Связи:**\n", md)
@@ -596,8 +573,6 @@ class ExportTest(unittest.TestCase):
         self.assertNotIn("ни с чем не связано", t1 + d1)
 
     def test_export_marks_a_mooted_node_on_the_node_itself(self):
-        # The spec's own case: d4 is dead and must not be shown alive while the killer
-        # sits three sections away.
         m = a_map(node("d4", question="Порог 72 часа?", related_by=[{"from": "d5", "rel": "moots"}]),
                   node("d5", question="Разворот на /aang?", relates=[{"to": "d4", "rel": "moots"}],
                        related_by=[]))
@@ -623,7 +598,6 @@ class ExportTest(unittest.TestCase):
         self.assertIn("- заменяет d1 (Старый?)", md.split("### d2")[1].split("###")[0])
 
     def test_export_reverse_labels_cover_the_vocabulary(self):
-        # `moots` reads back as the status flag, the other two as lines in the list.
         self.assertEqual(sorted(list(store.REL_LABELS_BACK) + ["moots"]), sorted(schema.RELS))
 
     def test_empty_map_exports_a_document(self):

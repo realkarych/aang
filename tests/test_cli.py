@@ -105,8 +105,6 @@ class CheckTest(CliTestCase):
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 0, out)
         self.assertIn("нет цитат", out)
-        # Not a failure, not a pass: a third mark, counted in the summary, and never a
-        # ✗ above a ✓ verdict.
         self.assertIn("△ o1", out)
         self.assertIn("✓ d1", out)
         self.assertNotIn("✗", out)
@@ -115,8 +113,6 @@ class CheckTest(CliTestCase):
         self.assertIn("1 узел без цитат", out)
 
     def test_check_prints_warnings_but_still_exits_zero(self):
-        # The map is valid, but d2's prose names d1 and there is no edge to it: a nudge
-        # under its own heading, after the verdict, and not a failure.
         store.save(self.root, candidate(
             decision("d1", "давай тогда pass@1"),
             decision("d2", "нужно 500 примеров вместо 100", why="следует из d1")))
@@ -127,8 +123,6 @@ class CheckTest(CliTestCase):
         self.assertLess(out.index("Итог:"), out.index("Замечания:"))
 
     def test_check_remarks_on_an_open_node_without_orphaned_by(self):
-        # The real map's o3: no edge, and a `why` that never says what caused it. Valid, and
-        # filed under «просто висит» by the viewer — so `check` has to say the step was skipped.
         store.save(self.root, candidate(
             decision("d1", "давай тогда pass@1"),
             decision("o1", "", kind="open", status="proposed", decision="", cites=[],
@@ -178,7 +172,7 @@ class MergeTest(CliTestCase):
         self.assertEqual(code, 1)
         self.assertIn("не читается", err)
         self.assertFalse(os.path.exists(store.map_path(self.root)))
-        self.assertTrue(os.path.exists(path))  # a refused candidate is left for inspection
+        self.assertTrue(os.path.exists(path))
 
     def test_invalid_candidate_exits_1_with_named_errors(self):
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1")))
@@ -203,21 +197,19 @@ class MergeTest(CliTestCase):
         self.assertEqual(by_id["d1"]["cites"][0]["turn"], 4)
         self.assertEqual(by_id["d1"]["cites"][0]["role"], "user")
         self.assertEqual(by_id["t1"]["cites"][0]["turn"], 5)
-        # an unresolvable citation is saved with turn null, not dropped
         self.assertIn("d2", by_id)
         self.assertIsNone(by_id["d2"]["cites"][0]["turn"])
-        self.assertEqual(saved["session_id"], "normal")  # from the transcript file name
+        self.assertEqual(saved["session_id"], "normal")
         self.assertIn("не найдено: 1", out)
         self.assertIn("turn: null", out)
         self.assertFalse(os.path.exists(cand_path))
-        # and check now says exactly which one is unverified
         code, out, _ = self.run_cli("check", "--root", self.root, "--transcript", NORMAL)
         self.assertEqual(code, 1)
         self.assertIn("✗ d2", out)
 
     def test_merge_stamps_generated_at_with_current_utc_time(self):
         cand = candidate(decision("d1", "давай тогда pass@1"))
-        cand["generated_at"] = "1999-01-01T00:00:00Z"  # the model's guess is not trusted
+        cand["generated_at"] = "1999-01-01T00:00:00Z"
         self.write_candidate(cand)
         before = time.time()
         code, _, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
@@ -241,8 +233,7 @@ class MergeTest(CliTestCase):
         saved = store.load(self.root)
         first = saved["nodes"][0]["added_at"]
         self.assertRegex(first, r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
-        self.assertEqual(first, saved["generated_at"])  # one instant for both stamps
-        # Second run: d1 rewritten (with a model-guessed added_at), d2 new.
+        self.assertEqual(first, saved["generated_at"])
         self.write_candidate(candidate(
             decision("d1", "давай тогда pass@1", why="переписано", added_at="1999-01-01T00:00:00Z"),
             decision("d2", "нужно 500 примеров вместо 100")))
@@ -254,8 +245,6 @@ class MergeTest(CliTestCase):
         self.assertEqual("2030-01-01T00:00:00Z", by_id["d2"]["added_at"])
 
     def test_merge_stamps_nodes_of_a_map_written_before_added_at_existed(self):
-        # Every pre-existing node gets the same instant — the old map's `generated_at`,
-        # when it was demonstrably there — not an invented past and not "now".
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
@@ -266,7 +255,6 @@ class MergeTest(CliTestCase):
         self.assertEqual(set(["2026-09-11T12:00:00Z"]), stamps)
 
     def test_first_run_after_the_upgrade_keeps_its_own_delta(self):
-        # The nodes this very run adds must not melt into the backfilled ones (U7).
         store.save(self.root, candidate(decision("d1", "давай тогда pass@1"),
                                         decision("t1", "нужно 500 примеров вместо 100", kind="tacit")))
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
@@ -289,8 +277,6 @@ class MergeTest(CliTestCase):
         self.assertEqual("2030-01-01T00:00:00Z", store.load(self.root)["nodes"][0]["added_at"])
 
     def test_merge_keeps_and_names_the_target_of_a_frozen_edge(self):
-        # t1 is tacit; d1 rests on it and was later superseded by d3. A candidate that
-        # emits only d3 used to make the merged map invalid and refuse every merge.
         store.save(self.root, candidate(
             decision("t1", "Ещё вариант: pass@5", kind="tacit"),
             decision("d1", "давай тогда pass@1", status="superseded", superseded_by="d3",
@@ -323,13 +309,11 @@ class MergeTest(CliTestCase):
 
     def test_second_merge_keeps_the_maps_session_when_candidate_has_none(self):
         roots = self._two_projects()
-        # first merge names session A explicitly; the map records it
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots,
                                       "--session", "aaaa1111-0000-0000-0000-000000000001")
         self.assertEqual(code, 0, out + err)
         self.assertEqual(store.load(self.root)["session_id"], "aaaa1111-0000-0000-0000-000000000001")
-        # second merge: candidate has no session id, and another project's session B is newer
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1"),
                                        decision("d2", "нужно 500 примеров вместо 100")))
         code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots)
@@ -337,7 +321,7 @@ class MergeTest(CliTestCase):
         saved = store.load(self.root)
         self.assertEqual(saved["session_id"], "aaaa1111-0000-0000-0000-000000000001")
         by_id = dict((n["id"], n) for n in saved["nodes"])
-        self.assertEqual(by_id["d1"]["cites"][0]["turn"], 4)   # resolved against A, not B
+        self.assertEqual(by_id["d1"]["cites"][0]["turn"], 4)
         self.assertEqual(by_id["d2"]["cites"][0]["turn"], 5)
         self.assertIn("не найдено: 0", out)
         self.assertNotIn("bbbb2222", out + err)
@@ -356,7 +340,7 @@ class MergeTest(CliTestCase):
         self.assertEqual(code, 0, out)
         saved = store.load(self.root)
         self.assertEqual(saved["session_id"], "bbbb2222-0000-0000-0000-000000000002")
-        self.assertIsNone(saved["nodes"][0]["cites"][0]["turn"])  # B has no such words
+        self.assertIsNone(saved["nodes"][0]["cites"][0]["turn"])
 
     def test_newest_session_is_taken_and_stamped_only_when_nobody_names_one(self):
         roots = self._two_projects()
@@ -366,8 +350,6 @@ class MergeTest(CliTestCase):
         self.assertEqual(store.load(self.root)["session_id"], "bbbb2222-0000-0000-0000-000000000002")
 
     def test_empty_session_flag_is_the_same_as_none(self):
-        # The skill passes `--session "$CLAUDE_CODE_SESSION_ID"` straight through; if the
-        # variable is empty in some context the merge must degrade to "nobody named one".
         roots = self._two_projects()
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1")))
         code, out, err = self.run_cli("merge", "--root", self.root, "--transcript-root", roots,
@@ -390,16 +372,13 @@ class MergeTest(CliTestCase):
         self.assertIsNone(store.load(self.root)["nodes"][0]["cites"][0]["turn"])
 
     def test_second_regeneration_preserves_hand_edit(self):
-        # 1. generate
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1", why="модель v1"),
                                        decision("d2", "нужно 500 примеров вместо 100")))
         self.assertEqual(self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)[0], 0)
-        # 2. hand-edit the file
         m = store.load(self.root)
         m["nodes"][0]["why"] = "человек исправил"
         m["nodes"][0]["hand_edited"] = True
         store.save(self.root, m)
-        # 3. regenerate: model rewrites d1, drops d2, adds d3
         self.write_candidate(candidate(decision("d1", "давай тогда pass@1", why="модель v2"),
                                        decision("d3", "Ещё вариант: pass@5")))
         code, out, _ = self.run_cli("merge", "--root", self.root, "--transcript", NORMAL)
@@ -442,7 +421,7 @@ class ExportTest(CliTestCase):
         with open(path, encoding="utf-8") as handle:
             text = handle.read()
         self.assertIn("### d1", text)
-        self.assertLess(text.index("### d2"), text.index("### d1"))  # newest first
+        self.assertLess(text.index("### d2"), text.index("### d1"))
         self.assertIn("Не проверено", text.split("### d2")[1].split("###")[0])
         self.assertIn("не проверено: 1", out)
 
@@ -473,7 +452,6 @@ class ExportTest(CliTestCase):
         self.assertNotIn("Не проверено", text)
 
     def test_export_shows_both_sides_of_every_relation(self):
-        # Through the real path: `annotate` derives `related_by`, the document prints it.
         store.save(self.root, candidate(
             decision("t1", "Ещё вариант: pass@5", kind="tacit", question="Остаться на 3.9?"),
             decision("d1", "давай тогда pass@1", question="Чем мерить?",

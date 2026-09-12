@@ -1,5 +1,4 @@
-# Make `src/aang` importable when the suite runs as
-# `python3 -m unittest discover -s tests -t .` from the repo root.
+"""Make `src/aang` importable when the suite runs from the repo root."""
 import os
 import sys
 

@@ -24,18 +24,14 @@ class IndexTest(unittest.TestCase):
                           "u-3a", "u-3b", "a-3-text", "a-4-text"])
         self.assertTrue(turns[1]["text"].startswith("Чем мерить"))
         self.assertEqual(turns[1]["ts"], "2026-09-11T10:00:01.000Z")
-        # user list content: only text blocks, image ignored
         self.assertEqual(turns[3]["text"], "давай тогда pass@1")
 
     def test_assistant_message_split_across_records_is_one_turn(self):
         turns = transcript.index(fixture("normal.jsonl"))
-        # msg_a1: thinking / text / tool_use -> one turn carrying only the text
         self.assertIn("pass@1", turns[2]["text"])
         self.assertNotIn("tool_use", turns[2]["text"])
-        # msg_a2: tool_use first, text second -> uuid/ts come from the text record
         self.assertEqual(turns[4]["uuid"], "a-2-text")
         self.assertEqual(turns[4]["ts"], "2026-09-11T10:00:10.000Z")
-        # msg_a3: two text records -> joined
         self.assertEqual(turns[7]["text"], "Ок, ночной прогон. Записал.\nSecond text block of the same message.")
 
     def test_skips_meta_sidechain_and_control_records(self):
@@ -43,11 +39,9 @@ class IndexTest(unittest.TestCase):
         self.assertNotIn("Caveat: injected", texts)
         self.assertNotIn("Sidechain", texts)
         self.assertNotIn("task-notification", texts)
-        self.assertNotIn("file.txt", texts)  # tool_result content
+        self.assertNotIn("file.txt", texts)
 
     def test_numbering_is_stable_as_a_live_file_grows(self):
-        # A live session keeps appending: tool records and control records must not
-        # renumber earlier turns, and only a new text-bearing message adds a turn.
         before = transcript.index(fixture("normal.jsonl"))
         tmp = tempfile.mkdtemp(prefix="aang-live-")
         try:
@@ -79,9 +73,6 @@ class IndexTest(unittest.TestCase):
         self.assertEqual(turns[0]["text"], "Запусти тесты.")
 
     def test_injected_user_records_are_not_turns(self):
-        # Slash-command echoes, relayed subagent reports, task notifications, system
-        # reminders and compaction summaries arrive as `user` records nobody typed.
-        # None of it may become a turn — a quote from it would verify as the user's words.
         turns = transcript.index(fixture("injected.jsonl"))
         self.assertEqual([t["uuid"] for t in turns], ["u-real-1", "a-1", "u-mixed", "a-2"])
         self.assertEqual([t["role"] for t in turns], ["user", "assistant", "user", "assistant"])
@@ -90,7 +81,6 @@ class IndexTest(unittest.TestCase):
                          "Another Claude session", "task-notification", "finished the whole review",
                          "system-reminder", "opened the file", "being continued"):
             self.assertNotIn(injected, texts, injected)
-        # a real message that shares a record with a system reminder keeps its own text
         self.assertEqual(turns[2]["text"], "Поднимай порог до трёх суток, выходные должны переживать.")
 
     def test_injected_text_never_resolves(self):
@@ -155,7 +145,7 @@ class FindSessionTest(unittest.TestCase):
     def test_by_id_and_prefix(self):
         self.assertEqual(transcript.find_session("aaaa1111-0000-0000-0000-000000000001", roots=[self.root]), self.a)
         self.assertEqual(transcript.find_session("bbbb2222", roots=[self.root]), self.b)
-        self.assertIsNone(transcript.find_session("bbbb", roots=[self.root]))  # ambiguous prefix
+        self.assertIsNone(transcript.find_session("bbbb", roots=[self.root]))
         self.assertIsNone(transcript.find_session("cccc", roots=[self.root]))
         self.assertIsNone(transcript.find_session("agent-zzz", roots=[self.root]))
 
@@ -197,11 +187,11 @@ class ResolveTest(unittest.TestCase):
             "ПРЕДЛАГАЮ   pass@1 на отложенном наборе",
             "Предлагаю pass@1, на отложенном наборе.",
             "«Предлагаю pass@1 на отложенном наборе»",
-            "предлагаю pass@1 на отложенном наборе - k>1 маскирует",   # em dash vs hyphen
-            "Ещё вариант pass@5",                                        # colon dropped
-            "Еще вариант: pass@5",                                       # ё/е
-            "Предлагаю pass@1 на отложенном наборе",                     # no ** markdown
-            "k>1 маскирует нестабильность промпта",                      # no backticks
+            "предлагаю pass@1 на отложенном наборе - k>1 маскирует",
+            "Ещё вариант pass@5",
+            "Еще вариант: pass@5",
+            "Предлагаю pass@1 на отложенном наборе",
+            "k>1 маскирует нестабильность промпта",
         ):
             r = self.one({"quote": quote})
             self.assertTrue(r["ok"], "%r -> %s" % (quote, r["reason"]))
@@ -209,11 +199,11 @@ class ResolveTest(unittest.TestCase):
 
     def test_substance_is_not_forgiven(self):
         for quote in (
-            "Предлагаю pass@5 на отложенном наборе",     # number changed
-            "k<1 маскирует нестабильность промпта",       # operator changed
-            "Предлагаю pass@1 на случайном наборе",       # word changed
-            "Предлагаю на отложенном наборе pass@1",      # order changed
-            "Предлагаю pass@1 отложенном наборе",         # word dropped
+            "Предлагаю pass@5 на отложенном наборе",
+            "k<1 маскирует нестабильность промпта",
+            "Предлагаю pass@1 на случайном наборе",
+            "Предлагаю на отложенном наборе pass@1",
+            "Предлагаю pass@1 отложенном наборе",
             "we decided to switch the storage to sqlite",
         ):
             r = self.one({"quote": quote})
@@ -223,7 +213,6 @@ class ResolveTest(unittest.TestCase):
             self.assertIn("не найдена", r["reason"])
 
     def test_edge_words_must_be_whole(self):
-        # A partial word at the edge can flip meaning: never verify it.
         turns = [
             {"turn": 1, "role": "user", "ts": None, "uuid": "x",
              "text": "It is impossible to ship this by Friday. Это бесполезно для нас сейчас."},
@@ -245,17 +234,14 @@ class ResolveTest(unittest.TestCase):
         self.assertTrue(r["ok"], r["reason"])
         self.assertEqual(r["turn"], 3)
         self.assertIn("пропусками", r["reason"])
-        self.assertIn("пропущено 1 слово", r["reason"])  # "наборе" was skipped
+        self.assertIn("пропущено 1 слово", r["reason"])
         r = self.one({"quote": "Предлагаю pass@1 на отложенном ... k>1 маскирует нестабильность промпта"})
         self.assertTrue(r["ok"], r["reason"])
         self.assertTrue(r["reason"])
-        # fragments in the wrong order do not verify
         r = self.one({"quote": "k>1 маскирует нестабильность промпта … Предлагаю pass@1 на отложенном"})
         self.assertFalse(r["ok"])
-        # fragments from different turns do not verify
         r = self.one({"quote": "Предлагаю pass@1 на отложенном … нужно 500 примеров вместо 100"})
         self.assertFalse(r["ok"])
-        # a one-word elision that drops a negation is ok but visibly stitched
         turns = [{"turn": 1, "role": "user", "ts": None, "uuid": "x",
                   "text": "тезис про параллельности как бы не раскрыт в этом документе вообще"}]
         r = transcript.resolve([{"quote": "тезис про параллельности как бы … раскрыт в этом документе вообще"}], turns)[0]
@@ -269,7 +255,6 @@ class ResolveTest(unittest.TestCase):
         r = transcript.resolve([{"quote": "one function _call_clauses(...) -> (clauses, accounted)"}], turns)[0]
         self.assertTrue(r["ok"], r["reason"])
         self.assertEqual(r["reason"], "")
-        # the editorial mark still elides
         r = transcript.resolve([{"quote": "Call accounting is one function [...] now, and nothing else changed"}], turns)[0]
         self.assertTrue(r["ok"], r["reason"])
         self.assertIn("пропусками", r["reason"])
@@ -289,13 +274,11 @@ class ResolveTest(unittest.TestCase):
         self.assertIn("не найдена", r["reason"])
 
     def test_ellipsis_search_is_not_greedy(self):
-        # The first fragment occurs twice; only the second occurrence is within reach of
-        # the second fragment. A greedy first-occurrence search would miss it.
         text = ("наш общий план работы " + ("х " * (transcript.MAX_GAP_TOKENS + 5))
                 + "наш общий план работы и конечный результат его")
         turns = [{"turn": 1, "role": "user", "ts": None, "uuid": "x", "text": text}]
         r = transcript.resolve([{"quote": "наш общий план работы … конечный результат его"}], turns)[0]
-        self.assertFalse(r["ok"])  # fragment 2 is only 3 words: below the ellipsis minimum
+        self.assertFalse(r["ok"])
         r = transcript.resolve([{"quote": "наш общий план работы … и конечный результат его"}], turns)[0]
         self.assertTrue(r["ok"], r["reason"])
         self.assertIn("пропущено 0 слов", r["reason"])
@@ -303,7 +286,7 @@ class ResolveTest(unittest.TestCase):
     def test_short_quotes_and_short_fragments_are_never_ok(self):
         for quote in ("pass@1", "давай", "implementation", "пользователь", "нестабильность промпта",
                       "да да да", "| | |", "| | | | |", "k>1 == <=",
-                      "Предлагаю pass@1 на отложенном … нестабильность промпта",  # 3-word fragment
+                      "Предлагаю pass@1 на отложенном … нестабильность промпта",
                       "…", "...", "— —", ""):
             r = self.one({"quote": quote})
             self.assertFalse(r["ok"], quote)
@@ -315,7 +298,6 @@ class ResolveTest(unittest.TestCase):
         self.assertIn("в каждом фрагменте", r["reason"])
         r = self.one({"quote": "…"})
         self.assertIn("нет цитаты", r["reason"])
-        # the floor is exactly 3 words and 12 chars
         r = self.one({"quote": "давай тогда pass@1"})
         self.assertTrue(r["ok"], r["reason"])
         self.assertEqual(r["turn"], 4)
@@ -351,7 +333,6 @@ class ResolveTest(unittest.TestCase):
         self.assertEqual(r["matches"], [3])
         self.assertIn("не найдена в ходе 2", r["reason"])
         self.assertIn("ходе 3", r["reason"])
-        # fallback excerpt: the cited turn's beginning
         self.assertTrue(r["excerpt"].startswith("Чем мерить"))
 
     def test_nonexistent_turn(self):

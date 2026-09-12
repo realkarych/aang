@@ -46,11 +46,6 @@ CODEX_ITEM_ROLES = {"UserMessage": "user", "AgentMessage": "assistant"}
 CODEX_TEXT_TYPES = ("text", "Text", "input_text", "output_text")
 HEAD_LINES = 10
 
-# Text that arrives as a `user` record without a person having typed it: slash-command
-# echoes and their output, subagent reports and task notifications relayed into the
-# session, system reminders. A text part that opens with one of these is not the
-# conversation and is never indexed — otherwise a subagent's sentence would verify as
-# the user's words.
 INJECTED_PREFIXES = (
     "<command-name>",
     "<command-message>",
@@ -63,20 +58,16 @@ INJECTED_PREFIXES = (
     "Another Claude session sent a message",
 )
 MIN_QUOTE_WORDS = 3
-MIN_FRAGMENT_WORDS = 4  # per fragment, when the quote contains an ellipsis
+MIN_FRAGMENT_WORDS = 4
 MIN_QUOTE_CHARS = 12
-MAX_GAP_TOKENS = 50  # tokens an ellipsis may skip between consecutive fragments
+MAX_GAP_TOKENS = 50
 EXCERPT_CONTEXT = 200
 EXCERPT_FALLBACK = 300
 EXCERPT_MAX = 1000
 
-# `(...)` is a code placeholder, not an elision: `f(...)` is quoted verbatim. `[...]` still
-# splits — it is the editorial elision mark.
 _ELLIPSIS_RE = re.compile(r"(?<!\()(?:\.\s*){3,}|…")
 _MULTI_SPACE_RE = re.compile(r"\s+")
 
-
-# ----------------------------------------------------------------------------- find
 
 def default_roots():  # type: () -> List[str]
     return [os.path.join(os.path.expanduser("~"), ".claude", "projects"),
@@ -216,8 +207,6 @@ def _newest(paths):  # type: (List[str]) -> Optional[str]
     return best
 
 
-# ----------------------------------------------------------------------------- index
-
 def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[Dict[str, Any]]
     """Turns of a session, numbered from 1 in file order.
 
@@ -295,7 +284,6 @@ def index(path, text_cap=None):  # type: (Optional[str], Optional[int]) -> List[
                     group = None
                 continue
 
-            # user
             flush()
             group_id, group = None, None
             if parts:
@@ -362,7 +350,13 @@ def _text_parts(content):  # type: (Any) -> List[str]
 
 
 def _injected(part):  # type: (str) -> bool
-    """True for a user text part nobody typed — see INJECTED_PREFIXES."""
+    """True for a user text part nobody typed — see INJECTED_PREFIXES.
+
+    Slash-command echoes and their output, subagent reports and task notifications relayed
+    into the session, system reminders: a text part that opens with one of these is not the
+    conversation and is never indexed — otherwise a subagent's sentence would verify as the
+    user's words.
+    """
     head = part.lstrip()
     return any(head.startswith(prefix) for prefix in INJECTED_PREFIXES)
 
@@ -381,8 +375,6 @@ def _append_turn(turns, group, text_cap):  # type: (List[Dict[str, Any]], Dict[s
         "text": text,
     })
 
-
-# ----------------------------------------------------------------------------- canon
 
 def _classify(char):  # type: (str) -> str
     """'w' word char, 's' standalone symbol, ' ' separator."""
@@ -433,7 +425,11 @@ def _canon(text):  # type: (str) -> Tuple[str, List[int], List[Tuple[int, int]]]
 
 
 def _fragments(quote):  # type: (str) -> List[str]
-    """Canonical fragments of a quote split on ellipses; empty fragments dropped."""
+    """Canonical fragments of a quote split on ellipses; empty fragments dropped.
+
+    `(...)` is a code placeholder, not an elision: `f(...)` is quoted verbatim and does not
+    split. `[...]` still splits — it is the editorial elision mark.
+    """
     out = []  # type: List[str]
     for piece in _ELLIPSIS_RE.split(quote):
         canon, _, _ = _canon(piece)
@@ -515,8 +511,6 @@ class _Indexed(object):
         return self.spans[path[0][0]][0], self.spans[path[-1][1]][1], skipped
 
 
-# ----------------------------------------------------------------------------- resolve
-
 def resolve(cites, turns):  # type: (Any, List[Dict[str, Any]]) -> List[Dict[str, Any]]
     """Check each citation against the indexed turns.
 
@@ -560,7 +554,6 @@ def _resolve_one(cite, indexed, by_number, total):
         wanted_turn = None
     wanted_role = cite.get("role") if cite.get("role") in ("user", "assistant") else None
 
-    # The cited turn, if any, must exist before anything else is judged.
     anchor = by_number.get(wanted_turn) if wanted_turn is not None else None
     if wanted_turn is not None and anchor is None:
         return _result(wanted_turn, None, False, "",
@@ -611,7 +604,6 @@ def _finish(hit, wanted_role, notes, elided, quote, match_numbers):
     number = item.turn["turn"]
     role = _role(item)
     excerpt = _excerpt(item.turn.get("text") or "", span)
-    # A stitched quote is never "clean": the viewer must be able to tell it apart.
     if elided:
         notes = ["цитата с пропусками: пропущено %d %s" % (skipped, _words(skipped))] + notes
     reason = "; ".join(notes)
