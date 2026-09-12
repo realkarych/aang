@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import threading
+import time
 import unittest
 
 from aang import server, store
@@ -45,7 +46,8 @@ class ServerTestCase(unittest.TestCase):
             handle.write("<title>aang</title><p>привет</p>")
         store.save(self.root, sample_map())
         source = server.TranscriptSource(path=self.transcript, roots=[])
-        self.srv = server.make_server(self.root, 0, source, ui_path=self.ui_path or self.ui)
+        self.srv = server.make_server(self.root, 0, source, ui_path=self.ui_path or self.ui,
+                                      watch_interval=0.05)
         self.port = self.srv.server_address[1]
         self.thread = threading.Thread(target=self.srv.serve_forever, kwargs={"poll_interval": 0.02},
                                        daemon=True)
@@ -426,6 +428,30 @@ class TranscriptSourceTest(unittest.TestCase):
         turns, _ = source.turns()
         self.assertEqual(len(turns), 10)
 
+    def test_reindexes_when_the_path_changes_under_the_same_stamp(self):
+        """Two files of the same size and mtime: only the path tells them apart."""
+        tmp = tempfile.mkdtemp(prefix="aang-ts-")
+        self.addCleanup(shutil.rmtree, tmp, True)
+
+        def write(path, texts):
+            with open(path, "w", encoding="utf-8") as handle:
+                for i, text in enumerate(texts):
+                    handle.write(json.dumps({"type": "user", "uuid": "u%d" % i,
+                                             "message": {"role": "user", "content": text}}) + "\n")
+
+        one, two = os.path.join(tmp, "one.jsonl"), os.path.join(tmp, "two.jsonl")
+        write(two, ["первая", "вторая"])
+        write(one, ["x"])
+        write(one, ["x" * (1 + os.path.getsize(two) - os.path.getsize(one))])
+        self.assertEqual(os.path.getsize(two), os.path.getsize(one))
+        stat = os.stat(two)
+        os.utime(one, ns=(stat.st_atime_ns, stat.st_mtime_ns))
+
+        source = server.TranscriptSource(path=one)
+        self.assertEqual(1, len(source.turns()[0]))
+        source.pinned = two
+        self.assertEqual(2, len(source.turns()[0]))
+
 
 class AnnotateTest(unittest.TestCase):
     def test_does_not_mutate_input(self):
@@ -778,6 +804,114 @@ class EditNewFieldsTest(ServerTestCase):
         self.assertEqual("discuss", _by_id(json.loads(data), "d1")["cell"])
         status, _, data = self.request("POST", "/api/node/o1", {"decided_by": "user"})
         self.assertEqual(422, status, data)
+
+
+class WatcherTest(unittest.TestCase):
+    def test_reports_the_label_of_the_file_that_changed(self):
+        """A file that is rewritten and a file that only now appears are both changes."""
+        root = tempfile.mkdtemp(prefix="aang-watch-")
+        self.addCleanup(shutil.rmtree, root, True)
+        a = os.path.join(root, "a.json"); b = os.path.join(root, "b.json")
+        open(a, "w").close()
+        w = server.Watcher(lambda: {"map": a, "session": b}, interval=0.05)
+        q = w.subscribe()
+        w.start()
+        self.addCleanup(w.stop)
+        with open(a, "w") as h:
+            h.write("changed")
+        self.assertEqual({"changed": ["map"]}, q.get(timeout=2))
+        open(b, "w").close()
+        self.assertEqual({"changed": ["session"]}, q.get(timeout=2))
+        w.unsubscribe(q)
+
+    def test_stop_ends_the_thread_and_wakes_its_subscribers(self):
+        """`join()` on a stopped watcher must work: a `Thread` has private names of its own."""
+        w = server.Watcher(dict, interval=0.01)
+        q = w.subscribe()
+        w.start()
+        w.stop()
+        w.join(timeout=2)
+        self.assertFalse(w.is_alive())
+        self.assertIsNone(q.get(timeout=2))
+
+
+class WatchedPathsTest(unittest.TestCase):
+    """What the watcher polls, and how rarely it may go looking for the transcript."""
+
+    def setUp(self):
+        from aang import session
+        self.root = tempfile.mkdtemp(prefix="aang-paths-")
+        self.addCleanup(shutil.rmtree, self.root, True)
+        store.save(self.root, sample_map())
+        self.session = session
+        self.source = server.TranscriptSource(path=NORMAL, roots=[], root=self.root)
+        self.srv = server.make_server(self.root, 0, self.source, watch_interval=60)
+        self.addCleanup(self.srv.server_close)
+        self.lookups = []
+        located = self.source.locate
+
+        def counting(session_id=None):
+            self.lookups.append(session_id)
+            return located(session_id)
+
+        self.source.locate = counting
+
+    def test_watches_the_map_the_session_file_and_the_transcript(self):
+        paths = self.srv._watched_paths()
+        self.assertEqual(store.map_path(self.root), paths["map"])
+        self.assertEqual(os.path.join(store.map_dir(self.root), self.session.SESSION_FILE),
+                         paths["session"])
+        self.assertEqual(NORMAL, paths["transcript"])
+
+    def test_the_located_path_is_remembered_between_ticks(self):
+        self.srv._watched_paths()
+        self.srv._watched_paths()
+        self.assertEqual([], self.lookups)
+
+    def test_a_changed_session_file_sends_it_looking_again(self):
+        self.srv._watched_paths()
+        self.session.write(self.root, {"harness": "claude", "transcript_path": NORMAL})
+        self.assertEqual(NORMAL, self.srv._watched_paths()["transcript"])
+        self.assertEqual(1, len(self.lookups))
+
+
+class EventsRouteTest(ServerTestCase):
+    def test_stream_announces_map_changes(self):
+        conn = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        self.addCleanup(conn.close)
+        conn.putrequest("GET", "/api/events", skip_host=True)
+        conn.putheader("Host", "127.0.0.1")
+        conn.endheaders()
+        resp = conn.getresponse()
+        self.assertEqual(200, resp.status)
+        self.assertEqual("text/event-stream; charset=utf-8", resp.getheader("Content-Type"))
+        self.assertEqual("no-store", resp.getheader("Cache-Control"))
+        self.assertEqual(b": connected\n\n", resp.readline() + resp.readline())
+        m = store.load(self.root); m["title"] = "изменено"; store.save(self.root, m)
+        line = resp.readline()
+        deadline = time.time() + 3
+        while not line.startswith(b"data:") and time.time() < deadline:
+            line = resp.readline()
+        self.assertIn(b'"map"', line)
+
+    def test_events_gated_by_host(self):
+        status, _, _ = self.request("GET", "/api/events", host="evil.example")
+        self.assertEqual(403, status)
+
+    def test_head_does_not_stream(self):
+        status, ctype, data = self.request("HEAD", "/api/events")
+        self.assertEqual((200, "text/event-stream; charset=utf-8", b""), (status, ctype, data))
+
+
+class ModelJsRouteTest(ServerTestCase):
+    def test_model_js_is_served_when_present(self):
+        status, ctype, data = self.request("GET", "/model.js")
+        if os.path.isfile(server._MODEL_PATH):
+            self.assertEqual((200, "application/javascript; charset=utf-8"), (status, ctype))
+            self.assertTrue(data)
+        else:
+            self.assertEqual(404, status)
+            self.assertIn("model.js".encode("utf-8"), data)
 
 
 if __name__ == "__main__":
