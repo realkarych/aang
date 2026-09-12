@@ -605,22 +605,27 @@ class ExportTest(unittest.TestCase):
         self.assertTrue(text.startswith("# Карта решений"))
 
 
-class SeenAndCellMergeTest(unittest.TestCase):
+class TopicAndCellMergeTest(unittest.TestCase):
     def node(self, node_id, **fields):
         base = {"id": node_id, "kind": "decision", "status": "accepted", "question": "В?",
                 "decision": "Р", "why": "п", "cites": [{"quote": "три слова тут есть"}]}
         base.update(fields)
         return base
 
-    def test_seen_at_survives_a_regeneration_and_is_never_taken_from_the_candidate(self):
-        old = {"version": 1, "nodes": [self.node("d1", seen_at="2026-09-11T12:00:00Z", added_at="2026-09-11T11:00:00Z")]}
-        new = {"version": 1, "nodes": [self.node("d1", seen_at="2026-09-11T13:00:00Z", why="переписано"),
-                                       self.node("d2", seen_at="2026-09-11T13:00:00Z")]}
-        merged = store.merge(old, new)
-        by_id = dict((n["id"], n) for n in merged["nodes"])
-        self.assertEqual("2026-09-11T12:00:00Z", by_id["d1"]["seen_at"])
-        self.assertEqual("переписано", by_id["d1"]["why"])
-        self.assertIsNone(by_id["d2"]["seen_at"])
+    def test_topic_is_content_and_comes_from_the_candidate(self):
+        old = {"version": 1, "nodes": [self.node("d1", topic="старая", added_at="2026-09-11T11:00:00Z")]}
+        new = {"version": 1, "nodes": [self.node("d1", topic="новая"), self.node("d2", topic=None)]}
+        by_id = dict((n["id"], n) for n in store.merge(old, new)["nodes"])
+        self.assertEqual("новая", by_id["d1"]["topic"])
+        self.assertEqual("2026-09-11T11:00:00Z", by_id["d1"]["added_at"])
+        self.assertIsNone(by_id["d2"]["topic"])
+        self.assertNotIn("seen_at", by_id["d1"])
+
+    def test_a_hand_edited_nodes_topic_is_its_own(self):
+        old = {"version": 1, "nodes": [self.node("d1", topic="своя", hand_edited=True)]}
+        new = {"version": 1, "nodes": [self.node("d1", topic="чужая")]}
+        self.assertEqual("своя", store.merge(old, new)["nodes"][0]["topic"])
+        self.assertIn("topic", store.CONTENT_FIELDS)
 
     def test_cell_is_stripped_like_related_by(self):
         old = {"version": 1, "nodes": [self.node("d1", cell="inbox")]}

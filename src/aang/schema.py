@@ -2,7 +2,7 @@
 
 The format is pinned in docs/plan.md ("The map format"); `relates` and `added_at` are specified in
 docs/superpowers/specs/2026-09-11-map-relations-and-search-design.md, and the `rejected` status
-together with `decided_by`, `triage`, and `seen_at` in
+together with `decided_by`, `triage`, and `topic` in
 docs/superpowers/specs/2026-09-11-live-companion-design.md («Данные», «Поля узла»).
 `validate` returns a list of error strings (empty when the map is valid); `normalize` fills defaults in place so
 downstream code never guards for absent keys. Neither raises on bad input.
@@ -20,6 +20,7 @@ STATUSES = ("accepted", "superseded", "proposed", "rejected")
 DECIDERS = ("user", "agent")
 TRIAGES = ("research", "discuss")
 _TRIAGE_STATUSES = ("proposed",)
+TOPIC_MAX = 40
 ROLES = ("user", "assistant")
 
 RELS = ("orphaned_by", "rests_on", "moots")
@@ -191,9 +192,13 @@ def _validate_node(node, pos, ids):  # type: (Dict[str, Any], int, Dict[str, int
             errors.append("%s, поле triage: под вопросом может быть только proposed, а статус %s"
                           % (label, status))
 
-    seen_at = node.get("seen_at")
-    if seen_at is not None and not _is_str(seen_at):
-        errors.append("%s, поле seen_at: ожидается строка (ISO-8601) или null" % label)
+    topic = node.get("topic")
+    if topic is not None:
+        if not _is_str(topic):
+            errors.append("%s, поле topic: ожидается строка или null" % label)
+        elif len(topic.strip()) > TOPIC_MAX:
+            errors.append("%s, поле topic: не длиннее %d символов, получено %d"
+                          % (label, TOPIC_MAX, len(topic.strip())))
 
     errors.extend(_validate_relates(node, pos, ids, label))
     return errors
@@ -384,8 +389,11 @@ def normalize(map_dict):  # type: (Any) -> Dict[str, Any]
                 node[field] = []
         if node.get("added_at") is None:
             node["added_at"] = ""
-        for field in ("decided_by", "triage", "seen_at"):
+        node.pop("seen_at", None)
+        for field in ("decided_by", "triage", "topic"):
             node.setdefault(field, None)
+        if isinstance(node.get("topic"), str) and not node["topic"].strip():
+            node["topic"] = None
         relates = node.get("relates")
         if relates is None:
             relates = []

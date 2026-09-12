@@ -851,14 +851,19 @@ class VerdictRouteTest(ServerTestCase):
 
 
 class SeenRouteTest(ServerTestCase):
-    def test_seen_stamps_without_hand_edit_or_outbox(self):
+    def test_seen_leaves_the_node_alone_now_that_the_schema_has_no_stamp(self):
+        """The route outlives the field: `normalize` drops `seen_at`, so nothing it writes lands.
+
+        The route itself goes away when the viewer stops tracking what you have seen.
+        """
         from aang import session
+        before = _by_id(json.loads(self.request("GET", "/api/map")[2]), "o1")
         status, _, data = self.request("POST", "/api/node/o1/seen", {})
         self.assertEqual(200, status, data)
         o1 = _by_id(json.loads(data), "o1")
-        self.assertRegex(o1["seen_at"], r"Z$")
+        self.assertNotIn("seen_at", o1)
         self.assertFalse(o1["hand_edited"])
-        self.assertEqual("hanging", o1["cell"])
+        self.assertEqual(before["cell"], o1["cell"])
         self.assertEqual([], session.outbox_read(self.root))
 
     def test_unknown_node_404(self):
