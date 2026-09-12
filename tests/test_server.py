@@ -178,6 +178,9 @@ class ViewerStringsTest(ServerTestCase):
         text = self.viewer_text()
         for word in ("скрыто", "ни с чем не связано", "На этом держатся", "покрыто до хода",
                      "ни одна цитата не разрешена", "Осиротело решениями", "Просто висит", "новое",
+                     # the mini-graph over the list: its heading, and the line that reads it
+                     "Окрестность", "слева — на чём держится и что осиротило",
+                     "справа — что держится на нём",
                      # the reverse of `moots` is a status flag, as in the export, not a dependant
                      "неактуально", "это неактуальным", "ничего на этом не держится"):
             self.assertIn(word, text, word)

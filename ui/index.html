@@ -457,8 +457,8 @@
   .spine .empty-group.filtered { font-style: normal; }
 
   /* ---------------------------------------------------------------- neighbourhood (detail) */
-  .links { margin: 12px 0 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
-  .links h3 {
+  .links, .hood { margin: 12px 0 0; padding: 10px 0 2px; border-top: 1px solid var(--line); }
+  .links h3, .hood h3 {
     font-family: var(--font-ui);
     font-size: 11.5px;
     letter-spacing: 0.08em;
@@ -474,6 +474,16 @@
   .links li .rel { font-family: var(--font-ui); font-size: 12px; color: var(--ink-2); }
   .links li .qq { color: var(--ink-2); font-size: 14px; }
   .links .none { color: var(--ink-3); font-style: italic; }
+  .hood svg { max-width: 100%; height: auto; display: block; }
+  .hood .hint { font-family: var(--font-ui); font-size: 12px; color: var(--ink-3); margin: 2px 0 0; }
+  .hn rect { fill: var(--panel-2); stroke: var(--line); }
+  .hn text { font: 12px var(--font-mono); fill: var(--ink); }
+  .hn.center rect { stroke: var(--decision); stroke-width: 2; }
+  .hn.more rect { stroke-dasharray: 3 3; }
+  .hn[tabindex] { cursor: pointer; }
+  .hn:focus rect, .hn:hover rect { stroke: var(--decision); }
+  .he { stroke: var(--ink-2); }
+  .hl { font: 10px var(--font-ui); fill: var(--ink-2); paint-order: stroke; stroke: var(--panel); stroke-width: 3px; }
 
   /* ---------------------------------------------------------------- detail */
   .detail .kicker {
@@ -1260,6 +1270,7 @@
       "</p>";
     html += "<h2 class=\"q\">" + esc(n.question) + "</h2>";
     html += verdictHtml(n);
+    html += neighbourhoodHtml(n, map);
     html += linksHtml(n, map);
 
     if (sup && n.superseded_by) {
@@ -1345,6 +1356,43 @@
       return "<p class=\"notice loose\"><b>✓ Проверено, с оговоркой.</b> Все цитаты найдены, но не все — как ровный дословный кусок; оговорка стоит у каждой.</p>";
     }
     return "";
+  }
+
+  function neighbourhoodHtml(n, map) {
+    var lay = M.neighbourhoodLayout(n, map, { width: 320, height: 180, max: 6 });
+    if (!lay.left.concat(lay.right, lay.top, lay.bottom).length) return "";
+    var node = function (e, cls) {
+      var t = byId(map, e.id);
+      var title = e.overflow ? "ещё " + e.overflow + " — см. список связей"
+        : e.id + " — " + (t ? t.question : "нет в карте");
+      var hook = e.overflow ? "data-more=\"1\"" : "data-goto=\"" + esc(e.id) + "\"";
+      return "<g class=\"hn " + cls + (e.overflow ? " more" : "") + "\" " + hook + " tabindex=\"0\" role=\"button\">" +
+        "<title>" + esc(title) + "</title>" +
+        "<rect x=\"" + (e.x - 22) + "\" y=\"" + (e.y - 11) + "\" width=\"44\" height=\"22\" rx=\"4\"/>" +
+        "<text x=\"" + e.x + "\" y=\"" + (e.y + 4) + "\" text-anchor=\"middle\">" + esc(e.id) + "</text></g>";
+    };
+    var edge = function (from, to) {
+      return "<line class=\"he\" x1=\"" + from.x + "\" y1=\"" + from.y + "\" x2=\"" + to.x + "\" y2=\"" + to.y + "\"/>";
+    };
+    var label = function (text, anchor, x, y) {
+      return "<text class=\"hl\" x=\"" + x + "\" y=\"" + y + "\" text-anchor=\"" + anchor + "\">" + esc(text) + "</text>";
+    };
+    var relOf = function (e) { return REL_LABEL[e.rel] || e.rel; };
+    var c = lay.center;
+    var svg = "<svg viewBox=\"0 0 320 180\" width=\"320\" height=\"180\" role=\"img\" aria-label=\"Окрестность узла " + esc(n.id) + "\">";
+    lay.left.forEach(function (e) { svg += edge(c, e) + label(relOf(e), "start", e.x - 22, e.y + 21); });
+    lay.right.forEach(function (e) { if (!e.overflow) svg += edge(e, c) + label(relOf(e), "end", e.x + 22, e.y + 21); });
+    lay.top.forEach(function (e) { svg += edge(c, e) + label("заменено", "middle", e.x, e.y + 24); });
+    lay.bottom.forEach(function (e) { svg += edge(e, c) + label("заменяет", "middle", e.x, e.y - 17); });
+    svg += "<g class=\"hn center\">" +
+      "<rect x=\"" + (c.x - 26) + "\" y=\"" + (c.y - 13) + "\" width=\"52\" height=\"26\" rx=\"5\"/>" +
+      "<text x=\"" + c.x + "\" y=\"" + (c.y + 5) + "\" text-anchor=\"middle\">" + esc(n.id) + "</text></g>";
+    lay.left.forEach(function (e) { svg += node(e, "l"); });
+    lay.right.forEach(function (e) { svg += node(e, "r"); });
+    lay.top.forEach(function (e) { svg += node(e, "t"); });
+    lay.bottom.forEach(function (e) { svg += node(e, "b"); });
+    return "<section class=\"hood\" aria-label=\"Окрестность\"><h3>Окрестность</h3>" + svg + "</svg>" +
+      "<p class=\"hint\">слева — на чём держится и что осиротило; справа — что держится на нём</p></section>";
   }
 
   // The neighbourhood: what this node declares, then what the server found pointing at it.
@@ -1530,6 +1578,24 @@
   function bindDetail(el, n, map) {
     el.querySelectorAll("[data-goto]").forEach(function (b) {
       b.addEventListener("click", function () { select(b.getAttribute("data-goto"), true); });
+    });
+    el.querySelectorAll("g.hn[data-goto]").forEach(function (g) {
+      g.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); select(g.getAttribute("data-goto"), true); }
+      });
+    });
+    el.querySelectorAll("[data-more]").forEach(function (g) {
+      var reveal = function () {
+        var links = el.querySelector(".links");
+        if (!links) return;
+        links.scrollIntoView({ block: "start" });
+        var head = links.querySelector("h3");
+        if (head) { head.tabIndex = -1; head.focus(); }
+      };
+      g.addEventListener("click", reveal);
+      g.addEventListener("keydown", function (ev) {
+        if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); reveal(); }
+      });
     });
     el.querySelectorAll("[data-edit]").forEach(function (b) {
       b.addEventListener("click", function () {
