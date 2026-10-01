@@ -10,8 +10,10 @@ export interface Finding {
   readonly message: string
 }
 
-export interface LintedWorkspace {
-  readonly findings: ReadonlyMap<string, readonly Finding[]>
+export type Findings = ReadonlyMap<string, readonly Finding[]>
+
+export interface LintWorkspace {
+  readonly lint: (directory?: string) => Promise<Findings>
   readonly remove: () => Promise<void>
 }
 
@@ -19,7 +21,14 @@ const repositoryRoot = fileURLToPath(new URL('../../../', import.meta.url))
 
 const toPosix = (path: string): string => path.replaceAll('\\', '/')
 
-const repositoryLayout = (sources: Readonly<Record<string, string>>): Record<string, string> => {
+export interface LayoutOptions {
+  readonly pnpmWorkspace?: boolean
+}
+
+const repositoryLayout = (
+  sources: Readonly<Record<string, string>>,
+  { pnpmWorkspace = true }: LayoutOptions,
+): Record<string, string> => {
   const packageDirectories = new Set(
     Object.keys(sources).flatMap((path) => {
       const [group, directory] = path.split('/')
@@ -28,9 +37,16 @@ const repositoryLayout = (sources: Readonly<Record<string, string>>): Record<str
   )
   return {
     'package.json': JSON.stringify({ private: true, type: 'module' }),
+    ...(pnpmWorkspace ? { 'pnpm-workspace.yaml': 'packages:\n  - packages/*\n' } : {}),
     'tsconfig.json': JSON.stringify({
       extends: join(repositoryRoot, 'tsconfig.base.json'),
-      compilerOptions: { composite: false, declaration: false, declarationMap: false, noEmit: true, types: [] },
+      compilerOptions: {
+        composite: false,
+        declaration: false,
+        declarationMap: false,
+        noEmit: true,
+        typeRoots: [join(repositoryRoot, 'node_modules/@types')],
+      },
       include: ['**/*.ts'],
     }),
     ...Object.fromEntries(
@@ -43,30 +59,35 @@ const repositoryLayout = (sources: Readonly<Record<string, string>>): Record<str
   }
 }
 
-export const lintWorkspace = async (sources: Readonly<Record<string, string>>): Promise<LintedWorkspace> => {
+export const createLintWorkspace = async (
+  sources: Readonly<Record<string, string>>,
+  options: LayoutOptions = {},
+): Promise<LintWorkspace> => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'eslint-plugin-')))
   const remove = (): Promise<void> => rm(root, { recursive: true, force: true, maxRetries: 3 })
   try {
-    for (const [path, text] of Object.entries(repositoryLayout(sources))) {
+    for (const [path, text] of Object.entries(repositoryLayout(sources, options))) {
       const target = join(root, path)
       await mkdir(dirname(target), { recursive: true })
       await writeFile(target, text)
     }
+  } catch (error) {
+    await remove()
+    throw error
+  }
+  const lint = async (directory = '.'): Promise<Findings> => {
     const eslint = new ESLint({
-      cwd: root,
+      cwd: join(root, directory),
       overrideConfigFile: join(repositoryRoot, 'eslint.config.ts'),
       flags: ['unstable_native_nodejs_ts_config'],
     })
     const results = await eslint.lintFiles(['.'])
-    const findings = new Map(
+    return new Map(
       results.map((result) => [
         toPosix(relative(root, result.filePath)),
         result.messages.map(({ ruleId, line, message }) => ({ ruleId, line, message })),
       ]),
     )
-    return { findings, remove }
-  } catch (error) {
-    await remove()
-    throw error
   }
+  return { lint, remove }
 }

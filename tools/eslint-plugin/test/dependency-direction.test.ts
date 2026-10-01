@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, test } from 'vitest'
-import { lintWorkspace, type LintedWorkspace } from './lint.js'
+import { createLintWorkspace, type Findings, type LintWorkspace } from './lint.js'
 
 interface DirectionCase {
   readonly name: string
@@ -96,6 +96,99 @@ const violations: readonly DirectionCase[] = [
       [
         1,
         "@aang/web test code may not reach packages/web/src/app.js through the relative path './src/app.js'; import @aang/web by name",
+      ],
+    ],
+  },
+  {
+    name: 'relative paths are resolved like module URLs: backslashes, percent-encoding and queries',
+    path: 'packages/engine/src/disguised.ts',
+    code: [
+      "import './..\\\\..\\\\adapter-claude/dist/index.js'",
+      "import './%2e%2e/%2e%2e/%61dapter-codex/dist/index.js'",
+      "import '../../store/dist/index.js?/../../../engine/src/index.js'",
+    ],
+    errors: [
+      [
+        1,
+        "@aang/engine product code may not reach @aang/adapter-claude through the relative path './..\\..\\adapter-claude/dist/index.js'; import other packages by name; allowed: @aang/contract, @aang/store",
+      ],
+      [
+        2,
+        "@aang/engine product code may not reach @aang/adapter-codex through the relative path './%2e%2e/%2e%2e/%61dapter-codex/dist/index.js'; import other packages by name; allowed: @aang/contract, @aang/store",
+      ],
+      [
+        3,
+        "@aang/engine product code may not reach @aang/store through the relative path '../../store/dist/index.js?/../../../engine/src/index.js'; import other packages by name; allowed: @aang/contract, @aang/store",
+      ],
+    ],
+  },
+  {
+    name: 'tests may not reach their own package source or build output through backslash paths',
+    path: 'packages/engine/test/backslash.test.ts',
+    code: ["import './..\\\\src\\\\index.js'", "import '..\\\\dist\\\\index.js'"],
+    errors: [
+      [
+        1,
+        "@aang/engine test code may not reach packages/engine/src/index.js through the relative path './..\\src\\index.js'; import @aang/engine by name",
+      ],
+      [
+        2,
+        "@aang/engine test code may not reach packages/engine/dist/index.js through the relative path '..\\dist\\index.js'; import @aang/engine by name",
+      ],
+    ],
+  },
+  {
+    name: 'require and require.resolve created by createRequire are checked, including aliases',
+    path: 'packages/engine/src/loader.ts',
+    code: [
+      "import { createRequire } from 'node:module'",
+      '',
+      'const require = createRequire(import.meta.url)',
+      'const load = require',
+      "require('../../adapter-claude/dist/index.js')",
+      "require.resolve('@aang/adapter-codex')",
+      "load('@aang/daemon')",
+      "createRequire(import.meta.url)('@aang/observer')",
+    ],
+    errors: [
+      [
+        5,
+        "@aang/engine product code may not reach @aang/adapter-claude through the relative path '../../adapter-claude/dist/index.js'; import other packages by name; allowed: @aang/contract, @aang/store",
+      ],
+      [6, '@aang/engine product code may not import @aang/adapter-codex; allowed: @aang/contract, @aang/store'],
+      [7, '@aang/engine product code may not import @aang/daemon; allowed: @aang/contract, @aang/store'],
+      [8, '@aang/engine product code may not import @aang/observer; allowed: @aang/contract, @aang/store'],
+    ],
+  },
+  {
+    name: 'createRequire is recognized when renamed or reached as a module member',
+    path: 'packages/store/src/loader.ts',
+    code: [
+      "import { createRequire as makeRequire } from 'node:module'",
+      '',
+      "makeRequire(import.meta.url).resolve('@aang/engine')",
+      "process.getBuiltinModule('node:module').createRequire(import.meta.url)('@aang/engine/journal')",
+    ],
+    errors: [
+      [3, '@aang/store product code may not import @aang/engine; allowed: @aang/contract'],
+      [4, '@aang/store product code may not import @aang/engine; allowed: @aang/contract'],
+    ],
+  },
+  {
+    name: 'import.meta.resolve is checked',
+    path: 'packages/web/src/locate.ts',
+    code: ["export const daemon = import.meta.resolve('@aang/daemon')"],
+    errors: [[1, '@aang/web product code may not import @aang/daemon; allowed: @aang/contract']],
+  },
+  {
+    name: 'the CommonJS require is checked, including backslash package specifiers',
+    path: 'packages/cli/src/legacy.cjs',
+    code: ["require('@aang\\\\daemon')", "require.resolve('../../web/src/index.js')"],
+    errors: [
+      [1, '@aang/cli product code may not import @aang/daemon; allowed: @aang/contract, @aang/hook'],
+      [
+        2,
+        "@aang/cli product code may not reach @aang/web through the relative path '../../web/src/index.js'; import other packages by name; allowed: @aang/contract, @aang/hook",
       ],
     ],
   },
@@ -199,9 +292,42 @@ const allowed: readonly DirectionCase[] = [
     errors: [],
   },
   {
-    name: 'dynamic imports with a computed specifier are not checked',
+    name: 'relative paths with backslashes or encoded separators inside the package are allowed',
+    path: 'packages/engine/src/inner.ts',
+    code: ["import '.\\\\index.js'", "import './%2F..'"],
+    errors: [],
+  },
+  {
+    name: 'createRequire loaders may load allowed packages and their own package files',
+    path: 'packages/observer/src/require.ts',
+    code: [
+      "import { createRequire } from 'node:module'",
+      '',
+      'const require = createRequire(import.meta.url)',
+      "require('@aang/engine')",
+      "require.resolve('./index.js')",
+    ],
+    errors: [],
+  },
+  {
+    name: 'dynamic imports and loaders with a computed specifier are not checked',
     path: 'packages/cli/src/plugins.ts',
-    code: ['export const load = (specifier: string) => import(specifier)'],
+    code: [
+      "import { createRequire } from 'node:module'",
+      '',
+      'export const load = (specifier: string) => import(specifier)',
+      'export const loadSync = (specifier: string): unknown => createRequire(import.meta.url)(specifier)',
+    ],
+    errors: [],
+  },
+  {
+    name: 'functions that are not module loaders are not checked',
+    path: 'packages/contract/src/callbacks.ts',
+    code: [
+      "export const call = (require: (id: string) => unknown): unknown => require('@aang/daemon')",
+      "export const lookup = (cache: Map<string, unknown>): unknown => cache.get('@aang/store')",
+      "export const curried = (make: () => () => (id: string) => unknown): unknown => make()()('@aang/daemon')",
+    ],
     errors: [],
   },
   {
@@ -226,10 +352,14 @@ const allowed: readonly DirectionCase[] = [
 
 describe('the repository ESLint configuration enforces the ADR-0011 dependency direction', () => {
   const cases = [...violations, ...allowed]
-  let workspace: LintedWorkspace | undefined
+  let workspace: LintWorkspace | undefined
+  let findings: Findings | undefined
 
   beforeAll(async () => {
-    workspace = await lintWorkspace(Object.fromEntries(cases.map((row) => [row.path, `${row.code.join('\n')}\n`])))
+    workspace = await createLintWorkspace(
+      Object.fromEntries(cases.map((row) => [row.path, `${row.code.join('\n')}\n`])),
+    )
+    findings = await workspace.lint()
   }, 120_000)
 
   afterAll(async () => {
@@ -237,8 +367,28 @@ describe('the repository ESLint configuration enforces the ADR-0011 dependency d
   })
 
   test.for(cases)('$name', (row, { expect }) => {
-    expect(workspace?.findings.get(row.path)).toEqual(
+    expect(findings?.get(row.path)).toEqual(
       row.errors.map(([line, message]) => ({ ruleId: 'aang/dependency-direction', line, message })),
     )
   })
+
+  test('running ESLint from a package directory gives the same findings as from the root', async ({ expect }) => {
+    const packageDirectory = 'packages/engine'
+    const fromRoot = [...(findings ?? [])].filter(([path]) => path.startsWith(`${packageDirectory}/`))
+
+    const fromPackage = await workspace?.lint(packageDirectory)
+
+    expect(fromRoot.some(([, messages]) => messages.length > 0)).toBe(true)
+    expect(fromPackage).toEqual(new Map(fromRoot))
+  }, 120_000)
 })
+
+test('files outside a pnpm workspace are not checked', async ({ expect, onTestFinished }) => {
+  const path = 'packages/engine/src/registry.ts'
+  const outside = await createLintWorkspace({ [path]: "import '@aang/adapter-claude'\n" }, { pnpmWorkspace: false })
+  onTestFinished(() => outside.remove())
+
+  const findings = await outside.lint()
+
+  expect(findings.get(path)).toEqual([])
+}, 120_000)
