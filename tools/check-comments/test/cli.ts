@@ -16,9 +16,14 @@ const cliPath = fileURLToPath(new URL('../dist/main.js', import.meta.url))
 
 const outputLines = (text: string): string[] => text.split('\n').filter((line) => line !== '')
 
+const isolatedEnvironment = (overrides: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv => ({
+  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.toUpperCase().startsWith('GIT_'))),
+  ...overrides,
+})
+
 export const runCli = (cwd: string, args: readonly string[] = [], env: NodeJS.ProcessEnv = {}): Promise<CliResult> =>
   new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [cliPath, ...args], { cwd, env: { ...process.env, ...env } })
+    const child = spawn(process.execPath, [cliPath, ...args], { cwd, env: isolatedEnvironment(env) })
     let stdout = ''
     let stderr = ''
     child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
@@ -50,5 +55,5 @@ export const createWorkspace = async (
 const execFileAsync = promisify(execFile)
 
 export const git = async (cwd: string, args: readonly string[]): Promise<void> => {
-  await execFileAsync('git', args, { cwd })
+  await execFileAsync('git', args, { cwd, env: isolatedEnvironment() })
 }
