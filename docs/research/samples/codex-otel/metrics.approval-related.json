@@ -1,0 +1,528 @@
+{
+ "_note": "metrics only exported with analytics.enabled=true (OTEL_METRIC_EXPORT_INTERVAL=1000 in this run); approval decision sent at +4.009 s",
+ "metrics": [
+  {
+   "_received_minus_approval_request_s": -0.164,
+   "_resource": {
+    "telemetry.sdk.name": "opentelemetry",
+    "os": "Mac_OS",
+    "telemetry.sdk.version": "0.31.0",
+    "env": "aang-spike",
+    "telemetry.sdk.language": "rust",
+    "os_version": "27.0.1",
+    "service.name": "codex_exec",
+    "service.version": "0.159.2"
+   },
+   "metric": {
+    "name": "codex.tool.call",
+    "description": "",
+    "unit": "",
+    "metadata": [],
+    "sum": {
+     "dataPoints": [
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "command_category",
+         "value": {
+          "stringValue": "unknown"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "codex_exec"
+         }
+        },
+        {
+         "key": "sandbox",
+         "value": {
+          "stringValue": "seatbelt"
+         }
+        },
+        {
+         "key": "sandbox_policy",
+         "value": {
+          "stringValue": "read-only"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "exec"
+         }
+        },
+        {
+         "key": "success",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "tool",
+         "value": {
+          "stringValue": "exec_command"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860546384165000",
+       "timeUnixNano": "1790860546444731000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      }
+     ],
+     "aggregationTemporality": 1,
+     "isMonotonic": true
+    }
+   }
+  },
+  {
+   "_received_minus_approval_request_s": 0.873,
+   "_resource": {
+    "env": "aang-spike",
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.language": "rust",
+    "os": "Mac_OS",
+    "telemetry.sdk.name": "opentelemetry",
+    "os_version": "27.0.1",
+    "service.name": "codex-app-server"
+   },
+   "metric": {
+    "name": "codex.hooks.run",
+    "description": "",
+    "unit": "",
+    "metadata": [],
+    "sum": {
+     "dataPoints": [
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "execution_mode",
+         "value": {
+          "stringValue": "sync"
+         }
+        },
+        {
+         "key": "handler_type",
+         "value": {
+          "stringValue": "command"
+         }
+        },
+        {
+         "key": "hook_name",
+         "value": {
+          "stringValue": "PreToolUse"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "aang_otel_probe"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "vscode"
+         }
+        },
+        {
+         "key": "source",
+         "value": {
+          "stringValue": "user"
+         }
+        },
+        {
+         "key": "status",
+         "value": {
+          "stringValue": "completed"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860546539661000",
+       "timeUnixNano": "1790860547476625000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      },
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "execution_mode",
+         "value": {
+          "stringValue": "sync"
+         }
+        },
+        {
+         "key": "handler_type",
+         "value": {
+          "stringValue": "command"
+         }
+        },
+        {
+         "key": "hook_name",
+         "value": {
+          "stringValue": "PermissionRequest"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "aang_otel_probe"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "vscode"
+         }
+        },
+        {
+         "key": "source",
+         "value": {
+          "stringValue": "user"
+         }
+        },
+        {
+         "key": "status",
+         "value": {
+          "stringValue": "completed"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860546539661000",
+       "timeUnixNano": "1790860547476625000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      },
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "execution_mode",
+         "value": {
+          "stringValue": "sync"
+         }
+        },
+        {
+         "key": "handler_type",
+         "value": {
+          "stringValue": "command"
+         }
+        },
+        {
+         "key": "hook_name",
+         "value": {
+          "stringValue": "UserPromptSubmit"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "aang_otel_probe"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "vscode"
+         }
+        },
+        {
+         "key": "source",
+         "value": {
+          "stringValue": "user"
+         }
+        },
+        {
+         "key": "status",
+         "value": {
+          "stringValue": "completed"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860546539661000",
+       "timeUnixNano": "1790860547476625000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      },
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "execution_mode",
+         "value": {
+          "stringValue": "sync"
+         }
+        },
+        {
+         "key": "handler_type",
+         "value": {
+          "stringValue": "command"
+         }
+        },
+        {
+         "key": "hook_name",
+         "value": {
+          "stringValue": "SessionStart"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "aang_otel_probe"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "vscode"
+         }
+        },
+        {
+         "key": "source",
+         "value": {
+          "stringValue": "user"
+         }
+        },
+        {
+         "key": "status",
+         "value": {
+          "stringValue": "completed"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860546539661000",
+       "timeUnixNano": "1790860547476625000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      }
+     ],
+     "aggregationTemporality": 1,
+     "isMonotonic": true
+    }
+   }
+  },
+  {
+   "_received_minus_approval_request_s": 4.893,
+   "_resource": {
+    "env": "aang-spike",
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.language": "rust",
+    "os": "Mac_OS",
+    "telemetry.sdk.name": "opentelemetry",
+    "os_version": "27.0.1",
+    "service.name": "codex-app-server"
+   },
+   "metric": {
+    "name": "codex.approval.requested",
+    "description": "",
+    "unit": "",
+    "metadata": [],
+    "sum": {
+     "dataPoints": [
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "approved",
+         "value": {
+          "stringValue": "approved"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "aang_otel_probe"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "vscode"
+         }
+        },
+        {
+         "key": "tool",
+         "value": {
+          "stringValue": "unified_exec"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860550619282000",
+       "timeUnixNano": "1790860551499683000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      }
+     ],
+     "aggregationTemporality": 1,
+     "isMonotonic": true
+    }
+   }
+  },
+  {
+   "_received_minus_approval_request_s": 4.893,
+   "_resource": {
+    "env": "aang-spike",
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.language": "rust",
+    "os": "Mac_OS",
+    "telemetry.sdk.name": "opentelemetry",
+    "os_version": "27.0.1",
+    "service.name": "codex-app-server"
+   },
+   "metric": {
+    "name": "codex.tool.call",
+    "description": "",
+    "unit": "",
+    "metadata": [],
+    "sum": {
+     "dataPoints": [
+      {
+       "attributes": [
+        {
+         "key": "app.version",
+         "value": {
+          "stringValue": "0.159.2"
+         }
+        },
+        {
+         "key": "command_category",
+         "value": {
+          "stringValue": "unknown"
+         }
+        },
+        {
+         "key": "model",
+         "value": {
+          "stringValue": "gpt-6.1-sol"
+         }
+        },
+        {
+         "key": "originator",
+         "value": {
+          "stringValue": "aang_otel_probe"
+         }
+        },
+        {
+         "key": "sandbox",
+         "value": {
+          "stringValue": "seatbelt"
+         }
+        },
+        {
+         "key": "sandbox_policy",
+         "value": {
+          "stringValue": "read-only"
+         }
+        },
+        {
+         "key": "session_source",
+         "value": {
+          "stringValue": "vscode"
+         }
+        },
+        {
+         "key": "success",
+         "value": {
+          "stringValue": "true"
+         }
+        },
+        {
+         "key": "tool",
+         "value": {
+          "stringValue": "exec_command"
+         }
+        }
+       ],
+       "startTimeUnixNano": "1790860550677850000",
+       "timeUnixNano": "1790860551499703000",
+       "exemplars": [],
+       "flags": 0,
+       "asInt": 1
+      }
+     ],
+     "aggregationTemporality": 1,
+     "isMonotonic": true
+    }
+   }
+  }
+ ]
+}

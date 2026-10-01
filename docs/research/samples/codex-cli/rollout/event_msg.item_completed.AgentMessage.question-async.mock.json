@@ -1,0 +1,33 @@
+{
+  "timestamp": "2026-10-01T12:06:34.036Z",
+  "ordinal": 12,
+  "type": "event_msg",
+  "payload": {
+    "type": "item_completed",
+    "thread_id": "01a0f75b-f4bd-76c2-a690-3a3d92a00517",
+    "turn_id": "01a0f75b-f4e1-7003-8c73-7e2c422a9861",
+    "item": {
+      "type": "AgentMessage",
+      "id": "call_mock_25",
+      "content": [
+        {
+          "type": "Text",
+          "text": "Proceed with probe?\n- yes\n- no"
+        }
+      ],
+      "phase": "final_answer",
+      "delivery": "async",
+      "questions": [
+        {
+          "title": "Proceed with probe?",
+          "options": [
+            "yes",
+            "no"
+          ]
+        }
+      ]
+    },
+    "started_at_ms": 1790856394036,
+    "completed_at_ms": 1790856394036
+  }
+}

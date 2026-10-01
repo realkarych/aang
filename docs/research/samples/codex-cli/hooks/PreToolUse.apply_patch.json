@@ -1,0 +1,19 @@
+{
+  "_observed_env_CODEX_vars": [
+    "CODEX_HOME"
+  ],
+  "stdin": {
+    "session_id": "01a0f75b-7d68-7522-8475-d393ffeeda82",
+    "turn_id": "01a0f75b-7d8a-7402-84b2-ca674fce50ee",
+    "transcript_path": "/tmp/aang-spike/codex-cli/home/sessions/2026/10/01/rollout-2026-10-01T15-06-03-01a0f75b-7d68-7522-8475-d393ffeeda82.jsonl",
+    "cwd": "/tmp/aang-spike/codex-cli/m_patch2",
+    "hook_event_name": "PreToolUse",
+    "model": "gpt-6.1-sol",
+    "permission_mode": "bypassPermissions",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Add File: patched.txt\n+hello\n*** End Patch\n"
+    },
+    "tool_use_id": "call_mock_5"
+  }
+}

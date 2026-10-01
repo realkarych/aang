@@ -1,0 +1,18 @@
+{
+  "session_id": "80e34e98-8248-4fe4-b913-0bed557bed27",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-A/80e34e98-8248-4fe4-b913-0bed557bed27.jsonl",
+  "cwd": "/tmp/aang-spike/cc-hooks/runs/A-resume",
+  "prompt_id": "b5eeafcb-a00f-4914-8e8f-575dfdaa1b15",
+  "permission_mode": "default",
+  "agent_id": "aba57616e9a18e7bc",
+  "agent_type": "",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-A/80e34e98-8248-4fe4-b913-0bed557bed27/subagents/agent-aba57616e9a18e7bc.jsonl",
+  "last_assistant_message": "<analysis>\nThe user asked for a strict sequence of steps. Steps 1–3 are done: echo succeeded, ls was blocked, and touch needed approval and did not run. The user said not to retry failed or denied commands. AskUserQuestion is not in the available tool list, so that step should be skipped. The only thing left is to reply DONE.\n</analysis>\n\n<summary>\n1. Primary Request and Intent: The user asked for these steps, each as its own Bash call, run one after another: 1) `echo hi` 2) `ls /nonexistent-aang-probe` 3) `touch probe-perm.txt`. Verbatim constraint: \"If a command fails or is denied, do not re<truncated 1535 chars>",
+  "background_tasks": [],
+  "session_crons": []
+}

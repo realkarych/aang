@@ -1,0 +1,41 @@
+{
+ "_recv_ms_since_query_start": 3048,
+ "type": "stream_event",
+ "event": {
+  "type": "message_delta",
+  "delta": {
+   "stop_reason": "tool_use",
+   "stop_sequence": null,
+   "stop_details": null,
+   "container": null
+  },
+  "usage": {
+   "input_tokens": 2,
+   "cache_creation_input_tokens": 15345,
+   "cache_read_input_tokens": 0,
+   "output_tokens": 74,
+   "output_tokens_details": {
+    "thinking_tokens": 0
+   },
+   "iterations": [
+    {
+     "input_tokens": 2,
+     "output_tokens": 74,
+     "cache_read_input_tokens": 0,
+     "cache_creation_input_tokens": 15345,
+     "cache_creation": {
+      "ephemeral_5m_input_tokens": 0,
+      "ephemeral_1h_input_tokens": 15345
+     },
+     "type": "message"
+    }
+   ]
+  },
+  "context_management": {
+   "applied_edits": []
+  }
+ },
+ "session_id": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+ "parent_tool_use_id": null,
+ "uuid": "fd518b63-0be4-41b7-a3b9-8e18e983d589"
+}

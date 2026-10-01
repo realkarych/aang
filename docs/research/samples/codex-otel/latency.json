@@ -1,0 +1,123 @@
+{
+ "_note": "default batch settings unless stated; exec/sdk are short-lived and flush on exit",
+ "appserver": {
+  "logs_received_minus_observed_s": {
+   "min": 0.017,
+   "median": 0.673,
+   "max": 1.003,
+   "n": 125
+  },
+  "tool_decision_s": {
+   "min": 0.103,
+   "median": 0.669,
+   "max": 0.916,
+   "n": 6
+  },
+  "spans_received_minus_end_s": {
+   "min": 0.002,
+   "median": 0.144,
+   "max": 4.975,
+   "n": 3732
+  }
+ },
+ "tui": {
+  "logs_received_minus_observed_s": {
+   "min": 0.731,
+   "median": 0.853,
+   "max": 0.984,
+   "n": 177
+  },
+  "tool_decision_s": {
+   "min": 0.837,
+   "median": 0.838,
+   "max": 0.859,
+   "n": 4
+  },
+  "spans_received_minus_end_s": {
+   "min": 0.002,
+   "median": 0.024,
+   "max": 9.946,
+   "n": 9853
+  }
+ },
+ "tuidaemon": {
+  "logs_received_minus_observed_s": {
+   "min": 0.208,
+   "median": 0.744,
+   "max": 0.997,
+   "n": 113
+  },
+  "tool_decision_s": {
+   "min": 0.32,
+   "median": 0.725,
+   "max": 0.757,
+   "n": 3
+  },
+  "spans_received_minus_end_s": {
+   "min": 0.002,
+   "median": 0.025,
+   "max": 9.843,
+   "n": 6995
+  }
+ },
+ "exec": {
+  "logs_received_minus_observed_s": {
+   "min": 0.03,
+   "median": 0.116,
+   "max": 0.893,
+   "n": 107
+  },
+  "tool_decision_s": {
+   "min": 0.063,
+   "median": 0.09,
+   "max": 0.092,
+   "n": 3
+  },
+  "spans_received_minus_end_s": {
+   "min": 0.001,
+   "median": 0.057,
+   "max": 0.85,
+   "n": 3714
+  }
+ },
+ "sdk": {
+  "logs_received_minus_observed_s": {
+   "min": 0.032,
+   "median": 0.123,
+   "max": 0.255,
+   "n": 19
+  },
+  "tool_decision_s": {
+   "min": 0.095,
+   "median": 0.095,
+   "max": 0.095,
+   "n": 1
+  },
+  "spans_received_minus_end_s": {
+   "min": 0.001,
+   "median": 0.092,
+   "max": 0.192,
+   "n": 759
+  }
+ },
+ "appserver_with_OTEL_BLRP_SCHEDULE_DELAY=200_OTEL_BSP_SCHEDULE_DELAY=200": {
+  "logs_received_minus_observed_s": {
+   "min": 0.006,
+   "median": 0.111,
+   "max": 0.192,
+   "n": 19
+  },
+  "tool_decision_s": {
+   "min": 0.115,
+   "median": 0.115,
+   "max": 0.115,
+   "n": 1
+  },
+  "spans_received_minus_end_s": {
+   "min": 0.007,
+   "median": 0.37,
+   "max": 3.437,
+   "n": 687
+  }
+ }
+}

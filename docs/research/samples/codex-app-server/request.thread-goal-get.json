@@ -1,0 +1,27 @@
+{
+  "scenario": "s5 owner: goal set before observer resume",
+  "request": {
+    "method": "thread/goal/get",
+    "id": 4,
+    "params": {
+      "threadId": "01a0f75a-aae4-7a00-91c0-cce26ebef270"
+    }
+  },
+  "response": {
+    "id": 4,
+    "result": {
+      "goal": {
+        "threadId": "01a0f75a-aae4-7a00-91c0-cce26ebef270",
+        "objective": "Say hi",
+        "status": "paused",
+        "tokenBudget": null,
+        "tokensUsed": 0,
+        "timeUsedSeconds": 0,
+        "createdAt": 1790856309,
+        "updatedAt": 1790856309
+      }
+    }
+  },
+  "requestAt": "2026-10-01T12:05:09.700+00:00",
+  "responseAt": "2026-10-01T12:05:09.701+00:00"
+}

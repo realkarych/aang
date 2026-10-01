@@ -1,0 +1,666 @@
+{
+  "_layout": {
+    ".claude-plugin/plugin.json": {
+      "name": "aang-probe",
+      "version": "0.0.1",
+      "description": "aang spike hook recorder"
+    },
+    "rec.py": "copy of bin/rec.py",
+    "hooks/hooks.json": {
+      "description": "aang probe recorder",
+      "hooks": {
+        "PreToolUse": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PreToolUse",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PostToolUse": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PostToolUse",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PostToolUseFailure": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PostToolUseFailure",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PostToolBatch": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PostToolBatch",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "Notification": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/Notification",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "UserPromptSubmit": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/UserPromptSubmit",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "UserPromptExpansion": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/UserPromptExpansion",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "SessionStart": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/SessionStart",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "SessionEnd": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/SessionEnd",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "Stop": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/Stop",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "StopFailure": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/StopFailure",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "SubagentStart": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/SubagentStart",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "SubagentStop": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/SubagentStop",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PreCompact": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PreCompact",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PostCompact": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PostCompact",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PreModelSwitch": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PreModelSwitch",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PostModelSwitch": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PostModelSwitch",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PermissionRequest": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PermissionRequest",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "PermissionDenied": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/PermissionDenied",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "Setup": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/Setup",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "TeammateIdle": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/TeammateIdle",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "TaskCreated": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/TaskCreated",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "TaskCompleted": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/TaskCompleted",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "Elicitation": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/Elicitation",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "ElicitationResult": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/ElicitationResult",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "ConfigChange": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/ConfigChange",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "InstructionsLoaded": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/InstructionsLoaded",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "CwdChanged": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/CwdChanged",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "FileChanged": [
+          {
+            "matcher": "probe-watch.txt",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/FileChanged",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "DirectoryAdded": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/DirectoryAdded",
+                "timeout": 5
+              }
+            ]
+          }
+        ],
+        "MessageDisplay": [
+          {
+            "matcher": "",
+            "hooks": [
+              {
+                "type": "command",
+                "command": "python3",
+                "args": [
+                  "${CLAUDE_PLUGIN_ROOT}/rec.py",
+                  "plugin"
+                ],
+                "timeout": 10
+              },
+              {
+                "type": "http",
+                "url": "http://127.0.0.1:47811/plugin/MessageDisplay",
+                "timeout": 5
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}

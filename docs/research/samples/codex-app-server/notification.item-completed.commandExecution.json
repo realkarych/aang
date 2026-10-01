@@ -1,0 +1,33 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "receivedAt": "2026-10-01T11:49:46.244+00:00",
+  "message": {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "commandExecution",
+        "id": "exec-a7d3c311-f82c-4583-827e-1a0228cdd2cc",
+        "pluginId": null,
+        "scriptPath": null,
+        "command": "/bin/zsh -lc 'echo hi > note.txt'",
+        "cwd": "/tmp/aang-spike/codex-appserver/work",
+        "processId": "35081",
+        "source": "unifiedExecStartup",
+        "status": "completed",
+        "commandActions": [
+          {
+            "type": "unknown",
+            "command": "echo hi > note.txt"
+          }
+        ],
+        "aggregatedOutput": null,
+        "exitCode": 0,
+        "durationMs": 0
+      },
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "turnId": "01a0f74c-61e3-7c93-a404-7884f11c649b",
+      "completedAtMs": 1790855386242
+    },
+    "emittedAtMs": 1790855386243
+  }
+}

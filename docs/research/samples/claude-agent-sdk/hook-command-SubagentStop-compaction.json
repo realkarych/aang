@@ -1,0 +1,35 @@
+{
+ "_run": "run4",
+ "_source_tag": "project",
+ "env_seen_by_hook_process": {
+  "CLAUDE_EFFORT": "medium",
+  "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+  "CLAUDE_PROJECT_DIR": "/tmp/aang-spike/cc-sdk/work",
+  "CLAUDE_PID": "50766",
+  "CLAUDE_CODE_CHILD_SESSION": "1",
+  "CLAUDE_AGENT_SDK_VERSION": "0.3.286",
+  "AANG_RUN": "run4",
+  "CLAUDE_CODE_SESSION_ATTENDED": "0",
+  "CLAUDE_CODE_SESSION_ID": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+  "CLAUDE_CODE_MESSAGING_SOCKET": "/tmp/cc-socks/50766.sock",
+  "CLAUDECODE": "1"
+ },
+ "stdin": {
+  "session_id": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-sdk-work/6eaeafd8-aaba-4304-92e9-0f823860947e.jsonl",
+  "cwd": "/tmp/aang-spike/cc-sdk/work",
+  "prompt_id": "4a784aa0-0687-428d-beb2-667a794a01b4",
+  "permission_mode": "default",
+  "agent_id": "a94e4c70fa39158fa",
+  "agent_type": "",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "SubagentStop",
+  "stop_hook_active": false,
+  "agent_transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-sdk-work/6eaeafd8-aaba-4304-92e9-0f823860947e/subagents/agent-a94e4c70fa39158fa.jsonl",
+  "last_assistant_message": "<analysis>\n1. The user asked me to run `echo hi` with Bash, then use the Agent tool with subagent_type \"probe\" and the prompt \"run echo sub\", then reply with just \"OK\". I ran `echo hi`, which printed \"hi\". I launched the probe agent, and its report was \"sub\". Then I replied \"OK\".\n2. The user asked me to run `touch perm.txt` with Bash and then reply with just \"OK2\". I ran `touch perm.txt` and it finished with no output. I had not yet replied \"OK2\" when the summary was requested.\n- Environment notes: the probe agent type is no longer available. The Claude Docs MCP server disconnected and then re<truncated 1462 chars>",
+  "background_tasks": [],
+  "session_crons": []
+ }
+}

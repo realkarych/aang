@@ -1,0 +1,81 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "thread/start",
+    "id": 2,
+    "params": {
+      "cwd": "/tmp/aang-spike/codex-appserver/work",
+      "sandbox": "read-only",
+      "approvalPolicy": "untrusted"
+    }
+  },
+  "response": {
+    "id": 2,
+    "result": {
+      "thread": {
+        "id": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "/tmp/aang-spike/codex-appserver/work",
+            "runtimeWorkspaceRoots": [
+              "/tmp/aang-spike/codex-appserver/work"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": false,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "openai",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": null,
+        "createdAt": 1790855373,
+        "updatedAt": 1790855373,
+        "recencyAt": 1790855373,
+        "status": {
+          "type": "idle"
+        },
+        "path": "/tmp/aang-spike/codex-appserver/home/sessions/2026/10/01/rollout-2026-10-01T14-49-33-01a0f74c-5f1c-7270-b4ea-4185ced92eac.jsonl",
+        "cwd": "/tmp/aang-spike/codex-appserver/work",
+        "cliVersion": "0.159.2",
+        "originator": "aang_spike",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      },
+      "model": "gpt-6.1-sol",
+      "modelProvider": "openai",
+      "serviceTier": null,
+      "disabledPluginIds": [],
+      "cwd": "/tmp/aang-spike/codex-appserver/work",
+      "runtimeWorkspaceRoots": [
+        "/tmp/aang-spike/codex-appserver/work"
+      ],
+      "instructionSources": [],
+      "approvalPolicy": "untrusted",
+      "approvalsReviewer": "user",
+      "sandbox": {
+        "type": "readOnly",
+        "networkAccess": false
+      },
+      "activePermissionProfile": null,
+      "reasoningEffort": null,
+      "multiAgentMode": "explicitRequestOnly"
+    }
+  },
+  "requestAt": "2026-10-01T11:49:32.564+00:00",
+  "responseAt": "2026-10-01T11:49:33.281+00:00"
+}

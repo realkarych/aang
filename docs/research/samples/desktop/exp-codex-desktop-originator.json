@@ -1,0 +1,37 @@
+{
+ "binary": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex app-server (codex-cli 0.159.2)",
+ "codex_home": "/tmp/aang-spike/desktop/exp-codex/home (mock Responses provider, no auth)",
+ "runs": [
+  "run1: clientInfo.name=aang_desktop_emu, env CODEX_INTERNAL_ORIGINATOR_OVERRIDE=Codex, hooks untrusted -> no hooks fired",
+  "run2: clientInfo.name=codex_desktop, title='Codex Desktop', override=Codex, hooks trusted -> 6 hooks fired",
+  "run3: same + capabilities.experimentalApi=true, override=Codex",
+  "run4: clientInfo.name=codex_desktop, capabilities.experimentalApi=true, no override"
+ ],
+ "rollouts_in_run_order": [
+  {
+   "thread_id": "01a0f75c-6b8d-7022-acee-24173333c974",
+   "originator": "Codex",
+   "source": "vscode",
+   "cli_version": "0.159.2"
+  },
+  {
+   "thread_id": "01a0f75d-a46d-7333-a7dc-5519c21c6018",
+   "originator": "Codex",
+   "source": "vscode",
+   "cli_version": "0.159.2"
+  },
+  {
+   "thread_id": "01a0f75e-44a5-7302-b927-12de93ab29f5",
+   "originator": "Codex",
+   "source": "vscode",
+   "cli_version": "0.159.2"
+  },
+  {
+   "thread_id": "01a0f75e-49bf-79a3-b3ea-33487e3255d8",
+   "originator": "codex_desktop",
+   "source": "vscode",
+   "cli_version": "0.159.2"
+  }
+ ],
+ "conclusion": "session_meta.originator = env CODEX_INTERNAL_ORIGINATOR_OVERRIDE if set, else clientInfo.name (process-wide, fixed by first initialize); source='vscode' for any app-server client. Live Desktop sets CODEX_INTERNAL_ORIGINATOR_OVERRIDE='Codex Desktop' (value with a space; confirmed by codex-appserver researcher), which explains originator 'Codex Desktop' in real rollouts"
+}

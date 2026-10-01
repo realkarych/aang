@@ -1,0 +1,10 @@
+model = "gpt-6.1-sol"
+model_provider = "mock"
+approval_policy = "never"
+sandbox_mode = "read-only"
+
+[model_providers.mock]
+name = "mock"
+base_url = "http://127.0.0.1:18089/v1"
+wire_api = "responses"
+requires_openai_auth = false

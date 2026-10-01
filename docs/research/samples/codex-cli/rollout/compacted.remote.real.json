@@ -1,0 +1,134 @@
+{
+  "timestamp": "2026-10-01T12:00:18.080Z",
+  "ordinal": 24,
+  "type": "compacted",
+  "payload": {
+    "message": "",
+    "replacement_history": [
+      {
+        "type": "message",
+        "id": "msg_01a0f752-8de7-7e31-8ee4-75cf4009fd8e",
+        "role": "user",
+        "content": [
+          {
+            "type": "input_text",
+            "text": "Run the shell command `echo hi` exactly once, then reply with just: OK"
+          }
+        ],
+        "internal_chat_message_metadata_passthrough": {
+          "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+          "create_time": 1790855777.767239,
+          "content_item_kinds": [
+            "user.text"
+          ]
+        }
+      },
+      {
+        "type": "compaction",
+        "id": "cmp_00a7ba1502c50863016abe4b4f299487d2a47d20a9971db1fb",
+        "encrypted_content": "gAAAAABqvktRaKIq<truncated 1528 chars>",
+        "internal_chat_message_metadata_passthrough": {
+          "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c"
+        }
+      }
+    ],
+    "replacement_history_metadata": [
+      {
+        "retained_source": {
+          "id": {
+            "message_id": "msg_01a0f752-8de7-7e31-8ee4-75cf4009fd8e",
+            "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+            "role": "user"
+          },
+          "revision": "retained_01a0f752-8de7-7e31-8ee4-75e4083b8a03",
+          "complete": true
+        },
+        "client_authored": false,
+        "user_input_order": 0,
+        "mcp_attribution": {
+          "status": "none"
+        }
+      },
+      {
+        "client_authored": false,
+        "compaction_model_hash": "3000",
+        "mcp_attribution": {
+          "status": "none"
+        }
+      }
+    ],
+    "retained_context": {
+      "verified_answers": [],
+      "incomplete": false,
+      "user_messages": [
+        {
+          "revision": "retained_01a0f752-8de7-7e31-8ee4-75e4083b8a03",
+          "order": 0,
+          "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+          "message_id": "msg_01a0f752-8de7-7e31-8ee4-75cf4009fd8e",
+          "text": "Run the shell command `echo hi` exactly once, then reply with just: OK",
+          "complete": true
+        }
+      ],
+      "user_messages_incomplete": false,
+      "assistant_messages": [
+        {
+          "revision": "retained_01a0f752-b3f5-7de3-a426-e14100fc10b3",
+          "order": 1,
+          "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+          "message_id": "msg_00a7ba1502c50863016abe4a6b53bc87d29075b5116fc1dd4c",
+          "text": "OK",
+          "complete": true,
+          "phase": "final_answer"
+        }
+      ],
+      "assistant_messages_incomplete": false,
+      "next_order": 3
+    },
+    "window_number": 1,
+    "first_window_id": "01a0f752-40ae-77c0-a757-aa4dbf813d70",
+    "previous_window_id": "01a0f752-40ae-77c0-a757-aa4dbf813d70",
+    "window_id": "01a0f756-38a0-7ec2-9d9b-4cb78721df6d",
+    "compaction_response_id": "resp_00a7ba1502c50863016abe4b4bc1f087d2acc7b2af71c3c2a4",
+    "latest_token_usage_record": {
+      "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+      "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+      "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+      "root_turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+      "response_id": "resp_00a7ba1502c50863016abe4b4bc1f087d2acc7b2af71c3c2a4",
+      "usage": {
+        "input_tokens": 14387,
+        "cached_input_tokens": 14208,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 92,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 14479
+      },
+      "turn_token_usage": {
+        "input_tokens": 14387,
+        "cached_input_tokens": 14208,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 92,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 14479
+      },
+      "thread_token_usage": {
+        "input_tokens": 43027,
+        "cached_input_tokens": 40576,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 124,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 43151
+      }
+    },
+    "resume_metadata": {
+      "multi_agent_version": "v2",
+      "last_started_turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+      "previous_turn_settings": {
+        "model": "gpt-6.1-sol",
+        "comp_hash": "3000",
+        "realtime_active": false
+      }
+    }
+  }
+}

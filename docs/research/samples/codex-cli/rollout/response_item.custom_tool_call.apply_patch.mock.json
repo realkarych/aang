@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-10-01T12:06:33.234Z",
+  "ordinal": 10,
+  "type": "response_item",
+  "payload": {
+    "type": "custom_tool_call",
+    "id": "ctc_mock_patch",
+    "status": "completed",
+    "call_id": "call_mock_21",
+    "name": "apply_patch",
+    "input": "*** Begin Patch\n*** Add File: patched.txt\n+hello\n*** End Patch\n",
+    "internal_chat_message_metadata_passthrough": {
+      "turn_id": "01a0f75b-f1d3-79c3-b636-6dd8e8e711d0"
+    }
+  }
+}

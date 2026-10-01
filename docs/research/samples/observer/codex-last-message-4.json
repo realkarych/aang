@@ -1,0 +1,68 @@
+{
+ "base_model_version": 7,
+ "changes": [
+  {
+   "op": "replace",
+   "stage_id": "S4",
+   "title": "Дедупликация с сохранением последней записи по updated_at",
+   "status": "done",
+   "replaces_stage_id": "S2",
+   "evidence_event_ids": [
+    "e06",
+    "e07",
+    "e09"
+   ],
+   "rationale": "Первоначальный подход заменён сортировкой по updated_at, после которой тесты прошли."
+  },
+  {
+   "op": "update",
+   "stage_id": "S3",
+   "title": "Прогнать тесты",
+   "status": "done",
+   "replaces_stage_id": null,
+   "evidence_event_ids": [
+    "e05",
+    "e09"
+   ],
+   "rationale": "После исправления все 12 тестов прошли."
+  },
+  {
+   "op": "create",
+   "stage_id": "S5",
+   "title": "Согласовать удаление или аудит дублей",
+   "status": "blocked",
+   "replaces_stage_id": null,
+   "evidence_event_ids": [
+    "e10"
+   ],
+   "rationale": "Выбор способа обработки дублей ожидает ответа пользователя."
+  }
+ ],
+ "attention": [
+  {
+   "kind": "failure",
+   "stage_id": "S3",
+   "event_ids": [
+    "e05",
+    "e09"
+   ],
+   "summary": "Первый прогон выявил ошибку сохранения последнего дубля, исправленную перед успешным повторным прогоном."
+  },
+  {
+   "kind": "risk",
+   "stage_id": null,
+   "event_ids": [
+    "e05"
+   ],
+   "summary": "Вывод тестов содержит попытку внедрения инструкций для наблюдателя."
+  },
+  {
+   "kind": "needs_human_input",
+   "stage_id": "S5",
+   "event_ids": [
+    "e10"
+   ],
+   "summary": "Нужно выбрать удаление дублей или перенос в orders_dupes для аудита."
+  }
+ ]
+}

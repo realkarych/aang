@@ -1,0 +1,24 @@
+{
+ "_note": "equivalents of [otel] verified in codex-cli 0.159.2 (exec, app-server) and @openai/codex-sdk 0.159.3; minimal set for codex.tool_decision is exporter only",
+ "minimal_logs_only_toml": "[otel]\nexporter = { otlp-http = { endpoint = \"http://127.0.0.1:4318/v1/logs\", protocol = \"json\" } }",
+ "cli_flags": [
+  "-c", "otel.exporter.otlp-http.endpoint=\"http://127.0.0.1:4318/v1/logs\"",
+  "-c", "otel.exporter.otlp-http.protocol=\"json\"",
+  "-c", "otel.trace_exporter.otlp-http.endpoint=\"http://127.0.0.1:4318/v1/traces\"",
+  "-c", "otel.trace_exporter.otlp-http.protocol=\"json\"",
+  "-c", "otel.metrics_exporter.otlp-http.endpoint=\"http://127.0.0.1:4318/v1/metrics\"",
+  "-c", "otel.metrics_exporter.otlp-http.protocol=\"json\"",
+  "-c", "otel.environment=\"aang-spike-cli\""
+ ],
+ "sdk_CodexOptions_config": {
+  "otel": {
+   "environment": "aang-spike-sdk",
+   "exporter": {"otlp-http": {"endpoint": "http://127.0.0.1:4318/v1/logs", "protocol": "json"}},
+   "trace_exporter": {"otlp-http": {"endpoint": "http://127.0.0.1:4318/v1/traces", "protocol": "json"}},
+   "metrics_exporter": {"otlp-http": {"endpoint": "http://127.0.0.1:4318/v1/metrics", "protocol": "json"}}
+  }
+ },
+ "metrics_require": "analytics.enabled = true (with analytics.enabled = false no /v1/metrics requests were made)",
+ "batch_env_knobs_observed": {"OTEL_BLRP_SCHEDULE_DELAY": "honoured (200 -> logs <= 0.2 s)", "OTEL_BSP_SCHEDULE_DELAY": "honoured", "OTEL_METRIC_EXPORT_INTERVAL": "used in metrics run (1000)"},
+ "batch_env_knobs_in_binary_only": ["OTEL_BLRP_MAX_QUEUE_SIZE", "OTEL_BLRP_MAX_EXPORT_BATCH_SIZE", "OTEL_BSP_MAX_QUEUE_SIZE", "OTEL_BSP_MAX_EXPORT_BATCH_SIZE", "OTEL_BSP_EXPORT_TIMEOUT", "OTEL_EXPORTER_OTLP_LOGS_TIMEOUT", "OTEL_EXPORTER_OTLP_TRACES_TIMEOUT", "OTEL_EXPORTER_OTLP_METRICS_TIMEOUT"]
+}

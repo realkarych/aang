@@ -1,0 +1,1218 @@
+{
+ "_note": "Aggregates over ~/.codex/sessions/**/rollout-*.jsonl and ~/.codex sqlite files (read-only, structure only, no content). Rollout snapshot taken 2026-10-01 before experiments; sqlite counts at generation time (include the experiment thread and a neighbouring researcher thread).",
+ "files": 119,
+ "unparsable_lines": 0,
+ "first_record_type": {
+  "session_meta": 119
+ },
+ "session_meta_records_per_file": {
+  "1": 119
+ },
+ "top_level_keys": {
+  "timestamp": 33219,
+  "ordinal": 33219,
+  "type": 33219,
+  "payload": 33219,
+  "metadata": 994
+ },
+ "record_types": {
+  "session_meta": 119,
+  "event_msg": 14453,
+  "response_item": 13875,
+  "turn_context": 218,
+  "compacted": 16,
+  "world_state": 249,
+  "token_usage_record": 3820,
+  "inter_agent_communication_metadata": 469
+ },
+ "record_type/payload.type": {
+  "event_msg/item_completed": 9814,
+  "event_msg/token_count": 4177,
+  "token_usage_record/None": 3820,
+  "response_item/reasoning": 3713,
+  "response_item/custom_tool_call": 2401,
+  "response_item/custom_tool_call_output": 2401,
+  "response_item/function_call": 1685,
+  "response_item/function_call_output": 1685,
+  "response_item/message": 1518,
+  "inter_agent_communication_metadata/None": 469,
+  "response_item/agent_message": 469,
+  "world_state/None": 249,
+  "turn_context/None": 218,
+  "event_msg/task_started": 204,
+  "event_msg/task_complete": 183,
+  "session_meta/None": 119,
+  "event_msg/thread_settings_applied": 57,
+  "compacted/None": 16,
+  "event_msg/turn_aborted": 16,
+  "event_msg/thread_goal_updated": 2,
+  "response_item/tool_search_call": 1,
+  "response_item/tool_search_output": 1,
+  "response_item/compaction": 1
+ },
+ "item_completed.item.type": {
+  "UserMessage": 82,
+  "AgentMessage": 909,
+  "FileChange": 335,
+  "ContextCompaction": 16,
+  "CommandExecution": 3373,
+  "Reasoning": 3563,
+  "Extension": 191,
+  "SubAgentActivity": 472,
+  "CollabAgentToolCall": 95,
+  "McpToolCall": 755,
+  "ImageView": 18,
+  "HookPrompt": 5
+ },
+ "record_types_by_cli_version": {
+  "0.133.0": {
+   "session_meta/None": 6,
+   "event_msg/task_started": 6,
+   "response_item/message": 53,
+   "turn_context/None": 7,
+   "event_msg/item_completed": 38,
+   "response_item/reasoning": 141,
+   "response_item/tool_search_call": 1,
+   "response_item/tool_search_output": 1,
+   "event_msg/token_count": 176,
+   "response_item/function_call": 453,
+   "response_item/function_call_output": 453,
+   "response_item/custom_tool_call": 1,
+   "response_item/custom_tool_call_output": 1,
+   "event_msg/task_complete": 2,
+   "compacted/None": 1
+  },
+  "0.144.4": {
+   "session_meta/None": 3,
+   "event_msg/task_started": 3,
+   "response_item/message": 13,
+   "world_state/None": 3,
+   "turn_context/None": 3,
+   "event_msg/item_completed": 7,
+   "response_item/reasoning": 3,
+   "event_msg/token_count": 4,
+   "event_msg/task_complete": 3,
+   "response_item/function_call": 1,
+   "response_item/function_call_output": 1
+  },
+  "0.144.5": {
+   "session_meta/None": 6,
+   "event_msg/task_started": 6,
+   "response_item/message": 24,
+   "world_state/None": 6,
+   "turn_context/None": 6,
+   "event_msg/item_completed": 12,
+   "response_item/reasoning": 6,
+   "event_msg/token_count": 6,
+   "event_msg/task_complete": 6
+  },
+  "0.153.4": {
+   "session_meta/None": 13,
+   "event_msg/task_started": 22,
+   "response_item/message": 296,
+   "world_state/None": 95,
+   "turn_context/None": 26,
+   "event_msg/item_completed": 2164,
+   "response_item/custom_tool_call": 590,
+   "token_usage_record/None": 864,
+   "response_item/custom_tool_call_output": 590,
+   "event_msg/token_count": 935,
+   "response_item/reasoning": 858,
+   "event_msg/task_complete": 19,
+   "event_msg/thread_settings_applied": 9,
+   "event_msg/turn_aborted": 3,
+   "response_item/function_call": 251,
+   "response_item/function_call_output": 251,
+   "inter_agent_communication_metadata/None": 162,
+   "response_item/agent_message": 162,
+   "compacted/None": 4
+  },
+  "0.154.0": {
+   "session_meta/None": 74,
+   "event_msg/task_started": 124,
+   "response_item/message": 879,
+   "world_state/None": 120,
+   "turn_context/None": 129,
+   "inter_agent_communication_metadata/None": 295,
+   "response_item/agent_message": 295,
+   "response_item/custom_tool_call": 1645,
+   "token_usage_record/None": 2257,
+   "event_msg/item_completed": 6066,
+   "response_item/custom_tool_call_output": 1645,
+   "event_msg/token_count": 2353,
+   "response_item/reasoning": 2098,
+   "event_msg/task_complete": 112,
+   "response_item/function_call": 490,
+   "response_item/function_call_output": 490,
+   "event_msg/thread_settings_applied": 23,
+   "compacted/None": 7,
+   "event_msg/turn_aborted": 11
+  },
+  "0.154.0-alpha.6.2": {
+   "session_meta/None": 1,
+   "event_msg/task_started": 1,
+   "response_item/message": 8,
+   "world_state/None": 1,
+   "turn_context/None": 1,
+   "event_msg/item_completed": 15,
+   "response_item/reasoning": 6,
+   "response_item/custom_tool_call": 5,
+   "token_usage_record/None": 6,
+   "response_item/custom_tool_call_output": 5,
+   "event_msg/token_count": 6,
+   "event_msg/task_complete": 1
+  },
+  "0.155.0-alpha.9.2": {
+   "session_meta/None": 6,
+   "event_msg/task_started": 19,
+   "response_item/message": 121,
+   "world_state/None": 11,
+   "turn_context/None": 22,
+   "event_msg/item_completed": 1126,
+   "response_item/reasoning": 491,
+   "response_item/custom_tool_call": 48,
+   "token_usage_record/None": 549,
+   "response_item/custom_tool_call_output": 48,
+   "event_msg/token_count": 549,
+   "event_msg/task_complete": 19,
+   "event_msg/thread_settings_applied": 13,
+   "response_item/function_call": 479,
+   "response_item/function_call_output": 479,
+   "event_msg/thread_goal_updated": 2,
+   "compacted/None": 3
+  },
+  "0.159.2": {
+   "session_meta/None": 10,
+   "event_msg/task_started": 23,
+   "response_item/message": 124,
+   "world_state/None": 13,
+   "turn_context/None": 24,
+   "event_msg/item_completed": 386,
+   "response_item/custom_tool_call": 112,
+   "token_usage_record/None": 144,
+   "response_item/custom_tool_call_output": 112,
+   "event_msg/token_count": 148,
+   "response_item/reasoning": 110,
+   "event_msg/task_complete": 21,
+   "event_msg/thread_settings_applied": 12,
+   "compacted/None": 1,
+   "response_item/function_call": 11,
+   "response_item/function_call_output": 11,
+   "event_msg/turn_aborted": 2,
+   "response_item/compaction": 1,
+   "inter_agent_communication_metadata/None": 12,
+   "response_item/agent_message": 12
+  }
+ },
+ "session_meta.keys": {
+  "session_id:str": 119,
+  "id:str": 119,
+  "timestamp:str": 119,
+  "cwd:str": 119,
+  "originator:str": 119,
+  "cli_version:str": 119,
+  "source:str": 29,
+  "thread_source:str": 119,
+  "model_provider:str": 119,
+  "base_instructions:obj": 119,
+  "history_mode:str": 119,
+  "git:obj": 109,
+  "source:obj": 90,
+  "agent_nickname:str": 86,
+  "agent_role:str": 5,
+  "subagent_history_start_ordinal:num": 6,
+  "context_window:obj": 113,
+  "parent_thread_id:str": 85,
+  "agent_path:str": 81,
+  "multi_agent_version:str": 85,
+  "runtime_workspace_roots:arr": 16,
+  "creator_user_id:str": 10,
+  "creator_account_id:str": 10
+ },
+ "session_meta.nested_keys": {
+  "base_instructions": {
+   "text:str": 119,
+   "provenance:obj": 104
+  },
+  "git": {
+   "commit_hash:str": 109,
+   "branch:str": 109,
+   "repository_url:str": 109
+  },
+  "source": {
+   "subagent:obj": 90
+  },
+  "context_window": {
+   "window_id:str": 113
+  }
+ },
+ "cli_version": {
+  "0.133.0": 6,
+  "0.144.4": 3,
+  "0.144.5": 6,
+  "0.153.4": 13,
+  "0.154.0": 74,
+  "0.154.0-alpha.6.2": 1,
+  "0.155.0-alpha.9.2": 6,
+  "0.159.2": 10
+ },
+ "originator": {
+  "codex-tui": 92,
+  "codex_exec": 9,
+  "Codex Desktop": 18
+ },
+ "source": {
+  "cli": 8,
+  "{\"subagent\": {\"thread_spawn\": \"obj\"}}": 86,
+  "exec": 9,
+  "vscode": 12,
+  "{\"subagent\": {\"other\": \"str\"}}": 4
+ },
+ "originator_x_source": {
+  "codex-tui | cli": 8,
+  "codex-tui | {\"subagent\": {\"thread_spawn\": \"obj\"}}": 84,
+  "codex_exec | exec": 9,
+  "Codex Desktop | vscode": 12,
+  "Codex Desktop | {\"subagent\": {\"other\": \"str\"}}": 4,
+  "Codex Desktop | {\"subagent\": {\"thread_spawn\": \"obj\"}}": 2
+ },
+ "enums": {
+  "thread_source": {
+   "user": 29,
+   "subagent": 86,
+   "guardian_review": 4
+  },
+  "history_mode": {
+   "paginated": 119
+  },
+  "multi_agent_version": {
+   "null": 34,
+   "v2": 81,
+   "disabled": 4
+  },
+  "agent_role": {
+   "null": 114,
+   "explorer": 5
+  },
+  "collaboration_mode_kind": {
+   "default": 204
+  },
+  "message.role": {
+   "developer": 385,
+   "user": 236,
+   "assistant": 897
+  },
+  "message.phase": {
+   "None": 621,
+   "commentary": 710,
+   "final_answer": 187
+  },
+  "message.content.type": {
+   "input_text": 1424,
+   "output_text": 897,
+   "input_image": 1
+  },
+  "turn_context.approval_policy": {
+   "\"on-request\"": 116,
+   "\"never\"": 100,
+   "{\"granular\": {\"sandbox_approval\": false, \"rules\": false, \"skill_approval\": false, \"request_permissions\": true, \"mcp_elicitations\": true}}": 2
+  },
+  "turn_context.collaboration_mode.mode": {
+   "default": 218
+  },
+  "turn_context.multi_agent_version": {
+   "None": 7,
+   "v1": 9,
+   "v2": 194,
+   "disabled": 8
+  },
+  "turn_context.approvals_reviewer": {
+   "None": 7,
+   "user": 187,
+   "auto_review": 24
+  },
+  "turn_context.model": {
+   "gpt-5.5": 7,
+   "gpt-5.4-mini": 9,
+   "gpt-6-astra": 120,
+   "gpt-5.6-sol": 46,
+   "gpt-5.6-terra": 23,
+   "codex-auto-review": 8,
+   "gpt-6.1-sol": 5
+  },
+  "turn_context.effort": {
+   "high": 99,
+   "low": 17,
+   "xhigh": 101,
+   "medium": 1
+  },
+  "tool_name": {
+   "/exec_command": 426,
+   "multi_agent_v1/spawn_agent": 10,
+   "/write_stdin": 17,
+   "multi_agent_v1/wait_agent": 1,
+   "/apply_patch": 1,
+   "/exec": 2400,
+   "/request_user_input_async": 12,
+   "collaboration/spawn_agent": 82,
+   "collaboration/send_message": 234,
+   "collaboration/followup_task": 40,
+   "/wait": 13,
+   "collaboration/wait_agent": 95,
+   "collaboration/list_agents": 13,
+   "clock/sleep": 20,
+   "mcp__cua_repl/js": 719,
+   "mcp__cua_repl/js_reset": 1,
+   "collaboration/interrupt_agent": 1,
+   "/untrusted_input": 1
+  },
+  "thread_spawn.depth": {
+   "1": 86
+  },
+  "thread_spawn.agent_role": {
+   "explorer": 5,
+   "None": 81
+  },
+  "turn_aborted.reason": {
+   "interrupted": 16
+  },
+  "iac.trigger_turn": {
+   "False": 348,
+   "True": 121
+  },
+  "agent_message.content.type": {
+   "['input_text']": 469
+  },
+  "subagent.other": {
+   "guardian": 4
+  }
+ },
+ "payload_keys": {
+  "session_meta/None": {
+   "session_id:str": 119,
+   "id:str": 119,
+   "timestamp:str": 119,
+   "cwd:str": 119,
+   "originator:str": 119,
+   "cli_version:str": 119,
+   "source:str": 29,
+   "thread_source:str": 119,
+   "model_provider:str": 119,
+   "base_instructions:obj": 119,
+   "history_mode:str": 119,
+   "git:obj": 109,
+   "source:obj": 90,
+   "agent_nickname:str": 86,
+   "agent_role:str": 5,
+   "subagent_history_start_ordinal:num": 6,
+   "context_window:obj": 113,
+   "parent_thread_id:str": 85,
+   "agent_path:str": 81,
+   "multi_agent_version:str": 85,
+   "runtime_workspace_roots:arr": 16,
+   "creator_user_id:str": 10,
+   "creator_account_id:str": 10
+  },
+  "event_msg/task_started": {
+   "type:str": 204,
+   "turn_id:str": 204,
+   "started_at:num": 204,
+   "model_context_window:num": 204,
+   "collaboration_mode_kind:str": 204,
+   "root_turn_id:str": 42
+  },
+  "response_item/message": {
+   "type:str": 1518,
+   "role:str": 1518,
+   "content:arr": 1518,
+   "phase:str": 897,
+   "internal_chat_message_metadata_passthrough:obj": 1465,
+   "id:str": 1438
+  },
+  "turn_context/None": {
+   "turn_id:str": 218,
+   "cwd:str": 218,
+   "current_date:str": 218,
+   "timezone:str": 218,
+   "approval_policy:str": 216,
+   "sandbox_policy:obj": 218,
+   "permission_profile:obj": 218,
+   "file_system_sandbox_policy:obj": 126,
+   "model:str": 218,
+   "personality:str": 218,
+   "collaboration_mode:obj": 218,
+   "realtime_active:bool": 218,
+   "effort:str": 218,
+   "summary:str": 218,
+   "workspace_roots:arr": 211,
+   "approvals_reviewer:str": 211,
+   "comp_hash:str": 211,
+   "multi_agent_version:str": 211,
+   "root_turn_id:str": 202,
+   "active_permission_profile:obj": 111,
+   "disabled_plugin_ids:arr": 46,
+   "cyber_access_program:str": 33,
+   "approval_policy:obj": 2
+  },
+  "event_msg/item_completed": {
+   "type:str": 9814,
+   "thread_id:str": 9814,
+   "turn_id:str": 9814,
+   "item:obj": 9814,
+   "completed_at_ms:num": 9814,
+   "started_at_ms:num": 9757
+  },
+  "response_item/reasoning": {
+   "type:str": 3713,
+   "summary:arr": 3713,
+   "content:null": 150,
+   "encrypted_content:str": 3713,
+   "id:str": 3572,
+   "internal_chat_message_metadata_passthrough:obj": 3572
+  },
+  "response_item/tool_search_call": {
+   "type:str": 1,
+   "call_id:str": 1,
+   "status:str": 1,
+   "execution:str": 1,
+   "arguments:obj": 1
+  },
+  "response_item/tool_search_output": {
+   "type:str": 1,
+   "call_id:str": 1,
+   "status:str": 1,
+   "execution:str": 1,
+   "tools:arr": 1
+  },
+  "event_msg/token_count": {
+   "type:str": 4177,
+   "info:obj": 4177,
+   "rate_limits:obj": 4177
+  },
+  "response_item/function_call": {
+   "type:str": 1685,
+   "name:str": 1685,
+   "arguments:str": 1685,
+   "call_id:str": 1685,
+   "namespace:str": 1216,
+   "id:str": 1232,
+   "internal_chat_message_metadata_passthrough:obj": 1232
+  },
+  "response_item/function_call_output": {
+   "type:str": 1685,
+   "call_id:str": 1685,
+   "output:str": 952,
+   "internal_chat_message_metadata_passthrough:obj": 1232,
+   "id:str": 1231,
+   "output:arr": 733
+  },
+  "response_item/custom_tool_call": {
+   "type:str": 2401,
+   "status:str": 2401,
+   "call_id:str": 2401,
+   "name:str": 2401,
+   "input:str": 2401,
+   "id:str": 2400,
+   "internal_chat_message_metadata_passthrough:obj": 2400
+  },
+  "response_item/custom_tool_call_output": {
+   "type:str": 2401,
+   "call_id:str": 2401,
+   "output:str": 18,
+   "id:str": 2400,
+   "output:arr": 2383,
+   "internal_chat_message_metadata_passthrough:obj": 2400
+  },
+  "event_msg/task_complete": {
+   "type:str": 183,
+   "turn_id:str": 183,
+   "last_agent_message:str": 182,
+   "completed_at:num": 183,
+   "duration_ms:num": 183,
+   "time_to_first_token_ms:num": 182,
+   "started_at:num": 172,
+   "last_agent_message:null": 1
+  },
+  "compacted/None": {
+   "message:str": 16,
+   "replacement_history:arr": 16,
+   "compaction_response_id:null": 1,
+   "latest_token_usage_record:null": 1,
+   "guardian_history:arr": 14,
+   "retained_context:obj": 15,
+   "window_number:num": 15,
+   "first_window_id:str": 15,
+   "previous_window_id:str": 15,
+   "window_id:str": 15,
+   "compaction_response_id:str": 15,
+   "latest_token_usage_record:obj": 15,
+   "replacement_history_metadata:arr": 4,
+   "resume_metadata:obj": 1
+  },
+  "world_state/None": {
+   "full:bool": 249,
+   "state:obj": 249
+  },
+  "token_usage_record/None": {
+   "thread_id:str": 3820,
+   "turn_id:str": 3820,
+   "session_id:str": 3820,
+   "root_turn_id:str": 3820,
+   "response_id:str": 3820,
+   "usage:obj": 3820,
+   "turn_token_usage:obj": 3820,
+   "thread_token_usage:obj": 3820
+  },
+  "event_msg/thread_settings_applied": {
+   "type:str": 57,
+   "thread_id:str": 57,
+   "thread_settings:obj": 57
+  },
+  "event_msg/turn_aborted": {
+   "type:str": 16,
+   "turn_id:str": 16,
+   "reason:str": 16,
+   "started_at:num": 16,
+   "completed_at:num": 16,
+   "duration_ms:num": 16
+  },
+  "inter_agent_communication_metadata/None": {
+   "trigger_turn:bool": 469
+  },
+  "response_item/agent_message": {
+   "type:str": 469,
+   "id:str": 469,
+   "author:str": 469,
+   "recipient:str": 469,
+   "content:arr": 469,
+   "internal_chat_message_metadata_passthrough:obj": 469
+  },
+  "event_msg/thread_goal_updated": {
+   "type:str": 2,
+   "threadId:str": 2,
+   "goal:obj": 2
+  },
+  "response_item/compaction": {
+   "type:str": 1,
+   "id:str": 1,
+   "encrypted_content:str": 1,
+   "internal_chat_message_metadata_passthrough:obj": 1
+  }
+ },
+ "nested_keys": {
+  "item_completed.item[UserMessage]": {
+   "type:str": 82,
+   "id:str": 82,
+   "content:arr": 82,
+   "client_id:str": 62
+  },
+  "item_completed.item[AgentMessage]": {
+   "type:str": 909,
+   "id:str": 909,
+   "content:arr": 909,
+   "phase:str": 909,
+   "delivery:str": 12,
+   "questions:arr": 12
+  },
+  "token_count": {
+   "type:str": 4177,
+   "info:obj": 4177,
+   "rate_limits:obj": 4177
+  },
+  "token_count.info": {
+   "total_token_usage:obj": 4177,
+   "last_token_usage:obj": 4177,
+   "model_context_window:num": 4177
+  },
+  "token_count.info.total_token_usage": {
+   "input_tokens:num": 4177,
+   "cached_input_tokens:num": 4177,
+   "cache_write_input_tokens:num": 4177,
+   "output_tokens:num": 4177,
+   "reasoning_output_tokens:num": 4177,
+   "total_tokens:num": 4177
+  },
+  "token_count.info.last_token_usage": {
+   "input_tokens:num": 4177,
+   "cached_input_tokens:num": 4177,
+   "cache_write_input_tokens:num": 4177,
+   "output_tokens:num": 4177,
+   "reasoning_output_tokens:num": 4177,
+   "total_tokens:num": 4177
+  },
+  "token_count.rate_limits": {
+   "limit_id:str": 4177,
+   "limit_name:null": 3768,
+   "primary:obj": 4177,
+   "secondary:obj": 585,
+   "credits:null": 176,
+   "individual_limit:null": 4177,
+   "spend_control_reached:null": 4177,
+   "plan_type:str": 4177,
+   "rate_limit_reached_type:null": 4177,
+   "secondary:null": 3592,
+   "credits:obj": 4001,
+   "limit_name:str": 409
+  },
+  "token_count.rate_limits.primary": {
+   "used_percent:num": 4177,
+   "window_minutes:num": 4177,
+   "resets_at:num": 4177
+  },
+  "token_count.rate_limits.secondary": {
+   "used_percent:num": 585,
+   "window_minutes:num": 585,
+   "resets_at:num": 585
+  },
+  "item_completed.item[FileChange]": {
+   "type:str": 335,
+   "id:str": 335,
+   "changes:obj": 335,
+   "status:str": 335,
+   "stdout:str": 335,
+   "stderr:str": 334
+  },
+  "item_completed.item[FileChange].changes": {
+   "<absolute_path>:obj": 456
+  },
+  "session_meta.source": {
+   "subagent:obj": 90
+  },
+  "session_meta.source.subagent": {
+   "thread_spawn:obj": 86,
+   "other:str": 4
+  },
+  "session_meta.source.subagent.thread_spawn": {
+   "parent_thread_id:str": 86,
+   "depth:num": 86,
+   "agent_path:null": 5,
+   "agent_nickname:str": 86,
+   "agent_role:str": 5,
+   "agent_path:str": 81,
+   "agent_role:null": 81
+  },
+  "compacted": {
+   "message:str": 16,
+   "replacement_history:arr": 16,
+   "compaction_response_id:null": 1,
+   "latest_token_usage_record:null": 1,
+   "guardian_history:arr": 14,
+   "retained_context:obj": 15,
+   "window_number:num": 15,
+   "first_window_id:str": 15,
+   "previous_window_id:str": 15,
+   "window_id:str": 15,
+   "compaction_response_id:str": 15,
+   "latest_token_usage_record:obj": 15,
+   "replacement_history_metadata:arr": 4,
+   "resume_metadata:obj": 1
+  },
+  "compacted.replacement_history.type": {
+   "message": 161,
+   "compaction": 16
+  },
+  "item_completed.item[ContextCompaction]": {
+   "type:str": 16,
+   "id:str": 16
+  },
+  "world_state": {
+   "full:bool": 249,
+   "state:obj": 249
+  },
+  "world_state.state": {
+   "agents_md:obj": 128,
+   "apps_instructions:bool": 128,
+   "environments:obj": 218,
+   "plugins_instructions:bool": 128,
+   "skills:obj": 124,
+   "collaboration_mode:obj": 119,
+   "context_window_guidance:str": 119,
+   "environments_instructions:bool": 119,
+   "git_attribution:bool": 115,
+   "host_skills:obj": 118,
+   "managed_developer_instructions:obj": 115,
+   "model:str": 119,
+   "multi_agent_mode:obj": 119,
+   "multi_agent_usage_hint:str": 115,
+   "orchestrator_skills:obj": 108,
+   "permissions:obj": 149,
+   "persistent_mode:obj": 115,
+   "personality:obj": 99,
+   "realtime:obj": 119
+  },
+  "world_state.state.environments": {
+   "environments:obj": 128,
+   "current_date:str": 133,
+   "timezone:str": 128,
+   "filesystem:str": 130,
+   "subagents:str": 94
+  },
+  "world_state.state.skills": {
+   "includeInstructions:bool": 124
+  },
+  "token_count.rate_limits.credits": {
+   "has_credits:bool": 4001,
+   "unlimited:bool": 4001,
+   "balance:str": 4001
+  },
+  "session_meta.base_instructions.provenance": {
+   "type:str": 104,
+   "model:str": 100
+  },
+  "world_state.state.agents_md": {
+   "directory:str": 8,
+   "text:str": 8
+  },
+  "world_state.state.collaboration_mode": {
+   "mode:str": 119,
+   "model:str": 119,
+   "instructions:str": 119
+  },
+  "world_state.state.host_skills": {
+   "body:str": 118,
+   "includeInstructions:bool": 115
+  },
+  "world_state.state.multi_agent_mode": {
+   "mode:str": 115,
+   "usage_hint_hash:str": 115
+  },
+  "world_state.state.orchestrator_skills": {
+   "includeInstructions:bool": 108,
+   "enabled:bool": 108
+  },
+  "world_state.state.permissions": {
+   "instructions:str": 121,
+   "approved_command_prefixes:arr": 149
+  },
+  "world_state.state.personality": {
+   "model:str": 99,
+   "personality:str": 99
+  },
+  "world_state.state.realtime": {
+   "active:bool": 119
+  },
+  "token_usage_record": {
+   "thread_id:str": 3820,
+   "turn_id:str": 3820,
+   "session_id:str": 3820,
+   "root_turn_id:str": 3820,
+   "response_id:str": 3820,
+   "usage:obj": 3820,
+   "turn_token_usage:obj": 3820,
+   "thread_token_usage:obj": 3820
+  },
+  "token_usage_record.usage": {
+   "input_tokens:num": 3820,
+   "cached_input_tokens:num": 3820,
+   "cache_write_input_tokens:num": 3820,
+   "output_tokens:num": 3820,
+   "reasoning_output_tokens:num": 3820,
+   "total_tokens:num": 3820
+  },
+  "token_usage_record.turn_token_usage": {
+   "input_tokens:num": 3820,
+   "cached_input_tokens:num": 3820,
+   "cache_write_input_tokens:num": 3820,
+   "output_tokens:num": 3820,
+   "reasoning_output_tokens:num": 3820,
+   "total_tokens:num": 3820
+  },
+  "token_usage_record.thread_token_usage": {
+   "input_tokens:num": 3820,
+   "cached_input_tokens:num": 3820,
+   "cache_write_input_tokens:num": 3820,
+   "output_tokens:num": 3820,
+   "reasoning_output_tokens:num": 3820,
+   "total_tokens:num": 3820
+  },
+  "item_completed.item[CommandExecution]": {
+   "type:str": 3373,
+   "id:str": 3373,
+   "process_id:str": 3373,
+   "command:arr": 3373,
+   "cwd:str": 3373,
+   "parsed_cmd:arr": 3373,
+   "source:str": 3373,
+   "status:str": 3373,
+   "stdout:str": 3373,
+   "stderr:str": 3373,
+   "aggregated_output:str": 3373,
+   "exit_code:num": 3373,
+   "duration:obj": 3373,
+   "formatted_output:str": 3373,
+   "plugin_id:str": 3,
+   "script_path:str": 3
+  },
+  "item_completed.item[CommandExecution].duration": {
+   "secs:num": 3373,
+   "nanos:num": 3373
+  },
+  "item_completed.item[Reasoning]": {
+   "type:str": 3563,
+   "id:str": 3563,
+   "summary_text:arr": 3563,
+   "raw_content:arr": 3563
+  },
+  "item_completed.item[Extension]": {
+   "type:str": 191,
+   "kind:str": 191,
+   "id:str": 191,
+   "query:str": 171,
+   "action:obj": 171,
+   "results:arr": 171,
+   "durationMs:num": 20
+  },
+  "item_completed.item[Extension].action": {
+   "type:str": 171,
+   "query:null": 50,
+   "queries:arr": 50,
+   "url:str": 70,
+   "url:null": 18,
+   "pattern:str": 22,
+   "query:str": 17,
+   "queries:null": 17
+  },
+  "item_completed.item[SubAgentActivity]": {
+   "type:str": 472,
+   "id:str": 472,
+   "kind:str": 472,
+   "agent_thread_id:str": 472,
+   "agent_path:str": 472
+  },
+  "item_completed.item[CollabAgentToolCall]": {
+   "type:str": 95,
+   "id:str": 95,
+   "tool:str": 95,
+   "status:str": 95,
+   "sender_thread_id:str": 95,
+   "receiver_thread_ids:arr": 95,
+   "receiver_agents:arr": 95,
+   "agents_states:obj": 95
+  },
+  "compacted.retained_context": {
+   "verified_answers:arr": 15,
+   "incomplete:bool": 15,
+   "user_messages:arr": 15,
+   "user_messages_incomplete:bool": 15,
+   "next_order:num": 15,
+   "assistant_messages:arr": 1,
+   "assistant_messages_incomplete:bool": 1
+  },
+  "compacted.latest_token_usage_record": {
+   "thread_id:str": 15,
+   "turn_id:str": 15,
+   "session_id:str": 15,
+   "root_turn_id:str": 15,
+   "response_id:str": 15,
+   "usage:obj": 15,
+   "turn_token_usage:obj": 15,
+   "thread_token_usage:obj": 15
+  },
+  "item_completed.item[McpToolCall]": {
+   "type:str": 755,
+   "id:str": 755,
+   "server:str": 755,
+   "tool:str": 755,
+   "arguments:obj": 755,
+   "pluginId:str": 723,
+   "readOnlyHint:bool": 751,
+   "status:str": 755,
+   "result:obj": 755,
+   "duration:obj": 755,
+   "connectorId:str": 32,
+   "linkId:str": 32,
+   "appName:str": 32,
+   "actionName:str": 32
+  },
+  "item_completed.item[McpToolCall].arguments": {
+   "code:str": 718,
+   "title:str": 727,
+   "repository_full_name:str": 14,
+   "body:str": 14,
+   "labels:arr": 7,
+   "issue_number:num": 7,
+   "timeout_ms:num": 2,
+   "slug:str": 1,
+   "description:str": 1,
+   "project_id:str": 14,
+   "archive:str": 3,
+   "commit_sha:str": 3,
+   "version_id:str": 3,
+   "deployment_id:str": 4,
+   "idempotency_key:str": 1,
+   "initial_blocks:arr": 1,
+   "page_id:str": 2,
+   "view:str": 2,
+   "target:obj": 3,
+   "include_content:bool": 1
+  },
+  "item_completed.item[McpToolCall].result": {
+   "content:arr": 755,
+   "isError:bool": 755,
+   "_meta:obj": 718,
+   "structuredContent:obj": 32
+  },
+  "item_completed.item[McpToolCall].duration": {
+   "secs:num": 755,
+   "nanos:num": 755
+  },
+  "record.metadata": {
+   "client_authored:bool": 994,
+   "fallback_token_limit_override:num": 890,
+   "mcp_attribution:obj": 36,
+   "retained_source:obj": 71,
+   "user_input_order:num": 94,
+   "guardian_sources:arr": 7,
+   "guardian_source_order_guidance:bool": 8
+  },
+  "item_completed.item[ImageView]": {
+   "type:str": 18,
+   "id:str": 18,
+   "path:str": 18
+  },
+  "item_completed.item[HookPrompt]": {
+   "type:str": 5,
+   "id:str": 5,
+   "fragments:arr": 5
+  },
+  "record.metadata.mcp_attribution": {
+   "status:str": 36,
+   "sources:arr": 9,
+   "error_reason:str": 3
+  },
+  "record.metadata.retained_source": {
+   "id:obj": 71,
+   "revision:str": 71,
+   "complete:bool": 71
+  },
+  "record.metadata.retained_source.id": {
+   "message_id:str": 71,
+   "turn_id:str": 71,
+   "role:str": 71
+  },
+  "compacted.resume_metadata": {
+   "multi_agent_version:str": 1,
+   "last_started_turn_id:str": 1,
+   "previous_turn_settings:obj": 1
+  }
+ },
+ "relations": {
+  "filename_uuid==session_meta.id": 119,
+  "uuid_version": {
+   "7": 119
+  },
+  "dir_YYYY/MM/DD==filename_local_date": 119,
+  "session_meta.id==session_id": 34,
+  "subagent(thread_spawn): session_id==root_thread_id": 81,
+  "subagent(thread_spawn): session_id==own_id (agent_role=explorer, multi_agent v1)": 5,
+  "subagent: parent rollout present": 86,
+  "subagent: same cwd as parent": 86,
+  "subagent: listed in session_index.jsonl": 0,
+  "user threads listed in session_index.jsonl": "19 of 29",
+  "guardian(other): has parent_thread_id": 4
+ },
+ "usage_invariants": {
+  "files_with_token_usage_record": 106,
+  "files_without (cli<=0.144.x)": 15,
+  "sum(token_usage_record.usage.total_tokens)==last thread_token_usage.total_tokens": "106 of 106",
+  "duplicate response_id": 0,
+  "token_count events": 3996,
+  "consecutive token_count with equal total_token_usage": 187
+ },
+ "subagent_payload_encryption": {
+  "response_item.agent_message content kinds": {
+   "input_text+encrypted_content": 353,
+   "input_text only": 116
+  },
+  "spawn_agent.arguments.message": {
+   "encrypted (multi_agent v2)": 82,
+   "plaintext (v1, agent_type param)": 10
+  }
+ },
+ "session_index.jsonl": {
+  "lines": 26,
+  "keys": [
+   "id",
+   "thread_name",
+   "updated_at"
+  ]
+ },
+ "archived_sessions": "absent in user home; `codex archive` moves the file to $CODEX_HOME/archived_sessions/ and updates threads.rollout_path (verified in temp home)",
+ "sqlite": {
+  "state_5.sqlite": {
+   "tables": [
+    "_sqlx_migrations",
+    "backfill_state",
+    "external_agent_config_imports",
+    "project_idempotency_keys",
+    "project_roots",
+    "projects",
+    "remote_control_enrollments",
+    "rollout_migration_skipped_rollouts",
+    "rollout_migration_state",
+    "sqlite_sequence",
+    "thread_attachments",
+    "thread_dynamic_tools",
+    "thread_sections",
+    "thread_spawn_edges",
+    "threads"
+   ],
+   "rows": {
+    "threads": 121,
+    "thread_spawn_edges": 86,
+    "thread_dynamic_tools": 0,
+    "backfill_state": 1
+   },
+   "threads.columns": [
+    "id",
+    "rollout_path",
+    "created_at",
+    "updated_at",
+    "source",
+    "model_provider",
+    "cwd",
+    "title",
+    "sandbox_policy",
+    "approval_mode",
+    "tokens_used",
+    "has_user_event",
+    "archived",
+    "archived_at",
+    "git_sha",
+    "git_branch",
+    "git_origin_url",
+    "cli_version",
+    "first_user_message",
+    "agent_nickname",
+    "agent_role",
+    "memory_mode",
+    "model",
+    "reasoning_effort",
+    "agent_path",
+    "created_at_ms",
+    "updated_at_ms",
+    "thread_source",
+    "preview",
+    "recency_at",
+    "recency_at_ms",
+    "history_mode",
+    "name",
+    "is_pinned",
+    "thread_section_id",
+    "section_position",
+    "section_entered_at_ms",
+    "project_id",
+    "originator",
+    "daybreak_enabled",
+    "creator_user_id",
+    "creator_account_id"
+   ],
+   "thread_spawn_edges.columns": [
+    "parent_thread_id",
+    "child_thread_id",
+    "status"
+   ],
+   "thread_spawn_edges.status": {
+    "open": "86"
+   },
+   "threads.originator|thread_source|source|count": [
+    "<null>|subagent|{\"subagent\":{\"thread_spa...|13",
+    "<null>|user|cli|3",
+    "<null>|user|exec|9",
+    "<null>|user|vscode|1",
+    "Codex Desktop|guardian_review|{\"subagent\":{\"other\":\"gu...|4",
+    "Codex Desktop|subagent|{\"subagent\":{\"thread_spa...|2",
+    "Codex Desktop|user|vscode|11",
+    "aang_observer|aang-observer|exec|1",
+    "codex-tui|subagent|{\"subagent\":{\"thread_spa...|71",
+    "codex-tui|user|cli|5",
+    "codex_exec|user|exec|1"
+   ]
+  },
+  "thread_history_1.sqlite": {
+   "tables": [
+    "_sqlx_migrations",
+    "thread_history_projection_state",
+    "thread_items",
+    "thread_realtime_items",
+    "thread_turns"
+   ],
+   "rows": {
+    "thread_turns": 202,
+    "thread_items": 9796,
+    "thread_history_projection_state": 121
+   },
+   "thread_turns.columns": [
+    "thread_id",
+    "turn_id",
+    "rollout_ordinal",
+    "status",
+    "error_json",
+    "started_at",
+    "completed_at",
+    "duration_ms",
+    "first_user_item_id",
+    "final_agent_item_id",
+    "rollout_byte_offset",
+    "rollout_end_ordinal",
+    "rollout_end_byte_offset"
+   ],
+   "thread_items.columns": [
+    "thread_id",
+    "turn_id",
+    "item_id",
+    "rollout_ordinal",
+    "created_at_ms",
+    "item_json",
+    "item_type",
+    "updated_at_ordinal",
+    "started_at_ms",
+    "completed_at_ms"
+   ],
+   "thread_history_projection_state.columns": [
+    "thread_id",
+    "next_rollout_byte_offset",
+    "next_rollout_ordinal"
+   ],
+   "thread_items.item_type": {
+    "agentMessage": "891",
+    "collabAgentToolCall": "95",
+    "commandExecution": "3374",
+    "contextCompaction": "16",
+    "fileChange": "335",
+    "hookPrompt": "5",
+    "imageView": "18",
+    "mcpToolCall": "755",
+    "reasoning": "3564",
+    "sleep": "20",
+    "subAgentActivity": "472",
+    "userMessage": "80",
+    "webSearch": "171"
+   },
+   "thread_turns.status": {
+    "completed": "184",
+    "inProgress": "2",
+    "interrupted": "16"
+   }
+  },
+  "logs_2.sqlite": {
+   "rows": {
+    "logs": 10092
+   },
+   "logs.columns": [
+    "id",
+    "ts",
+    "ts_nanos",
+    "level",
+    "target",
+    "feedback_log_body",
+    "module_path",
+    "file",
+    "line",
+    "thread_id",
+    "process_uuid",
+    "estimated_bytes"
+   ]
+  }
+ }
+}

@@ -1,0 +1,20 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "thread/loaded/list",
+    "id": 10,
+    "params": {}
+  },
+  "response": {
+    "id": 10,
+    "result": {
+      "data": [
+        "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+        "01a0f74c-cf24-7bf1-a002-637425f1640b"
+      ],
+      "nextCursor": null
+    }
+  },
+  "requestAt": "2026-10-01T11:50:30.693+00:00",
+  "responseAt": "2026-10-01T11:50:30.693+00:00"
+}

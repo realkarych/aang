@@ -1,0 +1,46 @@
+{
+  "timestamp": "2026-10-01T11:56:25.140Z",
+  "ordinal": 14,
+  "type": "event_msg",
+  "payload": {
+    "type": "token_count",
+    "info": {
+      "total_token_usage": {
+        "input_tokens": 14278,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 27,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 14305
+      },
+      "last_token_usage": {
+        "input_tokens": 14278,
+        "cached_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 27,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 14305
+      },
+      "model_context_window": 258400
+    },
+    "rate_limits": {
+      "limit_id": "codex",
+      "limit_name": null,
+      "primary": {
+        "used_percent": 13.0,
+        "window_minutes": 10080,
+        "resets_at": 1791048206
+      },
+      "secondary": null,
+      "credits": {
+        "has_credits": true,
+        "unlimited": false,
+        "balance": "<BALANCE>"
+      },
+      "individual_limit": null,
+      "spend_control_reached": null,
+      "plan_type": "<PLAN>",
+      "rate_limit_reached_type": null
+    }
+  }
+}

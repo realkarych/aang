@@ -1,0 +1,32 @@
+{
+ "_run": "run1",
+ "_source_tag": "flag",
+ "env_seen_by_hook_process": null,
+ "stdin": {
+  "session_id": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-sdk-work/6eaeafd8-aaba-4304-92e9-0f823860947e.jsonl",
+  "cwd": "/tmp/aang-spike/cc-sdk/work",
+  "prompt_id": "9babf934-7366-46ef-8b29-115f5935bf82",
+  "permission_mode": "default",
+  "agent_id": "a489ecb7791c0c23e",
+  "agent_type": "probe",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+   "command": "echo sub",
+   "description": "Print the word sub"
+  },
+  "tool_response": {
+   "stdout": "sub",
+   "stderr": "",
+   "interrupted": false,
+   "isImage": false,
+   "noOutputExpected": false
+  },
+  "tool_use_id": "toolu_014udGkRAp4KaifDCFauxNXu",
+  "duration_ms": 11
+ }
+}

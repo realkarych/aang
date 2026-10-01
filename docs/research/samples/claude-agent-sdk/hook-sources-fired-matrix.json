@@ -1,0 +1,96 @@
+{
+ "run1": {
+  "plugin": [
+   "MessageDisplay",
+   "PostToolBatch",
+   "PostToolUse",
+   "PreToolUse",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "SubagentStart",
+   "SubagentStop",
+   "UserPromptSubmit"
+  ],
+  "flag": [
+   "MessageDisplay",
+   "PostToolBatch",
+   "PostToolUse",
+   "PreToolUse",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "SubagentStart",
+   "SubagentStop",
+   "UserPromptSubmit"
+  ],
+  "local": [
+   "MessageDisplay",
+   "PostToolBatch",
+   "PostToolUse",
+   "PreToolUse",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "SubagentStart",
+   "SubagentStop",
+   "UserPromptSubmit"
+  ],
+  "project": [
+   "MessageDisplay",
+   "PostToolBatch",
+   "PostToolUse",
+   "PreToolUse",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "SubagentStart",
+   "SubagentStop",
+   "UserPromptSubmit"
+  ]
+ },
+ "run2": {
+  "plugin": [
+   "MessageDisplay",
+   "Notification",
+   "PermissionRequest",
+   "PostToolBatch",
+   "PostToolUse",
+   "PreToolUse",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "UserPromptSubmit"
+  ],
+  "flag": [
+   "MessageDisplay",
+   "Notification",
+   "PermissionRequest",
+   "PostToolBatch",
+   "PostToolUse",
+   "PreToolUse",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "UserPromptSubmit"
+  ]
+ },
+ "run3": {
+  "project": [
+   "MessageDisplay",
+   "SessionEnd",
+   "SessionStart",
+   "Stop",
+   "UserPromptSubmit"
+  ]
+ },
+ "run4": {
+  "project": [
+   "PostCompact",
+   "PreCompact",
+   "SessionEnd",
+   "SessionStart",
+   "SubagentStop"
+  ]
+ }
+}

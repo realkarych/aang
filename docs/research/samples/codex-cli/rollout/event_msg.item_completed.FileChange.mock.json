@@ -1,0 +1,25 @@
+{
+  "timestamp": "2026-10-01T12:06:33.277Z",
+  "ordinal": 12,
+  "type": "event_msg",
+  "payload": {
+    "type": "item_completed",
+    "thread_id": "01a0f75b-f1ae-7202-88d4-4759d4563cf9",
+    "turn_id": "01a0f75b-f1d3-79c3-b636-6dd8e8e711d0",
+    "item": {
+      "type": "FileChange",
+      "id": "call_mock_21",
+      "changes": {
+        "/tmp/aang-spike/codex-cli/m_patch3/patched.txt": {
+          "type": "add",
+          "content": "hello\n"
+        }
+      },
+      "status": "completed",
+      "stdout": "Success. Updated the following files:\nA patched.txt\n",
+      "stderr": ""
+    },
+    "started_at_ms": 1790856393259,
+    "completed_at_ms": 1790856393277
+  }
+}

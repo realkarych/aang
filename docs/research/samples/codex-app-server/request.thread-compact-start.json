@@ -1,0 +1,16 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "thread/compact/start",
+    "id": 6,
+    "params": {
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac"
+    }
+  },
+  "response": {
+    "id": 6,
+    "result": {}
+  },
+  "requestAt": "2026-10-01T11:50:09.629+00:00",
+  "responseAt": "2026-10-01T11:50:09.630+00:00"
+}

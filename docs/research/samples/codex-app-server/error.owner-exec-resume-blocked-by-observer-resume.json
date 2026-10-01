@@ -1,0 +1,14 @@
+{
+  "scenario": "s8: a separate app-server process (observer) called thread/resume on an idle exec thread; then the owner ran `codex exec --json --skip-git-repo-check -s read-only resume 01a0f759-8f59-79c1-8d54-8d720fae387e \"Reply with the single word OK.\"` in the same CODEX_HOME",
+  "observerResumeResult": "ok; <CODEX_HOME>/thread-writer-locks/01a0f759-8f59-79c1-8d54-8d720fae387e.lock appeared",
+  "ownerExecExitCode": 1,
+  "ownerExecStderr": [
+    "ERROR codex_core::session::session: failed to initialize thread persistence: thread-store conflict: thread 01a0f759-8f59-79c1-8d54-8d720fae387e already has an active writer",
+    "ERROR codex_core::session: Failed to create session: thread-store conflict: thread 01a0f759-8f59-79c1-8d54-8d720fae387e already has an active writer",
+    "Error: thread/resume: thread/resume failed: thread 01a0f759-8f59-79c1-8d54-8d720fae387e already has an active writer (code -32600)"
+  ],
+  "observerUnsubscribe": {"id": 3, "result": {"status": "unsubscribed"}},
+  "lockAfterUnsubscribe": "still present (thread stays loaded during the no-subscriber grace period)",
+  "lockAfterObserverProcessExit": "released",
+  "readOnlyMethodsTakeLock": {"thread/read": false, "thread/turns/list": false, "thread/items/list": false, "thread/loaded/list": false}
+}

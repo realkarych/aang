@@ -1,0 +1,29 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "initialize",
+    "id": 1,
+    "params": {
+      "clientInfo": {
+        "name": "aang_spike",
+        "title": "aang spike",
+        "version": "0.0.1"
+      },
+      "capabilities": {
+        "experimentalApi": true,
+        "requestAttestation": false
+      }
+    }
+  },
+  "response": {
+    "id": 1,
+    "result": {
+      "userAgent": "aang_spike/0.159.2 (Mac OS 27.0.1; arm64) herdr/0.9.3 (aang_spike; 0.0.1)",
+      "codexHome": "/tmp/aang-spike/codex-appserver/home",
+      "platformFamily": "unix",
+      "platformOs": "macos"
+    }
+  },
+  "requestAt": "2026-10-01T11:49:32.451+00:00",
+  "responseAt": "2026-10-01T11:49:32.564+00:00"
+}

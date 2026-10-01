@@ -1,0 +1,54 @@
+{
+ "git-worktrees.json": {
+  "worktrees": {},
+  "schemaVersion": "int",
+  "untrackedDirGc": {
+   "sightings": {},
+   "roots": {},
+   "cwds": {
+    "<path> (x2)": "int"
+   }
+  },
+  "originUrls": {
+   "<path> (x1)": {
+    "commonDir": "str<path>",
+    "digest": "str",
+    "url": "str",
+    "recordedAt": "int"
+   }
+  }
+ },
+ "ccd-ids.json": {
+  "salt": "str<uuid>"
+ },
+ "remote-control-state.json": {
+  "version": "int",
+  "identities": {},
+  "telemetrySalt": "str<uuid>"
+ },
+ "vm-support-probe.json": {
+  "key": "str",
+  "hardwareKey": "str",
+  "virtSupport": "str"
+ },
+ "cowork-enabled-cli-ops.json": {
+  "ownerAccountId": "str<uuid>"
+ },
+ "claude-code-sessions/<acct>/<org>/scheduled-tasks.json": {
+  "scheduledTasks": "array<empty>",
+  "recordedSkips": {},
+  "sundayAliasBoundaryStamped": "bool",
+  "dayFieldsOrBoundaryStamped": "bool"
+ },
+ "claude-code-sessions/<acct>/<org>/deleted_<uuid>": "13-byte file: epoch milliseconds (tombstone of a deleted Desktop session)",
+ "layout": {
+  "claude-code/<cli_version>/claude.app/Contents/MacOS/claude": "embedded Claude Code engine (Mach-O, CFBundleIdentifier com.anthropic.claude-code); versions present: 2.1.281, 2.1.284",
+  "claude-code-vm/<cli_version>/claude": "Linux aarch64 ELF engine for the Cowork VM (2.1.229); .sdk-version",
+  "vm_bundles/claudevm.bundle/{rootfs.img,sessiondata.img,vmlinuz,initrd}": "Cowork VM image",
+  "local-agent-mode-sessions/<acct>/<org>/local_<uuid>.json": "Cowork session meta (keys only described in report section 06-desktop)",
+  "local-agent-mode-sessions/<acct>/<org>/local_<uuid>/.claude/projects/<slug>/<cliSessionId>.jsonl": "Cowork transcript (separate CLAUDE_CONFIG_DIR, not ~/.claude)",
+  "local-agent-mode-sessions/<acct>/<org>/local_<uuid>/audit.jsonl": "Cowork SDK stream log with _audit_hmac",
+  "git-shadow/": "Desktop shadow git dirs",
+  "claude_desktop_config.json": "MCP servers for Chat + Code tab"
+ }
+}

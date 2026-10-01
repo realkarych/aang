@@ -1,0 +1,41 @@
+{
+  "timestamp": "2026-10-01T12:05:32.001Z",
+  "ordinal": 12,
+  "type": "event_msg",
+  "payload": {
+    "type": "item_completed",
+    "thread_id": "01a0f75b-024a-7630-ab74-a88bf43d5f32",
+    "turn_id": "01a0f75b-0269-77c1-9982-57eddbe3e369",
+    "item": {
+      "type": "CommandExecution",
+      "id": "call_mock_13",
+      "process_id": "44514",
+      "command": [
+        "/bin/zsh",
+        "-lc",
+        "ls /definitely/not/here"
+      ],
+      "cwd": "file:///tmp/aang-spike/codex-cli/m_fail",
+      "parsed_cmd": [
+        {
+          "type": "list_files",
+          "cmd": "ls /definitely/not/here",
+          "path": "here"
+        }
+      ],
+      "source": "unified_exec_startup",
+      "status": "failed",
+      "stdout": "ls: /definitely/not/here: No such file or directory\n",
+      "stderr": "",
+      "aggregated_output": "ls: /definitely/not/here: No such file or directory\n",
+      "exit_code": 1,
+      "duration": {
+        "secs": 0,
+        "nanos": 2166
+      },
+      "formatted_output": "ls: /definitely/not/here: No such file or directory\n"
+    },
+    "started_at_ms": 1790856332001,
+    "completed_at_ms": 1790856332001
+  }
+}

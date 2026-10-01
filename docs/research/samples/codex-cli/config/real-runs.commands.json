@@ -1,0 +1,8 @@
+{
+  "codex_version": "codex-cli 0.159.2 (/opt/homebrew/bin/codex)",
+  "codex_home": "~/.codex (standard; a temporary CODEX_HOME with a linked auth file was refused by the permission classifier)",
+  "run1": "codex exec --json --ignore-user-config --disable hooks -s read-only --skip-git-repo-check -o last.txt \"Run the shell command `echo hi` exactly once, then reply with just: OK\"",
+  "run2": "codex exec resume --json --ignore-user-config --disable hooks --skip-git-repo-check -c sandbox_mode='\"read-only\"' -c model_auto_compact_token_limit=14000 -o last.txt 01a0f752-40a7-76b2-9df9-5b374f75f98f \"Reply with just: OK2\" </dev/null",
+  "mock_runs": "CODEX_HOME=<tmp>/home codex exec --json --skip-git-repo-check --dangerously-bypass-hook-trust [--thread-source aang-observer] [--approve-for-me] [-s workspace-write] [-c model_auto_compact_token_limit=5000] \"SCN_<scenario>\"; mock = local Responses API stub on 127.0.0.1:18089, no credentials",
+  "tui_runs": "expect-driven: CODEX_HOME=<tmp>/home codex --dangerously-bypass-hook-trust -a on-request -s read-only --no-alt-screen \"SCN_ESCALATE\" | \"SCN_SLOW\" (Esc to interrupt)"
+}

@@ -1,0 +1,225 @@
+{
+ "transcript": "~/.claude/projects/-tmp-aang-spike-desktop-exp-cc-work/9097b585-3590-4cf7-91f1-2407ee10c62e.jsonl",
+ "records": [
+  {
+   "type": "queue-operation",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "queue-operation",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "user",
+   "subtype": null,
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "environment",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "model",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "deferred_tools_delta",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "agent_listing_delta",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "skill_listing",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "total_tokens_reminder",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "atis-latch",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "attachment",
+   "subtype": "session_context",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "date",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "credential_org",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "remote_session_change",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "prompt_snapshot",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "last-prompt",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "atis-latch",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "ai-title",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "assistant",
+   "subtype": null,
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "user",
+   "subtype": null,
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "prompt_snapshot",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "deferred_tools_delta",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "mcp_instructions_delta",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "attachment",
+   "subtype": "total_tokens_reminder",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "last-prompt",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "ai-title",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "atis-latch",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "attachment",
+   "subtype": "deferred_tools_record",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "assistant",
+   "subtype": null,
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "system",
+   "subtype": "stop_hook_summary",
+   "entrypoint": "claude-desktop",
+   "version": "2.1.284"
+  },
+  {
+   "type": "last-prompt",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  },
+  {
+   "type": "cost-state",
+   "subtype": null,
+   "entrypoint": null,
+   "version": null
+  }
+ ],
+ "stop_hook_summary_example": {
+  "parentUuid": "8490252e-c603-44b0-bf19-f93a3724f8cb",
+  "isSidechain": false,
+  "type": "system",
+  "subtype": "stop_hook_summary",
+  "hookCount": 1,
+  "hookInfos": [
+   {
+    "command": "/tmp/aang-spike/desktop/exp-cc/hook.sh Stop",
+    "durationMs": 29
+   }
+  ],
+  "hookErrors": [],
+  "hookAdditionalContext": [],
+  "preventedContinuation": false,
+  "stopReason": "",
+  "hasOutput": false,
+  "level": "suggestion",
+  "timestamp": "2026-10-01T11:54:26.988Z",
+  "uuid": "97df030b-3a34-4421-b4e0-cf04403f63fb",
+  "toolUseID": "1c5ec7f7-3cda-44cc-bcca-f8e0e6298526",
+  "userType": "external",
+  "entrypoint": "claude-desktop",
+  "cwd": "/tmp/aang-spike/desktop/exp-cc/work",
+  "sessionId": "9097b585-3590-4cf7-91f1-2407ee10c62e",
+  "version": "2.1.284",
+  "gitBranch": "HEAD"
+ }
+}

@@ -1,0 +1,22 @@
+{
+  "session_id": "f955f573-761d-470e-8136-cc414dfd30d6",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-E-stdio/f955f573-761d-470e-8136-cc414dfd30d6.jsonl",
+  "cwd": "/tmp/aang-spike/cc-hooks/runs/E-stdio",
+  "prompt_id": "da39d175-8b54-410f-a600-804c661e7fba",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolBatch",
+  "tool_calls": [
+    {
+      "tool_name": "Bash",
+      "tool_input": {
+        "command": "touch probe-deny.txt",
+        "description": "Create probe-deny file"
+      },
+      "tool_use_id": "toolu_01BQ2R7qRobfqen21b28z5KR",
+      "tool_response": "Denied by the human (aang probe)."
+    }
+  ]
+}

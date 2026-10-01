@@ -1,0 +1,20 @@
+{
+  "scenario": "s4: separate app-server process observing a thread being run by `codex exec` in the same CODEX_HOME",
+  "request": {
+    "method": "thread/resume",
+    "id": 6,
+    "params": {
+      "threadId": "01a0f759-8f59-79c1-8d54-8d720fae387e",
+      "excludeTurns": true
+    }
+  },
+  "response": {
+    "error": {
+      "code": -32600,
+      "message": "thread 01a0f759-8f59-79c1-8d54-8d720fae387e already has an active writer"
+    },
+    "id": 6
+  },
+  "requestAt": "2026-10-01T12:04:03.498+00:00",
+  "responseAt": "2026-10-01T12:04:03.503+00:00"
+}

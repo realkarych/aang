@@ -1,0 +1,39 @@
+{
+  "recv_ts": 1790856592.228739,
+  "recv_iso": "2026-10-01T12:09:52.228Z",
+  "via": "http",
+  "path": "/settings/PreToolUse",
+  "method": "POST",
+  "http_version": "HTTP/1.1",
+  "headers": {
+    "Accept": "application/json, text/plain, */*",
+    "Content-Type": "application/json",
+    "X-Aang-Run": "D-subagent",
+    "X-Aang-Unlisted": "",
+    "User-Agent": "axios/1.15.2",
+    "Content-Length": "796",
+    "Accept-Encoding": "gzip, compress, deflate, br",
+    "Host": "127.0.0.1:47811",
+    "Connection": "keep-alive"
+  },
+  "body_bytes": 796,
+  "payload": {
+    "session_id": "2efd7dbe-c696-49b2-8c6e-3827c5256a01",
+    "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-D-subagent/2efd7dbe-c696-49b2-8c6e-3827c5256a01.jsonl",
+    "cwd": "/tmp/aang-spike/cc-hooks/runs/D-subagent",
+    "prompt_id": "0b3b4e83-c678-45fc-9883-8fb02357ae4f",
+    "permission_mode": "default",
+    "effort": {
+      "level": "medium"
+    },
+    "hook_event_name": "PreToolUse",
+    "tool_name": "Agent",
+    "tool_input": {
+      "description": "Run echo hi",
+      "prompt": "Run `echo hi` with Bash and report its output.",
+      "subagent_type": "echoer",
+      "run_in_background": false
+    },
+    "tool_use_id": "toolu_0189bhdGqDvEoyinZ3s9oobn"
+  }
+}
