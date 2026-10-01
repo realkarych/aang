@@ -74,6 +74,32 @@ const violations: readonly DirectionCase[] = [
     ],
   },
   {
+    name: 'tests may not import their own package source or build output by a relative path',
+    path: 'packages/engine/test/relative.test.ts',
+    code: ["import '../src/index.js'", "import '../dist/index.js'"],
+    errors: [
+      [
+        1,
+        "@aang/engine test code may not reach packages/engine/src/index.js through the relative path '../src/index.js'; import @aang/engine by name",
+      ],
+      [
+        2,
+        "@aang/engine test code may not reach packages/engine/dist/index.js through the relative path '../dist/index.js'; import @aang/engine by name",
+      ],
+    ],
+  },
+  {
+    name: 'package-root configs may not import their own package source by a relative path',
+    path: 'packages/web/vite.config.ts',
+    code: ["import './src/app.js'"],
+    errors: [
+      [
+        1,
+        "@aang/web test code may not reach packages/web/src/app.js through the relative path './src/app.js'; import @aang/web by name",
+      ],
+    ],
+  },
+  {
     name: 'a type-only import is checked',
     path: 'packages/observer/src/session.ts',
     code: ["import type { Session } from '@aang/daemon'", '', 'export type ObservedSession = Session'],
@@ -179,9 +205,9 @@ const allowed: readonly DirectionCase[] = [
     errors: [],
   },
   {
-    name: 'tests may import their own package source by a relative path',
-    path: 'packages/engine/test/relative.test.ts',
-    code: ["import '../src/index.js'"],
+    name: 'tests may import sibling test helpers by a relative path',
+    path: 'packages/engine/test/scenario.test.ts',
+    code: ["import './helpers.js'", "import '../test/fixtures/session.js'"],
     errors: [],
   },
   {

@@ -2,7 +2,7 @@ import { posix, relative } from 'node:path'
 import { AST_NODE_TYPES, ESLintUtils, type TSESTree } from '@typescript-eslint/utils'
 import { allowedDependencies, isPackageDirectory } from './dependencies.js'
 
-type MessageId = 'forbiddenPackage' | 'relativeOutsidePackage' | 'unknownPackage'
+type MessageId = 'forbiddenPackage' | 'relativeIntoOwnImplementation' | 'relativeOutsidePackage' | 'unknownPackage'
 
 interface PackageFile {
   readonly path: string
@@ -12,6 +12,7 @@ interface PackageFile {
 
 const packagesDirectory = 'packages'
 const scope = '@aang/'
+const implementationDirectories: readonly string[] = ['src', 'dist']
 
 const packageName = (directory: string): string => `${scope}${directory}`
 
@@ -26,6 +27,8 @@ const packageFile = (root: string, filename: string): PackageFile | undefined =>
 
 const importedPackage = (source: string): string | undefined =>
   source.startsWith(scope) ? source.slice(scope.length).split('/')[0] : undefined
+
+const isInside = (path: string, directory: string): boolean => path === directory || path.startsWith(`${directory}/`)
 
 const isRelative = (source: string): boolean =>
   source === '.' || source === '..' || source.startsWith('./') || source.startsWith('../')
@@ -46,6 +49,8 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
     docs: { description: 'Enforce the ADR-0011 dependency direction between packages' },
     messages: {
       forbiddenPackage: '{{importer}} {{code}} may not import {{imported}}; allowed: {{allowed}}',
+      relativeIntoOwnImplementation:
+        "{{importer}} {{code}} may not reach {{target}} through the relative path '{{source}}'; import {{importer}} by name",
       relativeOutsidePackage:
         "{{importer}} {{code}} may not reach {{target}} through the relative path '{{source}}'; import other packages by name; allowed: {{allowed}}",
       unknownPackage: '{{directory}} is not in the ADR-0011 dependency table',
@@ -73,9 +78,15 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       allowed: allowed.length === 0 ? 'none' : allowed.map(packageName).join(', '),
     }
 
+    const reachesOwnImplementation = (target: string): boolean =>
+      implementationDirectories.some((directory) => isInside(target, `${ownDirectory}/${directory}`))
+
     const checkRelative = (node: TSESTree.Node, source: string): void => {
       const target = posix.join(posix.dirname(file.path), source)
-      if (target === ownDirectory || target.startsWith(`${ownDirectory}/`)) {
+      if (isInside(target, ownDirectory)) {
+        if (!file.productCode && reachesOwnImplementation(target)) {
+          context.report({ node, messageId: 'relativeIntoOwnImplementation', data: { ...data, target, source } })
+        }
         return
       }
       const [group, directory] = target.split('/')
