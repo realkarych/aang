@@ -1,7 +1,31 @@
 import { closingIndex, comments, failure, lineEnd, type ScanResult } from './scan.js'
 
-const directive = /^\/\/go:[a-z0-9_]+(?:[ \t]|$)/
+const directiveNames: readonly string[] = [
+  'build',
+  'generate',
+  'embed',
+  'noinline',
+  'nosplit',
+  'noescape',
+  'norace',
+  'nocheckptr',
+  'linkname',
+  'uintptrescapes',
+  'uintptrkeepalive',
+  'wasmimport',
+  'wasmexport',
+  'debug',
+]
+const directive = new RegExp(`^//go:(?:${directiveNames.join('|')})(?:[ \\t]|$)`)
 const generatedMarker = /^\/\/ Code generated .* DO NOT EDIT\.$/
+
+const startsLine = (text: string, index: number): boolean => {
+  let before = index - 1
+  while (text[before] === ' ' || text[before] === '\t') {
+    before -= 1
+  }
+  return before < 0 || text[before] === '\n'
+}
 
 const interpretedEnd = (text: string, start: number): number | undefined => {
   const quote = text[start]
@@ -32,7 +56,7 @@ export const scanGo = (text: string): ScanResult => {
       const atLineStart = index === 0 || text[index - 1] === '\n'
       if (beforePackageClause && atLineStart && generatedMarker.test(comment)) {
         generated = true
-      } else if (!directive.test(comment)) {
+      } else if (!(startsLine(text, index) && directive.test(comment))) {
         offsets.push(index)
       }
       index = end
