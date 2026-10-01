@@ -1,0 +1,7 @@
+{
+  "all": true,
+  "include": ["packages/*/dist/**/*.js", "tools/*/dist/**/*.js"],
+  "exclude": ["packages/testkit/**"],
+  "reporter": ["text"],
+  "reportsDirectory": "coverage"
+}

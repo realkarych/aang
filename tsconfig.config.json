@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "lib": ["es2025", "dom"]
+  },
+  "include": ["*.config.ts", "vitest.setup.ts"]
+}

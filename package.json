@@ -8,10 +8,16 @@
   "scripts": {
     "build": "tsc -b tsconfig.build.json && go build -C packages/hook -o bin/ ./cmd/aang-hook",
     "typecheck": "tsc -b",
-    "lint": "go vet -C packages/hook ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exit(1)}\""
+    "lint": "go vet -C packages/hook ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exit(1)}\"",
+    "test": "vitest run",
+    "coverage": "c8 vitest run",
+    "e2e": "playwright test --pass-with-no-tests"
   },
   "devDependencies": {
+    "@playwright/test": "~1.63.0",
     "@types/node": "^26.6.3",
-    "typescript": "~6.0.3"
+    "c8": "^12.0.0",
+    "typescript": "~6.0.3",
+    "vitest": "~5.0.3"
   }
 }
