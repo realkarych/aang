@@ -1,0 +1,128 @@
+{
+ "codex-app-server": {
+  "/v1/logs": {
+   "resource": {
+    "telemetry.sdk.name": "opentelemetry",
+    "service.version": "0.159.2",
+    "telemetry.sdk.language": "rust",
+    "telemetry.sdk.version": "0.31.0",
+    "host.name": "<HOST>",
+    "service.name": "codex-app-server",
+    "env": "aang-spike"
+   },
+   "scope": "codex_otel.log_only"
+  },
+  "/v1/traces": {
+   "resource": {
+    "service.name": "codex-app-server",
+    "telemetry.sdk.language": "rust",
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "env": "aang-spike",
+    "telemetry.sdk.name": "opentelemetry"
+   },
+   "scope": "codex-app-server"
+  },
+  "/v1/metrics": {
+   "resource": {
+    "env": "aang-spike",
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.language": "rust",
+    "os": "Mac_OS",
+    "telemetry.sdk.name": "opentelemetry",
+    "os_version": "27.0.1",
+    "service.name": "codex-app-server"
+   },
+   "scope": "codex"
+  }
+ },
+ "codex_exec": {
+  "/v1/traces": {
+   "resource": {
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "service.name": "codex_exec",
+    "env": "aang-spike",
+    "telemetry.sdk.language": "rust",
+    "telemetry.sdk.name": "opentelemetry"
+   },
+   "scope": "codex_exec"
+  },
+  "/v1/metrics": {
+   "resource": {
+    "telemetry.sdk.name": "opentelemetry",
+    "os": "Mac_OS",
+    "telemetry.sdk.version": "0.31.0",
+    "env": "aang-spike",
+    "telemetry.sdk.language": "rust",
+    "os_version": "27.0.1",
+    "service.name": "codex_exec",
+    "service.version": "0.159.2"
+   },
+   "scope": "codex"
+  },
+  "/v1/logs": {
+   "resource": {
+    "service.version": "0.159.2",
+    "env": "aang-spike",
+    "telemetry.sdk.language": "rust",
+    "service.name": "codex_exec",
+    "host.name": "<HOST>",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.name": "opentelemetry"
+   },
+   "scope": "codex_otel.log_only"
+  }
+ },
+ "codex_cli_rs": {
+  "/v1/traces": {
+   "resource": {
+    "service.version": "0.159.2",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.name": "opentelemetry",
+    "service.name": "codex_cli_rs",
+    "env": "aang-spike",
+    "telemetry.sdk.language": "rust"
+   },
+   "scope": "codex_cli_rs"
+  },
+  "/v1/logs": {
+   "resource": {
+    "host.name": "<HOST>",
+    "service.version": "0.159.2",
+    "env": "aang-spike",
+    "service.name": "codex_cli_rs",
+    "telemetry.sdk.name": "opentelemetry",
+    "telemetry.sdk.version": "0.31.0",
+    "telemetry.sdk.language": "rust"
+   },
+   "scope": "codex_otel.log_only"
+  }
+ },
+ "codex_sdk_ts": {
+  "/v1/traces": {
+   "resource": {
+    "telemetry.sdk.name": "opentelemetry",
+    "telemetry.sdk.version": "0.31.0",
+    "env": "aang-spike-sdk",
+    "telemetry.sdk.language": "rust",
+    "service.version": "0.159.3",
+    "service.name": "codex_sdk_ts"
+   },
+   "scope": "codex_sdk_ts"
+  },
+  "/v1/logs": {
+   "resource": {
+    "service.name": "codex_sdk_ts",
+    "telemetry.sdk.version": "0.31.0",
+    "service.version": "0.159.3",
+    "telemetry.sdk.language": "rust",
+    "env": "aang-spike-sdk",
+    "host.name": "<HOST>",
+    "telemetry.sdk.name": "opentelemetry"
+   },
+   "scope": "codex_otel.log_only"
+  }
+ }
+}

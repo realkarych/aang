@@ -1,0 +1,50 @@
+{
+ "run": "codex-4",
+ "codex": "codex-cli 0.159.2",
+ "codex_home": "standard ~/.codex (ChatGPT auth), --ignore-user-config",
+ "command": "observer-codex.sh as published in report section 12 (env -i, CODEX_BIN from command -v, model_catalog_json, tools.experimental_request_user_input off, -m gpt-6.1-sol)",
+ "input": "observer-input.json + observer-schema.json + observer-prompt.json instructions (same as codex-1/2)",
+ "exit_code": 0,
+ "wall_clock_ms_including_catalog_step": 41981,
+ "catalog_step_ms": "10-12 (codex debug models --bundled, measured separately)",
+ "usage": {
+  "input_tokens": 1531,
+  "cached_input_tokens": 0,
+  "cache_write_input_tokens": 0,
+  "output_tokens": 463,
+  "reasoning_output_tokens": 0
+ },
+ "stderr": "",
+ "compare_codex_2_same_flags_without_catalog_and_rui": {
+  "input_tokens": 5277,
+  "output_tokens": 348,
+  "wall_clock_ms": 16428
+ },
+ "validation": {
+  "schema_errors": [],
+  "unknown_event_ids": [],
+  "base_version_ok": true,
+  "attention": [
+   [
+    "failure",
+    [
+     "e05",
+     "e09"
+    ]
+   ],
+   [
+    "risk",
+    [
+     "e05"
+    ]
+   ],
+   [
+    "needs_human_input",
+    [
+     "e10"
+    ]
+   ]
+  ]
+ },
+ "persistence_check": "no rollout in ~/.codex/sessions, no row in state_5.threads, thread_history_1 thread_items/thread_turns = 0 for this thread_id"
+}

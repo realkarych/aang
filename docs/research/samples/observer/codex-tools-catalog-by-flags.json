@@ -1,0 +1,450 @@
+{
+ "codex": "codex-cli 0.159.2",
+ "source": "mock Responses API log: union of body.tools and input[type=additional_tools].tools, namespace/name",
+ "base_flags": "see report section 12 (pre-review Codex command) + -c model_provider=mock",
+ "runs": [
+  {
+   "run": "base",
+   "flags_added": [],
+   "description": "reviewed flag set from report section 12 (published before review)",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_dis_cmh",
+   "flags_added": [
+    "--disable",
+    "code_mode_host"
+   ],
+   "description": "base + --disable code_mode_host",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_dis_cm",
+   "flags_added": [
+    "--disable",
+    "code_mode"
+   ],
+   "description": "base + --disable code_mode",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_dis_cmo",
+   "flags_added": [
+    "--disable",
+    "code_mode_only"
+   ],
+   "description": "base + --disable code_mode_only",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_dis_collab",
+   "flags_added": [
+    "--disable",
+    "collaboration_modes"
+   ],
+   "description": "base + --disable collaboration_modes",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_dis_dmrui",
+   "flags_added": [
+    "--disable",
+    "default_mode_request_user_input"
+   ],
+   "description": "base + --disable default_mode_request_user_input",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_cmtbl",
+   "flags_added": [
+    "-c",
+    "features.code_mode={enabled=false}"
+   ],
+   "description": "base + features.code_mode={enabled=false}",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_cm_excl",
+   "flags_added": [
+    "-c",
+    "features.code_mode.excluded_tool_namespaces=[\"collaboration\"]"
+   ],
+   "description": "base + features.code_mode.excluded_tool_namespaces=[\"collaboration\"]",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_ma2tbl",
+   "flags_added": [
+    "-c",
+    "features.multi_agent_v2={enabled=false}"
+   ],
+   "description": "base + features.multi_agent_v2={enabled=false}",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_ma2_ns",
+   "flags_added": [
+    "-c",
+    "features.multi_agent_v2.non_code_mode_only=true"
+   ],
+   "description": "base + features.multi_agent_v2.non_code_mode_only=true",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_depth0",
+   "flags_added": [
+    "-c",
+    "agents.max_depth=0"
+   ],
+   "description": "base + agents.max_depth=0",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_rui_only",
+   "flags_added": [
+    "-c",
+    "tools.experimental_request_user_input={enabled=false}"
+   ],
+   "description": "base + tools.experimental_request_user_input={enabled=false}",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input_async",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_m55",
+   "flags_added": [
+    "-m",
+    "gpt-5.5"
+   ],
+   "description": "base + -m gpt-5.5 (catalog entry with tool_mode=null, multi_agent_version=null)",
+   "model": "gpt-5.5",
+   "tool_names": [
+    "request_user_input",
+    "apply_patch"
+   ],
+   "developer_messages": 0
+  },
+  {
+   "run": "c_cat_tmonly",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=..."
+   ],
+   "description": "base + model_catalog_json: gpt-6.1-sol with tool_mode=null",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "functions/apply_patch",
+    "clock/curr_time",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 3
+  },
+  {
+   "run": "c_cat_v2only",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=..."
+   ],
+   "description": "base + model_catalog_json: gpt-6.1-sol with multi_agent_version=null",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async"
+   ],
+   "developer_messages": 1
+  },
+  {
+   "run": "c_cat_nomode",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=..."
+   ],
+   "description": "base + model_catalog_json: tool_mode=null, multi_agent_version=null",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "functions/apply_patch",
+    "clock/curr_time"
+   ],
+   "developer_messages": 1
+  },
+  {
+   "run": "c_cat_noap",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=..."
+   ],
+   "description": "c_cat_nomode + apply_patch_tool_type=null",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "clock/curr_time"
+   ],
+   "developer_messages": 1
+  },
+  {
+   "run": "c_cat_noexp",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=..."
+   ],
+   "description": "c_cat_nomode + experimental_supported_tools=[]",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/request_user_input",
+    "functions/apply_patch"
+   ],
+   "developer_messages": 1
+  },
+  {
+   "run": "c_cat_min",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=..."
+   ],
+   "description": "catalog: tool_mode=null, multi_agent_version=null, apply_patch_tool_type=null, experimental_supported_tools=[]",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/request_user_input"
+   ],
+   "developer_messages": 1
+  },
+  {
+   "run": "c_rui_en",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=...",
+    "-c",
+    "tools.experimental_request_user_input={enabled=false}"
+   ],
+   "description": "FINAL: base + c_cat_min catalog + tools.experimental_request_user_input={enabled=false}",
+   "model": "gpt-6.1-sol",
+   "tool_names": [],
+   "developer_messages": 1
+  },
+  {
+   "run": "m_astra",
+   "flags_added": [
+    "-m",
+    "gpt-6-astra"
+   ],
+   "description": "FINAL + -m gpt-6-astra (model absent from catalog -> fallback metadata)",
+   "model": "gpt-6-astra",
+   "tool_names": [],
+   "developer_messages": 0
+  },
+  {
+   "run": "n_plain",
+   "flags_added": [],
+   "description": "without base --disable/-c isolation flags (only exec --ephemeral --ignore-user-config -s read-only)",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec",
+    "functions/wait",
+    "functions/request_user_input",
+    "functions/request_user_input_async",
+    "clock/sleep",
+    "collaboration/followup_task",
+    "collaboration/interrupt_agent",
+    "collaboration/list_agents",
+    "collaboration/send_message",
+    "collaboration/spawn_agent",
+    "collaboration/wait_agent"
+   ],
+   "developer_messages": 4
+  },
+  {
+   "run": "n_cat_rui",
+   "flags_added": [
+    "-c",
+    "model_catalog_json=...",
+    "-c",
+    "tools.experimental_request_user_input={enabled=false}"
+   ],
+   "description": "n_plain + FINAL catalog + request_user_input off, but without base --disable flags",
+   "model": "gpt-6.1-sol",
+   "tool_names": [
+    "functions/exec_command",
+    "functions/write_stdin",
+    "functions/view_image",
+    "functions/get_goal",
+    "functions/create_goal",
+    "functions/update_goal",
+    "tool_search"
+   ],
+   "developer_messages": 2
+  },
+  {
+   "run": "p_normal",
+   "flags_added": "published command (observer-codex.sh) + mock provider overrides",
+   "description": "published form under mock",
+   "model": "gpt-6.1-sol",
+   "tool_names": [],
+   "developer_messages": 1
+  }
+ ]
+}

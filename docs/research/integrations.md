@@ -61,9 +61,9 @@
 4. **Явный запрос разрешения распознаётся без LLM только через hooks.**
    - Claude: `PermissionRequest` срабатывает сразу (Э), `Notification(permission_prompt)` — через 6 с (Э в SDK и с stdio-хостом CLI, Д в TUI).
    - Codex: `PermissionRequest` (Э(mock) в TUI).
-   - Ни транскрипт Claude, ни rollout Codex ожидание одобрения не фиксируют (Э).
+   - Ни транскрипт Claude, ни rollout Codex, ни OTel Codex ожидание одобрения не фиксируют (Э, OTel — Э(mock)). Поэтому активные проверенные hooks — условие полной поддержки профилей с интерактивными одобрениями; режим только по файлам ограничен (5.2-I).
    - Явный вопрос человеку виден и в файлах: Claude — `AskUserQuestion`, Codex — `AgentMessage{delivery:"async", questions}`.
-   - **Решение человека по одобрению в Codex не видно нигде**, в Claude оно выводится косвенно.
+   - **Решение по одобрению в Codex не видно в rollout, hooks и `exec --json`, но есть в OpenTelemetry** — событие `codex.tool_decision{conversation.id, call_id, decision, source: User|Config|AutomatedReviewer}`, Э(mock) в TUI, exec, SDK и app-server (найдено кросс-ревью). Нужна секция `[otel]` в `~/.codex/config.toml`. Отказ через abort (`esc` в TUI, `cancel` в app-server) и отказ политикой событий не дают. В Claude решение выводится косвенно.
 5. **Сбор не должен блокировать решателя, но синхронный hook это умеет.**
    - Недоступный HTTP-endpoint или `exit 1` задержки не дают, но событие теряется (Э).
    - Зависший hook задерживает **каждое** событие на свой `timeout`, по умолчанию до 600 с (Э на коротких таймаутах).
@@ -78,9 +78,10 @@
 
    Наивное суммирование usage даёт двойной счёт в обоих рантаймах. Правила учёта — раздел 3.3.
 8. **Наблюдатель на подписке работоспособен, но съедает бюджет свежести.**
-   - `claude -p` с полной изоляцией: 9,0 с, около 3k входных токенов, $0,042 по прайсу.
-   - `codex exec` с полной изоляцией: 16,4 с, около 5,3k токенов.
-   - Выход прошёл схему во всех вариантах, prompt-инъекцию никто не выполнил (Э, по одному замеру).
+   - `claude -p` с полной изоляцией: 9,0 с, около 3k входных токенов, $0,042 по прайсу. Опубликованная команда прогнана целиком повторно после кросс-ревью: 8,6 с, $0,042.
+   - `codex exec`: прежний «изолированный» набор флагов (16,4 с, около 5,3k токенов) **оставлял модели 10 инструментов**, включая JS code mode и `spawn_agent`. На mock обе вещи реально исполнились (кросс-ревью, раздел 12). Инструменты удаётся убрать полностью только подменой каталога модели (`-c model_catalog_json`, недокументированные поля записи) плюс `tools.experimental_request_user_input` off; попытки вызова тогда получают `unsupported call`. С этим профилем реальный вызов занял 42 с при 1,5k входных токенов (один замер).
+   - Выход прошёл схему во всех вариантах, prompt-инъекцию никто не выполнил (Э, по одному замеру). Для Codex это не доказывало отсутствия инструментов.
+   - Профиль Codex держится на недокументированных полях и требует самопроверки изоляции на mock для каждой версии CLI.
    - `--bare` (рекомендован вендором и обещан как будущее умолчание `-p`) с подпиской **не работает**.
 9. **Вне досягаемости локального адаптера:**
    - облачные режимы обоих Desktop;
@@ -118,9 +119,9 @@
 | Resume | Э: тот же файл и id; `SessionStart.source=resume` | Д | Э: тот же rollout | Э |
 | Fork | Э: новый файл, `forked_from_id`, история не копируется | Д | — | Д |
 | Compaction | Э: `compacted` (резюме зашифровано при remote-сжатии), `ContextCompaction`; hooks Pre/PostCompact (Э(mock)); в `--json` не видно | как CLI | — | Э: item `contextCompaction` |
-| Ожидание разрешения | TUI: только hook `PermissionRequest` (Э(mock)); rollout молчит. `exec`: всегда `approval_policy=never` | только hooks (Д + Э(mock) на движке) | как exec | Э: `item/*/requestApproval` + `waitingOnApproval` |
+| Ожидание разрешения | TUI: только hook `PermissionRequest` (Э(mock)); rollout и OTel молчат (лог-события на запрос нет, спан `decide_request` без треда). `exec`: всегда `approval_policy=never` | только hooks (Д + Э(mock) на движке) | как exec | Э: `item/*/requestApproval` + `waitingOnApproval` |
 | Явный вопрос человеку | Э(mock) + 12 чужих файлов: `AgentMessage{delivery:"async", questions}` | как CLI | — | Д: `item/tool/requestUserInput` |
-| Решение человека | **не видно**; только последующий `item_completed`/`PostToolUse` | не видно | — | Э: ответ клиента + `serverRequest/resolved` |
+| Решение человека | в rollout, hooks и `--json` не видно. OTel `codex.tool_decision` при `[otel] exporter` (Э(mock)): approve, approve на сессию, approve с префиксом, deny; abort (`esc`) не виден. TUI на демоне — событие шлёт демон, `[otel]` читается при его старте | OTel, если `[otel]` в `~/.codex/config.toml` (Д, не проверено) | Э(mock): `config.otel` → `codex.tool_decision` (`source: Config` при `never`) | Э: ответ клиента + `serverRequest/resolved`; OTel тоже |
 | Финальный текст | Э: `task_complete.last_agent_message` | как CLI | Э: `agent_message` | Э: `agentMessage phase:final_answer` |
 | Свежесть | Э: rollout ≤20–70 мс к stdout; между стартом и концом долгой команды записей нет | как CLI | — | Э: 0–4 мс |
 | Сбой aang не блокирует | Э(mock): exit 1 игнорируется; зависание = `timeout` на событие; **exit 2 блокирует команду**; `async` теряет PostToolUse/Stop в `exec`; без trust hook молча пропускается | как CLI + trust | как exec | — |
@@ -137,7 +138,7 @@
    - HTTP-hook — только как ускоритель: на `SessionStart` он не вызывается, и при недоступном демоне события теряются.
 2. **Содержимое и восстановление.** Хвост `~/.claude/projects/**/*.jsonl`, включая `subagents/`, `*.meta.json` и `subagents/workflows/`.
    - Курсор `(path, inode, offset)`, дедупликация `(sessionId, uuid)`, неизвестные записи сохраняются как есть.
-   - Транскрипт — источник истины для связей (fork по совпадающим `uuid`, субагент по `meta.toolUseId`), usage и бэкфилла пропущенного.
+   - Транскрипт — источник истины для связей (субагент по `meta.toolUseId`; у fork совпадающие `uuid` доказывают общее происхождение, а непосредственный родитель назначается только при единственном кандидате — раздел 7), usage и бэкфилла пропущенного.
 3. **Ожидание человека.** Hooks `PermissionRequest`, `Notification` и `PreToolUse(AskUserQuestion)`; статус `waiting`/`waitingFor` из `claude agents --json` или `~/.claude/sessions/<pid>.json` (решение 5.1-E).
 4. **SDK-приложения.** Видны автоматически при `settingSources` по умолчанию. Изолированным приложениям нужен opt-in одной строкой: `plugins: [{type: 'local', path: <aang>}]` (Э: работает при `settingSources: []`).
 5. **Поверхность** определяется по `entrypoint` в транскрипте и `CLAUDE_CODE_ENTRYPOINT` в окружении hook.
@@ -148,7 +149,12 @@
    - Курсор `(inode, offset, ordinal)`, дедупликация `(thread_id, ordinal)`.
    - Связи: `session_id` (корень), `parent_thread_id`, `forked_from_id`.
    - Usage — `token_usage_record`; финальный текст — `task_complete.last_agent_message`; явные вопросы — `AgentMessage.questions`.
-2. **Hooks** — сайд-канал для ожидания одобрения (`PermissionRequest`), `Interrupt` и мгновенного старта команд. Контракт как у Claude, плюс никогда `exit 2`. Нужны процедура trust и индикатор «hooks aang не активны» (решение 5.1-C).
+2. **Hooks** дают ожидание одобрения (`PermissionRequest`), `Interrupt` и мгновенный старт команд. Контракт как у Claude, плюс никогда `exit 2`. Для профилей с интерактивными approvals (TUI и Desktop с `on-request`) **активные доверенные hooks — условие полной поддержки**: файлы не отличают ожидание одобрения от долгой команды, а RFC §8 требует показывать явный запрос сразу. Без hooks это ограниченный режим с явной пометкой в UI. Для `exec` и SDK, где одобрений нет (`approval_policy=never`), hooks — ускоритель. Нужны процедура trust и индикатор «hooks aang не активны» (решения 5.1-C и 5.2-I).
+2a. **OpenTelemetry — канал решений по одобрению** (опционально, решение 5.1-T; раздел 9, п. 6a).
+   - Локальный OTLP/HTTP JSON-приёмник aang принимает только `/v1/logs`. Трассы и метрики не включаются: трассы дают около 0,5 МБ на ход, метрики требуют `analytics.enabled`.
+   - Из логов берётся только `codex.tool_decision` и сопоставляется с rollout по `(conversation.id, call_id)`. `codex.tool_result` (команды и вывод открытым текстом) отбрасывается до записи.
+   - Приёмник отвечает `200` сразу и никогда не держит соединение: молчащий приёмник задерживает выход `exec`/SDK примерно на 20 с.
+   - Ожидание одобрения OTel не даёт, оно по-прежнему берётся из hook `PermissionRequest`.
 3. **App-server** — только для сессий, которые запускает сам aang (наблюдатель и возможные будущие функции). Никогда не вызывать `thread/resume` для чужих тредов и не отвечать на server requests.
 4. **Индексы.** `state_5.sqlite` (`threads`, `thread_spawn_edges`) — только чтение и только как подсказка; при ошибке — откат к сканированию файлов (решение 5.1-E).
 
@@ -169,14 +175,14 @@
 
 | Параметр | Claude (`claude -p`) | Codex (`codex exec`) |
 | --- | --- | --- |
-| Изоляция настроек | `--setting-sources ""` (совместим с OAuth), `--strict-mcp-config --mcp-config '{"mcpServers":{}}'`, env `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `ENABLE_CLAUDEAI_MCP_SERVERS=false` | `--ignore-user-config --ignore-rules` (auth сохраняется), `-c project_doc_max_bytes=0` (иначе AGENTS.md из cwd загружается), `--disable hooks` (иначе user-hooks срабатывают) |
-| Инструменты и промпт | `--tools "" --disallowedTools "mcp__*" --disable-slash-commands --system-prompt-file …` | `-s read-only`, `-c model_instructions_file=…`, набор `--disable …` (см. раздел 12) |
+| Изоляция настроек | `--setting-sources ""` (совместим с OAuth), `--strict-mcp-config --mcp-config '{"mcpServers":{}}'`, env `CLAUDE_CODE_DISABLE_CLAUDE_MDS=1`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `ENABLE_CLAUDEAI_MCP_SERVERS=false` | `--ignore-user-config --ignore-rules` (auth сохраняется), `-c project_doc_max_bytes=0` (иначе AGENTS.md из cwd загружается), `--disable hooks` (прямой запрет; `$CODEX_HOME/hooks.json` при `--ignore-user-config` загружается, но доверие из `config.toml` теряется, и недоверенные hooks не выполняются — Э(mock) кросс-ревью) |
+| Инструменты и промпт | `--tools "" --disallowedTools "mcp__*" --disable-slash-commands --system-prompt-file …` | `-s read-only`, `-c model_instructions_file=…`, набор `--disable …`, **подменённый каталог модели** `-c model_catalog_json=<файл>` (у записи обнулены `tool_mode`, `multi_agent_version`, `apply_patch_tool_type`, `experimental_supported_tools`) и `-c 'tools.experimental_request_user_input={enabled=false}'`: только так каталог инструментов пуст (Э(mock) + 1 реальный вызов, раздел 12) |
 | Структурированный выход | `--output-format json\|stream-json --json-schema …` → `structured_output` (через синтетический `StructuredOutput`) | `--json --output-schema … -o last.json` (strict-схема OpenAI) |
 | Не писать на диск | `--no-session-persistence` (транскрипта нет; запись реестра `sessions/<pid>.json` и UDS-сокет на время работы остаются) | `--ephemeral` (нет rollout и строк sqlite) |
 | Маркер «свой» | `CLAUDE_CODE_ENTRYPOINT=aang-observer`, `--session-id` | `--thread-source aang-observer`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE` |
 | Признак успеха | exit 0, `is_error == false`, есть `structured_output`. **`subtype: "success"` бывает и при ошибке** | exit 0, `turn.completed`, нет `turn.failed`; без auth около 18 с повторов |
-| Замер (1 вызов, 10 событий) | 9,0 с wall; 3 064 токена (cache create) + 872 out; $0,042 | 16,4 с wall; 5 277 in + 348 out |
-| Модель по умолчанию | `claude-opus-5-5` | `gpt-6.1-sol` (**не пользовательская `gpt-6-astra`**: при `--ignore-user-config` модель меняется молча) |
+| Замер (1 вызов, 10 событий) | 9,0 с wall; 3 064 токена (cache create) + 872 out; $0,042 (повтор опубликованной команды: 8,6 с, $0,042) | без инструментов: 42,0 с wall; 1 531 in + 463 out. Прежний набор с 10 инструментами: 16,4 с; 5 277 in + 348 out |
+| Модель по умолчанию | `claude-opus-5-5` | `gpt-6.1-sol` (**не пользовательская `gpt-6-astra`**: при `--ignore-user-config` модель меняется молча). В профиле без инструментов модель закрепляется `-m` и обязана совпадать с записью подменённого каталога |
 
 Полные командные строки — в разделе 12.
 
@@ -188,8 +194,8 @@
   - Desktop и SDK несут свои версии движков.
 - **Hook aang может навредить решателю.** Зависание задерживает каждое событие до `timeout`; `exit 2` или JSON-`decision` блокируют действие; в Codex изменённый hook требует повторного trust и до этого молча не работает. Корпоративные `allowManagedHooksOnly` / `disableAllHooks` отключают сбор полностью.
 - **Пробелы видимости.**
-  - Решение человека по одобрению в Codex не видно.
-  - Ожидание одобрения не видно в файлах обоих рантаймов, только в hooks.
+  - Решение по одобрению в Codex видно только через OTel (`codex.tool_decision`), и только если пользователь включил `[otel]`. Abort/`cancel` и отказ политикой не видны и там.
+  - Ожидание одобрения не видно ни в файлах обоих рантаймов, ни в OTel Codex — только в hooks (и в протоколе app-server).
   - Резюме сжатия и задания субагентов Codex зашифрованы.
   - У субагентов Claude 2.1.286 output-токены занижены.
 - **Потеря источника.** `cleanupPeriodDays` (30 дней по умолчанию) и `claude project purge` удаляют транскрипты Claude; `CLAUDE_CODE_SKIP_PROMPT_HISTORY` и `persistSession: false` их не пишут; `codex archive` переносит rollout.
@@ -200,10 +206,12 @@
   - баланс и план в `rate_limits`;
   - секреты из вывода инструментов.
 
+  В OTel Codex `codex.tool_result.arguments`/`output` идут открытым текстом, есть `host.name`, при ChatGPT-входе — `user.email`/`user.account_id` (Д по строкам бинаря).
+
   Нужны маскирование до передачи LLM и срок хранения (RFC §8).
 - **Вмешательство через Codex app-server.** `thread/resume` из стороннего процесса блокирует владельца. На общем демоне меняются `originator`/User-Agent чужих тредов, и aang получает server requests, на которые отвечать нельзя.
 - **Свежесть.** Вызов наблюдателя занимает 9–30 с — это большая часть ориентира p95 = 30 с (RFC §8) ещё до очереди и проверки. Поток сырых фактов приходит за десятки миллисекунд.
-- **Путь подписки для наблюдателя.** `--bare` не работает с OAuth и обещан как будущее умолчание `-p`. Используются недокументированные рычаги (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, имена feature flags Codex). Расход наблюдателя делит лимиты подписки (`five_hour` / `seven_day`) с работой пользователя.
+- **Путь подписки для наблюдателя.** `--bare` не работает с OAuth и обещан как будущее умолчание `-p`. Используются недокументированные рычаги (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, имена feature flags Codex, поля записи каталога моделей Codex). Без подмены каталога Codex-наблюдатель получает инструменты, включая делегирование, а их вызовы не видны в `--json`. Расход наблюдателя делит лимиты подписки (`five_hour` / `seven_day`) с работой пользователя.
 
 ## 5. Решения, требующие одобрения владельца (кандидаты в ADR)
 
@@ -230,22 +238,41 @@
   - Codex: `state_5.sqlite`, `thread_history_1.sqlite`, `thread-writer-locks`.
 
   → только чтение и только как подсказка; поддержка без них обязательна.
+- **T. OpenTelemetry Codex как канал решений по одобрению** (9, п. 6a; найдено кросс-ревью, проверено на mock).
+  - **Что нужно:** секция `[otel] exporter = { otlp-http = { endpoint = "http://127.0.0.1:<порт aang>/v1/logs", protocol = "json" } }` в пользовательском `~/.codex/config.toml`. Это изменение пользовательского конфига. Применяется после перезапуска managed daemon TUI (`codex app-server daemon restart`) и Desktop. Для `exec`, app-server и SDK можно без файла: `-c otel.…` или `CodexOptions.config.otel`.
+  - **Даёт:** исход одобрений (`User`/`Config`/`AutomatedReviewer`) с задержкой ≤1 с и `call_id`, который совпадает с rollout и hooks.
+  - **Не даёт:** ожидание одобрения, отказ через abort (`esc` в TUI, `cancel`) и отказ политикой.
+  - **Риски:**
+    - `exporter` — один на сигнал, это конфликт с собственным OTel-коллектором пользователя;
+    - `codex.tool_result` несёт команды и вывод, при ChatGPT-входе есть email и account id (Д);
+    - молчащий приёмник задерживает выход `exec`/SDK примерно на 20 с;
+    - формат событий не объявлен стабильным;
+    - Desktop не проверен.
+  - **Варианты:**
+    - не использовать — тогда решение остаётся пробелом 5.2-I;
+    - opt-in-инструкция для пользователя;
+    - запись `[otel]` в конфиг самим aang (как trust в 5.1-C).
+
+  → opt-in по инструкции, только `/v1/logs`; хранить только `codex.tool_decision`.
 
 ### 5.2. Модель данных и учёт
 
 - **F. Политика нестабильных форматов** (все разделы): версионированный терпимый парсер, хранение сырых записей, контрактные тесты на эталонных сессиях для каждой версии CLI, движка Desktop и SDK. Поддержка объявляется по версиям, в том числе для нескольких одновременно. → принять.
 - **G. Границы прогона и связи** (7, 8, 9):
-  - входит ли fork Claude (полная копия истории без ссылки, связь по `uuid`) в исходный прогон или образует новый с родословной;
+  - входит ли fork Claude (полная копия истории без ссылки) в исходный прогон или образует новый. Совпадающие `uuid` доказывают только общее происхождение. Непосредственный родитель назначается лишь при единственном кандидате, иначе связь показывается неоднозначной или берётся из явной привязки (раздел 7, «Связи прогона»);
   - как связывать in-process teammates — только по имени и команде;
   - как обрабатывать ложный `SubagentStop` агента сжатия.
 - **H. Правила учёта usage** — раздел 3.3 (7, 8, 9). → принять как описано.
-- **I. Пробелы видимости в MVP с явной отметкой в UI** (9, 10, 11). Список пробелов:
-  - решение человека по одобрению в Codex;
-  - ожидание одобрения в Codex без hooks;
-  - зашифрованные резюме сжатия и задания субагентов Codex;
-  - заниженный output субагентов Claude.
+- **I. Пробелы видимости и условия поддержки** (6, 9, 10, 11). Пробелы двух разных видов.
+  - **Пробелы метрик и деталей** — допустимы в MVP с явной отметкой в UI:
+    - решение человека по одобрению в Codex без `[otel]`; с `[otel]` не видны только abort/`cancel` и отказ политикой (решение T);
+    - зашифрованные резюме сжатия и задания субагентов Codex;
+    - заниженный output субагентов Claude.
 
-  Альтернатива — требовать app-server, что противоречит п. D. → принять с отметкой.
+    → принять с отметкой.
+  - **Ожидание одобрения или ввода — не пробел метрик.** RFC §8 требует показывать явный запрос ввода без ожидания LLM, а RFC §7 запрещает объявлять поддержку, если основной сценарий не выполняется. Файлы обоих рантаймов и OTel Codex ожидание одобрения не показывают: в Codex оно неотличимо от долгой команды. Поэтому для профилей с интерактивными approvals (Claude CLI/Desktop, Codex TUI/Desktop с `on-request`) **условие полной поддержки — активные проверенные hooks** (`PermissionRequest`, `Notification`; у Codex — trust, проверенный через `hooks/list`) или другой проверенный источник ожидания. Режим только по файлам — **ограниченный**, с явной пометкой «ожидания одобрений не видны». Если владелец захочет считать его достаточным, это сужение MVP, и решать это нужно отдельно.
+
+    → принять условие. Требовать app-server для этого не нужно: он противоречит п. D и всё равно не покрывает Desktop.
 - **J. Хранение и приватность** (7, 9, 11, RFC §8):
   - хранит ли aang собственную копию сырых событий (транскрипты удаляются через 30 дней);
   - правила маскирования (email, id организации и аккаунта, системные промпты, секреты из вывода инструментов) до передачи LLM;
@@ -255,23 +282,26 @@
 
 - **K. Режимы Desktop** (11):
   - Claude Desktop Local/worktree — CLI-адаптер (→ да, после ручного чек-листа);
-  - SSH-режимы обоих Desktop — сборщик на удалённом хосте, в MVP?;
+  - SSH-режимы обоих Desktop и запуск на своих VM/Docker уже входят в согласованный охват (RFC §4 «Среда»), но в спайке не проверены. Решить нужно способ подключения (сборщик aang на удалённом хосте, доставка событий и доступ к UI) и план проверки; исключение этих режимов было бы сужением RFC и требует отдельного решения;
   - Cowork — не поверхность Claude Code: hooks нет, есть только файлы; в MVP?;
   - облачные режимы — явно исключить и показывать «не наблюдаемо».
 - **L. Граница поддержки Agent SDK** (8). «Без изменения кода» — только при `settingSources` с `'user'` (умолчание) и `persistSession ≠ false`; иначе opt-in через `plugins` или обёртку. Codex SDK пишет rollout всегда. → принять, opt-in через `plugins`.
 
 ### 5.4. Наблюдатель
 
-- **M. Backend наблюдателя и порядок отказа** (12). → основной — `claude -p` с полной изоляцией, запасной — `codex exec`.
-- **N. Закрепление модели наблюдателя** через `--model` / `-m`: default без пользовательского конфига отличается от выбора пользователя. → закреплять явно.
+- **M. Backend наблюдателя и порядок отказа** (12). → основной — `claude -p` с полной изоляцией, это предложение по единичному замеру, а не доказанное преимущество. `codex exec` — кандидат в запасные. Автоматическое переключение между поставщиками допустимо только после согласования политики данных: решатель и наблюдатель могут быть у разных вендоров (RFC §8, §10).
+- **N. Закрепление модели наблюдателя** через `--model` / `-m`: default без пользовательского конфига отличается от выбора пользователя, а для профиля Codex без инструментов `-m` обязан совпадать с записью подменённого каталога. → закреплять явно.
 - **O. Персистентность и самоисключение** (6, 7, 9, 12):
   - наблюдатель не пишет на диск (`--no-session-persistence` / `--ephemeral`) и несёт маркеры (`CLAUDE_CODE_ENTRYPOINT=aang-observer`, `--thread-source aang-observer`);
   - hooks в нём отключены (`--setting-sources ""` или `disableAllHooks`, `--disable hooks`);
   - hook aang отбрасывает события с маркером.
 
   → принять.
-- **P. Допустимость недокументированных рычагов** (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, своё значение `CLAUDE_CODE_ENTRYPOINT`, имена feature flags Codex) с проверкой изоляции на каждой версии (12).
-- **Q. Подписка или API-ключ** (12). `--bare` с `ANTHROPIC_API_KEY` — режим, рекомендованный вендором, но он противоречит формулировке RFC «уже авторизованный CLI» и требует отдельной оплаты. Нужен план на случай, когда `--bare` станет умолчанием `-p`.
+- **P. Допустимость недокументированных рычагов** (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, своё значение `CLAUDE_CODE_ENTRYPOINT`, имена feature flags Codex) с проверкой изоляции на каждой версии (12). Для Codex сюда входят поля каталога моделей (`tool_mode`, `multi_agent_version`, `apply_patch_tool_type`, `experimental_supported_tools`) и `tools.experimental_request_user_input`: без них изоляция от инструментов невозможна. Варианты:
+  - принять с обязательной самопроверкой на mock при старте и смене версии (около 80 мс, без LLM);
+  - взять модель, у которой в каталоге уже `tool_mode: null` (сейчас у неё остаются `request_user_input` и `apply_patch`);
+  - не использовать Codex как backend наблюдателя.
+- **Q. Профиль авторизации наблюдателя** (12). Проверен только OAuth-профиль подписки. `--bare` (рекомендован вендором для скриптов) с подпиской не работает и требует `ANTHROPIC_API_KEY` или `apiKeyHelper`. CLI, авторизованный API-ключом, тоже подпадает под «уже авторизованный CLI» из RFC §4, но это другой профиль: отдельная оплата и другие условия передачи данных, которые RFC §10 требует согласовать. Нужен план на случай, когда `--bare` станет умолчанием `-p`: перейти на ключ (с согласованием оплаты и условий) или сохранять подписочный режим явными флагами, пока он доступен.
 - **R. Бюджет свежести** (12, RFC §8): размер порции, таймер, `effort`, разделение «факты сразу, смысл позже». Возможно, нужно пересмотреть ориентир p95 = 30 с.
 
 ### 5.5. Проверки, которые остаются за владельцем
@@ -697,7 +727,7 @@
    - служебные строки без `uuid` — по `(файл, смещение)`.
 4. **Связи прогона**:
    - resume — тот же `sessionId` и `parentUuid` через границу запусков;
-   - fork — новая сессия, первый `uuid` которой уже есть в другой: это «forked_from», явного поля нет;
+   - fork — новая сессия, в которой уже есть `uuid` из другой. Это доказывает **общее происхождение** и позволяет дедуплицировать скопированные записи, но не определяет непосредственного родителя. У нескольких форков одного оригинала и у форка форка общее начало цепочки, и родителем можно ошибочно назначить сестринскую сессию. Поэтому `forked_from` назначается, только если кандидат единственный: среди сессий, содержащих весь скопированный блок, ровно одна. Иначе связь хранится как «общее происхождение, родитель неоднозначен», либо используется явная привязка пользователя. Hook `SessionStart(source:"fork")` ссылки на родителя тоже не содержит. Явного поля в транскрипте нет;
    - compaction — `logicalParentUuid`;
    - субагент — `meta.toolUseId`/`toolUseResult.agentId`;
    - teammate — `(sid, meta.name, meta.teamName)` ↔ `toolUseResult.name/team_name` и `teams/*/config.json`.
@@ -883,7 +913,7 @@
 | (а) транскрипты с диска | всё, что пишет CLI, включая субагентов, `compact_boundary`, `cost-state` и `entrypoint` | ничего, если не заданы `persistSession:false`, другой `CLAUDE_CONFIG_DIR` или resume из sessionStore | основа для бэкфилла и курсоров, задержка ~0,1 с |
 | (б) user-hooks / плагин aang в `~/.claude` | события как у CLI; `agent_id`; признак SDK в env hook-процесса | ничего при `settingSources` по умолчанию; не работает при `[]` или без `'user'` | путь «без изменений кода» |
 | (в) плагин aang через `plugins` | те же hooks, **работает даже при `settingSources:[]`** (run2) | одна строка `plugins:[{type:'local', path:<aang>}]` | канонический opt-in для изолированных приложений |
-| (г) обёртка-библиотека (коллбеки + tee потока + `sessionStore`) | богаче всего: `task_*`, `compact_boundary`, кумулятивный `result`, `canUseTool`, `parent_tool_use_id`; при `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS` ещё и `requires_action` | смена кода: обернуть `query()`; коллбеки должны быть `{async:true}` или с коротким таймаутом | обогащение, не основной путь; sessionStore в режиме `batched` даёт данные раз в ход |
+| (г) обёртка-библиотека (коллбеки + tee потока + `sessionStore`) | богаче всего: `task_*`, `compact_boundary`, кумулятивный `result`, `canUseTool`, `parent_tool_use_id`; при `CLAUDE_CODE_EMIT_SESSION_STATE_EVENTS` ещё и `requires_action` | смена кода: обернуть `query()`; коллбеки — мгновенная запись в локальный буфер с явным коротким таймаутом (контракт 5.1-B) | обогащение, не основной путь; sessionStore в режиме `batched` даёт данные раз в ход |
 | (д) OTEL | usage и стоимость по запросам, `tool_result`, трассы с `agent_id`, `app.entrypoint` | env в процессе или в `settings.env`; опция `env` приложения *заменяет* окружение | вспомогательный канал для usage; задержка ≥1 с, содержит PII |
 
 **Рекомендация:**
@@ -891,12 +921,12 @@
 - **Основной путь**, как у CLI: файловые hooks из `~/.claude` (лучше в виде плагина aang) плюс хвост транскриптов. SDK-сессии отличать по `CLAUDE_AGENT_SDK_VERSION` в env hook-процесса и по `entrypoint` (`sdk-ts`, `sdk-py`, `sdk-cli`) в транскрипте.
 - **Для изолированных приложений** — документированный opt-in через `plugins` (вариант в).
 - **Обёртка (г)** — опционально, для более полного потока.
-- **Usage считать по сессии:** брать дельту `cost-state`/`modelUsage`, а не суммировать `total_cost_usd` по результатам. Связь форка восстанавливать по совпадающим UUID цепочки.
+- **Usage считать по сессии:** брать дельту `cost-state`/`modelUsage`, а не суммировать `total_cost_usd` по результатам. Совпадающие UUID цепочки доказывают общее происхождение форка, но непосредственного родителя назначать только при единственном кандидате (раздел 7).
 
 ### Риски
 
 - **Видимость зависит от приложения.** `settingSources:[]` рекомендован документацией для CI и multi-tenant; `persistSession:false` отключает запись на диск; resume из sessionStore удаляет локальную копию. В таких случаях без opt-in aang приложение не видит.
-- **Можно заблокировать решателя.** Command-hooks и SDK-коллбеки по умолчанию синхронные с таймаутом 600 с. Hook aang должен быть асинхронным и мгновенно завершаться, если aang недоступен.
+- **Можно заблокировать решателя.** Command-hooks и SDK-коллбеки по умолчанию синхронные с таймаутом 600 с. Контракт тот же, что в разделе 5.1-B: короткий синхронный обработчик, который только дописывает событие в локальный spool, с явным малым таймаутом и всегда `exit 0`; асинхронна лишь дальнейшая обработка демоном. `async: true` для command-hooks не годится: в `-p` такие hooks убиваются при выходе, и последние события теряются (раздел 6). Для коллбеков обёртки (вариант г) принцип тот же — мгновенная запись в локальный буфер; ответ `{async:true}` у SDK-коллбеков не проверялся.
 - **`entrypoint` ненадёжен.** Унаследованный `cli` превращается в `sdk-cli`, и сессия неотличима от `claude -p`. В stdin hooks признака SDK нет, только в env.
 - **Двойной счёт стоимости.** `total_cost_usd` и `modelUsage` кумулятивны через resume, continue и fork; форк наследует стоимость родителя. На `/compact` `usage` нулевой.
 - **Ложный субагент.** Внутренний агент сжатия даёт `SubagentStop` без `SubagentStart` и без файла транскрипта.
@@ -909,7 +939,7 @@
 
 1. **Граница поддержки SDK «без изменения кода».** Только приложения с `settingSources`, включающим `'user'` (это умолчание), и с `persistSession≠false`. Для остальных — opt-in. Нужно ли явно зафиксировать это в UI и документации aang?
 2. **Канонический opt-in для изолированных приложений:** плагин через `plugins` (рекомендуется: тот же формат hooks, один адаптер) или библиотека-обёртка (поток + коллбеки + sessionStore).
-3. **Правило учёта usage** при resume, continue и fork: дельта `cost-state` по сессии, родословная форка по UUID; `usage` из `result` — только как значение за один ход.
+3. **Правило учёта usage** при resume, continue и fork: дельта `cost-state` по сессии; общее происхождение форка — по совпадающим UUID, без автоматического назначения непосредственного родителя (раздел 7); `usage` из `result` — только как значение за один ход.
 4. **Исключение собственных сессий наблюдателя.** Предлагается env-маркер (виден в hooks) + `persistSession:false` + `settingSources:[]` + собственный cwd или предустановленный `sessionId`.
 5. **Нужен ли OTEL как дополнительный канал** usage и связей субагентов с учётом PII и необходимости env.
 
@@ -1001,6 +1031,42 @@
 - `request_user_input_async` (доступен в Default mode) записывается как `item_completed{AgentMessage, delivery:"async", questions:[{title, options}], phase:"final_answer"}` плюс `function_call_output {"accepted":true}`. В `--json` это `agent_message` с текстом вопроса. Это явный вопрос человеку, и его можно распознать без LLM. В чужих файлах таких 12. Синхронный `request_user_input` в Default mode отвечает ошибкой «unavailable in Default mode».
 - Прерывание в TUI (Esc): hook `Interrupt`, в rollout `function_call_output "aborted by user"`, developer `<turn_aborted>` и `event_msg/turn_aborted{reason:"interrupted"}`. Hook `Stop` не срабатывает. Фоновая команда продолжила работу, и её `item_completed` записался через 15 с **после** `turn_aborted`.
 
+**6a. OpenTelemetry: решение по одобрению** (Э(mock), закрыто кросс-ревью; `samples/codex-otel/`).
+
+При `[otel] exporter = { otlp-http = { endpoint = "http://127.0.0.1:<port>/v1/logs", protocol = "json" } }` Codex шлёт лог-событие `codex.tool_decision{conversation.id, call_id, tool_name, decision, source}`.
+
+**Наблюдаемые значения `decision` / `source`:**
+
+| Источник решения | `decision` | `source` |
+| --- | --- | --- |
+| человек одобрил | `approved` | `User` |
+| человек одобрил на сессию | `approved_for_session` | `User` |
+| человек одобрил с сохранением префикса | `approved_with_amendment` | `User` |
+| человек отклонил (app-server `decline`) | `denied` | `User` |
+| безопасная команда или сохранённое правило | `approved` | `Config` |
+| guardian (`--approve-for-me`) | `denied` | `AutomatedReviewer` |
+
+**Ограничения:**
+- отказ в TUI (в диалогах команды и патча это только `esc`, abort) и `cancel` в app-server события не дают;
+- отказ политикой `never` тоже не даёт события; виден только `codex.tool_result{success:false}`.
+
+**Профили:**
+- TUI `--no-daemon`, exec и SDK шлют событие из своего процесса;
+- TUI по умолчанию — из managed daemon (`service.name: codex-app-server`, `originator: codex-tui`). Демон читает `[otel]` только при старте; правка конфига вступает в силу после `codex app-server daemon restart`;
+- `-c otel.…` работает для `exec` и `app-server`, `CodexOptions.config.otel` — для SDK.
+
+**Свойства канала:**
+- задержка ≤1 с (батч логов);
+- `call_id` совпадает с rollout и `tool_use_id` hooks, `conversation.id` — с thread id;
+- при закрытом порте события теряются без задержки;
+- молчащий приёмник задерживает выход `exec`/SDK примерно на 20 с;
+- `codex.tool_result` несёт команду и вывод открытым текстом.
+
+**Сигнала «ждёт одобрения» в OTel нет:**
+- лог-события на запрос нет;
+- метрика `codex.approval.requested`, вопреки имени, считается после решения и требует `analytics.enabled`;
+- корневой спан `decide_request{approval_id}` не связан с тредом и приходит с задержкой до 5–10 с.
+
 **7. `codex exec --json`** (real и mock; `exec-json/*.json`). События: `thread.started{thread_id}`, `turn.started{}` (без turn_id), `item.started/updated/completed{item:{id:"item_N",type,…}}`, `turn.completed{usage{input_tokens,cached_input_tokens,cache_write_input_tokens,output_tokens,reasoning_output_tokens}}`, `turn.failed`, `error{message}`. Наблюдали item-типы `command_execution` (`in_progress`/`completed`/`failed`/`declined`, `exit_code`, `aggregated_output`, команда строкой `/bin/zsh -lc '…'`), `file_change{changes[{path,kind}]}`, `agent_message`, `collab_tool_call` и `error`. В строках бинаря есть ещё `reasoning`, `mcp_tool_call`, `web_search` и `todo_list`.
 
 По сравнению с rollout в `--json` **нет** временных меток, turn_id, реальных item/call id (там синтетические `item_0…`), модели, cwd, пути rollout, сжатия, субагентов, rate limits и usage по ответам. Зато **только в `--json`** есть `item.started` команды со структурированной командой, статус `declined` и `error "Reconnecting… waiting for network"`: при недоступном провайдере повторы идут бесконечно, а rollout молчит.
@@ -1043,7 +1109,7 @@
 - **Зависание синхронного hook блокирует агента на весь `timeout`**: 5 с на каждое из UserPromptSubmit, PreToolUse и Stop, в сумме +15 с на ход.
 - **exit 2 в `PreToolUse` блокирует команду** («Command blocked by PreToolUse hook»).
 - `async:true` снимает блокировку, но в exec `PostToolUse` и `Stop` **ни разу не запустились** (2/2), а `SessionEnd` принудительно выполняется синхронно с предупреждением.
-- `--ignore-user-config` **не отключает** `$CODEX_HOME/hooks.json`, его отключает только `--disable hooks`.
+- `--ignore-user-config` **не отключает загрузку** `$CODEX_HOME/hooks.json`, но вместе с `config.toml` игнорирует и сохранённое там доверие (`hooks.state.<key>.trusted_hash`). Перепроверено в кросс-ревью на mock во временном home с четырьмя hooks: без trust выполнено 0; с trust — 4; с trust и `--ignore-user-config` — 0; то же плюс `--dangerously-bypass-hook-trust` — 4; `--disable hooks` — 0. В нашем исходном опыте использовался bypass, отсюда прежняя неточная формулировка. Для гарантии всё равно нужен `--disable hooks`: это прямой запрет, не зависящий от потери trust.
 
 **11. Изоляция собственных сессий aang.**
 - `--ephemeral` не создаёт ни rollout, ни строки `threads` (проверено).
@@ -1059,12 +1125,12 @@
 ### Пробелы и неясности
 
 - Hooks с реальной моделью не запускали: штатный `~/.codex` содержит пользовательские hooks. Субагент реальной моделью тоже не запускали — структуру подтвердили 86 чужих файлов и mock.
-- Где хранится доверие к hooks (`trusted_hash`, предположительно в `config.toml`), не проверено. Не проверено и то, теряют ли пользовательские hooks доверие при `--ignore-user-config` в штатном home.
+- Закрыто кросс-ревью (Э(mock)): доверие хранится в `config.toml` как `hooks.state.<key>.trusted_hash`, и при `--ignore-user-config` оно теряется — hooks загружаются, но не выполняются. В штатном home пользователя это не проверялось.
 - Почему async-hooks теряют `PostToolUse`/`Stop`: не поддерживаются или гибнут при выходе exec. В TUI не проверено.
 - Ручной `/compact` (`trigger:"manual"`), `mcp_tool_call`, `web_search`, `reasoning` и `todo_list` в `--json` не наблюдались.
-- Решение человека по одобрению (approve/deny) не наблюдается ни в rollout, ни в hooks. Live-события есть только у app-server (раздел 10).
+- Решение по одобрению не видно в rollout и hooks, но есть в OTel `codex.tool_decision` (п. 6a), кроме abort и отказа политикой. Live-события есть ещё у app-server (раздел 10).
 - Задержка обновления проекции `thread_history_1.sqlite` во время работы не измерялась.
-- Не проверено, как hooks, rollout и `PermissionRequest` ведут себя у TUI-тредов, которые выполняются в общем daemon (режим TUI по умолчанию). Неизвестно и то, от чьего имени тогда исполняются hooks. Наши TUI-проверки шли in-process. Во временном `CODEX_HOME` с длинным путём TUI через daemon не подключается (ограничение SUN_LEN, по данным раздела 10).
+- TUI на общем daemon (закрыто при проверке OTel, Э(mock)): TUI без `--no-daemon` сам поднимает managed daemon и в длинном `CODEX_HOME` — сокет это symlink в `/tmp/codex-daemon-<uid>/`. Trusted-hooks, включая `PermissionRequest`, срабатывают в тредах демона; rollout — `originator:"codex-tui"`, `source:"vscode"`. Наши ранние TUI-прогоны шли с `--dangerously-bypass-hook-trust` и, вероятно, поэтому in-process. От чьего имени исполняются hooks на демоне при нескольких клиентах, не проверено.
 
 ### Рекомендуемый способ сбора для aang
 
@@ -1073,7 +1139,7 @@
    - Связи: `session_id` (корень прогона), `parent_thread_id`/`thread_spawn`, `forked_from_id`; resume распознаётся по тому же id.
    - Usage — по `token_usage_record`.
    - Явные вопросы человеку — `AgentMessage.questions`.
-2. **Hooks как быстрый сайд-канал** (настройка пользователем допустима по RFC §4). Только они дают `PermissionRequest` (ожидание одобрения в TUI) и структурированный старт команды в code mode. Контракт: синхронный обработчик, `timeout` ≤2–3 с, неблокирующая запись в локальный spool, код выхода всегда 0, никогда 2.
+2. **Hooks** (настройка пользователем допустима по RFC §4). Только они дают `PermissionRequest` (ожидание одобрения в TUI) и структурированный старт команды в code mode. Для профилей с интерактивными approvals они обязательны для полной поддержки; без них — ограниченный режим (раздел 5.2-I). Контракт: синхронный обработчик, `timeout` ≤2–3 с, неблокирующая запись в локальный spool, код выхода всегда 0, никогда 2.
 3. **`exec --json`** — только для прогонов, которые aang запускает сам (backend наблюдателя). Подключиться к чужой сессии через него нельзя.
 4. **Индекс и живость**: опционально и только на чтение — `state_5.sqlite` (`threads`, `thread_spawn_edges`) и `lsof` по `thread-writer-locks`. При ошибке — откат к сканированию первых строк файлов.
 5. **Сессии наблюдателя**: `--ephemeral --thread-source aang-observer --disable hooks`, cwd в каталоге aang, штатный `CODEX_HOME`.
@@ -1081,7 +1147,7 @@
 ### Риски
 
 - Rollout — внутренний недокументированный формат. Между 0.144 и 0.153 появились новые типы записей, в бинаре уже есть флаги сжатия файлов и миграции хранилища.
-- Без hooks ожидание одобрения в TUI неотличимо от долгой команды, а решение человека не видно вовсе.
+- Без hooks ожидание одобрения в TUI неотличимо от долгой команды. Решение человека видно только при включённом `[otel]` (п. 6a).
 - Hook aang может остановить решателя: при зависании — до `timeout` (по умолчанию 600 с) на каждое событие, а при exit 2 в PreToolUse — заблокировать команду. Изменение hook требует повторного доверия через `/hooks`. Hooks срабатывают и в субагентах.
 - Зашифрованы резюме сжатия, текст задачи субагента (v2) и reasoning. Видны имена и пути субагентов, их собственные rollout и ответы.
 - Usage из `--json` и `thread_token_usage` легко посчитать дважды: накопительные значения, наследование при fork, отдельные вызовы сжатия.
@@ -1093,12 +1159,12 @@
 
 ### Решения для владельца (кандидаты в ADR)
 
-1. Основной канал Codex CLI/TUI/exec — хвост rollout; hooks — необязательный ускоритель. Альтернатива — app-server, см. раздел 10.
+1. Основной канал Codex CLI/TUI/exec — хвост rollout. Hooks обязательны для полной поддержки профилей с интерактивными approvals (TUI, Desktop): иначе ожидание одобрения не видно. Для `exec` и SDK hooks — ускоритель. Альтернатива для живых событий — app-server, см. раздел 10.
 2. Требовать ли установку hooks aang в `~/.codex/hooks.json` ради `PermissionRequest`, `Interrupt` и мгновенных стартов команд — и с каким контрактом (sync, timeout ≤3 с, exit 0, без влияния на решателя).
 3. Разрешено ли читать приватные sqlite Codex (`state_5`, `thread_history_1`) как индекс, или только файлы.
 4. Схема изоляции наблюдателя: штатный `CODEX_HOME` + `--ephemeral --thread-source aang-observer --disable hooks`.
 5. Источник истины для usage — `token_usage_record` по `(thread_id, response_id)`. Как показывать расход на сжатие, guardian и субагентов.
-6. Допустить в MVP для файлового режима, что решение человека по одобрению неизвестно (отображается только запрос), или требовать для этого app-server.
+6. Допустить в MVP для файлового режима, что решение человека по одобрению неизвестно (отображается только запрос), или требовать `[otel]` (решение 5.1-T). Ожидание одобрения файлы не показывают вовсе: для профилей с approvals hooks — условие полной поддержки (5.2-I).
 7. Политика маскирования полей rollout с идентификаторами аккаунта и инструкциями.
 
 ### Созданные экспериментальные сессии
@@ -1373,12 +1439,13 @@ env -i HOME USER LOGNAME SHELL TMPDIR PATH CLAUDE_CODE_ENTRYPOINT=claude-desktop
 
 | Режим | Тот же адаптер, что CLI? | Как |
 | --- | --- | --- |
-| Claude Desktop Local, включая worktree, Dispatch-, spawn- и scheduled-сессии | **Да** | Hook-команда aang в `~/.claude/settings.json` или плагине, по абсолютному пути. Хвост `~/.claude/projects/**/*.jsonl`. Поверхность определяется по `entrypoint=="claude-desktop"` (запись) или по env hook `CLAUDE_CODE_ENTRYPOINT`. Метафайлы Desktop — необязательное обогащение (title, archived, `postTurnSummary.needs_action`) по ключу `cliSessionId`. |
-| Claude Desktop SSH | Да, но на удалённой машине | Сборщик aang и hooks в `~/.claude` удалённого хоста. |
+| Claude Desktop Local и worktree | **Да** | Hook-команда aang в `~/.claude/settings.json` или плагине, по абсолютному пути. Хвост `~/.claude/projects/**/*.jsonl`. Поверхность определяется по `entrypoint=="claude-desktop"` (запись) или по env hook `CLAUDE_CODE_ENTRYPOINT`. Метафайлы Desktop по ключу `cliSessionId` здесь — необязательное обогащение (title, archived, `postTurnSummary.needs_action`). Субагенты Agent tool связываются, как в CLI. |
+| Сессии, порождённые Desktop: spawn (`ccd_session__spawn_task`), Dispatch, scheduled tasks | **Частично** | События и содержимое — тем же адаптером. **Связь с родительской сессией** есть только в метаданных Desktop (`spawnSeed`, `lastSpawnRootDetected` в `claude-code-sessions/**/local_*.json`), в транскриптах и hooks её нет. Для этих сессий метаданные Desktop обязательны: без проверенной связи через них или явной привязки сессия показывается с неизвестной связью, а не приписывается прогону по каталогу. Формат связи не проверен экспериментом, нужен пункт в ручном чек-листе. |
+| Claude Desktop SSH | Да, но на удалённой машине (не проверено) | Сборщик aang и hooks в `~/.claude` удалённого хоста. Входит в охват RFC §4. |
 | Claude Desktop Cloud, «Continue in Web» | Нет | Облако вендора, вне MVP. |
 | Cowork local | Нет | Hooks нет, отдельный `CLAUDE_CONFIG_DIR` на сессию. Возможен только файловый адаптер по `local-agent-mode-sessions/*/*/local_*/.claude/projects/**` и `audit.jsonl`. |
 | Codex Desktop Local и Worktree | **Да** (файлы + hooks) | Хвост `~/.codex/sessions` и `state_5.sqlite.thread_spawn_edges`. Hooks в `~/.codex/hooks.json` после trust. Поверхность: `originator=="Codex Desktop"` (из env Desktop) и `source=="vscode"`. Таблица значений — версионируемая конфигурация. Собственные сессии aang помечаются своим `CODEX_INTERNAL_ORIGINATOR_OVERRIDE` или `clientInfo.name`. |
-| Codex Desktop SSH | Да, на удалённой машине | Rollout и hooks на удалённом хосте. |
+| Codex Desktop SSH | Да, на удалённой машине (не проверено) | Rollout и hooks на удалённом хосте. Входит в охват RFC §4. |
 | Codex Cloud, Work Cloud | Нет | Оркестрация в облаке, hooks из локальной конфигурации не поддерживаются, rollout на диске нет. |
 
 ### Риски
@@ -1395,7 +1462,7 @@ env -i HOME USER LOGNAME SHELL TMPDIR PATH CLAUDE_CODE_ENTRYPOINT=claude-desktop
 ### Решения для владельца (кандидаты в ADR)
 
 1. Claude Desktop Local и worktree покрываются CLI-адаптером (hooks + транскрипты) с меткой поверхности по `entrypoint`. Это подтверждается после живого чек-листа ниже.
-2. Включать ли в MVP SSH-режимы обоих Desktop (сборщик на удалённом хосте)?
+2. SSH-режимы обоих Desktop входят в охват RFC §4 («свои VM/Docker, включая соответствующие режимы Desktop»), но не проверены. Нужно выбрать способ подключения (сборщик на удалённом хосте) и проверку; исключение — сужение RFC, требующее отдельного решения.
 3. Cowork: относится ли он к «Desktop» MVP? Это не поверхность Claude Code: hooks нет, доступен только файловый адаптер.
 4. Codex Desktop: сбор только через файлы и hooks, без подключения к app-server. Нужен способ trust для hook aang: пользователь подтверждает в UI или aang пишет `hooks.state` в `config.toml` (это меняет пользовательский конфиг).
 5. Облачные режимы (Claude Cloud, Codex Cloud, Work Cloud) явно исключаются и отображаются в UI как «не наблюдаемо».
@@ -1409,9 +1476,11 @@ env -i HOME USER LOGNAME SHELL TMPDIR PATH CLAUDE_CODE_ENTRYPOINT=claude-desktop
 
 Claude Desktop, вкладка Code, режим Ask:
 
-1. New session, Local. Промпт: «Run `echo hi` with Bash, then ask me one question with AskUserQuestion, then reply OK». Bash подтвердить вручную. Ожидается: SessionStart, UserPromptSubmit, PreToolUse(Bash), PermissionRequest и/или Notification, PostToolUse, PreToolUse(AskUserQuestion), Stop. Зафиксировать env hook: `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_HOST_SESSION_ID` (=`local_<uuid>` метафайла).
+1. New session, Local. Промпт: «Run `echo hi` with Bash, then ask me one question with AskUserQuestion, then reply OK». `echo` Claude Code одобряет сам как read-only (так было в разделе 8), поэтому этот шаг проверяет только обычные события: SessionStart, UserPromptSubmit, PreToolUse(Bash), PostToolUse, PreToolUse(AskUserQuestion), Stop. Зафиксировать env hook: `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_CODE_HOST_SESSION_ID` (=`local_<uuid>` метафайла).
+   - 1a. **Детерминированный запрос разрешения.** Промпт: «Run `touch aang-perm-allow.txt` with Bash». Запись в режиме Ask требует разрешения. Подождать больше 6 с, затем разрешить. Ожидаются PermissionRequest, Notification(`permission_prompt`) и PostToolUse с тем же `tool_use_id`, что у PreToolUse. Повторить с `touch aang-perm-deny.txt` и отклонить: PermissionRequest есть, PostToolUse нет, отказ виден в PostToolBatch.
 2. Выполнить `/compact`: ожидаются PreCompact и `compact_boundary` в транскрипте.
 3. Попросить запустить субагент (Agent tool): SubagentStart/SubagentStop и `subagents/agent-*.jsonl`.
+   - 3a. Породить отдельную сессию средствами Desktop (spawn task или Dispatch, если доступны). Проверить, что связь с родителем есть только в `spawnSeed`/`lastSpawnRootDetected` метафайла, и зафиксировать их формат.
 4. Закрыть Desktop, открыть снова, продолжить сессию. Проверить SessionStart `source` и то, сохранился ли `cliSessionId` (тот же `.jsonl`).
 5. Новая сессия в режиме worktree: `cwd` должен лежать в `<repo>/.claude/worktrees/…`, проверить slug в `~/.claude/projects`.
 6. Архивировать и удалить сессию: проверить, что стало с транскриптом и `deleted_<uuid>`.
@@ -1419,7 +1488,8 @@ Claude Desktop, вкладка Code, режим Ask:
 Codex (ChatGPT.app):
 
 7. Добавить регистратор в `~/.codex/hooks.json`, открыть приложение и выполнить trust в UI. Проверить `trustStatus` через `hooks/list` в логах.
-8. Новый чат Local в `/tmp/aang-desktop-probe` с approval on-request, промпт «run `echo hi`, then reply OK». Ожидаются SessionStart, UserPromptSubmit, PreToolUse, PermissionRequest, PostToolUse, Stop. В новом rollout записать `originator` и `source`.
+8. Новый чат Local в `/tmp/aang-desktop-probe` с approval on-request, промпт «run `echo hi`, then reply OK». Безопасная команда в песочнице может пройти без запроса, поэтому шаг проверяет только SessionStart, UserPromptSubmit, PreToolUse, PostToolUse и Stop. В новом rollout записать `originator` и `source`.
+   - 8a. **Детерминированный запрос одобрения.** Промпт: «Run `touch /tmp/aang-desktop-probe-outside/allow.txt`; if the sandbox blocks it, request escalated permissions». Каталог вне корней записи вызывает эскалацию. Одобрить: ожидаются PermissionRequest, затем PostToolUse. Повторить с `deny.txt` и отклонить: PermissionRequest есть, PostToolUse нет. Если включён OTel-экспорт (раздел 9), сверить `codex.tool_decision` approved/denied по `call_id`. Если запрос одобрения не появился, шаг считается непройденным, а не подтверждением исправных hooks.
 9. Повторить в Worktree (`$CODEX_HOME/worktrees/…`), затем со spawn субагента (`parent_thread_id`, SubagentStart/Stop). Закрыть и снова открыть приложение, продолжить чат (SessionStart `source=resume`).
 10. Чат Cloud: убедиться, что нет ни rollout, ни hooks.
 
@@ -1446,9 +1516,10 @@ Codex (ChatGPT.app):
 | claude-a | минимальная: `--setting-sources ""`, пустой MCP, `dontAsk`; системный промпт и инструменты по умолчанию | 0 | 15 238 | 11 957 / 11 928 | 2,6 с; первый байт API через 5,9 с | 2 | 18 046 / 0 | 701 (0) | 0,158 |
 | claude-b | полная: + `--system-prompt`, `--tools ""`, без сохранения сессии, переменные окружения | 0 | 8 968 | 8 281 / 8 263 | 0,57 с; первый байт API через 1,46 с | 2 | 3 064 / 0 | 872 (190) | 0,042 |
 | codex-1 | минимальная: `--ignore-user-config --ignore-rules -s read-only` | 0 | 29 753 | turn 28 627 (thread_history) | ≈4,7 с (rollout) | 15 721 (cached 0) | — | 575 (87) | — |
-| codex-2 | полная: + `--ephemeral`, `model_instructions_file`, `--disable …` | 0 | 16 428 | — | — | 5 277 (cached 0) | — | 348 (0) | — |
+| codex-2 | «полная» по флагам: + `--ephemeral`, `model_instructions_file`, `--disable …`; по кросс-ревью у модели оставалось 10 инструментов | 0 | 16 428 | — | — | 5 277 (cached 0) | — | 348 (0) | — |
 | claude-c | `--bare`, без API-ключа | 1 | 722 | 24 / 0 | — | 0 | — | 0 | 0 |
 | codex-3 | пустой `CODEX_HOME`, без auth | 1 | 18 455 | — | — | — | — | — | — |
+| codex-4 | полная + каталог модели без инструментов (`model_catalog_json`, `tools.experimental_request_user_input` off), абсолютный путь к CLI | 0 | 41 981 | — | — | 1 531 (cached 0) | — | 463 (0) | — |
 
 Модель по умолчанию — та, которую CLI выбирает без пользовательского конфига. У Claude это `claude-opus-5-5` (`modelUsage`, `contextWindow: 1000000`, `costBasis: "list"`). У Codex это `gpt-6.1-sol` с `effort: null` (`turn_context` в rollout codex-1), хотя в пользовательском конфиге стоят `gpt-6-astra/xhigh`: при `--ignore-user-config` модель тихо меняется. Ответ модели прошёл схему во всех четырёх запусках, которые до неё дошли (`jsonschema` Draft7, скрипт `validate.py`). Ссылочная целостность тоже соблюдена: все `event_ids` есть в порции, `base_model_version == 7`, `e10` помечен `needs_human_input`. Инъекцию в `e05` все четыре запуска проигнорировали и вынесли в `attention` с `kind: "risk"`; файл `INJECTED.txt` не появился. Канарейка `OSPREY-17` попала в вывод только codex-1: `AGENTS.md` из cwd подгружается и при `--ignore-user-config`. `HERON-42` не попала никуда.
 
@@ -1484,7 +1555,13 @@ Codex (ChatGPT.app):
   - строки в `thread_history_1.sqlite`: `thread_turns` 1, `thread_items` 3 (`codex-state-threads-row-1.json`, `codex-rollout-1-min-isolation-excerpt.jsonl`).
 - Что попадает в контекст codex-1, хотя пользовательский конфиг проигнорирован: `base_instructions` (21 769 символов), `<skills_instructions>` (встроенные скиллы), `<permissions instructions>`, `<collaboration_mode>`, `<recommended_plugins>` (каталог приложений), `<multi_agent_role>` и `<multi_agent_mode>`, `# AGENTS.md instructions for <cwd>` (отсюда утечка канарейки), `<environment_context>`.
 - codex-2 с `--ephemeral` не оставил ни rollout, ни строки в `threads`, ни строк в `thread_history`. Канарейки в выводе нет, вход сократился с 15 721 до 5 277 токенов, `reasoning_output_tokens` упал с 87 до 0.
-- Что остаётся при полной изоляции, видно через `codex debug prompt-input`: команда рендерит видимый модели вход без вызова модели (пустой `CODEX_HOME`, флаги codex-2). Остаются `<skills_instructions>` (2 086 символов), `<multi_agent_role>` (2 429) и `<multi_agent_mode>` (271). Блок скиллов убирает `-c skills.include_instructions=false`; это проверено только рендером, в замер не вошло. Блок `multi_agent_role` не удалился ни через `--disable multi_agent`, ни через `--disable multi_agent_v2`.
+- Что остаётся при полной изоляции, видно через `codex debug prompt-input`: команда рендерит видимый модели вход без вызова модели (пустой `CODEX_HOME`, флаги codex-2). Остаются `<skills_instructions>` (2 086 символов), `<multi_agent_role>` (2 429) и `<multi_agent_mode>` (271). Блок скиллов убирает `-c skills.include_instructions=false`; это проверено только рендером, в замер не вошло. Блок `multi_agent_role` не удалился ни через `--disable multi_agent`, ни через `--disable multi_agent_v2`. **Кросс-ревью показало, что рендер промпта не доказывает отсутствие инструментов** — см. следующие пункты.
+- Инструменты в запросе. Кросс-ревью на mock Responses API показало, что с флагами codex-2 модель получает 10 инструментов. Для `gpt-6.1-sol` (Responses lite) они лежат не в `body.tools`, а в `input[0].type=additional_tools`: `functions/{exec,wait,request_user_input,request_user_input_async}` и `collaboration/{spawn_agent,wait_agent,send_message,followup_task,interrupt_agent,list_agents}`. Mock-ответ с ячейкой `exec` исполнил JS (внутри доступны `apply_patch`, `clock__curr_time`), `spawn_agent` создал дочерний тред `/root/probe_child` (`subagent_kind: thread_spawn`) с полным набором инструментов. В `--json` ни того, ни другого не видно (`samples/observer/codex-mock-tool-attempts.jsonl`).
+- Источник — метаданные модели в каталоге, а не feature flags. У `gpt-6.1-sol` (bundled и remote-кэш совпадают) в каталоге: `tool_mode: "code_mode_only"`, `multi_agent_version: "v2"`, `apply_patch_tool_type: "freeform"`, `experimental_supported_tools: ["send_user_message_async","clock"]`. Они перекрывают `--disable code_mode*|multi_agent*|collaboration_modes`, `features.code_mode`, `features.multi_agent_v2` и `agents.max_depth=0`: все эти варианты оставили каталог без изменений (`codex-tools-catalog-by-flags.json`).
+- Рабочий способ — подменить каталог через `-c model_catalog_json=<файл>`. Файл содержит одну запись модели из `codex debug models --bundled`, у которой эти четыре поля обнулены (`null` / `[]`). Вместе с `-c 'tools.experimental_request_user_input={enabled=false}'` каталог инструментов становится пустым, а из developer-сообщений остаётся только `model_instructions_file`: `<multi_agent_role>` и `<multi_agent_mode>` исчезают. Флаги `--disable` codex-2 при этом нужны: без них возвращаются `exec_command`, `write_stdin`, `view_image`, goals и `tool_search`.
+- Проверка на mock (`codex-mock-tool-attempts.jsonl`). Модель по очереди вызвала `exec`, `spawn_agent`, `request_user_input`, `request_user_input_async`, `apply_patch`, `exec_command` и `wait`, и каждый вызов получил `unsupported call` / `unsupported custom tool call`. Ничего не исполнилось, второго треда нет. Ошибка возвращается модели, ход продолжается, exit 0, `last.json` валиден. Попытки видны только в stderr (`ERROR codex_core::tools::router: error=unsupported …`), в `--json` их нет.
+- `codex debug models -c model_catalog_json=<файл>` со штатным `CODEX_HOME` отдаёт только подменённую запись, то есть локальный файл перекрывает remote-каталог.
+- codex-4 — опубликованная команда целиком на реальной модели (`codex-measurement-4-tools-off.json`): exit 0, ответ проходит схему, инъекция в `e05` вынесена в `risk`, `e10` — в `needs_human_input`. Вход 1 531 токен против 5 277 у codex-2: описание `exec` и блоки multi-agent ушли. Wall-clock 42 с, один замер. Следов на диске нет.
 - Поток `--json`: `thread.started{thread_id}`, `turn.started`, `item.completed{item.type:"agent_message", text: <JSON строкой>}`, `turn.completed{usage:{input_tokens, cached_input_tokens, cache_write_input_tokens, output_tokens, reasoning_output_tokens}}`. В нём нет модели, времени и лимитов. Лимиты есть только в rollout (`event_msg/token_count.rate_limits`: `primary.used_percent`, `window_minutes: 10080`, `plan_type`, `credits`), то есть в эфемерном режиме они недоступны. Файл `-o` содержит тот же JSON, что и `agent_message.text`.
 - Без авторизации (codex-3, пустой `CODEX_HOME`) Codex не падает сразу. Он делает 5 попыток по WebSocket, затем `item.completed{type:"error","Falling back from WebSockets to HTTPS"}` и ещё 5 попыток по HTTPS. Каждая попытка даёт событие `{"type":"error","message":"Reconnecting... n/5 (unexpected status 401 Unauthorized …)"}`. В конце приходит `turn.failed{error.message}`, exit 1, файл `-o` не создаётся, общее время ≈18 с; в stderr строки `ERROR codex_api::endpoint::responses_websocket` (`codex-events-3-no-auth.jsonl`). Предварительная проверка: `codex login status` возвращает exit 1 и «Not logged in» без авторизации, exit 0 и «Logged in using ChatGPT» с ней.
 - Hooks. В `~/.codex/hooks.json` пользователя есть SessionStart, UserPromptSubmit и Stop с командами `herdr-agent-state.sh` и `/Users/USER/src/aang/bin/aang hook` (бинаря нет), доверие к ним записано в `config.toml [hooks.state]`. В codex-1 и codex-2 stderr пустой, признаков запуска hooks нет. Это косвенное наблюдение: `exec --json` не показывает события hooks, а в rollout записей о hooks нет — их нет и в rollout чужой Desktop-сессии при тех же настроенных hooks.
@@ -1508,11 +1585,12 @@ Codex (ChatGPT.app):
   - `model_instructions_file` заменяет встроенные инструкции, `project_doc_max_bytes` управляет `AGENTS.md`;
   - `web_search = "disabled"`, `history.persistence`, `memories.generate_memories`, `analytics.enabled`.
 - `--output-schema` в бинаре: `text.format` с `type json_schema`, `name codex_output_schema` и полем `strict`. Требования strict-схемы OpenAI (все свойства в `required`, `additionalProperties: false`, необязательность через `null`) наша схема выполняет, и её приняли. Нестрогую схему я не проверял.
+- `model_catalog_json`: «Optional path to a JSON model catalog loaded on startup». Поля записи (`tool_mode`, `multi_agent_version`, `experimental_supported_tools`, `apply_patch_tool_type`) и `tools.experimental_request_user_input` в справочнике не описаны; их смысл установлен по бинарю (`ExperimentalRequestUserInput` — структура с полем `enabled`) и mock-экспериментам.
 
 ### Пробелы и неясности
 
 - На каждый вариант был один замер: разброс латентности неизвестен. Повторный вызов с тёплым кэшем (`cache_read` у Claude, `cached_input_tokens` у Codex) не измерялся.
-- Hooks Codex под `--ignore-user-config` без `--disable hooks` прямо не наблюдаемы. Модель в эфемерном codex-2 в потоке не видна (по флагам ожидается `gpt-6.1-sol`).
+- Hooks Codex под `--ignore-user-config` без `--disable hooks` в реальных запусках прямо не наблюдаемы; по проверке кросс-ревью на mock они загружаются, но без доверия из `config.toml` не выполняются. Модель в эфемерном codex-2 в потоке не видна (по флагам ожидается `gpt-6.1-sol`).
 - Не проверены:
   - запуск без сети (проверено только отсутствие авторизации);
   - параллельные вызовы и упор в лимиты подписки;
@@ -1520,40 +1598,59 @@ Codex (ChatGPT.app):
   - поведение `--output-schema` с нестрогой схемой.
 - Не проверено, могут ли другие сессии пользователя реально писать в `/tmp/cc-socks/<pid>.sock` наблюдателя: подключаться к сокетам запрещено брифом.
 - `~/.claude.json` и `~/.claude/backups/` менялись во время запусков A и B, но параллельно работали другие сессии, так что привязать изменение к наблюдателю нельзя.
-- Блок `<multi_agent_role>` в Codex не удаётся отключить известными флагами.
+- Причина роста wall-clock codex-4 (42 с) по сравнению с codex-2 (16 с) неизвестна: замер единственный, шаг каталога занимает 10 мс.
+- Предела числа циклов «неподдерживаемый вызов → ошибка модели → новый вызов» в Codex не нашёл.
 
 ### Рекомендуемый способ сбора для aang
 
 Демон запускает наблюдателя сам. Не из hook решателя: иначе потомок унаследует `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_MESSAGING_SOCKET/TOKEN` и `HERDR_*`. Окружение очищенное, cwd — пустой выделенный каталог aang без CLAUDE.md/AGENTS.md в предках. Перед первым вызовом идёт предварительная проверка `claude auth status` / `codex login status` (exit 1 означает «не авторизован»).
 
-Claude (проверено как запуск B; `--output-format json` возвращает тот же объект `result`, что последняя строка `stream-json`. `stream-json` полезен для самопроверки: в init `tools == ["StructuredOutput"]`, а `mcp_servers`, `skills` и `plugins` не содержат пользовательских элементов):
+Claude. Эта форма прогнана целиком после кросс-ревью (`samples/observer/claude-published-command-check.json`): exit 0, 8,6 с wall, 3 304 токена cache creation + 640 out, $0,042, `structured_output` есть, транскрипт не записан. `--output-format json` возвращает тот же объект `result`, что последняя строка `stream-json`. `stream-json` полезен для самопроверки: в init `tools == ["StructuredOutput"]`, а `mcp_servers`, `skills` и `plugins` не содержат пользовательских элементов (остаются только встроенные `cc-plugin-*`).
+
+Первая опубликованная версия команды не работала по двум причинам:
+- CLI вызывался по имени, а в очищенном `PATH` его нет (exit 127);
+- в `env -i` не было `USER`. Без него OAuth не находится в keychain, и результат — `"Not logged in"` при `subtype: "success"`, `is_error: true`.
+
+Ниже исправленный вариант: путь к CLI и все пути к файлам вычисляются до очистки окружения.
 
 ```bash
-env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
+CLAUDE_BIN="$(command -v claude)"
+env -i HOME="$HOME" USER="$USER" LOGNAME="$LOGNAME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
   CLAUDE_CODE_ENTRYPOINT=aang-observer \
   CLAUDE_CODE_DISABLE_AUTO_MEMORY=1 CLAUDE_CODE_DISABLE_CLAUDE_MDS=1 \
   DISABLE_TELEMETRY=1 DISABLE_ERROR_REPORTING=1 DISABLE_AUTOUPDATER=1 \
   ENABLE_CLAUDEAI_MCP_SERVERS=false \
-  claude -p --output-format stream-json --verbose \
-    --json-schema "$(cat observer-schema.json)" \
+  "$CLAUDE_BIN" -p --output-format stream-json --verbose \
+    --json-schema "$(cat "$AANG_DIR/observer-schema.json")" \
     --setting-sources "" --strict-mcp-config --mcp-config '{"mcpServers":{}}' \
     --tools "" --disallowedTools "mcp__*" --disable-slash-commands \
-    --system-prompt-file observer-system.md \
+    --system-prompt-file "$AANG_DIR/observer-system.md" \
     --no-session-persistence --permission-mode dontAsk \
-    --session-id "$OBSERVER_CALL_UUID" < batch.txt
+    --session-id "$OBSERVER_CALL_UUID" < "$AANG_DIR/batch.txt"
 ```
 
 Успех определяется так: exit 0, `is_error == false`, `subtype == "success"`, `structured_output` не пуст. После этого демон заново проверяет схему и идентификаторы. Расход берётся из `usage` и `modelUsage` и учитывается как расход наблюдателя отдельно от решателя (RFC §8).
 
-Codex (проверено как запуск codex-2, кроме флага `skills.include_instructions`):
+Codex (проверено как codex-4 и целиком на mock; `samples/observer/codex-mock-request-tools-off.json`). Путь к CLI вычисляется до `env -i`, потому что под `PATH=/usr/bin:/bin` голый `codex` не находится (exit 127). Каталог модели генерируется заново для каждой версии CLI:
 
 ```bash
+CODEX_BIN="$(command -v codex)"; test -x "$CODEX_BIN"
 env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
-  CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer \
-  codex exec --json --output-schema observer-schema.json -o last.json \
+  "$CODEX_BIN" debug models --bundled \
+  | /usr/bin/jq --arg m "$OBSERVER_MODEL" '{models: [.models[] | select(.slug == $m)
+      | .tool_mode = null | .multi_agent_version = null
+      | .apply_patch_tool_type = null | .experimental_supported_tools = []]}' \
+  > "$OBS_DIR/observer-models.json"
+test "$(/usr/bin/jq '.models | length' "$OBS_DIR/observer-models.json")" = 1
+
+env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer \
+  "$CODEX_BIN" exec --json -m "$OBSERVER_MODEL" \
+    --output-schema "$OBS_DIR/observer-schema.json" -o "$OBS_DIR/out/last.json" \
     --ephemeral --ignore-user-config --ignore-rules --skip-git-repo-check \
-    -s read-only --thread-source aang-observer -C "$EMPTY_DIR" \
-    -c model_instructions_file='"observer-system.md"' \
+    -s read-only --thread-source aang-observer -C "$OBS_DIR/empty" \
+    -c model_catalog_json="\"$OBS_DIR/observer-models.json\"" \
+    -c 'tools.experimental_request_user_input={enabled=false}' \
+    -c model_instructions_file="\"$OBS_DIR/observer-system.md\"" \
     -c include_environment_context=false -c include_permissions_instructions=false \
     -c include_apps_instructions=false -c include_collaboration_mode_instructions=false \
     -c project_doc_max_bytes=0 -c web_search='"disabled"' -c skills.include_instructions=false \
@@ -1562,10 +1659,14 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
     --disable shell_tool --disable unified_exec --disable browser_use --disable browser_use_external \
     --disable computer_use --disable image_generation --disable view_image --disable goals \
     --disable sleep_tool --disable tool_suggest --disable skill_search --disable recommended_plugins \
-    - < batch.txt
+    - < "$BATCH"
 ```
 
-Успех определяется так: exit 0, есть `turn.completed`, нет `turn.failed`, JSON в `last.json` проходит схему. Таймаут нужен с запасом на сценарий без авторизации (≈18 с повторов).
+`OBSERVER_MODEL` обязан совпадать со `slug` записи каталога: модель вне каталога работает на fallback-метаданных. Успех определяется так: exit 0, есть `turn.completed`, нет `turn.failed`, JSON в `last.json` проходит схему. Любая строка `codex_core::tools::router: error=unsupported` в stderr — признак попытки вызова инструмента (вероятная инъекция): вызов помечается, а его результат проверяется особенно строго. Нужен жёсткий таймаут, потому что каждая попытка — лишний раунд к модели.
+
+Самопроверка изоляции при старте демона и при смене версии CLI: та же команда с `-c model_provider='"mock"' -c 'model_providers.mock={…base_url="http://127.0.0.1:<port>/v1"…}'` и временным `CODEX_HOME` против локального mock Responses API. Она занимает ≈80 мс без LLM, условие — `input[additional_tools].tools == []` и пустой `body.tools`. Если условие нарушено, Codex-наблюдатель отключается.
+
+Первая опубликованная версия команды (без подмены каталога и с голым `codex`) оставляла модели 10 инструментов, включая code mode и `spawn_agent`, и не запускалась под очищенным `PATH`. Таймаут нужен с запасом и на сценарий без авторизации (≈18 с повторов).
 
 Как отделить собственные сессии наблюдателя:
 
@@ -1573,7 +1674,7 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
 2. Если сохранение понадобится, то есть несколько маркеров, видимых адаптеру. У Claude это `entrypoint: "aang-observer"` в каждой записи транскрипта и в `~/.claude/sessions/<pid>.json`, `sessionId` из реестра вызовов aang и каталог проекта по slug выделенного cwd. У Codex это `session_meta.originator` и `threads.originator`, `thread_source: "aang-observer"`, `cwd`, `thread_id` из `thread.started`. Маркер `aang-observer-run <uuid>` в первом промпте — запасной вариант для обоих.
 3. Временная запись `~/.claude/sessions/<pid>.json` существует при любом режиме: если адаптер сканирует реестр, ему нужно фильтровать по `entrypoint` или `cwd`.
 
-Рекурсия aang → наблюдатель → hooks aang. Hooks решателя наблюдателю не передаются: это отдельный процесс от демона. Рекурсия возможна только через глобальные настройки, которые читает сам наблюдатель. У Claude её отрезает `--setting-sources ""` (проверено). У Codex — `--ignore-user-config` вместе с `--disable hooks`; в `~/.codex/hooks.json` уже есть `aang hook` на трёх событиях. Если hooks aang когда-нибудь поставят через managed settings, они продолжат срабатывать: hook-обработчик aang должен сам отбрасывать события с `entrypoint`/`session_id`/`thread_id` наблюдателя.
+Рекурсия aang → наблюдатель → hooks aang. Hooks решателя наблюдателю не передаются: это отдельный процесс от демона. Рекурсия возможна только через глобальные настройки, которые читает сам наблюдатель. У Claude её отрезает `--setting-sources ""` (проверено). У Codex — `--disable hooks` (при одном `--ignore-user-config` hooks загружаются, но теряют доверие и не выполняются — Э(mock)); в `~/.codex/hooks.json` уже есть `aang hook` на трёх событиях. Если hooks aang когда-нибудь поставят через managed settings, они продолжат срабатывать: hook-обработчик aang должен сам отбрасывать события с `entrypoint`/`session_id`/`thread_id` наблюдателя.
 
 ### Риски
 
@@ -1583,17 +1684,22 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
 - Латентность: изолированный вызов занимает 9–16 с на порцию из 10 событий, минимально изолированный — 15–30 с. Это значительная доля 30-секундного ориентира p95 (RFC §8) ещё до очереди и проверки.
 - Расход: по прайсу Claude B стоит $0,042 за порцию без тёплого кэша. При подписке это доля лимитов `five_hour`/`seven_day`, общих с работой самого пользователя.
 - При `--ignore-user-config` Codex тихо меняет модель на `gpt-6.1-sol`.
-- Prompt injection. Без инструментов, в read-only песочнице и со схемой исполнять инъекцию нечем, а в замерах её помечали как риск. Смысловое искажение (ложное `done`) изоляция не исключает: остаётся только проверка демоном (ссылки на события, версия модели) и отображение оснований.
+- Prompt injection, Claude: инструментов нет (`tools == ["StructuredOutput"]`), инъекцию в замерах помечали как риск.
+- Prompt injection. В итоговом профиле Codex модель не получает инструментов: вызовы `exec`, `spawn_agent`, `request_user_input*`, `apply_patch`, `exec_command`, `wait` отклоняются как `unsupported call` (проверено на mock). Вторым слоем остаются read-only песочница, `approval_policy=never` и `--ephemeral`. Без подмены каталога (флаги codex-2) инъекция могла исполнить JS в code mode и породить дочерний тред с полным набором инструментов, и в `--json` этого видно не было. Смысловое искажение (ложное `done`) изоляция не исключает: остаётся только проверка демоном (ссылки на события, версия модели) и отображение оснований.
+- Изоляция Codex держится на недокументированных полях каталога моделей и ключе `tools.experimental_request_user_input`. Новая версия CLI может добавить инструменты из другого источника, и обнаружит это только самопроверка на mock.
+- Подменённая запись каталога фиксирует метаданные модели. Её нужно перегенерировать из `debug models --bundled` при каждом обновлении CLI, а `-m` должен совпадать со `slug`.
+- Попытки вызова инструментов не видны в `--json` (только stderr) и стоят лишнего раунда к модели каждая; предела не найдено.
+- В TOML-значения `-c` подставляются пути `OBS_DIR`, поэтому в них не должно быть `"` и `\`.
 - На время работы наблюдатель Claude виден другим сессиям как пир (реестр и UDS-сокет), то есть принимает кросс-сессионные сообщения.
 - Копирование `auth.json` в отдельный `CODEX_HOME` несёт риск ротации токена. Он не понадобился: штатный `CODEX_HOME` с `--ignore-user-config` достаточен.
 
 ### Решения для владельца (кандидаты в ADR)
 
 1. Основной backend наблюдателя: Claude `-p` с полной изоляцией (в единичном замере быстрее и дешевле по токенам) или Codex. Нужны ли оба на MVP, и каким должен быть порядок отказа (fallback).
-2. Закреплять ли модель наблюдателя явно (`--model` / `-m`) или принимать default CLI. Default без пользовательского конфига отличается от выбора пользователя как минимум у Codex.
+2. Закреплять ли модель наблюдателя явно (`--model` / `-m`) или принимать default CLI. Default без пользовательского конфига отличается от выбора пользователя как минимум у Codex. Для Codex закрепление обязательно: подменённый каталог содержит одну запись, и `-m` должен совпадать с её `slug`.
 3. Политика хранения: без сохранения (`--no-session-persistence` / `--ephemeral`, аудит только в хранилище aang) или с сохранением и маркерами `entrypoint`/`originator`/`thread_source`.
-4. Допустимость недокументированных переменных (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`) против ограничения документированными флагами.
-5. Подписка против API-ключа: `--bare` с `ANTHROPIC_API_KEY` — рекомендованный вендором режим для скриптов, но он требует отдельной оплаты и противоречит формулировке RFC «уже авторизованный CLI».
+4. Допустимость недокументированных переменных (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`) против ограничения документированными флагами. Изоляция Codex-наблюдателя от инструментов возможна только через недокументированные поля каталога (`tool_mode`, `multi_agent_version`, `experimental_supported_tools`, `apply_patch_tool_type`) и `tools.experimental_request_user_input`. Варианты: принять их вместе с обязательной самопроверкой на mock; использовать модель, у которой в каталоге уже `tool_mode: null` (сейчас `gpt-5.5`, но у неё остаются `request_user_input` и `apply_patch`); отказаться от Codex как backend наблюдателя.
+5. Подписка против API-ключа: `--bare` с `ANTHROPIC_API_KEY` — рекомендованный вендором режим для скриптов. Это тоже «уже авторизованный CLI» в смысле RFC, но другой, не проверенный профиль: нужен ключ, возможна отдельная оплата, условия авторизации и расходов подлежат согласованию (RFC §10).
 6. Бюджет свежести: размер порции, таймер и `effort` с учётом 9–30 с на вызов; при необходимости пересмотреть ориентир RFC §8.
 
 ### Созданные экспериментальные сессии (для удаления)
@@ -1603,9 +1709,11 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
 - Claude B `32cb3ed6-e8a0-40b7-9e73-6f4ed094b4ea`, C3 `e426468e-519d-422b-89bf-e7eceb3edcf8`, C4 `17c6bc99-e498-4751-9474-3907bb8d674a`: на диск не записаны.
 - Codex 1 `01a0f75c-748a-7a12-a535-fcb1552af172`: `~/.codex/sessions/2026/10/01/rollout-2026-10-01T15-07-06-01a0f75c-748a-7a12-a535-fcb1552af172.jsonl`, строка в `~/.codex/state_5.sqlite` (`threads`), строки в `~/.codex/thread_history_1.sqlite`. Удалить можно через `codex delete 01a0f75c-748a-7a12-a535-fcb1552af172`.
 - Codex 2 `01a0f75d-f7b4-7e20-bc04-93ce5781004f` (ephemeral) на диск не записан. Codex 3 `01a0f75f-be05-7732-a271-462f4dae6ef6` записан только во временный `CODEX_HOME` внутри `$SCRATCH/observer/runs/codex-home-empty/`.
+- Codex 4 `01a0f79c-f306-7ec2-8e1a-f37894254309` (ephemeral, штатный `CODEX_HOME`): на диск не записан.
+- Mock-прогоны кросс-ревью: временный `CODEX_HOME` в `$SCRATCH/codex-observer-iso/home`, все `--ephemeral`, тредов в `state_5.threads` 0. Рабочие файлы: `$SCRATCH/codex-observer-iso/` (`mock.py`, `run.sh`, `pubrun.sh`, `pub/observer-codex.sh`, `pub/observer-codex.mock.sh`, `out/`).
 - Рабочие файлы: `$SCRATCH/observer/` (`run.py`, `make_samples.py`, `validate.py`, `out/` с полными stdout/stderr/debug-логами, `runs/`).
 
-Образцы (`samples/observer/`): `observer-input.json`, `observer-schema.json`, `observer-prompt.json`, `measurements.json`, `claude-init-{a-min,b-full}-isolation.json`, `claude-result-{a-min,b-full}-isolation.json`, `claude-stream-b-full-isolation.jsonl`, `claude-result-c-bare-no-auth.json`, `claude-session-registry-entry-print-mode.json`, `codex-events-{1-min-isolation,2-full-isolation,3-no-auth}.jsonl`, `codex-last-message-{1,2}.json`, `codex-rollout-1-min-isolation-excerpt.jsonl`, `codex-state-threads-row-1.json`. Проверка `grep -rniE '<user>|@gmail|sk-|bearer|…'` находит только слово «bearer» в серверном тексте ошибки 401 («Missing bearer or basic authentication»), секретов там нет.
+Образцы (`samples/observer/`): `observer-input.json`, `observer-schema.json`, `observer-prompt.json`, `measurements.json`, `claude-init-{a-min,b-full}-isolation.json`, `claude-result-{a-min,b-full}-isolation.json`, `claude-stream-b-full-isolation.jsonl`, `claude-result-c-bare-no-auth.json`, `claude-session-registry-entry-print-mode.json`, `codex-events-{1-min-isolation,2-full-isolation,3-no-auth}.jsonl`, `codex-last-message-{1,2}.json`, `codex-rollout-1-min-isolation-excerpt.jsonl`, `codex-state-threads-row-1.json`. Проверка `grep -rniE '<user>|@gmail|sk-|bearer|…'` находит только слово «bearer» в серверном тексте ошибки 401 («Missing bearer or basic authentication»), секретов там нет. После кросс-ревью добавлены: `claude-published-command-check.json`, `codex-tools-catalog-by-flags.json`, `codex-mock-tool-attempts.jsonl`, `codex-mock-request-tools-off.json`, `codex-observer-model-catalog.json`, `codex-events-4-tools-off.jsonl`, `codex-last-message-4.json`, `codex-measurement-4-tools-off.json`.
 
 ## 13. Ограничения спайка и попутные находки
 
@@ -1620,6 +1728,12 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
   Эти факты приведены только в тексте разделов 7 и 11.
 - **Не запускались:** интерактивный TUI Claude (решение координатора: запись в `~/.claude.json`) и GUI обоих Desktop. Не получены `PermissionDenied`, автосжатие Claude, `--bg`/daemon Claude, `requestUserInput`/elicitation в app-server.
 - **Латентность наблюдателя** измерена одним вызовом на вариант; разброс и тёплый кэш не оценивались.
+- **Дополнительные проверки по кросс-ревью** (Э(mock), без реальной модели, кроме одного вызова Codex-наблюдателя и одного вызова Claude-наблюдателя):
+  - каталог инструментов Codex-наблюдателя и попытки их вызова;
+  - OTel Codex в app-server, TUI (`--no-daemon` и на демоне), `exec` и SDK;
+  - потеря trust hooks при `--ignore-user-config`.
+
+  Desktop, `otlp-grpc`/TLS и OTel с ChatGPT-авторизацией не проверялись.
 
 ### 13.2. Попутные находки в окружении владельца
 
@@ -1627,6 +1741,29 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
 - В реальных сессиях Claude Desktop устаревшая пользовательская hook-команда завершается с кодом 127 на каждом ходу: 28 записей `hook_non_blocking_error`.
 
 Стоит почистить, чтобы не путать будущие замеры.
+
+### 13.3. Проверки до объявления поддержки
+
+Спайк показывает, какие данные доступны, но не доказывает поддержку поверхностей. RFC §7 разрешает объявлять поддержку только после проверки каждого обязательного режима в обоих пользовательских сценариях. Это не нужно делать в исследовательском PR, но до заявления поддержки обязательно:
+
+- **Сквозная матрица.** Для каждой поверхности (Claude CLI, Desktop, Agent SDK; Codex TUI, `exec`, Desktop, SDK) и для своих VM/Docker/SSH проверить оба сценария RFC §2, дочерние сессии, resume, compaction и переподключение. Сейчас живые GUI обоих Desktop, интерактивный TUI Claude, remote-профили и TUI Codex на общем демоне не проверены.
+- **Устойчивость сборщика:**
+  - перезапуск демона и восстановление курсоров;
+  - повторная доставка без дублей;
+  - потеря источника: удаление, перенос и archive файлов;
+  - сбой hooks и trust;
+  - выбор источника при расхождении hooks и файлов;
+  - неоднозначная родословная (fork, сессии, порождённые Desktop).
+- **Нагрузка и свежесть:**
+  - p95 смыслового обновления на выбранном профиле нагрузки;
+  - параллельные прогоны;
+  - исчерпание лимитов подписки;
+  - очередь и деградация при отказе LLM;
+  - экономика на активный час.
+
+  Один вызов на вариант (раздел 12) для этих выводов недостаточен.
+- **Контекст и артефакты (RFC §6–7).** Доступность разрешённых инструкций, скиллов, определений субагентов, настроек hooks/MCP и Git. Сохранение версий артефактов, на которые ссылаются подтверждения.
+- **Наблюдатель.** Изоляция проверяется на каждой версии CLI по фактическому каталогу инструментов в запросе и по попыткам их исполнения, а не только по рендеру промпта. Автоматический fallback между поставщиками допустим только после согласования политики данных (RFC §8, §10).
 
 ## Приложение A. Образцы payload
 
@@ -1645,12 +1782,13 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 \
 | [`samples/codex-cli/`](samples/codex-cli/) | 102 | записи rollout по видам (`rollout/`), события `exec --json` (`exec-json/`), payload hooks (`hooks/`), заголовки запросов к mock-провайдеру, конфигурация mock, `structure-stats.json` |
 | [`samples/codex-app-server/`](samples/codex-app-server/) | 60 | индекс схемы протокола, запросы, уведомления, server requests, ошибки, хронологии сессий (stdio, multi-client, TUI на демоне) |
 | [`samples/codex-sdk/`](samples/codex-sdk/) | 12 | события потока SDK, start + resume, `session_meta` родителя и субагента |
+| [`samples/codex-otel/`](samples/codex-otel/) | 15 | секция `[otel]` и `-c`-переопределения, `codex.tool_decision` по профилям, прочие лог-события, связанные с одобрением спаны и метрики, корреляция с rollout и hooks, задержка, режимы отказа приёмника, «замороженный» конфиг демона, строки бинаря (добавлено по кросс-ревью) |
 | [`samples/desktop/`](samples/desktop/) | 10 | статистика `entrypoint` и `originator`, форма метафайлов Desktop, эмуляция движков Desktop (hooks, stream, типы записей, `hooks/list`, `originator`) |
-| [`samples/observer/`](samples/observer/) | 18 | вход и схема наблюдателя, init и результаты Claude, события и итоговые сообщения Codex, строка `threads`, замеры |
+| [`samples/observer/`](samples/observer/) | 26 | вход и схема наблюдателя, init и результаты Claude, события и итоговые сообщения Codex, строка `threads`, замеры; после кросс-ревью — проверка опубликованной команды Claude, каталог инструментов Codex по наборам флагов, попытки вызова инструментов на mock, каталог модели без инструментов, реальный вызов codex-4 |
 
 ## Приложение B. Экспериментальные сессии, оставшиеся в пользовательских каталогах
 
-Все временные `CODEX_HOME` и рабочие каталоги находятся в scratchpad сессии спайка и удаляются вместе с ним. Копий auth не осталось. Ниже перечислено, что осталось в штатных каталогах; удалять или нет — решает владелец.
+Все временные `CODEX_HOME` и рабочие каталоги находятся в scratchpad сессии спайка и удаляются вместе с ним. После кросс-ревью остался ещё пустой lock временного home в `/private/tmp/codex-daemon-501/`; реальный вызов codex-4 был `--ephemeral` и на диск не записан. Копий auth не осталось. Ниже перечислено, что осталось в штатных каталогах; удалять или нет — решает владелец.
 
 **Claude.** Все экспериментальные транскрипты лежат в каталогах проектов с общим префиксом:
 

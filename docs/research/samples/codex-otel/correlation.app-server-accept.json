@@ -1,0 +1,49 @@
+{
+ "otel.codex.tool_decision": {
+  "conversation.id": "01a0f799-5daf-7d02-9e6c-116068f9ca2d",
+  "call_id": "call_mock_3",
+  "turn_id": null
+ },
+ "otel.span.exec_command": {
+  "call_id": "call_mock_3",
+  "note": "unified_exec.exec_command span carries conversation.id, turn_id, call_id"
+ },
+ "rollout.session_meta": {
+  "id": "01a0f799-5daf-7d02-9e6c-116068f9ca2d",
+  "session_id": "01a0f799-5daf-7d02-9e6c-116068f9ca2d",
+  "originator": "aang_otel_probe",
+  "source": "vscode"
+ },
+ "rollout.function_call.call_id": "call_mock_3",
+ "rollout.item_completed.CommandExecution.id": "call_mock_3",
+ "app-server.requestApproval": {
+  "threadId": "01a0f799-5daf-7d02-9e6c-116068f9ca2d",
+  "turnId": "01a0f799-5db7-7da0-9382-a95920f1bc88",
+  "itemId": "call_mock_3"
+ },
+ "hook.PreToolUse": {
+  "session_id": "01a0f799-5daf-7d02-9e6c-116068f9ca2d",
+  "turn_id": "01a0f799-5db7-7da0-9382-a95920f1bc88",
+  "tool_use_id": "call_mock_3"
+ },
+ "hook.PermissionRequest": {
+  "session_id": "01a0f799-5daf-7d02-9e6c-116068f9ca2d",
+  "turn_id": "01a0f799-5db7-7da0-9382-a95920f1bc88",
+  "tool_use_id": null,
+  "keys": [
+   "cwd",
+   "hook_event_name",
+   "model",
+   "permission_mode",
+   "session_id",
+   "tool_input",
+   "tool_name",
+   "transcript_path",
+   "turn_id"
+  ]
+ },
+ "hook.PostToolUse": {
+  "tool_use_id": "call_mock_3"
+ },
+ "decide_request.approval_id": "appears only in the decide_request span; not in rollout, hooks, app-server request or logs"
+}

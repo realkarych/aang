@@ -1,0 +1,21 @@
+{
+ "_source": "strings /opt/homebrew/Caskroom/codex/0.159.2/bin/codex (codex-cli 0.159.2); documentation-level evidence only",
+ "OtelConfigToml_fields": ["environment", "exporter", "trace_exporter", "metrics_exporter", "log_user_prompt", "log_agent_responses", "log_guardian_assessments", "tool_result", "span_attributes", "tracestate"],
+ "OtelExporterKind": ["none", "statsig", "otlp-http", "otlp-grpc"],
+ "OtelHttpProtocol": ["binary", "json"],
+ "OtelTlsConfig": ["ca-certificate", "client-certificate", "client-private-key"],
+ "statsig_metrics_endpoint": "https://ab.chatgpt.com/otlp/v1/metrics",
+ "tool_decision_values_in_binary": ["approved", "approved_with_amendment", "approved_for_session", "approved_mcp_policy_amendment", "approved_with_network_policy_allow", "denied", "denied_with_network_policy_deny", "abort"],
+ "tool_decision_values_observed": ["approved", "approved_for_session", "approved_with_amendment", "denied"],
+ "tool_decision_sources_observed": ["User", "Config", "AutomatedReviewer"],
+ "log_only_common_metadata_in_binary": ["event.name", "event.timestamp", "conversation.id", "app.version", "auth_mode", "originator", "user.account_id", "user.email", "terminal.type", "model", "slug"],
+ "log_only_metadata_observed_without_auth": ["event.name", "event.timestamp", "conversation.id", "app.version", "originator", "terminal.type", "model", "slug"],
+ "approval_related_names": {
+  "codex.tool_decision": "log event (codex_otel.log_only), emitted when the decision is applied; not a span event",
+  "codex.approval.requested": "metric counter with attributes tool, approved; incremented after the decision",
+  "decide_request": "root span from ext/guardian-v2/src/async_scorer/approval.rs, attribute approval_id only, ends at the moment the approval is requested",
+  "op.dispatch.exec_approval / op.dispatch.patch_approval": "spans for the decision op, attribute submission.id",
+  "codex.tool_call_received / codex.tool_result_ready": "span events (codex_otel.trace_safe) with conversation.id, turn_id, call_id"
+ },
+ "service_names_observed": {"codex-app-server": "app-server and managed daemon (TUI threads by default)", "codex_cli_rs": "TUI process (--no-daemon: everything; daemon mode: client spans only)", "codex_exec": "codex exec", "codex_sdk_ts": "Codex SDK (codex exec under the hood)"}
+}

@@ -1,0 +1,40 @@
+{
+ "fail_baseline": {
+  "exec_wall_s": 0.235,
+  "rc": 0,
+  "tool_decision_delivered": 1
+ },
+ "fail_refused": {
+  "exec_wall_s": 0.222,
+  "rc": 0,
+  "tool_decision_delivered": 0
+ },
+ "fail_blackhole": {
+  "exec_wall_s": 20.13,
+  "rc": 0,
+  "tool_decision_delivered": 0
+ },
+ "app-server late_turn1_sink_down": {
+  "log_records_delivered": 0,
+  "spans_mentioning_thread_delivered": 9,
+  "note": "logs exported ~1 s after the turn while the sink was down are lost (no retry); spans of the same turn were still in the 5 s batch queue and arrived after the sink came up"
+ },
+ "app-server late_turn2_sink_up": {
+  "log_records_delivered": 19,
+  "spans_mentioning_thread_delivered": 15,
+  "note": "logs exported ~1 s after the turn while the sink was down are lost (no retry); spans of the same turn were still in the 5 s batch queue and arrived after the sink came up"
+ },
+ "sdk_blackhole": {
+  "thread_run_wall_s": 20.221,
+  "baseline_sdk_run_wall_s": 0.537
+ },
+ "tui_no_daemon_blackhole": {
+  "tui_session_wall_s": 6.403,
+  "note": "exit after Ctrl-C not delayed (eof ~1 s, same as baseline)"
+ },
+ "app-server_blackhole": {
+  "turn_wall_s": 0.195,
+  "shutdown_after_stdin_close_s": 17.971
+ },
+ "_rollout_task_complete_vs_exit_blackhole": "task_complete written 0.22 s after start; process exit at 20.13 s"
+}

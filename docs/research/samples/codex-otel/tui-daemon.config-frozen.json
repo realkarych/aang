@@ -1,0 +1,89 @@
+{
+ "_note": "TUI without --no-daemon auto-starts `codex app-server --listen unix:// --managed-daemon` from $CODEX_HOME/packages; thread runs in the daemon; [otel] read once at daemon start",
+ "steps": [
+  {
+   "t": 1790861218.8005812,
+   "step": "phase_start",
+   "label": null,
+   "config_endpoint": "A"
+  },
+  {
+   "t": 1790861218.8022249,
+   "step": "tui_start",
+   "label": "tuid_approve_autostart"
+  },
+  {
+   "t": 1790861227.445347,
+   "step": "config_moved_to_new_port",
+   "label": null,
+   "config_endpoint": "B"
+  },
+  {
+   "t": 1790861227.445513,
+   "step": "tui_start",
+   "label": "tuid_approve_after_config_change"
+  },
+  {
+   "t": 1790861237.1871328,
+   "step": "daemon_restart",
+   "label": null
+  },
+  {
+   "t": 1790861237.187335,
+   "step": "tui_start",
+   "label": "tuid_approve_after_restart"
+  },
+  {
+   "t": 1790861249.659735,
+   "step": "daemon_stop",
+   "label": null
+  }
+ ],
+ "tool_decision_posts": [
+  {
+   "received_at": 1790861223.003165,
+   "sink": "A (endpoint in config.toml when daemon started)",
+   "service.name": "codex-app-server",
+   "records": [
+    {
+     "event": "codex.tool_decision",
+     "conversation.id": "01a0f7a5-9501-72e2-806c-5fd9e1db7227",
+     "originator": "codex-tui",
+     "decision": "approved",
+     "source": "User"
+    }
+   ]
+  },
+  {
+   "received_at": 1790861229.0171788,
+   "sink": "A (endpoint in config.toml when daemon started)",
+   "service.name": "codex-app-server",
+   "records": [
+    {
+     "event": "codex.tool_decision",
+     "conversation.id": "01a0f7a5-b614-7eb0-b490-6245a7c13fa8",
+     "originator": "codex-tui",
+     "decision": "approved",
+     "source": "User"
+    }
+   ]
+  },
+  {
+   "received_at": 1790861239.1374679,
+   "sink": "B (endpoint written to config.toml later)",
+   "service.name": "codex-app-server",
+   "records": [
+    {
+     "event": "codex.tool_decision",
+     "conversation.id": "01a0f7a5-dc0d-7862-912a-abc398139cee",
+     "originator": "codex-tui",
+     "decision": "approved",
+     "source": "User"
+    }
+   ]
+  }
+ ],
+ "daemon_process": "$CODEX_HOME/packages/app-server-daemon/releases/0.159.2-aarch64-apple-darwin/bin/codex app-server --listen unix:// --managed-daemon",
+ "daemon_socket": "$CODEX_HOME/app-server-control/app-server-control.sock -> /tmp/codex-daemon-<uid>/<sha256>",
+ "client_process_service_name": "codex_cli_rs (traces only, no tool_decision)"
+}
