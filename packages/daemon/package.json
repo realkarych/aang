@@ -1,0 +1,21 @@
+{
+  "name": "@aang/daemon",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@aang/contract": "workspace:*",
+    "@aang/store": "workspace:*",
+    "@aang/collector": "workspace:*",
+    "@aang/adapter-claude": "workspace:*",
+    "@aang/adapter-codex": "workspace:*",
+    "@aang/engine": "workspace:*",
+    "@aang/observer": "workspace:*",
+    "@aang/hook": "workspace:*"
+  }
+}
