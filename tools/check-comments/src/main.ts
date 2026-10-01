@@ -33,7 +33,7 @@ const check = (args: readonly string[], cwd: string): Output => {
     const locate = positionLocator(text)
     const at = (offset: number): string => {
       const { line, column } = locate(offset)
-      return `${display(path)}:${line}:${column}`
+      return [display(path), line, column].join(':')
     }
     if (result.kind === 'error') {
       output.problems.push(`${at(result.offset)}: cannot check ${language.name}: ${result.message}`)
