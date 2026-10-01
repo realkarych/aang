@@ -166,6 +166,9 @@ importers:
 
   .:
     devDependencies:
+      '@aang/eslint-plugin':
+        specifier: workspace:*
+        version: link:tools/eslint-plugin
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.11.0(supports-color@7.2.0))
@@ -300,6 +303,18 @@ importers:
       yaml:
         specifier: ^2.9.1
         version: 2.9.1
+
+  tools/eslint-plugin:
+    dependencies:
+      '@typescript-eslint/utils':
+        specifier: ~8.71.0
+        version: 8.71.0(eslint@10.11.0(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)
+      eslint:
+        specifier: ^10.11.0
+        version: 10.11.0(supports-color@7.2.0)
+      typescript:
+        specifier: ~6.0.3
+        version: 6.0.3
 
 packages:
 

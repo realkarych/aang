@@ -1,3 +1,4 @@
+import aang from '@aang/eslint-plugin'
 import js from '@eslint/js'
 import { defineConfig } from 'eslint/config'
 import tseslint from 'typescript-eslint'
@@ -28,5 +29,9 @@ export default defineConfig(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
+    plugins: { aang },
+    rules: { 'aang/dependency-direction': 'error' },
   },
 )
