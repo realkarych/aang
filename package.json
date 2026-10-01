@@ -8,7 +8,8 @@
   "scripts": {
     "build": "tsc -b tsconfig.build.json && go build -C packages/hook -o bin/ ./cmd/aang-hook",
     "typecheck": "tsc -b",
-    "lint": "go vet -C packages/hook ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exit(1)}\"",
+    "lint": "go vet -C packages/hook ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exit(1)}\" && pnpm lint:comments",
+    "lint:comments": "node tools/check-comments/dist/main.js",
     "test": "vitest run",
     "coverage": "c8 vitest run",
     "e2e": "playwright test --pass-with-no-tests"
