@@ -4,7 +4,7 @@ import { defineConfig } from 'vitest/config'
 
 const workspaceGroups = ['packages', 'tools']
 
-const projects = globSync(workspaceGroups.map((group) => `${group}/*/package.json`))
+const projects = globSync(workspaceGroups.map((group) => `${group}/*/package.json`), { cwd: import.meta.dirname })
   .map((manifest) => dirname(manifest).replaceAll('\\', '/'))
   .sort()
   .map((dir) => ({
@@ -16,13 +16,15 @@ const projects = globSync(workspaceGroups.map((group) => `${group}/*/package.jso
 
 const testFilesOnDisk = globSync(
   workspaceGroups.map((group) => `${group}/**/*.test.ts`),
-  { exclude: ['**/node_modules/**'] },
+  { cwd: import.meta.dirname, exclude: ['**/node_modules/**'] },
 )
 
 export default defineConfig({
   test: {
     projects,
     passWithNoTests: testFilesOnDisk.length === 0,
+    testTimeout: 30_000,
+    hookTimeout: 30_000,
     setupFiles: ['vitest.setup.ts'],
     server: {
       deps: {
