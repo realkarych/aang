@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
+    "lib": ["es2025", "dom"],
+    "types": []
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../contract" }
+  ]
+}
