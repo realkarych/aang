@@ -36,12 +36,12 @@ const repositoryRoot = (cwd: string): string | undefined => {
   }
 }
 
-const gitFiles = (root: string): string[] =>
-  git(root, ['ls-files', '-z', '--cached', '--others', '--exclude-standard'])
+const gitFiles = (directory: string): string[] =>
+  git(directory, ['ls-files', '-z', '--cached', '--others', '--exclude-standard'])
     .split('\0')
     .filter((path) => path !== '')
     .sort(compareNames)
-    .map((path) => resolve(root, path))
+    .map((path) => resolve(directory, path))
     .filter((path) => existsSync(path))
 
 const walk = (directory: string): string[] =>
@@ -55,13 +55,16 @@ const walk = (directory: string): string[] =>
       return skippedDirectories.has(entry.name) ? [] : walk(path)
     })
 
+const directoryFiles = (directory: string): string[] =>
+  repositoryRoot(directory) === undefined ? walk(directory) : gitFiles(directory)
+
 const pathFiles = (args: readonly string[], cwd: string): { files: string[]; problems: Problem[] } => {
   const files: string[] = []
   const problems: Problem[] = []
   for (const arg of args) {
     const path = resolve(cwd, arg)
     try {
-      files.push(...(statSync(path).isDirectory() ? walk(path) : [path]))
+      files.push(...(statSync(path).isDirectory() ? directoryFiles(path) : [path]))
     } catch (error) {
       problems.push({ path, message: `cannot read: ${describeError(error)}` })
     }

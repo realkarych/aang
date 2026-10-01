@@ -5,16 +5,18 @@ import { createWorkspace, git, runCli } from './cli.js'
 
 const comment = '// comment\n'
 
-describe.concurrent('without path arguments the repository files known to git are checked', () => {
+describe.concurrent('inside a git repository the files known to git are checked', () => {
   const createRepository = async (onTestFinished: TestContext['onTestFinished']): Promise<string> => {
     const root = await createWorkspace(onTestFinished, {
-      '.gitignore': 'ignored.ts\n',
+      '.gitignore': 'ignored.ts\ndist/\n',
       'tracked.ts': comment,
       'untracked.ts': comment,
       'ignored.ts': comment,
       'docs/research/samples/recorded.json': comment,
       'docs/research/notes.ts': 'export {}\n',
       'sub/clean.ts': 'export {}\n',
+      'sub/dist/clean.js': '//# sourceMappingURL=clean.js.map\n',
+      'sub/dist/clean.d.ts': '//# sourceMappingURL=clean.d.ts.map\n',
     })
     await git(root, ['init', '--quiet'])
     await git(root, ['add', '.gitignore', 'tracked.ts', 'docs/research/samples/recorded.json', 'sub/clean.ts'])
@@ -68,6 +70,25 @@ describe.concurrent('without path arguments the repository files known to git ar
     expect(result.status).toBe(2)
     expect(result.stdout).toEqual([])
     expect(result.stderr[0]).toMatch(/^check-comments: Command failed: git ls-files/)
+  })
+
+  test('directory arguments skip what git ignores, such as build output, while explicit files are checked', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const root = await createRepository(onTestFinished)
+
+    expect(await runCli(root, ['.'])).toEqual({
+      status: 1,
+      stdout: ['tracked.ts:1:1: TypeScript comment', 'untracked.ts:1:1: TypeScript comment'],
+      stderr: [],
+    })
+    expect(await runCli(join(root, 'sub'), ['.'])).toEqual({ status: 0, stdout: [], stderr: [] })
+    expect(await runCli(root, ['sub', 'ignored.ts'])).toEqual({
+      status: 1,
+      stdout: ['ignored.ts:1:1: TypeScript comment'],
+      stderr: [],
+    })
   })
 
   test('samples are skipped relative to the repository root when paths are given', async ({

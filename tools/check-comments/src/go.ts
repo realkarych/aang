@@ -18,6 +18,33 @@ const directiveNames: readonly string[] = [
 ]
 const directive = new RegExp(`^//go:(?:${directiveNames.join('|')})(?:[ \\t]|$)`)
 const generatedMarker = /^\/\/ Code generated .* DO NOT EDIT\.$/
+const lineDirectivePrefix = 'line '
+const maxPosition = 2 ** 30
+
+interface TrailingNumber {
+  readonly rest: string
+  readonly value: number
+}
+
+const trailingNumber = (text: string): TrailingNumber | undefined => {
+  const colon = text.lastIndexOf(':')
+  const digits = text.slice(colon + 1)
+  return colon >= 0 && /^\d+$/.test(digits) ? { rest: text.slice(0, colon), value: Number(digits) } : undefined
+}
+
+const isPosition = (value: number): boolean => value >= 1 && value <= maxPosition
+
+const isLineDirective = (body: string): boolean => {
+  if (!body.startsWith(lineDirectivePrefix) || /[\r\n]/.test(body)) {
+    return false
+  }
+  const last = trailingNumber(body.slice(lineDirectivePrefix.length))
+  if (last === undefined || !isPosition(last.value)) {
+    return false
+  }
+  const previous = trailingNumber(last.rest)
+  return previous === undefined || isPosition(previous.value)
+}
 
 const startsLine = (text: string, index: number): boolean => {
   let before = index - 1
@@ -56,7 +83,10 @@ export const scanGo = (text: string): ScanResult => {
       const atLineStart = index === 0 || text[index - 1] === '\n'
       if (beforePackageClause && atLineStart && generatedMarker.test(comment)) {
         generated = true
-      } else if (!(startsLine(text, index) && directive.test(comment))) {
+      } else if (
+        !(startsLine(text, index) && directive.test(comment)) &&
+        !(atLineStart && isLineDirective(comment.slice(2)))
+      ) {
         offsets.push(index)
       }
       index = end
@@ -65,7 +95,9 @@ export const scanGo = (text: string): ScanResult => {
       if (end === undefined) {
         return failure(index, 'unterminated comment')
       }
-      offsets.push(index)
+      if (!isLineDirective(text.slice(index + 2, end - 2))) {
+        offsets.push(index)
+      }
       index = end
     } else if (char === '"' || char === "'") {
       const end = interpretedEnd(text, index)
