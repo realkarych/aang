@@ -138,7 +138,7 @@
    - HTTP-hook — только как ускоритель: на `SessionStart` он не вызывается, и при недоступном демоне события теряются.
 2. **Содержимое и восстановление.** Хвост `~/.claude/projects/**/*.jsonl`, включая `subagents/`, `*.meta.json` и `subagents/workflows/`.
    - Курсор `(path, inode, offset)`, дедупликация `(sessionId, uuid)`, неизвестные записи сохраняются как есть.
-   - Транскрипт — источник истины для связей (субагент по `meta.toolUseId`; у fork совпадающие `uuid` доказывают общее происхождение, а непосредственный родитель назначается только при единственном кандидате — раздел 7), usage и бэкфилла пропущенного.
+   - Транскрипт — источник истины для связей (субагент по `meta.toolUseId`; у fork совпадающие `uuid` доказывают только общее происхождение, а непосредственный родитель устанавливается лишь явной привязкой — раздел 7), usage и бэкфилла пропущенного.
 3. **Ожидание человека.** Hooks `PermissionRequest`, `Notification` и `PreToolUse(AskUserQuestion)`; статус `waiting`/`waitingFor` из `claude agents --json` или `~/.claude/sessions/<pid>.json` (решение 5.1-E).
 4. **SDK-приложения.** Видны автоматически при `settingSources` по умолчанию. Изолированным приложениям нужен opt-in одной строкой: `plugins: [{type: 'local', path: <aang>}]` (Э: работает при `settingSources: []`).
 5. **Поверхность** определяется по `entrypoint` в транскрипте и `CLAUDE_CODE_ENTRYPOINT` в окружении hook.
@@ -210,7 +210,7 @@
 
   Нужны маскирование до передачи LLM и срок хранения (RFC §8).
 - **Вмешательство через Codex app-server.** `thread/resume` из стороннего процесса блокирует владельца. На общем демоне меняются `originator`/User-Agent чужих тредов, и aang получает server requests, на которые отвечать нельзя.
-- **Свежесть.** Вызов наблюдателя занимает 9–30 с — это большая часть ориентира p95 = 30 с (RFC §8) ещё до очереди и проверки. Поток сырых фактов приходит за десятки миллисекунд.
+- **Свежесть.** Единичные вызовы наблюдателя: Claude с полной изоляцией — 8,6–9,0 с; Codex без инструментов — 42 с; прежний Codex-профиль с инструментами — 16,4 с; минимальная изоляция — 15–30 с. Это отдельные наблюдения, а не оценка p95, но уже они сопоставимы с ориентиром p95 = 30 с (RFC §8) или превышают его ещё до очереди и проверки. Поток сырых фактов приходит за десятки миллисекунд.
 - **Путь подписки для наблюдателя.** `--bare` не работает с OAuth и обещан как будущее умолчание `-p`. Используются недокументированные рычаги (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, имена feature flags Codex, поля записи каталога моделей Codex). Без подмены каталога Codex-наблюдатель получает инструменты, включая делегирование, а их вызовы не видны в `--json`. Расход наблюдателя делит лимиты подписки (`five_hour` / `seven_day`) с работой пользователя.
 
 ## 5. Решения, требующие одобрения владельца (кандидаты в ADR)
@@ -240,7 +240,7 @@
   → только чтение и только как подсказка; поддержка без них обязательна.
 - **T. OpenTelemetry Codex как канал решений по одобрению** (9, п. 6a; найдено кросс-ревью, проверено на mock).
   - **Что нужно:** секция `[otel] exporter = { otlp-http = { endpoint = "http://127.0.0.1:<порт aang>/v1/logs", protocol = "json" } }` в пользовательском `~/.codex/config.toml`. Это изменение пользовательского конфига. Применяется после перезапуска managed daemon TUI (`codex app-server daemon restart`) и Desktop. Для `exec`, app-server и SDK можно без файла: `-c otel.…` или `CodexOptions.config.otel`.
-  - **Даёт:** исход одобрений (`User`/`Config`/`AutomatedReviewer`) с задержкой ≤1 с и `call_id`, который совпадает с rollout и hooks.
+  - **Даёт:** исход одобрений (`User`/`Config`/`AutomatedReviewer`) с задержкой ≤1 с и `call_id`, который совпадает с rollout и с `tool_use_id` у `PreToolUse`/`PostToolUse` (у `PermissionRequest` идентификатора нет).
   - **Не даёт:** ожидание одобрения, отказ через abort (`esc` в TUI, `cancel`) и отказ политикой.
   - **Риски:**
     - `exporter` — один на сигнал, это конфликт с собственным OTel-коллектором пользователя;
@@ -259,7 +259,7 @@
 
 - **F. Политика нестабильных форматов** (все разделы): версионированный терпимый парсер, хранение сырых записей, контрактные тесты на эталонных сессиях для каждой версии CLI, движка Desktop и SDK. Поддержка объявляется по версиям, в том числе для нескольких одновременно. → принять.
 - **G. Границы прогона и связи** (7, 8, 9):
-  - входит ли fork Claude (полная копия истории без ссылки) в исходный прогон или образует новый. Совпадающие `uuid` доказывают только общее происхождение. Непосредственный родитель назначается лишь при единственном кандидате, иначе связь показывается неоднозначной или берётся из явной привязки (раздел 7, «Связи прогона»);
+  - входит ли fork Claude (полная копия истории без ссылки) в исходный прогон или образует новый. Совпадающие `uuid` доказывают только общее происхождение. Непосредственного родителя транскрипт и hooks не называют; его устанавливает только явная привязка (пользователь или форк, запущенный самим aang). Единственный найденный кандидат показывается как предположение с основанием, а не как установленный родитель (раздел 7, «Связи прогона»);
   - как связывать in-process teammates — только по имени и команде;
   - как обрабатывать ложный `SubagentStop` агента сжатия.
 - **H. Правила учёта usage** — раздел 3.3 (7, 8, 9). → принять как описано.
@@ -727,7 +727,7 @@
    - служебные строки без `uuid` — по `(файл, смещение)`.
 4. **Связи прогона**:
    - resume — тот же `sessionId` и `parentUuid` через границу запусков;
-   - fork — новая сессия, в которой уже есть `uuid` из другой. Это доказывает **общее происхождение** и позволяет дедуплицировать скопированные записи, но не определяет непосредственного родителя. У нескольких форков одного оригинала и у форка форка общее начало цепочки, и родителем можно ошибочно назначить сестринскую сессию. Поэтому `forked_from` назначается, только если кандидат единственный: среди сессий, содержащих весь скопированный блок, ровно одна. Иначе связь хранится как «общее происхождение, родитель неоднозначен», либо используется явная привязка пользователя. Hook `SessionStart(source:"fork")` ссылки на родителя тоже не содержит. Явного поля в транскрипте нет;
+   - fork — новая сессия, в которой уже есть `uuid` из другой. Это доказывает **общее происхождение** и позволяет дедуплицировать скопированные записи, но **не доказывает непосредственного родителя**: ни транскрипт, ни hook `SessionStart(source:"fork")` ссылки на родителя не содержат. Даже единственный найденный кандидат может быть сестринской сессией. Пример: A породила B и C в одной точке истории, а потом A удалена (`cleanupPeriodDays`, purge) или не входит в выбранные источники aang; тогда для C единственным кандидатом окажется B. Поэтому сохраняется связь «общее происхождение» с перечнем сессий, содержащих скопированный блок. Непосредственный родитель устанавливается только явной привязкой: пользователем или запуском форка самим aang. Единственного кандидата допустимо показать как предположение с основанием («единственная видимая сессия с полным общим блоком»), но не как установленного родителя;
    - compaction — `logicalParentUuid`;
    - субагент — `meta.toolUseId`/`toolUseResult.agentId`;
    - teammate — `(sid, meta.name, meta.teamName)` ↔ `toolUseResult.name/team_name` и `teams/*/config.json`.
@@ -921,7 +921,7 @@
 - **Основной путь**, как у CLI: файловые hooks из `~/.claude` (лучше в виде плагина aang) плюс хвост транскриптов. SDK-сессии отличать по `CLAUDE_AGENT_SDK_VERSION` в env hook-процесса и по `entrypoint` (`sdk-ts`, `sdk-py`, `sdk-cli`) в транскрипте.
 - **Для изолированных приложений** — документированный opt-in через `plugins` (вариант в).
 - **Обёртка (г)** — опционально, для более полного потока.
-- **Usage считать по сессии:** брать дельту `cost-state`/`modelUsage`, а не суммировать `total_cost_usd` по результатам. Совпадающие UUID цепочки доказывают общее происхождение форка, но непосредственного родителя назначать только при единственном кандидате (раздел 7).
+- **Usage считать по сессии:** брать дельту `cost-state`/`modelUsage`, а не суммировать `total_cost_usd` по результатам. Совпадающие UUID цепочки доказывают только общее происхождение форка; непосредственного родителя устанавливает лишь явная привязка, а единственный кандидат остаётся предположением (раздел 7).
 
 ### Риски
 
@@ -986,14 +986,14 @@
 
 | Поверхность | `originator` | `source` | `thread_source` |
 |---|---|---|---|
-| TUI in-process (наши запуски с `-s`/`-a`) | `codex-tui` | `"cli"` | `user` |
+| TUI in-process (наши запуски; в них был `--dangerously-bypass-hook-trust`) | `codex-tui` | `"cli"` | `user` |
 | TUI через общий daemon (по данным раздела 10) | `clientInfo.name` первого клиента, поднявшего daemon | `"vscode"` | `user` |
 | exec | `codex_exec` | `"exec"` | `user` или значение `--thread-source` |
 | Desktop | `Codex Desktop` | `"vscode"` | `user` |
 | субагент | как у родителя | `{"subagent":{"thread_spawn":{parent_thread_id,depth,agent_path,agent_nickname,agent_role}}}` | `subagent` |
 | auto-review | как у родителя | `{"subagent":{"other":"guardian"}}` | `guardian_review` |
 
-**По `originator`/`source` поверхность определяется ненадёжно.** Направление 5 (раздел 10) выяснило, что TUI без `-s`/`-a` (или без `--no-daemon`) поднимает общий managed daemon (`codex app-server --listen unix:// --managed-daemon`), и тот переживает выход из TUI. Треды такого TUI получают `source:"vscode"` и `originator` того клиента, который первым инициализировал daemon. Наши TUI-запуски с `-s read-only -a on-request` шли in-process, без daemon. Поэтому 12 чужих файлов `Codex Desktop | vscode` могут частично быть TUI-сессиями. Надёжно различаются только exec (`codex_exec`/`exec`), субагенты и guardian.
+**По `originator`/`source` поверхность определяется ненадёжно.** Направление 5 (раздел 10) выяснило, что TUI поднимает общий managed daemon (`codex app-server --listen unix:// --managed-daemon`), и тот переживает выход из TUI. Треды такого TUI получают `source:"vscode"` и `originator` того клиента, который первым инициализировал daemon. Флаги `-s`/`-a` **не** переводят TUI в in-process: при повторном ревью запуск с `-s read-only -a on-request` поднял daemon, rollout получил `source:"vscode"`. In-process работает с `--no-daemon`, а исключение для `--dangerously-bypass-hook-trust` есть в исходнике `tui/src/daemon_startup.rs` этой версии. Наши TUI-запуски шли in-process, и в них был этот флаг. Поэтому 12 чужих файлов `Codex Desktop | vscode` могут частично быть TUI-сессиями, а 92 файла пользователя с `codex-tui`/`cli` показывают наблюдённый режим in-process, причина которого не установлена. Надёжно различаются только exec (`codex_exec`/`exec`), субагенты и guardian.
 
 `--thread-source` принимает произвольную строку. Значение `aang-observer` попало в `session_meta.thread_source` и в `threads.thread_source` (`rollout/session_meta.exec.thread_source-aang-observer.mock.json`). Значение `originator` задаёт клиент: в соседнем эксперименте встретилось `aang_observer`.
 
@@ -1027,7 +1027,7 @@
 
 - `exec` **принудительно ставит `approval_policy=never`**: `-c approval_policy` и `config.toml` игнорируются, флага `-a` у exec нет. Эскалация отклоняется: в `function_call_output` пишется «approval policy is Never; reject command…», item в `--json` не появляется, после `PreToolUse` нет `PostToolUse`.
 - `exec --approve-for-me` переключает на `on-request`, `approvals_reviewer:auto_review` и `workspace-write`. Срабатывает hook `PermissionRequest{tool_name:"Bash", tool_input{command, description=justification}}`. Отдельный guardian-тред пишет свой rollout (`parent_thread_id`, `session_id` родителя, `root_turn_id` хода родителя). В `--json` — `command_execution.status:"declined"`.
-- **TUI** (`-a on-request`, через expect): запрос «Would you like to run the following command?» и одобрение по `y` **не оставляют в rollout никаких записей**. Видны только `function_call` и затем `item_completed{CommandExecution}`. Ожидание человека в файлах неотличимо от долгой команды. Сигнал о запросе даёт только hook `PermissionRequest`, а решение человека — ни один источник (его можно лишь вывести по последующему `PostToolUse`).
+- **TUI** (`-a on-request`, через expect): запрос «Would you like to run the following command?» и одобрение по `y` **не оставляют в rollout никаких записей**. Видны только `function_call` и затем `item_completed{CommandExecution}`. Ожидание человека в файлах неотличимо от долгой команды. Сигнал о запросе даёт только hook `PermissionRequest`. Решения человека нет ни в rollout, ни в hooks (его можно лишь вывести по последующему `PostToolUse`); при включённом OTel оно приходит как `codex.tool_decision` (п. 6a), кроме отказа через abort.
 - `request_user_input_async` (доступен в Default mode) записывается как `item_completed{AgentMessage, delivery:"async", questions:[{title, options}], phase:"final_answer"}` плюс `function_call_output {"accepted":true}`. В `--json` это `agent_message` с текстом вопроса. Это явный вопрос человеку, и его можно распознать без LLM. В чужих файлах таких 12. Синхронный `request_user_input` в Default mode отвечает ошибкой «unavailable in Default mode».
 - Прерывание в TUI (Esc): hook `Interrupt`, в rollout `function_call_output "aborted by user"`, developer `<turn_aborted>` и `event_msg/turn_aborted{reason:"interrupted"}`. Hook `Stop` не срабатывает. Фоновая команда продолжила работу, и её `item_completed` записался через 15 с **после** `turn_aborted`.
 
@@ -1057,7 +1057,7 @@
 
 **Свойства канала:**
 - задержка ≤1 с (батч логов);
-- `call_id` совпадает с rollout и `tool_use_id` hooks, `conversation.id` — с thread id;
+- `call_id` совпадает с `call_id` в rollout и с `tool_use_id` у hooks `PreToolUse`/`PostToolUse`; `conversation.id` — с thread id. В hook `PermissionRequest` идентификатора вызова нет, поэтому сам запрос связывается с решением лишь косвенно — через предшествующий `PreToolUse` той же сессии. Прямое сопоставление по полю не доказано;
 - при закрытом порте события теряются без задержки;
 - молчащий приёмник задерживает выход `exec`/SDK примерно на 20 с;
 - `codex.tool_result` несёт команду и вывод открытым текстом.
@@ -1130,7 +1130,7 @@
 - Ручной `/compact` (`trigger:"manual"`), `mcp_tool_call`, `web_search`, `reasoning` и `todo_list` в `--json` не наблюдались.
 - Решение по одобрению не видно в rollout и hooks, но есть в OTel `codex.tool_decision` (п. 6a), кроме abort и отказа политикой. Live-события есть ещё у app-server (раздел 10).
 - Задержка обновления проекции `thread_history_1.sqlite` во время работы не измерялась.
-- TUI на общем daemon (закрыто при проверке OTel, Э(mock)): TUI без `--no-daemon` сам поднимает managed daemon и в длинном `CODEX_HOME` — сокет это symlink в `/tmp/codex-daemon-<uid>/`. Trusted-hooks, включая `PermissionRequest`, срабатывают в тредах демона; rollout — `originator:"codex-tui"`, `source:"vscode"`. Наши ранние TUI-прогоны шли с `--dangerously-bypass-hook-trust` и, вероятно, поэтому in-process. От чьего имени исполняются hooks на демоне при нескольких клиентах, не проверено.
+- TUI на общем daemon (закрыто при проверке OTel, Э(mock)): TUI без `--no-daemon` сам поднимает managed daemon и в длинном `CODEX_HOME` — сокет это symlink в `/tmp/codex-daemon-<uid>/`. Trusted-hooks, включая `PermissionRequest`, срабатывают в тредах демона; rollout — `originator:"codex-tui"`, `source:"vscode"`. Наши ранние TUI-прогоны шли с `--dangerously-bypass-hook-trust` и поэтому in-process: исключение для этого флага есть в исходнике `tui/src/daemon_startup.rs` 0.159.2, а `-s`/`-a` daemon не отключают (повторное ревью). От чьего имени исполняются hooks на демоне при нескольких клиентах, не проверено.
 
 ### Рекомендуемый способ сбора для aang
 
@@ -1234,7 +1234,7 @@
 
 (г) **TUI и общий демон.**
 - Интерактивный `codex` без флагов сам поднимает демон `<CODEX_HOME>/packages/app-server-daemon/releases/0.159.2-…/bin/codex app-server --listen unix:// --managed-daemon` (pid в `app-server-daemon/daemon.pid`). Демон переживает выход TUI.
-- С `-s read-only -a on-request` TUI работал in-process, демон не поднимался.
+- В одном нашем прогоне с `-s read-only -a on-request` TUI работал in-process. Причина не установлена: повторное ревью показало, что сами `-s`/`-a` поднимают daemon. Исключение есть для `--dangerously-bypass-hook-trust` (`tui/src/daemon_startup.rs`), возможна и неудача старта daemon.
 - Флаг `--no-daemon` описан в `codex --help`.
 
 В s6 TUI запускался через `expect` как `codex --remote unix://<socket>`. Флаг `--remote` понадобился из-за `SUN_LEN`. Чтобы TUI не завис на «loading», `expect` отвечал на запросы терминала (`ESC[6n`, OSC 10/11, `ESC[?u`, DA1).
@@ -1246,7 +1246,7 @@
 - собственный stdio app-server aang;
 - общий демон `--listen unix://`, на котором по умолчанию работает TUI.
 
-Треды Desktop (приватный stdio), `codex exec`, SDK и TUI in-process (`--no-daemon` или флаги `-s`/`-a`) из чужого процесса видны только как прочитанный rollout. При этом `thread/resume` из своего процесса опасен: он захватывает lock и блокирует владельца.
+Треды Desktop (приватный stdio), `codex exec`, SDK и TUI in-process (`--no-daemon`, `--dangerously-bypass-hook-trust`) из чужого процесса видны только как прочитанный rollout. При этом `thread/resume` из своего процесса опасен: он захватывает lock и блокирует владельца.
 
 **4. Codex SDK** (`node sdk/run.mjs`, `k/`):
 - `@openai/codex-sdk@0.159.3` запускает **свой** бинарь `node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex` (0.159.3, не системный 0.159.2) как `exec --experimental-json` (алиас `--json`) и передаёт промпт в stdin. Флаги и env SDK — в `k/package-versions.json`, по коду `dist/index.js`.
@@ -1270,7 +1270,7 @@
 ### Пробелы и неясности
 
 - Не проверены `item/commandExecution/outputDelta` (у тестовых команд не было stdout), `hook/started|completed` (hooks в tmp-home не настраивались; см. разделы 9 и 11), `requestUserInput`, elicitation, автосжатие, `turn/interrupt`, `thread/fork`.
-- Почему с `-s/-a` TUI ушёл в in-process, известно только по косвенным данным: в бинаре есть `daemon_selection_reason ∈ {incompatible_option, explicit_no_daemon, auto_start_disabled, existing_daemon, auto_start}`. Работают ли так же `--yolo` (алиас пользователя) и `codex resume`, не проверено. Реальные rollout пользователя с `originator:"codex-tui"` (раздел 11) указывают, что его TUI работает in-process.
+- Выбор daemon или in-process для TUI: по повторному ревью `-s`/`-a` к in-process не приводят. Подтверждены `--no-daemon` и исключение для `--dangerously-bypass-hook-trust` в `tui/src/daemon_startup.rs`; в бинаре есть `daemon_selection_reason ∈ {incompatible_option, explicit_no_daemon, auto_start_disabled, existing_daemon, auto_start}`. Работают ли так же `--yolo` (алиас пользователя) и `codex resume`, не проверено. Реальные rollout пользователя с `originator:"codex-tui"` (раздел 11) показывают, что его TUI работал in-process; причина не установлена.
 - Широковещательная рассылка `thread/status/changed{waitingOnApproval}` неподписанным соединениям наблюдалась только для `active` и `idle`; для флага одобрения это вывод по аналогии.
 - `historyMode:"paginated"` и `thread_history_1.sqlite` — внутренний формат, контракта нет.
 - Python SDK и `codex agents`/`codex queue` не исследовались.
@@ -1473,6 +1473,8 @@ env -i HOME USER LOGNAME SHELL TMPDIR PATH CLAUDE_CODE_ENTRYPOINT=claude-desktop
 
 - Регистратор hooks — скрипт, который дописывает stdin и `env | grep -E '^(CLAUDE_CODE_ENTRYPOINT|CLAUDE_CODE_HOST_SESSION_ID|CODEX_)'` в файл. В Claude подключить через временный плагин или запись в `~/.claude/settings.json` на все события. В Codex — через `~/.codex/hooks.json`.
 - Создать временный git-репозиторий `/tmp/aang-desktop-probe`.
+- Для шага 8a создать пустой каталог `~/aang-desktop-probe-outside`: вне проекта и вне временных каталогов. `/tmp` и `$TMPDIR` в workspace-write Codex 0.159.2 по умолчанию входят в корни записи (если не заданы `exclude_slash_tmp` / `exclude_tmpdir_env_var`), поэтому каталог в `/tmp` для теста не годится.
+- Для шага 1a убедиться, что в настройках Claude нет allow-правила, разрешающего `touch`: иначе запроса не будет.
 
 Claude Desktop, вкладка Code, режим Ask:
 
@@ -1489,7 +1491,7 @@ Codex (ChatGPT.app):
 
 7. Добавить регистратор в `~/.codex/hooks.json`, открыть приложение и выполнить trust в UI. Проверить `trustStatus` через `hooks/list` в логах.
 8. Новый чат Local в `/tmp/aang-desktop-probe` с approval on-request, промпт «run `echo hi`, then reply OK». Безопасная команда в песочнице может пройти без запроса, поэтому шаг проверяет только SessionStart, UserPromptSubmit, PreToolUse, PostToolUse и Stop. В новом rollout записать `originator` и `source`.
-   - 8a. **Детерминированный запрос одобрения.** Промпт: «Run `touch /tmp/aang-desktop-probe-outside/allow.txt`; if the sandbox blocks it, request escalated permissions». Каталог вне корней записи вызывает эскалацию. Одобрить: ожидаются PermissionRequest, затем PostToolUse. Повторить с `deny.txt` и отклонить: PermissionRequest есть, PostToolUse нет. Если включён OTel-экспорт (раздел 9), сверить `codex.tool_decision` approved/denied по `call_id`. Если запрос одобрения не появился, шаг считается непройденным, а не подтверждением исправных hooks.
+   - 8a. **Детерминированный запрос одобрения.** В rollout нового чата проверить `turn_context.sandbox_policy`: `~/aang-desktop-probe-outside` не должен входить в writable roots. Промпт: «Run `touch ~/aang-desktop-probe-outside/allow.txt` and request escalated permissions for it (`sandbox_permissions: require_escalated`)». В режиме on-request явный `require_escalated` требует одобрения независимо от того, разрешила бы песочница запись, если в сессии нет сохранённых правил одобрения. Одобрить: ожидаются PermissionRequest, PostToolUse и созданный файл. Повторить с `deny.txt` и отклонить: PermissionRequest есть, PostToolUse и файла нет. Если включён OTel-экспорт (раздел 9), сверить `codex.tool_decision` approved/denied по `call_id` — он совпадает с `tool_use_id` у PreToolUse, а не у PermissionRequest. Если запрос одобрения не появился, шаг считается непройденным, а не подтверждением исправных hooks.
 9. Повторить в Worktree (`$CODEX_HOME/worktrees/…`), затем со spawn субагента (`parent_thread_id`, SubagentStart/Stop). Закрыть и снова открыть приложение, продолжить чат (SessionStart `source=resume`).
 10. Чат Cloud: убедиться, что нет ни rollout, ни hooks.
 
@@ -1680,8 +1682,18 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 CODEX_INTERNAL_ORIGINATO
 
 - `--bare` обещают сделать поведением `-p` по умолчанию. Тогда путь подписки сломается: признаком будет результат `Not logged in` с `is_error: true` (проверено на `--bare`). Нужно отслеживать версию CLI и закрепить её в тестах совместимости.
 - Неудача в Claude маскируется полем `subtype: "success"`. Codex без авторизации тратит ≈18 с на повторы до `turn.failed`.
-- Используются недокументированные рычаги: `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, имена feature flags Codex. Они могут исчезнуть без предупреждения, поэтому нужна проверка изоляции на каждую версию (init у Claude, `debug prompt-input` у Codex).
-- Латентность: изолированный вызов занимает 9–16 с на порцию из 10 событий, минимально изолированный — 15–30 с. Это значительная доля 30-секундного ориентира p95 (RFC §8) ещё до очереди и проверки.
+- Используются недокументированные рычаги: `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, имена feature flags Codex, поля каталога моделей Codex. Они могут исчезнуть без предупреждения. Поэтому изоляцию нужно проверять на каждой версии:
+  - у Claude — по `init` (`tools`, `mcp_servers`, `plugins`);
+  - у Codex — по фактическому каталогу инструментов в запросе к mock и по попыткам их исполнения (см. «Рекомендуемый способ сбора» и раздел 13.3).
+
+  Рендера `debug prompt-input` для этого недостаточно: он не показывал инструменты.
+- Латентность на порцию из 10 событий, по одному замеру на вариант:
+  - Claude с полной изоляцией — 8,6–9,0 с;
+  - Codex без инструментов (codex-4) — 42 с;
+  - старый Codex-профиль с 10 инструментами (codex-2) — 16,4 с;
+  - минимальная изоляция — 15–30 с.
+
+  Это не оценка p95, но такие вызовы сопоставимы с 30-секундным ориентиром p95 (RFC §8) или превышают его ещё до очереди и проверки.
 - Расход: по прайсу Claude B стоит $0,042 за порцию без тёплого кэша. При подписке это доля лимитов `five_hour`/`seven_day`, общих с работой самого пользователя.
 - При `--ignore-user-config` Codex тихо меняет модель на `gpt-6.1-sol`.
 - Prompt injection, Claude: инструментов нет (`tools == ["StructuredOutput"]`), инъекцию в замерах помечали как риск.
@@ -1700,7 +1712,7 @@ env -i HOME="$HOME" PATH=/usr/bin:/bin LANG=en_US.UTF-8 CODEX_INTERNAL_ORIGINATO
 3. Политика хранения: без сохранения (`--no-session-persistence` / `--ephemeral`, аудит только в хранилище aang) или с сохранением и маркерами `entrypoint`/`originator`/`thread_source`.
 4. Допустимость недокументированных переменных (`CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`) против ограничения документированными флагами. Изоляция Codex-наблюдателя от инструментов возможна только через недокументированные поля каталога (`tool_mode`, `multi_agent_version`, `experimental_supported_tools`, `apply_patch_tool_type`) и `tools.experimental_request_user_input`. Варианты: принять их вместе с обязательной самопроверкой на mock; использовать модель, у которой в каталоге уже `tool_mode: null` (сейчас `gpt-5.5`, но у неё остаются `request_user_input` и `apply_patch`); отказаться от Codex как backend наблюдателя.
 5. Подписка против API-ключа: `--bare` с `ANTHROPIC_API_KEY` — рекомендованный вендором режим для скриптов. Это тоже «уже авторизованный CLI» в смысле RFC, но другой, не проверенный профиль: нужен ключ, возможна отдельная оплата, условия авторизации и расходов подлежат согласованию (RFC §10).
-6. Бюджет свежести: размер порции, таймер и `effort` с учётом 9–30 с на вызов; при необходимости пересмотреть ориентир RFC §8.
+6. Бюджет свежести: размер порции, таймер и `effort` с учётом единичных наблюдений — 8,6–9,0 с у Claude и 42 с у Codex без инструментов; p95 не измерен. При необходимости пересмотреть ориентир RFC §8.
 
 ### Созданные экспериментальные сессии (для удаления)
 
