@@ -145,3 +145,22 @@ test('a database written by a newer schema is refused and left untouched', async
 
   expect(readFileSync(home.databaseFile)).toEqual(bytes)
 })
+
+test('upgrading an older database first copies it next to the original and keeps its data', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const [first] = schemaFiles()
+  mkdirSync(home.path, { recursive: true })
+  const older = home.database()
+  older.exec(first ?? '')
+  older.exec('UPDATE change_counter SET value = 41; PRAGMA user_version = 1')
+  older.close()
+
+  expect(home.open().transaction((transaction) => transaction.nextChangeSeq())).toBe(42)
+
+  const backup = home.database('aang.db.v1.bak')
+  expect(pragma(backup, 'user_version')).toBe(1)
+  expect(backup.prepare('SELECT value FROM change_counter').get()).toEqual({ value: 41 })
+  expect(pragma(home.database(), 'user_version')).toBe(schemaFiles().length)
+})
