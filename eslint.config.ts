@@ -32,6 +32,6 @@ export default defineConfig(
   },
   {
     plugins: { aang },
-    rules: { 'aang/dependency-direction': 'error' },
+    rules: { 'aang/dependency-direction': 'error', 'aang/esm-only': 'error' },
   },
 )

@@ -138,57 +138,36 @@ const violations: readonly DirectionCase[] = [
     ],
   },
   {
-    name: 'require and require.resolve created by createRequire are checked, including aliases',
-    path: 'packages/engine/src/loader.ts',
-    code: [
-      "import { createRequire } from 'node:module'",
-      '',
-      'const require = createRequire(import.meta.url)',
-      'const load = require',
-      "require('../../adapter-claude/dist/index.js')",
-      "require.resolve('@aang/adapter-codex')",
-      "load('@aang/daemon')",
-      "createRequire(import.meta.url)('@aang/observer')",
-    ],
-    errors: [
-      [
-        5,
-        "@aang/engine product code may not reach @aang/adapter-claude through the relative path '../../adapter-claude/dist/index.js'; import other packages by name; allowed: @aang/contract, @aang/store",
-      ],
-      [6, '@aang/engine product code may not import @aang/adapter-codex; allowed: @aang/contract, @aang/store'],
-      [7, '@aang/engine product code may not import @aang/daemon; allowed: @aang/contract, @aang/store'],
-      [8, '@aang/engine product code may not import @aang/observer; allowed: @aang/contract, @aang/store'],
-    ],
-  },
-  {
-    name: 'createRequire is recognized when renamed or reached as a module member',
-    path: 'packages/store/src/loader.ts',
-    code: [
-      "import { createRequire as makeRequire } from 'node:module'",
-      '',
-      "makeRequire(import.meta.url).resolve('@aang/engine')",
-      "process.getBuiltinModule('node:module').createRequire(import.meta.url)('@aang/engine/journal')",
-    ],
-    errors: [
-      [3, '@aang/store product code may not import @aang/engine; allowed: @aang/contract'],
-      [4, '@aang/store product code may not import @aang/engine; allowed: @aang/contract'],
-    ],
-  },
-  {
-    name: 'import.meta.resolve is checked',
+    name: 'import.meta.resolve is checked; with a parent URL only package names are checked',
     path: 'packages/web/src/locate.ts',
-    code: ["export const daemon = import.meta.resolve('@aang/daemon')"],
-    errors: [[1, '@aang/web product code may not import @aang/daemon; allowed: @aang/contract']],
+    code: [
+      "export const daemon = import.meta.resolve('@aang/daemon')",
+      "export const cli = import.meta.resolve('@aang/cli', import.meta.url)",
+      "export const store = import.meta.resolve('../../store/src/index.js')",
+    ],
+    errors: [
+      [1, '@aang/web product code may not import @aang/daemon; allowed: @aang/contract'],
+      [2, '@aang/web product code may not import @aang/cli; allowed: @aang/contract'],
+      [
+        3,
+        "@aang/web product code may not reach @aang/store through the relative path '../../store/src/index.js'; import other packages by name; allowed: @aang/contract",
+      ],
+    ],
   },
   {
-    name: 'the CommonJS require is checked, including backslash package specifiers',
-    path: 'packages/cli/src/legacy.cjs',
-    code: ["require('@aang\\\\daemon')", "require.resolve('../../web/src/index.js')"],
+    name: 'backslash package specifiers are checked',
+    path: 'packages/cli/src/backslash.ts',
+    code: ["import '@aang\\\\daemon'"],
+    errors: [[1, '@aang/cli product code may not import @aang/daemon; allowed: @aang/contract, @aang/hook']],
+  },
+  {
+    name: 'import = require() is checked',
+    path: 'packages/engine/test/legacy.test.ts',
+    code: ["import daemon = require('@aang/daemon')", '', 'export { daemon }'],
     errors: [
-      [1, '@aang/cli product code may not import @aang/daemon; allowed: @aang/contract, @aang/hook'],
       [
-        2,
-        "@aang/cli product code may not reach @aang/web through the relative path '../../web/src/index.js'; import other packages by name; allowed: @aang/contract, @aang/hook",
+        1,
+        '@aang/engine test code may not import @aang/daemon; allowed: @aang/contract, @aang/store, @aang/testkit, @aang/adapter-claude, @aang/adapter-codex',
       ],
     ],
   },
@@ -298,35 +277,14 @@ const allowed: readonly DirectionCase[] = [
     errors: [],
   },
   {
-    name: 'createRequire loaders may load allowed packages and their own package files',
-    path: 'packages/observer/src/require.ts',
-    code: [
-      "import { createRequire } from 'node:module'",
-      '',
-      'const require = createRequire(import.meta.url)',
-      "require('@aang/engine')",
-      "require.resolve('./index.js')",
-    ],
-    errors: [],
-  },
-  {
-    name: 'dynamic imports and loaders with a computed specifier are not checked',
+    name: 'computed specifiers and relative import.meta.resolve with a parent URL are not checked',
     path: 'packages/cli/src/plugins.ts',
     code: [
-      "import { createRequire } from 'node:module'",
-      '',
-      'export const load = (specifier: string) => import(specifier)',
-      'export const loadSync = (specifier: string): unknown => createRequire(import.meta.url)(specifier)',
-    ],
-    errors: [],
-  },
-  {
-    name: 'functions that are not module loaders are not checked',
-    path: 'packages/contract/src/callbacks.ts',
-    code: [
-      "export const call = (require: (id: string) => unknown): unknown => require('@aang/daemon')",
-      "export const lookup = (cache: Map<string, unknown>): unknown => cache.get('@aang/store')",
-      "export const curried = (make: () => () => (id: string) => unknown): unknown => make()()('@aang/daemon')",
+      'export const load = (specifier: string): Promise<unknown> => import(specifier)',
+      'export const locate = (specifier: string): string => import.meta.resolve(specifier, import.meta.url)',
+      'export const locateAll = (...specifiers: [string]): string => import.meta.resolve(...specifiers)',
+      "export const sibling = import.meta.resolve('../../web/src/index.js', new URL('../../web/src/', import.meta.url))",
+      'export const now = (): number => Date.now()',
     ],
     errors: [],
   },
@@ -367,7 +325,7 @@ describe('the repository ESLint configuration enforces the ADR-0011 dependency d
   })
 
   test.for(cases)('$name', (row, { expect }) => {
-    expect(findings?.get(row.path)).toEqual(
+    expect(findings?.get(row.path)?.filter(({ ruleId }) => ruleId === 'aang/dependency-direction')).toEqual(
       row.errors.map(([line, message]) => ({ ruleId: 'aang/dependency-direction', line, message })),
     )
   })

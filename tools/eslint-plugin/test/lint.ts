@@ -47,7 +47,7 @@ const repositoryLayout = (
         noEmit: true,
         typeRoots: [join(repositoryRoot, 'node_modules/@types')],
       },
-      include: ['**/*.ts'],
+      include: ['**/*.ts', '**/*.cts'],
     }),
     ...Object.fromEntries(
       [...packageDirectories].map((directory) => [

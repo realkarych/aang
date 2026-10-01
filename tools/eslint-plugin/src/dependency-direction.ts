@@ -1,8 +1,9 @@
-import { existsSync } from 'node:fs'
-import { dirname, join, posix, relative } from 'node:path'
+import { posix, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
-import { AST_NODE_TYPES, ASTUtils, ESLintUtils, TSESLint, type TSESTree } from '@typescript-eslint/utils'
+import { AST_NODE_TYPES, ASTUtils, ESLintUtils, type TSESTree } from '@typescript-eslint/utils'
 import { allowedDependencies, isPackageDirectory } from './dependencies.js'
+import { staticSource } from './syntax.js'
+import { toPosix, workspaceRoot } from './workspace.js'
 
 type MessageId = 'forbiddenPackage' | 'relativeIntoOwnImplementation' | 'relativeOutsidePackage' | 'unknownPackage'
 
@@ -17,28 +18,11 @@ interface RelativeViolation {
   readonly target: string
 }
 
-const workspaceMarker = 'pnpm-workspace.yaml'
 const packagesDirectory = 'packages'
 const scope = '@aang/'
 const implementationDirectories: readonly string[] = ['src', 'dist']
-const createRequireName = 'createRequire'
-const globalRequireName = 'require'
 
 const packageName = (directory: string): string => `${scope}${directory}`
-
-const toPosix = (path: string): string => path.replaceAll('\\', '/')
-
-const workspaceRoot = (filename: string): string | undefined => {
-  let directory = dirname(filename)
-  while (!existsSync(join(directory, workspaceMarker))) {
-    const parent = dirname(directory)
-    if (parent === directory) {
-      return undefined
-    }
-    directory = parent
-  }
-  return directory
-}
 
 const packageFile = (root: string, filename: string): PackageFile | undefined => {
   const path = toPosix(relative(root, filename))
@@ -66,21 +50,8 @@ const urlTarget = (root: string, filename: string, source: string): string | und
   }
 }
 
-const staticSource = (node: TSESTree.Expression): string | undefined => {
-  if (node.type === AST_NODE_TYPES.Literal) {
-    return typeof node.value === 'string' ? node.value : undefined
-  }
-  if (node.type === AST_NODE_TYPES.TemplateLiteral && node.expressions.length === 0) {
-    return node.quasis[0]?.value.cooked ?? undefined
-  }
-  return undefined
-}
-
 const isImportMeta = (node: TSESTree.Expression): boolean =>
   node.type === AST_NODE_TYPES.MetaProperty && node.meta.name === 'import' && node.property.name === 'meta'
-
-const exportedName = (node: TSESTree.Identifier | TSESTree.StringLiteral): string =>
-  node.type === AST_NODE_TYPES.Identifier ? node.name : node.value
 
 export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], MessageId>({
   meta: {
@@ -160,45 +131,10 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       context.report({ node, messageId: 'forbiddenPackage', data: { ...data, imported: packageName(imported) } })
     }
 
-    const variableOf = (node: TSESTree.Identifier): TSESLint.Scope.Variable | null =>
-      ASTUtils.findVariable(context.sourceCode.getScope(node), node)
-
-    const isCreateRequire = (node: TSESTree.Expression): boolean => {
-      if (node.type === AST_NODE_TYPES.MemberExpression) {
-        return ASTUtils.getPropertyName(node, context.sourceCode.getScope(node)) === createRequireName
-      }
-      if (node.type !== AST_NODE_TYPES.Identifier) {
-        return false
-      }
-      const definition = variableOf(node)?.defs[0]
-      const name = definition?.node.type === AST_NODE_TYPES.ImportSpecifier ? exportedName(definition.node.imported) : node.name
-      return name === createRequireName
-    }
-
-    const isLoader = (node: TSESTree.Expression, visited: ReadonlySet<TSESLint.Scope.Variable>): boolean => {
-      if (node.type === AST_NODE_TYPES.CallExpression) {
-        return isCreateRequire(node.callee)
-      }
-      if (node.type !== AST_NODE_TYPES.Identifier) {
-        return false
-      }
-      const variable = variableOf(node)
-      if (variable === null || variable.defs.length === 0) {
-        return node.name === globalRequireName
-      }
-      const [definition] = variable.defs
-      return (
-        !visited.has(variable) &&
-        definition?.type === TSESLint.Scope.DefinitionType.Variable &&
-        definition.node.init !== null &&
-        isLoader(definition.node.init, new Set([...visited, variable]))
-      )
-    }
-
-    const isResolver = (node: TSESTree.Expression): boolean =>
+    const isImportMetaResolve = (node: TSESTree.Expression): boolean =>
       node.type === AST_NODE_TYPES.MemberExpression &&
-      ASTUtils.getPropertyName(node, context.sourceCode.getScope(node)) === 'resolve' &&
-      (isImportMeta(node.object) || isLoader(node.object, new Set()))
+      isImportMeta(node.object) &&
+      ASTUtils.getPropertyName(node, context.sourceCode.getScope(node)) === 'resolve'
 
     return {
       ImportDeclaration: (node) => {
@@ -218,14 +154,19 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       TSImportType: (node) => {
         check(node.source, node.source.value)
       },
+      TSImportEqualsDeclaration: (node) => {
+        if (node.moduleReference.type === AST_NODE_TYPES.TSExternalModuleReference) {
+          check(node.moduleReference.expression, node.moduleReference.expression.value)
+        }
+      },
       CallExpression: (node) => {
-        const [argument] = node.arguments
-        if (
-          argument !== undefined &&
-          argument.type !== AST_NODE_TYPES.SpreadElement &&
-          (isLoader(node.callee, new Set()) || isResolver(node.callee))
-        ) {
-          check(argument, staticSource(argument))
+        const [argument, parent] = node.arguments
+        if (argument === undefined || argument.type === AST_NODE_TYPES.SpreadElement || !isImportMetaResolve(node.callee)) {
+          return
+        }
+        const source = staticSource(argument)
+        if (parent === undefined || (source !== undefined && !isRelative(source))) {
+          check(argument, source)
         }
       },
     }
