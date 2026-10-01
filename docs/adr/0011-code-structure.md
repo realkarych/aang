@@ -52,11 +52,12 @@ HTTP JSON и SSE с префиксом `/api`. Доступ — по bearer-то
 | `GET /api/runs` | прогоны: состояние, внимание, свежесть |
 | `GET /api/runs/:run` | снимок: модель текущей версии, объекты, внимание, применённые правила вида, отметка просмотра, свежесть, `change_seq` снимка |
 | `GET /api/runs/:run/stages/:stage` | инспектор: сводка, входы и выходы, время, расход, основания, история |
-| `GET /api/runs/:run/changes?from=<версия>` | разница по журналу |
+| `GET /api/runs/:run/changes?version=<версия>&seq=<change_seq>` | разница от отметки просмотра: по журналу модели и по объектам наблюдения (ADR-0008) |
 | `GET /api/runs/:run/observer-calls` | вызовы наблюдателя: принятые и отклонённые операции, задержки |
 | `GET /api/facts/:id`, `GET /api/raw/:seq` | исходные события |
 | `POST /api/runs/:run/viewed` | отметка просмотра на версии |
-| `POST /api/runs/:run/attention/:item/viewed` | отметка пункта внимания |
+| `POST /api/runs/:run/attention/:item/viewed`, `POST /api/runs/:run/attention/:item/dismiss` | отметка и снятие пункта внимания |
+| `GET /api/artifact-versions/:id` | сохранённая версия артефакта или пометка о недоступности |
 | `GET`, `POST /api/runs/:run/chat` | история чата; вопрос, ответ приходит через SSE |
 | `POST`, `DELETE /api/runs/:run/view-rules[/:id]` | правила вида |
 | `POST`, `DELETE /api/bindings[/:id]` | явные привязки сессий |
