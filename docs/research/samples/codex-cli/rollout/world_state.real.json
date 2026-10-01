@@ -1,0 +1,57 @@
+{
+  "timestamp": "2026-10-01T11:56:17.750Z",
+  "ordinal": 6,
+  "type": "world_state",
+  "payload": {
+    "full": true,
+    "state": {
+      "agents_md": {},
+      "apps_instructions": false,
+      "collaboration_mode": {
+        "mode": "default",
+        "model": "gpt-6.1-sol",
+        "instructions": "0a11049b0421e1e86f1e129af8d547a89548a0c3"
+      },
+      "context_window_guidance": "",
+      "environments": {
+        "environments": {
+          "local": {
+            "cwd": "/tmp/aang-spike/codex-cli/run1",
+            "status": "available",
+            "shell": "zsh"
+          }
+        },
+        "current_date": "2026-10-01",
+        "timezone": "<TZ>",
+        "filesystem": "<filesystem><workspace_roots><root>/tmp/aang-spike/codex-cli/run1</root></workspace_roots><permission_profile type=\"managed\"><file_system type=\"restricted\"><entry access=\"read\"><special>:root</special></entry></file_system></permission_profile></filesystem>"
+      },
+      "environments_instructions": false,
+      "git_attribution": false,
+      "host_skills": {
+        "body": "\n## Skills\nA skill is a set of local instructions to follow that is stored in a `SKILL.md` file. Below is the list of sk<truncated 1913 chars>",
+        "includeInstructions": true
+      },
+      "managed_developer_instructions": {},
+      "model": "gpt-6.1-sol",
+      "multi_agent_mode": {
+        "mode": "explicitRequestOnly",
+        "usage_hint_hash": "30fb77255ffd0abcecb08a8897e242564dfe1192"
+      },
+      "multi_agent_usage_hint": "30fb77255ffd0abcecb08a8897e242564dfe1192",
+      "permissions": {
+        "instructions": "fed2f53df24dd05a217b734cf7ad9abefa7cc6a2",
+        "approved_command_prefixes": [
+          "<redacted 17 user-approved prefixes>"
+        ]
+      },
+      "persistent_mode": {},
+      "plugins_instructions": false,
+      "realtime": {
+        "active": false
+      },
+      "skills": {
+        "includeInstructions": true
+      }
+    }
+  }
+}

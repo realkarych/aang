@@ -1,0 +1,110 @@
+{
+  "timestamp": "2026-10-01T12:07:28.890Z",
+  "ordinal": 19,
+  "type": "compacted",
+  "payload": {
+    "message": "Another language model started to solve this problem and produced a summary of its thinking process. You also have access to the state of the tools that were used by that language model. Use this to build on the work that has already been done and avoid duplicating work. Here is the summary produced by the other language model, use the information in this summary to assist with your own analysis:\n<truncated 412 chars>",
+    "replacement_history": [
+      "<6 items truncated: developer/user messages re-injected after inline compaction>"
+    ],
+    "replacement_history_metadata": [
+      {
+        "client_authored": false
+      },
+      {
+        "client_authored": false
+      },
+      {
+        "client_authored": false
+      },
+      {
+        "client_authored": false
+      },
+      {
+        "retained_source": {
+          "id": {
+            "message_id": "msg_01a0f75c-cb00-7191-9aed-12af6e95873a",
+            "turn_id": "01a0f75c-cac7-78d2-aa64-2cef5d9093df",
+            "role": "user"
+          },
+          "revision": "retained_01a0f75c-cb00-7191-9aed-12c3f13ce55c",
+          "complete": true
+        },
+        "client_authored": false,
+        "user_input_order": 0,
+        "mcp_attribution": {
+          "status": "none"
+        }
+      },
+      {
+        "client_authored": false,
+        "mcp_attribution": {
+          "status": "none"
+        }
+      }
+    ],
+    "retained_context": {
+      "verified_answers": [],
+      "incomplete": false,
+      "user_messages": [
+        {
+          "revision": "retained_01a0f75c-cb00-7191-9aed-12c3f13ce55c",
+          "order": 0,
+          "turn_id": "01a0f75c-cac7-78d2-aa64-2cef5d9093df",
+          "message_id": "msg_01a0f75c-cb00-7191-9aed-12af6e95873a",
+          "text": "SCN_COMPACT",
+          "complete": true
+        }
+      ],
+      "user_messages_incomplete": false,
+      "assistant_messages": [],
+      "assistant_messages_incomplete": false,
+      "next_order": 2
+    },
+    "window_number": 1,
+    "first_window_id": "01a0f75c-caa3-7032-aff1-44f8028f39c5",
+    "previous_window_id": "01a0f75c-caa3-7032-aff1-44f8028f39c5",
+    "window_id": "01a0f75c-cb7a-7ee1-9ae7-c0e365c69172",
+    "compaction_response_id": "resp_mock_4",
+    "latest_token_usage_record": {
+      "thread_id": "01a0f75c-caa3-7032-aff1-44dbbf58a79b",
+      "turn_id": "01a0f75c-cac7-78d2-aa64-2cef5d9093df",
+      "session_id": "01a0f75c-caa3-7032-aff1-44dbbf58a79b",
+      "root_turn_id": "01a0f75c-cac7-78d2-aa64-2cef5d9093df",
+      "response_id": "resp_mock_4",
+      "usage": {
+        "input_tokens": 1000,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 10,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 1010
+      },
+      "turn_token_usage": {
+        "input_tokens": 51000,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 20,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 51020
+      },
+      "thread_token_usage": {
+        "input_tokens": 51000,
+        "cached_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 20,
+        "reasoning_output_tokens": 0,
+        "total_tokens": 51020
+      }
+    },
+    "resume_metadata": {
+      "multi_agent_version": "v2",
+      "last_started_turn_id": "01a0f75c-cac7-78d2-aa64-2cef5d9093df",
+      "previous_turn_settings": {
+        "model": "gpt-6.1-sol",
+        "comp_hash": "3000",
+        "realtime_active": false
+      }
+    }
+  }
+}

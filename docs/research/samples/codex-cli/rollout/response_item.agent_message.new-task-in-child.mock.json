@@ -1,0 +1,29 @@
+{
+  "timestamp": "2026-10-01T12:06:54.987Z",
+  "ordinal": 9,
+  "type": "response_item",
+  "payload": {
+    "type": "agent_message",
+    "id": "amsg_01a0f75c-470b-7b93-b058-d4e78bc7ff64",
+    "author": "/root",
+    "recipient": "/root/probe_child",
+    "content": [
+      {
+        "type": "input_text",
+        "text": "Message Type: NEW_TASK\nTask name: /root/probe_child\nSender: /root\nPayload:\n"
+      },
+      {
+        "type": "encrypted_content",
+        "encrypted_content": "SCN_CHILD run ec<truncated 41 chars>"
+      }
+    ],
+    "internal_chat_message_metadata_passthrough": {
+      "turn_id": "01a0f75c-46f1-7091-8408-199407132c7c",
+      "create_time": 1790856414.987836
+    }
+  },
+  "metadata": {
+    "client_authored": false,
+    "user_input_order": 0
+  }
+}

@@ -1,0 +1,84 @@
+{
+ "path": "~/Library/Application Support/Claude/claude-code-sessions/<account_uuid>/<org_uuid>/local_<uuid>.json",
+ "link": "cliSessionId == Claude Code session_id == ~/.claude/projects/<slug>/<cliSessionId>.jsonl; sessionId (local_<uuid>) == env CLAUDE_CODE_HOST_SESSION_ID of the spawned engine",
+ "shape": {
+  "sessionId": "str<local_uuid>",
+  "cliSessionId": "str<uuid>",
+  "cwd": "str<path>",
+  "originCwd": "str<path>",
+  "lastFocusedAt": "int",
+  "createdAt": "int",
+  "lastActivityAt": "int",
+  "model": "str",
+  "effort": "str",
+  "isArchived": "bool",
+  "title": "str",
+  "titleSource": "str",
+  "permissionMode": "str",
+  "remoteMcpServersConfig": [
+   "array<2> of",
+   {
+    "uuid": "str<uuid>",
+    "name": "str",
+    "url": "str",
+    "tools": "array<8>"
+   }
+  ],
+  "chromePermissionMode": "str",
+  "completedTurns": "int",
+  "titleTurn": "int",
+  "postTurnSummary": {
+   "status_category": "str",
+   "status_detail": "str",
+   "needs_action": "str",
+   "summarizes_uuid": "str<uuid>"
+  },
+  "postTurnSummaryFor": "str<uuid>",
+  "lastAssistantUuid": "str<uuid>",
+  "lastSpawnRootDetected": "bool",
+  "autoChosenInApp": "bool",
+  "remoteControlAutoEligible": "bool",
+  "steeredByRemoteClient": "bool",
+  "latestUserFrameAt": "int",
+  "alwaysAllowedReasons": "array<empty>",
+  "sessionPermissionUpdates": "array<empty>",
+  "classifierSummaryEnabled": "bool",
+  "reportFindingsCard": "bool",
+  "autoModeServerFallbackPrompt": "bool",
+  "spawnSeed": {},
+  "promptAppendSnapshot": {
+   "append": "str",
+   "cliVersion": "str",
+   "settingsKey": "str"
+  },
+  "toolSurfaceSnapshot": {
+   "familyHashes": {
+    "builtin": "str",
+    "internal_inline": "str",
+    "internal_deferred": "str",
+    "connector": "str",
+    "extension": "str",
+    "plugin_or_user": "str"
+   },
+   "deferredHash": "str",
+   "disallowedToolsKey": "str",
+   "appVersion": "str",
+   "cliVersion": "str",
+   "appRunId": "str<uuid>",
+   "recordedAt": "int"
+  }
+ },
+ "observed_enum_values": {
+  "titleSource": [
+   "auto"
+  ],
+  "permissionMode": [
+   "auto",
+   "bypassPermissions"
+  ],
+  "postTurnSummary.status_category": [
+   "blocked",
+   "completed"
+  ]
+ }
+}

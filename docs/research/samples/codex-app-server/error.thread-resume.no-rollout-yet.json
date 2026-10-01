@@ -1,0 +1,10 @@
+{
+  "scenario": "s6 first attempt: observer called thread/resume immediately after thread/started broadcast, before the TUI sent the first user message (rollout not materialized yet)",
+  "response": {
+    "error": {
+      "code": -32600,
+      "message": "no rollout found for thread id 01a0f761-5037-7a02-a1d9-649c0879a77a"
+    },
+    "id": 4
+  }
+}

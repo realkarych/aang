@@ -1,0 +1,46 @@
+{
+ "_run": "run2",
+ "_recv_ms_since_query_start": 2906,
+ "toolUseID_arg": "toolu_0132BMNVaNZbgUUvJU3Ztchz",
+ "input": {
+  "session_id": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-sdk-work/6eaeafd8-aaba-4304-92e9-0f823860947e.jsonl",
+  "cwd": "/tmp/aang-spike/cc-sdk/work",
+  "prompt_id": "b6dcb58c-a8d2-4a30-b3db-9572157610b5",
+  "permission_mode": "default",
+  "effort": {
+   "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+   "command": "touch perm.txt",
+   "description": "Create empty perm.txt file"
+  },
+  "permission_suggestions": [
+   {
+    "type": "addRules",
+    "rules": [
+     {
+      "toolName": "Bash",
+      "ruleContent": "touch perm.txt"
+     }
+    ],
+    "behavior": "allow",
+    "destination": "localSettings"
+   },
+   {
+    "type": "addDirectories",
+    "directories": [
+     "/tmp/aang-spike/cc-sdk/work"
+    ],
+    "destination": "session"
+   },
+   {
+    "type": "setMode",
+    "mode": "acceptEdits",
+    "destination": "session"
+   }
+  ]
+ }
+}

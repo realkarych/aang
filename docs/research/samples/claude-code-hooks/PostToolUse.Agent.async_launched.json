@@ -1,0 +1,30 @@
+{
+  "session_id": "d380b9e5-438f-4c52-8069-efd68320f593",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-F-failure/d380b9e5-438f-4c52-8069-efd68320f593.jsonl",
+  "cwd": "/tmp/aang-spike/cc-hooks/runs/F-failure",
+  "prompt_id": "470364c4-1b98-4dc2-88f3-b213c5b1120c",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Run echo hi",
+    "prompt": "Run `echo hi` with Bash and report its output.",
+    "subagent_type": "echoer",
+    "run_in_background": true
+  },
+  "tool_response": {
+    "isAsync": true,
+    "status": "async_launched",
+    "agentId": "a2623c7ee141c2838",
+    "description": "Run echo hi",
+    "resolvedModel": "claude-opus-5-5",
+    "prompt": "Run `echo hi` with Bash and report its output.",
+    "outputFile": "/tmp/claude-UID/-tmp-aang-spike-cc-hooks-runs-F-failure/d380b9e5-438f-4c52-8069-efd68320f593/tasks/a2623c7ee141c2838.output",
+    "canReadOutputFile": true
+  },
+  "tool_use_id": "toolu_01AA8XhrNqeGRtbxPCzffMAk",
+  "duration_ms": 5
+}

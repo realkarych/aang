@@ -1,0 +1,27 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "receivedAt": "2026-10-01T11:49:52.542+00:00",
+  "message": {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "fileChange",
+        "id": "exec-b387a853-f510-47b5-9c08-bf29077c3665",
+        "changes": [
+          {
+            "path": "/tmp/aang-spike/codex-appserver/work/b.txt",
+            "kind": {
+              "type": "add"
+            },
+            "diff": "x\n"
+          }
+        ],
+        "status": "inProgress"
+      },
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "turnId": "01a0f74c-9d33-7e42-adef-7fd1e9d43e48",
+      "startedAtMs": 1790855392540
+    },
+    "emittedAtMs": 1790855392541
+  }
+}

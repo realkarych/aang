@@ -1,0 +1,92 @@
+{
+  "scenario": "s3 observer: second client on same app-server, thread/resume on running thread, never answers server requests",
+  "request": {
+    "method": "thread/resume",
+    "id": 3,
+    "params": {
+      "threadId": "01a0f758-0965-7f03-9a19-a5e8e87294e2",
+      "excludeTurns": true
+    }
+  },
+  "response": {
+    "id": 3,
+    "result": {
+      "thread": {
+        "id": "01a0f758-0965-7f03-9a19-a5e8e87294e2",
+        "environments": [
+          {
+            "environmentId": "local",
+            "cwd": "/tmp/aang-spike/codex-appserver/work",
+            "runtimeWorkspaceRoots": [
+              "/tmp/aang-spike/codex-appserver/work"
+            ]
+          }
+        ],
+        "extra": null,
+        "sessionId": "01a0f758-0965-7f03-9a19-a5e8e87294e2",
+        "forkedFromId": null,
+        "parentThreadId": null,
+        "preview": "",
+        "ephemeral": false,
+        "section": null,
+        "sectionEnteredAt": null,
+        "projectId": null,
+        "historyMode": "paginated",
+        "modelProvider": "openai",
+        "model": "gpt-6.1-sol",
+        "reasoningEffort": null,
+        "createdAt": 1790856137,
+        "updatedAt": 1790856137,
+        "recencyAt": 1790856137,
+        "status": {
+          "type": "active",
+          "activeFlags": []
+        },
+        "path": "/tmp/aang-spike/codex-appserver/home/sessions/2026/10/01/rollout-2026-10-01T15-02-17-01a0f758-0965-7f03-9a19-a5e8e87294e2.jsonl",
+        "cwd": "/tmp/aang-spike/codex-appserver/work",
+        "cliVersion": "0.159.2",
+        "originator": "aang_spike_owner",
+        "source": "vscode",
+        "canAcceptDirectInput": true,
+        "threadSource": null,
+        "agentNickname": null,
+        "agentRole": null,
+        "gitInfo": null,
+        "name": null,
+        "daybreakEnabled": null,
+        "turns": []
+      },
+      "model": "gpt-6.1-sol",
+      "modelProvider": "openai",
+      "serviceTier": null,
+      "disabledPluginIds": [],
+      "cwd": "/tmp/aang-spike/codex-appserver/work",
+      "runtimeWorkspaceRoots": [
+        "/tmp/aang-spike/codex-appserver/work"
+      ],
+      "instructionSources": [],
+      "approvalPolicy": "untrusted",
+      "approvalsReviewer": "user",
+      "sandbox": {
+        "type": "readOnly",
+        "networkAccess": false
+      },
+      "activePermissionProfile": null,
+      "reasoningEffort": null,
+      "collaborationMode": {
+        "mode": "default",
+        "settings": {
+          "model": "gpt-6.1-sol",
+          "reasoning_effort": null,
+          "developer_instructions": null
+        }
+      },
+      "multiAgentMode": "explicitRequestOnly",
+      "initialTurnsPage": null,
+      "turnsBackwardsCursor": "{\"requestedThreadId\":\"01a0f758-0965-7f03-9a19-a5e8e87294e2\",\"rolloutOrdinal\":1,\"includeAnchor\":true,\"scope\":{\"kind\":\"turns\"}}",
+      "itemsBackwardsCursor": null
+    }
+  },
+  "requestAt": "2026-10-01T12:02:17.147+00:00",
+  "responseAt": "2026-10-01T12:02:17.149+00:00"
+}

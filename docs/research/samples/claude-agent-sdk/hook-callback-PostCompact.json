@@ -1,0 +1,14 @@
+{
+ "_run": "run4",
+ "_recv_ms_since_query_start": 8678,
+ "toolUseID_arg": "f6705fb7-52db-41fc-a1f9-4720ded8bb5c",
+ "input": {
+  "session_id": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-sdk-work/6eaeafd8-aaba-4304-92e9-0f823860947e.jsonl",
+  "cwd": "/tmp/aang-spike/cc-sdk/work",
+  "prompt_id": "4a784aa0-0687-428d-beb2-667a794a01b4",
+  "hook_event_name": "PostCompact",
+  "trigger": "manual",
+  "compact_summary": "<analysis>\n1. The user asked me to run `echo hi` with Bash, then use the Agent tool with subagent_type \"probe\" and the prompt \"run echo sub\", then reply with just \"OK\". I ran `echo hi`, which printed \"hi\". I launched the probe agent, and its report was \"sub\". Then I replied \"OK\".\n2. The user asked me to run `touch perm.txt` with Bash and then reply with just \"OK2\". I ran `touch perm.txt` and it finished with no output. I had not yet replied \"OK2\" when the summary was requested.\n- Environment notes: the probe agent type is no longer available. The Claude Docs MCP server disconnected and then re<truncated 1462 chars>"
+ }
+}

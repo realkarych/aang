@@ -1,0 +1,38 @@
+{
+  "timestamp": "2026-10-01T12:10:13.860Z",
+  "ordinal": 38,
+  "type": "session_meta",
+  "payload": {
+    "session_id": "01a0f75f-4fc5-7bf0-9860-9766a76bffd7",
+    "id": "01a0f75f-4fc5-7bf0-9860-9766a76bffd7",
+    "forked_from_id": "01a0f75a-a4b7-7361-aa8c-65ee90d82f99",
+    "forked_from_ordinal_exclusive": 38,
+    "timestamp": "2026-10-01T12:10:13.829Z",
+    "cwd": "/tmp/aang-spike/codex-cli/m_fork",
+    "runtime_workspace_roots": [
+      "/tmp/aang-spike/codex-cli/m_fork"
+    ],
+    "originator": "codex_exec",
+    "cli_version": "0.159.2",
+    "source": "exec",
+    "thread_source": "user",
+    "model_provider": "mock",
+    "base_instructions": {
+      "text": "You are Codex, an agent based on GPT-6. You and the user share one workspace, and your job is to collaborate with them until their intended goal is completely handled.\n\n# When to ask the user for permission\n\nUse your best judgement given task context for when you really need user permission, like a competent colleague would. Once evidence in a session supports authorization for a next step or acti<truncated 21769 chars>",
+      "provenance": {
+        "type": "model",
+        "model": "gpt-6.1-sol"
+      }
+    },
+    "history_mode": "paginated",
+    "history_base": {
+      "thread_id": "01a0f75a-a4b7-7361-aa8c-65ee90d82f99",
+      "end_ordinal_exclusive": 38,
+      "end_byte_offset": 55373
+    },
+    "multi_agent_version": "v2",
+    "context_window": {
+      "window_id": "01a0f75f-4fc5-7bf0-9860-977824c2286d"
+    }
+  }
+}

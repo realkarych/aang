@@ -1,0 +1,17 @@
+{
+  "timestamp": "2026-10-01T11:56:24.968Z",
+  "ordinal": 10,
+  "type": "response_item",
+  "payload": {
+    "type": "custom_tool_call",
+    "id": "ctc_00a7ba1502c50863016abe4a6862c087d2a9af53f3ecac956d",
+    "status": "completed",
+    "call_id": "call_MxHF39QIUjLqImvlqfhdfE2y",
+    "name": "exec",
+    "input": "text(await tools.exec_command({cmd:\"echo hi\",max_output_tokens:100}));\n",
+    "internal_chat_message_metadata_passthrough": {
+      "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+      "create_time": 1790855782.724847
+    }
+  }
+}

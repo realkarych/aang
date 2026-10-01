@@ -1,0 +1,18 @@
+{
+  "scenario": "s3 observer: second client on same app-server, thread/resume on running thread, never answers server requests",
+  "request": {
+    "method": "thread/unsubscribe",
+    "id": 4,
+    "params": {
+      "threadId": "01a0f758-0965-7f03-9a19-a5e8e87294e2"
+    }
+  },
+  "response": {
+    "id": 4,
+    "result": {
+      "status": "unsubscribed"
+    }
+  },
+  "requestAt": "2026-10-01T12:02:29.142+00:00",
+  "responseAt": "2026-10-01T12:02:29.142+00:00"
+}

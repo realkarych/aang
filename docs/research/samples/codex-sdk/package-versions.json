@@ -1,0 +1,9 @@
+{
+  "@openai/codex-sdk": "0.159.3",
+  "@openai/codex": "0.159.3 (dependency of the SDK)",
+  "@openai/codex-darwin-arm64": "npm:@openai/codex@0.159.3-darwin-arm64 (optional dependency, native binary)",
+  "spawnedBinary": "node_modules/@openai/codex-darwin-arm64/vendor/aarch64-apple-darwin/bin/codex (codex-cli 0.159.3), not the system /opt/homebrew/bin/codex 0.159.2, unless codexPathOverride is set",
+  "spawnedCommand": "codex exec --experimental-json [--config k=v ...] [--model M] [--thread-source S] [--sandbox MODE] [--cd DIR] [--add-dir DIR] [--skip-git-repo-check] [--output-schema FILE] [--config approval_policy=...] [resume <threadId>]  (prompt on stdin), from dist/index.js CodexExec.run",
+  "env": "CODEX_INTERNAL_ORIGINATOR_OVERRIDE=codex_sdk_ts unless already set; if CodexOptions.env is given it replaces process.env entirely",
+  "node": "v26.10.0"
+}

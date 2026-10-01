@@ -1,0 +1,2137 @@
+{
+ "claude_code.managed_settings_resolved": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855813739000000",
+   "observedTimeUnixNano": "1790855813739000000",
+   "body": {
+    "stringValue": "claude_code.managed_settings_resolved"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "managed_settings_resolved"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:53.739Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 0
+     }
+    },
+    {
+     "key": "managed_settings.trigger",
+     "value": {
+      "stringValue": "startup"
+     }
+    },
+    {
+     "key": "managed_settings.sources",
+     "value": {
+      "arrayValue": {
+       "values": []
+      }
+     }
+    },
+    {
+     "key": "managed_settings.source_behavior",
+     "value": {
+      "stringValue": "first-wins"
+     }
+    },
+    {
+     "key": "managed_settings.helper.state",
+     "value": {
+      "stringValue": "none"
+     }
+    },
+    {
+     "key": "managed_settings.helper.applied",
+     "value": {
+      "stringValue": "none"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  }
+ },
+ "claude_code.hook_execution_start": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855813744000000",
+   "observedTimeUnixNano": "1790855813744000000",
+   "body": {
+    "stringValue": "claude_code.hook_execution_start"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "hook_execution_start"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:53.744Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 1
+     }
+    },
+    {
+     "key": "hook_event",
+     "value": {
+      "stringValue": "SessionStart"
+     }
+    },
+    {
+     "key": "hook_name",
+     "value": {
+      "stringValue": "SessionStart:startup"
+     }
+    },
+    {
+     "key": "num_hooks",
+     "value": {
+      "stringValue": "4"
+     }
+    },
+    {
+     "key": "managed_only",
+     "value": {
+      "stringValue": "false"
+     }
+    },
+    {
+     "key": "hook_source",
+     "value": {
+      "stringValue": "merged"
+     }
+    },
+    {
+     "key": "safe_mode",
+     "value": {
+      "stringValue": "false"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  }
+ },
+ "claude_code.hook_execution_complete": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855813787000000",
+   "observedTimeUnixNano": "1790855813787000000",
+   "body": {
+    "stringValue": "claude_code.hook_execution_complete"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "hook_execution_complete"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:53.787Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 2
+     }
+    },
+    {
+     "key": "hook_event",
+     "value": {
+      "stringValue": "SessionStart"
+     }
+    },
+    {
+     "key": "hook_name",
+     "value": {
+      "stringValue": "SessionStart:startup"
+     }
+    },
+    {
+     "key": "num_hooks",
+     "value": {
+      "stringValue": "4"
+     }
+    },
+    {
+     "key": "num_success",
+     "value": {
+      "stringValue": "4"
+     }
+    },
+    {
+     "key": "num_blocking",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "num_non_blocking_error",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "num_cancelled",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "total_duration_ms",
+     "value": {
+      "stringValue": "34"
+     }
+    },
+    {
+     "key": "stdout_chars",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "additional_context_chars",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "system_message_chars",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "initial_user_message_chars",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "num_outputs_persisted",
+     "value": {
+      "stringValue": "0"
+     }
+    },
+    {
+     "key": "managed_only",
+     "value": {
+      "stringValue": "false"
+     }
+    },
+    {
+     "key": "hook_source",
+     "value": {
+      "stringValue": "merged"
+     }
+    },
+    {
+     "key": "safe_mode",
+     "value": {
+      "stringValue": "false"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  }
+ },
+ "claude_code.user_prompt": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855814227000000",
+   "observedTimeUnixNano": "1790855814227000000",
+   "body": {
+    "stringValue": "claude_code.user_prompt"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "user_prompt"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:54.227Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 3
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "prompt_length",
+     "value": {
+      "stringValue": "145"
+     }
+    },
+    {
+     "key": "prompt",
+     "value": {
+      "stringValue": "<REDACTED>"
+     }
+    },
+    {
+     "key": "message.uuid",
+     "value": {
+      "stringValue": "4c515803-39b8-4e00-9245-c13a119b5b13"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.hook_registered": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855814289000000",
+   "observedTimeUnixNano": "1790855814289000000",
+   "body": {
+    "stringValue": "claude_code.hook_registered"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "hook_registered"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:54.289Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 6
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "hook_event",
+     "value": {
+      "stringValue": "Notification"
+     }
+    },
+    {
+     "key": "hook_type",
+     "value": {
+      "stringValue": "command"
+     }
+    },
+    {
+     "key": "hook_source",
+     "value": {
+      "stringValue": "userSettings"
+     }
+    },
+    {
+     "key": "safe_mode",
+     "value": {
+      "stringValue": "false"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.plugin_loaded": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855814291000000",
+   "observedTimeUnixNano": "1790855814291000000",
+   "body": {
+    "stringValue": "claude_code.plugin_loaded"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "plugin_loaded"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:54.291Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 137
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "plugin.name",
+     "value": {
+      "stringValue": "aang-probe"
+     }
+    },
+    {
+     "key": "marketplace.name",
+     "value": {
+      "stringValue": "inline"
+     }
+    },
+    {
+     "key": "plugin.version",
+     "value": {
+      "stringValue": "0.0.1"
+     }
+    },
+    {
+     "key": "plugin.scope",
+     "value": {
+      "stringValue": "user-local"
+     }
+    },
+    {
+     "key": "enabled_via",
+     "value": {
+      "stringValue": "user-install"
+     }
+    },
+    {
+     "key": "plugin_id_hash",
+     "value": {
+      "stringValue": "57d7113b5129f815"
+     }
+    },
+    {
+     "key": "has_hooks",
+     "value": {
+      "boolValue": true
+     }
+    },
+    {
+     "key": "has_mcp",
+     "value": {
+      "boolValue": false
+     }
+    },
+    {
+     "key": "host_owned_mcp",
+     "value": {
+      "boolValue": false
+     }
+    },
+    {
+     "key": "skill_path_count",
+     "value": {
+      "intValue": 0
+     }
+    },
+    {
+     "key": "command_path_count",
+     "value": {
+      "intValue": 0
+     }
+    },
+    {
+     "key": "agent_path_count",
+     "value": {
+      "intValue": 0
+     }
+    },
+    {
+     "key": "safe_mode",
+     "value": {
+      "stringValue": "false"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.mcp_server_connection": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855814672000000",
+   "observedTimeUnixNano": "1790855814672000000",
+   "body": {
+    "stringValue": "claude_code.mcp_server_connection"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "mcp_server_connection"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:54.672Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 140
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "status",
+     "value": {
+      "stringValue": "connected"
+     }
+    },
+    {
+     "key": "transport_type",
+     "value": {
+      "stringValue": "claudeai-proxy"
+     }
+    },
+    {
+     "key": "server_scope",
+     "value": {
+      "stringValue": "claudeai"
+     }
+    },
+    {
+     "key": "duration_ms",
+     "value": {
+      "stringValue": "567"
+     }
+    },
+    {
+     "key": "is_plugin",
+     "value": {
+      "boolValue": false
+     }
+    },
+    {
+     "key": "server_name",
+     "value": {
+      "stringValue": "claude.ai Claude Docs"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.api_request": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855814941000000",
+   "observedTimeUnixNano": "1790855814941000000",
+   "body": {
+    "stringValue": "claude_code.api_request"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "api_request"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:54.941Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 141
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "model",
+     "value": {
+      "stringValue": "claude-haiku-4-5-20251001"
+     }
+    },
+    {
+     "key": "input_tokens",
+     "value": {
+      "intValue": 931
+     }
+    },
+    {
+     "key": "output_tokens",
+     "value": {
+      "intValue": 14
+     }
+    },
+    {
+     "key": "cache_read_tokens",
+     "value": {
+      "intValue": 0
+     }
+    },
+    {
+     "key": "cache_creation_tokens",
+     "value": {
+      "intValue": 0
+     }
+    },
+    {
+     "key": "cost_usd",
+     "value": {
+      "doubleValue": 0.001001
+     }
+    },
+    {
+     "key": "cost_usd_micros",
+     "value": {
+      "intValue": 1001
+     }
+    },
+    {
+     "key": "duration_ms",
+     "value": {
+      "intValue": 712
+     }
+    },
+    {
+     "key": "ttft_ms",
+     "value": {
+      "intValue": 542
+     }
+    },
+    {
+     "key": "request_id",
+     "value": {
+      "stringValue": "req_011CfbUYu28R38kjry7GvRsN"
+     }
+    },
+    {
+     "key": "client_request_id",
+     "value": {
+      "stringValue": "17349f5a-3448-4e9b-8700-13c299a390b7"
+     }
+    },
+    {
+     "key": "speed",
+     "value": {
+      "stringValue": "normal"
+     }
+    },
+    {
+     "key": "query_source",
+     "value": {
+      "stringValue": "generate_session_title"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.assistant_response": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855814941000000",
+   "observedTimeUnixNano": "1790855814941000000",
+   "body": {
+    "stringValue": "claude_code.assistant_response"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "assistant_response"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:54.941Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 142
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "response_length",
+     "value": {
+      "intValue": 46
+     }
+    },
+    {
+     "key": "response",
+     "value": {
+      "stringValue": "<REDACTED>"
+     }
+    },
+    {
+     "key": "request_id",
+     "value": {
+      "stringValue": "req_011CfbUYu28R38kjry7GvRsN"
+     }
+    },
+    {
+     "key": "message.uuid",
+     "value": {
+      "stringValue": "669a54e6-8c02-45ae-845f-4dc8a8f20afb"
+     }
+    },
+    {
+     "key": "model",
+     "value": {
+      "stringValue": "claude-haiku-4-5-20251001"
+     }
+    },
+    {
+     "key": "query_source",
+     "value": {
+      "stringValue": "generate_session_title"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.tool_decision": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855816459000000",
+   "observedTimeUnixNano": "1790855816459000000",
+   "body": {
+    "stringValue": "claude_code.tool_decision"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "tool_decision"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:56.459Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 146
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "decision",
+     "value": {
+      "stringValue": "accept"
+     }
+    },
+    {
+     "key": "source",
+     "value": {
+      "stringValue": "config"
+     }
+    },
+    {
+     "key": "tool_name",
+     "value": {
+      "stringValue": "Bash"
+     }
+    },
+    {
+     "key": "tool_use_id",
+     "value": {
+      "stringValue": "toolu_01LrBWZzGguceq3r5pR6htYB"
+     }
+    },
+    {
+     "key": "tool_source",
+     "value": {
+      "stringValue": "builtin"
+     }
+    },
+    {
+     "key": "tool_parameters",
+     "value": {
+      "stringValue": "{\"bash_command\":\"echo\",\"full_command\":\"echo hi\",\"description\":\"Print hi\"}"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "a68b55199a610e37"
+  }
+ },
+ "claude_code.tool_result": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855816629000000",
+   "observedTimeUnixNano": "1790855816629000000",
+   "body": {
+    "stringValue": "claude_code.tool_result"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "tool_result"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:56:56.629Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 147
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "tool_name",
+     "value": {
+      "stringValue": "Bash"
+     }
+    },
+    {
+     "key": "tool_use_id",
+     "value": {
+      "stringValue": "toolu_01LrBWZzGguceq3r5pR6htYB"
+     }
+    },
+    {
+     "key": "success",
+     "value": {
+      "stringValue": "true"
+     }
+    },
+    {
+     "key": "duration_ms",
+     "value": {
+      "stringValue": "169"
+     }
+    },
+    {
+     "key": "tool_parameters",
+     "value": {
+      "stringValue": "{\"bash_command\":\"echo\",\"full_command\":\"echo hi\",\"description\":\"Print hi\"}"
+     }
+    },
+    {
+     "key": "tool_input",
+     "value": {
+      "stringValue": "{\"command\":\"echo hi\",\"description\":\"Print hi\"}"
+     }
+    },
+    {
+     "key": "tool_input_size_bytes",
+     "value": {
+      "stringValue": "46"
+     }
+    },
+    {
+     "key": "tool_result_size_bytes",
+     "value": {
+      "stringValue": "2"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "f5219b4578500d15"
+  }
+ },
+ "claude_code.subagent_completed": {
+  "resource": {
+   "attributes": [
+    {
+     "key": "host.arch",
+     "value": {
+      "stringValue": "arm64"
+     }
+    },
+    {
+     "key": "os.type",
+     "value": {
+      "stringValue": "darwin"
+     }
+    },
+    {
+     "key": "os.version",
+     "value": {
+      "stringValue": "27.0.0"
+     }
+    },
+    {
+     "key": "service.name",
+     "value": {
+      "stringValue": "claude-code"
+     }
+    },
+    {
+     "key": "service.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    }
+   ],
+   "droppedAttributesCount": 0
+  },
+  "scope": {
+   "name": "com.anthropic.claude_code.events",
+   "version": "2.1.286"
+  },
+  "logRecord": {
+   "timeUnixNano": "1790855821953000000",
+   "observedTimeUnixNano": "1790855821953000000",
+   "body": {
+    "stringValue": "claude_code.subagent_completed"
+   },
+   "attributes": [
+    {
+     "key": "user.id",
+     "value": {
+      "stringValue": "<USER_ID>"
+     }
+    },
+    {
+     "key": "session.id",
+     "value": {
+      "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+     }
+    },
+    {
+     "key": "app.version",
+     "value": {
+      "stringValue": "2.1.286"
+     }
+    },
+    {
+     "key": "app.entrypoint",
+     "value": {
+      "stringValue": "sdk-ts"
+     }
+    },
+    {
+     "key": "organization.id",
+     "value": {
+      "stringValue": "<ORG_UUID>"
+     }
+    },
+    {
+     "key": "user.email",
+     "value": {
+      "stringValue": "<EMAIL>"
+     }
+    },
+    {
+     "key": "user.account_uuid",
+     "value": {
+      "stringValue": "<ACCOUNT_UUID>"
+     }
+    },
+    {
+     "key": "user.account_id",
+     "value": {
+      "stringValue": "<ACCOUNT_ID>"
+     }
+    },
+    {
+     "key": "terminal.type",
+     "value": {
+      "stringValue": "xterm-256color"
+     }
+    },
+    {
+     "key": "event.name",
+     "value": {
+      "stringValue": "subagent_completed"
+     }
+    },
+    {
+     "key": "event.timestamp",
+     "value": {
+      "stringValue": "2026-10-01T11:57:01.953Z"
+     }
+    },
+    {
+     "key": "event.sequence",
+     "value": {
+      "intValue": 171
+     }
+    },
+    {
+     "key": "prompt.id",
+     "value": {
+      "stringValue": "9babf934-7366-46ef-8b29-115f5935bf82"
+     }
+    },
+    {
+     "key": "agent_type",
+     "value": {
+      "stringValue": "probe"
+     }
+    },
+    {
+     "key": "agent.source",
+     "value": {
+      "stringValue": "flagSettings"
+     }
+    },
+    {
+     "key": "is_built_in",
+     "value": {
+      "boolValue": false
+     }
+    },
+    {
+     "key": "is_async",
+     "value": {
+      "boolValue": false
+     }
+    },
+    {
+     "key": "total_tokens",
+     "value": {
+      "intValue": 3474
+     }
+    },
+    {
+     "key": "total_tool_uses",
+     "value": {
+      "intValue": 1
+     }
+    },
+    {
+     "key": "duration_ms",
+     "value": {
+      "intValue": 3588
+     }
+    },
+    {
+     "key": "model",
+     "value": {
+      "stringValue": "claude-opus-5-5"
+     }
+    },
+    {
+     "key": "final_model",
+     "value": {
+      "stringValue": "claude-opus-5-5"
+     }
+    },
+    {
+     "key": "model_swapped",
+     "value": {
+      "boolValue": false
+     }
+    }
+   ],
+   "droppedAttributesCount": 0,
+   "flags": 1,
+   "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+   "spanId": "007afa60eae826d9"
+  }
+ }
+}

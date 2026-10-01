@@ -1,0 +1,82 @@
+{
+  "session_id": "2efd7dbe-c696-49b2-8c6e-3827c5256a01",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-D-subagent/2efd7dbe-c696-49b2-8c6e-3827c5256a01.jsonl",
+  "cwd": "/tmp/aang-spike/cc-hooks/runs/D-subagent",
+  "prompt_id": "0b3b4e83-c678-45fc-9883-8fb02357ae4f",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Agent",
+  "tool_input": {
+    "description": "Run echo hi",
+    "prompt": "Run `echo hi` with Bash and report its output.",
+    "subagent_type": "echoer",
+    "run_in_background": false
+  },
+  "tool_response": {
+    "status": "completed",
+    "prompt": "Run `echo hi` with Bash and report its output.",
+    "agentId": "a0885622b68c3d0f1",
+    "agentType": "echoer",
+    "harnessNoteCount": 0,
+    "harnessTailCount": 0,
+    "harnessSectionHash": "13d7d79bc2b4cc6c",
+    "content": [
+      {
+        "type": "text",
+        "text": "hi"
+      }
+    ],
+    "resolvedModel": "claude-opus-5-5",
+    "totalDurationMs": 3215,
+    "totalTokens": 3494,
+    "totalToolUseCount": 1,
+    "usage": {
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "input_tokens": 2,
+      "cache_creation_input_tokens": 851,
+      "cache_read_input_tokens": 2637,
+      "output_tokens": 4,
+      "server_tool_use": {
+        "web_search_requests": 0,
+        "web_fetch_requests": 0
+      },
+      "service_tier": "standard",
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 851
+      },
+      "inference_geo": "not_available",
+      "iterations": [
+        {
+          "input_tokens": 2,
+          "output_tokens": 4,
+          "cache_read_input_tokens": 2637,
+          "cache_creation_input_tokens": 851,
+          "cache_creation": {
+            "ephemeral_5m_input_tokens": 851,
+            "ephemeral_1h_input_tokens": 0
+          },
+          "type": "message"
+        }
+      ],
+      "speed": "standard",
+      "fallback_credit": null
+    },
+    "toolStats": {
+      "readCount": 0,
+      "searchCount": 0,
+      "bashCount": 1,
+      "editFileCount": 0,
+      "linesAdded": 0,
+      "linesRemoved": 0,
+      "otherToolCount": 0
+    }
+  },
+  "tool_use_id": "toolu_0189bhdGqDvEoyinZ3s9oobn",
+  "duration_ms": 3215
+}

@@ -1,0 +1,50 @@
+{
+ "_recv_ms_since_query_start": 7288,
+ "type": "assistant",
+ "message": {
+  "model": "claude-opus-5-5",
+  "id": "msg_011CfbUZDNvjeH7HQFKg6a9C",
+  "type": "message",
+  "role": "assistant",
+  "content": [
+   {
+    "type": "tool_use",
+    "id": "toolu_014udGkRAp4KaifDCFauxNXu",
+    "name": "Bash",
+    "input": {
+     "command": "echo sub",
+     "description": "Print the word sub"
+    },
+    "caller": {
+     "type": "direct"
+    }
+   }
+  ],
+  "container": null,
+  "stop_reason": null,
+  "stop_sequence": null,
+  "stop_details": null,
+  "usage": {
+   "input_tokens": 2,
+   "cache_creation_input_tokens": 2615,
+   "cache_read_input_tokens": 0,
+   "cache_creation": {
+    "ephemeral_5m_input_tokens": 2615,
+    "ephemeral_1h_input_tokens": 0
+   },
+   "output_tokens": 16,
+   "service_tier": "standard",
+   "inference_geo": "not_available"
+  },
+  "input_transformations": [],
+  "diagnostics": null,
+  "context_management": null
+ },
+ "parent_tool_use_id": "toolu_01GCwzBDJaBLNrAKwM82buQy",
+ "session_id": "6eaeafd8-aaba-4304-92e9-0f823860947e",
+ "uuid": "b55002b7-2ef8-4a80-aa5f-d2e68c55f268",
+ "timestamp": "2026-10-01T11:57:00.666Z",
+ "request_id": "req_011CfbUZD17PhjDfad5j4vEQ",
+ "subagent_type": "probe",
+ "task_description": "Run echo sub"
+}

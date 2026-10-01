@@ -1,0 +1,1075 @@
+{
+ "claude_code.llm_request": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "8ab02dd59eac2c95",
+  "parentSpanId": "f5219b4578500d15",
+  "name": "claude_code.llm_request",
+  "kind": 1,
+  "startTimeUnixNano": "1790855814221000000",
+  "endTimeUnixNano": "1790855814941346875",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "llm_request"
+    }
+   },
+   {
+    "key": "model",
+    "value": {
+     "stringValue": "claude-haiku-4-5-20251001"
+    }
+   },
+   {
+    "key": "gen_ai.system",
+    "value": {
+     "stringValue": "anthropic"
+    }
+   },
+   {
+    "key": "gen_ai.request.model",
+    "value": {
+     "stringValue": "claude-haiku-4-5-20251001"
+    }
+   },
+   {
+    "key": "llm_request.context",
+    "value": {
+     "stringValue": "interaction"
+    }
+   },
+   {
+    "key": "speed",
+    "value": {
+     "stringValue": "normal"
+    }
+   },
+   {
+    "key": "query_source_safe",
+    "value": {
+     "stringValue": "generate_session_title"
+    }
+   },
+   {
+    "key": "duration_ms",
+    "value": {
+     "intValue": 720
+    }
+   },
+   {
+    "key": "input_tokens",
+    "value": {
+     "intValue": 931
+    }
+   },
+   {
+    "key": "output_tokens",
+    "value": {
+     "intValue": 14
+    }
+   },
+   {
+    "key": "cache_read_tokens",
+    "value": {
+     "intValue": 0
+    }
+   },
+   {
+    "key": "cache_creation_tokens",
+    "value": {
+     "intValue": 0
+    }
+   },
+   {
+    "key": "success",
+    "value": {
+     "boolValue": true
+    }
+   },
+   {
+    "key": "attempt",
+    "value": {
+     "intValue": 1
+    }
+   },
+   {
+    "key": "request_id",
+    "value": {
+     "stringValue": "req_011CfbUYu28R38kjry7GvRsN"
+    }
+   },
+   {
+    "key": "gen_ai.response.id",
+    "value": {
+     "stringValue": "req_011CfbUYu28R38kjry7GvRsN"
+    }
+   },
+   {
+    "key": "client_request_id",
+    "value": {
+     "stringValue": "17349f5a-3448-4e9b-8700-13c299a390b7"
+    }
+   },
+   {
+    "key": "ttft_ms",
+    "value": {
+     "intValue": 542
+    }
+   },
+   {
+    "key": "first_content_ms",
+    "value": {
+     "intValue": 542
+    }
+   },
+   {
+    "key": "stop_reason",
+    "value": {
+     "stringValue": "end_turn"
+    }
+   },
+   {
+    "key": "gen_ai.response.finish_reasons",
+    "value": {
+     "arrayValue": {
+      "values": [
+       {
+        "stringValue": "end_turn"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [
+   {
+    "attributes": [
+     {
+      "key": "attempt",
+      "value": {
+       "intValue": 1
+      }
+     },
+     {
+      "key": "client_request_id",
+      "value": {
+       "stringValue": "17349f5a-3448-4e9b-8700-13c299a390b7"
+      }
+     }
+    ],
+    "name": "gen_ai.request.attempt",
+    "timeUnixNano": "1790855814229314542",
+    "droppedAttributesCount": 0
+   }
+  ],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [
+   {
+    "attributes": [
+     {
+      "key": "link.type",
+      "value": {
+       "stringValue": "parent_of"
+      }
+     }
+    ],
+    "spanId": "1346dc9dd433ac07",
+    "traceId": "53ca21a56201febfe21309f2eab6baeb",
+    "droppedAttributesCount": 0,
+    "flags": 769
+   }
+  ],
+  "droppedLinksCount": 0,
+  "flags": 257
+ },
+ "claude_code.tool.blocked_on_user": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "a68b55199a610e37",
+  "parentSpanId": "d5c7b812942d790f",
+  "name": "claude_code.tool.blocked_on_user",
+  "kind": 1,
+  "startTimeUnixNano": "1790855816458000000",
+  "endTimeUnixNano": "1790855816459735833",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "tool.blocked_on_user"
+    }
+   },
+   {
+    "key": "duration_ms",
+    "value": {
+     "intValue": 2
+    }
+   },
+   {
+    "key": "decision",
+    "value": {
+     "stringValue": "unknown"
+    }
+   },
+   {
+    "key": "source",
+    "value": {
+     "stringValue": "unknown"
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [],
+  "droppedLinksCount": 0,
+  "flags": 257
+ },
+ "claude_code.tool.execution": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "63e68968efb9213e",
+  "parentSpanId": "d5c7b812942d790f",
+  "name": "claude_code.tool.execution",
+  "kind": 1,
+  "startTimeUnixNano": "1790855816459000000",
+  "endTimeUnixNano": "1790855816627722250",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "tool.execution"
+    }
+   },
+   {
+    "key": "tool_use_id",
+    "value": {
+     "stringValue": "toolu_01LrBWZzGguceq3r5pR6htYB"
+    }
+   },
+   {
+    "key": "gen_ai.tool.call.id",
+    "value": {
+     "stringValue": "toolu_01LrBWZzGguceq3r5pR6htYB"
+    }
+   },
+   {
+    "key": "duration_ms",
+    "value": {
+     "intValue": 169
+    }
+   },
+   {
+    "key": "success",
+    "value": {
+     "boolValue": true
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [],
+  "droppedLinksCount": 0,
+  "flags": 257
+ },
+ "claude_code.tool": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "d5c7b812942d790f",
+  "parentSpanId": "f5219b4578500d15",
+  "name": "claude_code.tool",
+  "kind": 1,
+  "startTimeUnixNano": "1790855816458000000",
+  "endTimeUnixNano": "1790855816628596125",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "tool"
+    }
+   },
+   {
+    "key": "tool_name",
+    "value": {
+     "stringValue": "Bash"
+    }
+   },
+   {
+    "key": "tool_name_safe",
+    "value": {
+     "stringValue": "Bash"
+    }
+   },
+   {
+    "key": "full_command",
+    "value": {
+     "stringValue": "echo hi"
+    }
+   },
+   {
+    "key": "bash_command_class",
+    "value": {
+     "stringValue": "shell_builtin"
+    }
+   },
+   {
+    "key": "bash_argv0",
+    "value": {
+     "stringValue": "echo"
+    }
+   },
+   {
+    "key": "tool_use_id",
+    "value": {
+     "stringValue": "toolu_01LrBWZzGguceq3r5pR6htYB"
+    }
+   },
+   {
+    "key": "gen_ai.tool.call.id",
+    "value": {
+     "stringValue": "toolu_01LrBWZzGguceq3r5pR6htYB"
+    }
+   },
+   {
+    "key": "duration_ms",
+    "value": {
+     "intValue": 171
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [],
+  "droppedLinksCount": 0,
+  "flags": 257
+ },
+ "claude_code.llm_request-subagent": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "8a2f9cdadbd73c5c",
+  "parentSpanId": "007afa60eae826d9",
+  "name": "claude_code.llm_request",
+  "kind": 1,
+  "startTimeUnixNano": "1790855818399000000",
+  "endTimeUnixNano": "1790855820672944708",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "llm_request"
+    }
+   },
+   {
+    "key": "model",
+    "value": {
+     "stringValue": "claude-opus-5-5"
+    }
+   },
+   {
+    "key": "gen_ai.system",
+    "value": {
+     "stringValue": "anthropic"
+    }
+   },
+   {
+    "key": "gen_ai.request.model",
+    "value": {
+     "stringValue": "claude-opus-5-5"
+    }
+   },
+   {
+    "key": "llm_request.context",
+    "value": {
+     "stringValue": "tool"
+    }
+   },
+   {
+    "key": "speed",
+    "value": {
+     "stringValue": "normal"
+    }
+   },
+   {
+    "key": "query_source_safe",
+    "value": {
+     "stringValue": "agent.custom"
+    }
+   },
+   {
+    "key": "agent_id",
+    "value": {
+     "stringValue": "a489ecb7791c0c23e"
+    }
+   },
+   {
+    "key": "duration_ms",
+    "value": {
+     "intValue": 2274
+    }
+   },
+   {
+    "key": "input_tokens",
+    "value": {
+     "intValue": 2
+    }
+   },
+   {
+    "key": "output_tokens",
+    "value": {
+     "intValue": 76
+    }
+   },
+   {
+    "key": "cache_read_tokens",
+    "value": {
+     "intValue": 0
+    }
+   },
+   {
+    "key": "cache_creation_tokens",
+    "value": {
+     "intValue": 2615
+    }
+   },
+   {
+    "key": "success",
+    "value": {
+     "boolValue": true
+    }
+   },
+   {
+    "key": "attempt",
+    "value": {
+     "intValue": 1
+    }
+   },
+   {
+    "key": "request_id",
+    "value": {
+     "stringValue": "req_011CfbUZD17PhjDfad5j4vEQ"
+    }
+   },
+   {
+    "key": "gen_ai.response.id",
+    "value": {
+     "stringValue": "req_011CfbUZD17PhjDfad5j4vEQ"
+    }
+   },
+   {
+    "key": "client_request_id",
+    "value": {
+     "stringValue": "503c3eb2-65d0-44f4-ac32-e92ba4859337"
+    }
+   },
+   {
+    "key": "ttft_ms",
+    "value": {
+     "intValue": 1883
+    }
+   },
+   {
+    "key": "first_content_ms",
+    "value": {
+     "intValue": 1884
+    }
+   },
+   {
+    "key": "effort",
+    "value": {
+     "stringValue": "medium"
+    }
+   },
+   {
+    "key": "stop_reason",
+    "value": {
+     "stringValue": "tool_use"
+    }
+   },
+   {
+    "key": "gen_ai.response.finish_reasons",
+    "value": {
+     "arrayValue": {
+      "values": [
+       {
+        "stringValue": "tool_use"
+       }
+      ]
+     }
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [
+   {
+    "attributes": [
+     {
+      "key": "attempt",
+      "value": {
+       "intValue": 1
+      }
+     },
+     {
+      "key": "client_request_id",
+      "value": {
+       "stringValue": "503c3eb2-65d0-44f4-ac32-e92ba4859337"
+      }
+     }
+    ],
+    "name": "gen_ai.request.attempt",
+    "timeUnixNano": "1790855818399590375",
+    "droppedAttributesCount": 0
+   }
+  ],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [
+   {
+    "attributes": [
+     {
+      "key": "link.type",
+      "value": {
+       "stringValue": "parent_of"
+      }
+     }
+    ],
+    "spanId": "a5c63dee55bae31b",
+    "traceId": "05355ed2d874ac1bec2d54f0153647c2",
+    "droppedAttributesCount": 0,
+    "flags": 769
+   }
+  ],
+  "droppedLinksCount": 0,
+  "flags": 257
+ },
+ "claude_code.tool-subagent": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "fd69208edb88490a",
+  "parentSpanId": "007afa60eae826d9",
+  "name": "claude_code.tool",
+  "kind": 1,
+  "startTimeUnixNano": "1790855820697000000",
+  "endTimeUnixNano": "1790855820709029333",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "tool"
+    }
+   },
+   {
+    "key": "tool_name",
+    "value": {
+     "stringValue": "Bash"
+    }
+   },
+   {
+    "key": "tool_name_safe",
+    "value": {
+     "stringValue": "Bash"
+    }
+   },
+   {
+    "key": "full_command",
+    "value": {
+     "stringValue": "echo sub"
+    }
+   },
+   {
+    "key": "bash_command_class",
+    "value": {
+     "stringValue": "shell_builtin"
+    }
+   },
+   {
+    "key": "bash_argv0",
+    "value": {
+     "stringValue": "echo"
+    }
+   },
+   {
+    "key": "agent_id",
+    "value": {
+     "stringValue": "a489ecb7791c0c23e"
+    }
+   },
+   {
+    "key": "tool_use_id",
+    "value": {
+     "stringValue": "toolu_014udGkRAp4KaifDCFauxNXu"
+    }
+   },
+   {
+    "key": "gen_ai.tool.call.id",
+    "value": {
+     "stringValue": "toolu_014udGkRAp4KaifDCFauxNXu"
+    }
+   },
+   {
+    "key": "duration_ms",
+    "value": {
+     "intValue": 12
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [],
+  "droppedLinksCount": 0,
+  "flags": 257
+ },
+ "claude_code.interaction": {
+  "traceId": "afde0aa6ca4882cf6ec5cbedfd23ed14",
+  "spanId": "f5219b4578500d15",
+  "name": "claude_code.interaction",
+  "kind": 1,
+  "startTimeUnixNano": "1790855814219000000",
+  "endTimeUnixNano": "1790855822895923834",
+  "attributes": [
+   {
+    "key": "user.id",
+    "value": {
+     "stringValue": "<USER_ID>"
+    }
+   },
+   {
+    "key": "session.id",
+    "value": {
+     "stringValue": "6eaeafd8-aaba-4304-92e9-0f823860947e"
+    }
+   },
+   {
+    "key": "app.version",
+    "value": {
+     "stringValue": "2.1.286"
+    }
+   },
+   {
+    "key": "app.entrypoint",
+    "value": {
+     "stringValue": "sdk-ts"
+    }
+   },
+   {
+    "key": "organization.id",
+    "value": {
+     "stringValue": "<ORG_UUID>"
+    }
+   },
+   {
+    "key": "user.email",
+    "value": {
+     "stringValue": "<EMAIL>"
+    }
+   },
+   {
+    "key": "user.account_uuid",
+    "value": {
+     "stringValue": "<ACCOUNT_UUID>"
+    }
+   },
+   {
+    "key": "user.account_id",
+    "value": {
+     "stringValue": "<ACCOUNT_ID>"
+    }
+   },
+   {
+    "key": "terminal.type",
+    "value": {
+     "stringValue": "xterm-256color"
+    }
+   },
+   {
+    "key": "span.type",
+    "value": {
+     "stringValue": "interaction"
+    }
+   },
+   {
+    "key": "user_prompt",
+    "value": {
+     "stringValue": "<REDACTED>"
+    }
+   },
+   {
+    "key": "user_prompt_length",
+    "value": {
+     "intValue": 145
+    }
+   },
+   {
+    "key": "interaction.sequence",
+    "value": {
+     "intValue": 1
+    }
+   },
+   {
+    "key": "parent.source",
+    "value": {
+     "stringValue": "none"
+    }
+   },
+   {
+    "key": "queued_sends",
+    "value": {
+     "intValue": 0
+    }
+   },
+   {
+    "key": "interaction.duration_ms",
+    "value": {
+     "intValue": 8677
+    }
+   }
+  ],
+  "droppedAttributesCount": 0,
+  "events": [],
+  "droppedEventsCount": 0,
+  "status": {
+   "code": 0
+  },
+  "links": [],
+  "droppedLinksCount": 0,
+  "flags": 257
+ }
+}

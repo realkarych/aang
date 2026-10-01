@@ -1,0 +1,22 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "receivedAt": "2026-10-01T11:49:40.269+00:00",
+  "message": {
+    "method": "item/completed",
+    "params": {
+      "item": {
+        "type": "agentMessage",
+        "id": "msg_0dc8684de7baaa7e016abe48d39d1487d2aee90137d0efe133",
+        "text": "I’ll run the command in the current directory.",
+        "phase": "commentary",
+        "memoryCitation": null,
+        "delivery": null,
+        "questions": null
+      },
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "turnId": "01a0f74c-61e3-7c93-a404-7884f11c649b",
+      "completedAtMs": 1790855380265
+    },
+    "emittedAtMs": 1790855380268
+  }
+}

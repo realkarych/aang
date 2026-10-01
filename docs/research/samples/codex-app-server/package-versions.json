@@ -1,0 +1,7 @@
+{
+  "codexCli": {"version": "0.159.2", "path": "/opt/homebrew/bin/codex -> /opt/homebrew/Caskroom/codex/0.159.2/bin/codex"},
+  "desktopBundledCodex": {"version": "0.159.2", "path": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex", "note": "version only; Desktop process inspected with ps/lsof, not connected"},
+  "managedDaemonBinary": {"version": "0.159.2", "path": "<CODEX_HOME>/packages/app-server-daemon/releases/0.159.2-aarch64-apple-darwin/bin/codex", "note": "copied by the TUI daemon auto-start"},
+  "probeClient": {"python": "3.9.6", "websockets": "17.1 (via `uv run --with websockets`)", "transport": "stdio JSONL and WebSocket over unix control socket"},
+  "os": "macOS (Darwin 27.0.0), arm64"
+}

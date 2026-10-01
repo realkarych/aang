@@ -1,0 +1,12 @@
+{
+  "scenario": "s6: observer connected to shared managed daemon; TUI (`codex --remote unix://...`) creates thread; observer discovers via thread/started broadcast and subscribes",
+  "receivedAt": "2026-10-01T12:14:54.224+00:00",
+  "message": {
+    "method": "thread/name/updated",
+    "params": {
+      "threadId": "01a0f763-5f67-7ec3-9030-8fda913fc9dd",
+      "threadName": "Count to 40 and write PONG"
+    },
+    "emittedAtMs": 1790856894224
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "_observed_env_CODEX_vars": [
+    "CODEX_HOME"
+  ],
+  "stdin": {
+    "session_id": "01a0f75b-f1ae-7202-88d4-4759d4563cf9",
+    "turn_id": "01a0f75b-f1d3-79c3-b636-6dd8e8e711d0",
+    "transcript_path": "/tmp/aang-spike/codex-cli/home/sessions/2026/10/01/rollout-2026-10-01T15-06-33-01a0f75b-f1ae-7202-88d4-4759d4563cf9.jsonl",
+    "cwd": "/tmp/aang-spike/codex-cli/m_patch3",
+    "hook_event_name": "PostToolUse",
+    "model": "gpt-6.1-sol",
+    "permission_mode": "bypassPermissions",
+    "tool_name": "apply_patch",
+    "tool_input": {
+      "command": "*** Begin Patch\n*** Add File: patched.txt\n+hello\n*** End Patch\n"
+    },
+    "tool_response": "Exit code: 0\nWall time: 0 seconds\nOutput:\nSuccess. Updated the following files:\nA patched.txt\n",
+    "tool_use_id": "call_mock_21"
+  }
+}

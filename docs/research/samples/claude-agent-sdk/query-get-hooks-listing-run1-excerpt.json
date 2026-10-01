@@ -1,0 +1,98 @@
+{
+ "events": [
+  {
+   "name": "PreToolUse",
+   "summary": "Before tool execution",
+   "supportsMatcher": true,
+   "hookCount": 4
+  },
+  {
+   "name": "SessionStart",
+   "summary": "When a new session is started",
+   "supportsMatcher": true,
+   "hookCount": 4
+  }
+ ],
+ "hooks": [
+  {
+   "event": "PreToolUse",
+   "matcher": "",
+   "source": "projectSettings",
+   "sourceLabel": "Project settings (.claude/settings.json)",
+   "type": "command",
+   "displayText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py project",
+   "commandText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py project",
+   "contentLabel": "Command",
+   "editable": {
+    "matcher": "",
+    "config": {
+     "type": "command",
+     "command": "python3 /tmp/aang-spike/cc-sdk/hooklog.py project"
+    }
+   }
+  },
+  {
+   "event": "PreToolUse",
+   "matcher": "",
+   "source": "localSettings",
+   "sourceLabel": "Local settings (.claude/settings.local.json)",
+   "type": "command",
+   "displayText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py local",
+   "commandText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py local",
+   "contentLabel": "Command",
+   "editable": {
+    "matcher": "",
+    "config": {
+     "type": "command",
+     "command": "python3 /tmp/aang-spike/cc-sdk/hooklog.py local"
+    }
+   }
+  },
+  {
+   "event": "PreToolUse",
+   "matcher": "",
+   "source": "pluginHook",
+   "sourceLabel": "Plugin hooks (~/.claude/plugins/*/hooks/hooks.json)",
+   "pluginName": "aang-probe@inline",
+   "type": "command",
+   "displayText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py plugin",
+   "commandText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py plugin",
+   "contentLabel": "Command"
+  },
+  {
+   "event": "PreToolUse",
+   "matcher": "",
+   "source": "flagSettings",
+   "sourceLabel": "Startup settings (--settings option)",
+   "type": "command",
+   "displayText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py flag",
+   "commandText": "python3 /tmp/aang-spike/cc-sdk/hooklog.py flag",
+   "contentLabel": "Command"
+  }
+ ],
+ "eventCatalog": [
+  {
+   "name": "PreToolUse",
+   "summary": "Before tool execution",
+   "supportsMatcher": true
+  },
+  {
+   "name": "PostToolUse",
+   "summary": "After tool execution",
+   "supportsMatcher": true
+  },
+  {
+   "name": "PostToolUseFailure",
+   "summary": "After tool execution fails",
+   "supportsMatcher": true
+  },
+  "<truncated>"
+ ],
+ "policy": {
+  "disabledByPolicy": false,
+  "managedOnly": false,
+  "pluginOnly": false,
+  "allDisabled": false,
+  "policyHookCount": 0
+ }
+}

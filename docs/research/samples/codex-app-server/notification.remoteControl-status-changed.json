@@ -1,0 +1,14 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "receivedAt": "2026-10-01T11:49:32.565+00:00",
+  "message": {
+    "method": "remoteControl/status/changed",
+    "params": {
+      "status": "disabled",
+      "serverName": "<HOSTNAME>",
+      "installationId": "<INSTALLATION_ID>",
+      "environmentId": null
+    },
+    "emittedAtMs": 1790855372563
+  }
+}

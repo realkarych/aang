@@ -1,0 +1,110 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "base_model_version",
+    "changes",
+    "attention"
+  ],
+  "properties": {
+    "base_model_version": {
+      "type": "integer"
+    },
+    "changes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "op",
+          "stage_id",
+          "title",
+          "status",
+          "replaces_stage_id",
+          "evidence_event_ids",
+          "rationale"
+        ],
+        "properties": {
+          "op": {
+            "type": "string",
+            "enum": [
+              "create",
+              "update",
+              "replace"
+            ]
+          },
+          "stage_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "planned",
+              "running",
+              "done",
+              "failed",
+              "blocked",
+              "replaced"
+            ]
+          },
+          "replaces_stage_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "evidence_event_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rationale": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "attention": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "stage_id",
+          "event_ids",
+          "summary"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "needs_human_input",
+              "failure",
+              "risk"
+            ]
+          },
+          "stage_id": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "event_ids": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "summary": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  }
+}

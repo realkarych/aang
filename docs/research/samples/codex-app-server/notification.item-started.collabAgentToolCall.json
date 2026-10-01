@@ -1,0 +1,25 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "receivedAt": "2026-10-01T11:50:05.052+00:00",
+  "message": {
+    "method": "item/started",
+    "params": {
+      "item": {
+        "type": "collabAgentToolCall",
+        "id": "call_N5bNHyNg9siZKVhmlM0O7frz",
+        "tool": "wait",
+        "status": "inProgress",
+        "senderThreadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+        "receiverThreadIds": [],
+        "prompt": null,
+        "model": null,
+        "reasoningEffort": null,
+        "agentsStates": {}
+      },
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "turnId": "01a0f74c-b98e-7d92-a259-320323594c92",
+      "startedAtMs": 1790855405051
+    },
+    "emittedAtMs": 1790855405051
+  }
+}

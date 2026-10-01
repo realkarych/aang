@@ -1,0 +1,35 @@
+{
+  "timestamp": "2026-10-01T12:06:04.243Z",
+  "ordinal": 0,
+  "type": "session_meta",
+  "payload": {
+    "session_id": "01a0f75b-8043-70d2-95ed-39bd0831b81a",
+    "id": "01a0f75b-8064-73c2-8b8a-ba66c5467425",
+    "parent_thread_id": "01a0f75b-8043-70d2-95ed-39bd0831b81a",
+    "timestamp": "2026-10-01T12:06:04.132Z",
+    "cwd": "/tmp/aang-spike/codex-cli/m_escalate3",
+    "runtime_workspace_roots": [
+      "/tmp/aang-spike/codex-cli/m_escalate3"
+    ],
+    "originator": "codex_exec",
+    "cli_version": "0.159.2",
+    "source": {
+      "subagent": {
+        "other": "guardian"
+      }
+    },
+    "thread_source": "guardian_review",
+    "model_provider": "mock",
+    "base_instructions": {
+      "text": "You are judging one planned coding-agent action.\nAssess the exact action's intrinsic risk and whether the transcript authorizes its target and side effects. Then derive `outcome` from the security policy, `risk_level`, and `user_authorization`.\nYour primary objective is to determine whether the action poses a risk of irreversible damage to the user or their organization, and whether the security p<truncated 18446 chars>",
+      "provenance": {
+        "type": "custom"
+      }
+    },
+    "history_mode": "paginated",
+    "multi_agent_version": "disabled",
+    "context_window": {
+      "window_id": "01a0f75b-8064-73c2-8b8a-ba7619f74ffd"
+    }
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "session_id": "f955f573-761d-470e-8136-cc414dfd30d6",
+  "transcript_path": "/Users/USER/.claude/projects/-tmp-aang-spike-cc-hooks-runs-E-stdio/f955f573-761d-470e-8136-cc414dfd30d6.jsonl",
+  "cwd": "/tmp/aang-spike/cc-hooks/runs/E-stdio",
+  "prompt_id": "da39d175-8b54-410f-a600-804c661e7fba",
+  "permission_mode": "default",
+  "effort": {
+    "level": "medium"
+  },
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "touch probe-allow.txt",
+    "description": "Create probe-allow file"
+  },
+  "permission_suggestions": [
+    {
+      "type": "addRules",
+      "rules": [
+        {
+          "toolName": "Bash",
+          "ruleContent": "touch probe-allow.txt"
+        }
+      ],
+      "behavior": "allow",
+      "destination": "localSettings"
+    },
+    {
+      "type": "addDirectories",
+      "directories": [
+        "/tmp/aang-spike/cc-hooks/runs/E-stdio"
+      ],
+      "destination": "session"
+    },
+    {
+      "type": "setMode",
+      "mode": "acceptEdits",
+      "destination": "session"
+    }
+  ]
+}

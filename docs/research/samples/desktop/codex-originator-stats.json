@@ -1,0 +1,699 @@
+{
+ "source": "first line (session_meta) of every ~/.codex/sessions/**/rollout-*.jsonl, read-only; values only of originator/source/thread_source/cli_version",
+ "total_rollouts": 121,
+ "by_originator": {
+  "aang_observer": 1,
+  "codex_exec": 10,
+  "Codex Desktop": 18,
+  "codex-tui": 92
+ },
+ "by_originator_source_threadsource_version": [
+  {
+   "originator": "codex-tui",
+   "source": {
+    "subagent": "thread_spawn"
+   },
+   "thread_source": "subagent",
+   "cli_version": "0.154.0",
+   "count": 70
+  },
+  {
+   "originator": "codex-tui",
+   "source": {
+    "subagent": "thread_spawn"
+   },
+   "thread_source": "subagent",
+   "cli_version": "0.153.4",
+   "count": 9
+  },
+  {
+   "originator": "codex_exec",
+   "source": "exec",
+   "thread_source": "user",
+   "cli_version": "0.144.5",
+   "count": 6
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "vscode",
+   "thread_source": "user",
+   "cli_version": "0.155.0-alpha.9.2",
+   "count": 6
+  },
+  {
+   "originator": "codex-tui",
+   "source": {
+    "subagent": "thread_spawn"
+   },
+   "thread_source": "subagent",
+   "cli_version": "0.133.0",
+   "count": 5
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "vscode",
+   "thread_source": "user",
+   "cli_version": "0.159.2",
+   "count": 4
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": {
+    "subagent": "other"
+   },
+   "thread_source": "guardian_review",
+   "cli_version": "0.159.2",
+   "count": 4
+  },
+  {
+   "originator": "codex-tui",
+   "source": "cli",
+   "thread_source": "user",
+   "cli_version": "0.154.0",
+   "count": 4
+  },
+  {
+   "originator": "codex_exec",
+   "source": "exec",
+   "thread_source": "user",
+   "cli_version": "0.144.4",
+   "count": 3
+  },
+  {
+   "originator": "codex-tui",
+   "source": "cli",
+   "thread_source": "user",
+   "cli_version": "0.153.4",
+   "count": 3
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": {
+    "subagent": "thread_spawn"
+   },
+   "thread_source": "subagent",
+   "cli_version": "0.159.2",
+   "count": 2
+  },
+  {
+   "originator": "codex-tui",
+   "source": "cli",
+   "thread_source": "user",
+   "cli_version": "0.133.0",
+   "count": 1
+  },
+  {
+   "originator": "aang_observer",
+   "source": "exec",
+   "thread_source": "aang-observer",
+   "cli_version": "0.159.2",
+   "count": 1
+  },
+  {
+   "originator": "codex_exec",
+   "source": "exec",
+   "thread_source": "user",
+   "cli_version": "0.159.2",
+   "count": 1
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "vscode",
+   "thread_source": "user",
+   "cli_version": "0.154.0-alpha.6.2",
+   "count": 1
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "vscode",
+   "thread_source": "user",
+   "cli_version": "0.153.4",
+   "count": 1
+  }
+ ],
+ "state_5.sqlite_threads_by_originator(copy)": [
+  {
+   "originator": "Codex Desktop",
+   "source": "vscode",
+   "thread_source": "user",
+   "count": 11
+  },
+  {
+   "originator": null,
+   "source": "exec",
+   "thread_source": "user",
+   "count": 9
+  },
+  {
+   "originator": "codex-tui",
+   "source": "cli",
+   "thread_source": "user",
+   "count": 5
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "subagent",
+   "thread_source": "guardian_review",
+   "count": 4
+  },
+  {
+   "originator": null,
+   "source": "cli",
+   "thread_source": "user",
+   "count": 3
+  },
+  {
+   "originator": null,
+   "source": "vscode",
+   "thread_source": "user",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": null,
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "Codex Desktop",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex-tui",
+   "source": "subagent",
+   "thread_source": "subagent",
+   "count": 1
+  },
+  {
+   "originator": "codex_exec",
+   "source": "exec",
+   "thread_source": "user",
+   "count": 1
+  }
+ ],
+ "notes": [
+  "Codex Desktop top-level threads: originator='Codex Desktop', source='vscode' (same source value as the VS Code extension)",
+  "Desktop auto-review subagents: source={subagent:{other:...}}, thread_source='guardian_review'",
+  "threads with originator NULL in state DB are older rows written before the originator column existed (backfilled from rollouts)"
+ ]
+}

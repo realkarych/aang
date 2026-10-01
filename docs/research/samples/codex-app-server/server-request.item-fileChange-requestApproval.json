@@ -1,0 +1,31 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "item/fileChange/requestApproval",
+    "id": 1,
+    "params": {
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "turnId": "01a0f74c-9d33-7e42-adef-7fd1e9d43e48",
+      "itemId": "exec-b387a853-f510-47b5-9c08-bf29077c3665",
+      "startedAtMs": 1790855392542,
+      "reason": null,
+      "grantRoot": null
+    }
+  },
+  "receivedAt": "2026-10-01T11:49:52.543+00:00",
+  "clientResponse": {
+    "id": 1,
+    "result": {
+      "decision": "decline"
+    }
+  },
+  "respondedAt": "2026-10-01T11:49:52.544+00:00",
+  "resolvedNotification": {
+    "method": "serverRequest/resolved",
+    "params": {
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "requestId": 1
+    },
+    "emittedAtMs": 1790855392544
+  }
+}

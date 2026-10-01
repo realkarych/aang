@@ -1,0 +1,40 @@
+{
+  "timestamp": "2026-10-01T12:17:04.081Z",
+  "ordinal": 16,
+  "type": "event_msg",
+  "payload": {
+    "type": "item_completed",
+    "thread_id": "01a0f765-4429-7c23-8d10-aea36a8d601b",
+    "turn_id": "01a0f765-4454-74d1-8523-2749f1374bef",
+    "item": {
+      "type": "CommandExecution",
+      "id": "call_mock_5",
+      "process_id": "86710",
+      "command": [
+        "/bin/zsh",
+        "-lc",
+        "sleep 20; echo slow-done"
+      ],
+      "cwd": "file:///tmp/aang-spike/codex-cli/m_tui_int2",
+      "parsed_cmd": [
+        {
+          "type": "unknown",
+          "cmd": "sleep 20; echo slow-done"
+        }
+      ],
+      "source": "unified_exec_startup",
+      "status": "failed",
+      "stdout": "",
+      "stderr": "",
+      "aggregated_output": "",
+      "exit_code": -1,
+      "duration": {
+        "secs": 19,
+        "nanos": 722048584
+      },
+      "formatted_output": ""
+    },
+    "started_at_ms": 1790857004358,
+    "completed_at_ms": 1790857024080
+  }
+}

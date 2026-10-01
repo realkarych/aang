@@ -1,0 +1,35 @@
+{
+  "_observed_env_CODEX_vars": [
+    "CODEX_HOME"
+  ],
+  "stdin": {
+    "session_id": "01a0f75b-f7ca-77b0-abd8-183a27d6e25f",
+    "turn_id": "01a0f75b-f7ef-7d52-9f2f-b93b935c01c7",
+    "transcript_path": "/tmp/aang-spike/codex-cli/home/sessions/2026/10/01/rollout-2026-10-01T15-06-34-01a0f75b-f7ca-77b0-abd8-183a27d6e25f.jsonl",
+    "cwd": "/tmp/aang-spike/codex-cli/m_asksync",
+    "hook_event_name": "PreToolUse",
+    "model": "gpt-6.1-sol",
+    "permission_mode": "bypassPermissions",
+    "tool_name": "request_user_input",
+    "tool_input": {
+      "questions": [
+        {
+          "id": "go",
+          "header": "Go",
+          "question": "Proceed?",
+          "options": [
+            {
+              "label": "Yes (Recommended)",
+              "description": "go"
+            },
+            {
+              "label": "No",
+              "description": "stop"
+            }
+          ]
+        }
+      ]
+    },
+    "tool_use_id": "call_mock_29"
+  }
+}

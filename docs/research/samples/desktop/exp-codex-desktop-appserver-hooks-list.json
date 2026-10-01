@@ -1,0 +1,27 @@
+{
+ "request": {
+  "method": "hooks/list",
+  "params": {}
+ },
+ "response_first_hook": {
+  "key": "/tmp/aang-spike/desktop/exp-codex/home/hooks.json:pre_tool_use:0:0",
+  "eventName": "preToolUse",
+  "handlerType": "command",
+  "command": "python3 /tmp/aang-spike/desktop/exp-codex/probes/hook_logger.py PreToolUse",
+  "async": false,
+  "matcher": null,
+  "timeoutSec": 5,
+  "statusMessage": null,
+  "additionalContextLimit": null,
+  "sourcePath": "/tmp/aang-spike/desktop/exp-codex/home/hooks.json",
+  "source": "user",
+  "pluginId": null,
+  "displayOrder": 0,
+  "enabled": true,
+  "isManaged": false,
+  "currentHash": "sha256:be69b51320f2dbd12fc3c1e4d8be8a262a63f4179bb6c4e8581ea4d95687f8fc",
+  "trustStatus": "untrusted"
+ },
+ "n_hooks": 9,
+ "note": "before trust: trustStatus=untrusted and hooks do NOT run in app-server (run1); trust persisted as [hooks.state.\"<key>\"] trusted_hash=<currentHash> in CODEX_HOME/config.toml"
+}

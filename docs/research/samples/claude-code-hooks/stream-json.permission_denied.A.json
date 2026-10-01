@@ -1,0 +1,29 @@
+{
+  "system_permission_denied": {
+    "type": "system",
+    "subtype": "permission_denied",
+    "tool_name": "Bash",
+    "tool_use_id": "toolu_01VQDTKnwN5EnTYs8GBLB7Cr",
+    "message": "touch in '/tmp/aang-spike/cc-hooks/runs/A/probe-perm.txt' needs approval. The path is inside the working directories for this session ('/tmp/aang-spike/cc-hooks/runs/A'), and Claude Code asks before a shell command creates, changes or removes files there.",
+    "uuid": "a1959138-acb9-4f0f-b710-3b08d244c800",
+    "session_id": "80e34e98-8248-4fe4-b913-0bed557bed27"
+  },
+  "result_permission_denials": [
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01HCpiyAxHVxcV4PpcYqHag1",
+      "tool_input": {
+        "command": "ls /nonexistent-aang-probe",
+        "description": "List a nonexistent directory"
+      }
+    },
+    {
+      "tool_name": "Bash",
+      "tool_use_id": "toolu_01VQDTKnwN5EnTYs8GBLB7Cr",
+      "tool_input": {
+        "command": "touch probe-perm.txt",
+        "description": "Create empty probe file"
+      }
+    }
+  ]
+}

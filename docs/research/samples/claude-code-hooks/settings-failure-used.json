@@ -1,0 +1,264 @@
+{
+  "_launch": "run F: --settings <this file> --setting-sources project, hanging server on 47812 (/hang never answers, /status500 answers 500), nothing listens on 47899",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:47812/hang",
+            "timeout": 4
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "sleep 30",
+            "timeout": 3
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PostToolBatch": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "sleep 30; echo async-done >> /tmp/aang-spike/cc-hooks/logs/F-async-marker.txt",
+            "async": true
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:47899/refused",
+            "timeout": 5
+          },
+          {
+            "type": "command",
+            "command": "echo boom-stderr >&2; exit 1"
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "sleep 30",
+            "timeout": 2
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "command",
+            "command": "sleep 10; echo sessionend-done >> /tmp/aang-spike/cc-hooks/logs/F-async-marker.txt"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:47812/status500",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "StopFailure": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          },
+          {
+            "type": "http",
+            "url": "http://127.0.0.1:47812/status500",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionRequest": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PermissionDenied": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "MessageDisplay": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TaskCreated": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "TaskCompleted": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "InstructionsLoaded": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 /tmp/aang-spike/cc-hooks/bin/rec.py settings",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}

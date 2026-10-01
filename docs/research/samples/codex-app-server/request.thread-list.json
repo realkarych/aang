@@ -1,0 +1,63 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "thread/list",
+    "id": 8,
+    "params": {}
+  },
+  "response": {
+    "id": 8,
+    "result": {
+      "data": [
+        {
+          "id": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+          "environments": [
+            {
+              "environmentId": "local",
+              "cwd": "/tmp/aang-spike/codex-appserver/work",
+              "runtimeWorkspaceRoots": [
+                "/tmp/aang-spike/codex-appserver/work"
+              ]
+            }
+          ],
+          "extra": null,
+          "sessionId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+          "forkedFromId": null,
+          "parentThreadId": null,
+          "preview": "Run exactly this shell command in the current directory: echo hi > note.txt . Then reply OK.",
+          "ephemeral": false,
+          "section": null,
+          "sectionEnteredAt": null,
+          "projectId": null,
+          "historyMode": "paginated",
+          "modelProvider": "openai",
+          "model": "gpt-6.1-sol",
+          "reasoningEffort": null,
+          "createdAt": 1790855373,
+          "updatedAt": 1790855430,
+          "recencyAt": 1790855409,
+          "status": {
+            "type": "idle"
+          },
+          "path": "/tmp/aang-spike/codex-appserver/home/sessions/2026/10/01/rollout-2026-10-01T14-49-33-01a0f74c-5f1c-7270-b4ea-4185ced92eac.jsonl",
+          "cwd": "/tmp/aang-spike/codex-appserver/work",
+          "cliVersion": "0.159.2",
+          "originator": "aang_spike",
+          "source": "vscode",
+          "canAcceptDirectInput": null,
+          "threadSource": null,
+          "agentNickname": null,
+          "agentRole": null,
+          "gitInfo": null,
+          "name": null,
+          "daybreakEnabled": null,
+          "turns": []
+        }
+      ],
+      "nextCursor": null,
+      "backwardsCursor": "2026-10-01T11:49:33.248Z"
+    }
+  },
+  "requestAt": "2026-10-01T11:50:30.685+00:00",
+  "responseAt": "2026-10-01T11:50:30.690+00:00"
+}

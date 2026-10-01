@@ -1,0 +1,11 @@
+{
+  "type": "item.completed",
+  "item": {
+    "id": "item_2",
+    "type": "command_execution",
+    "command": "/bin/zsh -lc 'ls /definitely/not/here'",
+    "aggregated_output": "ls: /definitely/not/here: No such file or directory\n",
+    "exit_code": 1,
+    "status": "failed"
+  }
+}

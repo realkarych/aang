@@ -1,0 +1,50 @@
+{
+  "scenario": "s3 observer: second client on same app-server, thread/resume on running thread, never answers server requests",
+  "request": {
+    "method": "item/commandExecution/requestApproval",
+    "id": 0,
+    "params": {
+      "kind": "command",
+      "threadId": "01a0f758-0965-7f03-9a19-a5e8e87294e2",
+      "turnId": "01a0f758-09b2-75a1-8703-907d2f89acb8",
+      "itemId": "exec-619e6644-1ac1-44ba-9540-64e1530d405f",
+      "startedAtMs": 1790856142861,
+      "environmentId": "local",
+      "command": "/bin/zsh -lc 'echo hi > note2.txt .'",
+      "cwd": "/tmp/aang-spike/codex-appserver/work",
+      "commandActions": [
+        {
+          "type": "unknown",
+          "command": "echo hi > note2.txt ."
+        }
+      ],
+      "proposedExecpolicyAmendment": [
+        "/bin/zsh",
+        "-lc",
+        "echo hi > note2.txt ."
+      ],
+      "availableDecisions": [
+        "accept",
+        {
+          "acceptWithExecpolicyAmendment": {
+            "execpolicy_amendment": [
+              "/bin/zsh",
+              "-lc",
+              "echo hi > note2.txt ."
+            ]
+          }
+        },
+        "cancel"
+      ]
+    }
+  },
+  "receivedAt": "2026-10-01T12:02:22.862+00:00",
+  "resolvedNotification": {
+    "method": "serverRequest/resolved",
+    "params": {
+      "threadId": "01a0f758-0965-7f03-9a19-a5e8e87294e2",
+      "requestId": 0
+    },
+    "emittedAtMs": 1790856146864
+  }
+}

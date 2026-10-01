@@ -1,0 +1,57 @@
+{
+  "scenario": "s1: stdio app-server, thread/start read-only+untrusted, 3 turns (command approval accepted, apply_patch declined, subagent spawn) + thread/compact/start",
+  "request": {
+    "method": "item/commandExecution/requestApproval",
+    "id": 0,
+    "params": {
+      "kind": "command",
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "turnId": "01a0f74c-61e3-7c93-a404-7884f11c649b",
+      "itemId": "exec-a7d3c311-f82c-4583-827e-1a0228cdd2cc",
+      "startedAtMs": 1790855386133,
+      "environmentId": "local",
+      "command": "/bin/zsh -lc 'echo hi > note.txt'",
+      "cwd": "/tmp/aang-spike/codex-appserver/work",
+      "commandActions": [
+        {
+          "type": "unknown",
+          "command": "echo hi > note.txt"
+        }
+      ],
+      "proposedExecpolicyAmendment": [
+        "/bin/zsh",
+        "-lc",
+        "echo hi > note.txt"
+      ],
+      "availableDecisions": [
+        "accept",
+        {
+          "acceptWithExecpolicyAmendment": {
+            "execpolicy_amendment": [
+              "/bin/zsh",
+              "-lc",
+              "echo hi > note.txt"
+            ]
+          }
+        },
+        "cancel"
+      ]
+    }
+  },
+  "receivedAt": "2026-10-01T11:49:46.137+00:00",
+  "clientResponse": {
+    "id": 0,
+    "result": {
+      "decision": "accept"
+    }
+  },
+  "respondedAt": "2026-10-01T11:49:46.138+00:00",
+  "resolvedNotification": {
+    "method": "serverRequest/resolved",
+    "params": {
+      "threadId": "01a0f74c-5f1c-7270-b4ea-4185ced92eac",
+      "requestId": 0
+    },
+    "emittedAtMs": 1790855386138
+  }
+}
