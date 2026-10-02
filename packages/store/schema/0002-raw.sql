@@ -4,6 +4,13 @@ CREATE TABLE streams (
   scope TEXT NOT NULL CHECK (scope IN ('watched', 'external', 'observer'))
 ) STRICT;
 
+CREATE TABLE session_scopes (
+  runtime TEXT NOT NULL CHECK (runtime IN ('claude', 'codex')),
+  session TEXT NOT NULL CHECK (session <> ''),
+  scope TEXT NOT NULL CHECK (scope IN ('watched', 'external', 'observer')),
+  PRIMARY KEY (runtime, session)
+) STRICT;
+
 CREATE TABLE cursors (
   path TEXT PRIMARY KEY,
   stream TEXT REFERENCES streams (stream),

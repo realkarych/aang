@@ -8,6 +8,12 @@ const stream: Row = {
   scope: "'watched'",
 }
 
+const sessionScope: Row = {
+  runtime: "'claude'",
+  session: "'s1'",
+  scope: "'watched'",
+}
+
 const rawRecord: Row = {
   dedupe_key: "'claude:s1:u1'",
   channel: "'transcript'",
@@ -225,6 +231,36 @@ const cases: readonly SchemaCase[] = [
     name: 'a stream scope decision is watched, external or observer',
     statement: insert('streams', stream, { stream: "'claude:s2:main'", scope: "'included'" }),
     error: /CHECK constraint failed: scope IN/,
+  },
+  {
+    name: 'a root session scope decision is accepted',
+    statement: insert('session_scopes', sessionScope),
+  },
+  {
+    name: 'a root session scope decision is watched, external or observer',
+    statement: insert('session_scopes', sessionScope, { scope: "'included'" }),
+    error: /CHECK constraint failed: scope IN/,
+  },
+  {
+    name: 'a root session scope decision belongs to a known runtime',
+    statement: insert('session_scopes', sessionScope, { runtime: "'gemini'" }),
+    error: /CHECK constraint failed: runtime IN/,
+  },
+  {
+    name: 'a root session scope decision names the session',
+    statement: insert('session_scopes', sessionScope, { session: "''" }),
+    error: /CHECK constraint failed: session <> ''/,
+  },
+  {
+    name: 'a root session has a single scope decision per runtime',
+    setup: [insert('session_scopes', sessionScope)],
+    statement: insert('session_scopes', sessionScope, { scope: "'external'" }),
+    error: /UNIQUE constraint failed: session_scopes\.runtime, session_scopes\.session/,
+  },
+  {
+    name: 'sessions of different runtimes with the same id are decided separately',
+    setup: [insert('session_scopes', sessionScope)],
+    statement: insert('session_scopes', sessionScope, { runtime: "'codex'", scope: "'external'" }),
   },
   {
     name: 'a cursor holding 64-bit unsigned device and inode numbers is accepted',
