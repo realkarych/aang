@@ -73,6 +73,14 @@ interface ObserverFiles {
   readonly instructions: string
 }
 
+const observerFiles = (directory: string): ObserverFiles => ({
+  schema: join(directory, 'observer-schema.json'),
+  lastMessage: join(directory, 'out', 'last.json'),
+  catalog: join(directory, 'observer-models.json'),
+  bundledCatalog: join(directory, 'bundled-models.json'),
+  instructions: join(directory, 'observer-system.md'),
+})
+
 const isolationProfile = (files: ObserverFiles): ProfilePart[] => [
   { id: '--json', args: ['--json'] },
   { id: '-m', args: ['-m', model] },
@@ -131,13 +139,7 @@ const setUp = async (
   const fake = installFakeCodex(join(workspace.root, 'fakes'), scenario)
   const directory = join(workspace.root, 'observer')
   mkdirSync(join(directory, 'out'), { recursive: true })
-  const files: ObserverFiles = {
-    schema: join(directory, 'observer-schema.json'),
-    lastMessage: join(directory, 'out', 'last.json'),
-    catalog: join(directory, 'observer-models.json'),
-    bundledCatalog: join(directory, 'bundled-models.json'),
-    instructions: join(directory, 'observer-system.md'),
-  }
+  const files = observerFiles(directory)
   const bundled = await runFake(fake, ['debug', 'models', '--bundled'], {
     env: cleanEnvironment(workspace.home, {}),
     cwd: workspace.cwd,
@@ -259,21 +261,19 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
     ])
   })
 
-  test('without any part of the isolation profile the call fails before reaching the model', async ({
-    onTestFinished,
-  }) => {
-    const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+  test.for(isolationProfile(observerFiles('observer')).map((part) => part.id))(
+    'without %s the call fails before reaching the model',
+    async (id, { expect, onTestFinished }) => {
+      const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
 
-    for (const part of observer.profile) {
-      const exit = await observer.call(observer.profile.filter((candidate) => candidate !== part))
+      const exit = await observer.call(observer.profile.filter((part) => part.id !== id))
 
-      expect
-        .soft([part.id, exit.code, exit.stdout, exit.stderr.includes(part.id)])
-        .toEqual([part.id, fakeCliExitCodes.isolation, '', true])
-      expect.soft(observer.fake.calls().at(-1)?.violations).toEqual([part.id])
-    }
-    expect(existsSync(observer.files.lastMessage)).toBe(false)
-  })
+      expect({ code: exit.code, stdout: exit.stdout }).toEqual({ code: fakeCliExitCodes.isolation, stdout: '' })
+      expect(exit.stderr).toContain(id)
+      expect(observer.fake.calls().at(-1)).toMatchObject({ violations: [id], reply: null })
+      expect(existsSync(observer.files.lastMessage)).toBe(false)
+    },
+  )
 
   test('a weakened profile is a violation too', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })

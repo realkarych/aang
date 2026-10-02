@@ -195,7 +195,7 @@ const violations: readonly DirectionCase[] = [
     errors: [
       [
         1,
-        '@aang/engine test code may not import @aang/daemon; allowed: @aang/contract, @aang/store, @aang/testkit, @aang/adapter-claude, @aang/adapter-codex',
+        '@aang/engine test code may not import @aang/daemon; allowed: @aang/contract, @aang/store, @aang/testkit, @aang/adapter-claude, @aang/adapter-codex, @aang/collector',
       ],
     ],
   },
@@ -232,13 +232,13 @@ const violations: readonly DirectionCase[] = [
     errors: [[1, '@aang/web product code may not import @aang/daemon; allowed: @aang/contract']],
   },
   {
-    name: 'engine tests may not import packages beyond adapters and testkit',
+    name: 'engine tests may not import packages beyond adapters, collector and testkit',
     path: 'packages/engine/test/daemon.test.ts',
     code: ["import '@aang/daemon'"],
     errors: [
       [
         1,
-        '@aang/engine test code may not import @aang/daemon; allowed: @aang/contract, @aang/store, @aang/testkit, @aang/adapter-claude, @aang/adapter-codex',
+        '@aang/engine test code may not import @aang/daemon; allowed: @aang/contract, @aang/store, @aang/testkit, @aang/adapter-claude, @aang/adapter-codex, @aang/collector',
       ],
     ],
   },
@@ -263,9 +263,14 @@ const violations: readonly DirectionCase[] = [
 
 const allowed: readonly DirectionCase[] = [
   {
-    name: 'engine tests may import both adapters and testkit',
+    name: 'engine tests may import both adapters, collector and testkit',
     path: 'packages/engine/test/adapters.test.ts',
-    code: ["import '@aang/adapter-claude'", "import '@aang/adapter-codex'", "import '@aang/testkit'"],
+    code: [
+      "import '@aang/adapter-claude'",
+      "import '@aang/adapter-codex'",
+      "import '@aang/collector'",
+      "import '@aang/testkit'",
+    ],
     errors: [],
   },
   {

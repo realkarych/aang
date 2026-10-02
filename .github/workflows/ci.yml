@@ -37,7 +37,7 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
         env:
-          NODE_OPTIONS: --max-old-space-size=4096
+          NODE_OPTIONS: --max-old-space-size=6144
       - run: pnpm coverage
 
   hook-targets:

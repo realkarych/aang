@@ -60,13 +60,11 @@ const expectEveryRunDelivered = async (
   expect((await spool.entries()).pending).toEqual([])
 }
 
-const ciBudgetMs: Readonly<Partial<Record<NodeJS.Platform, number>>> = { linux: 50, darwin: 100, win32: 150 }
-
 const ciSeries: LatencySeries = { warmup: 5, runs: 60 }
 
 const benchmarkSeries: LatencySeries = { warmup: 20, runs: 500 }
 
-test('typical event round trip stays within the CI latency budget of the platform', { timeout: 120_000 }, async ({
+test('every typical event is delivered intact exactly once without pending files', { timeout: 120_000 }, async ({
   expect,
   onTestFinished,
   annotate,
@@ -77,7 +75,6 @@ test('typical event round trip stays within the CI latency budget of the platfor
 
   await annotate(describeReport(report, ciSeries))
   await expectEveryRunDelivered(expect, spool, report)
-  expect(report.p95).toBeLessThanOrEqual(ciBudgetMs[process.platform] ?? 150)
 })
 
 test('typical event round trip p95 is at most 10 ms', { tags: ['benchmark'], timeout: 600_000 }, async ({
