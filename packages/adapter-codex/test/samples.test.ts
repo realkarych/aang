@@ -76,7 +76,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         },
         payload: {
           launch: 'startup',
-          surface: null,
+          surface: { surface: 'codex_exec', basis: 'observed' },
           cwd: '/tmp/aang-spike/codex-cli/run1',
           forked_from: null,
           observer_marker: false,
@@ -91,7 +91,11 @@ const expectations: Readonly<Record<string, Expectation>> = {
         kind: 'session_start',
         entity_key: { kind: 'session', session: '01a0f763-d046-7011-91c1-e1031d75b971' },
         runtime_env: { originator: 'codex-tui', version: '0.159.2' },
-        payload: { launch: 'startup', surface: null, observer_marker: false },
+        payload: {
+          launch: 'startup',
+          surface: { surface: 'codex_tui', basis: 'assumed' },
+          observer_marker: false,
+        },
       },
     ],
   },
@@ -101,7 +105,11 @@ const expectations: Readonly<Record<string, Expectation>> = {
       {
         kind: 'session_start',
         entity_key: { kind: 'session', session: '01a0f75a-a4b7-7361-aa8c-65ee90d82f99' },
-        payload: { launch: 'startup', observer_marker: true },
+        payload: {
+          launch: 'startup',
+          surface: { surface: 'codex_exec', basis: 'observed' },
+          observer_marker: true,
+        },
       },
     ],
   },
@@ -114,6 +122,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         runtime_ids: { ordinal: 38 },
         payload: {
           launch: 'fork',
+          surface: { surface: 'codex_exec', basis: 'observed' },
           forked_from: { session: '01a0f75a-a4b7-7361-aa8c-65ee90d82f99', ordinal: 38 },
           observer_marker: false,
         },

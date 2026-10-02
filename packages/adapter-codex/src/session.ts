@@ -14,6 +14,7 @@ import {
 } from './facts.js'
 import { instantFromIso } from './line.js'
 import { isRoot, type ThreadStream } from './stream.js'
+import { surfaceOf } from './surface.js'
 
 const observerThreadSource = 'aang-observer'
 export const observerOriginator = 'aang_observer'
@@ -76,7 +77,7 @@ const TurnContext = Turn.extend({
 
 const sessionStart = (meta: SessionMeta): SessionStartPayload => ({
   launch: meta.forked_from_id === undefined ? 'startup' : 'fork',
-  surface: null,
+  surface: surfaceOf(meta.originator ?? null, meta.source),
   cwd: meta.cwd ?? null,
   forked_from:
     meta.forked_from_id === undefined
