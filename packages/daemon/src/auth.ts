@@ -66,6 +66,10 @@ export const createAuthenticator = (paths: AangHomePaths): Authenticator => {
     if (!parsed.success) {
       return null
     }
+    const token = await readUiToken(paths.uiToken)
+    if (token === null) {
+      return null
+    }
     const path = join(paths.authCodes, parsed.data)
     try {
       const { mtimeMs } = await stat(path)
@@ -76,10 +80,7 @@ export const createAuthenticator = (paths: AangHomePaths): Authenticator => {
     } catch (error) {
       return ignoreMissing(error, null)
     }
-    const token = await readUiToken(paths.uiToken)
-    return token === null
-      ? null
-      : `${sessionCookie}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${String(cookieMaxAgeSeconds)}`
+    return `${sessionCookie}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${String(cookieMaxAgeSeconds)}`
   }
 
   return { authorized, redeem, pruneExpiredCodes }

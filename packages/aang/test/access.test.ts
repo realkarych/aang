@@ -1,7 +1,9 @@
-import { readFile } from 'node:fs/promises'
+import { randomBytes } from 'node:crypto'
+import { once } from 'node:events'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, test } from 'vitest'
-import { isAlive } from './processes.js'
+import { isAlive, resume, suspend } from './processes.js'
 import { createSandbox, type Sandbox, startedPid } from './sandbox.js'
 
 const signInLink = /^(http:\/\/127\.0\.0\.1:[0-9]+)\/auth\/[A-Za-z0-9_-]{43}$/
@@ -25,6 +27,17 @@ const sessionCookie = (response: Response): string => {
   const cookie = response.headers.get('set-cookie') ?? ''
   return cookie.split(';')[0] ?? ''
 }
+
+const issuePendingCodes = async (sandbox: Sandbox, count: number): Promise<string[]> => {
+  const directory = join(sandbox.aangHome, 'auth')
+  await mkdir(directory, { recursive: true })
+  const codes = Array.from({ length: count }, () => randomBytes(32).toString('base64url'))
+  await Promise.all(codes.map((code) => writeFile(join(directory, code), '')))
+  return codes
+}
+
+const pendingCodes = (sandbox: Sandbox): Promise<string[]> =>
+  readdir(join(sandbox.aangHome, 'auth')).catch((): string[] => [])
 
 describe.concurrent('UI access needs the token; aang open hands it out through a one-time link', () => {
   test('requests without a valid token are refused, the one-time link works once and its cookie authorizes', async ({
@@ -84,6 +97,49 @@ describe.concurrent('UI access needs the token; aang open hands it out through a
     expect((await fetch(route, { headers: bearer(previous) })).status).toBe(401)
     expect((await fetch(route, { headers: bearer(token) })).status).toBe(404)
     expect((await fetch(pending.link, { redirect: 'manual' })).status).toBe(401)
+    expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+  })
+
+  test('a link issued before token rotate never signs in with the new token, even when redeemed mid-rotation', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const sandbox = await createSandbox(onTestFinished)
+    await sandbox.aang('start')
+    const { base } = await openLink(sandbox)
+    const issued = await issuePendingCodes(sandbox, 3_000)
+    const pending = (await pendingCodes(sandbox)).length
+    const previous = await uiToken(sandbox)
+
+    const rotation = sandbox.spawnAang('token', 'rotate')
+    const rotated = once(rotation, 'close')
+    const rotationPid = rotation.pid
+    if (rotationPid === undefined) {
+      throw new Error('aang token rotate did not start')
+    }
+    while ((await uiToken(sandbox)) === previous && (await pendingCodes(sandbox)).length === pending) {
+      await new Promise((resolve) => setImmediate(resolve))
+    }
+    const paused = rotation.exitCode === null && (await suspend(rotationPid).then(() => true, () => false))
+    const remaining = new Set(await pendingCodes(sandbox))
+    const sample = issued.filter((code) => remaining.has(code)).slice(0, 20)
+    const signIns = await Promise.all(sample.map((code) => fetch(`${base}/auth/${code}`, { redirect: 'manual' })))
+    if (paused) {
+      await resume(rotationPid)
+    }
+
+    expect(await rotated).toEqual([0, null])
+    const token = await uiToken(sandbox)
+    expect(token).not.toBe(previous)
+    const cookies = signIns.filter((response) => response.status === 200).map(sessionCookie)
+    expect(cookies.filter((cookie) => cookie === `aang_token=${token}`)).toEqual([])
+    const route = `${base}/api/admin/no-such-route`
+    for (const cookie of cookies) {
+      expect((await fetch(route, { headers: { cookie } })).status).toBe(401)
+    }
+    for (const code of issued.slice(0, 5)) {
+      expect((await fetch(`${base}/auth/${code}`, { redirect: 'manual' })).status).toBe(401)
+    }
     expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
   })
 

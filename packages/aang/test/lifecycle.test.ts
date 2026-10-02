@@ -1,10 +1,11 @@
-import { stat, unlink, writeFile } from 'node:fs/promises'
+import { chmod, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { describe, test } from 'vitest'
 import { isAlive, kill, resume, sleep, suspend, waitUntil } from './processes.js'
 import { createSandbox, hookMayWrite, type SpoolView, startedPid } from './sandbox.js'
 
 const posix = process.platform !== 'win32'
+const permissionsRestrict = posix && process.getuid?.() !== 0
 
 describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME', () => {
   test('start runs a daemon on loopback that holds a spool lease, and a second start is refused', async ({
@@ -38,6 +39,32 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(foreground.code).toBe(1)
     expect(foreground.stderr).toContain('an aang daemon is already running')
     expect(await sandbox.daemonState()).toEqual(state)
+  })
+
+  test('a relative AANG_HOME names the same home for start, status, open and stop', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const sandbox = await createSandbox(onTestFinished, { spool: { leaseTtlMs: 600_000 } }, { relativeHome: true })
+
+    const started = await sandbox.aang('start')
+
+    expect(started.code).toBe(0)
+    const pid = startedPid(started)
+    sandbox.track(pid)
+    expect(await sandbox.daemonState()).toMatchObject({ pid })
+    const view = await sandbox.spoolView()
+    expect(hookMayWrite(view)).toBe(true)
+    expect(Math.max(...view.leaseExpiries) * 1000).toBeLessThanOrEqual(Date.now() + 600_000)
+    const status = await sandbox.aang('status')
+    expect(status.stdout).toContain(`aang home: ${sandbox.aangHome}\n`)
+    expect(status.stdout).toContain(`daemon: running, pid ${String(pid)}, `)
+    const link = (await sandbox.aang('open')).stdout.trim()
+    expect((await fetch(link, { redirect: 'manual' })).status).toBe(200)
+
+    expect(await sandbox.aang('stop')).toMatchObject({ code: 0, stdout: `aang stopped: pid ${String(pid)}\n` })
+    expect(isAlive(pid)).toBe(false)
+    expect(await readdir(sandbox.aangHome)).not.toContain('aang home')
   })
 
   test('stop shuts the daemon down through the API, removes the lease, keeps the stop marker, and the next start lifts it', async ({
@@ -181,6 +208,32 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect((await sandbox.aang('status')).stdout).not.toContain('over threshold since')
     expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
   })
+
+  test.runIf(permissionsRestrict)(
+    'a daemon that cannot remove its lease while stopping still closes its API and exits',
+    async ({ expect, onTestFinished }) => {
+      const sandbox = await createSandbox(onTestFinished)
+      const pid = startedPid(await sandbox.aang('start'))
+      const state = await sandbox.daemonState()
+      if (state === null) {
+        throw new Error('aang start left no daemon state')
+      }
+      await chmod(sandbox.spool, 0o500)
+      try {
+        process.kill(pid, 'SIGTERM')
+        await waitUntil(() => !isAlive(pid))
+      } finally {
+        await chmod(sandbox.spool, 0o700)
+      }
+
+      await expect(fetch(`http://127.0.0.1:${String(state.api.port)}/api/x`)).rejects.toThrow()
+      expect(await sandbox.daemonState()).toBeNull()
+      expect(await readFile(join(sandbox.aangHome, 'daemon.log'), 'utf8')).toContain('EACCES')
+      const restarted = await sandbox.aang('start')
+      expect(restarted.code).toBe(0)
+      expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+    },
+  )
 
   test('a broken config fails start, while status and stop still work', async ({ expect, onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished)

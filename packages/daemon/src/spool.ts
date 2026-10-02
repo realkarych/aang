@@ -10,6 +10,7 @@ import {
   type SpoolState,
 } from '@aang/contract/home'
 import type { GapDraft, Store } from '@aang/store'
+import { z } from 'zod'
 
 export interface OverThreshold {
   readonly detected_at: EpochNs
@@ -30,6 +31,15 @@ interface SpoolSupervisorOptions {
 }
 
 export const epochNow = (): EpochNs => EpochNs.parse(BigInt(Date.now()) * 1_000_000n)
+
+const activeEpisodeSetting = 'spool_over_threshold'
+
+const Episode = z.strictObject({
+  detected_at: EpochNs,
+  bytes: z.int().nonnegative(),
+  threshold_bytes: z.int().nonnegative(),
+})
+type Episode = z.infer<typeof Episode>
 
 const exists = async (path: string): Promise<boolean> =>
   stat(path).then(
@@ -57,21 +67,36 @@ export const createSpoolSupervisor = ({
   store,
   onThresholdChange,
 }: SpoolSupervisorOptions): SpoolSupervisor => {
-  let over: OverThreshold | null = null
+  const recorded = store.settings.get(activeEpisodeSetting)
+  let episode: Episode | null = recorded === undefined ? null : Episode.parse(recorded)
 
-  const saveGap = (draft: GapDraft): void => {
-    store.transaction((transaction) => transaction.gaps.save(draft))
-  }
+  const overThreshold = (): OverThreshold | null =>
+    episode === null ? null : { detected_at: episode.detected_at, bytes: episode.bytes }
 
-  const thresholdGap = (episode: OverThreshold, closedAt: EpochNs | null): GapDraft => ({
-    key: { kind: 'gap', gap: 'spool_over_threshold', subject: `spool@${String(episode.detected_at)}` },
+  const thresholdGap = (active: Episode, closedAt: EpochNs | null): GapDraft => ({
+    key: { kind: 'gap', gap: 'spool_over_threshold', subject: `spool@${String(active.detected_at)}` },
     run: null,
     session: null,
     stream: null,
-    details: `spool held ${String(episode.bytes)} bytes, over the ${String(settings.thresholdBytes)}-byte threshold; hooks did not write while the lease was revoked`,
-    detected_at: episode.detected_at,
+    details: `spool held ${String(active.bytes)} bytes, over the ${String(active.threshold_bytes)}-byte threshold; hooks did not write while the lease was revoked`,
+    detected_at: active.detected_at,
     closed_at: closedAt,
   })
+
+  const openEpisode = (active: Episode): void => {
+    store.transaction((transaction) => {
+      transaction.gaps.save(thresholdGap(active, null))
+      transaction.settings.save(activeEpisodeSetting, Episode.encode(active), active.detected_at)
+    })
+  }
+
+  const closeEpisode = (active: Episode): void => {
+    const closedAt = epochNow()
+    store.transaction((transaction) => {
+      transaction.gaps.save(thresholdGap(active, closedAt))
+      transaction.settings.remove(activeEpisodeSetting)
+    })
+  }
 
   const grantLease = async (): Promise<boolean> => {
     const lease = leaseFileName(Math.floor((Date.now() + settings.leaseTtlMs) / 1000))
@@ -93,20 +118,20 @@ export const createSpoolSupervisor = ({
       await revokeLeases(paths.spool)
       return false
     }
-    const exceeded = state.bytes > settings.thresholdBytes
-    if (exceeded && over === null) {
-      await revokeLeases(paths.spool)
-      over = { detected_at: epochNow(), bytes: state.bytes }
-      saveGap(thresholdGap(over, null))
-      await onThresholdChange(over)
+    if (state.bytes > settings.thresholdBytes) {
+      if (state.leaseExpiresAt !== null) {
+        await revokeLeases(paths.spool)
+      }
+      if (episode === null) {
+        episode = { detected_at: epochNow(), bytes: state.bytes, threshold_bytes: settings.thresholdBytes }
+        openEpisode(episode)
+        await onThresholdChange(overThreshold())
+      }
       return true
     }
-    if (exceeded) {
-      return true
-    }
-    if (over !== null) {
-      saveGap(thresholdGap(over, epochNow()))
-      over = null
+    if (episode !== null) {
+      closeEpisode(episode)
+      episode = null
       await onThresholdChange(null)
       return grantLease()
     }
@@ -115,11 +140,11 @@ export const createSpoolSupervisor = ({
 
   const release = async (): Promise<void> => {
     await revokeLeases(paths.spool)
-    if (over !== null) {
-      saveGap(thresholdGap(over, epochNow()))
-      over = null
+    if (episode !== null) {
+      closeEpisode(episode)
+      episode = null
     }
   }
 
-  return { reconcile, overThreshold: () => over, release }
+  return { reconcile, overThreshold, release }
 }

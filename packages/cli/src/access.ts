@@ -23,9 +23,9 @@ export const openLink = async (output: Output): Promise<number> => {
 export const rotateToken = async (output: Output): Promise<number> => {
   const paths = aangHomePaths(resolveAangHome(processEnvironment()))
   await preparePrivateHome(paths)
+  await rm(paths.authCodes, { recursive: true, force: true })
   const token = newSecret()
   await writeUiToken(paths, token)
-  await rm(paths.authCodes, { recursive: true, force: true })
   output.out(token)
   output.error('aang token rotate: the UI token is replaced; sign in again with `aang open`')
   return 0

@@ -61,12 +61,19 @@ const collect = async (child: AangProcess): Promise<CommandResult> => {
   return { code, stdout, stderr }
 }
 
+export interface SandboxLayout {
+  readonly relativeHome?: boolean
+}
+
+const homeName = 'aang home'
+
 export const createSandbox = async (
   onTestFinished: TestContext['onTestFinished'],
   config: Record<string, unknown> = {},
+  { relativeHome = false }: SandboxLayout = {},
 ): Promise<Sandbox> => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-lifecycle-')))
-  const aangHome = join(root, 'aang home')
+  const aangHome = join(root, homeName)
   const spool = join(aangHome, 'spool')
   const daemonStateFile = join(aangHome, 'daemon.json')
   await mkdir(aangHome, { recursive: true })
@@ -75,7 +82,7 @@ export const createSandbox = async (
     ...process.env,
     HOME: root,
     USERPROFILE: root,
-    AANG_HOME: aangHome,
+    AANG_HOME: relativeHome ? homeName : aangHome,
     CLAUDE_CONFIG_DIR: join(root, '.claude'),
     CODEX_HOME: join(root, '.codex'),
   }
@@ -96,7 +103,7 @@ export const createSandbox = async (
   }
 
   const spawnAang = (...args: string[]): AangProcess => {
-    const child = spawn(process.execPath, [entry, ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] })
+    const child = spawn(process.execPath, [entry, ...args], { cwd: root, env, stdio: ['ignore', 'pipe', 'pipe'] })
     children.add(child)
     return child
   }

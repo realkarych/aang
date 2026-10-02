@@ -43,6 +43,20 @@ const report = (error: unknown): void => {
   process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
 }
 
+const runAll = async (steps: readonly (() => Promise<void>)[]): Promise<void> => {
+  const failures: unknown[] = []
+  for (const step of steps) {
+    await step().catch((error: unknown) => {
+      failures.push(error)
+    })
+  }
+  const [first, ...rest] = failures
+  rest.forEach(report)
+  if (failures.length > 0) {
+    throw first
+  }
+}
+
 interface Worker {
   readonly enqueue: (key: string, task: () => Promise<void>) => void
   readonly drained: () => Promise<void>
@@ -141,10 +155,14 @@ const serve = async ({ options, config, paths, listener, store }: Session): Prom
     for (const timer of timers) {
       clearInterval(timer)
     }
-    await worker.drained()
-    await spool.release()
-    await server.close()
-    await rm(paths.daemonState, { force: true })
+    await runAll([
+      async () => {
+        await worker.drained()
+        await spool.release()
+      },
+      server.close,
+      () => rm(paths.daemonState, { force: true }),
+    ])
   }
 }
 

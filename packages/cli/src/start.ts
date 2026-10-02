@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { open } from 'node:fs/promises'
+import { resolve as absolutePath } from 'node:path'
 import { Listener } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig, processEnvironment } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths } from '@aang/contract/home'
@@ -42,6 +43,18 @@ type Outcome =
 const readyTimeoutMs = 60_000
 
 const bindArguments = (bind: string | null): string[] => (bind === null ? [] : ['--bind', bind])
+
+const pathVariables = ['AANG_HOME', 'CLAUDE_CONFIG_DIR', 'CODEX_HOME'] as const
+
+const daemonEnvironment = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => ({
+  ...env,
+  ...Object.fromEntries(
+    pathVariables.flatMap((name) => {
+      const value = env[name]
+      return value === undefined || value === '' ? [] : [[name, absolutePath(value)]]
+    }),
+  ),
+})
 
 const prepareHome = async (environment: ConfigEnvironment): Promise<AangHomePaths> => {
   const { aangHome } = await loadConfig(environment)
@@ -93,6 +106,7 @@ export const startInBackground = async (program: DaemonProgram, bind: string | n
   try {
     child = spawn(program.command, [...program.args, daemonCommand, ...bindArguments(bind)], {
       cwd: paths.home,
+      env: daemonEnvironment(process.env),
       detached: true,
       windowsHide: true,
       stdio: ['ignore', log.fd, log.fd, 'ipc'],

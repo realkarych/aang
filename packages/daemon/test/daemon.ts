@@ -1,7 +1,11 @@
+import { spawn } from 'node:child_process'
 import { randomBytes } from 'node:crypto'
+import { once } from 'node:events'
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
+import { fileURLToPath } from 'node:url'
 import { type AangHomePaths, aangHomePaths } from '@aang/contract/home'
 import { type DaemonReady, type DaemonStopReason, runDaemon } from '@aang/daemon'
 import type { TestContext } from 'vitest'
@@ -72,3 +76,48 @@ export const startDaemon = async (
 }
 
 export const bearer = (token: string): Record<string, string> => ({ authorization: `Bearer ${token}` })
+
+export interface DaemonProcess {
+  readonly base: string
+  readonly kill: () => Promise<void>
+  readonly shutdown: () => Promise<number | null>
+}
+
+const host = fileURLToPath(new URL('host.ts', import.meta.url))
+
+export const spawnDaemon = async (home: Home, onTestFinished: TestContext['onTestFinished']): Promise<DaemonProcess> => {
+  const child = spawn(process.execPath, [host, home.paths.home, home.root], { stdio: ['ignore', 'pipe', 'inherit'] })
+  const exited = once(child, 'exit') as Promise<[number | null, NodeJS.Signals | null]>
+  onTestFinished(async () => {
+    if (child.exitCode === null && child.signalCode === null) {
+      child.kill('SIGKILL')
+      await exited
+    }
+  })
+  const firstLine = once(createInterface({ input: child.stdout }), 'line') as Promise<[string]>
+  const started = await Promise.race([firstLine, exited.then(() => undefined)])
+  if (started === undefined) {
+    throw new Error('the daemon process exited before it was ready')
+  }
+  const ready = JSON.parse(started[0]) as DaemonReady
+  const base = `http://127.0.0.1:${String(ready.api.port)}`
+  return {
+    base,
+    kill: async () => {
+      child.kill('SIGKILL')
+      await exited
+    },
+    shutdown: async () => {
+      const response = await fetch(`${base}/api/admin/shutdown`, {
+        method: 'POST',
+        headers: { ...bearer(home.token), 'content-type': 'application/json' },
+        body: '{}',
+      })
+      if (!response.ok) {
+        throw new Error(`shutdown was refused with ${String(response.status)}`)
+      }
+      const [code] = await exited
+      return code
+    },
+  }
+}
