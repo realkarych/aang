@@ -153,7 +153,6 @@ export const AttentionItem = z.strictObject({
   evidence: Evidence,
   runtime_wait: RuntimeWait,
   resolution: AttentionResolution,
-  dismissed_at: EpochNs.nullable(),
   likely_resolved: z
     .strictObject({
       basis: Basis,
@@ -229,6 +228,12 @@ export const Link = z.discriminatedUnion('kind', [
   }),
 ])
 export type Link = z.infer<typeof Link>
+
+export const SessionMembership = z.strictObject({
+  session: SessionId,
+  run: RunId,
+})
+export type SessionMembership = z.infer<typeof SessionMembership>
 
 export const BindingKind = z.enum(['attach', 'detach', 'fork_parent'])
 export type BindingKind = z.infer<typeof BindingKind>

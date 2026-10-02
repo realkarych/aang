@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { Basis, Evidence } from './axes.js'
-import { AttentionItem, Binding, Card, Criterion, Link, Run, Stage } from './model.js'
+import { AttentionItem, Binding, Card, Criterion, Link, Run, SessionMembership, Stage } from './model.js'
 import {
   AttentionItemId,
   BindingId,
@@ -13,6 +13,7 @@ import {
   ModelVersion,
   ObserverCallId,
   RunId,
+  SessionId,
   StageId,
 } from './primitives.js'
 
@@ -51,7 +52,7 @@ export const ruleOperations = [
   'session.move',
 ] as const
 
-export const userOperations = ['binding.add', 'binding.revoke', 'attention.dismiss'] as const
+export const userOperations = ['binding.add', 'binding.revoke'] as const
 
 export const ObserverOperation = z.enum(observerOperations)
 export type ObserverOperation = z.infer<typeof ObserverOperation>
@@ -70,6 +71,7 @@ export const ModelEntityRef = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('attention_item'), id: AttentionItemId }),
   z.strictObject({ kind: z.literal('link'), id: LinkId }),
   z.strictObject({ kind: z.literal('binding'), id: BindingId }),
+  z.strictObject({ kind: z.literal('session_membership'), id: SessionId }),
 ])
 export type ModelEntityRef = z.infer<typeof ModelEntityRef>
 
@@ -81,6 +83,7 @@ export const ModelEntity = z.discriminatedUnion('kind', [
   z.strictObject({ kind: z.literal('attention_item'), value: AttentionItem }),
   z.strictObject({ kind: z.literal('link'), value: Link }),
   z.strictObject({ kind: z.literal('binding'), value: Binding }),
+  z.strictObject({ kind: z.literal('session_membership'), value: SessionMembership }),
 ])
 export type ModelEntity = z.infer<typeof ModelEntity>
 

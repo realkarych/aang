@@ -14,7 +14,9 @@ export type ViewMark = z.infer<typeof ViewMark>
 
 export const AttentionView = z.strictObject({
   item: AttentionItemId,
-  viewed_at: EpochNs,
+  viewed_at: EpochNs.nullable(),
+  dismissed_at: EpochNs.nullable(),
+  change_seq: ChangeSeq,
 })
 export type AttentionView = z.infer<typeof AttentionView>
 
