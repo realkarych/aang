@@ -7,7 +7,7 @@ import { join, resolve } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { expect, test, type TestContext } from 'vitest'
-import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
+import { createClaudeLauncher as createClaudeBackend, createCodexLauncher as createCodexBackend, type LaunchStatus } from '@aang/observer'
 import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 
 const output = { base_version: 0, ops: [], needs: [] }

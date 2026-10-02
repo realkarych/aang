@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { admissionHookPath, codexAdmissionArtifacts, runAdmissionHook } from './admission.js'
 import { randomUUID } from 'node:crypto'
 import { startDescendant } from './process-tree.js'
 import { writeFileSync } from 'node:fs'
@@ -196,7 +198,7 @@ const providerUrl = (config: JsonValue): { url: string | undefined; provider: st
 
 const runMock = async (call: MockCall, config: JsonValue): Promise<void> => {
   startTurn(call.turn)
-  const outcome = await converse(mockRequest(call, config))
+  const outcome = await converse(mockRequest(call, config), call.scenario.admissionFault === 'tool_supported')
   outcome.attempts.forEach(routerError)
   if (outcome.failure !== null) {
     failTurn(outcome.failure)
@@ -213,7 +215,8 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
   const instructionsSetting = configValue(config, 'model_instructions_file')
   const instructionsFile = typeof instructionsSetting === 'string' ? instructionsSetting : undefined
   const instructions = instructionsFile === undefined ? undefined : tryReadText(instructionsFile)
-  const violations = codexViolations({ options, config, catalog, instructions, env: process.env })
+  const admission = existsSync(admissionHookPath('codex'))
+  const violations = codexViolations({ options, config, catalog, instructions, env: process.env }).filter((violation) => !admission || violation !== '--disable hooks')
   const { url, provider } = providerUrl(config)
   const mock = provider !== undefined
   const reachesModel = instructions?.ok !== false && violations.length === 0 && (mock || scenario.loggedIn)
@@ -238,7 +241,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
   const lastMessage = lastValue(options, 'output-last-message')
   const turn: Turn = {
     threadId: randomUUID(),
-    lastMessage: lastMessage === undefined ? undefined : resolve(lastMessage),
+    lastMessage: lastMessage === undefined || (scenario.admissionFault === 'missing_last' && allValues(options, 'disable').includes('hooks')) ? undefined : resolve(lastMessage),
   }
   if (mock) {
     if (url === undefined) {
@@ -247,6 +250,11 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
       return
     }
     const entry = catalogEntry({ options, catalog })
+    if (admission) {
+      runAdmissionHook('codex', options, scenario.admissionFault)
+      codexAdmissionArtifacts(scenario.admissionFault)
+    }
+    if (scenario.admissionFault === 'no_http') { completeTurn(turn, '{"base_version":0,"ops":[],"needs":[]}', defaultCodexUsage); return }
     await runMock({ url, options, scenario, entry, instructions: systemPrompt ?? '', schema, prompt, turn }, config)
     return
   }

@@ -17,7 +17,7 @@ export interface ObserverRequest {
   readonly signal?: AbortSignal
 }
 
-export type LaunchErrorClass = ObserverErrorClass | 'cancelled' | 'unsafe_workdir' | 'launcher_unavailable'
+export type LaunchErrorClass = ObserverErrorClass | 'cancelled' | 'unsafe_workdir' | 'launcher_unavailable' | 'version_not_admitted' | 'admission_busy'
 
 export type ObserverResult =
   | { readonly ok: true; readonly output: ObserverOutput; readonly usage: CallUsage }
