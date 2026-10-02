@@ -293,6 +293,84 @@ test('the latest closed request decides once nothing is open, and observer reque
   ])
 })
 
+test('refining a closed request cites the latest resolution, not the earlier closing or a later priority', async ({
+  onTestFinished,
+}) => {
+  const { store, home, human, solver, tool, begin, stage } = await setupObserver(onTestFinished)
+  const respond = (call: string, second: number, op: ObserverOp) => {
+    const id = ObserverCallId.parse(call)
+    const input = begin([solver, human, tool], id)
+    return store.transaction(
+      (transaction) =>
+        applyObserverResponse(transaction, {
+          call: id,
+          at: at(second),
+          output: response([op], input.model.version),
+        }).status,
+    )
+  }
+  expect(
+    respond('review-add', 50, {
+      op: 'attention.add',
+      temp_id: TempId.parse('review'),
+      kind: 'review_request',
+      text: 'Review the build change',
+      stage: existing(stages.build),
+      evidence: [solver.id],
+      rationale: 'The solver asked for a review',
+    }),
+  ).toBe('accepted')
+  const review = store.model
+    .entities(runA)
+    .find((entity) => entity.kind === 'attention_item' && entity.value.text === 'Review the build change')
+  if (review?.kind !== 'attention_item') {
+    throw new Error('the review request must be stored')
+  }
+  const item = { kind: 'existing', id: review.value.id } as const
+  expect(
+    respond('review-resolved', 60, {
+      op: 'attention.resolve',
+      item,
+      resolution: 'resolved',
+      evidence: [tool.id],
+      rationale: 'The tool output settled the review',
+    }),
+  ).toBe('accepted')
+  expect(stage()).toMatchObject({
+    value: { decision: { value: 'unknown', basis: decisionRule, evidence: [tool.id] } },
+  })
+  expect(
+    respond('review-answered', 70, {
+      op: 'attention.resolve',
+      item,
+      resolution: 'answered',
+      evidence: [human.id],
+      rationale: 'The human answered the review',
+    }),
+  ).toBe('accepted')
+  expect(
+    respond('review-priority', 80, {
+      op: 'attention.priority',
+      item,
+      priority: 'low',
+      evidence: [solver.id],
+      rationale: 'The answered review no longer matters',
+    }),
+  ).toBe('accepted')
+  const answered = { value: { decision: { value: 'answered', basis: decisionRule, evidence: [human.id] } } }
+  expect(stage()).toMatchObject(answered)
+  store.transaction((transaction) => {
+    transaction.model.replay()
+  })
+  expect(stage()).toMatchObject(answered)
+  store.close()
+  const reopened = home.open()
+  expect(reopened.model.entity(runA, { kind: 'stage', id: stages.build })).toMatchObject(answered)
+  expect(
+    reopened.transaction((transaction) => refreshStageDecisions(transaction, { run: runA, at: at(90) })),
+  ).toBeNull()
+})
+
 test('resolving a rule question rejects the whole response and leaves every batch fact pending', async ({
   onTestFinished,
 }) => {

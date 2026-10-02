@@ -79,8 +79,9 @@ The rule `stage-decision` derives the decision from them (ADR-0006):
     `answered`;
   - every other closing gives `unknown`: a wait that ended without an answer,
     an observer `resolved` item, or a permission without an observed decision.
-  Without an observed decision, the evidence is that of the journal change that
-  closed the item.
+  Without an observed decision, the evidence is that of the latest journal change
+  that set the item's current resolution or `closed_at`, so refining a closed item
+  cites the refinement, while a later priority or other change does not.
 - A stage that never had a request keeps its decision. If its requests disappear,
   for example because their action moved to another run, a derived decision
   becomes `unknown` and keeps the evidence of the last derived decision.

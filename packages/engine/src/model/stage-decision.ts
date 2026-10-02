@@ -55,7 +55,9 @@ const closingEvidence = (transaction: Transaction, run: RunId, item: AttentionIt
       ({ before, after }) =>
         after?.kind === 'attention_item' &&
         after.value.resolution !== 'open' &&
-        (before?.kind !== 'attention_item' || before.value.resolution === 'open'),
+        (before?.kind !== 'attention_item' ||
+          before.value.resolution !== after.value.resolution ||
+          before.value.closed_at !== after.value.closed_at),
     )
     .at(-1)?.evidence ?? item.evidence
 
