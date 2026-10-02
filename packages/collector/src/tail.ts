@@ -1,54 +1,49 @@
 import type { BigIntStats } from 'node:fs'
 import { open as openFile, readdir, stat } from 'node:fs/promises'
-import { join } from 'node:path'
-import type { CollectedGap, CollectedRecord, CollectorBatch, EpochNs, FileCursor, Runtime } from '@aang/contract'
-import { absent, describeError, isMissing } from './errors.js'
-import { epochNs, millisecondsToNs, nowNs } from './time.js'
+import { isAbsolute, join, relative, sep } from 'node:path'
+import type { AdapterRegistry, CollectedGap, CollectedRecord, CollectorBatch, FileCursor, Runtime, StreamKey } from '@aang/contract'
+import { absent, isMissing } from './errors.js'
+import type { Failure, FailureState, Retrier } from './retry.js'
+import { epochNs, nowNs } from './time.js'
+import type { TreeRoot } from './tree.js'
 import type { Wakeup } from './wakeup.js'
-import { type DirectoryWatch, watchDirectory } from './watch.js'
 
 export interface TailRoot {
+  readonly root: TreeRoot
   readonly runtime: Runtime
   readonly channel: 'transcript' | 'rollout'
-  readonly directory: string
-}
-
-export const tailRoots = (roots: Readonly<Record<Runtime, string>>): readonly TailRoot[] => [
-  { runtime: 'claude', channel: 'transcript', directory: join(roots.claude, 'projects') },
-  { runtime: 'codex', channel: 'rollout', directory: join(roots.codex, 'sessions') },
-  { runtime: 'codex', channel: 'rollout', directory: join(roots.codex, 'archived_sessions') },
-]
-
-export interface ReadRetry {
-  readonly pauseMs: number
-  readonly gapAfterMs: number
 }
 
 export interface TailOptions {
   readonly roots: readonly TailRoot[]
-  readonly fsWatch: boolean
-  readonly scanIntervalMs: number
-  readonly readRetry: ReadRetry
+  readonly retrier: Retrier
+  readonly adapters: AdapterRegistry
+  readonly lookbackDays: number
 }
 
 export interface TailSource {
-  readonly open: (cursors: readonly FileCursor[]) => void
+  readonly open: (cursors: readonly FileCursor[], gaps: readonly CollectedGap[]) => void
+  readonly changed: (root: TreeRoot, path: string) => void
+  readonly listed: (root: TreeRoot, paths: readonly string[]) => Promise<void>
   readonly take: () => Promise<CollectorBatch | null>
   readonly close: () => Promise<void>
+  readonly rescan: (streams: readonly StreamKey[]) => void
 }
 
-interface Failure {
-  readonly since: EpochNs
-  attempts: number
-  gap: CollectedGap | null
-  timer: NodeJS.Timeout | undefined
-}
-
-interface TrackedFile {
+interface TrackedFile extends FailureState {
   readonly path: string
   readonly root: TailRoot
   cursor: FileCursor | null
-  failure: Failure | null
+  replay: boolean
+  examined: number | null
+}
+
+interface Recovery extends FailureState {
+  readonly path: string
+  readonly runtime: Runtime | null
+  readonly readFailures: Failure[]
+  gap: CollectedGap | null
+  pending: boolean
 }
 
 interface ReadOutcome {
@@ -86,13 +81,12 @@ const freshCursor = (path: string, stats: BigIntStats): FileCursor => ({
 
 const sameFile = (cursor: FileCursor, stats: BigIntStats): boolean => cursor.dev === stats.dev && cursor.ino === stats.ino
 
-const continuation = (file: TrackedFile, stats: BigIntStats): FileCursor =>
-  file.cursor !== null && sameFile(file.cursor, stats) && stats.size >= BigInt(file.cursor.offset)
-    ? file.cursor
-    : freshCursor(file.path, stats)
+const invalidated = (cursor: FileCursor, stats: BigIntStats): boolean =>
+  !sameFile(cursor, stats) || stats.size < BigInt(cursor.size)
 
-const hasNewData = (cursor: FileCursor | null, stats: BigIntStats): boolean =>
-  cursor === null || !sameFile(cursor, stats) || stats.size !== BigInt(cursor.size)
+const hasNewData = (file: TrackedFile, stats: BigIntStats): boolean =>
+  file.replay || file.cursor === null || !sameFile(file.cursor, stats) || stats.size !== BigInt(file.cursor.size)
+  || BigInt(file.examined ?? file.cursor.offset) < stats.size
 
 const rolloutOrdinal = (payload: string): number | null => {
   try {
@@ -107,20 +101,35 @@ const rolloutOrdinal = (payload: string): number | null => {
   }
 }
 
-const listFiles = async (directory: string): Promise<string[]> => {
+const accepts = (root: TailRoot, name: string): boolean =>
+  name.endsWith(fileExtension) || (root.runtime === 'claude' && name.includes('.jsonl.superseded-'))
+
+const contains = (root: TailRoot, path: string): boolean => {
+  const within = relative(root.root.directory, path)
+  return within !== '' && within !== '..' && !within.startsWith(`..${sep}`) && !isAbsolute(within)
+}
+
+const listFiles = async (root: TailRoot): Promise<{ paths: string[]; failure: unknown }> => {
   const found: string[] = []
-  const pending = [directory]
+  let failure: unknown = null
+  const pending = [root.root.directory]
   for (let next = pending.pop(); next !== undefined; next = pending.pop()) {
-    for (const entry of await readdir(next, { withFileTypes: true }).catch(() => [])) {
+    const entries = await readdir(next, { withFileTypes: true }).catch((error: unknown) => {
+      if (!isMissing(error)) {
+        failure = error
+      }
+      return []
+    })
+    for (const entry of entries) {
       const path = join(next, entry.name)
       if (entry.isDirectory()) {
         pending.push(path)
-      } else if (entry.isFile() && entry.name.endsWith(fileExtension)) {
+      } else if (entry.isFile() && accepts(root, entry.name)) {
         found.push(path)
       }
     }
   }
-  return found
+  return { paths: found, failure }
 }
 
 const readChunk = async (path: string, offset: number, size: number): Promise<Chunk> => {
@@ -143,13 +152,12 @@ const readChunk = async (path: string, offset: number, size: number): Promise<Ch
 }
 
 export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSource => {
+  const sources = new Map(options.roots.map((source) => [source.root, source]))
   const files = new Map<string, TrackedFile>()
-  const known = new Map<string, FileCursor>()
   const dirty = new Map<string, TrackedFile>()
-  const watches = new Map<TailRoot, DirectoryWatch>()
-  let scanRequested = false
-  let scanning: Promise<void> | null = null
-  let timer: NodeJS.Timeout | undefined
+  const recoveries = new Map<StreamKey, Recovery>()
+  const rescans = new Set<StreamKey>()
+  let taking: Promise<CollectorBatch | null> | null = null
   let closed = false
 
   const track = (root: TailRoot, path: string): TrackedFile => {
@@ -157,79 +165,153 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     if (existing !== undefined) {
       return existing
     }
-    const file: TrackedFile = { path, root, cursor: known.get(path) ?? null, failure: null }
+    const file: TrackedFile = { path, root, cursor: null, failure: null, replay: false, examined: null }
     files.set(path, file)
     return file
   }
 
-  const scan = async (): Promise<void> => {
-    for (const root of options.roots) {
-      watches.get(root)?.ensure()
-      for (const path of await listFiles(root.directory)) {
-        const file = track(root, path)
-        const stats = await stat(path, { bigint: true }).catch(absent)
-        if (stats !== null && hasNewData(file.cursor, stats)) {
-          dirty.set(path, file)
-        }
+  const listed = async (root: TreeRoot, paths: readonly string[]): Promise<void> => {
+    const source = sources.get(root)
+    if (source === undefined) {
+      return
+    }
+    const seen = new Set(paths.filter((path) => accepts(source, path)))
+    for (const path of seen) {
+      const file = track(source, path)
+      const stats = await stat(path, { bigint: true }).catch(absent)
+      if (stats === null || hasNewData(file, stats)) {
+        dirty.set(path, file)
+      }
+    }
+    for (const file of files.values()) {
+      if (file.root === source && file.cursor !== null && !seen.has(file.path)) {
+        dirty.set(file.path, file)
+      }
+    }
+    for (const recovery of recoveries.values()) {
+      recovery.pending = true
+    }
+  }
+
+  const failed = (state: FailureState, error: unknown, subject: string, stream: StreamKey | null, retry: () => void): ReadOutcome => {
+    if (closed) {
+      return nothing
+    }
+    const pending = { path: subject, failure: state.failure }
+    const gaps = options.retrier.failed(pending, stream, error, () => {
+      retry()
+      wakeup.notify()
+    })
+    state.failure = pending.failure
+    return { ...nothing, gaps }
+  }
+
+  const recovered = options.retrier.recovered
+
+  const requestReplay = (file: TrackedFile): void => {
+    file.replay = true
+    file.examined = null
+    dirty.set(file.path, file)
+  }
+
+  const invalidate = (file: TrackedFile): void => {
+    const stream = file.cursor?.stream
+    if (stream !== undefined && stream !== null) {
+      const recovery = recoveries.get(stream) ?? {
+        path: file.path,
+        runtime: file.root.runtime,
+        readFailures: [],
+        gap: null,
+        failure: null,
+        pending: true,
+      }
+      if (file.failure !== null) {
+        clearTimeout(file.failure.timer)
+        recovery.readFailures.push(file.failure)
+        file.failure = null
+      }
+      recoveries.set(stream, recovery)
+    }
+    file.cursor = null
+    requestReplay(file)
+  }
+
+  const identify = async (file: TrackedFile, stats: BigIntStats): Promise<StreamKey | null> => {
+    const adapter = options.adapters.get(file.root.runtime)
+    if (adapter === undefined) {
+      return null
+    }
+    const { bytes } = await readChunk(file.path, 0, Number(stats.size))
+    const complete = bytes.subarray(0, bytes.lastIndexOf(lineFeed) + 1).toString('utf8')
+    return adapter.streamKey(complete.split(/\r?\n/).filter((line) => line.length > 0))
+  }
+
+  const prepare = async (file: TrackedFile): Promise<void> => {
+    try {
+      const stats = await stat(file.path, { bigint: true })
+      if (file.cursor !== null && (!stats.isFile() || invalidated(file.cursor, stats))) {
+        invalidate(file)
+      }
+    } catch (error) {
+      if (isMissing(error) && file.cursor !== null) {
+        invalidate(file)
       }
     }
   }
 
-  const runScans = async (): Promise<void> => {
-    while (scanRequested && !closed) {
-      scanRequested = false
-      await scan()
-      wakeup.notify()
+  const relocate = async (): Promise<CollectedGap[]> => {
+    const gaps: CollectedGap[] = []
+    for (const [stream, recovery] of recoveries) {
+      if (!recovery.pending) {
+        continue
+      }
+      recovery.pending = false
+      let found = false
+      let failure: unknown = null
+      for (const root of options.roots.filter(({ runtime }) => recovery.runtime === null || runtime === recovery.runtime)) {
+        const listed = await listFiles(root)
+        failure = listed.failure ?? failure
+        for (const path of listed.paths) {
+          const file = track(root, path)
+          try {
+            const stats = await stat(path, { bigint: true })
+            if (stats.isFile() && await identify(file, stats) === stream) {
+              requestReplay(file)
+              found = true
+            }
+          } catch (error) {
+            if (!isMissing(error)) {
+              failure = error
+            }
+          }
+        }
+      }
+      if (found) {
+        gaps.push(...recovered(recovery))
+        for (const failure of recovery.readFailures) {
+          gaps.push(...recovered({ failure }))
+        }
+        if (recovery.gap !== null) {
+          gaps.push({ ...recovery.gap, closed_at: nowNs() })
+        }
+        recoveries.delete(stream)
+      } else if (failure !== null) {
+        gaps.push(...failed(recovery, failure, stream, stream, () => { recovery.pending = true }).gaps)
+      } else {
+        gaps.push(...recovered(recovery))
+        if (recovery.gap === null) {
+          recovery.gap = {
+            key: { kind: 'gap', gap: 'source_lost', subject: stream },
+            stream,
+            details: `Source not found after searching ${recovery.path}`,
+            detected_at: nowNs(),
+            closed_at: null,
+          }
+          gaps.push(recovery.gap)
+        }
+      }
     }
-    scanning = null
-    timer = closed ? undefined : setTimeout(requestScan, options.scanIntervalMs)
-  }
-
-  const requestScan = (): void => {
-    scanRequested = true
-    if (scanning === null) {
-      clearTimeout(timer)
-      scanning = runScans()
-    }
-  }
-
-  const retryLater = (file: TrackedFile, failure: Failure): void => {
-    clearTimeout(failure.timer)
-    const pause = Math.min(options.readRetry.pauseMs * 2 ** (failure.attempts - 1), options.scanIntervalMs)
-    failure.timer = setTimeout(() => {
-      dirty.set(file.path, file)
-      wakeup.notify()
-    }, pause).unref()
-  }
-
-  const failed = (file: TrackedFile, error: unknown): ReadOutcome => {
-    const now = nowNs()
-    const failure = file.failure ?? { since: now, attempts: 0, gap: null, timer: undefined }
-    file.failure = failure
-    failure.attempts += 1
-    retryLater(file, failure)
-    if (failure.gap !== null || now - failure.since < millisecondsToNs(options.readRetry.gapAfterMs)) {
-      return nothing
-    }
-    failure.gap = {
-      key: { kind: 'gap', gap: 'read_failed', subject: file.path },
-      stream: file.cursor?.stream ?? null,
-      details: describeError(error),
-      detected_at: failure.since,
-      closed_at: null,
-    }
-    return { ...nothing, gaps: [failure.gap] }
-  }
-
-  const recovered = (file: TrackedFile): CollectedGap[] => {
-    const gap = file.failure?.gap ?? null
-    clearTimeout(file.failure?.timer)
-    file.failure = null
-    if (gap === null) {
-      return []
-    }
-    const now = nowNs()
-    return [{ ...gap, closed_at: now > gap.detected_at ? now : gap.detected_at }]
+    return gaps
   }
 
   const read = async (file: TrackedFile, budget: number): Promise<ReadOutcome> => {
@@ -241,10 +323,28 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       if (!stats.isFile()) {
         return nothing
       }
-      start = continuation(file, stats)
+      if (file.cursor !== null && invalidated(file.cursor, stats)) {
+        invalidate(file)
+        wakeup.notify()
+        return nothing
+      }
+      if (file.cursor === null && !file.replay && stats.mtimeMs < BigInt(Date.now() - options.lookbackDays * 86_400_000)) {
+        return nothing
+      }
+      start = file.replay ? freshCursor(file.path, stats) : file.cursor ?? freshCursor(file.path, stats)
+      if (start.stream === null) {
+        start = { ...start, stream: await identify(file, stats) }
+      }
       chunk = await readChunk(file.path, start.offset, Number(stats.size))
     } catch (error) {
-      return isMissing(error) ? nothing : failed(file, error)
+      if (isMissing(error)) {
+        if (file.cursor !== null) {
+          invalidate(file)
+          wakeup.notify()
+        }
+        return nothing
+      }
+      return failed(file, error, file.path, file.cursor?.stream ?? null, () => { dirty.set(file.path, file) })
     }
     const gaps = recovered(file)
     const records: CollectedRecord[] = []
@@ -281,10 +381,12 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       ...start,
       offset: start.offset + lineStart,
       line,
-      size: start.offset + examined,
+      size: Number(stats.size),
       last_ordinal: lastOrdinal,
     }
     file.cursor = cursor
+    file.replay = false
+    file.examined = start.offset + examined
     return {
       records,
       cursor: lineStart > 0 ? cursor : null,
@@ -295,9 +397,19 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
   }
 
   const take = async (): Promise<CollectorBatch | null> => {
+    const requested = new Set(rescans)
+    rescans.clear()
+    for (const file of [...dirty.values()]) {
+      await prepare(file)
+    }
+    for (const file of files.values()) {
+      if (file.cursor?.stream !== null && file.cursor?.stream !== undefined && requested.has(file.cursor.stream)) {
+        requestReplay(file)
+      }
+    }
     const records: CollectedRecord[] = []
     const cursors: FileCursor[] = []
-    const gaps: CollectedGap[] = []
+    const gaps: CollectedGap[] = await relocate()
     let bytes = 0
     for (const [path, file] of [...dirty]) {
       if (bytes >= maxBytesPerBatch || records.length >= maxRecordsPerBatch) {
@@ -321,42 +433,71 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     return { records, cursors, gaps }
   }
 
-  const watchRoot = (root: TailRoot): DirectoryWatch =>
-    watchDirectory(root.directory, true, {
-      changed: (name) => {
-        if (!name.endsWith(fileExtension)) {
-          return
-        }
-        const path = join(root.directory, name)
-        dirty.set(path, track(root, path))
-        wakeup.notify()
-      },
-      lost: requestScan,
-    })
-
-  const open = (cursors: readonly FileCursor[]): void => {
-    for (const cursor of cursors) {
-      known.set(cursor.path, cursor)
+  const changed = (root: TreeRoot, path: string): void => {
+    const source = sources.get(root)
+    if (source === undefined) {
+      return
     }
-    if (options.fsWatch) {
-      for (const root of options.roots) {
-        watches.set(root, watchRoot(root))
+    for (const recovery of recoveries.values()) {
+      if (recovery.runtime === null || recovery.runtime === source.runtime) {
+        recovery.pending = true
       }
     }
-    requestScan()
+    if (accepts(source, path)) {
+      dirty.set(path, track(source, path))
+    }
+    wakeup.notify()
+  }
+
+  const open = (cursors: readonly FileCursor[], gaps: readonly CollectedGap[]): void => {
+    for (const cursor of cursors) {
+      const root = options.roots.find((candidate) => contains(candidate, cursor.path))
+      if (root !== undefined) {
+        track(root, cursor.path).cursor = cursor
+      }
+    }
+    for (const gap of gaps) {
+      if (gap.key.gap !== 'source_lost' || gap.closed_at !== null || gap.stream === null) {
+        continue
+      }
+      const file = [...files.values()].find(({ cursor }) => cursor?.stream === gap.stream)
+      recoveries.set(gap.stream, {
+        path: file?.path ?? gap.stream,
+        runtime: file?.root.runtime ?? null,
+        readFailures: [],
+        gap,
+        failure: null,
+        pending: true,
+      })
+    }
   }
 
   const close = async (): Promise<void> => {
     closed = true
-    clearTimeout(timer)
-    for (const watch of watches.values()) {
-      watch.close()
-    }
     for (const file of files.values()) {
       clearTimeout(file.failure?.timer)
     }
-    await scanning
+    for (const recovery of recoveries.values()) {
+      clearTimeout(recovery.failure?.timer)
+    }
+    await taking
   }
 
-  return { open, take, close }
+  return {
+    open,
+    changed,
+    listed,
+    take: () => {
+      taking = take()
+      return taking
+    },
+    close,
+    rescan: (streams) => {
+      if (!closed && streams.length > 0) {
+        for (const stream of streams) {
+          rescans.add(stream)
+        }
+      }
+    },
+  }
 }

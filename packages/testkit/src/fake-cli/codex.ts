@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { startDescendant } from './process-tree.js'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
@@ -257,6 +258,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     missingReply(index)
     return
   }
+  await startDescendant(scenario.descendant)
   respond(turn, reply, prompt)
 }
 

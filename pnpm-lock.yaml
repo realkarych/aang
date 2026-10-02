@@ -245,6 +245,13 @@ importers:
       '@aang/contract':
         specifier: workspace:*
         version: link:../contract
+    devDependencies:
+      '@aang/adapter-claude':
+        specifier: workspace:*
+        version: link:../adapter-claude
+      '@aang/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
 
   packages/contract:
     dependencies:
@@ -325,6 +332,10 @@ importers:
       '@aang/store':
         specifier: workspace:*
         version: link:../store
+    devDependencies:
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../testkit
 
   packages/store:
     dependencies:

@@ -31,6 +31,11 @@ export const ClaudeReply = z.discriminatedUnion('kind', [
 ])
 export type ClaudeReply = z.input<typeof ClaudeReply>
 
+const Descendant = z.strictObject({
+  pidFile: z.string(),
+  inheritStdio: z.boolean().default(false),
+})
+
 export const ClaudePluginCommand = z.enum([
   'marketplace-add',
   'marketplace-remove',
@@ -42,6 +47,7 @@ export const ClaudePluginCommand = z.enum([
 export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
 
 export const ClaudeScenario = z.strictObject({
+  descendant: Descendant.optional(),
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
@@ -71,6 +77,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
 export type CodexReply = z.input<typeof CodexReply>
 
 export const CodexScenario = z.strictObject({
+  descendant: Descendant.optional(),
   version: z.string().default('0.159.3'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),

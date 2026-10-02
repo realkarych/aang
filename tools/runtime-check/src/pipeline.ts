@@ -258,6 +258,7 @@ export const pipelineCheck = async (
   const collector = createCollector({
     spool: profile.spool,
     runtimeRoots: { claude: profile.claudeConfigDir, codex: codexHome },
+    adapters: new Map<Runtime, Adapter>([['claude', adapters.claude], ['codex', adapters.codex]]),
     config: Config.parse({ collector: { spoolScanIntervalMs: 1_000, rootsScanIntervalMs: 2_000 } }),
   })
   const records: CollectedRecord[] = []
