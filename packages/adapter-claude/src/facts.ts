@@ -1,4 +1,5 @@
 import type {
+  CollectedRecord,
   EpochNs,
   FactDraft,
   FactDraftOf,
@@ -37,6 +38,21 @@ export const noRuntimeIds: RuntimeIds = {
   call_id: null,
   ordinal: null,
 }
+
+export const noRuntimeEnv: RuntimeEnv = {
+  cwd: null,
+  version: null,
+  entrypoint: null,
+  originator: null,
+  git_branch: null,
+}
+
+export const fileOrigin = (record: CollectedRecord, session: string, agent: string | null): FactOrigin => ({
+  at: record.observed_at,
+  ids: { ...noRuntimeIds, session_id: session, agent_id: agent },
+  env: noRuntimeEnv,
+  redeliveryKey: null,
+})
 
 export const fact = (origin: FactOrigin, spec: FactSpec, options: FactOptions = {}): FactDraft => ({
   ...spec,

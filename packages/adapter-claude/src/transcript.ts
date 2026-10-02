@@ -1,7 +1,6 @@
 import type {
   ActionOutcome,
   CollectedRecord,
-  CompactionTrigger,
   EpochNs,
   FactDraft,
   JsonValue,
@@ -10,14 +9,14 @@ import type {
   Speaker,
 } from '@aang/contract'
 import { z } from 'zod'
+import { spawnedAgents } from './agents.js'
+import { compactionTrigger } from './compaction.js'
 import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
-import { isJsonObject, type JsonObject, parseJson } from './json.js'
+import { name, optionalText } from './fields.js'
+import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { actionKey, messageKey, ownerKey, sessionKey } from './keys.js'
 import { epochFromIso } from './time.js'
 import { actionKind, exitCode, inputDescription, outputText, persistedOutputPath } from './tools.js'
-
-const name = z.string().min(1)
-const optionalText = z.string().nullish()
 
 const Line = z.object({
   type: name,
@@ -130,11 +129,6 @@ const contextAttachmentTypes: ReadonlySet<string> = new Set([
 
 const finalStopReason = 'end_turn'
 
-const compactionTriggers: ReadonlyMap<string, CompactionTrigger> = new Map([
-  ['manual', 'manual'],
-  ['auto', 'auto'],
-])
-
 const lineOrigin = (line: Line, record: CollectedRecord, sourceTs: EpochNs | null): FactOrigin => ({
   at: sourceTs ?? record.observed_at,
   ids: {
@@ -245,10 +239,10 @@ const parseUser = lineParser('user line', UserLine, (line, { origin, sourceTs })
   }
   const results = userBlocks.data.flatMap((block) => (block.type === 'tool_result' ? [block] : []))
   const toolResult = results.length === 1 ? line.toolUseResult : undefined
-  const actionEnds = results.map((block): FactDraft => {
+  const resultFacts = results.flatMap((block): FactDraft[] => {
     const outcome = toolOutcome(line, block.is_error === true, toolResult)
     const output = block.content === undefined ? null : outputText(block.content)
-    return fact(
+    const end = fact(
       origin,
       {
         kind: 'action_end',
@@ -266,13 +260,14 @@ const parseUser = lineParser('user line', UserLine, (line, { origin, sourceTs })
       },
       { ids: { call_id: block.tool_use_id }, verified: outcome !== 'denied' },
     )
+    return [end, ...spawnedAgents(origin, line.sessionId, block.tool_use_id, toolResult)]
   })
   if (results.length > 0 && texts.length === 0) {
-    return parsed(sourceTs, actionEnds)
+    return parsed(sourceTs, resultFacts)
   }
   const source = promptSource(line, text)
   return parsed(sourceTs, [
-    ...actionEnds,
+    ...resultFacts,
     fact(origin, {
       kind: 'prompt',
       entity_key: messageKey(line.sessionId, line.uuid),
@@ -358,9 +353,8 @@ const parseAssistant = lineParser('assistant line', AssistantLine, (line, { orig
   )
 })
 
-const parseCompactBoundary = lineParser('compact boundary', CompactBoundaryLine, (line, { origin, sourceTs }) => {
-  const trigger = line.compactMetadata.trigger ?? null
-  return parsed(sourceTs, [
+const parseCompactBoundary = lineParser('compact boundary', CompactBoundaryLine, (line, { origin, sourceTs }) =>
+  parsed(sourceTs, [
     fact(origin, {
       kind: 'compaction',
       entity_key: ownerKey(line.sessionId, line.agentId ?? null),
@@ -368,13 +362,13 @@ const parseCompactBoundary = lineParser('compact boundary', CompactBoundaryLine,
       urgent: true,
       payload: {
         phase: 'boundary',
-        trigger: (trigger === null ? undefined : compactionTriggers.get(trigger)) ?? 'unknown',
+        trigger: compactionTrigger(line.compactMetadata.trigger),
         summary: null,
         tokens_before: line.compactMetadata.preTokens ?? null,
       },
     }),
-  ])
-})
+  ]),
+)
 
 const parseQueueOperation = lineParser('queue operation', QueueOperationLine, (line, { origin, sourceTs }) =>
   parsed(sourceTs, [
@@ -420,6 +414,7 @@ export const parseTranscriptLine = (record: CollectedRecord): ParseResult => {
     return invalid('transcript line is not a JSON object')
   }
   const sourceTs = timestampOf(payload)
-  const parser = typeof payload.type === 'string' ? lineParsers.get(payload.type) : undefined
+  const parser =
+    withinNestingLimit(payload) && typeof payload.type === 'string' ? lineParsers.get(payload.type) : undefined
   return parser === undefined ? unknown(sourceTs) : parser(payload, record, sourceTs)
 }
