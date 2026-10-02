@@ -8,6 +8,7 @@ import { createCursors, type CursorReader, type CursorWriter } from './cursors.j
 import { createFacts, type FactReader, type FactWriter } from './facts.js'
 import { createGaps, type GapReader, type GapWriter } from './gaps.js'
 import { acquireWriterLock, type WriterLock } from './lock.js'
+import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
@@ -24,6 +25,7 @@ export interface Transaction {
   readonly scopes: ScopeWriter
   readonly cursors: CursorWriter
   readonly gaps: GapWriter
+  readonly model: ModelWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
@@ -35,6 +37,7 @@ export interface Store {
   readonly scopes: ScopeReader
   readonly cursors: CursorReader
   readonly gaps: GapReader
+  readonly model: ModelReader
   readonly changes: ChangeFeed
   readonly close: () => void
 }
@@ -46,6 +49,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const scopes = createScopes(database)
   const cursors = createCursors(database)
   const gaps = createGaps(database)
+  const model = createModel(database)
 
   const beginTransaction = (): { transaction: Transaction; finish: () => void } => {
     let active = true
@@ -69,6 +73,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         scopes: scopes.writer(context),
         cursors: cursors.writer(context),
         gaps: gaps.writer(context),
+        model: model.writer(context),
       },
       finish: () => {
         active = false
@@ -91,6 +96,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     scopes: scopes.reader,
     cursors: cursors.reader,
     gaps: gaps.reader,
+    model: model.reader,
     changes: createChangeFeed(database),
     close: () => {
       if (!open) {
