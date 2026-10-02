@@ -205,6 +205,10 @@ importers:
       '@aang/web':
         specifier: workspace:*
         version: link:../web
+    devDependencies:
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../testkit
 
   packages/adapter-claude:
     dependencies:
