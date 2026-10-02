@@ -1,4 +1,4 @@
-import { accessSync, constants, existsSync, mkdirSync, readdirSync, realpathSync, statSync } from 'node:fs'
+import { accessSync, closeSync, constants, existsSync, mkdirSync, openSync, readSync, readdirSync, realpathSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, isAbsolute, join, parse, resolve } from 'node:path'
 import type { Runtime } from '@aang/contract'
@@ -42,17 +42,28 @@ const executable = (path: string): boolean => {
   } catch { return false }
 }
 
+const envNodeScript = (path: string): boolean => {
+  const file = openSync(path, 'r')
+  try {
+    const prefix = Buffer.alloc(128)
+    const length = readSync(file, prefix, 0, prefix.length, 0)
+    return /^#![ \t]*\/usr\/bin\/env[ \t]+node[ \t]*(?:\r?\n|$)/.test(prefix.toString('utf8', 0, length))
+  } finally { closeSync(file) }
+}
+
 export const resolveCli = (runtime: Runtime, cli: string | CliCommand, env: InheritedEnvironment): CliCommand => {
   if (typeof cli !== 'string') {
     if (!isAbsolute(cli.command) || !executable(cli.command) || /\.(cmd|bat|ps1)$/i.test(cli.command)) throw new Error('CLI must be an absolute executable path')
     return cli
   }
   const windows = process.platform === 'win32'
-  const suffixes = windows ? ['.exe', '', '.cmd', '.ps1'] : ['']
+  const suffixes = windows ? ['.exe', '.cmd', '.ps1', ''] : ['']
   const candidates = isAbsolute(cli) ? [cli] : (environmentValue(env, 'PATH') ?? '').split(delimiter).filter(Boolean).flatMap((directory) => suffixes.map((suffix) => resolve(directory, cli + suffix)))
   const path = candidates.find(executable)
   if (path === undefined) throw new Error(`CLI not found: ${cli}`)
-  if (!windows || !/\.(cmd|bat|ps1)$/i.test(path)) return { command: realpathSync(path) }
+  const command = realpathSync(path)
+  if (!windows) return envNodeScript(command) ? { command: process.execPath, args: [command] } : { command }
+  if (/\.(exe|com)$/i.test(command)) return { command }
   const native = join(dirname(path), `${runtime}.exe`)
   if (executable(native)) return { command: realpathSync(native) }
   if (runtime === 'codex') {

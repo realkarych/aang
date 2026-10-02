@@ -60,13 +60,17 @@ export const createClaudeBackend = (options: ClaudeBackendOptions) => {
       '--system-prompt', systemPrompt, '--no-session-persistence', '--permission-mode', 'dontAsk',
       '--settings', '{"crossSessionInbound":"hold"}', '--session-id', randomUUID(),
     ], input)
-    if (result.failure !== null) requireSuccess(result)
-    const stream = events(result.stdout)
+    const stream = result.failure === null ? events(result.stdout) : result.stdout.split(/\r?\n/).flatMap((line) => {
+      try { return events(line) }
+      catch { return [] }
+    })
     const init = stream.filter((event) => event.type === 'system' && event.subtype === 'init')
     const results = stream.filter((event) => event.type === 'result')
     const response = results[0]
     const usage = response === undefined ? null : usageOf(response, options.model)
-    if (init.length !== 1 || init[0] === undefined || !isolated(init[0], allowed)) throw new LaunchError('isolation', 'Claude init does not match the admitted isolation profile', usage)
+    const missingInit = init.length === 0 && result.failure === null
+    if (missingInit || init.length > 1 || init.some((event) => !isolated(event, allowed))) throw new LaunchError('isolation', 'Claude init does not match the admitted isolation profile', usage)
+    if (result.failure !== null) requireSuccess(result)
     if (response === undefined || results.length !== 1 || response.subtype !== 'success' || response.is_error !== false || result.exitCode !== 0) {
       const message = typeof response?.result === 'string' ? response.result : ''
       const kind = response?.api_error_status === 429 ? 'limit' : failureClass(message + result.stderr)

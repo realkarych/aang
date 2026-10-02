@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -52,6 +53,32 @@ test('Claude rejects leaked tools and blocks further calls until a new backend i
   expect(await backend.execute({ input })).toMatchObject({ ok: false })
   expect(cli.calls()).toHaveLength(count)
 })
+
+for (const ending of ['timeout', 'cancelled'] as const) {
+  test.for(['before-init', 'after-init'] as const)(`Claude ${ending} checks complete init events without rejecting an incomplete init: %s`, async (stage, context) => {
+    const { root, options } = await sandbox(context)
+    const fake = installFakeClaude(root, { leakedTools: ['Bash'], replies: [{ kind: 'answer', output }] })
+    const ready = join(root, 'stream-ready')
+    const cli = { command: process.execPath, args: [fileURLToPath(new URL('interrupted-stream.ts', import.meta.url)), stage, ready, fake.command, ...fake.args] }
+    const backend = observer.createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins, timeoutMs: ending === 'timeout' ? 3000 : 10_000 })
+    const controller = new AbortController()
+    const pending = backend.execute({ input, signal: controller.signal })
+    try {
+      await expect.poll(() => existsSync(ready), { timeout: 5000 }).toBe(true)
+      if (ending === 'cancelled') controller.abort()
+      expect(await pending).toMatchObject({ ok: false, error: { class: stage === 'after-init' ? 'isolation' : ending } })
+      expect(backend.status()).toEqual({ activeCalls: 0, state: stage === 'after-init' ? { state: 'disabled', reason: 'isolation' } : { state: 'ok' } })
+      if (stage === 'after-init') {
+        const count = fake.calls().length
+        expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
+        expect(fake.calls()).toHaveLength(count)
+      }
+    } finally {
+      controller.abort()
+      await pending
+    }
+  })
+}
 
 test.for(['auth', 'limit', 'invalid_json'] as const)('Claude rejects %s even with subtype success', async (kind, context) => {
   const { root, options } = await sandbox(context)
@@ -160,18 +187,37 @@ test.skipIf(process.platform !== 'win32')('a missing Windows launcher disables l
   expect(cli.calls()).toEqual([])
 })
 
-test.skipIf(process.platform !== 'win32')('Codex resolves its npm cmd shim to node and the package script without a shell', async (context) => {
+test.skipIf(process.platform !== 'win32').for(['absolute-cmd', 'absolute-posix', 'name'] as const)('Codex resolves npm shims to node and the package script without a shell: %s', async (selection, context) => {
   const { root, options } = await sandbox(context)
   const fake = installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
   const bin = join(root, 'npm bin')
   const scripts = join(bin, 'node_modules', '@openai', 'codex', 'bin')
   await mkdir(scripts, { recursive: true })
+  await writeFile(join(bin, 'codex'), '#!/bin/sh\nexit 99\n')
   await writeFile(join(bin, 'codex.cmd'), 'exit /b 99')
+  await writeFile(join(bin, 'codex.ps1'), 'exit 99')
   const [script, state] = fake.args
   await writeFile(join(scripts, 'codex.js'), `process.argv.splice(1, 1, ${JSON.stringify(script)}, ${JSON.stringify(state)}); await import(${JSON.stringify(pathToFileURL(script ?? '').href)});`)
-  const backend = observer.createCodexBackend({ ...options, cli: join(bin, 'codex.cmd'), model: 'gpt-6.1-sol' })
-  expect(await backend.execute({ input })).toMatchObject({ ok: true })
+  const cli = selection === 'name' ? 'codex' : join(bin, selection === 'absolute-cmd' ? 'codex.cmd' : 'codex')
+  const environment = Object.fromEntries(Object.entries(options.environment).filter(([name]) => name.toLowerCase() !== 'path'))
+  const backend = observer.createCodexBackend({ ...options, environment: { ...environment, Path: bin }, cli, model: 'gpt-6.1-sol' })
+  expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
   expect(fake.calls().find((call) => call.command === 'exec')?.violations).toEqual([])
+})
+
+test.skipIf(process.platform === 'win32').for(['absolute', 'name'] as const)('Codex runs an env node npm entrypoint with the isolated PATH: %s', async (selection, context) => {
+  const { root, options } = await sandbox(context)
+  const fake = installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
+  const bin = join(root, 'npm bin')
+  const script = join(root, 'codex entrypoint.mjs')
+  await mkdir(bin)
+  await writeFile(script, `#!/usr/bin/env node\nimport { spawnSync } from 'node:child_process'\nconst result = spawnSync(${JSON.stringify(fake.command)}, [...${JSON.stringify(fake.args)}, ...process.argv.slice(2)], { stdio: 'inherit' })\nprocess.exitCode = result.status ?? 1\n`, { mode: 0o755 })
+  await symlink(script, join(bin, 'codex'))
+  const backend = observer.createCodexBackend({ ...options, environment: { ...options.environment, PATH: bin }, cli: selection === 'name' ? 'codex' : script, model: 'gpt-6.1-sol' })
+  expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
+  const call = fake.calls().find((call) => call.command === 'exec')
+  expect(call?.violations).toEqual([])
+  expect(call?.env.PATH).toBe('/usr/bin:/bin')
 })
 
 
