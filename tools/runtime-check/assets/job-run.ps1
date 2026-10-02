@@ -356,19 +356,38 @@ try {
 
 $job = [AangJob]::Run($spec.commandLine, [string[]]$spec.environment, $spec.cwd, $spec.stdin, $spec.stdout, $spec.stderr, [int]$spec.timeoutMs)
 
+function Describe-TraceEvents($events, $alive) {
+    @($events | ForEach-Object {
+        $start = $_.SourceEventArgs.NewEvent
+        $ppid = [int]$start.ParentProcessID
+        [pscustomobject]@{ pid = [int]$start.ProcessID; ppid = $ppid; name = [string]$start.ProcessName; parentName = $alive[$ppid]; createdAt = [string]$start.TIME_CREATED; receivedAt = [string]$_.TimeGenerated.ToFileTimeUtc() }
+    })
+}
+
 $started = @()
+$traceSnapshots = @()
 if ($null -eq $traceError) {
+    $traceClock = [System.Diagnostics.Stopwatch]::StartNew()
+    $earlyEvents = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
+    $earlyAfterRunMs = $traceClock.ElapsedMilliseconds
     Start-Sleep -Milliseconds 1500
     $alive = @{}
     Get-CimInstance Win32_Process | ForEach-Object { $alive[[int]$_.ProcessId] = [string]$_.Name }
-    $started = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue | ForEach-Object {
-        $start = $_.SourceEventArgs.NewEvent
-        $ppid = [int]$start.ParentProcessID
-        [pscustomobject]@{ pid = [int]$start.ProcessID; ppid = $ppid; name = [string]$start.ProcessName; parentName = $alive[$ppid]; createdAt = [string]$start.TIME_CREATED }
-    })
+    $standardEvents = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
+    $standardAfterRunMs = $traceClock.ElapsedMilliseconds
+    $started = @(Describe-TraceEvents $standardEvents $alive)
+    $remainingDelay = [Math]::Max(0, 10000 - $traceClock.ElapsedMilliseconds)
+    if ($remainingDelay -gt 0) { Start-Sleep -Milliseconds $remainingDelay }
+    $lateEvents = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
+    $lateAfterRunMs = $traceClock.ElapsedMilliseconds
+    $traceSnapshots = @(
+        [pscustomobject]@{ afterRunMs = $earlyAfterRunMs; started = @(Describe-TraceEvents $earlyEvents $alive) }
+        [pscustomobject]@{ afterRunMs = $standardAfterRunMs; started = $started }
+        [pscustomobject]@{ afterRunMs = $lateAfterRunMs; started = @(Describe-TraceEvents $lateEvents $alive) }
+    )
     Unregister-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue
 }
 
-$result = [pscustomobject]@{ harnessPid = $PID; job = $job; started = $started; traceError = $traceError }
+$result = [pscustomobject]@{ harnessPid = $PID; job = $job; started = $started; traceError = $traceError; traceSnapshots = $traceSnapshots }
 $json = ConvertTo-Json -InputObject $result -Depth 6
 [System.IO.File]::WriteAllText($ResultPath, $json, (New-Object System.Text.UTF8Encoding $false))

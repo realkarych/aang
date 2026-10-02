@@ -18,6 +18,7 @@ const StartedProcess = z.object({
   name: z.string(),
   parentName: z.string().nullable(),
   createdAt: z.string(),
+  receivedAt: z.string(),
 })
 type StartedProcess = z.infer<typeof StartedProcess>
 
@@ -39,6 +40,7 @@ const HarnessResult = z.object({
     .union([z.array(StartedProcess), StartedProcess, z.null()])
     .transform((value) => (value === null ? [] : 'pid' in value ? [value] : value)),
   traceError: z.string().nullable(),
+  traceSnapshots: z.array(z.object({ afterRunMs: z.number(), started: z.array(StartedProcess) })),
 })
 type HarnessResult = z.infer<typeof HarnessResult>
 
@@ -136,7 +138,7 @@ const runInJob = async (
       .filter(({ pid }) => !treePids.has(pid) && !ownPids.has(pid))
       .map(({ pid, ppid, name, parentName }) => ({ pid, name, ppid, parent: names.get(ppid) ?? parentName })),
     stdoutTail: excerpt(stdout.trim().split(/\r?\n/).at(-1) ?? '', 400),
-    processEvidence: { rootPid: job.RootPid, harnessPid, started, seenInJob: job.Seen },
+    processEvidence: { rootPid: job.RootPid, harnessPid, started, seenInJob: job.Seen, traceSnapshots: parsed.traceSnapshots },
   }
 }
 
