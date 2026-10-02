@@ -62,6 +62,7 @@ interface TrackedFile extends FailureState {
 interface Recovery extends FailureState {
   readonly path: string
   readonly runtime: Runtime | null
+  readonly readFailures: Failure[]
   gap: CollectedGap | null
   pending: boolean
 }
@@ -274,8 +275,21 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
 
   const invalidate = (file: TrackedFile): void => {
     const stream = file.cursor?.stream
-    if (stream !== undefined && stream !== null && !recoveries.has(stream)) {
-      recoveries.set(stream, { path: file.path, runtime: file.root.runtime, gap: null, failure: null, pending: true })
+    if (stream !== undefined && stream !== null) {
+      const recovery = recoveries.get(stream) ?? {
+        path: file.path,
+        runtime: file.root.runtime,
+        readFailures: [],
+        gap: null,
+        failure: null,
+        pending: true,
+      }
+      if (file.failure !== null) {
+        clearTimeout(file.failure.timer)
+        recovery.readFailures.push(file.failure)
+        file.failure = null
+      }
+      recoveries.set(stream, recovery)
     }
     reset(file)
   }
@@ -332,6 +346,9 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       }
       if (found) {
         gaps.push(...recovered(recovery))
+        for (const failure of recovery.readFailures) {
+          gaps.push(...recovered({ failure }))
+        }
         if (recovery.gap !== null) {
           gaps.push({ ...recovery.gap, closed_at: nowNs() })
         }
@@ -512,6 +529,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       recoveries.set(gap.stream, {
         path: file?.path ?? gap.stream,
         runtime: file?.root.runtime ?? null,
+        readFailures: [],
         gap,
         failure: null,
         pending: true,
