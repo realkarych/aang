@@ -3,6 +3,15 @@
   "compilerOptions": {
     "noEmit": true
   },
-  "include": ["**/*.ts"],
-  "references": [{ "path": ".." }]
+  "include": [
+    "**/*.ts"
+  ],
+  "references": [
+    {
+      "path": ".."
+    },
+    {
+      "path": "../../testkit"
+    }
+  ]
 }
