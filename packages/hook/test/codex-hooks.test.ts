@@ -1,10 +1,10 @@
-import { chmod, lstat, mkdir, readdir, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { chmod, lstat, mkdir, readdir, readFile, readlink, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { HookInstallError, hookBinaryName, installCodexHooks, uninstallCodexHooks } from '@aang/hook'
 import { describe, inject, test } from 'vitest'
 import { cleanExit, readSpoolEvents, runProcess, typicalPayload, withoutNames } from './hook.js'
-import { createInstallHome, type InstallHome, readJson, sampleText } from './install.js'
+import { createInstallHome, finishedProcessId, type InstallHome, readJson, sampleText } from './install.js'
 
 interface Handler {
   readonly type: string
@@ -25,6 +25,9 @@ interface HooksDocument {
 const binaries = inject('hookBinaries')
 const installWaitMs = 200
 const largeFileEntries = 40_000
+const paddingBytes = 32 * 1024 * 1024
+const replaceDelayMs = 2
+const concurrentInstalls = 3
 
 const loggerConfig = await sampleText('codex-cli/hooks/hooks.json.logger-config.json')
 
@@ -101,6 +104,43 @@ const foreignStop = (document: HooksDocument): HooksDocument => ({
   },
 })
 
+const paddedText = (document: HooksDocument): string => JSON.stringify({ ...document, padding: 'x'.repeat(paddingBytes) })
+
+const unpadded = (document: HooksDocument): HooksDocument => ({ ...document, padding: paddingBytes })
+
+const readUnpadded = async (path: string): Promise<HooksDocument> => {
+  const { padding, ...document } = (await readJson(path)) as HooksDocument
+  return { ...document, padding: typeof padding === 'string' ? padding.length : padding }
+}
+
+const stagedCopyWritten = async (home: InstallHome): Promise<boolean> => {
+  for (const name of (await readdir(home.codexHome)).filter((entry) => entry.endsWith('.tmp'))) {
+    const stats = await stat(join(home.codexHome, name)).catch(() => undefined)
+    if ((stats?.size ?? 0) >= paddingBytes) {
+      return true
+    }
+  }
+  return false
+}
+
+const replaceWhileSaving = async (home: InstallHome, replacement: string, saving: Promise<unknown>): Promise<boolean> => {
+  const replacementFile = join(home.root, 'replacement.json')
+  await writeFile(replacementFile, replacement)
+  const saved = new AbortController()
+  const stop = (): void => {
+    saved.abort()
+  }
+  void saving.then(stop, stop)
+  while (!saved.signal.aborted) {
+    if (await stagedCopyWritten(home)) {
+      await delay(replaceDelayMs)
+      await rename(replacementFile, home.hooksFile)
+      return true
+    }
+  }
+  return false
+}
+
 const holdDeployLock = async (home: InstallHome): Promise<() => Promise<void>> => {
   const lock = join(dirname(home.paths.binary), `.${hookBinaryName}.lock`)
   await mkdir(dirname(lock), { recursive: true })
@@ -111,6 +151,9 @@ const holdDeployLock = async (home: InstallHome): Promise<() => Promise<void>> =
 const fileKind = (name: string): string => {
   if (name.endsWith('.tmp')) {
     return 'staged'
+  }
+  if (name.endsWith('.aang-lock')) {
+    return 'lock'
   }
   return name.includes('.aang-backup-') ? 'backup' : name
 }
@@ -310,6 +353,94 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(createdText)
   })
 
+  test('an entry another program writes by atomically replacing hooks.json while install saves is kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    const original: HooksDocument = { hooks: {} }
+    await writeFile(home.hooksFile, paddedText(original))
+    const replacement = foreignStop(original)
+    const installing = install(home)
+
+    const replaced = await replaceWhileSaving(home, paddedText(replacement), installing)
+    const { command } = await installing
+
+    expect(replaced).toBe(true)
+    expect([unpadded(withAangAppended(replacement, command)), unpadded(replacement)]).toContainEqual(
+      await readUnpadded(home.hooksFile),
+    )
+  })
+
+  test('an entry another program writes by atomically replacing hooks.json while uninstall saves is kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    const original: HooksDocument = { hooks: { Stop: [aangGroup('aang hook')] } }
+    await writeFile(home.hooksFile, paddedText(original))
+    const replacement = foreignStop(original)
+    const uninstalling = uninstall(home)
+
+    const replaced = await replaceWhileSaving(home, paddedText(replacement), uninstalling)
+    await uninstalling
+
+    expect(replaced).toBe(true)
+    const neutralized = foreignStop({ hooks: { Stop: [aangGroup('true')] } })
+    expect([unpadded(neutralized), unpadded(replacement)]).toContainEqual(await readUnpadded(home.hooksFile))
+  })
+
+  test('concurrent installs from several AANG_HOMEs into one Codex home end as if they ran one after another', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const homes = await Promise.all(Array.from({ length: concurrentInstalls }, () => createInstallHome(onTestFinished)))
+    const codexHome = homes[0]?.codexHome ?? ''
+    const hooksFile = join(codexHome, 'hooks.json')
+    const original = foreignStop({ hooks: {} })
+    await writeFile(hooksFile, paddedText(original))
+
+    const installations = await Promise.all(
+      homes.map((home) => installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome })),
+    )
+
+    const neutralized = Array.from({ length: concurrentInstalls - 1 }, () => 'true')
+    const sequential = installations.map(({ command }) =>
+      unpadded([...neutralized, command].reduce(withAangAppended, original)),
+    )
+    expect(sequential).toContainEqual(await readUnpadded(hooksFile))
+  })
+
+  test('concurrent installs from one AANG_HOME change hooks.json once and leave one backup', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    await writeFile(home.hooksFile, loggerConfig)
+
+    const installations = await Promise.all([install(home), install(home)])
+
+    const [{ command }] = installations
+    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(JSON.parse(loggerConfig) as HooksDocument, command))
+    expect(installations.map(({ backup }) => backup).sort()).toEqual([...(await backups(home)), null])
+  })
+
+  test('a lock on hooks.json left by a finished process is taken over and removed', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    await writeFile(home.hooksFile, loggerConfig)
+    await writeFile(`${home.hooksFile}.aang-lock`, String(await finishedProcessId()))
+
+    const installation = await install(home)
+
+    expect(await readJson(home.hooksFile)).toEqual(
+      withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
+    )
+    expect((await readdir(home.codexHome)).map(fileKind).sort()).toEqual(['backup', 'hooks.json'])
+  })
+
   test('copies of a private hooks.json are never more permissive than the original, even while being written', async ({
     expect,
     onTestFinished,
@@ -341,7 +472,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     installed = true
     await observing
 
-    expect(observed).toEqual(new Set(['hooks.json 600', 'staged 600', 'backup 600']))
+    expect(observed).toEqual(new Set(['hooks.json 600', 'lock 600', 'staged 600', 'backup 600']))
   })
 
   test('an unreadable hooks.json is refused and left unchanged', async ({ expect, onTestFinished }) => {

@@ -1,5 +1,4 @@
-import { execFile, spawn } from 'node:child_process'
-import { once } from 'node:events'
+import { execFile } from 'node:child_process'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -7,7 +6,7 @@ import { promisify } from 'node:util'
 import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@aang/hook'
 import { inject, test } from 'vitest'
 import { cleanExit, type HookResult, readSpoolEvents, runProcess, typicalEnv } from './hook.js'
-import { createInstallHome, readJson } from './install.js'
+import { createInstallHome, finishedProcessId, readJson } from './install.js'
 
 interface Handler {
   readonly command: string
@@ -54,15 +53,6 @@ const runDeployer = async (aangHome: string, sources: readonly string[]): Promis
     String(deploysPerLoop),
     ...sources,
   ])
-}
-
-const finishedProcessId = async (): Promise<number> => {
-  const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
-  await once(child, 'exit')
-  if (child.pid === undefined) {
-    throw new Error('the finished process has no pid')
-  }
-  return child.pid
 }
 
 const errorCode = (error: unknown): unknown => (error instanceof Error && 'code' in error ? error.code : error)
@@ -163,4 +153,43 @@ test('the next deploy removes copies and the lock left by an interrupted update'
 
   expect((await readdir(directory)).sort()).toEqual([hookBinaryName, 'notes.txt'].sort())
   expect(await readFile(home.paths.binary)).toEqual(await readFile(binaries.plain))
+})
+
+test('concurrent deploys from several processes after an interrupted update take over its lock and all succeed', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const home = await createInstallHome(onTestFinished)
+  const directory = dirname(home.paths.binary)
+  await mkdir(directory, { recursive: true })
+  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId()))
+  const sources = [binaries.plain, binaries.stripped]
+
+  await Promise.all(
+    Array.from({ length: deployers }, (_, index) =>
+      runDeployer(home.aangHome, index % 2 === 0 ? sources : sources.toReversed()),
+    ),
+  )
+
+  expect(await readdir(directory)).toEqual([hookBinaryName])
+}, 120_000)
+
+test('a lock takeover interrupted by a crash stops the next deploy and leaves both lock files for the user', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const home = await createInstallHome(onTestFinished)
+  const directory = dirname(home.paths.binary)
+  await mkdir(directory, { recursive: true })
+  const lock = join(directory, `.${hookBinaryName}.lock`)
+  const crashed = String(await finishedProcessId())
+  await writeFile(lock, crashed)
+  await writeFile(`${lock}.recovery`, crashed)
+
+  await expect(deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })).rejects.toMatchObject({
+    reason: 'install_locked',
+    message: expect.stringContaining(`${lock}.recovery`) as unknown,
+  })
+
+  expect((await readdir(directory)).sort()).toEqual([`.${hookBinaryName}.lock`, `.${hookBinaryName}.lock.recovery`])
 })

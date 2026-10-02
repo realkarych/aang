@@ -1,65 +1,17 @@
 import { randomUUID } from 'node:crypto'
 import { chmod, copyFile, mkdir, readdir, readFile, rename, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { setTimeout as delay } from 'node:timers/promises'
-import { HookInstallError } from './errors.js'
-import { createFileExclusively, hasContent, isErrorCode } from './files.js'
+import { hasContent, isErrorCode } from './files.js'
 import { hookBinaryName, hookInstallPaths } from './layout.js'
+import { acquireLock } from './lock.js'
 
 const leftoverPrefix = `.${hookBinaryName}.`
 const stagedSuffix = '.staged'
 const retiredSuffix = '.retired'
 const lockName = `${leftoverPrefix}lock`
-const lockPollMs = 20
-const lockWaitMs = 30_000
 
 const isLeftover = (name: string): boolean =>
   name.startsWith(leftoverPrefix) && (name.endsWith(stagedSuffix) || name.endsWith(retiredSuffix))
-
-const isRunning = (pid: number): boolean => {
-  if (!Number.isSafeInteger(pid) || pid <= 0) {
-    return false
-  }
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return !isErrorCode(error, 'ESRCH')
-  }
-}
-
-const lockOwner = async (lock: string): Promise<number | undefined> => {
-  try {
-    return Number(await readFile(lock, 'utf8'))
-  } catch (error) {
-    if (isErrorCode(error, 'ENOENT')) {
-      return undefined
-    }
-    throw error
-  }
-}
-
-const lockDirectory = async (directory: string): Promise<() => Promise<void>> => {
-  const lock = join(directory, lockName)
-  const deadline = Date.now() + lockWaitMs
-  while (!(await createFileExclusively(lock, String(process.pid), 0o600))) {
-    const owner = await lockOwner(lock)
-    if (owner === undefined) {
-      continue
-    }
-    if (!isRunning(owner)) {
-      await rm(lock, { force: true })
-    } else if (Date.now() > deadline) {
-      throw new HookInstallError(
-        'deploy_locked',
-        `${lock}: another deployment of ${hookBinaryName} by process ${String(owner)} has not finished`,
-      )
-    } else {
-      await delay(lockPollMs)
-    }
-  }
-  return () => rm(lock, { force: true })
-}
 
 const removeUnlessBusy = async (path: string): Promise<void> => {
   try {
@@ -121,7 +73,7 @@ export const deployHookBinary = async ({ aangHome, hookBinarySource }: HookBinar
   const target = hookInstallPaths(aangHome).binary
   const directory = dirname(target)
   await mkdir(directory, { recursive: true, mode: 0o700 })
-  const unlock = await lockDirectory(directory)
+  const unlock = await acquireLock(join(directory, lockName), `another deployment of ${hookBinaryName}`)
   try {
     await removeLeftovers(directory)
     if (!(await hasContent(target, await readFile(hookBinarySource)))) {

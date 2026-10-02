@@ -1,4 +1,5 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -31,6 +32,15 @@ const unusualHome = join('Имя Фамилия', process.platform === 'win32' ?
 
 export const sampleText = (path: string): Promise<string> =>
   readFile(new URL(`../../../docs/research/samples/${path}`, import.meta.url), 'utf8')
+
+export const finishedProcessId = async (): Promise<number> => {
+  const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
+  await once(child, 'exit')
+  if (child.pid === undefined) {
+    throw new Error('the finished process has no pid')
+  }
+  return child.pid
+}
 
 export const readJson = async (path: string): Promise<unknown> => JSON.parse(await readFile(path, 'utf8')) as unknown
 

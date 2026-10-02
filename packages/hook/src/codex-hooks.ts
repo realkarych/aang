@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto'
-import { lstat, mkdir, readFile, realpath, rename, rm, stat } from 'node:fs/promises'
+import type { BigIntStats } from 'node:fs'
+import { lstat, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises'
 import { dirname, join, posix, resolve } from 'node:path'
 import type { RegistrationTag, Runtime } from '@aang/contract'
 import { deployHookBinary } from './binary.js'
@@ -13,6 +14,7 @@ import {
   writeNewFile,
 } from './files.js'
 import { hookInstallPaths } from './layout.js'
+import { acquireLock } from './lock.js'
 import { leadingWords, posixQuote } from './shell.js'
 
 const codexHookEvents: readonly string[] = [
@@ -35,6 +37,7 @@ const registration: RegistrationTag = 'user'
 const hookTimeoutSeconds = 2
 const neutralCommand = 'true'
 const hooksFileName = 'hooks.json'
+const lockSuffix = '.aang-lock'
 const hookBinaryNames: readonly string[] = ['aang-hook', 'aang-hook.exe']
 const newHooksFileMode = 0o600
 const hooksFileAttempts = 5
@@ -60,10 +63,16 @@ export interface CodexHooksInstallation extends CodexHooksChange {
   readonly command: string
 }
 
+interface ExistingHooksFile {
+  readonly content: Buffer
+  readonly mode: number
+  readonly version: BigIntStats
+}
+
 interface HooksFile {
   readonly path: string
   readonly target: string
-  readonly existing: { readonly content: Buffer; readonly mode: number } | null
+  readonly existing: ExistingHooksFile | null
 }
 
 interface HooksDocument {
@@ -112,12 +121,32 @@ const exists = (path: string): Promise<boolean> =>
     },
   )
 
+const readExisting = async (target: string): Promise<ExistingHooksFile> => {
+  const handle = await open(target, 'r')
+  try {
+    const version = await handle.stat({ bigint: true })
+    return { content: await handle.readFile(), mode: Number(version.mode & 0o777n), version }
+  } finally {
+    await handle.close()
+  }
+}
+
+const isCurrentVersion = async (path: string, version: BigIntStats): Promise<boolean> => {
+  const current = await stat(path, { bigint: true }).catch(() => undefined)
+  return (
+    current !== undefined &&
+    current.dev === version.dev &&
+    current.ino === version.ino &&
+    current.size === version.size &&
+    current.mtimeNs === version.mtimeNs
+  )
+}
+
 const readHooksFile = async (codexHome: string): Promise<HooksFile> => {
   const path = join(resolve(codexHome), hooksFileName)
   try {
     const target = await realpath(path)
-    const [content, stats] = await Promise.all([readFile(target), stat(target)])
-    return { path, target, existing: { content, mode: stats.mode & 0o777 } }
+    return { path, target, existing: await readExisting(target) }
   } catch (error) {
     if (!isErrorCode(error, 'ENOENT')) {
       throw error
@@ -164,15 +193,14 @@ const readHooks = async (codexHome: string): Promise<LoadedHooks> => {
 const saveHooksDocument = async ({ file, document }: LoadedHooks): Promise<SaveOutcome> => {
   const text = jsonText(document.root)
   if (file.existing === null) {
-    await mkdir(dirname(file.target), { recursive: true })
     const created = await createFileExclusively(file.target, text, newHooksFileMode)
     return created ? { saved: true, backup: null } : { saved: false }
   }
-  const { content, mode } = file.existing
+  const { content, mode, version } = file.existing
   const backup = backupName(file.target)
   await writeNewFile(backup, content, mode)
   const replaced = await withStagedFile(file.target, text, mode, async (staged) => {
-    if (!(await hasContent(file.target, content))) {
+    if (!(await hasContent(file.target, content)) || !(await isCurrentVersion(file.target, version))) {
       return false
     }
     await rename(staged, file.target)
@@ -190,23 +218,30 @@ const changeHooksFile = async (
   initial: LoadedHooks,
   change: (document: HooksDocument) => boolean,
 ): Promise<string | null> => {
-  let loaded = initial
-  for (let attempt = 1; ; attempt += 1) {
-    if (!change(loaded.document)) {
-      return null
-    }
-    const outcome = await saveHooksDocument(loaded)
-    if (outcome.saved) {
-      return outcome.backup
-    }
-    if (attempt === hooksFileAttempts) {
-      throw new HookInstallError(
-        'hooks_file_changed',
-        `${loaded.file.path}: another program kept changing the file; it is left as that program wrote it`,
-      )
-    }
-    loaded = await readHooks(codexHome)
+  if (!change(initial.document)) {
+    return null
   }
+  const { path, target } = initial.file
+  await mkdir(dirname(target), { recursive: true })
+  const unlock = await acquireLock(`${target}${lockSuffix}`, `another change of ${path}`)
+  try {
+    for (let attempt = 1; attempt <= hooksFileAttempts; attempt += 1) {
+      const loaded = await readHooks(codexHome)
+      if (!change(loaded.document)) {
+        return null
+      }
+      const outcome = await saveHooksDocument(loaded)
+      if (outcome.saved) {
+        return outcome.backup
+      }
+    }
+  } finally {
+    await unlock()
+  }
+  throw new HookInstallError(
+    'hooks_file_changed',
+    `${path}: another program kept changing the file; it is left as that program wrote it`,
+  )
 }
 
 const aangGroup = (command: string): JsonObject => ({

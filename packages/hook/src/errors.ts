@@ -3,7 +3,7 @@ export type HookInstallFailure =
   | 'claude_cli'
   | 'invalid_hooks_file'
   | 'hooks_file_changed'
-  | 'deploy_locked'
+  | 'install_locked'
 
 export class HookInstallError extends Error {
   constructor(
