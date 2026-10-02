@@ -3,7 +3,7 @@ import { expect, onTestFinished, test } from 'vitest'
 import { objectId } from '@aang/contract/ids'
 import { joinBatches, jsonlFile } from './batches.js'
 import { createHome } from './home.js'
-import { at, clockedEngine, hook, registry, sessionId, source } from './session-fixtures.js'
+import { at, clockedEngine, doubleHook, hook, registry, sessionId, source } from './session-fixtures.js'
 import { codexRollout } from './samples.js'
 
 test.each(['claude', 'codex'] as const)('projects the turn lifecycle and keeps child turns separate: %s', async (runtime) => {
@@ -226,6 +226,27 @@ test.each(['accept', 'decline', 'cancel'])('an Elicitation result ends only the 
   ))
   expect(read()).toEqual({ state: 'running' })
   expect(store.observations.questions(sessionId())).toHaveLength(2)
+})
+
+test.each(['accept', 'decline', 'cancel'])('a doubly delivered Elicitation result ends every delivered wait it answers: %s', async (action) => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  const read = () => store.observations.getSession(sessionId())
+  const answer = { mcp_server_name: 'docs', elicitation_id: 'request-1', action, ...(action === 'accept' ? { content: { approved: 'yes' } } : {}) }
+  await engine.ingest(joinBatches(hook('SessionStart', 0), hook('UserPromptSubmit', 1),
+    doubleHook('Elicitation', 2, { mcp_server_name: 'docs', message: 'Allow request-1?', elicitation_id: 'request-1' }),
+    elicitation(3, 'request-2'),
+  ))
+  expect(read()).toMatchObject({ double_registration: true, execution: { state: 'waiting', reason: 'human' } })
+  await engine.ingest(doubleHook('ElicitationResult', 4, answer))
+  expect(read()?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  await engine.ingest(elicitationResult(5, 'request-2', action))
+  expect(read()?.execution).toEqual({ state: 'running' })
+  await engine.ingest(hook('ElicitationResult', 6, answer))
+  expect(read()?.execution).toEqual({ state: 'running' })
+  const questions = store.observations.questions(sessionId())
+  expect(questions).toHaveLength(3)
+  expect(new Set(questions.map(({ redelivery_group: group }) => group)).size).toBe(2)
 })
 
 test('an Elicitation result answers only the agent that asked', async () => {
