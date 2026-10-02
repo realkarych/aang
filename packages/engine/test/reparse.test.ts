@@ -374,12 +374,13 @@ test('resolves OTel decisions of known threads in one reparse and leaves one wit
   const resolved = decisionRecord()
   const unparsed = decisionRecord(rejected)
   const pending = decisionRecord(later)
+  const malformed = { ...decisionRecord(), payload: 'not an OTel log record' }
   const engine = startEngine(store, { all: true })
   await engine.ingest(
     joinBatches(
       jsonlFile({ runtime: 'codex', path: '/root.jsonl', lines: root, ino: 1n }).batch(1, 1),
       rollout(otelThread, 2n),
-      batchOf({ records: [resolved, unparsed, pending] }),
+      batchOf({ records: [resolved, unparsed, pending, malformed] }),
     ),
   )
   const seqOf = (record: CollectedRecord) => {
@@ -423,6 +424,7 @@ test('resolves OTel decisions of known threads in one reparse and leaves one wit
   expect(otel(resolved)).toEqual({ parse_state: 'parsed', stream: streamOf('codex', child(otelThread)) })
   expect(otel(unparsed)).toEqual({ parse_state: 'parsed', stream: streamOf('codex', child(rejected)) })
   expect(otel(pending)).toEqual({ parse_state: 'unknown', stream: null })
+  expect(otel(malformed)).toEqual({ parse_state: 'invalid', stream: null })
   const recovered = store.facts.get(decisionId(unparsed, rejected))
   assert(recovered?.kind === 'permission_decision' && recovered.entity_key.kind === 'action')
   expect(store.observations.getAction(objectId(recovered.entity_key))).toMatchObject({ tool: recovered.payload.tool })
