@@ -1,10 +1,11 @@
 import { execFile } from 'node:child_process'
-import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import filesystem, { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { syncBuiltinESMExports } from 'node:module'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { promisify } from 'node:util'
 import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@aang/hook'
-import { inject, test } from 'vitest'
+import { inject, test, vi } from 'vitest'
 import { cleanExit, type HookResult, readSpoolEvents, runProcess, typicalEnv } from './hook.js'
 import { createInstallHome, absentProcessId, readJson } from './install.js'
 
@@ -153,6 +154,82 @@ test('the next deploy removes copies and the lock left by an interrupted update'
 
   expect((await readdir(directory)).sort()).toEqual([hookBinaryName, 'notes.txt'].sort())
   expect((await readFile(home.paths.binary)).equals(await readFile(binaries.plain))).toBe(true)
+})
+
+test.for(['EPERM', 'EBUSY'])(
+  'a deploy waits for its owner to release the lock despite temporary %s read failures',
+  async (code, { expect, onTestFinished }) => {
+    const home = await createInstallHome(onTestFinished)
+    const directory = dirname(home.paths.binary)
+    const lockName = `.${hookBinaryName}.lock`
+    const lock = join(directory, lockName)
+    const owner = String(process.pid)
+    await mkdir(directory, { recursive: true })
+    await writeFile(lock, owner)
+    const originalReadFile = filesystem.readFile
+    let denied = 0
+    let released = false
+    const reading = vi.spyOn(filesystem, 'readFile').mockImplementation(async (...args) => {
+      if (args[0] === lock && !released) {
+        expect(await originalReadFile(lock, 'utf8')).toBe(owner)
+        expect(await readdir(directory)).toEqual([lockName])
+        if (denied < 2) {
+          denied += 1
+          throw Object.assign(new Error('the lock is temporarily unavailable'), { code })
+        }
+        released = true
+        await rm(lock)
+        return owner
+      }
+      return originalReadFile(...args)
+    })
+    syncBuiltinESMExports()
+    try {
+      await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
+    } finally {
+      reading.mockRestore()
+      syncBuiltinESMExports()
+    }
+
+    expect(released).toBe(true)
+    expect(await readdir(directory)).toEqual([hookBinaryName])
+    expect((await readFile(home.paths.binary)).equals(await readFile(binaries.plain))).toBe(true)
+  },
+)
+
+test('a deploy preserves an unreadable lock and reports its error when the lock wait expires', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const home = await createInstallHome(onTestFinished)
+  const directory = dirname(home.paths.binary)
+  const lockName = `.${hookBinaryName}.lock`
+  const lock = join(directory, lockName)
+  const owner = String(process.pid)
+  await mkdir(directory, { recursive: true })
+  await writeFile(lock, owner)
+  const originalReadFile = filesystem.readFile
+  const refusal = Object.assign(new Error('the lock remains unreadable'), { code: 'EPERM' })
+  const expired = Date.now() + 31_000
+  const clock = vi.spyOn(Date, 'now')
+  const reading = vi.spyOn(filesystem, 'readFile').mockImplementation(async (...args) => {
+    if (args[0] === lock) {
+      clock.mockReturnValue(expired)
+      throw refusal
+    }
+    return originalReadFile(...args)
+  })
+  syncBuiltinESMExports()
+  try {
+    await expect(deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })).rejects.toBe(refusal)
+  } finally {
+    reading.mockRestore()
+    clock.mockRestore()
+    syncBuiltinESMExports()
+  }
+
+  expect(await readdir(directory)).toEqual([lockName])
+  expect(await readFile(lock, 'utf8')).toBe(owner)
 })
 
 test('concurrent deploys from several processes after an interrupted update take over its lock and all succeed', async ({
