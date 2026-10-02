@@ -21,6 +21,8 @@ const modelVersion: Row = {
   run_id: "'r1'",
   version: '1',
   base_version: '0',
+  author: "'observer'",
+  observer_call_id: "'c1'",
   created_at: '1759370000000000000',
   change_seq: '2',
 }
@@ -28,6 +30,7 @@ const modelVersion: Row = {
 const modelChange: Row = {
   run_id: "'r1'",
   version: '1',
+  change_index: '1',
   operation: "'stage.create'",
   entity_kind: "'stage'",
   entity_id: "'st1'",
@@ -111,7 +114,7 @@ beforeAll(async () => {
     [
       insert('observer_calls', observerCall),
       insert('model_versions', modelVersion),
-      insert('model_changes', modelChange),
+      insert('model_changes', modelChange, { change_index: '0' }),
       insert('model_entities', modelEntity),
     ].join('; '),
   )
@@ -175,6 +178,25 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: base_version >= 0 AND base_version < version/,
   },
   {
+    name: 'a version of rule changes needs no observer call',
+    statement: insert('model_versions', modelVersion, { version: '2', author: "'rule'", observer_call_id: 'NULL' }),
+  },
+  {
+    name: 'a version of observer changes names its observer call',
+    statement: insert('model_versions', modelVersion, { version: '2', observer_call_id: 'NULL' }),
+    error: /CHECK constraint failed: model_versions_observer_call/,
+  },
+  {
+    name: 'a version of user changes has no observer call',
+    statement: insert('model_versions', modelVersion, { version: '2', author: "'user'" }),
+    error: /CHECK constraint failed: model_versions_observer_call/,
+  },
+  {
+    name: 'a version refers to a recorded observer call',
+    statement: insert('model_versions', modelVersion, { version: '2', observer_call_id: "'c9'" }),
+    error: /FOREIGN KEY constraint failed/,
+  },
+  {
     name: 'a rule change interpreted by a named rule needs no observer call',
     statement: insert('model_changes', modelChange, {
       operation: "'attention.add'",
@@ -201,6 +223,16 @@ const cases: readonly SchemaCase[] = [
   {
     name: 'an observer change may be claimed by the solver',
     statement: insert('model_changes', modelChange, { basis: "'claimed'", interpreter: 'NULL' }),
+  },
+  {
+    name: 'a model change takes one position within its version',
+    statement: insert('model_changes', modelChange, { change_index: '0' }),
+    error: /UNIQUE constraint failed: model_changes\.run_id, model_changes\.version, model_changes\.change_index/,
+  },
+  {
+    name: 'a model change position cannot be negative',
+    statement: insert('model_changes', modelChange, { change_index: '-1' }),
+    error: /CHECK constraint failed: change_index >= 0/,
   },
   {
     name: 'a model change belongs to a recorded model version',
@@ -253,9 +285,13 @@ const cases: readonly SchemaCase[] = [
     error: /FOREIGN KEY constraint failed/,
   },
   {
-    name: 'a model entity id is unique within its run',
+    name: 'a model entity is projected once per kind and id within its run',
+    statement: insert('model_entities', modelEntity, { data: '\'{"title":"Build"}\'' }),
+    error: /UNIQUE constraint failed: model_entities\.run_id, model_entities\.kind, model_entities\.id/,
+  },
+  {
+    name: 'entities of different kinds may share an id',
     statement: insert('model_entities', modelEntity, { kind: "'criterion'" }),
-    error: /UNIQUE constraint failed: model_entities\.run_id, model_entities\.id/,
   },
   {
     name: 'model entity data must be JSON',
