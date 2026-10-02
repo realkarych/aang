@@ -23,13 +23,24 @@ interface Request {
 const maxBytesPerBatch = 8 * 1024 ** 2
 const maxReadsPerBatch = 4096
 
-const requireAttachmentPath = (root: string, path: string): void => {
+const isAttachmentPath = (root: string, path: string): boolean => {
   const relation = relative(root, path)
   const parts = relation.split(sep)
-  if (!isAbsolute(path) || isAbsolute(relation) || parts.includes('..') || parts.length < 4 || parts.at(-2) !== 'tool-results') {
+  return isAbsolute(path) && !isAbsolute(relation) && !parts.includes('..') && parts.length >= 4 && parts.at(-2) === 'tool-results'
+}
+
+const requireAttachmentPath = (root: string, path: string): void => {
+  if (!isAttachmentPath(root, path)) {
     throw new Error('attachment must be a tool-results file inside the configured Claude projects directory')
   }
 }
+
+const requestKey = (path: string, stream: StreamKey): string => JSON.stringify([resolve(path), stream])
+
+const interruptedRead = (root: string, gap: CollectedGap): [string, CollectedGap][] =>
+  gap.key.gap !== 'read_failed' || gap.closed_at !== null || gap.stream === null || !isAttachmentPath(root, gap.key.subject)
+    ? []
+    : [[requestKey(gap.key.subject, gap.stream), { key: gap.key, stream: gap.stream, details: gap.details, detected_at: gap.detected_at, closed_at: null }]]
 
 const readAttachment = async (root: string, request: Request): Promise<CollectedRecord> => {
   const [canonicalRoot, path] = await Promise.all([realpath(root), realpath(request.path)])
@@ -61,9 +72,15 @@ const readAttachment = async (root: string, request: Request): Promise<Collected
   }
 }
 
-export const createAttachmentSource = (root: string, retrier: Retrier, wakeup: Wakeup): AttachmentSource => {
+export const createAttachmentSource = (
+  root: string,
+  retrier: Retrier,
+  wakeup: Wakeup,
+  openGaps: readonly CollectedGap[],
+): AttachmentSource => {
   const pending = new Map<string, Request>()
   const dirty = new Map<string, Request>()
+  const interrupted = new Map(openGaps.flatMap((gap) => interruptedRead(root, gap)))
   let closed = false
   const active = (): boolean => !closed
 
@@ -79,10 +96,12 @@ export const createAttachmentSource = (root: string, retrier: Retrier, wakeup: W
       throw new Error('the collector is closed')
     }
     requireAttachmentPath(root, path)
-    const absolute = resolve(path)
-    const key = JSON.stringify([absolute, stream])
+    const key = requestKey(path, stream)
     if (!pending.has(key)) {
-      const entry: Request = { key, path: absolute, stream, failure: null }
+      const gap = interrupted.get(key) ?? null
+      interrupted.delete(key)
+      const failure = gap === null ? null : { since: gap.detected_at, attempts: 0, timer: undefined, gap }
+      const entry: Request = { key, path: resolve(path), stream, failure }
       pending.set(key, entry)
       mark(entry)
     }
@@ -125,6 +144,7 @@ export const createAttachmentSource = (root: string, retrier: Retrier, wakeup: W
     }
     pending.clear()
     dirty.clear()
+    interrupted.clear()
   }
 
   return { request, take, close }

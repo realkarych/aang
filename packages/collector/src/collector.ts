@@ -35,7 +35,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   const { collector, spool: spoolConfig } = options.config
   const roots = collectorRoots(options.runtimeRoots)
   const retrier = createRetrier(options.readRetry ?? defaultReadRetry, collector.rootsScanIntervalMs)
-  const attachments = createAttachmentSource(join(options.runtimeRoots.claude, 'projects'), retrier, wakeup)
+  const attachments = createAttachmentSource(join(options.runtimeRoots.claude, 'projects'), retrier, wakeup, options.openGaps ?? [])
   const spool = createSpoolSource(
     {
       directory: options.spool,
