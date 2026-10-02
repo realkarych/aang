@@ -1,15 +1,16 @@
 import { constants } from 'node:fs'
 import { access, mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import type { Runtime, Surface } from '@aang/contract'
+import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
 import { writeClaudePlugin } from '@aang/hook'
 import { createProcessRunner } from '@aang/observer'
 import { leaseSpool } from '@aang/testkit'
 import { createAnonymizer } from './anonymize.js'
 import { createCapture, type ControlTarget } from './capture.js'
 import { isMissing } from './files.js'
-import { RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
+import { startOtlpReceiver } from './otlp.js'
+import { type ModelMode, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
 import { verifyRecording } from './verify.js'
 
 export interface RecordOptions {
@@ -18,19 +19,35 @@ export interface RecordOptions {
   readonly appVersion?: string | undefined
   readonly surface: Surface
   readonly scenario: string
+  readonly model?: ModelMode | undefined
   readonly expectedFacts: readonly string[]
   readonly fixturesRoot: string
   readonly hookBinary: string
+  readonly codexHome?: 'isolated' | 'regular' | undefined
+}
+
+export interface RunOptions {
+  readonly env?: Readonly<Record<string, string>>
+  readonly timeoutMs?: number
+}
+
+export interface RunOutput {
+  readonly stdout: string
+  readonly stderr: string
 }
 
 export interface RecordContext {
+  readonly os: OperatingSystem
   readonly project: string
   readonly home: string
   readonly claude: string
   readonly codex: string
   readonly spool: string
   readonly plugin: string
-  readonly run: (command: string, args: readonly string[]) => Promise<void>
+  readonly hook: string
+  readonly otlp: string
+  readonly work: string
+  readonly run: (command: string, args: readonly string[], options?: RunOptions) => Promise<RunOutput>
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
 }
 
@@ -49,6 +66,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     ...(options.appVersion === undefined ? {} : { appVersion: options.appVersion }),
     surface: options.surface,
     scenario: options.scenario,
+    ...(options.model === undefined ? {} : { model: options.model }),
     expectedFacts: options.expectedFacts,
   })
   const os = recordingOs()
@@ -64,38 +82,48 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   let staging: string | undefined
   const controller = new AbortController()
   const pending = new Set<Promise<unknown>>()
+  const otlp = await startOtlpReceiver()
   try {
     const root = await realpath(temporary)
     const home = join(root, 'home')
     const project = join(home, 'project')
     const claude = join(home, '.claude')
-    const codex = join(home, '.codex')
+    const regular = options.codexHome === 'regular'
+    const userHome = homedir()
+    const codex = regular ? resolve(process.env['CODEX_HOME'] ?? join(userHome, '.codex')) : join(home, '.codex')
     const spool = join(root, 'spool')
     const plugin = join(root, 'plugin')
-    for (const directory of [project, claude, codex]) await mkdir(directory, { recursive: true, mode: 0o700 })
+    const work = join(root, 'work')
+    for (const directory of [project, claude, work, ...regular ? [] : [codex]]) await mkdir(directory, { recursive: true, mode: 0o700 })
     await leaseSpool(spool, 24 * 60 * 60 * 1_000)
     await writeClaudePlugin({ directory: plugin, hookBinary, spool })
     const started = Date.now()
-    const capture = createCapture({ home, claude, codex }, spool, started)
+    const codexOwner = (first: unknown): boolean => typeof first === 'object' && first !== null && 'type' in first && first.type === 'session_meta' &&
+      'payload' in first && typeof first.payload === 'object' && first.payload !== null && 'cwd' in first.payload && first.payload.cwd === project
+    const capture = await createCapture({ home, claude, codex }, spool, started, regular ? { codexOwner } : {})
+    otlp.listen((body, receivedAt) => {
+      capture.otlp(body, receivedAt)
+    })
     const runner = createProcessRunner({ windowsLauncher: hookBinary, temporaryDirectory: root })
-    const excluded = new Set(['AANG_OBSERVER', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'])
+    const excluded = new Set(['AANG_OBSERVER', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE', ...regular ? ['CODEX_HOME'] : []])
     const env: Record<string, string> = {
-      ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !excluded.has(entry[0]))), HOME: home, USERPROFILE: home, CLAUDE_CONFIG_DIR: claude, CODEX_HOME: codex,
+      ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !excluded.has(entry[0]))),
+      ...regular ? { HOME: userHome, USERPROFILE: userHome } : { HOME: home, USERPROFILE: home, CODEX_HOME: codex }, CLAUDE_CONFIG_DIR: claude,
       AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: hookBinary,
     }
     const execution: { running: boolean; failure?: Error } = { running: false }
     await scenario({
-      project, home, claude, codex, spool, plugin,
+      os, project, home, claude, codex, spool, plugin, hook: hookBinary, otlp: otlp.endpoint, work,
       checkpoint: async (...args) => {
         if (execution.running) throw new Error('Await the recording command before adding a checkpoint')
         await capture.checkpoint(...args)
       },
-      run: (command, args) => {
-        const commandRun = async (): Promise<void> => {
+      run: (command, args, runOptions = {}) => {
+        const commandRun = async (): Promise<RunOutput> => {
           if (execution.running) throw new Error('Recording commands must be awaited sequentially')
           execution.running = true
           const runtimeArgs = metadata.runtime === 'claude' ? [...args, '--plugin-dir', plugin] : [...args]
-          const request = runner.run({ command, args: runtimeArgs, cwd: project, env, input: '', timeoutMs: 300_000, signal: controller.signal })
+          const request = runner.run({ command, args: runtimeArgs, cwd: project, env: { ...env, ...runOptions.env }, input: '', timeoutMs: runOptions.timeoutMs ?? 300_000, signal: controller.signal })
           const scanState: { error?: Error } = {}
           let scan = Promise.resolve()
           const poll = setInterval(() => {
@@ -109,11 +137,14 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
             clearInterval(poll)
             await scan
             if (scanState.error !== undefined) throw scanState.error
-            if (result.failure !== null) throw new Error(`Recording command failed: ${result.failure}`)
-            if (result.exitCode !== 0) throw new Error(`Recording command failed: ${String(result.exitCode)}`)
+            const detail = result.stderr.trim().slice(-2_000)
+            const reason = detail ? `\n${detail}` : ''
+            if (result.failure !== null) throw new Error(`Recording command failed: ${result.failure}${reason}`)
+            if (result.exitCode !== 0) throw new Error(`Recording command failed: ${String(result.exitCode)}${reason}`)
             capture.output(result.stdout)
             capture.output(result.stderr)
             await capture.scan(true)
+            return { stdout: result.stdout, stderr: result.stderr }
           } finally {
             clearInterval(poll)
             await scan
@@ -131,12 +162,13 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     })
     if (execution.running) throw new Error('Scenario returned before its recording command finished')
     if (execution.failure) throw execution.failure
+    otlp.check()
     await capture.scan(true)
     if (capture.steps.length === 0) throw new Error('Recording has no captured events')
     const manifest = RecordingManifest.parse({
       format: 'aang-recording/1', runtime: metadata.runtime, engine_version: metadata.engineVersion,
       app_version: metadata.appVersion ?? null, surface: metadata.surface, os, scenario: metadata.scenario,
-      recorded_at: new Date(started).toISOString(), expected_facts: metadata.expectedFacts,
+      model: metadata.model ?? null, recorded_at: new Date(started).toISOString(), expected_facts: metadata.expectedFacts,
       control_events: capture.controlEvents,
       artifacts: capture.artifacts.map(({ source, observed_at, mtime_ns }) => ({ source, observed_at, mtime_ns })),
       playback: 'playback.json',
@@ -149,6 +181,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       [home, canonicalHome],
       [root, os === 'windows' ? 'C:\\fixture\\recording' : '/fixture/recording'],
       [hookBinary, os === 'windows' ? 'C:\\fixture\\aang-hook.exe' : '/fixture/aang-hook'],
+      ...regular ? [[codex, os === 'windows' ? 'C:\\Users\\USER\\.codex' : `${canonicalHome}/.codex`] as const, [userHome, canonicalHome] as const] : [],
     ])
     for (const [before, after] of [...paths]) {
       paths.set(before.replaceAll('\\', '/'), after.replaceAll('\\', '/'))
@@ -172,6 +205,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   } finally {
     controller.abort()
     await Promise.allSettled([...pending])
+    await otlp.close()
     if (staging !== undefined) await removeTree(staging)
     await removeTree(temporary)
   }

@@ -24,7 +24,10 @@ export default defineConfig({
   test: {
     ...(process.platform === 'win32' ? { fileParallelism: false, maxConcurrency: 1 } : {}),
     projects,
-    tags: [{ name: 'benchmark', description: 'strict local benchmarks, excluded from the default run' }],
+    tags: [
+      { name: 'benchmark', description: 'strict local benchmarks, excluded from the default run' },
+      { name: 'runtime', description: 'scenarios on installed runtime CLIs and SDKs, run by the Scenarios workflow' },
+    ],
     passWithNoTests: testFilesOnDisk.length === 0,
     testTimeout: 30_000,
     hookTimeout: 30_000,

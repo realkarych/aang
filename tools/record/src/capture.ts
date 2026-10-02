@@ -4,7 +4,10 @@ import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang
 import { filesIn, isMissing } from './files.js'
 import type { Artifact, ControlEvent } from './schema.js'
 
-export type ControlTarget = Target | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string } }
+export type ControlTarget = (
+  | (Target & { readonly contains?: string })
+  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string } }
+) & { readonly occurrence?: 'first' | 'last' }
 
 export interface CapturedArtifact extends Artifact {
   readonly content: string
@@ -17,6 +20,11 @@ export interface Capture {
   readonly scan: (final?: boolean) => Promise<void>
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
   readonly output: (text: string) => void
+  readonly otlp: (body: string, receivedAt: number) => void
+}
+
+export interface CaptureOptions {
+  readonly codexOwner?: (first: unknown) => boolean
 }
 
 const jsonLines = (bytes: Buffer, final: boolean): Buffer => {
@@ -27,7 +35,17 @@ const jsonLines = (bytes: Buffer, final: boolean): Buffer => {
   return complete
 }
 
-export const createCapture = (roots: PlayerRoots, spool: string, started: number): Capture => {
+const firstLine = (bytes: Buffer): unknown => {
+  const end = bytes.indexOf(0x0a)
+  if (end < 0) return undefined
+  try {
+    return JSON.parse(bytes.subarray(0, end).toString('utf8'))
+  } catch {
+    return null
+  }
+}
+
+export const createCapture = async (roots: PlayerRoots, spool: string, started: number, options: CaptureOptions = {}): Promise<Capture> => {
   const artifacts: CapturedArtifact[] = []
   const steps: PlayerStep[] = []
   const controlEvents: ControlEvent[] = []
@@ -44,15 +62,41 @@ export const createCapture = (roots: PlayerRoots, spool: string, started: number
     { root: 'claude', directory: join(roots.claude, 'projects'), prefix: 'projects' },
     { root: 'claude', directory: join(roots.claude, 'teams'), prefix: 'teams' },
     { root: 'claude', directory: join(roots.claude, 'sessions'), prefix: 'sessions' },
+    { root: 'claude', directory: join(roots.claude, 'tasks'), prefix: 'tasks' },
     { root: 'codex', directory: join(roots.codex, 'sessions'), prefix: 'sessions' },
     { root: 'codex', directory: join(roots.codex, 'archived_sessions'), prefix: 'archived_sessions' },
     { root: 'home', directory: join(roots.home, 'project'), prefix: 'project' },
   ]
+  const { codexOwner } = options
+  const ignored = new Set<string>()
+  if (codexOwner !== undefined) {
+    for (const location of locations.filter(({ root }) => root === 'codex')) {
+      for (const file of await filesIn(location.directory)) ignored.add(file)
+    }
+  }
+  const owned = new Set<string>()
+  const foreign = async (file: string, root: keyof PlayerRoots, final: boolean): Promise<boolean> => {
+    if (codexOwner === undefined || root !== 'codex' || owned.has(file)) return false
+    if (ignored.has(file)) return true
+    const bytes = await readFile(file).catch((error: unknown) => {
+      if (isMissing(error)) return Buffer.alloc(0)
+      throw error
+    })
+    const first = firstLine(bytes)
+    if (first === undefined && !final) return true
+    if (first !== undefined && first !== null && codexOwner(first)) {
+      owned.add(file)
+      return false
+    }
+    ignored.add(file)
+    return true
+  }
   const scan = async (final = false): Promise<void> => {
     const present = new Set<string>()
     for (const location of locations) {
       for (const file of await filesIn(location.directory)) {
         if (!/\.jsonl?$/.test(file)) continue
+        if (await foreign(file, location.root, final)) continue
         present.add(file)
         const result = await Promise.all([readFile(file), stat(file, { bigint: true })]).catch((error: unknown) => {
           if (isMissing(error)) return undefined
@@ -107,15 +151,20 @@ export const createCapture = (roots: PlayerRoots, spool: string, started: number
     artifacts, steps, controlEvents, scan,
     checkpoint: async (label, target, expectedMapChange) => {
       await scan(true)
-      const index = steps.findLastIndex((step) => {
-        if (!('hook' in target)) return 'target' in step && step.target.root === target.root && step.target.path === target.path
+      const content = (step: PlayerStep): string | undefined => 'source' in step ? artifacts.find((artifact) => artifact.source === step.source)?.content : undefined
+      const matches = (step: PlayerStep): boolean => {
+        if (!('hook' in target)) {
+          return 'target' in step && step.target.root === target.root && step.target.path === target.path &&
+            (target.contains === undefined || (content(step)?.includes(target.contains) ?? false))
+        }
         if (step.kind !== 'hook') return false
-        const payload: unknown = JSON.parse(artifacts.find((artifact) => artifact.source === step.source)?.content ?? 'null')
+        const payload: unknown = JSON.parse(content(step) ?? 'null')
         return payload !== null && typeof payload === 'object' &&
           'hook_event_name' in payload && payload.hook_event_name === target.hook.event &&
           (target.hook.sessionId === undefined || ('session_id' in payload && payload.session_id === target.hook.sessionId)) &&
           (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId))
-      })
+      }
+      const index = target.occurrence === 'first' ? steps.findIndex(matches) : steps.findLastIndex(matches)
       const step = steps[index]
       if (!label.trim() || !expectedMapChange.trim() || controlEvents.some((event) => event.label === label) || !step || step.label) {
         throw new Error('Checkpoint must name a new captured event and a unique label with an expected map change')
@@ -125,6 +174,12 @@ export const createCapture = (roots: PlayerRoots, spool: string, started: number
     },
     output: (text) => {
       if (text) add(text, 'output', 'txt', BigInt(Date.now()) * 1_000_000n, at())
+    },
+    otlp: (body, receivedAt) => {
+      JSON.parse(body)
+      const observed = Math.max(0, receivedAt - started)
+      const source = add(body, 'data', 'json', BigInt(receivedAt) * 1_000_000n, observed)
+      steps.push({ kind: 'otlp', at: observed, source })
     },
   }
 }
