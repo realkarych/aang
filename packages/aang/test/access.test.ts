@@ -12,7 +12,7 @@ const openLink = async (sandbox: Sandbox): Promise<{ link: string; base: string 
   const base = signInLink.exec(link)?.[1]
   if (opened.code !== 0 || base === undefined) {
     const state = await sandbox.daemonState()
-    const log = await readFile(join(sandbox.aangHome, 'daemon.log'), 'utf8')
+    const log = await readFile(join(sandbox.aangHome, 'daemon.log'), 'utf8').catch(() => '')
     throw new Error(`aang open failed: ${opened.stdout}${opened.stderr}\n${JSON.stringify(state)}\n${log}`)
   }
   return { link, base }

@@ -181,7 +181,9 @@ const sendToParent = (report: DaemonReport): Promise<void> =>
       return
     }
     process.send(report, undefined, {}, () => {
-      process.disconnect?.()
+      if (process.connected) {
+        process.disconnect?.()
+      }
       resolve()
     })
   })
