@@ -23,6 +23,10 @@ const actionKinds: ReadonlyMap<string, ActionKind> = new Map([
   ['ExitPlanMode', 'plan'],
   ['EnterPlanMode', 'plan'],
   ['TodoWrite', 'plan'],
+  ['TaskCreate', 'plan'],
+  ['TaskUpdate', 'plan'],
+  ['TaskGet', 'plan'],
+  ['TaskList', 'plan'],
 ])
 
 const mcpToolPrefix = 'mcp__'

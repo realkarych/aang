@@ -2,13 +2,15 @@ import type { CollectedRecord, JsonValue, ParseResult, RuntimeEnv, SpoolEnv } fr
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import { z } from 'zod'
 import { spawnedAgents } from './agents.js'
+import { callStarted } from './calls.js'
 import { fact, type FactOrigin, invalid, noRuntimeIds, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
 import { facts, HookCommon, type HookParser, hookParser } from './hook-parser.js'
 import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { actionKey, ownerKey, questionKey } from './keys.js'
+import { questionsAnswered } from './questions.js'
 import { sessionHookParsers } from './session-hooks.js'
-import { actionKind, exitCode, inputDescription, outputText, persistedOutputPath } from './tools.js'
+import { actionKind, exitCode, outputText, persistedOutputPath } from './tools.js'
 
 const durationMs = z.int().nonnegative().nullish()
 
@@ -82,23 +84,13 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
     'PreToolUse',
     hookParser(PreToolUse, (event, { origin }) =>
       facts(
-        fact(
+        ...callStarted({
           origin,
-          {
-            kind: 'action_start',
-            entity_key: actionKey(event.session_id, event.tool_use_id),
-            speaker: 'solver',
-            urgent: false,
-            payload: {
-              tool: event.tool_name,
-              action_kind: actionKind(event.tool_name),
-              input: event.tool_input,
-              description: inputDescription(event.tool_input),
-              container_call: null,
-            },
-          },
-          { ids: { call_id: event.tool_use_id } },
-        ),
+          session: event.session_id,
+          call: event.tool_use_id,
+          tool: event.tool_name,
+          input: event.tool_input,
+        }),
       ),
     ),
   ],
@@ -126,6 +118,9 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
         ),
         ...(actionKind(event.tool_name) === 'agent'
           ? spawnedAgents(origin, event.session_id, event.tool_use_id, event.tool_response)
+          : []),
+        ...(actionKind(event.tool_name) === 'question'
+          ? questionsAnswered({ origin, session: event.session_id, call: event.tool_use_id }, event.tool_response)
           : []),
       ),
     ),

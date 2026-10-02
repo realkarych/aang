@@ -17,6 +17,7 @@ import { name, optionalText } from './fields.js'
 import { facts, HookCommon, type HookContext, type HookParser, hookParser } from './hook-parser.js'
 import { isJsonObject } from './json.js'
 import { agentKey, ownerKey, questionKey, sessionKey, teammateKey } from './keys.js'
+import { answerText } from './questions.js'
 
 const observerEntrypoint = 'aang-observer'
 const desktopEntrypoint = 'claude-desktop'
@@ -162,8 +163,6 @@ const taskParser = (status: PlanItemStatus): HookParser =>
       ),
     ),
   )
-
-const answerText = (value: JsonValue): string => (typeof value === 'string' ? value : JSON.stringify(value))
 
 const elicitationAnswers = (content: JsonValue | null | undefined) => {
   if (content === null || content === undefined) {

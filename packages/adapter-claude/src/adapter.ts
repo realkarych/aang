@@ -3,6 +3,7 @@ import { unknown } from './facts.js'
 import { parseHook } from './hook.js'
 import { rawKey, streamKey } from './keys.js'
 import { workflowJournal } from './paths.js'
+import { parseRegistry } from './registry.js'
 import { parseSnapshot } from './snapshot.js'
 import { parseTranscriptLine } from './transcript.js'
 import { parseWorkflowJournalLine } from './workflow-journal.js'
@@ -10,6 +11,9 @@ import { parseWorkflowJournalLine } from './workflow-journal.js'
 const parse = (record: CollectedRecord): ParseResult => {
   if (record.channel === 'hook') {
     return parseHook(record)
+  }
+  if (record.channel === 'registry') {
+    return parseRegistry(record)
   }
   const { position } = record
   switch (position.kind) {

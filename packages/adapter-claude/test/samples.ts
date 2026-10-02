@@ -92,11 +92,12 @@ export const lineRecord = ({
 export interface FileSnapshot {
   readonly path: string
   readonly content?: string | undefined
+  readonly channel?: 'transcript' | 'registry'
 }
 
-export const snapshotRecord = ({ path, content }: FileSnapshot): CollectedRecord =>
+export const snapshotRecord = ({ path, content, channel = 'transcript' }: FileSnapshot): CollectedRecord =>
   CollectedRecord.parse({
-    channel: 'transcript',
+    channel,
     runtime: 'claude',
     stream: null,
     position:
