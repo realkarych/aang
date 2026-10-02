@@ -315,12 +315,15 @@ const withChain =
     entry.label === label && Array.isArray(entry.chain)
 
 export const hookLatency = async (context: CheckContext, inputs: LatencyInputs): Promise<Record<string, unknown>> => {
+  if (inputs.installForm === null || inputs.probeForm === null || inputs.claudeProbes.length === 0) {
+    return { unavailable: 'runtime launcher probes did not complete; latency cannot be validated' }
+  }
   const { profile, probe } = context
   const spool = join(profile.aangHome, 'spool-latency')
   await createSpool(spool)
   const claudeDirect = [profile.hook, 'claude', 'plugin', spool]
   const codexDirect = [profile.hook, 'codex', 'user', spool]
-  const codexLabel = `codex-probe-${inputs.probeForm?.id ?? ''}`
+  const codexLabel = `codex-probe-${inputs.probeForm.id}`
   const derived: Record<string, DerivedLauncher> = {
     'claude shell form': launcherFromProbe(
       'claude shell form',
@@ -332,19 +335,16 @@ export const hookLatency = async (context: CheckContext, inputs: LatencyInputs):
       },
       'claude',
     ),
-    'codex command':
-      inputs.probeForm === null || inputs.installForm === null
-        ? { unavailable: 'Codex executed no command form', chain: [] }
-        : launcherFromProbe(
-            'codex command',
-            inputs.codexProbes.find(withChain(codexLabel)),
-            {
-              probe: inputs.probeForm.render([probe.node, ...probeArgs(probe, codexLabel, ['chain'])]),
-              hook: inputs.installForm.render(codexDirect),
-              direct: codexDirect,
-            },
-            'codex',
-          ),
+    'codex command': launcherFromProbe(
+      'codex command',
+      inputs.codexProbes.find(withChain(codexLabel)),
+      {
+        probe: inputs.probeForm.render([probe.node, ...probeArgs(probe, codexLabel, ['chain'])]),
+        hook: inputs.installForm.render(codexDirect),
+        direct: codexDirect,
+      },
+      'codex',
+    ),
   }
   const execFormChain = inputs.claudeProbes.find(withChain('claude-exec-form'))?.chain
   const unleased = join(profile.aangHome, 'spool-latency-unleased')
@@ -376,7 +376,7 @@ export const hookLatency = async (context: CheckContext, inputs: LatencyInputs):
         ? { chain: launcher.chain, measurementScope: launcher.measurementScope, ...(await measure(launcher.launcher, spool, strictSeries)) }
         : launcher
   }
-  if (isWindows && inputs.probeForm !== null && inputs.installForm !== null) {
+  if (isWindows) {
     results['codex command without pwsh on PATH'] = await codexWithoutPwsh(
       context,
       inputs.probeForm,

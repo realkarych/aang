@@ -22,7 +22,7 @@ test('the runtime check fails when external CLIs report versions but every sessi
       failedSections: string[]
       checks: Record<string, { status: string }>
     }
-    expect(result.timedOut).toBe(false)
+    expect(result.timedOut, `${result.stdout}\n${result.stderr}\n${JSON.stringify(report)}`).toBe(false)
     expect(result.status, result.stderr).toBe(1)
     expect(report.checks['default roots']?.status).toBe('skipped')
     expect(report.failedSections).toEqual(expect.arrayContaining([
@@ -31,6 +31,7 @@ test('the runtime check fails when external CLIs report versions but every sessi
       'codex hook command forms',
       'codex hook exit and timeout',
       'collector and adapters on real files',
+      'hook latency by launcher',
       'claude series with and without hooks',
       'codex series with and without hooks',
       'observer admission',
