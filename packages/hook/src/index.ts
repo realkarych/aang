@@ -1,5 +1,7 @@
 export { deployHookBinary, type HookBinaryDeployment } from './binary.js'
 export type { ClaudeCli } from './claude-cli.js'
+export type { CodexAppServerOptions, CodexCli, CodexHookEntry, CodexHookListing } from './codex-app-server.js'
+export { codexHooksState, type CodexHooksState } from './codex-state.js'
 export {
   claudePluginId,
   claudePluginState,

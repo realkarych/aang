@@ -4,6 +4,8 @@ export type HookInstallFailure =
   | 'invalid_hooks_file'
   | 'hooks_file_changed'
   | 'install_locked'
+  | 'codex_app_server'
+  | 'foreign_hook_trust_changed'
 
 export class HookInstallError extends Error {
   constructor(

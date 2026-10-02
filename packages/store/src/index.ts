@@ -7,5 +7,12 @@ export type { JournalEntry, JournalVersion, ModelReader, ModelWriter } from './m
 export type { RawInsertResult, RawRecordReader, RawRecordWriter } from './raw-records.js'
 export type { ScopeReader, ScopeWriter, SessionScope, StreamScope } from './scopes.js'
 export type { SettingReader, SettingWriter } from './settings.js'
+export type {
+  ObserverCallReader,
+  ObserverCallWriter,
+  ObserverCallStart,
+  StoredObserverCall,
+} from './observer-calls.js'
+export type { InterpretationReader, InterpretationWriter } from './interpretations.js'
 export { openStore, type Store, type StoreOptions, type Transaction } from './store.js'
 export type { Observation, ObservationDraft, ObservationReader, ObservationWriter } from './observations.js'

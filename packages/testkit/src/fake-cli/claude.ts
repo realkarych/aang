@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { startDescendant } from './process-tree.js'
 import { resolve } from 'node:path'
 import type { z } from 'zod'
 import {
@@ -137,6 +138,7 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     missingReply(index)
     return
   }
+  await startDescendant(scenario.descendant)
   respond(session, reply, prompt)
 }
 

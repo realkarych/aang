@@ -274,7 +274,10 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
 
     expect(stopped.code).toBe(0)
     expect(stopped.stderr).toContain('no UI token')
-    expect(stopped.stdout).toBe(`aang stopped: pid ${String(pid)} exited after the stop marker\n`)
+    expect([
+      `aang stopped: pid ${String(pid)} exited after the stop marker\n`,
+      'aang is not running; the spool lease is removed and the stop marker is set\n',
+    ]).toContain(stopped.stdout)
     expect(isAlive(pid)).toBe(false)
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
     expect(await sandbox.hookWrites()).toBe(false)

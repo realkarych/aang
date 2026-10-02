@@ -7,9 +7,16 @@ import { prepareStatement, type WriteContext } from './context.js'
 import { createCursors, type CursorReader, type CursorWriter } from './cursors.js'
 import { createFacts, type FactReader, type FactWriter } from './facts.js'
 import { createGaps, type GapReader, type GapWriter } from './gaps.js'
+import {
+  createInterpretations,
+  type InterpretationReader,
+  type InterpretationWriter,
+  recoverInterpretations,
+} from './interpretations.js'
 import { acquireWriterLock, type WriterLock } from './lock.js'
 import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createObservations, type ObservationReader, type ObservationWriter } from './observations.js'
+import { createObserverCalls, type ObserverCallReader, type ObserverCallWriter } from './observer-calls.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
@@ -30,6 +37,8 @@ export interface Transaction {
   readonly gaps: GapWriter
   readonly model: ModelWriter
   readonly settings: SettingWriter
+  readonly observerCalls: ObserverCallWriter
+  readonly interpretations: InterpretationWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
@@ -44,6 +53,8 @@ export interface Store {
   readonly gaps: GapReader
   readonly model: ModelReader
   readonly settings: SettingReader
+  readonly observerCalls: ObserverCallReader
+  readonly interpretations: InterpretationReader
   readonly changes: ChangeFeed
   readonly close: () => void
 }
@@ -58,6 +69,11 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const gaps = createGaps(database)
   const model = createModel(database)
   const settings = createSettings(database)
+  const observerCalls = createObserverCalls(database)
+  const interpretations = createInterpretations(database)
+  inTransaction(database, () => {
+    recoverInterpretations(database)
+  })
 
   const beginTransaction = (): { transaction: Transaction; finish: () => void } => {
     let active = true
@@ -84,6 +100,8 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         gaps: gaps.writer(context),
         model: model.writer(context),
         settings: settings.writer(context),
+        observerCalls: observerCalls.writer(context),
+        interpretations: interpretations.writer(context),
       },
       finish: () => {
         active = false
@@ -109,6 +127,8 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     gaps: gaps.reader,
     model: model.reader,
     settings: settings.reader,
+    observerCalls: observerCalls.reader,
+    interpretations: interpretations.reader,
     changes: createChangeFeed(database),
     close: () => {
       if (!open) {
