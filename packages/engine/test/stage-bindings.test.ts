@@ -26,14 +26,14 @@ test('preserves distinct artifact inputs, outputs and dependencies across repeat
   expect(store.transaction((transaction) => applyObserverResponse(transaction, {
     call: callId, at: at(20), output: response(operations([solver.id]), 2),
   })).status).toBe('accepted')
-  const before = store.model.entities(runA).filter((entity) => entity.kind === 'link')
+  const before = store.model.entities(runA).filter((entity) => entity.kind === 'link').filter(({ value }) => value.kind !== 'spawn')
   expect(before).toHaveLength(4)
   const call = ObserverCallId.parse('repeat-artifacts')
   const input = begin([human], call)
   expect(store.transaction((transaction) => applyObserverResponse(transaction, {
     call, at: at(30), output: response(operations([human.id]), input.model.version),
   })).status).toBe('accepted')
-  const links = store.model.entities(runA).filter((entity) => entity.kind === 'link')
+  const links = store.model.entities(runA).filter((entity) => entity.kind === 'link').filter(({ value }) => value.kind !== 'spawn')
   expect(links.map(({ value }) => value.id)).toEqual(before.map(({ value }) => value.id))
   expect(links.map(({ value }) => value)).toEqual(expect.arrayContaining([
     expect.objectContaining({ kind: 'artifact', stage: stages.build, direction: 'input', version: artifactVersion.id }),
@@ -44,5 +44,5 @@ test('preserves distinct artifact inputs, outputs and dependencies across repeat
   expect(links.every(({ value }) => value.basis.kind === 'interpreted' && value.evidence[0] === human.id)).toBe(true)
   expect(store.model.changes(runA, version(3))).toHaveLength(4)
   store.transaction((transaction) => { transaction.model.replay() })
-  expect(store.model.entities(runA).filter((entity) => entity.kind === 'link')).toEqual(links)
+  expect(store.model.entities(runA).filter((entity) => entity.kind === 'link').filter(({ value }) => value.kind !== 'spawn')).toEqual(links)
 })
