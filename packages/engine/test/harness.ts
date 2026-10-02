@@ -59,7 +59,17 @@ export const gapsOf = (store: Store): Gap[] =>
 
 export const sessionKey = (runtime: Runtime, session: string): SessionKey => ({ kind: 'session', runtime, session })
 
-const observationTables = ['raw_records', 'facts', 'gaps', 'runs', 'objects', 'links'] as const
+const observationTables = [
+  'raw_records',
+  'facts',
+  'gaps',
+  'runs',
+  'objects',
+  'links',
+  'model_versions',
+  'model_changes',
+  'model_entities',
+] as const
 
 export const observationRows = (database: DatabaseSync): Record<string, number> =>
   Object.fromEntries(

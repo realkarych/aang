@@ -134,3 +134,39 @@ export const codexHook = (name: string, { session, cwd }: CodexHookSession, chan
   const sample = parseObject(readSample(`codex-cli/hooks/${name}`))
   return JSON.stringify({ ...asObject(sample['stdin']), session_id: session, cwd, ...changes })
 }
+
+export const codexGuardianRollout = ({ root, thread, cwd }: CodexChild): string[] => {
+  const meta = parseObject(readSample('codex-cli/rollout/session_meta.guardian.mock.json'))
+  const payload = { ...asObject(meta['payload']), id: thread, session_id: root, parent_thread_id: root, cwd }
+  return [JSON.stringify({ ...meta, payload })]
+}
+
+export interface CodexSpawn {
+  readonly root: string
+  readonly child: string
+  readonly call: string
+  readonly ordinal: number
+}
+
+const codexItem = (sample: string, ordinal: number, payload: (value: JsonObject) => JsonObject): string => {
+  const line = parseObject(readSample(`codex-cli/rollout/${sample}`))
+  return JSON.stringify({ ...line, ordinal, payload: payload(asObject(line['payload'])) })
+}
+
+export const codexSpawnLines = ({ root, child, call, ordinal }: CodexSpawn): string[] => [
+  codexItem('response_item.function_call.spawn_agent.mock.json', ordinal, (payload) => ({ ...payload, call_id: call })),
+  codexItem('event_msg.item_completed.SubAgentActivity.started.mock.json', ordinal + 1, (payload) => ({
+    ...payload,
+    thread_id: root,
+    item: { ...asObject(payload['item']), id: call, agent_thread_id: child },
+  })),
+]
+
+export const claudeAgentMeta = (): string =>
+  readSample('claude-code-transcripts/subagent-agent-aad616394e806288d.meta.json')
+
+export const claudeAgentTranscript = (session: ClaudeSession, agent: string): string[] =>
+  claudeSubagentTranscript(session).map((line) => {
+    const record = parseObject(line)
+    return JSON.stringify('agentId' in record ? { ...record, agentId: agent } : record)
+  })

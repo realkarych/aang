@@ -1,11 +1,17 @@
-import type { ActionKey, ActionOutcome, Execution, SessionKey } from '@aang/contract'
+import type { ActionKey, ActionOutcome, Execution, RunId, SessionKey } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
-import { agentKey, byContent, byTime, type Evidence, ofKind } from './evidence.js'
+import type { AgentIdentity } from './agents.js'
+import { byContent, byTime, type Evidence, ofKind } from './evidence.js'
 
 interface ActionEvidence {
   readonly key: ActionKey
   readonly items: Evidence[]
+}
+
+interface ActionContext {
+  readonly run: RunId
+  readonly identity: AgentIdentity
 }
 
 const actionExecution = (outcome: ActionOutcome): Execution => {
@@ -22,7 +28,11 @@ const actionExecution = (outcome: ActionOutcome): Execution => {
   }
 }
 
-const projectAction = (transaction: Transaction, { key, items }: ActionEvidence): void => {
+const projectAction = (
+  transaction: Transaction,
+  { key, items }: ActionEvidence,
+  { run, identity }: ActionContext,
+): void => {
   const first = items[0]?.fact
   if (first === undefined) {
     return
@@ -50,8 +60,8 @@ const projectAction = (transaction: Transaction, { key, items }: ActionEvidence)
     id,
     key,
     session: objectId({ kind: 'session', runtime: key.runtime, session: key.session }),
-    agent: objectId(agentKey(start ?? first)),
-    run: previous?.run ?? null,
+    agent: objectId(identity.of(start ?? first)),
+    run,
     tool,
     action_kind: start?.payload.action_kind ?? 'other',
     container:
@@ -76,6 +86,7 @@ export const projectActions = (
   transaction: Transaction,
   session: SessionKey,
   evidence: readonly Evidence[],
+  context: ActionContext,
 ): void => {
   const groups = new Map<string, ActionEvidence>()
   const add = (key: ActionKey, item: Evidence): void => {
@@ -99,6 +110,6 @@ export const projectActions = (
     }
   }
   for (const group of groups.values()) {
-    projectAction(transaction, group)
+    projectAction(transaction, group, context)
   }
 }

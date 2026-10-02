@@ -1,4 +1,5 @@
-import { ChangeSeq, type CollectedGap, EpochNs } from '@aang/contract'
+import { ChangeSeq, type CollectedGap, EpochNs, ModelVersion } from '@aang/contract'
+import { runId } from '@aang/contract/ids'
 import { createEngine } from '@aang/engine'
 import { describe, expect, test } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
@@ -63,7 +64,9 @@ describe('a batch of a watched session', () => {
     const changes = store.changes.after(ChangeSeq.parse(0), 1000)
     expect(changes.filter(({ layer }) => layer === 'object')).toHaveLength(6)
     expect(changes.filter(({ layer }) => layer === 'gap')).toHaveLength(1)
-    expect(store.changes.head()).toBe(lines.length + draftFacts(expected).length + 7)
+    const run = runId(sessionKey('claude', 's-main'))
+    expect(store.model.version(run, ModelVersion.parse(1))?.change_seq).toBe(store.changes.head())
+    expect(store.changes.head()).toBe(lines.length + draftFacts(expected).length + 7 + 1)
   })
 
   test('of Codex resolves the thread stream from session_meta and keeps the last ordinal', async ({
