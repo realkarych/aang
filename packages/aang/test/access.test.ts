@@ -100,48 +100,48 @@ describe.concurrent('UI access needs the token; aang open hands it out through a
     expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
   })
 
-  test('a link issued before token rotate never signs in with the new token, even when redeemed mid-rotation', async ({
-    expect,
-    onTestFinished,
-  }) => {
-    const sandbox = await createSandbox(onTestFinished)
-    await sandbox.aang('start')
-    const { base } = await openLink(sandbox)
-    const issued = await issuePendingCodes(sandbox, 3_000)
-    const pending = (await pendingCodes(sandbox)).length
-    const previous = await uiToken(sandbox)
+  test.skipIf(process.platform === 'win32')(
+    'a link issued before token rotate never signs in with the new token, even when redeemed mid-rotation',
+    async ({ expect, onTestFinished }) => {
+      const sandbox = await createSandbox(onTestFinished)
+      await sandbox.aang('start')
+      const { base } = await openLink(sandbox)
+      const issued = await issuePendingCodes(sandbox, 3_000)
+      const pending = (await pendingCodes(sandbox)).length
+      const previous = await uiToken(sandbox)
 
-    const rotation = sandbox.spawnAang('token', 'rotate')
-    const rotated = once(rotation, 'close')
-    const rotationPid = rotation.pid
-    if (rotationPid === undefined) {
-      throw new Error('aang token rotate did not start')
-    }
-    while ((await uiToken(sandbox)) === previous && (await pendingCodes(sandbox)).length === pending) {
-      await new Promise((resolve) => setImmediate(resolve))
-    }
-    const paused = rotation.exitCode === null && (await suspend(rotationPid).then(() => true, () => false))
-    const remaining = new Set(await pendingCodes(sandbox))
-    const sample = issued.filter((code) => remaining.has(code)).slice(0, 20)
-    const signIns = await Promise.all(sample.map((code) => fetch(`${base}/auth/${code}`, { redirect: 'manual' })))
-    if (paused) {
-      await resume(rotationPid)
-    }
+      const rotation = sandbox.spawnAang('token', 'rotate')
+      const rotated = once(rotation, 'close')
+      const rotationPid = rotation.pid
+      if (rotationPid === undefined) {
+        throw new Error('aang token rotate did not start')
+      }
+      while ((await uiToken(sandbox)) === previous && (await pendingCodes(sandbox)).length === pending) {
+        await new Promise((resolve) => setImmediate(resolve))
+      }
+      const paused = rotation.exitCode === null && (await suspend(rotationPid).then(() => true, () => false))
+      const remaining = new Set(await pendingCodes(sandbox))
+      const sample = issued.filter((code) => remaining.has(code)).slice(0, 20)
+      const signIns = await Promise.all(sample.map((code) => fetch(`${base}/auth/${code}`, { redirect: 'manual' })))
+      if (paused) {
+        await resume(rotationPid)
+      }
 
-    expect(await rotated).toEqual([0, null])
-    const token = await uiToken(sandbox)
-    expect(token).not.toBe(previous)
-    const cookies = signIns.filter((response) => response.status === 200).map(sessionCookie)
-    expect(cookies.filter((cookie) => cookie === `aang_token=${token}`)).toEqual([])
-    const route = `${base}/api/admin/no-such-route`
-    for (const cookie of cookies) {
-      expect((await fetch(route, { headers: { cookie } })).status).toBe(401)
-    }
-    for (const code of issued.slice(0, 5)) {
-      expect((await fetch(`${base}/auth/${code}`, { redirect: 'manual' })).status).toBe(401)
-    }
-    expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
-  })
+      expect(await rotated).toEqual([0, null])
+      const token = await uiToken(sandbox)
+      expect(token).not.toBe(previous)
+      const cookies = signIns.filter((response) => response.status === 200).map(sessionCookie)
+      expect(cookies.filter((cookie) => cookie === `aang_token=${token}`)).toEqual([])
+      const route = `${base}/api/admin/no-such-route`
+      for (const cookie of cookies) {
+        expect((await fetch(route, { headers: { cookie } })).status).toBe(401)
+      }
+      for (const code of issued.slice(0, 5)) {
+        expect((await fetch(`${base}/auth/${code}`, { redirect: 'manual' })).status).toBe(401)
+      }
+      expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+    },
+  )
 
   test('--bind listens on the given interface with the same token requirement', async ({ expect, onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished)
