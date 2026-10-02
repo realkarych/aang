@@ -6,14 +6,20 @@ import type {
   CollectedRecord,
   CollectorBatch,
   FileCursor,
+  EpochNs as EpochNsType,
   RecordOwner,
   Runtime,
   ScopeDecision,
+  SessionId,
   SessionKey,
   StreamKey,
 } from '@aang/contract'
+import { EpochNs } from '@aang/contract'
+import { objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
 import { projectSession } from '../observations/project.js'
+import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
+import { type SourceRecord, streamOwner } from '../observations/sources.js'
 import { normalizeOtel } from './otel.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
@@ -48,6 +54,8 @@ export interface EngineOptions {
   readonly adapters: AdapterRegistry
   readonly watch: WatchedRoots
   readonly holding?: Partial<HoldingLimits>
+  readonly now?: () => EpochNsType
+  readonly quietAfterMs?: number
 }
 
 export interface IngestResult {
@@ -63,6 +71,7 @@ export interface IngestResult {
 
 export interface Engine {
   readonly ingest: (batch: CollectorBatch) => Promise<IngestResult>
+  readonly refreshFreshness: () => Promise<ChangeSeq>
 }
 
 interface HeldHook {
@@ -102,6 +111,7 @@ interface Committed {
   readonly files: Map<string, TrackedFile>
   readonly hooks: readonly HeldHook[]
   readonly rescan: readonly StreamKey[]
+  readonly quiet: QuietWatch
 }
 
 const mebibyte = 1024 ** 2
@@ -163,10 +173,17 @@ const namelessGap = (path: string, first: CollectedRecord): GapDraft => ({
 const heldLines = (files: ReadonlyMap<string, TrackedFile>): number =>
   [...files.values()].reduce((total, file) => total + (file.kind === 'held' ? file.lines.length : 0), 0)
 
-export const createEngine = ({ store, adapters: registry, watch, holding = {} }: EngineOptions): Engine => {
+export const createEngine = ({
+  store, adapters: registry, watch, holding = {},
+  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000,
+}: EngineOptions): Engine => {
+  if (!Number.isSafeInteger(quietAfterMs) || quietAfterMs < 1) {
+    throw new RangeError('quiet interval must be a positive safe integer in milliseconds')
+  }
   const adapters = adaptersOf(registry)
   const limits: HoldingLimits = { ...defaultHolding, ...holding }
   let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
+  let quiet = quietWatchOf(store.observations.sessions())
   let queue: Promise<unknown> = Promise.resolve()
 
   const sessionScopes = (): SessionScopes => {
@@ -282,19 +299,28 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
   ): Committed =>
     store.transaction((transaction: Transaction) => {
       const changedSessions = new Map<string, SessionKey>()
+      const sourceRecords = new Map<string, SourceRecord[]>()
       const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0, deferred: 0 }
       const files = new Map(state.files)
       const hooks: HeldHook[] = []
       const rescan = new Set<StreamKey>()
       const streamScopes = new Map<StreamKey, ScopeDecision>()
 
-      const insert = (parsed: Parsed): void => {
+      const insert = (parsed: Parsed, fallback: RecordOwner | null = null): void => {
         const { status, seq } = transaction.rawRecords.insert(draftOf(parsed))
         if (status === 'duplicate') {
           tally.duplicates += 1
           return
         }
         const facts = transaction.facts.insert(seq, parsed.normalizerVersion, factsOf(parsed))
+        const owner = adapters[parsed.record.runtime].owner(parsed.record) ?? fallback
+        if (owner !== null && parsed.record.channel !== 'otel') {
+          const name = sessionName(owner.session)
+          changedSessions.set(name, owner.session)
+          const records = sourceRecords.get(name) ?? []
+          records.push({ raw: { ...draftOf(parsed), seq }, owner })
+          sourceRecords.set(name, records)
+        }
         for (const { entity_key } of facts) {
           const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
           changedSessions.set(sessionName(key), key)
@@ -304,8 +330,13 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
 
       const keep = (records: readonly CollectedRecord[], scope: ScopeDecision): void => {
         if (scope === 'watched') {
+          const first = records[0]
+          let fallback = records.map((record) => adapters[record.runtime].owner(record)).find((owner) => owner !== null) ?? null
+          if (fallback === null && first?.stream !== null && first?.stream !== undefined) {
+            fallback = streamOwner(transaction, adapters, first.stream)
+          }
           for (const record of records) {
-            insert(parseRecord(adapters, record))
+            insert(parseRecord(adapters, record), fallback)
           }
         } else {
           tally.discarded += records.length
@@ -334,7 +365,11 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
       }
 
       const saveGap = (gap: CollectedGap, stream: StreamKey | null): void => {
-        transaction.gaps.save({ ...gap, stream, run: null, session: null })
+        const owner = stream === null ? null : streamOwner(transaction, adapters, stream)
+        const session = owner === null ? null : objectId(owner.session)
+        const run = session === null ? null : transaction.observations.getSession(session)?.run ?? null
+        transaction.gaps.save({ ...gap, stream, run, session })
+        if (owner !== null) { changedSessions.set(sessionName(owner.session), owner.session) }
       }
 
       const commitHeld = (file: HeldFile): void => {
@@ -451,8 +486,15 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
       }
       batch.gaps.forEach(resolveGap)
       for (const key of normalizeOtel(transaction, adapters)) { changedSessions.set(sessionName(key), key) }
-      for (const key of changedSessions.values()) { projectSession(transaction, key) }
-      return { tally, files, hooks, rescan: [...rescan] }
+      const instant = now()
+      const watch = new Map(quiet)
+      const lost = changedSessions.size === 0 ? new Set<SessionId>() : lostSessions(transaction)
+      for (const key of changedSessions.values()) {
+        const session = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
+        if (session !== null) { watchQuiet(watch, session) }
+      }
+      settleQuiet(transaction, watch, instant, quietAfterMs)
+      return { tally, files, hooks, rescan: [...rescan], quiet: watch }
     })
 
   const withinLimits = (committed: Committed) => {
@@ -501,6 +543,7 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
     const evidence = gatherEvidence(steps, items, scopes)
     const decided = await decideSessions(evidence, scopes)
     const committed = commit(batch, items, steps, decided, scopes)
+    quiet = committed.quiet
     const kept = withinLimits(committed)
     const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))
     const candidates = [...state.open, batch]
@@ -521,6 +564,16 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
   }
 
   return {
+    refreshFreshness: () => {
+      const result = queue.then(() => {
+        const watch = new Map(quiet)
+        store.transaction((transaction) => { settleQuiet(transaction, watch, now(), quietAfterMs) })
+        quiet = watch
+        return store.changes.head()
+      })
+      queue = result.then(() => undefined, () => undefined)
+      return result
+    },
     ingest: (batch) => {
       const result = queue.then(() => ingestBatch(batch))
       queue = result.then(() => undefined, () => undefined)

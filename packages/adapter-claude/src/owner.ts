@@ -70,6 +70,17 @@ export const owner = (record: CollectedRecord): RecordOwner | null => {
   if (record.channel === 'hook') {
     return hookOwner(record)
   }
+  if (record.channel === 'registry' && record.position.kind === 'file') {
+    const payload = parseJson(record.payload)
+    const session = stringField(payload, 'sessionId')
+    return session === null ? null : {
+      session: sessionKey(session),
+      thread: 'root',
+      cwd: stringField(payload, 'cwd'),
+      start: false,
+      observer: stringField(payload, 'entrypoint') === observerEntrypoint,
+    }
+  }
   const { position } = record
   if (record.channel !== 'transcript') {
     return null
