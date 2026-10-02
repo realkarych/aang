@@ -1,3 +1,5 @@
+import type { RawSeq } from '@aang/contract'
+
 export class StoreLockedError extends Error {
   override readonly name = 'StoreLockedError'
   readonly home: string
@@ -17,5 +19,15 @@ export class StoreVersionError extends Error {
     super(`aang store schema version ${String(found)} is newer than the supported version ${String(supported)}`)
     this.found = found
     this.supported = supported
+  }
+}
+
+export class MissingRawRecordError extends Error {
+  override readonly name = 'MissingRawRecordError'
+  readonly seq: RawSeq
+
+  constructor(seq: RawSeq) {
+    super(`raw record ${String(seq)} does not exist`)
+    this.seq = seq
   }
 }

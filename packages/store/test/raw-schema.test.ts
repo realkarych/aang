@@ -5,8 +5,7 @@ import { checkSchemaCase, createSchemaDatabase, insert, type Row, type SchemaCas
 const stream: Row = {
   stream: "'claude:s1:main'",
   runtime: "'claude'",
-  coverage: "'included'",
-  decided_at: '1759370000000000000',
+  scope: "'watched'",
 }
 
 const rawRecord: Row = {
@@ -14,7 +13,8 @@ const rawRecord: Row = {
   channel: "'transcript'",
   runtime: "'claude'",
   stream: "'claude:s1:main'",
-  position: '\'{"offset":0,"line":1}\'',
+  position: '\'{"kind":"line","path":"/p/s1.jsonl","offset":0,"line":1}\'',
+  hook: 'NULL',
   observed_at: '1759370000123456789',
   source_ts: '1759370000000000000',
   payload: "x'7b7d'",
@@ -25,17 +25,18 @@ const rawRecord: Row = {
 const fact: Row = {
   id: "'f1'",
   seq: '1',
+  record_index: '0',
   kind: "'message'",
-  entity_key: "'claude:s1:u1'",
-  ordinal: '0',
+  entity_key: '\'{"kind":"message","message":"m1","runtime":"claude","session":"s1"}\'',
   speaker: "'solver'",
   urgent: '0',
-  runtime: "'claude'",
-  runtime_session_id: "'s1'",
-  runtime_agent_id: 'NULL',
   occurred_at: '1759370000000000000',
+  runtime_ids: "'{}'",
+  runtime_env: "'{}'",
+  format_verified: '1',
+  redelivery_key: 'NULL',
   payload: "'{}'",
-  normalizer_version: "'1'",
+  normalizer_version: '1',
   change_seq: '1',
 }
 
@@ -48,16 +49,18 @@ const cursor: Row = {
   line_number: '2',
   size: '120',
   last_ordinal: 'NULL',
-  updated_at: '1759370000000000000',
 }
 
 const gap: Row = {
+  id: "'g1'",
+  entity_key: '\'{"gap":"source_lost","kind":"gap","subject":"claude:s1:main"}\'',
   kind: "'source_lost'",
-  runtime: "'claude'",
-  stream: "'claude:s1:main'",
   run_id: 'NULL',
-  detail: "'{}'",
-  observed_at: '1759370000000000000',
+  session_id: 'NULL',
+  stream: "'claude:s1:main'",
+  details: 'NULL',
+  detected_at: '1759370000000000000',
+  closed_at: 'NULL',
   change_seq: '1',
 }
 
@@ -99,10 +102,35 @@ const cases: readonly SchemaCase[] = [
       dedupe_key: "'snapshot:r1:1'",
       channel: "'snapshot'",
       runtime: 'NULL',
-      stream: "'run:r1'",
-      position: 'NULL',
+      stream: 'NULL',
+      position: '\'{"kind":"daemon"}\'',
       source_ts: 'NULL',
     }),
+  },
+  {
+    name: 'a hook record carries its registration envelope and may have no stream yet',
+    statement: insert('raw_records', rawRecord, {
+      dedupe_key: "'hook:1759370000123-4242-a1.evt'",
+      channel: "'hook'",
+      stream: 'NULL',
+      position: '\'{"kind":"spool","file":"1759370000123-4242-a1.evt"}\'',
+      hook: '\'{"registration":"plugin","env":{}}\'',
+    }),
+  },
+  {
+    name: 'a registration envelope belongs only to records of the hook channel',
+    statement: insert('raw_records', rawRecord, { dedupe_key: "'k2'", hook: '\'{"registration":"plugin","env":{}}\'' }),
+    error: /CHECK constraint failed: raw_records_hook_channel/,
+  },
+  {
+    name: 'a registration envelope must be JSON',
+    statement: insert('raw_records', rawRecord, { dedupe_key: "'k2'", channel: "'hook'", hook: "'plugin'" }),
+    error: /CHECK constraint failed: json_valid\(hook\)/,
+  },
+  {
+    name: 'a raw record without a position is rejected',
+    statement: insert('raw_records', rawRecord, { dedupe_key: "'k2'", position: 'NULL' }),
+    error: /NOT NULL constraint failed: raw_records\.position/,
   },
   {
     name: 'a second raw record with the same dedupe key is rejected',
@@ -145,8 +173,8 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: change_seq > 0/,
   },
   {
-    name: 'a further fact of the same kind and entity in a raw record is accepted',
-    statement: insert('facts', fact, { id: "'f2'", ordinal: '1' }),
+    name: 'a further fact of a raw record is accepted at the next position',
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1' }),
   },
   {
     name: 'a fact must come from a stored raw record',
@@ -155,40 +183,59 @@ const cases: readonly SchemaCase[] = [
   },
   {
     name: 'a fact id is unique',
-    statement: insert('facts', fact, { ordinal: '1' }),
+    statement: insert('facts', fact, { record_index: '1' }),
     error: /UNIQUE constraint failed: facts\.id/,
   },
   {
-    name: 'a fact repeating the kind, entity and ordinal of its raw record is rejected',
+    name: 'a fact taking the position of another fact of its raw record is rejected',
     statement: insert('facts', fact, { id: "'f2'" }),
-    error: /UNIQUE constraint failed: facts\.seq, facts\.kind, facts\.entity_key, facts\.ordinal/,
+    error: /UNIQUE constraint failed: facts\.seq, facts\.record_index/,
   },
   {
     name: 'a fact with an unknown speaker is rejected',
-    statement: insert('facts', fact, { id: "'f2'", ordinal: '1', speaker: "'assistant'" }),
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1', speaker: "'assistant'" }),
     error: /CHECK constraint failed: speaker IN/,
   },
   {
     name: 'a fact urgency is a boolean',
-    statement: insert('facts', fact, { id: "'f2'", ordinal: '1', urgent: '2' }),
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1', urgent: '2' }),
     error: /CHECK constraint failed: urgent IN/,
   },
   {
+    name: 'a fact format verification is a boolean',
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1', format_verified: '2' }),
+    error: /CHECK constraint failed: format_verified IN/,
+  },
+  {
+    name: 'a fact entity key must be JSON',
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1', entity_key: "'claude:s1:m1'" }),
+    error: /CHECK constraint failed: json_valid\(entity_key\)/,
+  },
+  {
     name: 'a fact payload must be JSON',
-    statement: insert('facts', fact, { id: "'f2'", ordinal: '1', payload: "'{'" }),
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1', payload: "'{'" }),
     error: /CHECK constraint failed: json_valid\(payload\)/,
   },
   {
-    name: 'a stream coverage decision is either included or excluded',
-    statement: insert('streams', stream, { stream: "'claude:s2:main'", coverage: "'unknown'" }),
-    error: /CHECK constraint failed: coverage IN/,
+    name: 'a fact normalizer version is a positive number',
+    statement: insert('facts', fact, { id: "'f2'", record_index: '1', normalizer_version: '0' }),
+    error: /CHECK constraint failed: normalizer_version > 0/,
+  },
+  {
+    name: 'a stream scope decision is watched, external or observer',
+    statement: insert('streams', stream, { stream: "'claude:s2:main'", scope: "'included'" }),
+    error: /CHECK constraint failed: scope IN/,
   },
   {
     name: 'a cursor holding 64-bit unsigned device and inode numbers is accepted',
     statement: insert('cursors', cursor, { dev: "'18446744073709551615'", inode: "'18446744073709551615'" }),
   },
   {
-    name: 'a cursor must belong to a stream with a coverage decision',
+    name: 'a cursor of a file whose stream is not known yet is accepted',
+    statement: insert('cursors', cursor, { stream: 'NULL' }),
+  },
+  {
+    name: 'a cursor must belong to a stream with a scope decision',
     statement: insert('cursors', cursor, { stream: "'claude:s2:main'" }),
     error: /FOREIGN KEY constraint failed/,
   },
@@ -213,13 +260,24 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: line_number >= 0/,
   },
   {
-    name: 'a gap with no stream is accepted',
-    statement: insert('gaps', gap, { runtime: 'NULL', stream: 'NULL' }),
+    name: 'a gap with no run, session or stream is accepted',
+    statement: insert('gaps', gap, { stream: 'NULL' }),
   },
   {
-    name: 'a gap detail must be JSON',
-    statement: insert('gaps', gap, { detail: "'lost'" }),
-    error: /CHECK constraint failed: json_valid\(detail\)/,
+    name: 'a gap has a single row per id',
+    setup: [insert('gaps', gap)],
+    statement: insert('gaps', gap, { change_seq: '2' }),
+    error: /UNIQUE constraint failed: gaps\.id/,
+  },
+  {
+    name: 'a gap key must be JSON',
+    statement: insert('gaps', gap, { entity_key: "'source_lost:claude:s1:main'" }),
+    error: /CHECK constraint failed: json_valid\(entity_key\)/,
+  },
+  {
+    name: 'a gap cannot close before it was detected',
+    statement: insert('gaps', gap, { closed_at: '1759369999999999999' }),
+    error: /CHECK constraint failed: closed_at >= detected_at/,
   },
   {
     name: 'a Claude prune boundary is an offset with a prefix hash',
