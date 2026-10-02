@@ -28,10 +28,14 @@ export interface WatchSettings {
   readonly roots?: readonly string[]
   readonly all?: boolean
   readonly holding?: Partial<HoldingLimits>
+  readonly adapters?: AdapterRegistry
 }
 
-export const startEngine = (store: Store, { roots = [], all = false, holding = {} }: WatchSettings = {}): Engine =>
-  createEngine({ store, adapters, watch: { all, roots: roots.map((path) => ({ path })) }, holding })
+export const startEngine = (
+  store: Store,
+  { roots = [], all = false, holding = {}, adapters: registry = adapters }: WatchSettings = {},
+): Engine =>
+  createEngine({ store, adapters: registry, watch: { all, roots: roots.map((path) => ({ path })) }, holding })
 
 export const countsOf = ({ inserted, duplicates, discarded, waiting, deferred }: IngestResult) => ({
   inserted,

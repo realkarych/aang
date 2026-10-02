@@ -286,3 +286,43 @@ Rule fields never touch `likely_resolved` and `priority`, which belong to the
 observer. Dismissal by the user is view state (`AttentionView.dismissed_at`) and
 is not part of the item. Notifications other than requests for input
 (`idle_prompt`, `permission_prompt`) open no item.
+
+## Reparse
+
+`engine.reparse()` runs in the same queue as `ingest` and applies its result in
+one transaction. A failure leaves facts, raw records and objects unchanged.
+
+It parses again every collector record that has no fact of the current
+adapter's `normalizer_version`: records whose facts come from another
+normalizer, and records without facts (`unknown`, `invalid` or parsed without
+facts). A record that already has facts of the current version is skipped,
+because parsing is deterministic. The adapter receives the stored payload,
+stream, position and hook envelope; the dedupe key never changes. Daemon
+channels (`snapshot`, `context`) are not reparsed.
+
+Fact ids derive from the dedupe key, kind, entity key and the ordinal among facts
+of the same kind and key, so a fact keeps its id when the order of the facts in
+its record changes. Facts that are no longer produced are deleted, new facts are
+inserted, and a record is rewritten with new `change_seq` values only when its
+facts or parse state differ. A resolved OTel decision keeps its resolved stream;
+an unresolved one stays pending and is normalized by `ingest` once its thread
+appears.
+
+Afterwards every session that has facts, owns records or has stored objects is
+projected again with the current time and source losses. Records are owned the
+same way `ingest` attributes them, without OTel records. A session stays while
+it has facts or owned records; its `unknown_records` is recounted from the owned
+records that are still not parsed, and its `unknown_records` gap closes when the
+count drops to zero. Fields that `ingest` keeps from earlier records, such as
+the support mode and the event times, are kept. A session without facts or owned
+records is deleted with its objects, and agent, action and question objects that
+no fact supports any longer are deleted.
+
+Deletions are not part of the change feed, so the daemon publishes the SSE
+`reset` with reason `reparsed` after a reparse. An object that is deleted and
+later projected again starts without fields owned by other rules, such as its
+run.
+
+The model journal and model entities are not changed. `resolveEvidence(facts,
+evidence)` returns each referenced fact, or `unavailable` for a fact the current
+normalizer no longer produces. Reparse does not write `fact_interpretation`.

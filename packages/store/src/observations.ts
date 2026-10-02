@@ -45,6 +45,7 @@ export interface ObservationReader {
 export interface ObservationWriter extends ObservationReader {
   readonly save: (draft: ObservationDraft) => Observation
   readonly remove: (removal: ObservationRemoval) => StoredObservationRemoval | null
+  readonly delete: (observation: Observation) => void
 }
 
 export interface ObservationRepository {
@@ -226,6 +227,10 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
             redirect(toRemoval(replaced), replacedBy)
           }
           return { ...removal, run: object.run, change_seq: changeSeq }
+        },
+        delete: (observation) => {
+          context.assertActive()
+          deleteObject.run(observation.id, observation.key.kind)
         },
       }
     },

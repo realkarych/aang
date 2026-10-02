@@ -1,6 +1,6 @@
 import { CollectedRecord, type RawSeq, type SessionKey } from '@aang/contract'
 import type { Transaction } from '@aang/store'
-import type { Adapters } from './records.js'
+import { type Adapters, collectedFields } from './records.js'
 
 const pageSize = 256
 
@@ -15,15 +15,7 @@ export const normalizeOtel = (transaction: Transaction, adapters: Adapters): Ses
     }
     for (const raw of records) {
       after = raw.seq
-      const record = CollectedRecord.safeParse({
-        channel: raw.channel,
-        runtime: raw.runtime,
-        stream: raw.stream,
-        position: raw.position,
-        hook: raw.hook,
-        observed_at: raw.observed_at,
-        payload: raw.payload,
-      }).data
+      const record = CollectedRecord.safeParse(collectedFields(raw)).data
       if (record === undefined) {
         continue
       }

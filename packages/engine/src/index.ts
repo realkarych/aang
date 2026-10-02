@@ -6,6 +6,8 @@ export {
   type IngestResult,
 } from './ingest/engine.js'
 export type { WatchedRoot, WatchedRoots } from './ingest/scope.js'
+export { type EvidenceReference, resolveEvidence } from './reparse/basis.js'
+export type { ReparseResult } from './reparse/reparse.js'
 export {
   applyObserverResponse,
   beginObserverCall,
