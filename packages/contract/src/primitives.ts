@@ -4,7 +4,14 @@ export const runtimes = ['claude', 'codex'] as const
 export const Runtime = z.enum(runtimes)
 export type Runtime = z.infer<typeof Runtime>
 
-export const EpochNs = z.bigint().nonnegative().brand<'EpochNs'>()
+export const EpochNs = z.codec(
+  z.union([z.bigint(), z.string().regex(/^(?:0|[1-9][0-9]*)$/)]),
+  z.bigint().nonnegative().brand<'EpochNs'>(),
+  {
+    decode: (value) => BigInt(value),
+    encode: (value) => value.toString(),
+  },
+)
 export type EpochNs = z.infer<typeof EpochNs>
 
 export const JsonValue = z.json()
@@ -106,3 +113,6 @@ export type ViewRuleId = z.infer<typeof ViewRuleId>
 
 export const ObserverCallId = assignedId.brand<'ObserverCallId'>()
 export type ObserverCallId = z.infer<typeof ObserverCallId>
+
+export const ChatMessageId = assignedId.brand<'ChatMessageId'>()
+export type ChatMessageId = z.infer<typeof ChatMessageId>
