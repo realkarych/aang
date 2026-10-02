@@ -135,6 +135,33 @@ test('unrecognised records count once, including records without facts, and surv
   expect(store.observations.getSession(sessionId())).toMatchObject({ unknown_records: 4, support_mode: 'full', freshness: 'ok' })
 })
 
+test.each(['separate', 'together'] as const)('source loss opens and closes for a session without facts across restart: %s', async (order) => {
+  const home = await createHome(onTestFinished)
+  let store = home.open()
+  const { engine } = clockedEngine(store)
+  const lines = [JSON.stringify({ type: 'future_record', sessionId: source.session, cwd: source.cwd })]
+  const file = jsonlFile({ runtime: 'claude', path: '/unrecognised.jsonl', lines, ino: 3n })
+  const gap = {
+    key: { kind: 'gap', gap: 'source_lost', subject: file.path },
+    stream: streamOf('claude', lines), details: 'file missing', detected_at: at(200), closed_at: null,
+  } as const
+  if (order === 'separate') {
+    await engine.ingest(file.batch(1, 1))
+    expect(store.observations.getSession(sessionId())).toMatchObject({ unknown_records: 1, state: 'unknown', freshness: 'hooks_inactive' })
+    await engine.ingest(batchOf({ gaps: [gap] }))
+  } else {
+    await engine.ingest(joinBatches(file.batch(1, 1), batchOf({ gaps: [gap] })))
+  }
+  expect(store.observations.getSession(sessionId())).toMatchObject({ unknown_records: 1, freshness: 'lost' })
+  store.close()
+  store = home.open()
+  const restarted = clockedEngine(store).engine
+  await restarted.ingest(batchOf({ gaps: [{ ...gap, closed_at: at(400) }] }))
+  expect(store.observations.getSession(sessionId())).toMatchObject({ unknown_records: 1, freshness: 'hooks_inactive' })
+  await restarted.ingest(batchOf({ gaps: [{ ...gap, key: { ...gap.key, subject: '/reopened.jsonl' } }] }))
+  expect(store.observations.getSession(sessionId())?.freshness).toBe('lost')
+})
+
 const percentile95 = (samples: readonly number[]): number =>
   samples.toSorted((left, right) => left - right)[Math.ceil(samples.length * 0.95) - 1] ?? Infinity
 

@@ -123,16 +123,14 @@ export const projectSession = (
   quietAfterMs: number,
 ): Omit<Session, 'change_seq'> | null => {
   const items = sessionEvidence(transaction, key)
-  const first = items[0]
-  const firstRecord = records[0]
-  if (first === undefined && firstRecord === undefined) {
+  const id = objectId(key)
+  const previous = transaction.observations.getSession(id)
+  if (items.length === 0 && records.length === 0 && previous === null) {
     return null
   }
   const root = items.filter(({ fact }) => agentKey(fact).agent.kind === 'main')
   const starts = ofKind(root, 'session_start')
   const content = root.toSorted(byContent)
-  const id = objectId(key)
-  const previous = transaction.observations.getSession(id)
   const hooks = items.some(({ raw }) => raw.channel === 'hook') ||
     records.some(({ raw }) => raw.channel === 'hook') || (previous !== null && previous.support_mode !== 'files_only')
   const files = items.some(isFile) || records.some(({ raw }) => raw.channel === 'transcript' || raw.channel === 'rollout') ||

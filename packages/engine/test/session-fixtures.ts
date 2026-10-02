@@ -11,6 +11,9 @@ export const epoch = 1_790_856_592_228_739_000n
 export const at = (milliseconds: number): EpochNs => EpochNs.parse(epoch + BigInt(milliseconds) * 1_000_000n)
 export const sessionId = (runtime: Runtime = 'claude') => objectId(sessionKey(runtime, source.session))
 
+const hookPayload = (event: string, fields: Record<string, JsonValue>, runtime: Runtime): string =>
+  (runtime === 'claude' ? claudeHook : codexHook)('SessionStart.startup.json', source, { hook_event_name: event, ...fields })
+
 export const hook = (
   event: string,
   milliseconds: number,
@@ -20,11 +23,16 @@ export const hook = (
   runtime,
   file: `${event}-${String(milliseconds)}.evt`,
   arrival: milliseconds * 1_000_000,
-  payload: (runtime === 'claude' ? claudeHook : codexHook)('SessionStart.startup.json', source, {
-    hook_event_name: event,
-    ...fields,
-  }),
+  payload: hookPayload(event, fields, runtime),
 })
+
+export const doubleHook = (event: string, milliseconds: number, fields: Record<string, JsonValue> = {}): CollectorBatch =>
+  hookBatch(...['first', 'second'].map((plugin) => ({
+    file: `${event}-${String(milliseconds)}-${plugin}.evt`,
+    arrival: milliseconds * 1_000_000,
+    env: { CLAUDE_PLUGIN_ROOT: `/plugins/${plugin}` },
+    payload: hookPayload(event, fields, 'claude'),
+  })))
 
 export const registry = (status: string, milliseconds: number, updated = milliseconds): CollectorBatch => {
   const payload = JSON.stringify({
