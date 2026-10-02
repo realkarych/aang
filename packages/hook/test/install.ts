@@ -8,6 +8,7 @@ import { type ClaudeCli, hookInstallPaths, type HookInstallPaths } from '@aang/h
 import { type ClaudeScenario, type FakeCli, installFakeClaude } from '@aang/testkit'
 import type { TestContext } from 'vitest'
 import { nowSeconds } from './hook.js'
+import { fakeAppServer } from './app-server.js'
 
 export interface InstallHome {
   readonly root: string
@@ -17,6 +18,7 @@ export interface InstallHome {
   readonly paths: HookInstallPaths
   readonly pluginHooksFile: string
   readonly fakeClaude: (scenario?: ClaudeScenario) => FakeClaude
+  readonly codex: Awaited<ReturnType<typeof fakeAppServer>>
 }
 
 export interface FakeClaude extends FakeCli<ClaudeScenario> {
@@ -62,23 +64,24 @@ export const createInstallHome = async (onTestFinished: TestContext['onTestFinis
   await mkdir(codexHome, { recursive: true })
   await leaseSpool(aangHome)
   const paths = hookInstallPaths(aangHome)
-  return {
+  const home = {
     root,
     aangHome,
     codexHome,
     hooksFile: join(codexHome, 'hooks.json'),
     paths,
     pluginHooksFile: join(paths.claudePlugin, 'hooks', 'hooks.json'),
-    fakeClaude: (scenario = {}) => {
+    fakeClaude: (scenario: ClaudeScenario = {}) => {
       const fake = installFakeClaude(join(root, 'fakes'), scenario)
       return {
         ...fake,
         cli: { command: fake.command, configDir: null },
         argv: () => fake.calls().map((call) => call.argv),
-        run: async (args) => {
+        run: async (args: readonly string[]) => {
           await execFileAsync(fake.command, [...fake.args, ...args])
         },
       }
     },
   }
+  return { ...home, codex: await fakeAppServer(home) }
 }

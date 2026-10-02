@@ -22,6 +22,7 @@ const testFilesOnDisk = globSync(
 
 export default defineConfig({
   test: {
+    ...(process.platform === 'win32' ? { fileParallelism: false, maxConcurrency: 1 } : {}),
     projects,
     tags: [{ name: 'benchmark', description: 'strict local benchmarks, excluded from the default run' }],
     passWithNoTests: testFilesOnDisk.length === 0,

@@ -83,7 +83,7 @@ const neutralizedStaleFile: HooksDocument = {
 const aangGroup = (command: string): Group => ({ hooks: [{ type: 'command', command, timeout: 2 }] })
 
 const install = (home: InstallHome, hookBinarySource = binaries.plain) =>
-  installCodexHooks({ aangHome: home.aangHome, hookBinarySource, codexHome: home.codexHome })
+  installCodexHooks({ aangHome: home.aangHome, hookBinarySource, codexHome: home.codexHome, codex: home.codex })
 
 const uninstall = (home: InstallHome) => uninstallCodexHooks({ codexHome: home.codexHome })
 
@@ -384,7 +384,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     await writeFile(hooksFile, JSON.stringify(original))
 
     const installations = await Promise.all(
-      homes.map((home) => installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome })),
+      homes.map((home) => installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome, codex: home.codex })),
     )
 
     const neutralized = Array.from({ length: concurrentInstalls - 1 }, () => 'true')

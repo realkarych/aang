@@ -68,7 +68,7 @@ describe.concurrent('UI access needs the token; aang open hands it out through a
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    await sandbox.aang('start')
+    startedPid(await sandbox.aang('start'))
     const first = await openLink(sandbox)
     const cookie = sessionCookie(await fetch(first.link, { redirect: 'manual' }))
     const pending = await openLink(sandbox)
