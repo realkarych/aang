@@ -38,7 +38,7 @@ export const createHome = async (
   const paths = aangHomePaths(join(root, '.aang'))
   const token = randomBytes(32).toString('base64url')
   await mkdir(paths.home, { recursive: true })
-  await writeFile(join(paths.home, 'config.json'), JSON.stringify({ ...config, api: { port: 0 } }))
+  await writeFile(join(paths.home, 'config.json'), JSON.stringify({ otel: { port: 0 }, ...config, api: { port: 0 } }))
   await writeFile(paths.uiToken, `${token}\n`)
   return { root, paths, token }
 }
@@ -78,16 +78,23 @@ export const startDaemon = async (
 export const bearer = (token: string): Record<string, string> => ({ authorization: `Bearer ${token}` })
 
 export interface DaemonProcess {
+  readonly ready: DaemonReady
   readonly base: string
   readonly kill: () => Promise<void>
   readonly shutdown: () => Promise<number | null>
+  readonly exited: () => Promise<number | null>
+  readonly errors: () => string
 }
 
 const host = fileURLToPath(new URL('host.ts', import.meta.url))
 
 export const spawnDaemon = async (home: Home, onTestFinished: TestContext['onTestFinished']): Promise<DaemonProcess> => {
-  const child = spawn(process.execPath, [host, home.paths.home, home.root], { stdio: ['ignore', 'pipe', 'inherit'] })
-  const exited = once(child, 'exit') as Promise<[number | null, NodeJS.Signals | null]>
+  const child = spawn(process.execPath, [host, home.paths.home, home.root], { stdio: ['ignore', 'pipe', 'pipe'] })
+  let errors = ''
+  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+    errors += chunk
+  })
+  const exited = once(child, 'close') as Promise<[number | null, NodeJS.Signals | null]>
   onTestFinished(async () => {
     if (child.exitCode === null && child.signalCode === null) {
       child.kill('SIGKILL')
@@ -97,11 +104,12 @@ export const spawnDaemon = async (home: Home, onTestFinished: TestContext['onTes
   const firstLine = once(createInterface({ input: child.stdout }), 'line') as Promise<[string]>
   const started = await Promise.race([firstLine, exited.then(() => undefined)])
   if (started === undefined) {
-    throw new Error('the daemon process exited before it was ready')
+    throw new Error(`the daemon process exited before it was ready\n${errors}`)
   }
   const ready = JSON.parse(started[0]) as DaemonReady
   const base = `http://127.0.0.1:${String(ready.api.port)}`
   return {
+    ready,
     base,
     kill: async () => {
       child.kill('SIGKILL')
@@ -119,5 +127,10 @@ export const spawnDaemon = async (home: Home, onTestFinished: TestContext['onTes
       const [code] = await exited
       return code
     },
+    exited: async () => {
+      const [code] = await exited
+      return code
+    },
+    errors: () => errors,
   }
 }

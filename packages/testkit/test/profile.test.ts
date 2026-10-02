@@ -82,17 +82,21 @@ test('daemons started from parallel profiles keep their tokens, ports, spools an
       daemons.map((_, other) => (other === index ? 404 : 401)),
     )
   }
-  await Promise.all(profiles.map((profile, index) => hookInto(profile, `{"before":${String(index)}}`)))
-  expect(await Promise.all(profiles.map(payloadsIn))).toEqual([['{"before":0}'], ['{"before":1}'], ['{"before":2}']])
+  await Promise.all(profiles.map((profile, index) => hookInto(profile, `{"session_id":"before-${String(index)}"}`)))
+  expect(await Promise.all(profiles.map(payloadsIn))).toEqual([
+    ['{"session_id":"before-0"}'],
+    ['{"session_id":"before-1"}'],
+    ['{"session_id":"before-2"}'],
+  ])
 
   const [first, ...others] = daemons
   expect(await first?.stop()).toEqual({ code: 0, signal: null })
 
-  await Promise.all(profiles.map((profile, index) => hookInto(profile, `{"after":${String(index)}}`)))
+  await Promise.all(profiles.map((profile, index) => hookInto(profile, `{"session_id":"after-${String(index)}"}`)))
   expect(await Promise.all(profiles.map(payloadsIn))).toEqual([
-    ['{"before":0}'],
-    ['{"before":1}', '{"after":1}'],
-    ['{"before":2}', '{"after":2}'],
+    ['{"session_id":"before-0"}'],
+    ['{"session_id":"before-1"}', '{"session_id":"after-1"}'],
+    ['{"session_id":"before-2"}', '{"session_id":"after-2"}'],
   ])
   for (const daemon of others) {
     expect(daemon.running()).toBe(true)
@@ -195,8 +199,8 @@ test('a second daemon of one profile is refused, a killed daemon keeps its lease
   await first.kill()
 
   expect(first.running()).toBe(false)
-  await hookInto(profile, '{"while":"killed"}')
-  expect(await payloadsIn(profile)).toEqual(['{"while":"killed"}'])
+  await hookInto(profile, '{"session_id":"while-killed"}')
+  expect(await payloadsIn(profile)).toEqual(['{"session_id":"while-killed"}'])
 
   const second = await profile.startDaemon({ entry: daemonEntry })
 
@@ -205,7 +209,7 @@ test('a second daemon of one profile is refused, a killed daemon keeps its lease
   expect(second.token).toBe(first.token)
   expect(await second.stop()).toEqual({ code: 0, signal: null })
   expect(await leaseExpiries(profile)).toEqual([])
-  await hookInto(profile, '{"after":"shutdown"}')
-  expect(await payloadsIn(profile)).toEqual(['{"while":"killed"}'])
+  await hookInto(profile, '{"session_id":"after-shutdown"}')
+  expect(await payloadsIn(profile)).toEqual(['{"session_id":"while-killed"}'])
   expect(second.output()).toContain('aang stopped: shutdown')
 })

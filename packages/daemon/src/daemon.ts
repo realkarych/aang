@@ -1,16 +1,19 @@
 import { rm } from 'node:fs/promises'
-import type { Config, Listener } from '@aang/contract'
+import type { Config, Listener, Runtime } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
+import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
+import { otelToken } from './otel-token.js'
 import { type RunningServer, startServer } from './server.js'
-import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool } from './spool.js'
+import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
 
 export interface DaemonReady {
   readonly pid: number
   readonly api: Listener
+  readonly otel: Listener
 }
 
 export type DaemonStopReason = 'shutdown' | 'stop_marker' | 'signal'
@@ -82,50 +85,71 @@ const createWorker = (): Worker => {
   }
 }
 
+type StopCause = { readonly reason: DaemonStopReason } | { readonly error: unknown }
+
 interface Session {
   readonly options: DaemonOptions
   readonly config: Config
+  readonly runtimeRoots: Readonly<Record<Runtime, string>>
   readonly paths: AangHomePaths
   readonly listener: Listener
   readonly store: Store
 }
 
-const serve = async ({ options, config, paths, listener, store }: Session): Promise<DaemonStopReason> => {
+const serve = async ({ options, config, runtimeRoots, paths, listener, store }: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
-  const stop = Promise.withResolvers<DaemonStopReason>()
+  const stop = Promise.withResolvers<StopCause>()
   const stopRequest = { made: false }
-  const requestStop = (reason: DaemonStopReason): void => {
+  const settle = (cause: StopCause): void => {
     if (!stopRequest.made) {
       stopRequest.made = true
-      stop.resolve(reason)
+      stop.resolve(cause)
+    } else if ('error' in cause) {
+      report(cause.error)
     }
+  }
+  const requestStop = (reason: DaemonStopReason): void => {
+    settle({ reason })
   }
   const auth = createAuthenticator(paths)
-  const server: RunningServer = await startServer({
-    listener,
-    auth,
-    staticRoot: options.staticRoot,
-    onShutdown: () => {
-      requestStop('shutdown')
-    },
+  const ingestion = await startIngestion({
+    store,
+    config,
+    spool: paths.spool,
+    runtimeRoots,
+    otelToken: otelToken(store),
   })
-  const startedAt = epochNow()
-  const publishState = (over: OverThreshold | null): Promise<void> =>
-    writeDaemonState(paths.daemonState, {
-      pid: process.pid,
-      started_at: startedAt,
-      api: server.address,
-      spool_over_threshold: over,
-    })
-  const spool = createSpoolSupervisor({ paths, settings: config.spool, store, onThresholdChange: publishState })
-  const tick = async (renew: boolean): Promise<void> => {
-    if (!(await spool.reconcile(renew))) {
-      requestStop('stop_marker')
-    }
-  }
+  void ingestion.failure.then((error) => {
+    settle({ error })
+  })
   const worker = createWorker()
   const timers: NodeJS.Timeout[] = []
+  const running: { server: RunningServer | null; spool: SpoolSupervisor | null } = { server: null, spool: null }
   try {
+    const server = await startServer({
+      listener,
+      auth,
+      staticRoot: options.staticRoot,
+      onShutdown: () => {
+        requestStop('shutdown')
+      },
+    })
+    running.server = server
+    const startedAt = epochNow()
+    const publishState = (over: OverThreshold | null): Promise<void> =>
+      writeDaemonState(paths.daemonState, {
+        pid: process.pid,
+        started_at: startedAt,
+        api: server.address,
+        spool_over_threshold: over,
+      })
+    const spool = createSpoolSupervisor({ paths, settings: config.spool, store, onThresholdChange: publishState })
+    running.spool = spool
+    const tick = async (renew: boolean): Promise<void> => {
+      if (!(await spool.reconcile(renew))) {
+        requestStop('stop_marker')
+      }
+    }
     await auth.pruneExpiredCodes()
     await tick(true)
     await publishState(spool.overThreshold())
@@ -148,31 +172,38 @@ const serve = async ({ options, config, paths, listener, store }: Session): Prom
       requestStop('signal')
     }
     if (!stopRequest.made) {
-      options.onReady({ pid: process.pid, api: server.address })
+      options.onReady({ pid: process.pid, api: server.address, otel: ingestion.otel })
     }
-    return await stop.promise
+    const cause = await stop.promise
+    if ('error' in cause) {
+      throw cause.error
+    }
+    return cause.reason
   } finally {
     for (const timer of timers) {
       clearInterval(timer)
     }
     await runAll([
+      ingestion.stop,
       async () => {
         await worker.drained()
-        await spool.release()
+        await running.spool?.release()
       },
-      server.close,
+      async () => {
+        await running.server?.close()
+      },
       () => rm(paths.daemonState, { force: true }),
     ])
   }
 }
 
 export const runDaemon = async (options: DaemonOptions): Promise<DaemonStopReason> => {
-  const { aangHome, config } = await loadConfig(options.environment)
+  const { aangHome, config, runtimeRoots } = await loadConfig(options.environment)
   const paths = aangHomePaths(aangHome)
   const listener = resolveListener(config.api, options.bind)
   const store = openExclusive(aangHome)
   try {
-    return await serve({ options, config, paths, listener, store })
+    return await serve({ options, config, runtimeRoots, paths, listener, store })
   } finally {
     store.close()
   }
