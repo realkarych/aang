@@ -1,0 +1,53 @@
+name: D1 benchmark
+
+on:
+  push:
+    branches:
+      - tmp/d1-benchmark
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-CimInstance Win32_OperatingSystem | Format-List Caption,Version,BuildNumber
+          Get-CimInstance Win32_Processor | Format-List Name,NumberOfCores,NumberOfLogicalProcessors
+          Get-MpComputerStatus | Format-List AMRunningMode,AntivirusEnabled,RealTimeProtectionEnabled,OnAccessProtectionEnabled
+      - if: runner.os == 'Linux'
+        run: |
+          cat /etc/os-release | head -3
+          uname -a
+          nproc
+          lscpu | grep -E 'Model name|^CPU\(s\)'
+      - run: go version
+      - id: first
+        continue-on-error: true
+        run: pnpm benchmark --reporter=verbose
+      - id: second
+        continue-on-error: true
+        run: pnpm benchmark --reporter=verbose
+      - id: third
+        continue-on-error: true
+        run: pnpm benchmark --reporter=verbose
