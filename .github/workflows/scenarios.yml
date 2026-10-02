@@ -54,7 +54,7 @@ jobs:
           "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}"
         shell: bash
       - run: >-
-          npm install --prefix "$RUNNER_TEMP/sdk" --allow-scripts=@anthropic-ai/claude-agent-sdk
+          npm install --prefix "$RUNNER_TEMP/sdk"
           "@anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${CODEX_SDK_VERSION}"
         shell: bash
       - run: pnpm scenarios
