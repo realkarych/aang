@@ -431,7 +431,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
   }) => {
     const home = await createInstallHome(onTestFinished)
     await writeFile(home.hooksFile, loggerConfig)
-    await writeFile(`${home.hooksFile}.aang-lock`, String(await finishedProcessId()))
+    await writeFile(`${home.hooksFile}.aang-lock`, String(await finishedProcessId(onTestFinished)))
 
     const installation = await install(home)
 

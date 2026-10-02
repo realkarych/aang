@@ -146,7 +146,7 @@ test('the next deploy removes copies and the lock left by an interrupted update'
   for (const name of leftovers) {
     await writeFile(join(directory, name), 'partial')
   }
-  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId()))
+  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId(onTestFinished)))
   await writeFile(join(directory, 'notes.txt'), 'kept')
 
   await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
@@ -162,7 +162,7 @@ test('concurrent deploys from several processes after an interrupted update take
   const home = await createInstallHome(onTestFinished)
   const directory = dirname(home.paths.binary)
   await mkdir(directory, { recursive: true })
-  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId()))
+  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId(onTestFinished)))
   const sources = [binaries.plain, binaries.stripped]
 
   await Promise.all(
@@ -182,7 +182,7 @@ test('a lock takeover interrupted by a crash stops the next deploy and leaves bo
   const directory = dirname(home.paths.binary)
   await mkdir(directory, { recursive: true })
   const lock = join(directory, `.${hookBinaryName}.lock`)
-  const crashed = String(await finishedProcessId())
+  const crashed = String(await finishedProcessId(onTestFinished))
   await writeFile(lock, crashed)
   await writeFile(`${lock}.recovery`, crashed)
 
