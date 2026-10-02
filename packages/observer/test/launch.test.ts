@@ -54,6 +54,22 @@ test('Claude rejects leaked tools and blocks further calls until a new backend i
   expect(cli.calls()).toHaveLength(count)
 })
 
+for (const exitCode of [0, 1]) {
+  test.for(['after-init', 'before-init', 'after-result'] as const)(`Claude checks isolation before rejecting malformed JSON on exit ${String(exitCode)}: %s`, async (stage, context) => {
+    const { root, options } = await sandbox(context)
+    const leaking = stage !== 'after-result'
+    const fake = installFakeClaude(root, { leakedTools: leaking ? ['Bash'] : [], replies: [{ kind: 'answer', output }, { kind: 'answer', output }] })
+    const cli = { command: process.execPath, args: [fileURLToPath(new URL('malformed-stream.ts', import.meta.url)), String(exitCode), stage, fake.command, ...fake.args] }
+    const backend = observer.createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins })
+    const error = leaking ? 'isolation' : 'invalid_output'
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: error } })
+    expect(backend.status()).toEqual({ activeCalls: 0, state: leaking ? { state: 'disabled', reason: 'isolation' } : { state: 'ok' } })
+    expect(fake.calls().filter((call) => call.command === 'print')).toHaveLength(1)
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: error } })
+    expect(fake.calls().filter((call) => call.command === 'print')).toHaveLength(leaking ? 1 : 2)
+  })
+}
+
 for (const ending of ['timeout', 'cancelled'] as const) {
   test.for(['before-init', 'after-init'] as const)(`Claude ${ending} checks complete init events without rejecting an incomplete init: %s`, async (stage, context) => {
     const { root, options } = await sandbox(context)
