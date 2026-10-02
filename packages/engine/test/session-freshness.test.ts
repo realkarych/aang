@@ -50,6 +50,21 @@ test('quiet changes only freshness at the threshold and survives restart without
   expect(store.observations.getSession(sessionId())?.freshness).toBe('ok')
 })
 
+test('a running session turns quiet on a later empty batch after a restart', async () => {
+  const home = await createHome(onTestFinished)
+  let store = home.open()
+  await clockedEngine(store).engine.ingest(joinBatches(hook('SessionStart', 0), hook('UserPromptSubmit', 1)))
+  store.close()
+  store = home.open()
+  const { engine, advance } = clockedEngine(store)
+  advance(300_000)
+  await engine.ingest(batchOf({}))
+  expect(store.observations.getSession(sessionId())?.freshness).toBe('ok')
+  advance(300_001)
+  await engine.ingest(batchOf({}))
+  expect(store.observations.getSession(sessionId())).toMatchObject({ freshness: 'quiet', execution: { state: 'running' } })
+})
+
 test('a custom quiet interval does not change a known human wait', async () => {
   const store = (await createHome(onTestFinished)).open()
   const { engine, advance } = clockedEngine(store, 1000)
@@ -118,4 +133,48 @@ test('unrecognised records count once, including records without facts, and surv
   expect(store.changes.head()).toBe(head)
   await engine.ingest(hook('FutureHook', 10))
   expect(store.observations.getSession(sessionId())).toMatchObject({ unknown_records: 4, support_mode: 'full', freshness: 'ok' })
+})
+
+const percentile95 = (samples: readonly number[]): number =>
+  samples.toSorted((left, right) => left - right)[Math.ceil(samples.length * 0.95) - 1] ?? Infinity
+
+test('freshness work does not grow with finished sessions and their gaps', { tags: ['benchmark'], timeout: 600_000 }, async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const history = 5000
+  store.transaction((transaction) => {
+    for (let index = 0; index < history; index += 1) {
+      const key = { kind: 'session', runtime: 'claude', session: `history-${String(index)}` } as const
+      const id = objectId(key)
+      transaction.observations.save({
+        id, key, run: null, surface: null, version: null, cwd: source.cwd, git_branch: null, git_common_dir: null,
+        launches: [], state: 'ended', execution: { state: 'done' }, freshness: 'ok', support_mode: 'full',
+        double_registration: false, unknown_records: 0, cost_state: null, started_at: at(0), last_event_at: at(1),
+      })
+      transaction.gaps.save({
+        key: { kind: 'gap', gap: 'hooks_inactive', subject: id }, session: id, run: null, stream: null,
+        details: 'Session files are available without hook events', detected_at: at(0), closed_at: at(1),
+      })
+    }
+  })
+  const { engine } = clockedEngine(store)
+  await engine.ingest(joinBatches(hook('SessionStart', 0), hook('UserPromptSubmit', 1)))
+  const elapsed = async (work: () => Promise<unknown>): Promise<number> => {
+    const started = performance.now()
+    await work()
+    return performance.now() - started
+  }
+  const empty: number[] = []
+  const refresh: number[] = []
+  const live: number[] = []
+  for (let index = 0; index < 50; index += 1) {
+    empty.push(await elapsed(() => engine.ingest(batchOf({}))))
+    refresh.push(await elapsed(() => engine.refreshFreshness()))
+    live.push(await elapsed(() => engine.ingest(hook('PreToolUse', 10 + index, {
+      tool_use_id: `call-${String(index)}`, tool_name: 'Bash', tool_input: { command: 'pwd' },
+    }))))
+  }
+  expect(store.observations.sessions()).toHaveLength(history + 1)
+  expect(percentile95(empty)).toBeLessThanOrEqual(2)
+  expect(percentile95(refresh)).toBeLessThanOrEqual(2)
+  expect(percentile95(live)).toBeLessThanOrEqual(20)
 })

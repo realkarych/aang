@@ -298,6 +298,14 @@ const expectations: Readonly<Record<string, readonly Record<string, unknown>[]>>
   ],
   'UserPromptSubmit.json': [
     {
+      kind: 'turn_start',
+      entity_key: session(askSession),
+      speaker: 'runtime',
+      urgent: false,
+      runtime_ids: { turn_id: askTurn },
+      payload: {},
+    },
+    {
       kind: 'prompt',
       entity_key: {
         kind: 'message',
@@ -396,12 +404,12 @@ test('the Codex Desktop app-server hook log yields three sessions with the origi
       ...(typeof originator === 'string' ? { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: originator } : {}),
     })
   })
-  const runOf = ['session_start', 'prompt', 'action_start', 'action_end', 'turn_end', 'session_end']
+  const runOf = ['session_start', 'turn_start', 'prompt', 'action_start', 'action_end', 'turn_end', 'session_end']
 
   expect(facts.map((list) => list.map((fact) => fact.kind)).flat()).toEqual([...runOf, ...runOf, ...runOf])
   expect(facts.flat().map((fact) => fact.runtime_env.originator)).toEqual([
-    ...Array<string>(12).fill('Codex'),
-    ...Array<null>(6).fill(null),
+    ...Array<string>(14).fill('Codex'),
+    ...Array<null>(7).fill(null),
   ])
   expect(new Set(facts.flat().map((fact) => fact.entity_key.session))).toEqual(
     new Set([
@@ -551,6 +559,7 @@ test('events inside a sub-agent belong to its thread and its prompts do not spea
   const inChild = { agent_id: spawnChild, session_id: spawnRoot }
 
   expect(hookFacts(withSample('UserPromptSubmit.json', inChild), 'child-prompt.spool')).toMatchObject([
+    { kind: 'turn_start', entity_key: childAgent, speaker: 'runtime', runtime_ids: childIds },
     {
       kind: 'prompt',
       entity_key: { kind: 'message', session: spawnRoot, message: 'child-prompt.spool' },

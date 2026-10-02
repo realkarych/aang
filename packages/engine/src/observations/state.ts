@@ -47,6 +47,7 @@ export const turnState = (items: readonly Evidence[], all: readonly Evidence[] =
   let status: TurnState = { state: 'unknown', execution: { state: 'unknown' } }
   const waits = new Map<string, Set<string> | null>()
   const calls = new Map<string, ActionStartPayload>()
+  const answers = new Map<string, string>()
   const background = new Set<string>()
   const nonblocking = new Set(items.filter(({ fact }) => fact.kind === 'question_asked' && !fact.payload.blocking).map(({ fact }) => fact.seq))
   const running = (): TurnState => {
@@ -110,6 +111,7 @@ export const turnState = (items: readonly Evidence[], all: readonly Evidence[] =
           status = running()
           const question = fact.entity_key.kind === 'question' ? fact.entity_key.question : canonicalJson(fact.entity_key)
           waits.set(question, new Set([question]))
+          if (fact.runtime_ids.call_id !== null) { answers.set(fact.runtime_ids.call_id, question) }
         }
         break
       case 'permission_denied':
@@ -119,9 +121,12 @@ export const turnState = (items: readonly Evidence[], all: readonly Evidence[] =
       case 'tool_batch_end':
         for (const { call_id: call } of fact.payload.calls) { finishCall(call) }
         break
-      case 'question_answered':
-        if (fact.entity_key.kind === 'question') { waits.delete(fact.entity_key.question) }
+      case 'question_answered': {
+        const call = fact.runtime_ids.call_id
+        const question = fact.entity_key.kind === 'question' ? fact.entity_key.question : call === null ? undefined : answers.get(call)
+        if (question !== undefined) { waits.delete(question) }
         break
+      }
       case 'notification':
         if (fact.payload.notification_type === 'idle_prompt' && status.state !== 'ended') { status = idle() }
         break
