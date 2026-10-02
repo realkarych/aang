@@ -1,48 +1,15 @@
-import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { readFile, rm, writeFile } from 'node:fs/promises'
+import { basename, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { z } from 'zod'
 import { claudeInvocation, readSteps } from './claude.js'
 import { codexInvocation, type CommandForm, newPatch, writeCodexHome } from './codex.js'
 import type { CheckContext, Invocation } from './context.js'
+import { collectProcessTrace, type HarnessResult, traceEvidence } from './job-trace.js'
 import { allEventHooks } from './latency.js'
 import { prepareClaudeObserver, prepareCodexObserver } from './observer.js'
+import { describeProcessTrace, nameCounts } from './process-trace.js'
 import { writeJson } from './profile.js'
 import { errorCode, excerpt, isWindows, outcome, quoteWindowsArgument, run } from './process.js'
-
-const JobProcess = z.object({ Pid: z.number(), Name: z.string().nullable() })
-
-const StartedProcess = z.object({
-  pid: z.number(),
-  ppid: z.number(),
-  name: z.string(),
-  parentName: z.string().nullable(),
-  createdAt: z.string(),
-  receivedAt: z.string(),
-})
-type StartedProcess = z.infer<typeof StartedProcess>
-
-const HarnessResult = z.object({
-  harnessPid: z.number(),
-  job: z.object({
-    Error: z.string().nullable(),
-    RootPid: z.number(),
-    RootExitCode: z.number(),
-    RootTimedOut: z.boolean(),
-    TotalProcesses: z.number(),
-    Seen: z.array(JobProcess),
-    RemainingAfterRootExit: z.array(JobProcess),
-    ActiveAfterTerminate: z.number(),
-    StopConfirmedMs: z.number(),
-    DurationMs: z.number(),
-  }),
-  started: z
-    .union([z.array(StartedProcess), StartedProcess, z.null()])
-    .transform((value) => (value === null ? [] : 'pid' in value ? [value] : value)),
-  traceError: z.string().nullable(),
-  traceSnapshots: z.array(z.object({ afterRunMs: z.number(), started: z.array(StartedProcess) })),
-})
-type HarnessResult = z.infer<typeof HarnessResult>
 
 const harness = fileURLToPath(new URL('../assets/job-run.ps1', import.meta.url))
 
@@ -54,32 +21,6 @@ const environmentBlock = (env: NodeJS.ProcessEnv): string[] =>
 
 const windowsCommandLine = (argv: readonly string[]): string => argv.map(quoteWindowsArgument).join(' ')
 
-const descendants = (root: number, started: readonly StartedProcess[]): StartedProcess[] => {
-  const tree = new Set([root])
-  const found: StartedProcess[] = []
-  let grew = true
-  while (grew) {
-    grew = false
-    for (const candidate of started) {
-      if (!tree.has(candidate.pid) && tree.has(candidate.ppid)) {
-        tree.add(candidate.pid)
-        found.push(candidate)
-        grew = true
-      }
-    }
-  }
-  return found
-}
-
-const nameCounts = (processes: readonly { readonly name: string | null }[]): Record<string, number> => {
-  const counts: Record<string, number> = {}
-  for (const { name } of processes) {
-    const key = name ?? '?'
-    counts[key] = (counts[key] ?? 0) + 1
-  }
-  return counts
-}
-
 const runInJob = async (
   context: CheckContext,
   id: string,
@@ -89,10 +30,12 @@ const runInJob = async (
   const files = {
     spec: `${prefix}-spec.json`,
     result: `${prefix}-result.json`,
+    control: `${prefix}-trace-control.json`,
     stdin: `${prefix}-stdin.txt`,
     stdout: `${prefix}-stdout.txt`,
     stderr: `${prefix}-stderr.txt`,
   }
+  await Promise.all([files.result, files.control].map((path) => rm(path, { force: true })))
   await writeFile(files.stdin, invocation.stdin)
   await writeJson(files.spec, {
     commandLine: windowsCommandLine([invocation.command, ...invocation.args]),
@@ -102,24 +45,27 @@ const runInJob = async (
     stdout: files.stdout,
     stderr: files.stderr,
     timeoutMs: 150_000,
+    traceControl: files.control,
   })
   invocation.arm()
-  const launched = await run(
+  const running = run(
     'powershell.exe',
     ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', harness, files.spec, files.result],
     { env: process.env, cwd: invocation.cwd, timeoutMs: 240_000 },
   )
   let parsed: HarnessResult
   try {
-    parsed = HarnessResult.parse(JSON.parse((await readFile(files.result, 'utf8')).replace(/^\uFEFF/, '')))
+    parsed = await collectProcessTrace({ resultPath: files.result, controlPath: files.control,
+      rootName: basename(invocation.command), observerPid: process.pid, completed: running })
   } catch (error) {
-    return { harness: outcome(launched), unreadableResult: errorCode(error) }
+    return { harness: outcome(await running), unreadableResult: errorCode(error) }
   }
-  const { job, traceError, started, harnessPid } = parsed
-  const tree = descendants(job.RootPid, started)
-  const ownPids = new Set([process.pid, harnessPid, ...descendants(process.pid, started).map(({ pid }) => pid)])
-  const treePids = new Set([job.RootPid, ...tree.map(({ pid }) => pid)])
-  const names = new Map(started.map(({ pid, name }) => [pid, name]))
+  const launched = await running
+  const { job } = parsed
+  const evidence = traceEvidence(parsed, basename(invocation.command), process.pid)
+  let trace: ReturnType<typeof describeProcessTrace> | undefined
+  let traceError = parsed.traceError ?? (parsed.traceState === 'complete' ? null : 'Process trace collection did not complete')
+  try { trace = describeProcessTrace(evidence) } catch (error) { traceError ??= errorCode(error) }
   const stdout = await readFile(files.stdout, 'utf8').catch(() => '')
   return {
     harness: outcome(launched),
@@ -133,12 +79,10 @@ const runInJob = async (
     activeAfterTerminate: job.ActiveAfterTerminate,
     stopConfirmedMs: job.StopConfirmedMs,
     traceError,
-    treeFromTrace: { processes: tree.length + 1, names: nameCounts(tree) },
-    startedOutsideTree: started
-      .filter(({ pid }) => !treePids.has(pid) && !ownPids.has(pid))
-      .map(({ pid, ppid, name, parentName }) => ({ pid, name, ppid, parent: names.get(ppid) ?? parentName })),
+    ...trace,
     stdoutTail: excerpt(stdout.trim().split(/\r?\n/).at(-1) ?? '', 400),
-    processEvidence: { rootPid: job.RootPid, harnessPid, started, seenInJob: job.Seen, traceSnapshots: parsed.traceSnapshots },
+    processEvidence: { ...evidence, seenInJob: job.Seen, traceSnapshots: parsed.traceSnapshots,
+      traceVersion: parsed.traceVersion, traceState: parsed.traceState, traceElapsedMs: parsed.traceElapsedMs },
   }
 }
 

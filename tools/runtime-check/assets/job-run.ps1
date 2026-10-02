@@ -364,30 +364,51 @@ function Describe-TraceEvents($events, $alive) {
     })
 }
 
+function Publish-TraceResult {
+    $result = [pscustomobject]@{ harnessPid = $PID; job = $job; started = $started; traceError = $traceError; traceVersion = $traceVersion; traceState = $traceState; traceElapsedMs = $traceClock.ElapsedMilliseconds; traceSnapshots = $traceSnapshots }
+    $json = ConvertTo-Json -InputObject $result -Depth 6
+    $nextPath = $ResultPath + '.next'
+    [System.IO.File]::WriteAllText($nextPath, $json, (New-Object System.Text.UTF8Encoding $false))
+    if ([System.IO.File]::Exists($ResultPath)) {
+        [System.IO.File]::Replace($nextPath, $ResultPath, $null)
+    } else {
+        [System.IO.File]::Move($nextPath, $ResultPath)
+    }
+}
+
 $started = @()
 $traceSnapshots = @()
-if ($null -eq $traceError) {
-    $traceClock = [System.Diagnostics.Stopwatch]::StartNew()
-    $earlyEvents = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
-    $earlyAfterRunMs = $traceClock.ElapsedMilliseconds
+$traceVersion = 0
+$traceState = 'collecting'
+$traceClock = [System.Diagnostics.Stopwatch]::StartNew()
+try {
+    if ($null -ne $traceError) { throw $traceError }
     Start-Sleep -Milliseconds 1500
     $alive = @{}
     Get-CimInstance Win32_Process | ForEach-Object { $alive[[int]$_.ProcessId] = [string]$_.Name }
-    $standardEvents = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
-    $standardAfterRunMs = $traceClock.ElapsedMilliseconds
-    $started = @(Describe-TraceEvents $standardEvents $alive)
-    $remainingDelay = [Math]::Max(0, 10000 - $traceClock.ElapsedMilliseconds)
-    if ($remainingDelay -gt 0) { Start-Sleep -Milliseconds $remainingDelay }
-    $lateEvents = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
-    $lateAfterRunMs = $traceClock.ElapsedMilliseconds
-    $traceSnapshots = @(
-        [pscustomobject]@{ afterRunMs = $earlyAfterRunMs; started = @(Describe-TraceEvents $earlyEvents $alive) }
-        [pscustomobject]@{ afterRunMs = $standardAfterRunMs; started = $started }
-        [pscustomobject]@{ afterRunMs = $lateAfterRunMs; started = @(Describe-TraceEvents $lateEvents $alive) }
-    )
+    do {
+        if ([System.IO.File]::Exists($spec.traceControl)) {
+            $ack = [System.IO.File]::ReadAllText($spec.traceControl) | ConvertFrom-Json
+            if ($ack.traceVersion -gt 0 -and $ack.traceVersion -le $traceVersion) { $traceState = 'complete' }
+        }
+        if ($traceState -eq 'collecting' -and $traceClock.ElapsedMilliseconds -ge 10000) {
+            $traceState = 'timedOut'
+            $traceError = 'Process trace did not match Job accounting within 10000 ms'
+        }
+        $events = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue)
+        $started = @(Describe-TraceEvents $events $alive)
+        $traceVersion += 1
+        if ($traceVersion -eq 1 -or $traceState -ne 'collecting') {
+            $traceSnapshots += [pscustomobject]@{ afterRunMs = $traceClock.ElapsedMilliseconds; started = $started }
+        }
+        Publish-TraceResult
+        if ($traceState -eq 'collecting') { Start-Sleep -Milliseconds 50 }
+    } while ($traceState -eq 'collecting')
+} catch {
+    $traceError = $_.Exception.Message
+    $traceState = 'failed'
+    $traceVersion += 1
+    Publish-TraceResult
+} finally {
     Unregister-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue
 }
-
-$result = [pscustomobject]@{ harnessPid = $PID; job = $job; started = $started; traceError = $traceError; traceSnapshots = $traceSnapshots }
-$json = ConvertTo-Json -InputObject $result -Depth 6
-[System.IO.File]::WriteAllText($ResultPath, $json, (New-Object System.Text.UTF8Encoding $false))
