@@ -1,6 +1,7 @@
-import type { CollectedRecord, JsonValue, RecordOwner } from '@aang/contract'
+import type { CollectedRecord, JsonValue, RecordOwner, RecordThread } from '@aang/contract'
 import { parseJson, stringField } from './json.js'
 import { sessionKey } from './keys.js'
+import { snapshotFile, workflowJournal } from './paths.js'
 
 const observerEntrypoint = 'aang-observer'
 const sessionStartEvent = 'SessionStart'
@@ -41,9 +42,47 @@ const lineOwner = (record: CollectedRecord): RecordOwner | null => {
   }
 }
 
+const fileOwner = (session: string, thread: RecordThread): RecordOwner => ({
+  session: sessionKey(session),
+  thread,
+  cwd: null,
+  start: false,
+  observer: false,
+})
+
+const snapshotOwner = (record: CollectedRecord, path: string): RecordOwner | null => {
+  const file = snapshotFile(path)
+  switch (file?.kind) {
+    case 'agent_meta':
+      return fileOwner(file.session, 'agent')
+    case 'workflow':
+      return fileOwner(file.session, 'root')
+    case 'team': {
+      const lead = stringField(parseJson(record.payload), 'leadSessionId')
+      return lead === null ? null : fileOwner(lead, 'root')
+    }
+    default:
+      return null
+  }
+}
+
 export const owner = (record: CollectedRecord): RecordOwner | null => {
   if (record.channel === 'hook') {
     return hookOwner(record)
   }
-  return record.channel === 'transcript' && record.position.kind === 'line' ? lineOwner(record) : null
+  const { position } = record
+  if (record.channel !== 'transcript') {
+    return null
+  }
+  switch (position.kind) {
+    case 'line': {
+      const journal = workflowJournal(position.path)
+      return journal === null ? lineOwner(record) : fileOwner(journal.session, 'agent')
+    }
+    case 'file':
+    case 'file_removed':
+      return snapshotOwner(record, position.path)
+    default:
+      return null
+  }
 }

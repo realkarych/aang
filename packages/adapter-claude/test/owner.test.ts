@@ -9,6 +9,7 @@ import {
   readJsonSample,
   readSample,
   sampleFiles,
+  snapshotRecord,
   spoolEnv,
   transcriptRecords,
 } from './samples.js'
@@ -141,5 +142,40 @@ describe('the owner of a transcript line', () => {
         position: { kind: 'stream_lost', path: '/p/session.jsonl' },
       }),
     ).toBeNull()
+  })
+})
+
+describe('the owner of an agent, workflow or team file', () => {
+  const projects = '/home/user/.claude/projects'
+  const fileSession = '0b5c2a51-7f4e-4d8e-9a43-2f1c8f6b9e10'
+  const ownerOfFile = (path: string, content?: string): RecordOwner | null =>
+    claudeAdapter.owner(snapshotRecord({ path, content }))
+  const owned = (thread: 'root' | 'agent') => ({
+    session: session(fileSession),
+    thread,
+    cwd: null,
+    start: false,
+    observer: false,
+  })
+
+  test('is the session named by its path, or the lead session of a team', async () => {
+    const meta = await readSample('claude-code-transcripts/subagent-agent-aad616394e806288d.meta.json')
+    const workflow = `${projects}/-work/${fileSession}/subagents/workflows/wf_1`
+
+    expect(ownerOfFile(`${projects}/-work/${fileSession}/subagents/agent-a1.meta.json`, meta)).toEqual(owned('agent'))
+    expect(ownerOfFile(`${workflow}/agent-a2.meta.json`)).toEqual(owned('agent'))
+    expect(ownerOfFile(`${projects}/-work/${fileSession}/workflows/wf_1.json`, '{}')).toEqual(owned('root'))
+    expect(
+      ownerOfFile('/home/user/.claude/teams/core/config.json', JSON.stringify({ leadSessionId: fileSession })),
+    ).toEqual(owned('root'))
+    expect(
+      claudeAdapter.owner(lineRecord({ payload: '{"type":"launched"}', line: 1, path: `${workflow}/journal.jsonl` })),
+    ).toEqual(owned('agent'))
+  })
+
+  test('is unknown for a removed team file and for files and channels the adapter does not read', () => {
+    expect(ownerOfFile('/home/user/.claude/teams/core/config.json')).toBeNull()
+    expect(ownerOfFile('/home/user/.claude/teams/core/inbox.json', '{}')).toBeNull()
+    expect(claudeAdapter.owner({ ...snapshotRecord({ path: '/p/x.json', content: '{}' }), channel: 'otel' })).toBeNull()
   })
 })
