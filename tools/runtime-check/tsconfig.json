@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist",
+    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/contract" },
+    { "path": "../../packages/collector" },
+    { "path": "../../packages/adapter-claude" },
+    { "path": "../../packages/adapter-codex" }
+  ]
+}

@@ -1,0 +1,56 @@
+name: Runtime check
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/runtime-check.yml
+      - tools/runtime-check/**
+      - packages/hook/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.286
+  CODEX_VERSION: 0.159.3
+
+jobs:
+  runtimes:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:CLAUDE_CODE_VERSION'
+      - run: >-
+          npm install --global --allow-scripts=@anthropic-ai/claude-code
+          "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}"
+        shell: bash
+      - run: node tools/runtime-check/dist/main.js --out runtime-check-report --disposable-profile
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-check-${{ runner.os }}
+          path: runtime-check-report
+          if-no-files-found: error
