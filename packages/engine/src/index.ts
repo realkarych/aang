@@ -1,3 +1,5 @@
+export { createEngine, type Engine, type EngineOptions, type IngestResult } from './ingest/engine.js'
+export type { WatchedRoots } from './ingest/scope.js'
 export {
   type AppliedChangeSet,
   applyChangeSet,

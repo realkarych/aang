@@ -5,5 +5,10 @@
     "allowImportingTsExtensions": true
   },
   "include": ["**/*.ts"],
-  "references": [{ "path": ".." }]
+  "references": [
+    { "path": ".." },
+    { "path": "../../adapter-claude" },
+    { "path": "../../adapter-codex" },
+    { "path": "../../collector" }
+  ]
 }
