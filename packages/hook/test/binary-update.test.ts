@@ -6,7 +6,7 @@ import { promisify } from 'node:util'
 import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@aang/hook'
 import { inject, test } from 'vitest'
 import { cleanExit, type HookResult, readSpoolEvents, runProcess, typicalEnv } from './hook.js'
-import { createInstallHome, finishedProcessId, readJson } from './install.js'
+import { createInstallHome, absentProcessId, readJson } from './install.js'
 
 interface Handler {
   readonly command: string
@@ -146,7 +146,7 @@ test('the next deploy removes copies and the lock left by an interrupted update'
   for (const name of leftovers) {
     await writeFile(join(directory, name), 'partial')
   }
-  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId()))
+  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(absentProcessId()))
   await writeFile(join(directory, 'notes.txt'), 'kept')
 
   await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
@@ -162,7 +162,7 @@ test('concurrent deploys from several processes after an interrupted update take
   const home = await createInstallHome(onTestFinished)
   const directory = dirname(home.paths.binary)
   await mkdir(directory, { recursive: true })
-  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId()))
+  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(absentProcessId()))
   const sources = [binaries.plain, binaries.stripped]
 
   await Promise.all(
@@ -182,7 +182,7 @@ test('a lock takeover interrupted by a crash stops the next deploy and leaves bo
   const directory = dirname(home.paths.binary)
   await mkdir(directory, { recursive: true })
   const lock = join(directory, `.${hookBinaryName}.lock`)
-  const crashed = String(await finishedProcessId())
+  const crashed = String(absentProcessId())
   await writeFile(lock, crashed)
   await writeFile(`${lock}.recovery`, crashed)
 
