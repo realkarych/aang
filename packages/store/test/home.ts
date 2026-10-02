@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { openStore, type Store } from '@aang/store'
 import { expect } from 'vitest'
 
-export type HoldMode = 'open' | 'transaction'
+export type HoldMode = 'open' | 'transaction' | 'ingest'
 
 export interface Holder {
   readonly kill: () => Promise<void>
