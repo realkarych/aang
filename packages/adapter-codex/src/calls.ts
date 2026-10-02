@@ -1,11 +1,12 @@
-import { type ActionKind, JsonValue } from '@aang/contract'
+import type { ActionKind, JsonValue } from '@aang/contract'
 import { z } from 'zod'
 import { actionEnded, actionStarted, type CallTiming, joinText, type LineContext, type LineFacts } from './facts.js'
+import { BoundedJson, readJson } from './json.js'
 
 const id = z.string().min(1)
 const defaultNamespace = 'functions'
-const mcpNamespacePrefix = 'mcp__'
-const agentNamespaces: ReadonlySet<string> = new Set(['collaboration', 'multi_agent_v1'])
+export const mcpNamespacePrefix = 'mcp__'
+export const agentNamespaces: readonly string[] = ['collaboration', 'multi_agent_v1']
 
 const toolKinds: ReadonlyMap<string, ActionKind> = new Map([
   ['exec_command', 'command'],
@@ -56,19 +57,13 @@ const actionKind = (namespace: string | null, name: string): ActionKind => {
   if (namespace?.startsWith(mcpNamespacePrefix) === true) {
     return 'mcp'
   }
-  if (namespace !== null && agentNamespaces.has(namespace)) {
+  if (namespace !== null && agentNamespaces.includes(namespace)) {
     return 'agent'
   }
   return toolKinds.get(name) ?? 'other'
 }
 
-const parsedArguments = (raw: string): JsonValue => {
-  try {
-    return JsonValue.safeParse(JSON.parse(raw)).data ?? raw
-  } catch {
-    return raw
-  }
-}
+const parsedArguments = (raw: string): JsonValue => BoundedJson.safeParse(readJson(raw)).data ?? raw
 
 export const functionCall = (context: LineContext): LineFacts => {
   const parsed = FunctionCall.safeParse(context.line.payload)

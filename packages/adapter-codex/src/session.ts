@@ -16,7 +16,7 @@ import { instantFromIso } from './line.js'
 import { isRoot, type ThreadStream } from './stream.js'
 
 const observerThreadSource = 'aang-observer'
-const observerOriginator = 'aang_observer'
+export const observerOriginator = 'aang_observer'
 const guardianThreadSource = 'guardian_review'
 const interruptedReason = 'interrupted'
 
@@ -200,5 +200,23 @@ export const turnContext = (context: LineContext): LineFacts => {
         sandbox: settings.sandbox_policy?.type ?? null,
       },
     ),
+  ]
+}
+
+const Compacted = z.looseObject({ message: z.string() })
+
+export const compacted = (context: LineContext): LineFacts => {
+  const parsed = Compacted.safeParse(context.line.payload)
+  if (!parsed.success) {
+    return null
+  }
+  const { message } = parsed.data
+  return [
+    fact('compaction', turnSpec(context, undefined, true), {
+      phase: 'boundary',
+      trigger: 'unknown',
+      summary: message === '' ? null : message,
+      tokens_before: null,
+    }),
   ]
 }

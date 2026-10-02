@@ -1,6 +1,7 @@
 import { codexAdapter } from '@aang/adapter-codex'
 import type { StreamKey } from '@aang/contract'
 import { expect, test } from 'vitest'
+import { z } from 'zod'
 import {
   factsOf,
   iso,
@@ -9,6 +10,7 @@ import {
   record,
   sampleFiles,
   sampleLine,
+  sampleObject,
   streamFrom,
   threadStream,
 } from './rollout-records.js'
@@ -24,6 +26,19 @@ const childRun = threadStream(spawnRoot, spawnChild)
 const interruptRun = threadStream('01a0f765-4429-7c23-8d10-aea36a8d601b')
 const escalationRun = threadStream('rejected-escalation-thread')
 const compactRun = threadStream('01a0f75c-caa3-7032-aff1-44dbbf58a79b')
+const spawnTurn = '01a0f75c-467d-70d2-acd5-a508348639bb'
+const childTurn = '01a0f75c-46f1-7091-8408-199407132c7c'
+const childAgent = { kind: 'agent', session: spawnRoot, agent: { kind: 'thread', thread_id: spawnChild } }
+const inlineSummary = z
+  .object({ payload: z.object({ message: z.string().startsWith('Another language model started') }) })
+  .parse(sampleObject('compacted.inline-local.mock.json')).payload.message
+const firstResponse = {
+  uncached_input_tokens: 1990,
+  cache_read_input_tokens: 12288,
+  cache_write_input_tokens: 0,
+  output_tokens: 27,
+  reasoning_output_tokens: 0,
+}
 
 const session = (stream: StreamKey) => ({ kind: 'session', runtime: 'codex', session: stream.split(':')[1] })
 const action = (stream: StreamKey, call: string) => ({
@@ -38,7 +53,7 @@ interface Expectation {
   readonly facts?: readonly Record<string, unknown>[]
 }
 
-const unknownUntilLaterItems = (stream: StreamKey): Expectation => ({ stream })
+const unrecognized = (stream: StreamKey): Expectation => ({ stream })
 
 const noFacts = (stream: StreamKey): Expectation => ({ stream, facts: [] })
 
@@ -490,20 +505,208 @@ const expectations: Readonly<Record<string, Expectation>> = {
   'response_item.message.developer.turn_aborted.mock-tui.json': noFacts(interruptRun),
   'response_item.message.user.environment_context.real.json': noFacts(real),
   'response_item.message.user.prompt.real.json': noFacts(real),
-  'event_msg.item_completed.SubAgentActivity.started.mock.json': unknownUntilLaterItems(spawnRun),
-  'event_msg.item_completed.SubAgentActivity.completed.mock.json': unknownUntilLaterItems(spawnRun),
-  'event_msg.item_completed.CollabAgentToolCall.wait.mock.json': unknownUntilLaterItems(spawnRun),
-  'response_item.agent_message.child-final-to-parent.mock.json': unknownUntilLaterItems(spawnRun),
-  'response_item.agent_message.new-task-in-child.mock.json': unknownUntilLaterItems(childRun),
-  'inter_agent_communication_metadata.mock.json': unknownUntilLaterItems(spawnRun),
-  'token_usage_record.real.json': unknownUntilLaterItems(real),
-  'token_usage_record.subagent.mock.json': unknownUntilLaterItems(childRun),
-  'event_msg.token_count.real.json': unknownUntilLaterItems(real),
-  'event_msg.token_count.after-compaction.real.json': unknownUntilLaterItems(real),
-  'compacted.remote.real.json': unknownUntilLaterItems(real),
-  'compacted.inline-local.mock.json': unknownUntilLaterItems(compactRun),
-  'event_msg.thread_settings_applied.real-resume.json': unknownUntilLaterItems(real),
-  'world_state.real.json': unknownUntilLaterItems(real),
+  'event_msg.item_completed.SubAgentActivity.started.mock.json': {
+    stream: spawnRun,
+    facts: [
+      {
+        kind: 'agent_start',
+        entity_key: childAgent,
+        speaker: 'runtime',
+        urgent: false,
+        at: millis(1790856414961),
+        runtime_ids: { session_id: spawnRoot, thread_id: spawnRoot, agent_id: spawnChild, turn_id: spawnTurn },
+        payload: {
+          role: 'subagent',
+          description: '/root/probe_child',
+          parent: { kind: 'main' },
+          spawned_by_call: 'call_mock_33',
+          depth: null,
+        },
+      },
+    ],
+  },
+  'event_msg.item_completed.SubAgentActivity.completed.mock.json': {
+    stream: spawnRun,
+    facts: [
+      {
+        kind: 'agent_end',
+        entity_key: childAgent,
+        speaker: 'runtime',
+        urgent: true,
+        at: millis(1790856415120),
+        runtime_ids: { agent_id: spawnChild, turn_id: spawnTurn },
+        payload: { outcome: 'completed', final_message: null },
+      },
+    ],
+  },
+  'event_msg.item_completed.CollabAgentToolCall.wait.mock.json': {
+    stream: spawnRun,
+    facts: [
+      {
+        kind: 'action_start',
+        entity_key: action(spawnRun, 'call_mock_35'),
+        speaker: 'solver',
+        at: millis(1790856415014),
+        runtime_ids: { call_id: 'call_mock_35', turn_id: spawnTurn },
+        payload: {
+          tool: 'CollabAgentToolCall',
+          action_kind: 'agent',
+          input: { tool: 'wait', sender_thread_id: spawnRoot, receiver_thread_ids: [], prompt: null },
+        },
+      },
+      {
+        kind: 'action_end',
+        entity_key: action(spawnRun, 'call_mock_35'),
+        urgent: false,
+        at: millis(1790856415120),
+        payload: { outcome: 'ok', output: null, duration_ms: 106, result: {} },
+      },
+    ],
+  },
+  'response_item.agent_message.child-final-to-parent.mock.json': {
+    stream: spawnRun,
+    facts: [
+      {
+        kind: 'message',
+        entity_key: { kind: 'message', session: spawnRoot, message: `${spawnRoot}:23` },
+        speaker: 'solver',
+        urgent: false,
+        at: iso('2026-10-01T12:06:55.144Z'),
+        runtime_ids: { turn_id: spawnTurn, message_id: 'amsg_01a0f75c-47a8-7e40-82f8-06a4718829a3' },
+        payload: {
+          text: 'Message Type: FINAL_ANSWER\nTask name: /root\nSender: /root/probe_child\nPayload:\nCHILD DONE',
+          final: false,
+          audience: 'agent',
+          model: null,
+        },
+      },
+    ],
+  },
+  'response_item.agent_message.new-task-in-child.mock.json': {
+    stream: childRun,
+    facts: [
+      {
+        kind: 'message',
+        entity_key: { kind: 'message', session: spawnRoot, message: `${spawnChild}:9` },
+        speaker: 'solver',
+        runtime_ids: { session_id: spawnRoot, thread_id: spawnChild, turn_id: childTurn },
+        payload: {
+          text: 'Message Type: NEW_TASK\nTask name: /root/probe_child\nSender: /root\nPayload:\n',
+          final: false,
+          audience: 'agent',
+        },
+      },
+    ],
+  },
+  'inter_agent_communication_metadata.mock.json': noFacts(spawnRun),
+  'token_usage_record.real.json': {
+    stream: real,
+    facts: [
+      {
+        kind: 'usage',
+        entity_key: {
+          kind: 'usage',
+          runtime: 'codex',
+          session: realThread,
+          usage: `${realThread}:resp_00a7ba1502c50863016abe4a6679b887d29972f57cdb348c7b`,
+        },
+        speaker: 'runtime',
+        urgent: false,
+        at: iso('2026-10-01T11:56:25.076Z'),
+        runtime_ids: {
+          turn_id: '01a0f752-4102-7740-9432-0533263c2dc1',
+          message_id: 'resp_00a7ba1502c50863016abe4a6679b887d29972f57cdb348c7b',
+          ordinal: 11,
+        },
+        payload: { model: null, tokens: firstResponse, stop_reason: null, synthetic: false },
+      },
+      {
+        kind: 'usage_total',
+        entity_key: session(real),
+        speaker: 'runtime',
+        urgent: false,
+        payload: { source: 'thread_token_usage', tokens: firstResponse },
+      },
+    ],
+  },
+  'token_usage_record.subagent.mock.json': {
+    stream: childRun,
+    facts: [
+      {
+        kind: 'usage',
+        entity_key: { kind: 'usage', session: spawnRoot, usage: `${spawnChild}:resp_mock_38` },
+        runtime_ids: { session_id: spawnRoot, thread_id: spawnChild, turn_id: childTurn },
+        payload: {
+          tokens: {
+            uncached_input_tokens: 1000,
+            cache_read_input_tokens: 0,
+            cache_write_input_tokens: 0,
+            output_tokens: 10,
+            reasoning_output_tokens: 0,
+          },
+        },
+      },
+      { kind: 'usage_total', entity_key: childAgent, payload: { source: 'thread_token_usage' } },
+    ],
+  },
+  'event_msg.token_count.real.json': {
+    stream: real,
+    facts: [
+      {
+        kind: 'usage_total',
+        entity_key: session(real),
+        at: iso('2026-10-01T11:56:25.140Z'),
+        runtime_ids: { turn_id: null, ordinal: 14 },
+        payload: { source: 'token_count', tokens: firstResponse },
+      },
+    ],
+  },
+  'event_msg.token_count.after-compaction.real.json': {
+    stream: real,
+    facts: [
+      {
+        kind: 'usage_total',
+        payload: {
+          source: 'token_count',
+          tokens: {
+            uncached_input_tokens: 2272,
+            cache_read_input_tokens: 26368,
+            cache_write_input_tokens: 0,
+            output_tokens: 32,
+            reasoning_output_tokens: 0,
+          },
+        },
+      },
+    ],
+  },
+  'compacted.remote.real.json': {
+    stream: real,
+    facts: [
+      {
+        kind: 'compaction',
+        entity_key: session(real),
+        speaker: 'runtime',
+        urgent: true,
+        at: iso('2026-10-01T12:00:18.080Z'),
+        payload: { phase: 'boundary', trigger: 'unknown', summary: null, tokens_before: null },
+      },
+    ],
+  },
+  'compacted.inline-local.mock.json': {
+    stream: compactRun,
+    facts: [
+      {
+        kind: 'compaction',
+        entity_key: session(compactRun),
+        payload: {
+          phase: 'boundary',
+          summary: inlineSummary,
+        },
+      },
+    ],
+  },
+  'event_msg.thread_settings_applied.real-resume.json': unrecognized(real),
+  'world_state.real.json': unrecognized(real),
 }
 
 test('every rollout sample has an expectation', () => {

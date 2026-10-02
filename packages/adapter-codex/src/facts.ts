@@ -16,6 +16,7 @@ import type {
   RuntimeIds,
   SessionKey,
   Speaker,
+  UsageKey,
 } from '@aang/contract'
 import type { RolloutLine } from './line.js'
 import { isRoot, type ThreadStream } from './stream.js'
@@ -36,11 +37,11 @@ export const sessionEntity = ({ session }: ThreadStream): SessionKey => ({ kind:
 export const agentRef = (stream: ThreadStream, thread: string): AgentRef =>
   thread === stream.session ? { kind: 'main' } : { kind: 'thread', thread_id: thread }
 
-export const agentEntity = (stream: ThreadStream): AgentKey => ({
+export const agentEntity = (stream: ThreadStream, thread: string = stream.thread): AgentKey => ({
   kind: 'agent',
   runtime,
   session: stream.session,
-  agent: agentRef(stream, stream.thread),
+  agent: agentRef(stream, thread),
 })
 
 export const threadEntity = (stream: ThreadStream): FactEntityKey =>
@@ -53,11 +54,21 @@ export const actionEntity = ({ session }: ThreadStream, call: string): ActionKey
   call,
 })
 
-export const messageEntity = ({ session, thread }: ThreadStream, ordinal: number): MessageKey => ({
+export const messageEntity = ({ session, thread }: ThreadStream, ordinal: number): MessageKey =>
+  namedMessageEntity(session, `${thread}:${String(ordinal)}`)
+
+export const namedMessageEntity = (session: string, message: string): MessageKey => ({
   kind: 'message',
   runtime,
   session,
-  message: `${thread}:${String(ordinal)}`,
+  message,
+})
+
+export const usageEntity = ({ session, thread }: ThreadStream, response: string): UsageKey => ({
+  kind: 'usage',
+  runtime,
+  session,
+  usage: `${thread}:${response}`,
 })
 
 export const questionEntity = ({ session }: ThreadStream, question: string): QuestionKey => ({
@@ -97,6 +108,7 @@ export interface FactSpec {
   readonly ids: RuntimeIds
   readonly env?: RuntimeEnv
   readonly verified?: boolean
+  readonly redelivery?: string
 }
 
 export const fact = <K extends FactKind>(kind: K, spec: FactSpec, payload: FactPayload<K>): FactDraft =>
@@ -109,7 +121,7 @@ export const fact = <K extends FactKind>(kind: K, spec: FactSpec, payload: FactP
     runtime_ids: spec.ids,
     runtime_env: spec.env ?? emptyEnv,
     format_verified: spec.verified ?? true,
-    redelivery_key: null,
+    redelivery_key: spec.redelivery ?? null,
     payload,
   }) as FactDraftOf<K>
 
