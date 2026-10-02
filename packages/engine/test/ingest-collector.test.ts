@@ -126,7 +126,7 @@ describe('a read failure reported by the real collector after the scope is decid
       expect(store.changes.head()).toBe(head)
       expect(observationRows(home.database())).toEqual(noObservationRows)
     } else {
-      expect(gapsOf(store).map((gap) => [gap.key.gap, gap.key.subject, gap.stream, gap.closed_at === null])).toEqual([
+      expect(gapsOf(store).filter(({ kind }) => kind === 'read_failed').map((gap) => [gap.key.gap, gap.key.subject, gap.stream, gap.closed_at === null])).toEqual([
         ['read_failed', path, streamOf('claude', lines), false],
       ])
       expect(recordsOf(store)).toHaveLength(lines.length)

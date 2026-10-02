@@ -1,4 +1,4 @@
-import type { AgentKey, AgentStartPayload, QuestionKey, SessionKey } from '@aang/contract'
+import type { AgentKey, AgentStartPayload, EpochNs, Execution, QuestionKey, Session, SessionKey } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
 import {
@@ -15,8 +15,11 @@ import {
 } from './evidence.js'
 import { projectActions } from './actions.js'
 import { redeliveries, registrationOf } from './redelivery.js'
+import { freshnessOf } from './freshness.js'
+import { sourceGaps, type SourceRecord } from './sources.js'
+import { turnState } from './state.js'
 
-const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly Evidence[]): void => {
+const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly Evidence[], sessionExecution: Execution): void => {
   const starts = ofKind(items, 'agent_start')
   const ends = ofKind(items, 'agent_end')
   const content = starts.toSorted(byContent)
@@ -33,6 +36,7 @@ const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly E
   const role =
     start?.payload.role ??
     (main ? 'main' : service !== null ? 'service' : key.agent.kind === 'teammate' ? 'teammate' : 'subagent')
+  const status = turnState(items)
   const draft: ObservationDraft = {
     id,
     key,
@@ -50,8 +54,8 @@ const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly E
         ? null
         : objectId({ kind: 'action', runtime: key.runtime, session: key.session, call: spawnedBy }),
     execution:
-      end === undefined
-        ? { state: starts.length === 0 ? 'unknown' : 'running' }
+      main ? sessionExecution : end === undefined
+        ? status.state === 'unknown' ? { state: starts.length === 0 ? 'unknown' : 'running' } : status.execution
         : {
             state:
               end.payload.outcome === 'completed'
@@ -110,10 +114,17 @@ const projectQuestion = (
   })
 }
 
-export const projectSession = (transaction: Transaction, key: SessionKey): void => {
+export const projectSession = (
+  transaction: Transaction,
+  key: SessionKey,
+  records: readonly SourceRecord[],
+  now: EpochNs,
+  quietAfterMs: number,
+): void => {
   const items = sessionEvidence(transaction, key)
   const first = items[0]
-  if (first === undefined) {
+  const firstRecord = records[0]
+  if (first === undefined && firstRecord === undefined) {
     return
   }
   const root = items.filter(({ fact }) => agentKey(fact).agent.kind === 'main')
@@ -121,8 +132,10 @@ export const projectSession = (transaction: Transaction, key: SessionKey): void 
   const content = root.toSorted(byContent)
   const id = objectId(key)
   const previous = transaction.observations.getSession(id)
-  const hooks = items.some(({ raw }) => raw.channel === 'hook')
-  const files = items.some(isFile)
+  const hooks = items.some(({ raw }) => raw.channel === 'hook') ||
+    records.some(({ raw }) => raw.channel === 'hook') || (previous !== null && previous.support_mode !== 'files_only')
+  const files = items.some(isFile) || records.some(({ raw }) => raw.channel === 'transcript' || raw.channel === 'rollout') ||
+    (previous !== null && previous.support_mode !== 'hooks_only')
   const registrations = new Set(items.map(registrationOf).filter((value) => value !== null))
   const surface =
     starts
@@ -132,7 +145,16 @@ export const projectSession = (transaction: Transaction, key: SessionKey): void 
             Number(left.fact.payload.surface?.basis === 'observed') || byContent(left, right),
       )
       .find(({ fact }) => fact.payload.surface !== null)?.fact.payload.surface ?? null
-  const draft: ObservationDraft = {
+  const times = [
+    ...items.map(({ fact }) => fact.at),
+    ...records.map(({ raw }) => raw.source_ts ?? raw.observed_at),
+    ...(previous === null ? [] : [previous.started_at, previous.last_event_at]),
+  ].sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
+  const startedAt = times[0]
+  const lastEventAt = times.at(-1)
+  if (startedAt === undefined || lastEventAt === undefined) { return }
+  const status = turnState(root, items)
+  const draft: Omit<Session, 'change_seq'> = {
     id,
     key,
     run: previous?.run ?? null,
@@ -141,24 +163,26 @@ export const projectSession = (transaction: Transaction, key: SessionKey): void 
     cwd:
       starts.find(({ fact }) => fact.payload.cwd !== null)?.fact.payload.cwd ??
       root.find(({ fact }) => fact.runtime_env.cwd !== null)?.fact.runtime_env.cwd ??
+      records.find(({ owner }) => owner.thread === 'root' && owner.cwd !== null)?.owner.cwd ??
+      previous?.cwd ??
       null,
     git_branch:
       content.find(({ fact }) => fact.runtime_env.git_branch !== null)?.fact.runtime_env.git_branch ?? null,
     git_common_dir: previous?.git_common_dir ?? null,
     launches: starts.map(({ fact }) => ({ launch: fact.payload.launch, at: fact.at, fact: fact.id })),
-    state: previous?.state ?? 'unknown',
-    execution: previous?.execution ?? { state: 'unknown' },
-    freshness: previous?.freshness ?? 'ok',
+    ...status,
+    freshness: 'ok',
     support_mode: hooks && files ? 'full' : hooks ? 'hooks_only' : 'files_only',
-    double_registration: registrations.size > 1,
-    unknown_records: previous?.unknown_records ?? 0,
+    double_registration: registrations.size > 1 || previous?.double_registration === true,
+    unknown_records: (previous?.unknown_records ?? 0) + records.filter(({ raw }) => raw.parse_state !== 'parsed').length,
     cost_state: previous?.cost_state ?? null,
-    started_at: first.fact.at,
-    last_event_at: (items.at(-1) ?? first).fact.at,
+    started_at: startedAt,
+    last_event_at: lastEventAt,
   }
-  transaction.observations.save(draft)
+  sourceGaps(transaction, draft, lastEventAt)
+  transaction.observations.save({ ...draft, freshness: freshnessOf(transaction, draft, now, quietAfterMs) })
   for (const agentItems of grouped(items, ({ fact }) => canonicalJson(agentKey(fact))).values()) {
-    projectAgent(transaction, agentKey(agentItems[0].fact), agentItems)
+    projectAgent(transaction, agentKey(agentItems[0].fact), agentItems, status.execution)
   }
   const groups = redeliveries(items)
   const questionGroups = new Map<string, QuestionKey>()

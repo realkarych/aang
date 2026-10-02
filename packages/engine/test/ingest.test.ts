@@ -62,7 +62,8 @@ describe('a batch of a watched session', () => {
     expect(result.head).toBe(store.changes.head())
     const changes = store.changes.after(ChangeSeq.parse(0), 1000)
     expect(changes.filter(({ layer }) => layer === 'object')).toHaveLength(6)
-    expect(store.changes.head()).toBe(lines.length + draftFacts(expected).length + 6)
+    expect(changes.filter(({ layer }) => layer === 'gap')).toHaveLength(1)
+    expect(store.changes.head()).toBe(lines.length + draftFacts(expected).length + 7)
   })
 
   test('of Codex resolves the thread stream from session_meta and keeps the last ordinal', async ({
@@ -381,7 +382,9 @@ describe('a hook event that the adapter does not turn into facts', () => {
       ['h-invalid.evt', 'invalid', 0],
       ['h-future-2.evt', 'unknown', 0],
     ])
-    expect(gapsOf(reopened)).toEqual([])
+    expect(gapsOf(reopened).map(({ kind, session }) => [kind, session !== null])).toEqual([
+      ['hooks_inactive', true], ['unknown_records', true], ['unknown_records', true],
+    ])
   })
 
   test.for([
@@ -562,11 +565,11 @@ describe('gaps reported by the collector', () => {
     await engine.ingest(batchOf({ gaps: [gapOf(external.path), gapOf(external.path, true)] }))
 
     expect(store.changes.head()).toBe(head)
-    expect(gapsOf(store)).toEqual([])
+    expect(gapsOf(store).filter(({ kind }) => kind === 'read_failed')).toEqual([])
 
     await engine.ingest(batchOf({ gaps: [gapOf('/p/unknown.jsonl'), gapOf(watched.path)] }))
 
-    expect(gapsOf(store).map((gap) => [gap.key.subject, gap.stream])).toEqual([
+    expect(gapsOf(store).filter(({ kind }) => kind === 'read_failed').map((gap) => [gap.key.subject, gap.stream])).toEqual([
       ['/p/unknown.jsonl', null],
       [watched.path, streamOf('claude', watchedLines)],
     ])
@@ -601,7 +604,7 @@ describe('gaps reported by the collector', () => {
       await engine.ingest(main.batch(1, mainLines.length))
 
       expect(store.scopes.ofSession(sessionKey('claude', 's-parent'))?.scope).toBe(scope)
-      expect(gapsOf(store).map((gap) => [gap.key.subject, gap.stream])).toEqual(
+      expect(gapsOf(store).filter(({ kind }) => kind === 'read_failed').map((gap) => [gap.key.subject, gap.stream])).toEqual(
         scope === 'watched' ? [[subagent.path, streamOf('claude', subagentLines)]] : [],
       )
     },
