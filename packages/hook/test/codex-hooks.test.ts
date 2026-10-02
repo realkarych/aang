@@ -1,6 +1,7 @@
-import { chmod, lstat, mkdir, readdir, readFile, readlink, stat, symlink, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
-import { HookInstallError, installCodexHooks, uninstallCodexHooks } from '@aang/hook'
+import { chmod, lstat, mkdir, readdir, readFile, readlink, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { setTimeout as delay } from 'node:timers/promises'
+import { HookInstallError, hookBinaryName, installCodexHooks, uninstallCodexHooks } from '@aang/hook'
 import { describe, inject, test } from 'vitest'
 import { cleanExit, readSpoolEvents, runProcess, typicalPayload, withoutNames } from './hook.js'
 import { createInstallHome, type InstallHome, readJson, sampleText } from './install.js'
@@ -22,6 +23,8 @@ interface HooksDocument {
 }
 
 const binaries = inject('hookBinaries')
+const installWaitMs = 200
+const largeFileEntries = 40_000
 
 const loggerConfig = await sampleText('codex-cli/hooks/hooks.json.logger-config.json')
 
@@ -89,6 +92,31 @@ const withAangAppended = (document: HooksDocument, command: string): HooksDocume
     ...Object.fromEntries(codexEvents.map((event) => [event, [...(document.hooks[event] ?? []), aangGroup(command)]])),
   },
 })
+
+const foreignStop = (document: HooksDocument): HooksDocument => ({
+  ...document,
+  hooks: {
+    ...document.hooks,
+    Stop: [...(document.hooks.Stop ?? []), { hooks: [{ type: 'command', command: 'notify-send stop' }] }],
+  },
+})
+
+const holdDeployLock = async (home: InstallHome): Promise<() => Promise<void>> => {
+  const lock = join(dirname(home.paths.binary), `.${hookBinaryName}.lock`)
+  await mkdir(dirname(lock), { recursive: true })
+  await writeFile(lock, String(process.pid))
+  return () => rm(lock)
+}
+
+const fileKind = (name: string): string => {
+  if (name.endsWith('.tmp')) {
+    return 'staged'
+  }
+  return name.includes('.aang-backup-') ? 'backup' : name
+}
+
+const backups = async (home: InstallHome): Promise<string[]> =>
+  (await readdir(home.codexHome)).filter((name) => name.includes('.aang-backup-')).map((name) => join(home.codexHome, name))
 
 describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', () => {
   test('install appends one aang entry to the end of every event array and keeps foreign entries in place', async ({
@@ -228,6 +256,92 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
       withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
     )
     expect(installation.backup?.startsWith(join(dotfiles, 'hooks.json.aang-backup-'))).toBe(true)
+  })
+
+  test('a hooks.json symlink to a missing file is refused and left a symlink', async ({ expect, onTestFinished }) => {
+    const home = await createInstallHome(onTestFinished)
+    const missing = join(home.root, 'dotfiles', 'hooks.json')
+    await symlink(missing, home.hooksFile)
+
+    await expect(install(home)).rejects.toMatchObject({ reason: 'invalid_hooks_file' })
+    await expect(uninstall(home)).rejects.toMatchObject({ reason: 'invalid_hooks_file' })
+
+    expect(await readlink(home.hooksFile)).toBe(missing)
+    await expect(stat(missing)).rejects.toMatchObject({ code: 'ENOENT' })
+  })
+
+  test('an entry another program adds to hooks.json while install is in progress is kept and the backup is the version the change was made on', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    await writeFile(home.hooksFile, loggerConfig)
+    const release = await holdDeployLock(home)
+    const installing = install(home)
+    await delay(installWaitMs)
+    const edited = foreignStop(JSON.parse(loggerConfig) as HooksDocument)
+    const editedText = JSON.stringify(edited, null, 2)
+    await writeFile(home.hooksFile, editedText)
+
+    await release()
+    const installation = await installing
+
+    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(edited, installation.command))
+    expect(await backups(home)).toEqual([installation.backup])
+    expect(await readFile(installation.backup ?? '', 'utf8')).toBe(editedText)
+  })
+
+  test('a hooks.json another program creates while install is in progress is kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    const release = await holdDeployLock(home)
+    const installing = install(home)
+    await delay(installWaitMs)
+    const created = foreignStop({ hooks: {} })
+    const createdText = JSON.stringify(created)
+    await writeFile(home.hooksFile, createdText)
+
+    await release()
+    const installation = await installing
+
+    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(created, installation.command))
+    expect(await readFile(installation.backup ?? '', 'utf8')).toBe(createdText)
+  })
+
+  test('copies of a private hooks.json are never more permissive than the original, even while being written', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const home = await createInstallHome(onTestFinished)
+    const large: HooksDocument = {
+      hooks: {
+        Stop: Array.from({ length: largeFileEntries }, (_, index) => ({
+          hooks: [{ type: 'command', command: `notify-send ${String(index)} ${'x'.repeat(400)}` }],
+        })),
+      },
+    }
+    await writeFile(home.hooksFile, JSON.stringify(large), { mode: 0o600 })
+    const observed = new Set<string>()
+    let installed = false
+    const observe = async (): Promise<void> => {
+      while (!installed) {
+        for (const name of await readdir(home.codexHome)) {
+          const stats = await stat(join(home.codexHome, name)).catch(() => undefined)
+          if (stats !== undefined) {
+            observed.add(`${fileKind(name)} ${(stats.mode & 0o777).toString(8)}`)
+          }
+        }
+      }
+    }
+    const observing = observe()
+
+    await install(home)
+    installed = true
+    await observing
+
+    expect(observed).toEqual(new Set(['hooks.json 600', 'staged 600', 'backup 600']))
   })
 
   test('an unreadable hooks.json is refused and left unchanged', async ({ expect, onTestFinished }) => {

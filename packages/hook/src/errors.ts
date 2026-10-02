@@ -1,4 +1,9 @@
-export type HookInstallFailure = 'unsupported_platform' | 'claude_cli' | 'invalid_hooks_file'
+export type HookInstallFailure =
+  | 'unsupported_platform'
+  | 'claude_cli'
+  | 'invalid_hooks_file'
+  | 'hooks_file_changed'
+  | 'deploy_locked'
 
 export class HookInstallError extends Error {
   constructor(

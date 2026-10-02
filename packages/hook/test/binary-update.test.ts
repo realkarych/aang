@@ -1,6 +1,10 @@
+import { execFile, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@aang/hook'
 import { inject, test } from 'vitest'
 import { cleanExit, type HookResult, readSpoolEvents, runProcess, typicalEnv } from './hook.js'
@@ -23,6 +27,44 @@ type Launch = { readonly afterUpdate: boolean } & (
 const binaries = inject('hookBinaries')
 const callers = 4
 const callsPerPhase = 24
+const deployers = 3
+const deploysPerLoop = 12
+
+const execFileAsync = promisify(execFile)
+
+const hookModule = fileURLToPath(new URL('../dist/index.js', import.meta.url))
+
+const deployLoops = `
+const [hookModule, aangHome, rounds, ...sources] = process.argv.slice(1)
+const { deployHookBinary } = await import(hookModule)
+const deploy = async (offset) => {
+  for (let round = 0; round < Number(rounds); round += 1) {
+    await deployHookBinary({ aangHome, hookBinarySource: sources[(round + offset) % sources.length] })
+  }
+}
+await Promise.all([deploy(0), deploy(1)])
+`
+
+const runDeployer = async (aangHome: string, sources: readonly string[]): Promise<void> => {
+  await execFileAsync(process.execPath, [
+    '--input-type=module',
+    '-e',
+    deployLoops,
+    hookModule,
+    aangHome,
+    String(deploysPerLoop),
+    ...sources,
+  ])
+}
+
+const finishedProcessId = async (): Promise<number> => {
+  const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
+  await once(child, 'exit')
+  if (child.pid === undefined) {
+    throw new Error('the finished process has no pid')
+  }
+  return child.pid
+}
 
 const errorCode = (error: unknown): unknown => (error instanceof Error && 'code' in error ? error.code : error)
 
@@ -85,7 +127,29 @@ test('updating the binary during continuous hook calls keeps the plugin command 
   expect(await readdir(dirname(home.paths.binary))).toEqual([hookBinaryName])
 }, 120_000)
 
-test('the next deploy removes copies left by an interrupted update', async ({ expect, onTestFinished }) => {
+test('concurrent deploys from several processes into one AANG_HOME all succeed and leave only the binary', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const home = await createInstallHome(onTestFinished)
+  const sources = [binaries.plain, binaries.stripped]
+
+  await Promise.all(
+    Array.from({ length: deployers }, (_, index) =>
+      runDeployer(home.aangHome, index % 2 === 0 ? sources : sources.toReversed()),
+    ),
+  )
+
+  expect(await readdir(dirname(home.paths.binary))).toEqual([hookBinaryName])
+  expect([await readFile(binaries.plain), await readFile(binaries.stripped)]).toContainEqual(
+    await readFile(home.paths.binary),
+  )
+}, 120_000)
+
+test('the next deploy removes copies and the lock left by an interrupted update', async ({
+  expect,
+  onTestFinished,
+}) => {
   const home = await createInstallHome(onTestFinished)
   const directory = dirname(home.paths.binary)
   await mkdir(directory, { recursive: true })
@@ -93,6 +157,7 @@ test('the next deploy removes copies left by an interrupted update', async ({ ex
   for (const name of leftovers) {
     await writeFile(join(directory, name), 'partial')
   }
+  await writeFile(join(directory, `.${hookBinaryName}.lock`), String(await finishedProcessId()))
   await writeFile(join(directory, 'notes.txt'), 'kept')
 
   await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
