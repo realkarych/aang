@@ -12,6 +12,7 @@ import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
+import { createSettings, type SettingReader, type SettingWriter } from './settings.js'
 import { inTransaction } from './transaction.js'
 
 export interface StoreOptions {
@@ -26,6 +27,7 @@ export interface Transaction {
   readonly cursors: CursorWriter
   readonly gaps: GapWriter
   readonly model: ModelWriter
+  readonly settings: SettingWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
@@ -38,6 +40,7 @@ export interface Store {
   readonly cursors: CursorReader
   readonly gaps: GapReader
   readonly model: ModelReader
+  readonly settings: SettingReader
   readonly changes: ChangeFeed
   readonly close: () => void
 }
@@ -50,6 +53,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const cursors = createCursors(database)
   const gaps = createGaps(database)
   const model = createModel(database)
+  const settings = createSettings(database)
 
   const beginTransaction = (): { transaction: Transaction; finish: () => void } => {
     let active = true
@@ -74,6 +78,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         cursors: cursors.writer(context),
         gaps: gaps.writer(context),
         model: model.writer(context),
+        settings: settings.writer(context),
       },
       finish: () => {
         active = false
@@ -97,6 +102,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     cursors: cursors.reader,
     gaps: gaps.reader,
     model: model.reader,
+    settings: settings.reader,
     changes: createChangeFeed(database),
     close: () => {
       if (!open) {

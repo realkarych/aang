@@ -1,0 +1,178 @@
+import { randomBytes } from 'node:crypto'
+import { once } from 'node:events'
+import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
+import { describe, test } from 'vitest'
+import { isAlive, resume, suspend } from './processes.js'
+import { createSandbox, type Sandbox, startedPid } from './sandbox.js'
+
+const signInLink = /^(http:\/\/127\.0\.0\.1:[0-9]+)\/auth\/[A-Za-z0-9_-]{43}$/
+
+const openLink = async (sandbox: Sandbox): Promise<{ link: string; base: string }> => {
+  const opened = await sandbox.aang('open')
+  const link = opened.stdout.trim()
+  const base = signInLink.exec(link)?.[1]
+  if (opened.code !== 0 || base === undefined) {
+    throw new Error(`aang open failed: ${opened.stdout}${opened.stderr}`)
+  }
+  return { link, base }
+}
+
+const uiToken = async (sandbox: Sandbox): Promise<string> =>
+  (await readFile(join(sandbox.aangHome, 'token'), 'utf8')).trim()
+
+const bearer = (token: string): Record<string, string> => ({ authorization: `Bearer ${token}` })
+
+const sessionCookie = (response: Response): string => {
+  const cookie = response.headers.get('set-cookie') ?? ''
+  return cookie.split(';')[0] ?? ''
+}
+
+const issuePendingCodes = async (sandbox: Sandbox, count: number): Promise<string[]> => {
+  const directory = join(sandbox.aangHome, 'auth')
+  await mkdir(directory, { recursive: true })
+  const codes = Array.from({ length: count }, () => randomBytes(32).toString('base64url'))
+  await Promise.all(codes.map((code) => writeFile(join(directory, code), '')))
+  return codes
+}
+
+const pendingCodes = (sandbox: Sandbox): Promise<string[]> =>
+  readdir(join(sandbox.aangHome, 'auth')).catch((): string[] => [])
+
+describe.concurrent('UI access needs the token; aang open hands it out through a one-time link', () => {
+  test('requests without a valid token are refused, the one-time link works once and its cookie authorizes', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const sandbox = await createSandbox(onTestFinished)
+    const pid = startedPid(await sandbox.aang('start'))
+    const { link, base } = await openLink(sandbox)
+    const route = `${base}/api/admin/no-such-route`
+
+    const anonymous = await fetch(route)
+    expect(anonymous.status).toBe(401)
+    expect(anonymous.headers.get('www-authenticate')).toBe('Bearer realm="aang"')
+    expect(await anonymous.json()).toMatchObject({ error: { code: 'unauthorized' } })
+    expect((await fetch(route, { headers: bearer('A'.repeat(43)) })).status).toBe(401)
+    expect((await fetch(`${base}/`)).status).toBe(401)
+
+    const signIn = await fetch(link, { redirect: 'manual' })
+    expect(signIn.status).toBe(200)
+    expect(signIn.headers.get('set-cookie')).toMatch(/^aang_token=[A-Za-z0-9_-]{43}; HttpOnly; SameSite=Strict; Path=\//)
+    expect(await signIn.text()).toContain('<meta http-equiv="refresh" content="0; url=/">')
+    const cookie = sessionCookie(signIn)
+
+    expect((await fetch(link, { redirect: 'manual' })).status).toBe(401)
+    const withCookie = await fetch(route, { headers: { cookie } })
+    expect(withCookie.status).toBe(404)
+    expect(await withCookie.json()).toMatchObject({ error: { code: 'not_found' } })
+    expect((await fetch(route, { headers: bearer(await uiToken(sandbox)) })).status).toBe(404)
+
+    const shutdown = await fetch(`${base}/api/admin/shutdown`, { method: 'POST', body: '{}' })
+    expect(shutdown.status).toBe(401)
+    expect(isAlive(pid)).toBe(true)
+    expect((await fetch(route, { headers: { cookie } })).status).toBe(404)
+  })
+
+  test('token rotate replaces the token, revokes cookies and pending links, and prints the new token', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const sandbox = await createSandbox(onTestFinished)
+    await sandbox.aang('start')
+    const first = await openLink(sandbox)
+    const cookie = sessionCookie(await fetch(first.link, { redirect: 'manual' }))
+    const pending = await openLink(sandbox)
+    const previous = await uiToken(sandbox)
+    const route = `${first.base}/api/admin/no-such-route`
+
+    const rotated = await sandbox.aang('token', 'rotate')
+
+    expect(rotated.code).toBe(0)
+    const token = rotated.stdout.trim()
+    expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/)
+    expect(token).not.toBe(previous)
+    expect(await uiToken(sandbox)).toBe(token)
+    expect((await fetch(route, { headers: { cookie } })).status).toBe(401)
+    expect((await fetch(route, { headers: bearer(previous) })).status).toBe(401)
+    expect((await fetch(route, { headers: bearer(token) })).status).toBe(404)
+    expect((await fetch(pending.link, { redirect: 'manual' })).status).toBe(401)
+    expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+  })
+
+  test.skipIf(process.platform === 'win32')(
+    'a link issued before token rotate never signs in with the new token, even when redeemed mid-rotation',
+    async ({ expect, onTestFinished }) => {
+      const sandbox = await createSandbox(onTestFinished)
+      await sandbox.aang('start')
+      const { base } = await openLink(sandbox)
+      const issued = await issuePendingCodes(sandbox, 3_000)
+      const pending = (await pendingCodes(sandbox)).length
+      const previous = await uiToken(sandbox)
+
+      const rotation = sandbox.spawnAang('token', 'rotate')
+      const rotated = once(rotation, 'close')
+      const rotationPid = rotation.pid
+      if (rotationPid === undefined) {
+        throw new Error('aang token rotate did not start')
+      }
+      while ((await uiToken(sandbox)) === previous && (await pendingCodes(sandbox)).length === pending) {
+        await new Promise((resolve) => setImmediate(resolve))
+      }
+      const paused = rotation.exitCode === null && (await suspend(rotationPid).then(() => true, () => false))
+      const remaining = new Set(await pendingCodes(sandbox))
+      const sample = issued.filter((code) => remaining.has(code)).slice(0, 20)
+      const signIns = await Promise.all(sample.map((code) => fetch(`${base}/auth/${code}`, { redirect: 'manual' })))
+      if (paused) {
+        await resume(rotationPid)
+      }
+
+      expect(await rotated).toEqual([0, null])
+      const token = await uiToken(sandbox)
+      expect(token).not.toBe(previous)
+      const cookies = signIns.filter((response) => response.status === 200).map(sessionCookie)
+      expect(cookies.filter((cookie) => cookie === `aang_token=${token}`)).toEqual([])
+      const route = `${base}/api/admin/no-such-route`
+      for (const cookie of cookies) {
+        expect((await fetch(route, { headers: { cookie } })).status).toBe(401)
+      }
+      for (const code of issued.slice(0, 5)) {
+        expect((await fetch(`${base}/auth/${code}`, { redirect: 'manual' })).status).toBe(401)
+      }
+      expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+    },
+  )
+
+  test('--bind listens on the given interface with the same token requirement', async ({ expect, onTestFinished }) => {
+    const sandbox = await createSandbox(onTestFinished)
+
+    const started = await sandbox.aang('start', '--bind', '0.0.0.0')
+
+    expect(started.code).toBe(0)
+    expect((await sandbox.daemonState())?.api.host).toBe('0.0.0.0')
+    const { base } = await openLink(sandbox)
+    const route = `${base}/api/admin/no-such-route`
+    expect((await fetch(route)).status).toBe(401)
+    expect((await fetch(route, { headers: bearer(await uiToken(sandbox)) })).status).toBe(404)
+    expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
+  })
+
+  test('an invalid --bind address fails the start and leaves nothing running', async ({ expect, onTestFinished }) => {
+    const sandbox = await createSandbox(onTestFinished)
+
+    const started = await sandbox.aang('start', '--bind', '[::1]:70000')
+
+    expect(started.code).toBe(1)
+    expect(started.stderr).toContain("invalid --bind address '[::1]:70000'")
+    expect(await sandbox.daemonState()).toBeNull()
+  })
+
+  test('aang open without a running daemon fails', async ({ expect, onTestFinished }) => {
+    const sandbox = await createSandbox(onTestFinished)
+
+    const opened = await sandbox.aang('open')
+
+    expect(opened.code).toBe(1)
+    expect(opened.stderr).toContain('aang is not running')
+  })
+})
