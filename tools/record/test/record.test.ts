@@ -269,6 +269,29 @@ test('verification detects every private input class independently of the record
   }
 })
 
+test('JSON with duplicate keys is neither published nor accepted by verification', async () => {
+  const config = await options('codex')
+  const duplicates = [
+    '{"cwd":"/Users/PrivateReviewPerson/work","cwd":"/fixture/project"}',
+    '{"email":"private.review@example.org","email":"EMAIL_1"}',
+    '{"account_id":"private-review-account-123","account_id":"ACCOUNT_1"}',
+    JSON.stringify({ text: '{"cwd":"/Users/PrivateReviewPerson/work","\\u0063wd":"/fixture/project"}' }),
+  ]
+  for (const text of duplicates) {
+    await expect(recordSession(config, async (session) => {
+      await writeFile(join(session.project, 'duplicate.json'), text)
+    }), text).rejects.toThrow(/duplicate keys/)
+  }
+  await expect(stat(join(config.fixturesRoot, 'codex'))).rejects.toMatchObject({ code: 'ENOENT' })
+  const directory = await recordSession(config, async (session) => {
+    await writeFile(join(session.project, 'result.json'), '{"items":[{"id":1,"state":"done"},{"id":2,"state":"done"}],"nested":"{\\"id\\":1}","text":"\\"id\\":1,\\"id\\":2"}')
+  })
+  for (const text of duplicates) {
+    await writeFile(join(directory, 'unchecked.json'), text)
+    await expect(verifyRecording(directory), text).rejects.toThrow(/duplicate keys/)
+  }
+})
+
 test('masks credentials, short identities and escaped home paths while keeping exact values and agent paths', async () => {
   const config = await options('codex')
   const sample = await readFile(resolve('docs/research/samples/codex-sdk/rollout-session-meta.sdk-subagent.json'), 'utf8')
@@ -278,13 +301,19 @@ test('masks credentials, short identities and escaped home paths while keeping e
   const directory = await recordSession(config, async (session) => {
     const file = join(session.project, 'private.json')
     await writeFile(join(session.project, 'agent.json'), sample)
+    await writeFile(join(session.project, 'references.json'), JSON.stringify({ refs: ['abc', 'xy'], usage: { input_tokens: 123 } }))
     await writeFile(file, JSON.stringify({
       access_token: token,
       Authorization: `Bearer ${token}`,
       output: 'ANTHROPIC_API_KEY=sk-ant-synthetic-0001\ncurl -H "Authorization: Bearer syntheticBearer0123456789"',
-      attributes: [{ key: 'user.account_id', value: { stringValue: '123456' } }, { key: 'organization.id', value: { stringValue: 'abc' } }],
+      attributes: [
+        { key: 'user.account_id', value: { stringValue: '123456' } },
+        { key: 'organization.id', value: { stringValue: 'abc' } },
+        { key: 'installation.id', value: { intValue: '987654' } },
+      ],
       account_id: 123456,
-      refs: ['123456'],
+      owner: { user_id: 'xy' },
+      refs: ['123456', 'abc', 'xy'],
       usage: { input_tokens: 123456 },
       sessions,
       escaped: [
@@ -306,13 +335,14 @@ test('masks credentials, short identities and escaped home paths while keeping e
   }
   const content = (path: string): string => playback.sources.get(source(path))?.toString() ?? ''
   expect(manifest.artifacts.find((artifact) => artifact.source === source('project/private.json'))?.mtime_ns).toBe(mtime)
-  expect(content('project/private.json')).not.toMatch(/synthetic-review-token|sk-ant-synthetic|syntheticBearer|Private ?Person|u0418/)
+  expect(content('project/private.json')).not.toMatch(/synthetic-review-token|sk-ant-synthetic|syntheticBearer|Private ?Person|u0418|987654|"(?:abc|xy)"/)
   const value = JSON.parse(content('project/private.json')) as {
     access_token: string
     Authorization: string
     output: string
-    attributes: { value: { stringValue: string } }[]
+    attributes: { key: string; value: { stringValue: string } }[]
     account_id: string
+    owner: { user_id: string }
     refs: string[]
     usage: { input_tokens: number }
     sessions: string[]
@@ -324,8 +354,11 @@ test('masks credentials, short identities and escaped home paths while keeping e
   expect(value.output).toMatch(/^ANTHROPIC_API_KEY=SECRET_\d+\ncurl -H "Authorization: Bearer SECRET_\d+"$/)
   expect(value.account_id).toMatch(/^ACCOUNT_\d+$/)
   expect(value.attributes[0]?.value.stringValue).toBe(value.account_id)
-  expect(value.refs).toEqual([value.account_id])
   expect(value.attributes[1]?.value.stringValue).toMatch(/^ORGANIZATION_\d+$/)
+  expect(value.attributes[2]).toEqual({ key: 'installation.id', value: { stringValue: expect.stringMatching(/^INSTALLATION_\d+$/) as unknown } })
+  expect(value.owner.user_id).toMatch(/^USER_\d+$/)
+  expect(value.refs).toEqual([value.account_id, value.attributes[1]?.value.stringValue, value.owner.user_id])
+  expect(JSON.parse(content('project/references.json'))).toEqual({ refs: value.refs.slice(1), usage: { input_tokens: 123 } })
   expect(value.usage.input_tokens).toBe(123456)
   expect(value.sessions).toEqual(sessions)
   expect(value.escaped).toEqual([

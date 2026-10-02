@@ -35,9 +35,38 @@ const parse = (text: string): Json | undefined => {
   try { return JSON.parse(text) as Json } catch { return undefined }
 }
 
+const tokens = /"(?:[^"\\]|\\.)*"|[{}[\]:,]/g
+
+const hasDuplicateKeys = (text: string): boolean => {
+  const scopes: (Set<string> | undefined)[] = []
+  let expectsKey = false
+  for (const [token] of text.matchAll(tokens)) {
+    if (token === '{') {
+      scopes.push(new Set())
+      expectsKey = true
+    } else if (token === '[') {
+      scopes.push(undefined)
+      expectsKey = false
+    } else if (token === '}' || token === ']') {
+      scopes.pop()
+    } else if (token === ',') {
+      expectsKey = scopes.at(-1) !== undefined
+    } else if (token === ':') {
+      expectsKey = false
+    } else if (expectsKey) {
+      const keys = scopes.at(-1)
+      const key = JSON.parse(token) as string
+      if (keys?.has(key)) return true
+      keys?.add(key)
+    }
+  }
+  return false
+}
+
 const structured = (text: string, map: (value: Json) => Json, plain: (value: string) => string): string => {
   const parsed = parse(text)
   if (parsed !== undefined && (isRecord(parsed) || Array.isArray(parsed))) {
+    if (hasDuplicateKeys(text)) throw new Error('Recording contains JSON with duplicate keys, which can hide private data')
     const mapped = JSON.stringify(map(parsed))
     if (mapped === JSON.stringify(parsed)) return text
     const trailing = text.endsWith('\r\n') ? '\r\n' : text.endsWith('\n') ? '\n' : ''
@@ -116,17 +145,20 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map())
       .replaceAll(rootHome, (_root, separator: string) => `${separator}home${separator}USER`)
       .replaceAll(profile, 'REDACTED_HOME')
   }
-  const identity = (value: Json): Json =>
-    typeof value === 'string' || typeof value === 'number' ? replacements.get(String(value)) ?? mapValue(value) : mapValue(value)
+  const identity = (value: Json): Json => typeof value === 'number' ? replacements.get(String(value)) ?? value : mapValue(value)
+  const attributeValue = (value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([field, content]) => {
+    const masked = identity(content)
+    return [field === 'intValue' && masked !== content ? 'stringValue' : field, masked]
+  }))
   const mapValue = (value: Json): Json => {
-    if (typeof value === 'string') return (value.length >= 4 ? replacements.get(value) : undefined) ?? structured(value, mapValue, replaceText)
+    if (typeof value === 'string') return replacements.get(value) ?? structured(value, mapValue, replaceText)
     if (Array.isArray(value)) return value.map(mapValue)
     if (isRecord(value)) {
       const attribute = isAttribute(value)
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [
         replaceText(key),
         identityKind(key) ? identity(nested)
-          : attribute && key === 'value' && isRecord(nested) ? Object.fromEntries(Object.entries(nested).map(([field, content]) => [field, identity(content)]))
+          : attribute && key === 'value' && isRecord(nested) ? attributeValue(nested)
             : mapValue(nested),
       ]))
     }
