@@ -7,15 +7,20 @@ import {
   type Basis,
   type EpochNs,
   type Execution,
+  type FactId,
   LinkId,
   type RunId,
 } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type AppliedChangeSet, type ModelChangeDraft } from './journal.js'
 
+export interface StageAgentObservation extends Agent {
+  readonly execution_evidence: readonly FactId[]
+}
+
 export interface StageObservations {
   readonly actions: readonly Action[]
-  readonly agents: readonly Agent[]
+  readonly agents: readonly StageAgentObservation[]
 }
 
 export interface StageExecutionUpdate {
@@ -25,6 +30,8 @@ export interface StageExecutionUpdate {
 }
 
 const basis: Basis = { kind: 'interpreted', interpreter: { kind: 'rule', rule: 'stage-execution' } }
+
+const canonicalEvidence = (evidence: readonly FactId[]): FactId[] => [...new Set(evidence)].sort()
 
 export const refreshStageExecution = (
   transaction: Transaction,
@@ -56,7 +63,7 @@ export const refreshStageExecution = (
         continue
       }
       participants.add(agent.id)
-      const evidence = assignments.filter((link) => link.action === action.id).flatMap((link) => link.evidence)
+      const evidence = canonicalEvidence(assignments.filter((link) => link.action === action.id).flatMap((link) => link.evidence))
       changes.push({
         op: 'link.add', basis, evidence,
         put: { kind: 'link', value: {
@@ -70,17 +77,14 @@ export const refreshStageExecution = (
     )
     const runningActions = actions.filter((action) => action.execution.state === 'running')
     const runningAgents = agents.filter((agent) => agent.execution.state === 'running')
-    const agentEvidence = (agent: Agent) => [
-      ...transaction.facts.ofEntity(agent.key),
-      ...transaction.facts.ofEntity({ kind: 'session', runtime: agent.key.runtime, session: agent.key.session }),
-    ].map((fact) => fact.id)
-    const activityEvidence = [...new Set([
+    const activityEvidence = canonicalEvidence([
       ...runningActions.flatMap((action) => action.input_fact === null ? [] : [action.input_fact]),
-      ...runningAgents.flatMap(agentEvidence),
-    ])]
+      ...runningAgents.flatMap((agent) => agent.execution_evidence),
+    ])
     const attention = entities.filter((entity) => entity.kind === 'attention_item').map(({ value }) => value)
       .filter((item) => item.stage === stage.id || (
-        item.stage === null && item.action !== null && assignments.some((link) => link.action === item.action)
+        item.stage === null && item.action !== null && transaction.model.objectRun('action', item.action) === run &&
+        assignments.some((link) => link.action === item.action)
       ))
     const requests = attention.filter((item) =>
       item.resolution === 'open' && ['question', 'permission', 'review_request'].includes(item.kind),
@@ -92,11 +96,11 @@ export const refreshStageExecution = (
       .filter((execution) => execution.state === 'waiting')
     const reason = (['human', 'background', 'idle', 'unknown'] as const)
       .find((reason) => waiting.some((execution) => execution.reason === reason))
-    const waitEvidence = [...new Set([
+    const waitEvidence = canonicalEvidence([
       ...waits.flatMap((item) => item.evidence),
       ...waitingActions.flatMap((action) => action.input_fact === null ? [] : [action.input_fact]),
-      ...waitingAgents.flatMap(agentEvidence),
-    ])]
+      ...waitingAgents.flatMap((agent) => agent.execution_evidence),
+    ])
     const ruled: Assessed<Execution> | null = runningActions.length > 0 || runningAgents.length > 0
       ? { value: { state: 'running' }, basis, evidence: activityEvidence }
       : waits.length > 0 || reason !== undefined
@@ -112,17 +116,17 @@ export const refreshStageExecution = (
       stage.decision.basis.interpreter.kind === 'rule' && stage.decision.basis.interpreter.rule === 'stage-execution'
     const decision = requests.length === 0
       ? derivedRequest
-        ? { value: 'unknown' as const, basis, evidence: [...new Set(attention.flatMap((item) => item.evidence))] }
+        ? { value: 'unknown' as const, basis, evidence: canonicalEvidence(attention.flatMap((item) => item.evidence)) }
         : stage.decision
-      : { value: 'requested' as const, basis, evidence: [...new Set(requests.flatMap((item) => item.evidence))] }
+      : { value: 'requested' as const, basis, evidence: canonicalEvidence(requests.flatMap((item) => item.evidence)) }
     const executionChanged = !isDeepStrictEqual(stage.execution, execution) ||
       !isDeepStrictEqual(stage.execution_claim, execution_claim)
     const decisionChanged = !isDeepStrictEqual(stage.decision, decision)
     if (executionChanged || decisionChanged) {
-      const evidence = [...new Set([
+      const evidence = canonicalEvidence([
         ...(executionChanged ? execution.evidence : []),
         ...(decisionChanged ? decision.evidence : []),
-      ])]
+      ])
       changes.push({
         op: 'stage.execution', basis, evidence,
         put: { kind: 'stage', value: { ...stage, execution, execution_claim, decision } },

@@ -14,10 +14,18 @@ to several stages. Artifact retention belongs to E.7b.
 ## Runtime execution
 
 `refreshStageExecution(transaction, { run, at, observations })` reconciles active
-stages with a complete current snapshot of the run's `Action` and `Agent` objects.
+stages with a complete current snapshot of the run's actions and agents.
 It reads stage links and attention from the model, checks current object ownership,
 and records changes as a rule version. An unchanged projection returns `null` and
 does not advance the model version. Replaced stages retain their historical state.
+
+Actions use their `input_fact` as execution evidence. Each agent is supplied as a
+`StageAgentObservation`: an `Agent` plus required `execution_evidence` containing
+only the facts that determine its current execution. The observation projection
+replaces these grounds when execution changes; it must not append unrelated events
+or the agent's full history. Reconciliation uses these supplied grounds without
+reading the historical facts of the agent or session. Rule evidence is deduplicated
+and sorted, so changing the order of the snapshot does not create a model version.
 
 Pass the same snapshot as `observations` to `applyObserverResponse` to reconcile
 new assignments and state claims before its transaction commits. The returned
@@ -50,6 +58,9 @@ Execution follows ADR-0006:
   clears this derived value to `unknown`; the full projection of observed human
   answers and approvals belongs to M.5c. Existing decisions from other rules are
   preserved when there is no open request.
+- An action-level request without an explicit stage applies only while that action
+  belongs to the stage's run. Moving it preserves the historical assignment but
+  removes its execution wait and requested decision from the old stage.
 
 All writes use the caller's transaction and the existing journal/replay path. The
 caller must build the snapshot from current projections in that transaction; an

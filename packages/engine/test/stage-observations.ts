@@ -26,7 +26,7 @@ export const observationsFor = (facts: readonly Fact[]) => {
     started_at: start.at, ended_at: null, outcome: null, execution: { state: 'running' },
     input_fact: start.id, output_fact: null, inherited: false, change_seq: 1,
   })
-  return { action, agent, start }
+  return { action, agent: { ...agent, execution_evidence: [start.id] }, start }
 }
 
 export const recordObjectOwners = (home: Home, objects: readonly (Action | Agent | ArtifactVersion)[]): void => {

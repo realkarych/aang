@@ -15,6 +15,7 @@ export {
 export type { ValidationLimits } from './model/observer-context.js'
 export {
   refreshStageExecution,
+  type StageAgentObservation,
   type StageExecutionUpdate,
   type StageObservations,
 } from './model/stage-execution.js'
