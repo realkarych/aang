@@ -25,12 +25,25 @@ export const hang = (): void => {
   setInterval(() => undefined, 60_000)
 }
 
-export const readText = (path: string): string | undefined => {
+export type TextRead =
+  | { readonly ok: true; readonly text: string }
+  | { readonly ok: false; readonly missing: boolean; readonly message: string }
+
+export const tryReadText = (path: string): TextRead => {
   try {
-    return readFileSync(path, 'utf8')
-  } catch {
-    return undefined
+    return { ok: true, text: readFileSync(path, 'utf8') }
+  } catch (error) {
+    return {
+      ok: false,
+      missing: error instanceof Error && 'code' in error && error.code === 'ENOENT',
+      message: error instanceof Error ? error.message : String(error),
+    }
   }
+}
+
+export const readText = (path: string): string | undefined => {
+  const read = tryReadText(path)
+  return read.ok ? read.text : undefined
 }
 
 export const parseJson = (text: string | undefined): JsonValue | undefined => {

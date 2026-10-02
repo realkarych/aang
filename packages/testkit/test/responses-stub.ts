@@ -21,11 +21,15 @@ export const stubUsage = {
   total_tokens: 120,
 }
 
-const streamOf = (round: number, items: readonly unknown[]): string =>
+export interface StubOptions {
+  readonly completes?: boolean
+}
+
+const streamOf = (round: number, items: readonly unknown[], completes: boolean): string =>
   [
     { type: 'response.created', response: { id: `resp_${String(round)}` } },
     ...items.map((item, index) => ({ type: 'response.output_item.done', output_index: index, item })),
-    { type: 'response.completed', response: { id: `resp_${String(round)}`, usage: stubUsage } },
+    ...(completes ? [{ type: 'response.completed', response: { id: `resp_${String(round)}`, usage: stubUsage } }] : []),
   ]
     .map((event) => `event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`)
     .join('')
@@ -33,6 +37,7 @@ const streamOf = (round: number, items: readonly unknown[]): string =>
 export const startResponsesStub = async (
   register: (cleanup: () => Promise<void>) => void,
   rounds: readonly (readonly unknown[])[],
+  { completes = true }: StubOptions = {},
 ): Promise<ResponsesStub> => {
   const requests: StubRequest[] = []
   const server = createServer((request, response) => {
@@ -49,7 +54,7 @@ export const startResponsesStub = async (
         body: JSON.parse(body) as Record<string, unknown>,
       })
       response.writeHead(200, { 'content-type': 'text/event-stream' })
-      response.end(streamOf(round, rounds[Math.min(round, rounds.length - 1)] ?? []))
+      response.end(streamOf(round, rounds[Math.min(round, rounds.length - 1)] ?? [], completes))
     })
   })
   server.listen(0, '127.0.0.1')

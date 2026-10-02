@@ -1,9 +1,15 @@
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
 import { toolFreeTraits } from './codex-catalog.js'
-import { isJsonObject, parseJson, readText } from './io.js'
+import { isJsonObject, parseJson, readText, type TextRead } from './io.js'
 import { allValues, flag, lastValue, valued, type OptionSpec, type ParsedOptions } from './options.js'
-import { environmentRequirement, violations, type ProfileCall, type Requirement } from './profile.js'
+import {
+  environmentRequirement,
+  replacesSystemPrompt,
+  violations,
+  type ProfileCall,
+  type Requirement,
+} from './profile.js'
 import { configValue } from './toml.js'
 
 export const codexExecOptions: readonly OptionSpec[] = [
@@ -31,6 +37,7 @@ export interface CodexProfileCall extends ProfileCall {
   readonly options: ParsedOptions
   readonly config: JsonValue
   readonly catalog: readonly JsonObject[] | undefined
+  readonly instructions: TextRead | undefined
 }
 
 export const disabledFeatures = [
@@ -124,6 +131,7 @@ const requirements: readonly Requirement<CodexProfileCall>[] = [
       return entry === undefined || isToolFree(entry)
     },
   },
+  { id: '-c model_instructions_file', met: ({ instructions }) => replacesSystemPrompt(instructions) },
   {
     id: '-c tools.experimental_request_user_input={enabled=false}',
     met: ({ config }) => configValue(config, 'tools.experimental_request_user_input.enabled') === false,

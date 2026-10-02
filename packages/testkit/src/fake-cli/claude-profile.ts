@@ -1,7 +1,13 @@
 import type { JsonValue } from '@aang/contract'
-import { isJsonObject, parseJson, readText } from './io.js'
+import { isJsonObject, parseJson, readText, type TextRead } from './io.js'
 import { allValues, flag, lastValue, valued, type OptionSpec, type ParsedOptions } from './options.js'
-import { environmentRequirement, violations, type ProfileCall, type Requirement } from './profile.js'
+import {
+  environmentRequirement,
+  replacesSystemPrompt,
+  violations,
+  type ProfileCall,
+  type Requirement,
+} from './profile.js'
 
 export const claudeOptions: readonly OptionSpec[] = [
   flag('print', '-p'),
@@ -30,6 +36,7 @@ export const claudeOptions: readonly OptionSpec[] = [
 
 export interface ClaudeProfileCall extends ProfileCall {
   readonly options: ParsedOptions
+  readonly systemPrompt: TextRead | undefined
 }
 
 const jsonArgument = (value: string | undefined): JsonValue | undefined =>
@@ -79,6 +86,7 @@ const requirements: readonly Requirement<ClaudeProfileCall>[] = [
   { id: '--tools ""', met: equals('tools', '') },
   { id: '--disallowedTools mcp__*', met: ({ options }) => disallowsMcpTools(options) },
   { id: '--disable-slash-commands', met: present('disable-slash-commands') },
+  { id: '--system-prompt or --system-prompt-file', met: ({ systemPrompt }) => replacesSystemPrompt(systemPrompt) },
   { id: '--no-session-persistence', met: present('no-session-persistence') },
   { id: '--permission-mode dontAsk', met: equals('permission-mode', 'dontAsk') },
   { id: '--settings {"crossSessionInbound":"hold"}', met: ({ options }) => holdsCrossSessionInbound(options) },

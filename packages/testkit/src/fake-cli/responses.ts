@@ -18,6 +18,8 @@ export interface ResponsesOutcome {
 
 const maxRounds = 16
 
+const streamClosedEarly = 'stream disconnected before completion: stream closed before response.completed'
+
 const tokens = z.int().nonnegative()
 
 const StreamUsage = z.looseObject({
@@ -148,6 +150,9 @@ export const converse = async (request: ResponsesRequest): Promise<ResponsesOutc
     const failure = failureOf(events)
     if (failure !== undefined) {
       return outcome(null, failure)
+    }
+    if (!events.some((event) => event.type === 'response.completed')) {
+      return outcome(null, streamClosedEarly)
     }
     const items = events.flatMap((event) =>
       event.type === 'response.output_item.done' && event.item !== undefined ? [event.item] : [],

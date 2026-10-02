@@ -5,7 +5,7 @@ import type { JsonValue } from '@aang/contract'
 import type { z } from 'zod'
 import { bundledCatalog } from './codex-catalog.js'
 import { catalogEntry, codexExecOptions, codexViolations, readCatalog } from './codex-profile.js'
-import { emit, finish, hang, parseJson, readStdin, readText, say } from './io.js'
+import { emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
 import { allValues, lastValue, parseOptions, type ParsedOptions } from './options.js'
 import { invocation, runEntry } from './invocation.js'
 import { isolationMessage } from './profile.js'
@@ -126,7 +126,7 @@ interface MockCall {
   readonly options: ParsedOptions
   readonly scenario: Scenario
   readonly entry: JsonObject | undefined
-  readonly instructions: string | null
+  readonly instructions: string
   readonly schema: JsonValue | null
   readonly prompt: string
   readonly turn: Turn
@@ -178,10 +178,7 @@ const mockRequest = (call: MockCall, config: JsonValue): ResponsesRequest => {
     },
     input: [
       ...(lite ? [{ type: 'additional_tools', id: `at_${randomUUID()}`, role: 'developer', tools }] : []),
-      message(
-        'developer',
-        call.instructions ?? (typeof call.entry?.base_instructions === 'string' ? call.entry.base_instructions : ''),
-      ),
+      message('developer', call.instructions),
       message('user', call.prompt),
     ],
   }
@@ -212,16 +209,26 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
   const prompt = positional === undefined || positional === '-' ? await readStdin() : positional
   const config = configOverrides(allValues(options, 'config'))
   const catalog = readCatalog(config, process.cwd())
-  const violations = codexViolations({ options, config, catalog, env: process.env })
+  const instructionsSetting = configValue(config, 'model_instructions_file')
+  const instructionsFile = typeof instructionsSetting === 'string' ? instructionsSetting : undefined
+  const instructions = instructionsFile === undefined ? undefined : tryReadText(instructionsFile)
+  const violations = codexViolations({ options, config, catalog, instructions, env: process.env })
   const { url, provider } = providerUrl(config)
   const mock = provider !== undefined
-  const reachesModel = violations.length === 0 && (mock || scenario.loggedIn)
+  const reachesModel = instructions?.ok !== false && violations.length === 0 && (mock || scenario.loggedIn)
   const { index, reply } = reachesModel && !mock ? nextReply(scenario.replies) : { index: null, reply: undefined }
-  const instructionsFile = configValue(config, 'model_instructions_file')
-  const instructions = typeof instructionsFile === 'string' ? (readText(instructionsFile) ?? null) : null
+  const systemPrompt = instructions?.ok === true ? instructions.text : null
   const schemaFile = lastValue(options, 'output-schema')
   const schema = parseJson(schemaFile === undefined ? undefined : readText(schemaFile)) ?? null
-  record('exec', { prompt, systemPrompt: instructions, schema, reply: index, violations })
+  record('exec', { prompt, systemPrompt, schema, reply: index, violations })
+  if (instructions?.ok === false) {
+    say(
+      process.stderr,
+      `Error: failed to read model instructions file ${instructionsFile ?? ''}: ${instructions.message}`,
+    )
+    finish(1)
+    return
+  }
   if (violations.length > 0) {
     say(process.stderr, isolationMessage('codex', violations))
     finish(fakeCliExitCodes.isolation)
@@ -239,7 +246,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
       return
     }
     const entry = catalogEntry({ options, catalog })
-    await runMock({ url, options, scenario, entry, instructions, schema, prompt, turn }, config)
+    await runMock({ url, options, scenario, entry, instructions: systemPrompt ?? '', schema, prompt, turn }, config)
     return
   }
   if (!scenario.loggedIn) {

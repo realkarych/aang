@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { z } from 'zod'
 import { FakeCall } from './scenario.js'
@@ -38,6 +38,7 @@ const writeAtomically = (path: string, content: string): void => {
 
 export const writeScenario = (state: string, scenario: unknown): void => {
   mkdirSync(state, { recursive: true })
+  rmSync(repliesDirectory(state), { recursive: true, force: true, maxRetries: 5 })
   writeAtomically(scenarioFile(state), JSON.stringify(scenario, null, 2))
 }
 

@@ -1,3 +1,5 @@
+import type { TextRead } from './io.js'
+
 export interface ProfileCall {
   readonly env: NodeJS.ProcessEnv
 }
@@ -11,6 +13,9 @@ export const environmentRequirement = <C extends ProfileCall>(name: string, valu
   id: `${name}=${value}`,
   met: ({ env }) => env[name] === value,
 })
+
+export const replacesSystemPrompt = (prompt: TextRead | undefined): boolean =>
+  prompt !== undefined && (!prompt.ok || prompt.text.trim() !== '')
 
 export const violations = <C extends ProfileCall>(requirements: readonly Requirement<C>[], call: C): string[] =>
   requirements.filter((requirement) => !requirement.met(call)).map((requirement) => requirement.id)

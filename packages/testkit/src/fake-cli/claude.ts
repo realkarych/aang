@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { resolve } from 'node:path'
 import type { z } from 'zod'
 import {
   answerEvents,
@@ -10,7 +11,7 @@ import {
   type ClaudeSession,
 } from './claude-events.js'
 import { claudeOptions, claudeViolations } from './claude-profile.js'
-import { emit, finish, hang, parseJson, readStdin, readText, say } from './io.js'
+import { emit, finish, hang, parseJson, readStdin, say, tryReadText, type TextRead } from './io.js'
 import { lastValue, parseOptions, type ParsedOptions } from './options.js'
 import { invocation, runEntry } from './invocation.js'
 import { isolationMessage, scenarioMessage } from './profile.js'
@@ -36,9 +37,20 @@ const version = (scenario: Scenario): void => {
   finish(0)
 }
 
-const systemPrompt = (options: ParsedOptions): string | null => {
+const systemPrompt = (options: ParsedOptions): TextRead | undefined => {
   const file = lastValue(options, 'system-prompt-file')
-  return lastValue(options, 'system-prompt') ?? (file === undefined ? undefined : readText(file)) ?? null
+  const fromFile = file === undefined ? undefined : tryReadText(file)
+  const inline = lastValue(options, 'system-prompt')
+  return fromFile?.ok === false || inline === undefined ? fromFile : { ok: true, text: inline }
+}
+
+const unreadableSystemPrompt = (options: ParsedOptions, prompt: TextRead | undefined): string | null => {
+  if (prompt === undefined || prompt.ok) {
+    return null
+  }
+  return prompt.missing
+    ? `Error: System prompt file not found: ${resolve(lastValue(options, 'system-prompt-file') ?? '')}`
+    : `Error reading system prompt file: ${prompt.message}`
 }
 
 const limitMessage = (resetsAt: number | undefined): string =>
@@ -79,17 +91,24 @@ const respond = (session: ClaudeSession, reply: Reply, prompt: string): void => 
 
 const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {
   const prompt = options.positionals[0] ?? (await readStdin())
-  const violations = claudeViolations({ options, env: process.env })
+  const instructions = systemPrompt(options)
+  const unreadable = unreadableSystemPrompt(options, instructions)
+  const violations = claudeViolations({ options, systemPrompt: instructions, env: process.env })
   const streamWithoutVerbose = lastValue(options, 'output-format') === 'stream-json' && !options.flags.has('verbose')
-  const reachesModel = violations.length === 0 && !streamWithoutVerbose && scenario.loggedIn
+  const reachesModel = unreadable === null && violations.length === 0 && !streamWithoutVerbose && scenario.loggedIn
   const { index, reply } = reachesModel ? nextReply(scenario.replies) : { index: null, reply: undefined }
   record('print', {
     prompt,
-    systemPrompt: systemPrompt(options),
+    systemPrompt: instructions?.ok === true ? instructions.text : null,
     schema: parseJson(lastValue(options, 'json-schema')) ?? null,
     reply: index,
     violations,
   })
+  if (unreadable !== null) {
+    say(process.stderr, unreadable)
+    finish(1)
+    return
+  }
   if (streamWithoutVerbose) {
     say(process.stderr, 'Error: When using --print, --output-format=stream-json requires --verbose')
     finish(1)

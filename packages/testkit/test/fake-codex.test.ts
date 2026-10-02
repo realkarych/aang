@@ -85,6 +85,7 @@ const isolationProfile = (files: ObserverFiles): ProfilePart[] => [
   { id: '-s read-only', args: ['-s', 'read-only'] },
   { id: '--thread-source aang-observer', args: ['--thread-source', 'aang-observer'] },
   { id: '-c model_catalog_json', args: ['-c', `model_catalog_json=${tomlPath(files.catalog)}`] },
+  { id: '-c model_instructions_file', args: ['-c', `model_instructions_file=${tomlPath(files.instructions)}`] },
   {
     id: '-c tools.experimental_request_user_input={enabled=false}',
     args: ['-c', 'tools.experimental_request_user_input={enabled=false}'],
@@ -154,8 +155,6 @@ const setUp = async (
     'exec',
     '-C',
     workspace.cwd,
-    '-c',
-    `model_instructions_file=${tomlPath(files.instructions)}`,
     ...parts.flatMap((part) => part.args ?? []),
     ...extra,
     '-',
@@ -278,6 +277,8 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
 
   test('a weakened profile is a violation too', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
+    const emptyInstructions = join(observer.workspace.root, 'observer', 'empty-system.md')
+    writeFileSync(emptyInstructions, '')
     const weakened: readonly (ProfilePart & { readonly replaces?: string })[] = [
       { id: '-s read-only', args: ['-s', 'workspace-write'] },
       { id: '--thread-source aang-observer', args: ['--thread-source', 'user'] },
@@ -291,6 +292,10 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
       {
         id: '-c model_catalog_json',
         args: ['-c', `model_catalog_json="${observer.files.catalog.replaceAll('/', '\\')}"`],
+      },
+      {
+        id: '-c model_instructions_file',
+        args: ['-c', `model_instructions_file=${tomlPath(emptyInstructions)}`],
       },
       {
         id: 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer',
@@ -307,6 +312,35 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
         .soft([part.id, exit.code, observer.fake.calls().at(-1)?.violations])
         .toEqual([part.id, fakeCliExitCodes.isolation, [part.id]])
     }
+  })
+
+  test('an unreadable instructions file fails like the real CLI without taking a reply', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [answer('После исправления')] })
+    const missingFile = join(observer.workspace.root, 'observer', 'missing-system.md')
+
+    const missing = await observer.call(
+      observer.profile.map((part) =>
+        part.id === '-c model_instructions_file'
+          ? { ...part, args: ['-c', `model_instructions_file=${tomlPath(missingFile)}`] }
+          : part,
+      ),
+    )
+    const lastMessageAfterFailure = existsSync(observer.files.lastMessage)
+    const fixed = await observer.call()
+
+    expect([missing.code, missing.stdout]).toEqual([1, ''])
+    expect(missing.stderr).toMatch(/^Error: failed to read model instructions file .*missing-system\.md: /)
+    expect(lastMessageAfterFailure).toBe(false)
+    expect(fixed.code).toBe(0)
+    expect(
+      observer.fake
+        .calls()
+        .filter((call) => call.command === 'exec')
+        .map((call) => [call.systemPrompt, call.reply, call.violations]),
+    ).toEqual([
+      [null, null, []],
+      [systemPrompt, 0, []],
+    ])
   })
 
   test('replies follow the call order and the last one repeats', async ({ onTestFinished }) => {
@@ -527,6 +561,30 @@ describe('fake codex sends a real Responses API request to the self-check stub (
       }),
     ).toEqual(steps.slice(1).map((row) => row.codex_output_for_previous_call))
     expect(agentText(exit.events)).toBe(finalText)
+  })
+
+  test('the turn completes only after response.completed, as in the real CLI', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, {})
+    const finalText = JSON.stringify({ base_version: modelVersion, ops: [], needs: [] })
+    const closedEarly = await startResponsesStub(onTestFinished, [[assistantMessage(finalText)]], {
+      completes: false,
+    })
+    const completed = await startResponsesStub(onTestFinished, [[assistantMessage(finalText)]])
+
+    const failed = await runAgainst(observer, closedEarly.baseUrl)
+    const lastMessageAfterFailure = existsSync(observer.files.lastMessage)
+    const succeeded = await runAgainst(observer, completed.baseUrl)
+
+    expect(failed.code).toBe(1)
+    expect(failed.events.map((event) => event.type)).toEqual(['thread.started', 'turn.started', 'error', 'turn.failed'])
+    expect(ofType(failed.events, 'turn.failed')).toEqual({
+      type: 'turn.failed',
+      error: { message: 'stream disconnected before completion: stream closed before response.completed' },
+    })
+    expect(lastMessageAfterFailure).toBe(false)
+    expect(succeeded.code).toBe(0)
+    expect(succeeded.events.map((event) => event.type)).toContain('turn.completed')
+    expect(readFileSync(observer.files.lastMessage, 'utf8')).toBe(finalText)
   })
 
   test('a CLI version that leaks tools shows them in the request to the stub', async ({ onTestFinished }) => {

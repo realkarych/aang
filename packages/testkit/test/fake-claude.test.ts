@@ -28,7 +28,9 @@ const markersOf = (parts: readonly ProfilePart[]): Record<string, string> =>
 const model = 'claude-opus-5-5'
 const schema = JSON.stringify(observerOutputJsonSchema())
 
-const isolationProfile: readonly ProfilePart[] = [
+const systemPromptPart = '--system-prompt or --system-prompt-file'
+
+const isolationProfile = (systemPromptFile: string): ProfilePart[] => [
   { id: '--output-format stream-json', args: ['--output-format', 'stream-json'] },
   { id: '--json-schema', args: ['--json-schema', schema] },
   { id: '--model', args: ['--model', model] },
@@ -38,6 +40,7 @@ const isolationProfile: readonly ProfilePart[] = [
   { id: '--tools ""', args: ['--tools', ''] },
   { id: '--disallowedTools mcp__*', args: ['--disallowedTools', 'mcp__*'] },
   { id: '--disable-slash-commands', args: ['--disable-slash-commands'] },
+  { id: systemPromptPart, args: ['--system-prompt-file', systemPromptFile] },
   { id: '--no-session-persistence', args: ['--no-session-persistence'] },
   { id: '--permission-mode dontAsk', args: ['--permission-mode', 'dontAsk'] },
   { id: '--settings {"crossSessionInbound":"hold"}', args: ['--settings', '{"crossSessionInbound":"hold"}'] },
@@ -55,7 +58,7 @@ interface Observer {
   readonly workspace: Workspace
   readonly fake: FakeCli<ClaudeScenario>
   readonly sessionId: string
-  readonly systemPromptFile: string
+  readonly profile: ProfilePart[]
   readonly args: (parts?: readonly ProfilePart[]) => string[]
   readonly env: (parts?: readonly ProfilePart[]) => Record<string, string>
   readonly call: (parts?: readonly ProfilePart[], prompt?: string) => ReturnType<typeof runFake>
@@ -70,24 +73,24 @@ const setUp = async (
   const sessionId = randomUUID()
   const systemPromptFile = join(workspace.root, 'observer-system.md')
   writeFileSync(systemPromptFile, systemPrompt)
-  const args = (parts = isolationProfile): string[] => [
+  const profile = isolationProfile(systemPromptFile)
+  const args = (parts: readonly ProfilePart[] = profile): string[] => [
     '-p',
     '--verbose',
-    '--system-prompt-file',
-    systemPromptFile,
     '--session-id',
     sessionId,
     ...parts.flatMap((part) => part.args ?? []),
   ]
-  const env = (parts = isolationProfile): Record<string, string> => cleanEnvironment(workspace.home, markersOf(parts))
+  const env = (parts: readonly ProfilePart[] = profile): Record<string, string> =>
+    cleanEnvironment(workspace.home, markersOf(parts))
   return {
     workspace,
     fake,
     sessionId,
-    systemPromptFile,
+    profile,
     args,
     env,
-    call: (parts = isolationProfile, prompt = observerPrompt()) =>
+    call: (parts = profile, prompt = observerPrompt()) =>
       runFake(fake, args(parts), { env: env(parts), cwd: workspace.cwd, stdin: prompt }),
   }
 }
@@ -181,7 +184,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     const observer = await setUp(onTestFinished, { replies: [answer('Готово')] })
     const prompt = observerPrompt()
 
-    await observer.call(isolationProfile, prompt)
+    await observer.call(observer.profile, prompt)
 
     expect(observer.fake.calls()).toEqual([
       {
@@ -201,17 +204,17 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     ])
   })
 
-  test.for(isolationProfile)(
-    'without $id the call fails before reaching the model',
-    async (part, { onTestFinished }) => {
+  test.for(isolationProfile('observer-system.md').map((part) => part.id))(
+    'without %s the call fails before reaching the model',
+    async (id, { onTestFinished }) => {
       const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
 
-      const exit = await observer.call(isolationProfile.filter((candidate) => candidate !== part))
+      const exit = await observer.call(observer.profile.filter((part) => part.id !== id))
 
       expect(exit.code).toBe(fakeCliExitCodes.isolation)
       expect(exit.stdout).toBe('')
-      expect(exit.stderr).toContain(part.id)
-      expect(observer.fake.calls().map((call) => [call.violations, call.reply])).toEqual([[[part.id], null]])
+      expect(exit.stderr).toContain(id)
+      expect(observer.fake.calls().map((call) => [call.violations, call.reply])).toEqual([[[id], null]])
     },
   )
 
@@ -221,14 +224,57 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     { id: '--tools ""', args: ['--tools', 'Bash'] },
     { id: '--permission-mode dontAsk', args: ['--permission-mode', 'default'] },
     { id: '--settings {"crossSessionInbound":"hold"}', args: ['--settings', '{"crossSessionInbound":"accept"}'] },
+    { id: systemPromptPart, args: ['--system-prompt', ''] },
     { id: 'CLAUDE_CODE_ENTRYPOINT=aang-observer', env: { CLAUDE_CODE_ENTRYPOINT: 'cli' } },
   ])('a weakened $id is a violation too', async (weakened, { onTestFinished }) => {
     const observer = await setUp(onTestFinished, { replies: [answer('Не должно появиться')] })
 
-    const exit = await observer.call(isolationProfile.map((part) => (part.id === weakened.id ? { ...weakened } : part)))
+    const exit = await observer.call(observer.profile.map((part) => (part.id === weakened.id ? { ...weakened } : part)))
 
     expect(exit.code).toBe(fakeCliExitCodes.isolation)
     expect(observer.fake.calls().map((call) => call.violations)).toEqual([[weakened.id]])
+  })
+
+  test('an inline --system-prompt replaces the default prompt like the file does', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [answer('Готово')] })
+
+    const exit = await observer.call(
+      observer.profile.map((part) =>
+        part.id === systemPromptPart ? { ...part, args: ['--system-prompt', systemPrompt] } : part,
+      ),
+    )
+
+    expect([exit.code, briefOf(exit.events)]).toEqual([0, 'Готово'])
+    expect(observer.fake.calls().map((call) => [call.systemPrompt, call.violations])).toEqual([[systemPrompt, []]])
+  })
+
+  test('an unreadable system prompt file fails like the real CLI without taking a reply', async ({
+    onTestFinished,
+  }) => {
+    const observer = await setUp(onTestFinished, { replies: [answer('После исправления')] })
+    const withPromptFile = (path: string) =>
+      observer.profile.map((part) =>
+        part.id === systemPromptPart ? { ...part, args: ['--system-prompt-file', path] } : part,
+      )
+    const missingFile = join(observer.workspace.root, 'missing-system.md')
+
+    const missing = await observer.call(withPromptFile(missingFile))
+    const directory = await observer.call(withPromptFile(observer.workspace.home))
+    const fixed = await observer.call()
+
+    expect([missing.code, missing.stdout, missing.stderr.trim()]).toEqual([
+      1,
+      '',
+      `Error: System prompt file not found: ${missingFile}`,
+    ])
+    expect([directory.code, directory.stdout]).toEqual([1, ''])
+    expect(directory.stderr).toMatch(/^Error reading system prompt file: /)
+    expect([fixed.code, briefOf(fixed.events)]).toEqual([0, 'После исправления'])
+    expect(observer.fake.calls().map((call) => [call.systemPrompt, call.reply])).toEqual([
+      [null, null],
+      [null, null],
+      [systemPrompt, 0],
+    ])
   })
 
   test('a CLI version that leaks tools lists them in init', async ({ onTestFinished }) => {
@@ -261,6 +307,24 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
     ])
     expect(exits.slice(1).map((exit) => briefOf(exit.events))).toEqual(['Первый', 'Второй', 'Второй'])
     expect(observer.fake.calls().map((call) => call.reply)).toEqual([0, 1, 2, 3])
+  })
+
+  test('a new scenario starts from its first reply and keeps the call journal', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [answer('Первый')] })
+
+    const before = await observer.call()
+    observer.fake.setScenario({ replies: [{ kind: 'auth' }, answer('Второй')] })
+    const refused = await observer.call()
+    const answered = await observer.call()
+
+    expect([before.code, briefOf(before.events)]).toEqual([0, 'Первый'])
+    expect([refused.code, resultOf(refused.events)?.result]).toEqual([1, 'Not logged in · Please run /login'])
+    expect([answered.code, briefOf(answered.events)]).toEqual([0, 'Второй'])
+    expect(observer.fake.calls().map((call) => [call.sequence, call.reply])).toEqual([
+      [1, 0],
+      [2, 0],
+      [3, 1],
+    ])
   })
 
   test('parallel calls take distinct replies', async ({ onTestFinished }) => {
