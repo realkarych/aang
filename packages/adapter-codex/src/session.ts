@@ -16,7 +16,7 @@ import { instantFromIso } from './line.js'
 import { isRoot, type ThreadStream } from './stream.js'
 import { surfaceOf } from './surface.js'
 
-const observerThreadSource = 'aang-observer'
+export const observerThreadSource = 'aang-observer'
 export const observerOriginator = 'aang_observer'
 const guardianThreadSource = 'guardian_review'
 const interruptedReason = 'interrupted'
