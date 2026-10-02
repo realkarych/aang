@@ -1,5 +1,6 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { claudeAdapter } from '@aang/adapter-claude'
+import { contentHash } from '@aang/contract/ids'
 import {
   CollectedRecord,
   type JsonValue,
@@ -85,6 +86,25 @@ export const lineRecord = ({
     payload,
   })
 
+export interface FileSnapshot {
+  readonly path: string
+  readonly content?: string | undefined
+}
+
+export const snapshotRecord = ({ path, content }: FileSnapshot): CollectedRecord =>
+  CollectedRecord.parse({
+    channel: 'transcript',
+    runtime: 'claude',
+    stream: null,
+    position:
+      content === undefined
+        ? { kind: 'file_removed', path, last_content_hash: null }
+        : { kind: 'file', path, content_hash: contentHash(content) },
+    hook: null,
+    observed_at: observedAt,
+    payload: content ?? '',
+  })
+
 const streamWindow = 10
 
 export const transcriptRecords = async (path: string): Promise<CollectedRecord[]> => {
@@ -97,6 +117,50 @@ export const transcriptRecords = async (path: string): Promise<CollectedRecord[]
     lineRecord({ payload, line: index + 1, offset: offsets[index] ?? 0, path: `/samples/${path}`, stream }),
   )
 }
+
+export interface HookSample {
+  readonly name: string
+  readonly payload: string
+  readonly env: SpoolEnv
+}
+
+export const cliEnv = async (): Promise<SpoolEnv> =>
+  spoolEnv(field(await readJsonSample('claude-code-hooks/envelope.command.SessionStart.plugin.json'), 'env'))
+
+export const hookSamples = async (): Promise<HookSample[]> => {
+  const env = await cliEnv()
+  const cli = await Promise.all(
+    (await sampleFiles('claude-code-hooks/', /^[A-Z].*\.json$/)).map(
+      async (name): Promise<HookSample> => ({ name, payload: await readSample(name), env }),
+    ),
+  )
+  const sdk = await Promise.all(
+    (await sampleFiles('claude-agent-sdk/', /^hook-(?:command|callback)-.*\.json$/)).map(
+      async (name): Promise<HookSample> => {
+        const sample = await readJsonSample(name)
+        const payload = sample.stdin ?? sample.input
+        return { name, payload: JSON.stringify(payload), env: spoolEnv(sample.env_seen_by_hook_process) }
+      },
+    ),
+  )
+  const desktop = (await sampleLines('desktop/exp-cc-desktop-engine-hooks.jsonl')).map((line, index): HookSample => {
+    const sample = JSON.parse(line) as JsonObject
+    return {
+      name: `desktop/exp-cc-desktop-engine-hooks.jsonl:${String(index + 1)}`,
+      payload: JSON.stringify(sample.payload),
+      env: spoolEnv({ CLAUDE_CODE_ENTRYPOINT: sample.env_entrypoint ?? null }),
+    }
+  })
+  return [...cli, ...sdk, ...desktop]
+}
+
+export const hookEvent = (sample: HookSample): JsonValue | undefined =>
+  field(JSON.parse(sample.payload) as JsonValue, 'hook_event_name')
+
+const spoolFileOf = (name: string): string => name.replaceAll(/[/:]/g, '_')
+
+export const parseHookSample = (sample: HookSample): ParseResult =>
+  claudeAdapter.parse(hookRecord({ payload: sample.payload, file: spoolFileOf(sample.name), env: sample.env }))
 
 export const factsOf = (result: ParseResult) => {
   if (result.parse_state !== 'parsed') {

@@ -1,23 +1,16 @@
-import type { CollectedRecord, FactDraft, JsonValue, ParseResult, RuntimeEnv, SpoolEnv } from '@aang/contract'
+import type { CollectedRecord, JsonValue, ParseResult, RuntimeEnv, SpoolEnv } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import { z } from 'zod'
-import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
+import { spawnedAgents } from './agents.js'
+import { fact, type FactOrigin, invalid, noRuntimeIds, schemaViolation, unknown } from './facts.js'
+import { name, optionalText } from './fields.js'
+import { facts, HookCommon, type HookParser, hookParser } from './hook-parser.js'
 import { isJsonObject, type JsonObject, parseJson } from './json.js'
 import { actionKey, ownerKey, questionKey } from './keys.js'
+import { sessionHookParsers } from './session-hooks.js'
 import { actionKind, exitCode, inputDescription, outputText, persistedOutputPath } from './tools.js'
 
-const name = z.string().min(1)
-const optionalText = z.string().nullish()
 const durationMs = z.int().nonnegative().nullish()
-
-const HookCommon = z.object({
-  hook_event_name: name,
-  session_id: name,
-  cwd: optionalText,
-  prompt_id: optionalText,
-  agent_id: name.nullish(),
-})
-type HookCommon = z.infer<typeof HookCommon>
 
 const PreToolUse = HookCommon.extend({ tool_name: name, tool_input: z.json(), tool_use_id: name })
 
@@ -46,14 +39,6 @@ const PermissionDenied = HookCommon.extend({ tool_name: name, tool_use_id: name,
 
 const Notification = HookCommon.extend({ notification_type: name, message: optionalText, title: optionalText })
 
-interface HookContext {
-  readonly event: string
-  readonly origin: FactOrigin
-  readonly spoolFile: string | null
-}
-
-type HookParser = (payload: JsonObject, context: HookContext) => ParseResult
-
 const engineVersionPattern = /^claude-code_(\d+)-(\d+)-(\d+)(?:_|$)/
 
 const engineVersion = (agent: string | undefined): string | null => {
@@ -69,7 +54,7 @@ const hookEnv = (common: HookCommon, env: SpoolEnv): RuntimeEnv => ({
   git_branch: null,
 })
 
-const hookOrigin = (record: CollectedRecord, payload: JsonObject, common: HookCommon): FactOrigin => ({
+const hookOrigin = (record: CollectedRecord, payload: JsonObject, common: HookCommon, env: SpoolEnv): FactOrigin => ({
   at: record.observed_at,
   ids: {
     ...noRuntimeIds,
@@ -77,18 +62,9 @@ const hookOrigin = (record: CollectedRecord, payload: JsonObject, common: HookCo
     agent_id: common.agent_id ?? null,
     prompt_id: common.prompt_id ?? null,
   },
-  env: hookEnv(common, record.hook?.env ?? {}),
+  env: hookEnv(common, env),
   redeliveryKey: contentHash(canonicalJson(payload)),
 })
-
-const hookParser =
-  <T extends HookCommon>(schema: z.ZodType<T>, build: (event: T, context: HookContext) => ParseResult): HookParser =>
-  (payload, context) => {
-    const event = schema.safeParse(payload)
-    return event.success ? build(event.data, context) : schemaViolation(`${context.event} hook`, event.error)
-  }
-
-const facts = (...drafts: FactDraft[]): ParseResult => parsed(null, drafts)
 
 const questionNotificationTypes: ReadonlySet<string> = new Set([
   'elicitation_dialog',
@@ -101,7 +77,7 @@ const verifiedNotificationTypes: ReadonlySet<string> = new Set(['permission_prom
 const responseText = (response: JsonValue | undefined): string | null =>
   response === undefined ? null : outputText(response)
 
-const hookParsers: ReadonlyMap<string, HookParser> = new Map([
+const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
   [
     'PreToolUse',
     hookParser(PreToolUse, (event, { origin }) =>
@@ -148,6 +124,7 @@ const hookParsers: ReadonlyMap<string, HookParser> = new Map([
           },
           { ids: { call_id: event.tool_use_id } },
         ),
+        ...spawnedAgents(origin, event.session_id, event.tool_use_id, event.tool_response),
       ),
     ),
   ],
@@ -272,6 +249,8 @@ const hookParsers: ReadonlyMap<string, HookParser> = new Map([
   ],
 ])
 
+const hookParsers: ReadonlyMap<string, HookParser> = new Map([...toolHookParsers, ...sessionHookParsers])
+
 export const parseHook = (record: CollectedRecord): ParseResult => {
   const payload = parseJson(record.payload)
   if (!isJsonObject(payload)) {
@@ -287,10 +266,12 @@ export const parseHook = (record: CollectedRecord): ParseResult => {
   if (parser === undefined) {
     return unknown(null)
   }
-  const spoolFile = record.position.kind === 'spool' ? record.position.file : null
+  const env = record.hook?.env ?? {}
   return parser(payload, {
     event: common.data.hook_event_name,
-    origin: hookOrigin(record, payload, common.data),
-    spoolFile,
+    payload,
+    origin: hookOrigin(record, payload, common.data, env),
+    env,
+    spoolFile: record.position.kind === 'spool' ? record.position.file : null,
   })
 }

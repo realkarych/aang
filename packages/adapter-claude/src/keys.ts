@@ -1,6 +1,7 @@
 import {
   type ActionKey,
   type AgentKey,
+  type AgentRef,
   type CollectedRecord,
   DedupeKey,
   type FactEntityKey,
@@ -19,12 +20,15 @@ const composite = (parts: readonly JsonValue[]): string => canonicalJson([runtim
 
 export const sessionKey = (session: string): SessionKey => ({ kind: 'session', runtime, session })
 
-export const agentKey = (session: string, agent: string | null): AgentKey => ({
-  kind: 'agent',
-  runtime,
-  session,
-  agent: agent === null ? { kind: 'main' } : { kind: 'subagent', agent_id: agent },
-})
+export const agentRef = (agent: string | null): AgentRef =>
+  agent === null ? { kind: 'main' } : { kind: 'subagent', agent_id: agent }
+
+const agentKeyOf = (session: string, agent: AgentRef): AgentKey => ({ kind: 'agent', runtime, session, agent })
+
+export const agentKey = (session: string, agent: string | null): AgentKey => agentKeyOf(session, agentRef(agent))
+
+export const teammateKey = (session: string, name: string, team: string): AgentKey =>
+  agentKeyOf(session, { kind: 'teammate', name, team })
 
 export const ownerKey = (session: string, agent: string | null): FactEntityKey =>
   agent === null ? sessionKey(session) : agentKey(session, agent)

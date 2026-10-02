@@ -107,6 +107,7 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
       prompt: 7,
       action_start: 3,
       action_end: 3,
+      agent_start: 1,
       message: 4,
       compaction: 2,
     })

@@ -2,23 +2,18 @@ import { claudeAdapter } from '@aang/adapter-claude'
 import { FactDraft, type FactKind, type JsonValue, type SpoolEnv } from '@aang/contract'
 import { describe, test } from 'vitest'
 import {
+  cliEnv,
   factsOf,
-  field,
   hookRecord,
+  hookEvent,
+  hookSamples,
   type JsonObject,
   observedAt,
+  parseHookSample,
   readJsonSample,
   readSample,
-  sampleFiles,
-  sampleLines,
   spoolEnv,
 } from './samples.js'
-
-interface HookSample {
-  readonly name: string
-  readonly payload: string
-  readonly env: SpoolEnv
-}
 
 const toolEvents: Readonly<Record<string, FactKind>> = {
   PreToolUse: 'action_start',
@@ -29,41 +24,6 @@ const toolEvents: Readonly<Record<string, FactKind>> = {
   PermissionDenied: 'permission_denied',
   Notification: 'notification',
 }
-
-const cliEnv = async (): Promise<SpoolEnv> =>
-  spoolEnv(field(await readJsonSample('claude-code-hooks/envelope.command.SessionStart.plugin.json'), 'env'))
-
-const hookSamples = async (): Promise<HookSample[]> => {
-  const env = await cliEnv()
-  const cli = await Promise.all(
-    (await sampleFiles('claude-code-hooks/', /^[A-Z].*\.json$/)).map(
-      async (name): Promise<HookSample> => ({ name, payload: await readSample(name), env }),
-    ),
-  )
-  const sdk = await Promise.all(
-    (await sampleFiles('claude-agent-sdk/', /^hook-(?:command|callback)-.*\.json$/)).map(
-      async (name): Promise<HookSample> => {
-        const sample = await readJsonSample(name)
-        const payload = sample.stdin ?? sample.input
-        return { name, payload: JSON.stringify(payload), env: spoolEnv(sample.env_seen_by_hook_process) }
-      },
-    ),
-  )
-  const desktop = (await sampleLines('desktop/exp-cc-desktop-engine-hooks.jsonl')).map((line, index): HookSample => {
-    const sample = JSON.parse(line) as JsonObject
-    return {
-      name: `desktop/exp-cc-desktop-engine-hooks.jsonl:${String(index + 1)}`,
-      payload: JSON.stringify(sample.payload),
-      env: spoolEnv({ CLAUDE_CODE_ENTRYPOINT: sample.env_entrypoint ?? null }),
-    }
-  })
-  return [...cli, ...sdk, ...desktop]
-}
-
-const spoolFileOf = (name: string): string => name.replaceAll(/[/:]/g, '_')
-
-const parseSample = (sample: HookSample) =>
-  claudeAdapter.parse(hookRecord({ payload: sample.payload, file: spoolFileOf(sample.name), env: sample.env }))
 
 const parseCliSample = async (name: string, env?: SpoolEnv) =>
   factsOf(
@@ -83,19 +43,21 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
     expect,
   }) => {
     const samples = (await hookSamples()).filter((sample) => {
-      const event = field(JSON.parse(sample.payload) as JsonValue, 'hook_event_name')
+      const event = hookEvent(sample)
       return typeof event === 'string' && event in toolEvents
     })
 
     expect(samples.length).toBeGreaterThanOrEqual(30)
     for (const sample of samples) {
       const payload = JSON.parse(sample.payload) as JsonObject
-      const facts = factsOf(parseSample(sample))
-      const [fact] = facts
+      const [fact, ...links] = factsOf(parseHookSample(sample))
       const call = payload.tool_use_id ?? null
       const event = payload.hook_event_name
 
-      expect(facts, sample.name).toHaveLength(1)
+      for (const link of links) {
+        expect(link.kind, sample.name).toBe('agent_start')
+        expect(link.payload, sample.name).toHaveProperty('spawned_by_call', call)
+      }
       expect(fact?.kind, sample.name).toBe(typeof event === 'string' ? toolEvents[event] : undefined)
       expect(fact?.entity_key.session, sample.name).toBe(payload.session_id)
       expect(fact?.runtime_ids.session_id, sample.name).toBe(payload.session_id)
@@ -112,18 +74,6 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
       expect(fact?.at, sample.name).toBe(observedAt)
       expect(fact?.redelivery_key, sample.name).toMatch(/^[0-9a-f]{64}$/)
       expect(FactDraft.parse(fact), sample.name).toEqual(fact)
-    }
-  })
-
-  test('hook events that have no parser yet are kept as unknown records, never as invalid', async ({ expect }) => {
-    const samples = (await hookSamples()).filter((sample) => {
-      const event = field(JSON.parse(sample.payload) as JsonValue, 'hook_event_name')
-      return typeof event === 'string' && !(event in toolEvents)
-    })
-
-    expect(samples.length).toBeGreaterThanOrEqual(20)
-    for (const sample of samples) {
-      expect(parseSample(sample), sample.name).toEqual({ parse_state: 'unknown', source_ts: null })
     }
   })
 
@@ -376,22 +326,21 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
     expect(result.parse_state).toBe('invalid')
   })
 
-  test('the surface comes from the header: Desktop, SDK and the CLI print mode', async ({ expect }) => {
-    const entrypoints = new Map(
-      (await hookSamples())
-        .filter((sample) => sample.env.CLAUDE_CODE_ENTRYPOINT !== undefined)
-        .flatMap((sample) => {
-          const result = parseSample(sample)
-          return result.parse_state === 'parsed'
-            ? result.facts.map((fact) => [sample.name.split('/')[0], fact.runtime_env.entrypoint] as const)
-            : []
-        }),
-    )
+  test('the entrypoint comes from the header: Desktop, SDK and the CLI print mode', async ({ expect }) => {
+    const entrypoints = new Map<string, Set<string | null>>()
+    for (const sample of await hookSamples()) {
+      const directory = sample.name.split('/')[0] ?? ''
+      const seen = entrypoints.get(directory) ?? new Set()
+      for (const fact of factsOf(parseHookSample(sample))) {
+        seen.add(fact.runtime_env.entrypoint)
+      }
+      entrypoints.set(directory, seen)
+    }
 
     expect(Object.fromEntries(entrypoints)).toEqual({
-      'claude-code-hooks': 'sdk-cli',
-      'claude-agent-sdk': 'sdk-ts',
-      desktop: 'claude-desktop',
+      'claude-code-hooks': new Set(['sdk-cli']),
+      'claude-agent-sdk': new Set(['sdk-ts', 'sdk-cli', null]),
+      desktop: new Set(['claude-desktop']),
     })
   })
 
