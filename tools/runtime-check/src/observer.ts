@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { existsSync } from 'node:fs'
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { z } from 'zod'
@@ -24,6 +24,7 @@ interface InvocationOptions {
   readonly disableHooks?: boolean
   readonly args?: readonly string[]
   readonly claudeTools?: string
+  readonly beforeClaudeReply?: () => void
 }
 
 interface PreparedObserver {
@@ -157,25 +158,14 @@ const names = (value: unknown): unknown =>
       )
     : value
 
-const watchRegistry = (directory: string): { readonly entrypoints: Set<string>; readonly stop: () => void } => {
-  const entrypoints = new Set<string>()
-  const timer = setInterval(() => {
-    void readdir(directory)
-      .then(async (files) => {
-        for (const file of files.filter((name) => name.endsWith('.json'))) {
-          const value: unknown = JSON.parse(await readFile(join(directory, file), 'utf8'))
-          if (typeof value === 'object' && value !== null && 'entrypoint' in value) {
-            entrypoints.add(String(value.entrypoint))
-          }
-        }
-      })
-      .catch(() => undefined)
-  }, 50)
-  return {
-    entrypoints,
-    stop: () => {
-      clearInterval(timer)
-    },
+const readRegistry = (directory: string): string[] => {
+  try {
+    return readdirSync(directory).filter((name) => name.endsWith('.json')).flatMap((file) => {
+      const value: unknown = JSON.parse(readFileSync(join(directory, file), 'utf8'))
+      return typeof value === 'object' && value !== null && 'entrypoint' in value ? [String(value.entrypoint)] : []
+    })
+  } catch {
+    return []
   }
 }
 
@@ -203,7 +193,7 @@ export const prepareClaudeObserver = async (context: CheckContext): Promise<Prep
   const stubEnv = { ANTHROPIC_BASE_URL: anthropic.url, ANTHROPIC_API_KEY: stubApiKey, CLAUDE_CONFIG_DIR: configDir }
   return {
     empty,
-    invocation: ({ fullEnv = false, cwd = empty.directory, settingSources = '', claudeTools = '' }) => ({
+    invocation: ({ fullEnv = false, cwd = empty.directory, settingSources = '', claudeTools = '', beforeClaudeReply }) => ({
       command: clis.claude.command,
       args: [
         '-p',
@@ -240,7 +230,10 @@ export const prepareClaudeObserver = async (context: CheckContext): Promise<Prep
       cwd,
       stdin: observerInput,
       arm: () => {
-        anthropic.use({ steps: [{ name: 'StructuredOutput', input: { ok: true } }], text: 'done' })
+        anthropic.use({
+          steps: [{ name: 'StructuredOutput', input: { ok: true } }], text: 'done',
+          ...(beforeClaudeReply === undefined ? {} : { beforeReply: beforeClaudeReply }),
+        })
       },
     }),
   }
@@ -250,9 +243,13 @@ const claudeAdmission = async (context: CheckContext): Promise<Record<string, un
   const observer = await prepareClaudeObserver(context)
   const configDir = join(claudeBase(context), 'config')
   const invoke = async (options: InvocationOptions): Promise<Record<string, unknown>> => {
-    const registry = watchRegistry(join(configDir, 'sessions'))
-    const result = await runInvocation(observer.invocation(options), 120_000)
-    registry.stop()
+    const registry = new Set<string>()
+    const result = await runInvocation(observer.invocation({
+      ...options,
+      beforeClaudeReply: () => {
+        for (const entrypoint of readRegistry(join(configDir, 'sessions'))) registry.add(entrypoint)
+      },
+    }), 120_000)
     const lines = streamLines(result.stdout)
     const init = lines.find((line) => line.type === 'system' && line.subtype === 'init')
     const final = lines.findLast((line) => line.type === 'result')
@@ -274,7 +271,7 @@ const claudeAdmission = async (context: CheckContext): Promise<Record<string, un
       toolsOfferedToModel: context.anthropic.requests[0]?.tools ?? null,
       transcriptsWritten: (await filesUnder(join(configDir, 'projects'))).filter((file) => file.endsWith('.jsonl'))
         .length,
-      registryEntrypoints: [...registry.entrypoints],
+      registryEntrypoints: [...registry],
     }
   }
   const cleanRun = await invoke({})

@@ -9,6 +9,7 @@ export interface ToolStep {
 interface AnthropicScenario {
   readonly steps: readonly ToolStep[]
   readonly text: string
+  readonly beforeReply?: () => void
 }
 
 interface AnthropicRequest {
@@ -120,6 +121,7 @@ export const startAnthropicStub = async (): Promise<AnthropicStub> => {
         .filter((block) => block.type === 'tool_result')
         .map((block) => ({ toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, content: block.content ?? null })),
     })
+    scenario.beforeReply?.()
     replies += 1
     const id = `msg_aang_${String(replies)}`
     const blocks = replyBlocks(scenario, step)
