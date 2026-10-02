@@ -86,7 +86,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     return end
   }
 
-  const nextChunk = (step: AppendStep): Buffer => {
+  const nextChunk = (step: AppendStep): { chunk: Buffer; end: number } => {
     const content = source(step.source)
     const offset = offsets.get(step.source) ?? 0
     const end =
@@ -98,14 +98,17 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     if (end > content.length || end === offset) {
       throw new PlaybackError(`source ${step.source} has ${String(content.length - offset)} bytes left`)
     }
-    offsets.set(step.source, end)
-    return content.subarray(offset, end)
+    return { chunk: content.subarray(offset, end), end }
   }
 
   const perform = async (step: PlayerStep, signal: AbortSignal | undefined): Promise<void> => {
     switch (step.kind) {
-      case 'append':
-        return appendTo(resolveTarget(roots, step.target), nextChunk(step))
+      case 'append': {
+        const { chunk, end } = nextChunk(step)
+        await appendTo(resolveTarget(roots, step.target), chunk)
+        offsets.set(step.source, end)
+        return
+      }
       case 'write':
         return writeWhole(resolveTarget(roots, step.target), source(step.source))
       case 'remove':

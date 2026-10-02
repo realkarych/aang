@@ -48,64 +48,75 @@ const merge = (base: Plain, override: Plain): Plain =>
 const removeTree = (path: string): Promise<void> =>
   rm(path, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 
+const serializeConfig = (config: ConfigInput): string => {
+  const merged = merge(testDefaults, config)
+  Config.parse(merged)
+  return `${JSON.stringify(merged, null, 2)}\n`
+}
+
 export const createProfile = async ({ homeName = 'home', config = {} }: ProfileOptions = {}): Promise<Profile> => {
-  const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-profile-')))
-  const home = join(root, homeName)
-  const claude = join(home, '.claude')
-  const codex = join(home, '.codex')
-  const aangHome = join(home, '.aang')
-  const paths = aangHomePaths(aangHome)
-  const roots: Readonly<Record<ProfileRoot, string>> = { home, claude, codex, aang: aangHome }
-  const env = profileEnvironment(process.env, {
-    HOME: home,
-    USERPROFILE: home,
-    CLAUDE_CONFIG_DIR: claude,
-    CODEX_HOME: codex,
-    AANG_HOME: aangHome,
-  })
-  const daemons = new Set<RunningDaemon>()
+  const initialConfig = serializeConfig(config)
+  const temporary = await mkdtemp(join(tmpdir(), 'aang-profile-'))
+  try {
+    const root = await realpath(temporary)
+    const home = join(root, homeName)
+    const claude = join(home, '.claude')
+    const codex = join(home, '.codex')
+    const aangHome = join(home, '.aang')
+    const paths = aangHomePaths(aangHome)
+    const roots: Readonly<Record<ProfileRoot, string>> = { home, claude, codex, aang: aangHome }
+    const env = profileEnvironment(process.env, {
+      HOME: home,
+      USERPROFILE: home,
+      CLAUDE_CONFIG_DIR: claude,
+      CODEX_HOME: codex,
+      AANG_HOME: aangHome,
+    })
+    const daemons = new Set<RunningDaemon>()
 
-  const write = async (rootName: ProfileRoot, path: string, content: string | Uint8Array): Promise<string> => {
-    const target = join(roots[rootName], ...path.split('/'))
-    await mkdir(dirname(target), { recursive: true })
-    await writeFile(target, content)
-    return target
-  }
+    const write = async (rootName: ProfileRoot, path: string, content: string | Uint8Array): Promise<string> => {
+      const target = join(roots[rootName], ...path.split('/'))
+      await mkdir(dirname(target), { recursive: true })
+      await writeFile(target, content)
+      return target
+    }
 
-  const configure = async (next: ConfigInput): Promise<void> => {
-    const merged = merge(testDefaults, next)
-    Config.parse(merged)
-    await write('aang', configFileName, `${JSON.stringify(merged, null, 2)}\n`)
-  }
+    const configure = async (next: ConfigInput): Promise<void> => {
+      await write('aang', configFileName, serializeConfig(next))
+    }
 
-  const stopOrKill = async (daemon: RunningDaemon): Promise<void> => {
-    await daemon.stop().catch(() => daemon.kill())
-  }
+    const stopOrKill = async (daemon: RunningDaemon): Promise<void> => {
+      await daemon.stop().catch(() => daemon.kill())
+    }
 
-  for (const directory of [claude, codex]) {
-    await mkdir(directory, { recursive: true })
-  }
-  await mkdir(aangHome, { recursive: true, mode: 0o700 })
-  await configure(config)
+    for (const directory of [claude, codex]) {
+      await mkdir(directory, { recursive: true })
+    }
+    await mkdir(aangHome, { recursive: true, mode: 0o700 })
+    await write('aang', configFileName, initialConfig)
 
-  return {
-    root,
-    home,
-    claude,
-    codex,
-    aangHome,
-    spool: paths.spool,
-    env,
-    configure,
-    write,
-    startDaemon: async (launch) => {
-      const daemon = await launchDaemon(paths, env, launch)
-      daemons.add(daemon)
-      return daemon
-    },
-    dispose: async () => {
-      await Promise.all([...daemons].map(stopOrKill))
-      await removeTree(root)
-    },
+    return {
+      root,
+      home,
+      claude,
+      codex,
+      aangHome,
+      spool: paths.spool,
+      env,
+      configure,
+      write,
+      startDaemon: async (launch) => {
+        const daemon = await launchDaemon(paths, env, launch)
+        daemons.add(daemon)
+        return daemon
+      },
+      dispose: async () => {
+        await Promise.all([...daemons].map(stopOrKill))
+        await removeTree(root)
+      },
+    }
+  } catch (error) {
+    await removeTree(temporary)
+    throw error
   }
 }

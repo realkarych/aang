@@ -1,5 +1,6 @@
 import { spawnSync } from 'node:child_process'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdtemp, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createProfile, DaemonLaunchError, invokeHook, leaseSpool, type Profile, readSpool } from '@aang/testkit'
 import { type TestContext, test, vi } from 'vitest'
@@ -31,6 +32,37 @@ const leaseExpiries = async (profile: Profile): Promise<number[]> =>
 
 const unknownApiStatus = async (url: string, token: string): Promise<number> =>
   (await fetch(`${url}/api/unknown`, { headers: { authorization: `Bearer ${token}` } })).status
+
+test.for([
+  { failure: 'config validation', options: { config: { spool: { thresholdBytes: -1 } } }, errorName: 'ZodError' },
+  { failure: 'directory creation', options: { homeName: 'invalid\0home' }, errorName: 'TypeError' },
+])('profile creation leaves no temporary directory after failed $failure', async ({ options, errorName }, {
+  expect,
+  onTestFinished,
+}) => {
+  const temporary = await mkdtemp(join(tmpdir(), 'aang-profile-failure-'))
+  onTestFinished(() => rm(temporary, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }))
+  const probe = spawnSync(
+    process.execPath,
+    [
+      '--input-type=module',
+      '-e',
+      `import { createProfile } from ${JSON.stringify(new URL('../dist/index.js', import.meta.url).href)}
+try {
+  const profile = await createProfile(${JSON.stringify(options)})
+  await profile.dispose()
+  process.stdout.write('null')
+} catch (error) {
+  process.stdout.write(JSON.stringify({ name: error.name }))
+}`,
+    ],
+    { env: { ...process.env, TMPDIR: temporary, TMP: temporary, TEMP: temporary }, encoding: 'utf8', timeout: 10_000 },
+  )
+
+  expect(probe.status, probe.stderr).toBe(0)
+  expect(JSON.parse(probe.stdout)).toEqual({ name: errorName })
+  expect(await readdir(temporary)).toEqual([])
+})
 
 test('daemons started from parallel profiles keep their tokens, ports, spools and leases apart', async ({
   expect,

@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
+import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { createPlayer, loadManifest, ManifestError, PlaybackError } from '@aang/testkit'
@@ -23,6 +23,38 @@ const filesUnder = async (root: string): Promise<Record<string, string>> => {
 }
 
 describe.concurrent('the file player reproduces runtime files in a temporary profile', () => {
+  test('retrying a failed append writes the original chunk and resumes without skipping source bytes', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const source = Buffer.from('{"n":1}\n{"n":2}\n')
+    const target = { root: 'home', path: 'retry.jsonl' }
+    const file = await manifest('retry-append', {
+      sources: { 'lines.jsonl': source },
+      steps: [
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', lines: 1 },
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', label: 'rest' },
+      ],
+    })
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0 })
+    const path = join(profile.home, target.path)
+    await mkdir(path)
+
+    await expect(player.play()).rejects.toThrow(PlaybackError)
+    expect(player.position()).toBe(0)
+    expect(player.finished()).toBe(false)
+    await rm(path, { recursive: true })
+
+    await player.play({ until: 'rest' })
+
+    expect(await readFile(path)).toEqual(Buffer.from('{"n":1}\n'))
+    expect(player.position()).toBe(1)
+    await player.play()
+    expect(await readFile(path)).toEqual(source)
+    expect(player.finished()).toBe(true)
+  })
+
   test('a transcript played line by line ends up byte-identical to its source, and playback can stop at a label and resume', async ({
     expect,
     onTestFinished,
