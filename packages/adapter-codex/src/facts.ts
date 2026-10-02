@@ -78,16 +78,23 @@ export const questionEntity = ({ session }: ThreadStream, question: string): Que
   question,
 })
 
-export const runtimeIds = ({ stream, line }: LineContext, overrides: Partial<RuntimeIds> = {}): RuntimeIds => ({
-  session_id: stream.session,
+export const emptyIds: RuntimeIds = {
+  session_id: null,
   agent_id: null,
-  thread_id: stream.thread,
+  thread_id: null,
   turn_id: null,
   prompt_id: null,
   record_uuid: null,
   parent_uuid: null,
   message_id: null,
   call_id: null,
+  ordinal: null,
+}
+
+export const runtimeIds = ({ stream, line }: LineContext, overrides: Partial<RuntimeIds> = {}): RuntimeIds => ({
+  ...emptyIds,
+  session_id: stream.session,
+  thread_id: stream.thread,
   ordinal: line.ordinal,
   ...overrides,
 })

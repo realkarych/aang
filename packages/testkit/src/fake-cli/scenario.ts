@@ -31,11 +31,22 @@ export const ClaudeReply = z.discriminatedUnion('kind', [
 ])
 export type ClaudeReply = z.input<typeof ClaudeReply>
 
+export const ClaudePluginCommand = z.enum([
+  'marketplace-add',
+  'marketplace-remove',
+  'install',
+  'uninstall',
+  'disable',
+  'list',
+])
+export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
+
 export const ClaudeScenario = z.strictObject({
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
   replies: z.array(ClaudeReply).default(() => []),
+  pluginFailures: z.array(ClaudePluginCommand).default(() => []),
 })
 export type ClaudeScenario = z.input<typeof ClaudeScenario>
 
@@ -74,6 +85,7 @@ export const FakeCommand = z.enum([
   'login_status',
   'debug_models',
   'version',
+  'plugin',
   'unknown',
 ])
 export type FakeCommand = z.infer<typeof FakeCommand>

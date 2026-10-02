@@ -10,3 +10,40 @@ export {
   type FakeCall,
   type FakeCommand,
 } from './fake-cli/scenario.js'
+export { DaemonLaunchError, type DaemonExit, type DaemonLaunch, type RunningDaemon } from './profile/daemon.js'
+export type { Environment, InheritedEnvironment } from './profile/environment.js'
+export {
+  createProfile,
+  type ConfigInput,
+  type Profile,
+  type ProfileOptions,
+  type ProfileRoot,
+} from './profile/profile.js'
+export type { PlayerRoots } from './player/files.js'
+export {
+  HookContractError,
+  invokeHook,
+  leaseSpool,
+  readSpool,
+  type HookEvent,
+  type HookTarget,
+  type SpoolEvent,
+} from './player/hook.js'
+export {
+  loadManifest,
+  ManifestError,
+  PlayerManifest,
+  PlayerRoot,
+  PlayerStep,
+  type LoadedManifest,
+  type Target,
+} from './player/manifest.js'
+export { OtlpDeliveryError } from './player/otlp.js'
+export {
+  createPlayer,
+  PlaybackError,
+  type PlayedStep,
+  type Player,
+  type PlayerOptions,
+  type PlayOptions,
+} from './player/player.js'

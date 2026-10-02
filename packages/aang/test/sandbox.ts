@@ -1,14 +1,19 @@
 import { type ChildProcessByStdio, spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Readable } from 'node:stream'
 import { fileURLToPath } from 'node:url'
+import { invokeHook } from '@aang/testkit'
 import type { TestContext } from 'vitest'
 import { isAlive, kill } from './processes.js'
 
 const entry = fileURLToPath(new URL('../dist/main.js', import.meta.url))
+const hookBinary = fileURLToPath(
+  new URL(`../../hook/bin/aang-hook${process.platform === 'win32' ? '.exe' : ''}`, import.meta.url),
+)
 
 export interface CommandResult {
   readonly code: number | null
@@ -38,15 +43,21 @@ export interface Sandbox {
   readonly spawnAang: (...args: string[]) => AangProcess
   readonly daemonState: () => Promise<DaemonStateFile | null>
   readonly spoolView: () => Promise<SpoolView>
+  readonly hookWrites: () => Promise<boolean>
   readonly track: (pid: number) => void
 }
 
 const leaseName = /^lease-(0|[1-9][0-9]*)$/
 
-export const hookMayWrite = ({ leaseExpiries, stopped }: SpoolView): boolean =>
-  !stopped && leaseExpiries.some((expiry) => expiry > Date.now() / 1000)
-
 const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
+
+const namesIn = (directory: string): Promise<string[]> =>
+  readdir(directory).catch((error: unknown): string[] => {
+    if (isMissing(error)) {
+      return []
+    }
+    throw error
+  })
 
 const collect = async (child: AangProcess): Promise<CommandResult> => {
   let stdout = ''
@@ -131,12 +142,7 @@ export const createSandbox = async (
     spawnAang,
     daemonState,
     spoolView: async () => {
-      const names = await readdir(spool).catch((error: unknown): string[] => {
-        if (isMissing(error)) {
-          return []
-        }
-        throw error
-      })
+      const names = await namesIn(spool)
       return {
         leaseExpiries: names.flatMap((name) => {
           const match = leaseName.exec(name)
@@ -144,6 +150,15 @@ export const createSandbox = async (
         }),
         stopped: names.includes('stopped'),
       }
+    },
+    hookWrites: async () => {
+      const ready = join(spool, 'new')
+      const before = new Set(await namesIn(ready))
+      const payload = JSON.stringify({ hook_event_name: 'Notification', probe: randomUUID() })
+      await invokeHook({ binary: hookBinary, spool, env }, { runtime: 'claude', registration: 'plugin', payload })
+      const written = (await namesIn(ready)).filter((name) => !before.has(name))
+      const contents = await Promise.all(written.map((name) => readFile(join(ready, name), 'utf8')))
+      return contents.some((content) => content.startsWith('aang-spool/1 claude plugin\n') && content.endsWith(payload))
     },
     track: (pid) => {
       tracked.add(pid)
