@@ -47,6 +47,7 @@ export const ClaudePluginCommand = z.enum([
 export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
 
 export const ClaudeScenario = z.strictObject({
+  admissionFault: z.enum(['hook_missing', 'hook_leak', 'registry_missing', 'registry_marker', 'transcript', 'tool_execution']).optional(),
   descendant: Descendant.optional(),
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
@@ -77,6 +78,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
 export type CodexReply = z.input<typeof CodexReply>
 
 export const CodexScenario = z.strictObject({
+  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last']).optional(),
   descendant: Descendant.optional(),
   version: z.string().default('0.159.3'),
   loggedIn: z.boolean().default(true),

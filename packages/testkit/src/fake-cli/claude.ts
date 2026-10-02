@@ -1,3 +1,5 @@
+import { existsSync } from 'node:fs'
+import { admissionHookPath, claudeAdmissionArtifacts, runAdmissionHook } from './admission.js'
 import { randomUUID } from 'node:crypto'
 import { startDescendant } from './process-tree.js'
 import { resolve } from 'node:path'
@@ -95,10 +97,11 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
   const prompt = options.positionals[0] ?? (await readStdin())
   const instructions = systemPrompt(options)
   const unreadable = unreadableSystemPrompt(options, instructions)
-  const violations = claudeViolations({ options, systemPrompt: instructions, env: process.env })
+  const admission = existsSync(admissionHookPath('claude'))
+  const violations = claudeViolations({ options, systemPrompt: instructions, env: process.env }).filter((violation) => !admission || violation !== '--setting-sources ""')
   const streamWithoutVerbose = lastValue(options, 'output-format') === 'stream-json' && !options.flags.has('verbose')
   const reachesModel = unreadable === null && violations.length === 0 && !streamWithoutVerbose && scenario.loggedIn
-  const { index, reply } = reachesModel ? nextReply(scenario.replies) : { index: null, reply: undefined }
+  const { index, reply } = admission ? { index: null, reply: { kind: 'answer', output: { base_version: 0, ops: [], needs: [] } } as Reply } : reachesModel ? nextReply(scenario.replies) : { index: null, reply: undefined }
   record('print', {
     prompt,
     systemPrompt: instructions?.ok === true ? instructions.text : null,
@@ -136,6 +139,14 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
   }
   if (reply === undefined) {
     missingReply(index)
+    return
+  }
+  if (admission) {
+    const cleanup = await claudeAdmissionArtifacts(session.sessionId, scenario.admissionFault)
+    try {
+      runAdmissionHook('claude', options, scenario.admissionFault)
+      respond(session, reply, prompt)
+    } finally { cleanup() }
     return
   }
   await startDescendant(scenario.descendant)

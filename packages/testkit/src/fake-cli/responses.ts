@@ -100,10 +100,10 @@ export const unsupportedMessage = (call: ToolCall): string =>
     ? `unsupported custom tool call: ${call.name}`
     : `unsupported call: ${call.namespace === 'functions' ? '' : (call.namespace ?? '')}${call.name}`
 
-const toolCallOutput = (call: ToolCall): JsonValue => ({
+const toolCallOutput = (call: ToolCall, supported: boolean): JsonValue => ({
   type: call.type === 'custom_tool_call' ? 'custom_tool_call_output' : 'function_call_output',
   call_id: call.call_id,
-  output: unsupportedMessage(call),
+  output: supported ? 'executed' : unsupportedMessage(call),
 })
 
 const messageText = (items: readonly JsonValue[]): string | null =>
@@ -129,7 +129,7 @@ const exchange = async (request: ResponsesRequest, input: readonly JsonValue[]):
   return parseEvents(stream)
 }
 
-export const converse = async (request: ResponsesRequest): Promise<ResponsesOutcome> => {
+export const converse = async (request: ResponsesRequest, supported = false): Promise<ResponsesOutcome> => {
   let input = request.input
   let usage = noUsage
   const attempts: string[] = []
@@ -165,7 +165,7 @@ export const converse = async (request: ResponsesRequest): Promise<ResponsesOutc
       return outcome(messageText(items), null)
     }
     attempts.push(...calls.map(unsupportedMessage))
-    input = [...input, ...items, ...calls.map(toolCallOutput)]
+    input = [...input, ...items, ...calls.map((call) => toolCallOutput(call, supported))]
   }
   return outcome(null, `the model kept calling tools for ${String(maxRounds)} rounds`)
 }
