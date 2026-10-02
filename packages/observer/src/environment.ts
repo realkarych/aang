@@ -54,7 +54,7 @@ const envNodeScript = (path: string): boolean => {
 export const resolveCli = (runtime: Runtime, cli: string | CliCommand, env: InheritedEnvironment): CliCommand => {
   if (typeof cli !== 'string') {
     if (!isAbsolute(cli.command) || !executable(cli.command) || /\.(cmd|bat|ps1)$/i.test(cli.command)) throw new Error('CLI must be an absolute executable path')
-    return cli
+    return { ...cli, command: realpathSync(cli.command) }
   }
   const windows = process.platform === 'win32'
   const suffixes = windows ? ['.exe', '.cmd', '.ps1', ''] : ['']

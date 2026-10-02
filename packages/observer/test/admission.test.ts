@@ -223,6 +223,50 @@ process.exitCode = result.status ?? 1
   expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
 })
 
+for (const runtime of ['claude', 'codex'] as const) {
+  test.skipIf(process.platform === 'win32')(`${runtime} pins an object CLI through a symlink update after the internal version check`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const install = runtime === 'claude' ? installFakeClaude : installFakeCodex
+    const admitted = install(join(root, 'old'), { version: '1.0.0', replies: [{ kind: 'answer', output }] })
+    const updated = install(join(root, 'new'), { version: '99.0.0', replies: [{ kind: 'answer', output }] })
+    const entry = join(root, 'cli-entry')
+    const wrapper = join(root, 'updater.mjs')
+    const counter = join(root, 'working-version-count')
+    await writeFile(wrapper, `#!${process.execPath}
+import { spawnSync } from 'node:child_process'
+import { existsSync, readFileSync, writeFileSync, renameSync, symlinkSync } from 'node:fs'
+const args = process.argv.slice(2)
+const result = spawnSync(${JSON.stringify(admitted.command)}, args, { stdio: 'inherit' })
+const counter = ${JSON.stringify(counter)}
+if (args.includes('--version') && existsSync(counter)) {
+  const count = Number(readFileSync(counter, 'utf8')) + 1
+  writeFileSync(counter, String(count))
+  if (count === 2) {
+    symlinkSync(${JSON.stringify(updated.command)}, ${JSON.stringify(`${entry}.updated`)})
+    renameSync(${JSON.stringify(`${entry}.updated`)}, ${JSON.stringify(entry)})
+  }
+}
+process.exitCode = result.status ?? 1
+`, { mode: 0o755 })
+    await symlink(wrapper, entry)
+    const cli = { command: entry, args: [] }
+    const backend = runtime === 'claude' ? createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins }) : createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+    expect(await backend.admit()).toMatchObject({ admitted: true, version: '1.0.0' })
+    await writeFile(counter, '0')
+    expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
+    expect(await readFile(counter, 'utf8')).toBe('2')
+    expect(await realpath(entry)).toBe(updated.command)
+    expect(updated.calls().map((call) => call.command)).toEqual([])
+    expect(admitted.calls().at(-1)?.prompt).toBe(JSON.stringify(input))
+    expect(backend.admission()).toMatchObject({ admitted: true, version: '1.0.0' })
+    expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toMatchObject({ admitted: true, version: '1.0.0' })
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
+    expect(updated.calls().map((call) => call.command)).toEqual(['version'])
+    expect(backend.admission()).toMatchObject({ admitted: false })
+    expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toMatchObject({ admitted: false })
+  })
+}
+
 test('readmission revokes the local success record before running new probes', async (context) => {
   const { root, options } = await sandbox(context)
   const cli = installFakeClaude(root)
