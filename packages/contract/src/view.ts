@@ -1,6 +1,16 @@
 import { z } from 'zod'
 import { ActionKind } from './facts.js'
-import { AttentionItemId, ChangeSeq, EpochNs, ModelVersion, RunId, StageId, ViewRuleId } from './primitives.js'
+import {
+  ActionId,
+  AgentId,
+  AttentionItemId,
+  ChangeSeq,
+  EpochNs,
+  ModelVersion,
+  RunId,
+  StageId,
+  ViewRuleId,
+} from './primitives.js'
 
 const text = z.string()
 
@@ -72,3 +82,16 @@ export const ViewRule = z.union(
   }),
 )
 export type ViewRule = z.infer<typeof ViewRule>
+
+export const ViewElement = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('stage'), id: StageId }),
+  z.strictObject({ kind: z.literal('agent'), id: AgentId }),
+  z.strictObject({ kind: z.literal('action'), id: ActionId }),
+])
+export type ViewElement = z.infer<typeof ViewElement>
+
+export const AppliedViewRule = z.strictObject({
+  rule: ViewRule,
+  affected: z.array(ViewElement),
+})
+export type AppliedViewRule = z.infer<typeof AppliedViewRule>
