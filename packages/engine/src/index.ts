@@ -14,6 +14,12 @@ export {
 } from './model/observer.js'
 export type { ValidationLimits } from './model/observer-context.js'
 export {
+  refreshStageExecution,
+  type StageAgentObservation,
+  type StageExecutionUpdate,
+  type StageObservations,
+} from './model/stage-execution.js'
+export {
   type AppliedChangeSet,
   applyChangeSet,
   type AttentionItemDraft,
