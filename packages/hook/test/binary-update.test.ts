@@ -103,7 +103,7 @@ test('updating the binary during continuous hook calls keeps the plugin command 
   await Promise.all(running)
 
   expect(await readFile(home.pluginHooksFile)).toEqual(plugin)
-  expect(await readFile(home.paths.binary)).toEqual(await readFile(binaries.stripped))
+  expect((await readFile(home.paths.binary)).equals(await readFile(binaries.stripped))).toBe(true)
   const results = launches.flatMap((launch) => (launch.launched ? [launch.result] : []))
   expect(results).toEqual(results.map(() => cleanExit))
   const failedLaunches = launches.flatMap((launch) => (launch.launched ? [] : [launch.code]))
@@ -130,41 +130,29 @@ test('concurrent deploys from several processes into one AANG_HOME all succeed a
   )
 
   expect(await readdir(dirname(home.paths.binary))).toEqual([hookBinaryName])
-  expect([await readFile(binaries.plain), await readFile(binaries.stripped)]).toContainEqual(
-    await readFile(home.paths.binary),
-  )
+  const deployed = await readFile(home.paths.binary)
+  const expected = await Promise.all(sources.map((source) => readFile(source)))
+  expect(expected.some((binary) => binary.equals(deployed))).toBe(true)
 }, 120_000)
 
 test('the next deploy removes copies and the lock left by an interrupted update', async ({
   expect,
   onTestFinished,
-  onTestFailed,
-  annotate,
 }) => {
   const home = await createInstallHome(onTestFinished)
   const directory = dirname(home.paths.binary)
-  onTestFailed(async () => {
-    const names = await readdir(directory)
-    const contents = await Promise.all(names.map(async (name) => [name, (await readFile(join(directory, name))).subarray(0, 80).toString()]))
-    await annotate(JSON.stringify(contents))
-  })
-  await annotate('created home')
   await mkdir(directory, { recursive: true })
   const leftovers = [`.${hookBinaryName}.1.staged`, `.${hookBinaryName}.2.retired`]
   for (const name of leftovers) {
     await writeFile(join(directory, name), 'partial')
-    await annotate(`wrote ${name}`)
   }
   await writeFile(join(directory, `.${hookBinaryName}.lock`), String(absentProcessId()))
-  await annotate('wrote absent owner lock')
   await writeFile(join(directory, 'notes.txt'), 'kept')
-  await annotate('wrote notes')
 
   await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
-  await annotate('deployed binary')
 
   expect((await readdir(directory)).sort()).toEqual([hookBinaryName, 'notes.txt'].sort())
-  expect(await readFile(home.paths.binary)).toEqual(await readFile(binaries.plain))
+  expect((await readFile(home.paths.binary)).equals(await readFile(binaries.plain))).toBe(true)
 })
 
 test('concurrent deploys from several processes after an interrupted update take over its lock and all succeed', async ({
