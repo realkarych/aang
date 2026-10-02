@@ -1,4 +1,4 @@
-import { ChangeSeq, FactId, RawSeq, StreamKey } from '@aang/contract'
+import { ChangeSeq, FactId, RawSeq, type SessionKey, StreamKey } from '@aang/contract'
 import { factIds } from '@aang/contract/ids'
 import { MissingRawRecordError, type Store, type Transaction } from '@aang/store'
 import { expect, test } from 'vitest'
@@ -171,6 +171,46 @@ test('a stream scope decision is stored and can be changed', async ({ onTestFini
   expect(reopened.changes.head()).toBe(0)
 })
 
+test('a root session scope decision is stored per runtime and can be changed', async ({ onTestFinished }) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const claudeSession: SessionKey = { kind: 'session', runtime: 'claude', session: 's1' }
+  const codexSession: SessionKey = { kind: 'session', runtime: 'codex', session: 's1' }
+
+  store.transaction((transaction) => {
+    transaction.scopes.decideSession({ session: claudeSession, scope: 'external' })
+    transaction.scopes.decideSession({ session: codexSession, scope: 'observer' })
+  })
+  const external = store.scopes.ofSession(claudeSession)
+  store.transaction((transaction) => {
+    transaction.scopes.decideSession({ session: claudeSession, scope: 'watched' })
+  })
+  store.close()
+  const reopened = home.open()
+
+  expect(external).toEqual({ session: claudeSession, scope: 'external' })
+  expect(reopened.scopes.ofSession(claudeSession)).toEqual({ session: claudeSession, scope: 'watched' })
+  expect(reopened.scopes.ofSession(codexSession)).toEqual({ session: codexSession, scope: 'observer' })
+  expect(reopened.scopes.ofSession({ kind: 'session', runtime: 'claude', session: 's2' })).toBeNull()
+  expect(reopened.scopes.get(mainStream)).toBeNull()
+  expect(reopened.changes.head()).toBe(0)
+})
+
+test('a root session scope decision is rolled back with its transaction', async ({ onTestFinished }) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const session: SessionKey = { kind: 'session', runtime: 'claude', session: 's1' }
+
+  expect(() => {
+    store.transaction((transaction) => {
+      transaction.scopes.decideSession({ session, scope: 'watched' })
+      throw new Error('interrupted')
+    })
+  }).toThrow('interrupted')
+
+  expect(store.scopes.ofSession(session)).toBeNull()
+})
+
 test('file cursors are stored by path, replaced on save and survive a restart', async ({ onTestFinished }) => {
   const home = await createHome(onTestFinished)
   const store = home.open()
@@ -286,6 +326,12 @@ test('a finished transaction refuses every write', async ({ onTestFinished }) =>
       finished.scopes.decide({ stream: mainStream, runtime: 'claude', scope: 'external' })
     },
     () => {
+      finished.scopes.decideSession({
+        session: { kind: 'session', runtime: 'claude', session: 's1' },
+        scope: 'external',
+      })
+    },
+    () => {
       finished.cursors.save(transcriptCursor(1))
     },
     () => finished.gaps.save(sourceLostGap()),
@@ -300,4 +346,5 @@ test('a finished transaction refuses every write', async ({ onTestFinished }) =>
     cursors: [],
     scope: { stream: mainStream, runtime: 'claude', scope: 'watched' },
   })
+  expect(store.scopes.ofSession({ kind: 'session', runtime: 'claude', session: 's1' })).toBeNull()
 })
