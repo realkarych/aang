@@ -89,6 +89,35 @@ test('known record types with an unexpected shape are unknown rather than misrea
   }
 })
 
+test('rollout values nested too deeply to read leave the line unknown and the next line is still parsed', () => {
+  const nested = (depth: number): unknown => JSON.parse(`${'['.repeat(depth)}0${']'.repeat(depth)}`)
+  const tooDeep = nested(5000)
+  const changes = (content: unknown) => ({ changes: { '/tmp/deep.txt': { type: 'add', content } } })
+  const fileChangeTime = EpochNs.parse(1_790_856_393_277_000_000n)
+
+  for (const item of [changes(tooDeep), { ...mcpItem, arguments: tooDeep }, { ...mcpItem, result: tooDeep }]) {
+    expect(codexAdapter.parse(record(withItem('event_msg.item_completed.FileChange.mock.json', item), real))).toEqual({
+      parse_state: 'unknown',
+      source_ts: fileChangeTime,
+    })
+  }
+  expectUnknown(
+    withItem('event_msg.item_completed.CollabAgentToolCall.wait.mock.json', { agents_states: tooDeep }),
+    threadStream(root),
+  )
+  expect(
+    parseFacts(withPayload('event_msg.item_completed.FileChange.mock.json', { extra: tooDeep }), real),
+  ).toMatchObject([{ kind: 'action_start' }, { kind: 'action_end', payload: { outcome: 'ok' } }])
+  expect(parseFacts(withItem('event_msg.item_completed.FileChange.mock.json', changes(nested(100))), real)).toMatchObject(
+    [{ kind: 'action_start', payload: { input: changes(nested(100)) } }, { kind: 'action_end' }],
+  )
+
+  const deepArguments = JSON.stringify({ cmd: tooDeep })
+  expect(
+    parseFacts(withPayload('response_item.function_call.exec_command.mock.json', { arguments: deepArguments }), real),
+  ).toMatchObject([{ kind: 'action_start', payload: { input: deepArguments } }])
+})
+
 test('records that are not rollout lines of a known thread are unknown for this adapter', () => {
   const line = sampleLine('event_msg.task_started.real.json')
   const position = { kind: 'line', path: sessionsPath, offset: 0, line: 1 } as const

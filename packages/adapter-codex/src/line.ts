@@ -1,5 +1,6 @@
 import { EpochNs } from '@aang/contract'
 import { z } from 'zod'
+import { readJson } from './json.js'
 
 const isoInstant = /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z$/
 const nanosPerMilli = 1_000_000n
@@ -49,14 +50,6 @@ export type LineReading =
   | { readonly kind: 'line'; readonly line: RolloutLine }
   | { readonly kind: 'unrecognized'; readonly at: EpochNs | null }
   | { readonly kind: 'malformed'; readonly reason: string }
-
-export const readJson = (text: string): unknown => {
-  try {
-    return JSON.parse(text)
-  } catch {
-    return undefined
-  }
-}
 
 const readObject = (text: string): Record<string, unknown> | null =>
   z.record(z.string(), z.unknown()).safeParse(readJson(text)).data ?? null

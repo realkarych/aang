@@ -485,6 +485,23 @@ test('hook payloads that are not objects are invalid and unrecognized or incompl
   expect(codexAdapter.parse(notSpooled)).toEqual(unknown)
 })
 
+test('a hook nested too deeply to read stays unknown and the next hook is still parsed', () => {
+  const nested = (depth: number): JsonValue => JSON.parse(`${'['.repeat(depth)}0${']'.repeat(depth)}`) as JsonValue
+  const tooDeep = nested(5000)
+  const variants = [
+    withSample('Stop.json', { extra: tooDeep }),
+    withSample('Stop.json', { hook_event_name: 'FutureEvent', extra: tooDeep }),
+    withSample('PreToolUse.Bash.json', { tool_input: tooDeep }),
+  ]
+  for (const variant of variants) {
+    expect(deliver(variant)).toEqual({ parse_state: 'unknown', source_ts: null })
+  }
+  expect(cliFacts('Stop.json')).toMatchObject([{ kind: 'turn_end', payload: { outcome: 'completed' } }])
+  expect(hookFacts(withSample('PreToolUse.Bash.json', { tool_input: nested(100) }))).toMatchObject([
+    { kind: 'action_start', payload: { input: nested(100) } },
+  ])
+})
+
 test('hook variants keep unobserved values open instead of guessing', () => {
   expect(hookFacts(withSample('SessionStart.startup.json', { source: 'clear' }))[0]).toMatchObject({
     payload: { launch: 'clear' },

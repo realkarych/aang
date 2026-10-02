@@ -1,4 +1,4 @@
-import { type ActionOutcome, type EpochNs, type FactDraft, JsonValue } from '@aang/contract'
+import type { ActionOutcome, EpochNs, FactDraft } from '@aang/contract'
 import { z } from 'zod'
 import {
   actionEnded,
@@ -16,6 +16,7 @@ import {
   runtimeIds,
   threadEntity,
 } from './facts.js'
+import { BoundedJson } from './json.js'
 import { instantFromMillis } from './line.js'
 import { isRoot } from './stream.js'
 
@@ -49,7 +50,7 @@ const CommandExecution = z.looseObject({
 
 const FileChange = z.looseObject({
   id,
-  changes: z.record(z.string(), JsonValue),
+  changes: z.record(z.string(), BoundedJson),
   status: optionalText,
   stdout: optionalText,
   stderr: optionalText,
@@ -64,9 +65,9 @@ const McpToolCall = z.looseObject({
   id,
   server: id,
   tool: id,
-  arguments: JsonValue.optional(),
+  arguments: BoundedJson.optional(),
   status: optionalText,
-  result: JsonValue.nullish(),
+  result: BoundedJson.nullish(),
   duration: Duration.nullish(),
 })
 
@@ -102,7 +103,7 @@ const CollabAgentToolCall = z.looseObject({
   sender_thread_id: optionalText,
   receiver_thread_ids: z.array(z.string()).optional(),
   prompt: optionalText,
-  agents_states: JsonValue.optional(),
+  agents_states: BoundedJson.optional(),
 })
 
 interface ItemContext extends LineContext {

@@ -26,7 +26,7 @@ import {
   sessionEntity,
   threadEntity,
 } from './facts.js'
-import { readJson } from './line.js'
+import { readJson, withinNestingLimit } from './json.js'
 import { observerOriginator } from './session.js'
 import { isRoot, type ThreadStream } from './stream.js'
 
@@ -34,6 +34,7 @@ const name = z.string().min(1)
 const optionalText = z.string().nullish()
 const compactSource = 'compact'
 
+const JsonObject = z.record(z.string(), z.unknown())
 const HookObject = z.record(z.string(), JsonValue)
 type HookObject = z.infer<typeof HookObject>
 
@@ -309,15 +310,19 @@ const hookContext = (record: CollectedRecord, file: string, payload: HookObject,
   }
 }
 
-export const parseHook = (record: CollectedRecord, file: string): ParseResult => {
-  const payload = HookObject.safeParse(readJson(record.payload)).data
-  if (payload === undefined) {
-    return { parse_state: 'invalid', reason: 'hook payload is not a JSON object' }
-  }
+const eventFacts = (record: CollectedRecord, file: string, payload: HookObject): HookFacts => {
   const common = HookCommon.safeParse(payload)
   const parser = common.success ? hookParsers.get(common.data.hook_event_name) : undefined
-  const facts =
-    common.success && parser !== undefined ? parser(payload, hookContext(record, file, payload, common.data)) : null
+  return common.success && parser !== undefined ? parser(payload, hookContext(record, file, payload, common.data)) : null
+}
+
+export const parseHook = (record: CollectedRecord, file: string): ParseResult => {
+  const value = JsonObject.safeParse(readJson(record.payload)).data
+  if (value === undefined) {
+    return { parse_state: 'invalid', reason: 'hook payload is not a JSON object' }
+  }
+  const payload = withinNestingLimit(value) ? HookObject.safeParse(value).data : undefined
+  const facts = payload === undefined ? null : eventFacts(record, file, payload)
   return facts === null
     ? { parse_state: 'unknown', source_ts: null }
     : { parse_state: 'parsed', source_ts: null, facts }
