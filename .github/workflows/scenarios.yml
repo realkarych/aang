@@ -1,0 +1,71 @@
+name: Scenarios
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/scenarios.yml
+      - tools/record/**
+      - packages/hook/**
+      - packages/testkit/**
+      - packages/observer/src/process.ts
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.288
+  CLAUDE_AGENT_SDK_VERSION: 0.3.288
+  CODEX_VERSION: 0.160.0
+  CODEX_SDK_VERSION: 0.160.0
+
+jobs:
+  scenarios:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes expect
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:CLAUDE_CODE_VERSION'
+      - run: >-
+          npm install --global --allow-scripts=@anthropic-ai/claude-code
+          "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}"
+        shell: bash
+      - run: >-
+          npm install --prefix "$RUNNER_TEMP/sdk" --allow-scripts=@anthropic-ai/claude-agent-sdk
+          "@anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${CODEX_SDK_VERSION}"
+        shell: bash
+      - run: pnpm scenarios
+        env:
+          AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
+          AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
+          AANG_RECORD_FIXTURES: ${{ runner.temp }}/fixtures
+          AANG_RECORD_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_tui,codex_sdk
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scenarios-${{ runner.os }}
+          path: ${{ runner.temp }}/fixtures
+          if-no-files-found: ignore

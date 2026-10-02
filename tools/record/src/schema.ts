@@ -5,12 +5,16 @@ import { z } from 'zod'
 export const Segment = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/)
   .refine((value) => !value.endsWith('.') && !/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(value))
 
+export const ModelMode = z.enum(['stub', 'live'])
+export type ModelMode = z.infer<typeof ModelMode>
+
 export const RecordMetadata = z.strictObject({
   runtime: Runtime,
   engineVersion: Segment,
   appVersion: z.string().min(1).optional(),
   surface: Surface,
   scenario: Segment,
+  model: ModelMode.optional(),
   expectedFacts: z.array(z.string().min(1)).min(1),
 }).refine((value) => value.surface.startsWith(`${value.runtime}_`), 'surface must match runtime')
 
@@ -37,6 +41,7 @@ export const RecordingManifest = z.strictObject({
   surface: Surface,
   os: OperatingSystem,
   scenario: Segment,
+  model: ModelMode.nullable(),
   recorded_at: z.iso.datetime(),
   expected_facts: z.array(z.string().min(1)).min(1),
   control_events: z.array(ControlEvent),
