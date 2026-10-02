@@ -133,19 +133,22 @@ const questionText = ({ payload }: Asked): string => {
   return texts.join('\n') || headers.join('\n') || payload.source
 }
 
-const waitEnders = (session: SessionFacts, opening: Fact): Evidence[] => {
-  const agent = agentName(opening)
-  return since(
-    [
-      ...session.of('session_end'),
-      ...[...session.of('turn_start'), ...session.of('turn_end'), ...session.of('agent_end')].filter(
-        ({ fact }) => agentName(fact) === agent,
-      ),
-      ...session.of('prompt').filter(({ fact }) => fact.speaker === 'human' && agentName(fact) === agent),
-    ],
-    opening.at,
+const turnBoundaries = (session: SessionFacts, agent: string): Evidence[] => [
+  ...session.of('session_end'),
+  ...[...session.of('turn_start'), ...session.of('turn_end'), ...session.of('agent_end')].filter(
+    ({ fact }) => agentName(fact) === agent,
+  ),
+  ...session.of('prompt').filter(({ fact }) => fact.speaker === 'human' && agentName(fact) === agent),
+]
+
+const waitEnders = (session: SessionFacts, opening: Fact): Evidence[] =>
+  since(turnBoundaries(session, agentName(opening)), opening.at)
+
+const turnOpening = (session: SessionFacts, request: Request): EpochNs | null =>
+  turnBoundaries(session, agentName(request)).reduce<EpochNs | null>(
+    (last, { fact }) => (fact.at < request.at && (last === null || fact.at > last) ? fact.at : last),
+    null,
   )
-}
 
 interface PermissionLink {
   readonly link: QuestionActionLink
@@ -156,6 +159,7 @@ const permissionLink = (session: SessionFacts, request: Request): PermissionLink
   const input = canonicalJson(request.payload.input)
   const agent = agentName(request)
   const ended = endedCalls(session, request.at)
+  const opening = turnOpening(session, request)
   const starts = new Map<string, EpochNs>()
   for (const { fact } of session.of('action_start')) {
     const call = callOf(fact)
@@ -172,9 +176,11 @@ const permissionLink = (session: SessionFacts, request: Request): PermissionLink
     const known = starts.get(call)
     starts.set(call, known === undefined || fact.at < known ? fact.at : known)
   }
-  const candidates = [...starts].sort(([leftCall, left], [rightCall, right]) =>
-    left > right ? -1 : left < right ? 1 : leftCall < rightCall ? -1 : leftCall > rightCall ? 1 : 0,
-  )
+  const candidates = [...starts]
+    .filter(([, start]) => opening === null || start > opening)
+    .sort(([leftCall, left], [rightCall, right]) =>
+      left > right ? -1 : left < right ? 1 : leftCall < rightCall ? -1 : leftCall > rightCall ? 1 : 0,
+    )
   const chosen = candidates[0]
   if (chosen === undefined) {
     return null

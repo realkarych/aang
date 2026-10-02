@@ -444,6 +444,72 @@ test.each(Object.entries(escDeliveries))(
   },
 )
 
+const repeatedCommand = (hooks: ReturnType<typeof codexHooks>) => [
+  hooks.pre('pre-a.evt', 'call-a', ms(1)),
+  hooks.request('request-a.evt', ms(2)),
+  hooks.interrupt('interrupt.evt', ms(3)),
+  hooks.prompt('prompt.evt', ms(4)),
+  hooks.pre('pre-b.evt', 'call-b', ms(5)),
+  hooks.request('request-b.evt', ms(6)),
+  hooks.post('post-b.evt', 'call-b', ms(7)),
+]
+
+test.each(['in order', 'reversed'])(
+  'a Codex command repeated after a cancelled request gets its own answer from hooks alone: %s',
+  async (order) => {
+    const session = `codex-repeat-${order.replace(' ', '-')}`
+    const { store, key, engine } = await observeSession(onTestFinished, 'codex', session)
+    const hooks = codexHooks(session)
+    const deliveries = repeatedCommand(hooks)
+    await engine.ingest(hookBatch(hooks.start()))
+    for (const delivery of order === 'reversed' ? deliveries.toReversed() : deliveries) {
+      await engine.ingest(hookBatch(delivery))
+    }
+    expect(store.observations.getSession(objectId(key))?.support_mode).toBe('hooks_only')
+    const interrupt = factOf(store, 'interrupt.evt')
+    const post = factOf(store, 'post-b.evt')
+    expect(questionOf(store, key, 'request-a.evt')).toMatchObject({
+      action: { action: actionId(key, 'call-a'), ambiguous: false },
+      decision: {
+        value: 'rejected',
+        basis: rule('permission-decision'),
+        evidence: sorted(factOf(store, 'request-a.evt').id, interrupt.id),
+      },
+      answered_at: null,
+    })
+    expect(itemOf(store, key, 'request-a.evt')).toMatchObject({
+      runtime_wait: 'ended',
+      resolution: 'ended_without_answer',
+      closed_at: interrupt.at,
+    })
+    expect(questionOf(store, key, 'request-b.evt')).toMatchObject({
+      action: { action: actionId(key, 'call-b'), ambiguous: false },
+      decision: {
+        value: 'approved',
+        basis: rule('permission-decision'),
+        evidence: sorted(factOf(store, 'request-b.evt').id, post.id),
+      },
+      answered_at: post.at,
+    })
+    expect(itemOf(store, key, 'request-b.evt')).toMatchObject({
+      runtime_wait: 'ended',
+      resolution: 'answered',
+      closed_at: post.at,
+    })
+    await engine.ingest(hookBatch(hooks.post('post-a.evt', 'call-a', ms(8))))
+    const late = factOf(store, 'post-a.evt')
+    expect(questionOf(store, key, 'request-a.evt')).toMatchObject({
+      action: { action: actionId(key, 'call-a'), ambiguous: false },
+      decision: { value: 'approved', evidence: sorted(factOf(store, 'request-a.evt').id, late.id) },
+      answered_at: late.at,
+    })
+    expect(questionOf(store, key, 'request-b.evt')).toMatchObject({
+      action: { action: actionId(key, 'call-b'), ambiguous: false },
+      decision: { value: 'approved', evidence: sorted(factOf(store, 'request-b.evt').id, post.id) },
+    })
+  },
+)
+
 test('a Codex command that ran stays approved when the turn is aborted during its run', async () => {
   const session = 'codex-ran-aborted'
   const { store, key, engine } = await observeSession(onTestFinished, 'codex', session)

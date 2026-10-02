@@ -241,10 +241,15 @@ repeated or reordered delivery leaves the model unchanged.
 Each question yields three independent values:
 
 - `Question.action` links a `PermissionRequest` to a `PreToolUse` of the same
-  session and agent with an equal tool and canonical input that had not ended
-  before the request (`rule:permission-link`). Several candidates mark the link
-  ambiguous; the latest candidate is kept, and the attention item then has no
-  action. `AskUserQuestion` and `ExitPlanMode` are linked to their own call.
+  session and agent with an equal tool and canonical input that started in the
+  request's turn and had not ended before the request (`rule:permission-link`).
+  The turn starts after the latest event of the agent before the request that
+  ends permission waits: a turn start or end, a human prompt, the agent's end or
+  the session end. A call cancelled in an earlier turn is therefore never a
+  candidate, while its own request still takes the call's late result. Several
+  candidates mark the link ambiguous; the latest candidate is kept, and the
+  attention item then has no action. `AskUserQuestion` and `ExitPlanMode` are
+  linked to their own call.
 - `Question.decision`:
   - `codex.tool_decision` for the linked call with `source: User` is an observed
     approval or rejection; `Config` and `AutomatedReviewer` give `none`, and no
