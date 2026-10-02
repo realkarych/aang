@@ -1,7 +1,7 @@
 {
   "all": true,
   "include": ["packages/*/dist/**/*.js", "tools/*/dist/**/*.js"],
-  "exclude": ["packages/testkit/**"],
+  "exclude": ["packages/testkit/**", "tools/runtime-check/**"],
   "reporter": ["text"],
   "reportsDirectory": "coverage"
 }
