@@ -16,9 +16,9 @@ export const isAlive = (pid: number): boolean => {
   }
 }
 
-export const waitForExit = async (pid: number, timeoutMs: number): Promise<boolean> => {
+export const waitUntil = async (reached: () => boolean | Promise<boolean>, timeoutMs: number): Promise<boolean> => {
   const deadline = Date.now() + timeoutMs
-  while (isAlive(pid)) {
+  while (!(await reached())) {
     if (Date.now() >= deadline) {
       return false
     }
@@ -26,3 +26,5 @@ export const waitForExit = async (pid: number, timeoutMs: number): Promise<boole
   }
   return true
 }
+
+export const waitForExit = (pid: number, timeoutMs: number): Promise<boolean> => waitUntil(() => !isAlive(pid), timeoutMs)

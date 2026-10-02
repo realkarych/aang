@@ -3,9 +3,23 @@ import { setTimeout } from 'node:timers/promises'
 
 const [specPath, resultPath, controlPath] = process.argv.slice(2)
 const spec = JSON.parse(await readFile(specPath, 'utf8'))
+const replaceAttempts = 50
+const replaceRetryMs = 20
+const isReplaceBlockedByReader = (error) => process.platform === 'win32' && ['EPERM', 'EACCES', 'EBUSY'].includes(error?.code)
+const replace = async (staged, target) => {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await rename(staged, target)
+      return
+    } catch (error) {
+      if (!isReplaceBlockedByReader(error) || attempt === replaceAttempts) throw error
+      await setTimeout(replaceRetryMs)
+    }
+  }
+}
 const publish = async (snapshot) => {
   await writeFile(`${resultPath}.next`, JSON.stringify(snapshot))
-  await rename(`${resultPath}.next`, resultPath)
+  await replace(`${resultPath}.next`, resultPath)
 }
 const acknowledged = async () => JSON.parse(await readFile(controlPath, 'utf8').catch(() => 'null'))
 await publish(spec.first)
