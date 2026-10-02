@@ -38,6 +38,30 @@ jobs:
       - run: pnpm lint
       - run: pnpm coverage
 
+  hook-targets:
+    strategy:
+      fail-fast: false
+      matrix:
+        goos: [darwin, linux, windows]
+        goarch: [amd64, arm64]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CGO_ENABLED: '0'
+      GOOS: ${{ matrix.goos }}
+      GOARCH: ${{ matrix.goarch }}
+    defaults:
+      run:
+        working-directory: packages/hook
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: go vet ./...
+      - run: go build -trimpath -o "$RUNNER_TEMP/aang-hook-$GOOS-$GOARCH/" ./cmd/aang-hook
+
   e2e:
     strategy:
       fail-fast: false
