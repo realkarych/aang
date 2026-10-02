@@ -370,7 +370,7 @@ function Publish-TraceResult {
     $nextPath = $ResultPath + '.next'
     [System.IO.File]::WriteAllText($nextPath, $json, (New-Object System.Text.UTF8Encoding $false))
     if ([System.IO.File]::Exists($ResultPath)) {
-        [System.IO.File]::Replace($nextPath, $ResultPath, $null)
+        [System.IO.File]::Replace($nextPath, $ResultPath, [NullString]::Value)
     } else {
         [System.IO.File]::Move($nextPath, $ResultPath)
     }
