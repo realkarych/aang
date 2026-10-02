@@ -2,7 +2,15 @@ import { readdirSync, readFileSync } from 'node:fs'
 import { codexAdapter } from '@aang/adapter-codex'
 import { CollectedRecord, EpochNs, type JsonValue, type RecordOwner, type SpoolEnv } from '@aang/contract'
 import { describe, expect, test } from 'vitest'
-import { realRollout, record, rolloutLines, sampleLine, streamFrom, threadStream } from './rollout-records.js'
+import {
+  realRollout,
+  record,
+  rolloutLines,
+  sampleLine,
+  streamFrom,
+  threadStream,
+  withPayload,
+} from './rollout-records.js'
 
 const cliHooks = new URL('../../../docs/research/samples/codex-cli/hooks/', import.meta.url)
 const hookConfig = 'hooks.json.logger-config.json'
@@ -109,6 +117,22 @@ describe('the owner of a rollout line', () => {
     })
   })
 
+  test.for([
+    [{ thread_source: 'aang-observer', cwd: 42 }, null],
+    [{ originator: 'aang_observer', thread_source: null }, '/tmp/aang-spike/codex-cli/run1'],
+    [{ originator: null, thread_source: 'aang-observer' }, '/tmp/aang-spike/codex-cli/run1'],
+  ] as const)('of a session_meta line keeps every valid mark beside a malformed one: %j', ([changes, cwd]) => {
+    const line = withPayload('session_meta.exec.real.json', changes)
+
+    expect(codexAdapter.owner(record(line, threadStream(realRoot)))).toEqual({
+      session: session(realRoot),
+      thread: 'root',
+      cwd,
+      start: true,
+      observer: true,
+    })
+  })
+
   test('is unknown without a thread stream or outside a rollout line', () => {
     const line = sampleLine('turn_context.real.json')
 
@@ -159,6 +183,46 @@ describe('the owner of a hook event', () => {
     expect(ownerOfHook({ ...stdinOf('SessionStart.startup.json'), agent_id: spawnChild })).toMatchObject({
       thread: 'agent',
       start: false,
+    })
+  })
+
+  test('keeps its session and observer when the cwd is malformed', () => {
+    const stdin = stdinOf('PreToolUse.Bash.json')
+
+    expect(ownerOfHook({ ...stdin, cwd: 42 }, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' })).toEqual({
+      session: session(typeof stdin['session_id'] === 'string' ? stdin['session_id'] : ''),
+      thread: 'root',
+      cwd: null,
+      start: false,
+      observer: true,
+    })
+  })
+
+  test('keeps its session and cwd when the event name or the source is malformed', () => {
+    const start = stdinOf('SessionStart.startup.json')
+    const tool = stdinOf('PreToolUse.Bash.json')
+
+    expect(ownerOfHook({ ...start, source: { kind: 'future' } })).toMatchObject({
+      cwd: start['cwd'],
+      start: false,
+    })
+    expect(ownerOfHook({ ...tool, hook_event_name: 42 })).toEqual({
+      session: session(typeof tool['session_id'] === 'string' ? tool['session_id'] : ''),
+      thread: 'root',
+      cwd: tool['cwd'],
+      start: false,
+      observer: false,
+    })
+  })
+
+  test('opens the session on a valid SessionStart with a malformed cwd', () => {
+    const start = stdinOf('SessionStart.startup.json')
+
+    expect(ownerOfHook({ ...start, cwd: 42 }, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' })).toMatchObject({
+      thread: 'root',
+      cwd: null,
+      start: true,
+      observer: true,
     })
   })
 

@@ -10,18 +10,23 @@ const name = z.string().min(1)
 const sessionStartEvent = 'SessionStart'
 const startSources: ReadonlySet<string> = new Set(['startup', 'clear', 'fork'])
 
+const evidence = z.string().optional().catch(undefined)
+
 const HookIdentity = z.looseObject({
-  hook_event_name: name.optional(),
   session_id: name,
   agent_id: name.nullish(),
-  cwd: z.string().nullish(),
-  source: z.string().nullish(),
+})
+
+const HookEvidence = z.looseObject({
+  hook_event_name: evidence,
+  cwd: evidence,
+  source: evidence,
 })
 
 const SessionMetaMarks = z.looseObject({
-  cwd: z.string().optional(),
-  originator: z.string().optional(),
-  thread_source: z.string().optional(),
+  cwd: evidence,
+  originator: evidence,
+  thread_source: evidence,
 })
 
 const TurnContextCwd = z.looseObject({ cwd: z.string().optional() })
@@ -43,11 +48,13 @@ const ownedBy = (stream: ThreadStream, statement: Statement): RecordOwner => ({
 })
 
 const hookOwner = (record: CollectedRecord): RecordOwner | null => {
-  const hook = HookIdentity.safeParse(readJson(record.payload))
+  const payload = readJson(record.payload)
+  const hook = HookIdentity.safeParse(payload)
   if (!hook.success) {
     return null
   }
-  const { hook_event_name: event, session_id: session, agent_id: agent, cwd, source } = hook.data
+  const { session_id: session, agent_id: agent } = hook.data
+  const { hook_event_name: event, cwd, source } = HookEvidence.parse(payload)
   const stream = { session, thread: agent ?? session }
   return ownedBy(stream, {
     cwd: directory(cwd),
