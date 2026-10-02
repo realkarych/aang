@@ -127,6 +127,93 @@ test('uses stored speakers and kinds, accepts real plan facts and keeps rule att
   })
 })
 
+test.for([
+  ['solver', 'human', 'title'],
+  ['solver', 'tool', 'summary'],
+  ['human', 'tool', 'expected_result'],
+  ['human', 'solver', 'title'],
+] as const)(
+  'updates stage text grounds from %s to %s when changing %s and retains them after reopening',
+  async ([from, to, field], { onTestFinished }) => {
+    const { store, home, begin, solver, human, tool } = await setupObserver(onTestFinished)
+    const facts = { solver, human, tool }
+    const first = facts[from]
+    const second = facts[to]
+    begin([first])
+    expect(
+      store.transaction((transaction) =>
+        applyObserverResponse(transaction, {
+          call: callId,
+          output: response([createStage([first.id])], 2),
+          at: at(20),
+        }),
+      ),
+    ).toEqual({ status: 'accepted', version: 3 })
+    const created = store.model.changes(runA, version(2))[0]?.after
+    if (created?.kind !== 'stage') {
+      throw new Error('the first response must create a stage')
+    }
+    const next = ObserverCallId.parse('updated-stage-text')
+    begin([second], next)
+    expect(
+      store.transaction((transaction) =>
+        applyObserverResponse(transaction, {
+          call: next,
+          output: response(
+            [
+              {
+                op: 'stage.update',
+                stage: existing(created.value.id),
+                title: null,
+                expected_result: null,
+                summary: null,
+                [field]: 'Revised from new evidence',
+                evidence: [second.id],
+                rationale: 'New evidence changes the text',
+              },
+            ],
+            3,
+          ),
+          at: at(30),
+        }),
+      ),
+    ).toEqual({ status: 'accepted', version: 4 })
+    const basis =
+      to === 'solver'
+        ? { kind: 'claimed' }
+        : { kind: 'interpreted', interpreter: { kind: 'llm', call: next } }
+    const expected = {
+      kind: 'stage',
+      value: {
+        ...created.value,
+        [field]: 'Revised from new evidence',
+        basis,
+        evidence: [second.id],
+        updated_version: 4,
+      },
+    }
+    const ref = { kind: 'stage', id: created.value.id } as const
+    expect(store.model.entity(runA, ref)).toEqual(expected)
+    const changes = store.model.changes(runA, version(3))
+    expect(changes).toHaveLength(1)
+    expect(changes[0]).toMatchObject({
+      op: 'stage.update',
+      basis,
+      evidence: [second.id],
+      before: created,
+      after: expected,
+    })
+    store.close()
+    const reopened = home.open()
+    expect(reopened.model.entity(runA, ref)).toEqual(expected)
+    expect(reopened.model.changes(runA, version(3))).toEqual(changes)
+    reopened.transaction((transaction) => {
+      transaction.model.replay()
+    })
+    expect(reopened.model.entity(runA, ref)).toEqual(expected)
+  },
+)
+
 test.for(['confirmed', 'contract', 'delete', 'observed'])(
   'the closed protocol prevents %s from being assigned by the observer',
   async (scenario, { onTestFinished }) => {
@@ -284,8 +371,8 @@ test('accepts referenced questions, attention and final-message cards without fa
       {
         op: 'card.add',
         stages: [existing(stages.build)],
-        text: 'Result',
-        source: { fact: final.id, start: 0, end: 1 },
+        text: 'K',
+        source: { fact: final.id, start: 1, end: 2 },
         evidence,
         rationale: 'Result',
       },
@@ -317,13 +404,63 @@ test('accepts referenced questions, attention and final-message cards without fa
       expect.objectContaining({
         kind: 'card',
         value: expect.objectContaining({
-          source: { fact: final.id, start: 0, end: 1 },
+          text: 'K',
+          source: { fact: final.id, start: 1, end: 2 },
           basis: { kind: 'claimed' },
         }) as unknown,
       }),
     ]),
   )
 })
+
+test.for(['All security tests passed and production deploy succeeded', 'O'])(
+  'rejects a card whose text %s differs from its valid source range without accepting other operations',
+  async (text, { onTestFinished }) => {
+    const { store, facts, human, begin } = await setupObserver(onTestFinished)
+    const final = facts.find(
+      (fact) => fact.kind === 'message' && fact.speaker === 'solver' && fact.payload.final,
+    )
+    if (final?.kind !== 'message') {
+      throw new Error('the sample must have a final solver message')
+    }
+    expect(final.payload.text).toBe('OK')
+    const before = store.model.entities(runA)
+    begin([final, human])
+    expect(
+      store.transaction((transaction) =>
+        applyObserverResponse(transaction, {
+          call: callId,
+          output: response(
+            [
+              createStage([final.id]),
+              {
+                op: 'card.add',
+                stages: [temporary('new-stage')],
+                text,
+                source: { fact: final.id, start: 1, end: 2 },
+                evidence: [final.id],
+                rationale: 'Result',
+              },
+            ],
+            2,
+          ),
+          at: at(20),
+        }),
+      ),
+    ).toMatchObject({
+      status: 'rejected',
+      rejections: [expect.objectContaining({ op_index: 1, cause: 'invariant' })],
+    })
+    expect(store.model.head(runA)).toBe(2)
+    expect(store.model.entities(runA)).toEqual(before)
+    expect(store.model.changes(runA, version(2))).toEqual([])
+    expect(store.interpretations.ofCall(callId).map(({ status }) => status)).toEqual([
+      'pending',
+      'pending',
+    ])
+    expect(store.observerCalls.get(callId)?.verdict).toBe('rejected')
+  },
+)
 
 test.for([
   'nest-new',

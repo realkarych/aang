@@ -68,6 +68,8 @@ export const planOperation = (context: ObserverContext, op: ObserverOp, at: Epoc
       saveStage({
         ...stage(op.stage, changed),
         ...Object.fromEntries(changed.map((field) => [field, op[field]])),
+        basis,
+        evidence: op.evidence,
       })
       return
     }
@@ -195,6 +197,11 @@ export const planOperation = (context: ObserverContext, op: ObserverOp, at: Epoc
         op.source.start < op.source.end && op.source.end <= source.payload.text.length,
         'invariant',
         'card coordinates are outside the original message',
+      )
+      context.check(
+        op.text === source.payload.text.slice(op.source.start, op.source.end),
+        'invariant',
+        'card text does not match the original message fragment',
       )
       put({
         kind: 'card',
