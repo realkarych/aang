@@ -249,10 +249,18 @@ Each question yields three independent values:
   - `codex.tool_decision` for the linked call with `source: User` is an observed
     approval or rejection; `Config` and `AutomatedReviewer` give `none`, and no
     human decision is inferred for that call;
-  - otherwise `rule:permission-decision` infers an approval from any completion
+  - otherwise `rule:permission-decision` infers an approval from an execution
     of the call after the request, and a rejection from a denied completion or a
-    `PostToolBatch` without a completion. A Codex `turn_aborted` or `Interrupt`
-    while the request waits is a rejection as well;
+    `PostToolBatch` without a completion. An execution is a `Post*` hook or a
+    completion with a known result (`item_completed`, a transcript
+    `tool_result`); a Codex `function_call_output` alone has no known result,
+    because Codex also writes it for a request cancelled with Esc. A Codex
+    `turn_aborted` or `Interrupt` while the request waits is a rejection as well;
+  - an ambiguous link is decided only when every candidate call is settled: the
+    request gets their common decision, or `unknown` if they differ. Until then
+    the request keeps waiting; if the wait ends first, the request ends without
+    an answer and its decision is the one shared by the settled candidates and
+    the ended wait, otherwise `unknown`;
   - `answers` and `ElicitationResult` (correlated by `elicitation_id`) are
     observed: `accept` answers, `decline` and `cancel` reject;
   - an `ExitPlanMode` completion is a plan approval or rejection

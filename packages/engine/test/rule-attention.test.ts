@@ -117,6 +117,124 @@ test('links a request only to an unfinished call of the same agent with the same
   expect(itemOf(store, key, 'unmatched.evt')).toMatchObject({ action: null, text: 'Bash: rm -rf build' })
 })
 
+const twinCalls = (hooks: ReturnType<typeof claudeHooks>) => ({
+  preA: hooks.pre('pre-a.evt', 'call-a', ms(1)),
+  preB: hooks.pre('pre-b.evt', 'call-b', ms(2)),
+  requestA: hooks.request('request-a.evt', ms(3)),
+  requestB: hooks.request('request-b.evt', ms(4)),
+  postB: hooks.post('post-b.evt', 'call-b', ms(5)),
+})
+
+const twinRequests = ['request-a.evt', 'request-b.evt']
+
+const twinOrders = {
+  'in order': ['preA', 'preB', 'requestA', 'requestB', 'postB'],
+  reversed: ['postB', 'requestB', 'requestA', 'preB', 'preA'],
+  'requests first': ['requestA', 'requestB', 'postB', 'preB', 'preA'],
+} as const
+
+test.each(Object.entries(twinOrders))(
+  'identical calls keep both ambiguous requests open until every candidate is settled: %s',
+  async (name, order) => {
+    const session = `twins-${name.replaceAll(' ', '-')}`
+    const { store, key, engine } = await observeSession(onTestFinished, 'claude', session)
+    const hooks = claudeHooks(session)
+    const calls = twinCalls(hooks)
+    await engine.ingest(hookBatch(hooks.start()))
+    for (const part of order) {
+      await engine.ingest(hookBatch(calls[part]))
+    }
+    for (const file of twinRequests) {
+      expect(questionOf(store, key, file)).toMatchObject({
+        action: { action: actionId(key, 'call-b'), ambiguous: true },
+        decision: { value: 'requested' },
+        answered_at: null,
+      })
+      expect(itemOf(store, key, file)).toMatchObject({
+        action: null,
+        runtime_wait: 'active',
+        resolution: 'open',
+        closed_at: null,
+      })
+    }
+    await engine.ingest(hookBatch(hooks.post('post-a.evt', 'call-a', ms(6))))
+    const posts = [factOf(store, 'post-a.evt'), factOf(store, 'post-b.evt')]
+    for (const file of twinRequests) {
+      expect(questionOf(store, key, file)).toMatchObject({
+        decision: {
+          value: 'approved',
+          basis: rule('permission-decision'),
+          evidence: sorted(factOf(store, file).id, ...posts.map(({ id }) => id)),
+        },
+        answered_at: posts[0]?.at,
+      })
+      expect(itemOf(store, key, file)).toMatchObject({
+        runtime_wait: 'ended',
+        resolution: 'answered',
+        closed_at: posts[0]?.at,
+      })
+    }
+  },
+)
+
+test('the turn end closes ambiguous requests without a decision when only one candidate ran', async () => {
+  const { store, key, engine } = await observeSession(onTestFinished, 'claude', 'twins-stop')
+  const hooks = claudeHooks('twins-stop')
+  await engine.ingest(hookBatch(hooks.start(), ...Object.values(twinCalls(hooks)), hooks.stop('stop.evt', ms(6))))
+  const stop = factOf(store, 'stop.evt')
+  const post = factOf(store, 'post-b.evt')
+  for (const file of twinRequests) {
+    expect(questionOf(store, key, file)).toMatchObject({
+      decision: {
+        value: 'unknown',
+        basis: rule('permission-decision'),
+        evidence: sorted(factOf(store, file).id, stop.id, post.id),
+      },
+      answered_at: null,
+    })
+    expect(itemOf(store, key, file)).toMatchObject({
+      runtime_wait: 'ended',
+      resolution: 'ended_without_answer',
+      closed_at: stop.at,
+    })
+  }
+})
+
+test('a candidate read late reopens an answered request until it is settled too', async () => {
+  const { store, key, engine } = await observeSession(onTestFinished, 'claude', 'twins-late')
+  const hooks = claudeHooks('twins-late')
+  const { preA, preB, requestA } = twinCalls(hooks)
+  await engine.ingest(hookBatch(hooks.start(), preA, requestA, hooks.post('post-a.evt', 'call-a', ms(5))))
+  expect(questionOf(store, key, 'request-a.evt')).toMatchObject({
+    action: { action: actionId(key, 'call-a'), ambiguous: false },
+    decision: { value: 'approved' },
+  })
+  await engine.ingest(hookBatch(preB))
+  expect(questionOf(store, key, 'request-a.evt')).toMatchObject({
+    action: { action: actionId(key, 'call-b'), ambiguous: true },
+    decision: { value: 'requested' },
+    answered_at: null,
+  })
+  expect(itemOf(store, key, 'request-a.evt')).toMatchObject({
+    runtime_wait: 'active',
+    resolution: 'open',
+    closed_at: null,
+  })
+  await engine.ingest(hookBatch(hooks.post('post-b.evt', 'call-b', ms(6))))
+  const post = factOf(store, 'post-b.evt')
+  expect(questionOf(store, key, 'request-a.evt')).toMatchObject({
+    decision: { value: 'approved', basis: rule('permission-decision') },
+    answered_at: post.at,
+  })
+  expect(itemOf(store, key, 'request-a.evt')).toMatchObject({ resolution: 'answered', closed_at: post.at })
+  expect(attentionChanges(store, key).map(({ op }) => op)).toEqual([
+    'attention.open',
+    'attention.close',
+    'attention.open',
+    'attention.close',
+  ])
+})
+
 test.each([
   ['approval', 'approved'],
   ['denial', 'rejected'],
@@ -280,6 +398,85 @@ test.each(['rollout turn_aborted', 'Interrupt hook'])(
     })
   },
 )
+
+const escDeliveries = {
+  'hooks first': ['hooks', 'output', 'aborted'],
+  'rollout first': ['output', 'aborted', 'hooks'],
+  'hooks between the output and the abort': ['output', 'hooks', 'aborted'],
+} as const
+
+test.each(Object.entries(escDeliveries))(
+  'a Codex request cancelled with Esc is not approved by the aborted tool output: %s',
+  async (name, order) => {
+    const session = `codex-esc-${name.replaceAll(' ', '-')}`
+    const { store, key, engine } = await observeSession(onTestFinished, 'codex', session)
+    const hooks = codexHooks(session)
+    const file = codexRolloutFile(
+      session,
+      ['response_item.function_call_output.aborted-by-user.mock-tui.json', 'event_msg.turn_aborted.mock-tui.json'],
+      43n,
+    )
+    const batches = {
+      hooks: hookBatch(hooks.start(), hooks.pre('pre.evt', 'call_mock_5', ms(1)), hooks.request('request.evt', ms(2))),
+      output: file.batch(1, 2),
+      aborted: file.batch(3, 3),
+    }
+    for (const part of order) {
+      await engine.ingest(batches[part])
+    }
+    const output = factsOf(store).find(({ kind }) => kind === 'action_end')
+    const aborted = factsOf(store).find(({ kind }) => kind === 'turn_end')
+    expect(output?.payload).toMatchObject({ outcome: 'unknown', output: 'Wall time: 4.9 seconds\naborted by user' })
+    expect(questionOf(store, key, 'request.evt')).toMatchObject({
+      action: { action: actionId(key, 'call_mock_5'), ambiguous: false },
+      decision: {
+        value: 'rejected',
+        basis: rule('permission-decision'),
+        evidence: sorted(factOf(store, 'request.evt').id, aborted?.id ?? ''),
+      },
+      answered_at: null,
+    })
+    expect(itemOf(store, key, 'request.evt')).toMatchObject({
+      runtime_wait: 'ended',
+      resolution: 'ended_without_answer',
+      closed_at: aborted?.at,
+    })
+  },
+)
+
+test('a Codex command that ran stays approved when the turn is aborted during its run', async () => {
+  const session = 'codex-ran-aborted'
+  const { store, key, engine } = await observeSession(onTestFinished, 'codex', session)
+  const hooks = codexHooks(session)
+  await engine.ingest(
+    hookBatch(hooks.start(), hooks.pre('pre.evt', 'call_mock_5', ms(1)), hooks.request('request.evt', ms(2))),
+  )
+  const file = codexRolloutFile(
+    session,
+    [
+      'response_item.function_call_output.aborted-by-user.mock-tui.json',
+      'event_msg.turn_aborted.mock-tui.json',
+      'event_msg.item_completed.CommandExecution.after-abort.mock-tui.json',
+    ],
+    44n,
+  )
+  await engine.ingest(file.batch(1, file.lines.length))
+  const completed = factsOf(store).find((fact) => fact.kind === 'action_end' && fact.payload.outcome === 'error')
+  expect(completed).toBeDefined()
+  expect(questionOf(store, key, 'request.evt')).toMatchObject({
+    decision: {
+      value: 'approved',
+      basis: rule('permission-decision'),
+      evidence: sorted(factOf(store, 'request.evt').id, completed?.id ?? ''),
+    },
+    answered_at: completed?.at,
+  })
+  expect(itemOf(store, key, 'request.evt')).toMatchObject({
+    runtime_wait: 'ended',
+    resolution: 'answered',
+    closed_at: completed?.at,
+  })
+})
 
 test('an unanswered question survives the next prompt and the end of the session', async () => {
   const { store, key, engine } = await observeSession(onTestFinished, 'claude', 'unanswered')

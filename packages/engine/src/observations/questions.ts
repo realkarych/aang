@@ -94,11 +94,14 @@ const earliest = <T extends Evidence>(items: readonly T[]): T | undefined => ite
 
 const since = <T extends Evidence>(items: readonly T[], at: EpochNs): T[] => items.filter(({ fact }) => fact.at >= at)
 
-const grounds = (fact: Fact, basis: Basis, evidence: readonly FactId[] = [fact.id]): Grounds => ({
-  at: fact.at,
+const groundsAt = (at: EpochNs, basis: Basis, evidence: readonly FactId[]): Grounds => ({
+  at,
   basis,
   evidence: [...new Set(evidence)].sort(),
 })
+
+const grounds = (fact: Fact, basis: Basis, evidence: readonly FactId[] = [fact.id]): Grounds =>
+  groundsAt(fact.at, basis, evidence)
 
 const assessed = (value: HumanDecision, { basis, evidence }: Grounds): Assessed<HumanDecision> => ({
   value,
@@ -146,7 +149,7 @@ const waitEnders = (session: SessionFacts, opening: Fact): Evidence[] => {
 
 interface PermissionLink {
   readonly link: QuestionActionLink
-  readonly call: string
+  readonly calls: readonly string[]
 }
 
 const permissionLink = (session: SessionFacts, request: Request): PermissionLink | null => {
@@ -179,7 +182,7 @@ const permissionLink = (session: SessionFacts, request: Request): PermissionLink
   const [call] = chosen
   const { runtime, session: sessionName } = request.entity_key
   return {
-    call,
+    calls: candidates.map(([candidate]) => candidate),
     link: {
       action: objectId({ kind: 'action', runtime, session: sessionName, call }),
       ambiguous: candidates.length > 1,
@@ -217,9 +220,12 @@ const observedDecision = (session: SessionFacts, call: string): Settled | null =
   return settledBy('none', grounds(policy, observed))
 }
 
+const executed = ({ fact, raw }: KindEvidence<'action_end'>): boolean =>
+  fact.payload.outcome === 'unknown' ? raw.channel === 'hook' : fact.payload.outcome !== 'denied'
+
 const inferredDecision = (session: SessionFacts, request: Request, call: string): Settled | null => {
   const ends = since(session.of('action_end'), request.at).filter(({ fact }) => callOf(fact) === call)
-  const ran = earliest(ends.filter(({ fact }) => fact.payload.outcome !== 'denied'))?.fact
+  const ran = earliest(ends.filter(executed))?.fact
   const denied = earliest(ends.filter(({ fact }) => fact.payload.outcome === 'denied'))?.fact
   const batch = earliest(
     since(session.of('tool_batch_end'), request.at).filter(({ fact }) =>
@@ -233,12 +239,34 @@ const inferredDecision = (session: SessionFacts, request: Request, call: string)
   return settledBy(settled === ran ? 'approved' : 'rejected', grounds(settled, decisionRule, [request.id, settled.id]))
 }
 
+const commonDecision = ([first, ...rest]: readonly HumanDecision[]): HumanDecision =>
+  first !== undefined && rest.every((value) => value === first) ? first : 'unknown'
+
+const decisionsOf = (settlements: readonly Settled[]): HumanDecision[] =>
+  settlements.map(({ decision }) => decision.value)
+
+const settlementEvidence = (settlements: readonly Settled[]): FactId[] =>
+  settlements.flatMap(({ closure }) => closure.evidence)
+
+const jointSettlement = (request: Request, settlements: readonly Settled[]): Settled | null => {
+  const [first, ...rest] = settlements
+  if (first === undefined || rest.length === 0) {
+    return first ?? null
+  }
+  const at = rest.reduce((last, { closure }) => (closure.at > last ? closure.at : last), first.closure.at)
+  return settledBy(
+    commonDecision(decisionsOf(settlements)),
+    groundsAt(at, decisionRule, [request.id, ...settlementEvidence(settlements)]),
+  )
+}
+
 const permissionOutcome = (session: SessionFacts, request: Request): QuestionOutcome => {
   const linked = permissionLink(session, request)
-  const settled =
-    linked === null
-      ? null
-      : (observedDecision(session, linked.call) ?? inferredDecision(session, request, linked.call))
+  const calls = linked?.calls ?? []
+  const settlements = calls.flatMap(
+    (call) => observedDecision(session, call) ?? inferredDecision(session, request, call) ?? [],
+  )
+  const settled = settlements.length === calls.length ? jointSettlement(request, settlements) : null
   const base = { opening: request, text: permissionText(request), link: linked?.link ?? null, blocking: true }
   if (settled !== null) {
     return {
@@ -266,9 +294,13 @@ const permissionOutcome = (session: SessionFacts, request: Request): QuestionOut
   const aborted =
     request.entity_key.runtime === 'codex' && ender.kind === 'turn_end' && ender.payload.outcome !== 'completed'
   const end = grounds(ender, observed)
+  const decision = commonDecision([aborted ? 'rejected' : 'unknown', ...decisionsOf(settlements)])
   return {
     ...base,
-    decision: assessed(aborted ? 'rejected' : 'unknown', grounds(ender, decisionRule, [request.id, ender.id])),
+    decision: assessed(
+      decision,
+      grounds(ender, decisionRule, [request.id, ender.id, ...settlementEvidence(settlements)]),
+    ),
     answered_at: null,
     wait: 'ended',
     wait_end: end,
