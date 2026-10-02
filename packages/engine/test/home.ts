@@ -31,9 +31,11 @@ export interface Home {
   readonly database: () => DatabaseSync
   readonly recordObserverCalls: (calls: readonly ObserverCallRow[]) => void
   readonly startWriter: () => Promise<Writer>
+  readonly startObserverWriter: (phase: 'started' | 'applying' | 'accepted') => Promise<Writer>
 }
 
 const writerScript = fileURLToPath(new URL('./model-writer.ts', import.meta.url))
+const observerWriterScript = fileURLToPath(new URL('./observer-writer.ts', import.meta.url))
 
 const waitUntilReady = (child: Child): Promise<void> =>
   new Promise((resolve, reject) => {
@@ -84,6 +86,13 @@ export const createHome = async (register: (cleanup: Cleanup) => void): Promise<
     return connection
   }
 
+  const startWriter = async (script: string, args: string[] = []): Promise<Writer> => {
+    const child = spawn(process.execPath, [script, path, ...args], { stdio: ['ignore', 'pipe', 'pipe'] })
+    cleanups.push(() => killChild(child))
+    await waitUntilReady(child)
+    return { kill: () => killChild(child) }
+  }
+
   return {
     path,
     open: () => {
@@ -105,11 +114,7 @@ export const createHome = async (register: (cleanup: Cleanup) => void): Promise<
       }
       connection.close()
     },
-    startWriter: async () => {
-      const child = spawn(process.execPath, [writerScript, path], { stdio: ['ignore', 'pipe', 'pipe'] })
-      cleanups.push(() => killChild(child))
-      await waitUntilReady(child)
-      return { kill: () => killChild(child) }
-    },
+    startWriter: () => startWriter(writerScript),
+    startObserverWriter: (phase) => startWriter(observerWriterScript, [phase]),
   }
 }

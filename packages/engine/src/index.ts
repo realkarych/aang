@@ -7,6 +7,13 @@ export {
 } from './ingest/engine.js'
 export type { WatchedRoots } from './ingest/scope.js'
 export {
+  applyObserverResponse,
+  beginObserverCall,
+  type ObserverResponse,
+  type ObserverResponseResult,
+} from './model/observer.js'
+export type { ValidationLimits } from './model/observer-context.js'
+export {
   type AppliedChangeSet,
   applyChangeSet,
   type AttentionItemDraft,

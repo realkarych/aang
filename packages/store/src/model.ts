@@ -8,7 +8,7 @@ import {
   type ModelOperation,
   ModelVersion,
   ModelVersionRecord,
-  type RunId,
+  RunId,
 } from '@aang/contract'
 import { decodeJson, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
@@ -27,6 +27,11 @@ export interface JournalEntry {
 }
 
 export interface ModelReader {
+  readonly entityRuns: (target: ModelEntityRef) => RunId[]
+  readonly objectRun: (
+    kind: 'action' | 'agent' | 'artifact_version' | 'session',
+    id: string,
+  ) => RunId | null | undefined
   readonly head: (run: RunId) => ModelVersion
   readonly version: (run: RunId, version: ModelVersion) => ModelVersionRecord | null
   readonly entity: (run: RunId, target: ModelEntityRef) => ModelEntity | null
@@ -157,6 +162,11 @@ const toChange = (row: ChangeRow): ModelChange =>
   })
 
 export const createModel = (database: DatabaseSync): ModelRepository => {
+  const selectEntityRuns = prepareStatement(
+    database,
+    'SELECT run_id FROM model_entities WHERE kind = ? AND id = ?',
+  )
+  const selectObjectRun = prepareStatement(database, 'SELECT run_id FROM objects WHERE kind = ? AND id = ?')
   const selectHead = prepareStatement(
     database,
     'SELECT COALESCE(MAX(version), 0) AS head FROM model_versions WHERE run_id = ?',
@@ -216,6 +226,14 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
   }
 
   const reader: ModelReader = {
+    entityRuns: (target) =>
+      (selectEntityRuns.all(target.kind, target.id) as { run_id: string }[]).map((row) =>
+        RunId.parse(row.run_id),
+      ),
+    objectRun: (kind, id) => {
+      const row = selectObjectRun.get(kind, id) as { run_id: string | null } | undefined
+      return row === undefined ? undefined : row.run_id === null ? null : RunId.parse(row.run_id)
+    },
     head: (run) => ModelVersion.parse(Number((selectHead.get(run) as { readonly head: bigint }).head)),
     version: (run, version) => {
       const row = selectVersion.get(run, version) as VersionRow | undefined
