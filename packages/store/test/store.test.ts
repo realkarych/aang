@@ -1,5 +1,5 @@
-import { mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { openStore, StoreLockedError, StoreVersionError } from '@aang/store'
+import { chmodSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { openStore, StoreLockedError, StoreVersionError, type Transaction } from '@aang/store'
 import { expect, test } from 'vitest'
 import { createHome, type Home, pragma, schemaFiles } from './home.js'
 
@@ -32,6 +32,19 @@ test('opening a new home creates a private directory with a WAL database at the 
   expect(pragma(database, 'journal_mode')).toBe('wal')
   expect(pragma(database, 'user_version')).toBe(schemaFiles().length)
 })
+
+test.skipIf(process.platform === 'win32')(
+  'opening an existing home that others can read makes it private',
+  async ({ onTestFinished }) => {
+    const home = await createHome(onTestFinished)
+    mkdirSync(home.path, { recursive: true })
+    chmodSync(home.path, 0o755)
+
+    home.open().close()
+
+    expect(statSync(home.path).mode & 0o777).toBe(0o700)
+  },
+)
 
 test('reopening an up-to-date home changes nothing', async ({ onTestFinished }) => {
   const home = await createHome(onTestFinished)
@@ -106,16 +119,26 @@ test('a writer killed inside a transaction leaves only its committed changes', a
   expect(home.open().transaction((transaction) => transaction.nextChangeSeq())).toBe(2)
 })
 
-test('asynchronous transaction work is refused and rolled back', async ({ onTestFinished }) => {
+test('asynchronous transaction work is refused and rolled back without leaving its promise unhandled', async ({
+  onTestFinished,
+}) => {
   const home = await createHome(onTestFinished)
   const store = home.open()
+  const untypedTransaction = store.transaction as (work: (transaction: Transaction) => unknown) => unknown
 
   expect(() =>
-    store.transaction((transaction) => {
+    untypedTransaction((transaction) => {
       transaction.nextChangeSeq()
-      return Promise.resolve()
+      return Promise.reject(new Error('ingestion failed'))
     }),
   ).toThrow('transaction work must be synchronous')
+  expect(() =>
+    untypedTransaction(async (transaction) => {
+      await Promise.resolve()
+      transaction.nextChangeSeq()
+    }),
+  ).toThrow('transaction work must be synchronous')
+  await new Promise((resolve) => setImmediate(resolve))
 
   expect(store.transaction((transaction) => transaction.nextChangeSeq())).toBe(1)
 })

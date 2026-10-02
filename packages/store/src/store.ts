@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs'
+import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync, type StatementSync } from 'node:sqlite'
 import { acquireWriterLock, type WriterLock } from './lock.js'
@@ -13,8 +13,10 @@ export interface Transaction {
   readonly nextChangeSeq: () => number
 }
 
+type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
+
 export interface Store {
-  readonly transaction: <T>(work: (transaction: Transaction) => T) => T
+  readonly transaction: <T>(work: (transaction: Transaction) => Synchronous<T>) => T
   readonly close: () => void
 }
 
@@ -58,8 +60,15 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   }
 }
 
-export const openStore = ({ home }: StoreOptions): Store => {
+const preparePrivateHome = (home: string): void => {
   mkdirSync(home, { recursive: true, mode: 0o700 })
+  if (process.platform !== 'win32') {
+    chmodSync(home, 0o700)
+  }
+}
+
+export const openStore = ({ home }: StoreOptions): Store => {
+  preparePrivateHome(home)
   const lock = acquireWriterLock(home)
   let database: DatabaseSync | undefined
   try {
