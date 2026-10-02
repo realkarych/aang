@@ -85,7 +85,7 @@ const invalidated = (cursor: FileCursor, stats: BigIntStats): boolean =>
   !sameFile(cursor, stats) || stats.size < BigInt(cursor.size)
 
 const hasNewData = (file: TrackedFile, stats: BigIntStats): boolean =>
-  file.cursor === null || !sameFile(file.cursor, stats) || stats.size !== BigInt(file.cursor.size)
+  file.replay || file.cursor === null || !sameFile(file.cursor, stats) || stats.size !== BigInt(file.cursor.size)
   || BigInt(file.examined ?? file.cursor.offset) < stats.size
 
 const rolloutOrdinal = (payload: string): number | null => {
@@ -208,8 +208,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
 
   const recovered = options.retrier.recovered
 
-  const reset = (file: TrackedFile): void => {
-    file.cursor = null
+  const requestReplay = (file: TrackedFile): void => {
     file.replay = true
     file.examined = null
     dirty.set(file.path, file)
@@ -233,7 +232,8 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       }
       recoveries.set(stream, recovery)
     }
-    reset(file)
+    file.cursor = null
+    requestReplay(file)
   }
 
   const identify = async (file: TrackedFile, stats: BigIntStats): Promise<StreamKey | null> => {
@@ -276,7 +276,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
           try {
             const stats = await stat(path, { bigint: true })
             if (stats.isFile() && await identify(file, stats) === stream) {
-              reset(file)
+              requestReplay(file)
               found = true
             }
           } catch (error) {
@@ -331,7 +331,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       if (file.cursor === null && !file.replay && stats.mtimeMs < BigInt(Date.now() - options.lookbackDays * 86_400_000)) {
         return nothing
       }
-      start = file.cursor ?? freshCursor(file.path, stats)
+      start = file.replay ? freshCursor(file.path, stats) : file.cursor ?? freshCursor(file.path, stats)
       if (start.stream === null) {
         start = { ...start, stream: await identify(file, stats) }
       }
@@ -404,7 +404,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     }
     for (const file of files.values()) {
       if (file.cursor?.stream !== null && file.cursor?.stream !== undefined && requested.has(file.cursor.stream)) {
-        reset(file)
+        requestReplay(file)
       }
     }
     const records: CollectedRecord[] = []

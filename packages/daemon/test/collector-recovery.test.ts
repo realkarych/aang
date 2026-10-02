@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { codexAdapter } from '@aang/adapter-codex'
 import { createCollector } from '@aang/collector'
-import { ChangeSeq, type CollectedRecord, Config } from '@aang/contract'
+import { ChangeSeq, type CollectedRecord, Config, StreamKey } from '@aang/contract'
 import { openStore } from '@aang/store'
 import { expect, test, vi } from 'vitest'
 
@@ -20,7 +20,12 @@ const setReadable = async (path: string, readable: boolean): Promise<void> => {
   }
 }
 
-test.for(['missing', 'replaced'] as const)('relocation closes the persisted read_failed episode when its old path is %s', async (scenario, { onTestFinished }) => {
+test.for([
+  { operation: 'tail', scenario: 'missing' },
+  { operation: 'tail', scenario: 'replaced' },
+  { operation: 'rescan', scenario: 'missing' },
+  { operation: 'rescan', scenario: 'replaced' },
+])('$operation relocation closes the persisted read_failed episode when its old path is $scenario', async ({ operation, scenario }, { onTestFinished }) => {
   const root = await mkdtemp(join(tmpdir(), 'aang-read-recovery-'))
   const home = join(root, 'home')
   const codex = join(root, 'codex')
@@ -81,6 +86,9 @@ test.for(['missing', 'replaced'] as const)('relocation closes the persisted read
   })
   await setReadable(path, false)
   await appendFile(path, `${lines[2]}\n`)
+  if (operation === 'rescan') {
+    collector.rescan([StreamKey.parse('codex:original:original')])
+  }
   await vi.waitFor(() => {
     expect(savedGaps()).toHaveLength(1)
   }, { timeout: 5_000 })
@@ -93,6 +101,8 @@ test.for(['missing', 'replaced'] as const)('relocation closes the persisted read
     stream: 'codex:original:original',
     closed_at: null,
   })
+  const old = new Date(Date.now() - 30 * 86_400_000)
+  await utimes(path, old, old)
   await rename(path, restored)
   sourcePath = restored
   if (scenario === 'replaced') {
