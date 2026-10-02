@@ -1,4 +1,5 @@
-import { mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { constants } from 'node:fs'
+import { access, mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import type { Runtime, Surface } from '@aang/contract'
@@ -35,6 +36,11 @@ export interface RecordContext {
 
 const removeTree = (directory: string): Promise<void> => rm(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
+const isExecutable = async (path: string): Promise<boolean> => {
+  const info = await stat(path).catch(() => undefined)
+  if (!info?.isFile()) return false
+  return process.platform === 'win32' || await access(path, constants.X_OK).then(() => true, () => false)
+}
 
 export const recordSession = async (options: RecordOptions, scenario: (context: RecordContext) => Promise<void>): Promise<string> => {
   const metadata = RecordMetadata.parse({
@@ -53,6 +59,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   })
   if (exists) throw new Error('Recording destination already exists')
   const hookBinary = resolve(options.hookBinary)
+  if (!await isExecutable(hookBinary)) throw new Error('Hook binary must be an existing executable file')
   const temporary = await mkdtemp(join(tmpdir(), 'aang-record-'))
   let staging: string | undefined
   const controller = new AbortController()

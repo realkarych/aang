@@ -26,7 +26,7 @@ The module has the same API as `recordSession(options, run)` from `@aang/record`
 | `scenario` | Portable directory name |
 | `expectedFacts` | Nonempty list of expected key facts for the contract run |
 | `fixturesRoot` | Destination root, normally `fixtures/sessions` |
-| `hookBinary` | Path to the built native `aang-hook` binary |
+| `hookBinary` | Path to the built native `aang-hook` binary; a missing, non-file, or non-executable path is rejected before the scenario runs |
 
 The session exposes `project`, `home`, `claude`, `codex`, `spool`, and `plugin` paths. A scenario may prepare files in these directories, then await `session.run(absoluteExecutable, args)`. Commands run sequentially in the temporary project, without a shell, with temporary `HOME`, `USERPROFILE`, `CLAUDE_CONFIG_DIR`, and `CODEX_HOME`. Use the native executable or `node` plus a script for npm wrappers on Windows. Existing authorization files are never copied. Environment credentials are inherited.
 
@@ -68,10 +68,14 @@ Hook selectors also accept `sessionId`. Labels must be unique and each selected 
 
 ## Anonymization
 
-Anonymization runs after capture and before anything is published. A shared mapping across every artifact discovers account, organization, user, and installation IDs, including nested serialized JSON and OTLP attributes. It replaces their references consistently, masks email addresses, home paths on macOS/Linux/Windows, and `%USERPROFILE%`, and normalizes the temporary project and profile paths. Numeric IDs are masked in identity fields without changing usage counters. Session, thread, action, and event IDs are preserved.
+Anonymization runs after capture and before anything is published. A shared mapping across every artifact discovers account, organization, user, and installation IDs, including nested serialized JSON and OTLP attributes. It replaces their references consistently, masks email addresses, home paths on macOS/Linux/Windows, and `%USERPROFILE%`, and normalizes the temporary project and profile paths. Home paths are also recognized inside escaped JSON embedded in text (`\/`, `\\`, `\u002f`, `\u005c`). Identity fields and identity OTLP attributes are masked whatever their length or type; other JSON strings equal to a discovered ID of at least four characters are replaced too, while numeric counters such as usage are kept. Session, thread, action, and event IDs are preserved. JSON documents and embedded JSON that contain nothing private are kept byte for byte, and string scalars are never reinterpreted as numbers, so nanosecond timestamps and long numeric IDs stay exact.
 
-Home placeholders follow the source path syntax (`/Users/USER`, `/home/USER`, `C:\Users\USER`); other identities use numbered placeholders. The mapping itself is never saved. This is the identity/path anonymization required by R.1, not a general detector of secrets in arbitrary prose or tool output.
+Explicit credentials are masked as well: values of fields named like `access_token`, `refresh_token`, `api_key`, `secret`, `password`, or `authorization` (JSON keys, OTLP attributes, `KEY=value` and `key: value` text), and `Bearer` tokens. A credential value is masked when it has at least eight characters including a digit, or at least 24 characters.
 
-Verification examines every file, including files absent from the manifest, checks anonymization and control-event references, and loads the playback sources. Publication uses a staging directory and rename; an existing scenario is refused. Temporary raw data is removed on success and ordinary failures. An external kill or machine crash can leave temporary directories for manual cleanup.
+`/root` is masked only before a dot directory such as `/root/.codex`: Codex uses `/root/...` as logical agent paths in fields, OTLP attributes, and message text, and `/root` itself identifies nobody.
+
+Home placeholders follow the source path syntax (`/Users/USER`, `/home/USER`, `C:\Users\USER`); other identities use numbered placeholders. The mapping itself is never saved. This is the identity/path anonymization required by R.1 plus explicit credential fields, not a general detector of secrets in arbitrary prose or tool output.
+
+Verification examines every file, including files absent from the manifest, with one mapping discovered across all of them, checks anonymization and control-event references, and loads the playback sources. Publication uses a staging directory and rename; an existing scenario is refused. Temporary raw data is removed on success and ordinary failures. An external kill or machine crash can leave temporary directories for manual cleanup.
 
 R.1 tests use synthetic external processes, the actual hook binary, existing format samples, and the actual player. They do not invoke real model CLIs. Reusable runtime scenarios are R.2/R.3; recordings from real sessions are R.4.

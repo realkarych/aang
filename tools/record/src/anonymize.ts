@@ -2,8 +2,10 @@ type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 
 type Identity = 'ACCOUNT' | 'ORGANIZATION' | 'INSTALLATION' | 'USER'
 
+const normalize = (key: string): string => key.replaceAll(/[^a-z]/gi, '').toLowerCase()
+
 const identityKind = (key: string): Identity | undefined => {
-  const normalized = key.replaceAll(/[^a-z]/gi, '').toLowerCase()
+  const normalized = normalize(key)
   if (/(?:account)(?:id|uuid)$/.test(normalized)) return 'ACCOUNT'
   if (/(?:organization|org)(?:id|uuid)$/.test(normalized)) return 'ORGANIZATION'
   if (/(?:installation|install)(?:id|uuid)$/.test(normalized)) return 'INSTALLATION'
@@ -11,12 +13,23 @@ const identityKind = (key: string): Identity | undefined => {
   return undefined
 }
 
-const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|EMAIL)_\d+$/
+const isCredential = (key: string): boolean => /(?:token|apikey|secret|password|authorization)$/.test(normalize(key))
+
+const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|EMAIL|SECRET)_\d+$/
 const email = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[a-z]{2,}/giu
-const homes = /(?:\/(?:Users|home)\/|[a-z]:[\\/]+Users[\\/]+)[^\\/\r\n\0"'<>]+/giu
-const rootHome = /\/root(?=[/\s"'\0]|$)/g
+const slash = String.raw`(?:\\*/|\\+u002f)`
+const separators = String.raw`(?:\\+u00(?:5c|2f)|\\*/|\\+)+`
+const segment = String.raw`(?:[^\\/\r\n\0"'<>]|\\+u(?!00(?:5c|2f))[0-9a-f]{4})+`
+const homes = new RegExp(String.raw`(${slash}(?:Users|home)${slash}|[a-z]:${separators}Users${separators})${segment}`, 'giu')
+const rootHome = new RegExp(String.raw`(${slash})root(?=${slash}\.)`, 'gi')
 const profile = /%USERPROFILE%|\$\{?USERPROFILE\}?/gi
 const assignments = /((?:creator[._-]?)?(?:user[._-]?)?(?:account|organization|org|installation|install|user)[._-]?(?:id|uuid))(?:\\*["'])?\s*[:=]\s*(?:\\*["'])?([\w.-]+)/gi
+const credentials = /([\w.-]*?(?:token|api[._-]?key|secret|password|authorization))(?:\\*["'])?\s*[:=]\s*(?:\\*["'])?(?:(?:bearer|basic|token)\s+)?([\w.~+/=-]{8,})/gi
+const bearer = /\bBearer\s+([\w.~+/-]+=*)/g
+
+const isRecord = (value: Json | undefined): value is { [key: string]: Json } => value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const isAttribute = (value: { [key: string]: Json }): boolean => typeof value['key'] === 'string' && identityKind(value['key']) !== undefined
 
 const parse = (text: string): Json | undefined => {
   try { return JSON.parse(text) as Json } catch { return undefined }
@@ -24,9 +37,11 @@ const parse = (text: string): Json | undefined => {
 
 const structured = (text: string, map: (value: Json) => Json, plain: (value: string) => string): string => {
   const parsed = parse(text)
-  if (parsed !== undefined) {
+  if (parsed !== undefined && (isRecord(parsed) || Array.isArray(parsed))) {
+    const mapped = JSON.stringify(map(parsed))
+    if (mapped === JSON.stringify(parsed)) return text
     const trailing = text.endsWith('\r\n') ? '\r\n' : text.endsWith('\n') ? '\n' : ''
-    return JSON.stringify(map(parsed)) + trailing
+    return mapped + trailing
   }
   if (text.includes('\0')) return text.split('\0').map((part) => structured(part, map, plain)).join('\0')
   if (text.includes('\n')) return text.split(/(\r?\n)/).map((line) => /\n/.test(line) ? line : structured(line, map, plain)).join('')
@@ -40,12 +55,27 @@ export interface Anonymizer {
 
 export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map()): Anonymizer => {
   const replacements = new Map(paths)
+  const secrets = new Set<string>()
   const counts = new Map<string, number>()
+  let ordered: (readonly [string, string])[] | undefined
   const register = (value: string, kind: string): void => {
     if (!value || placeholder.test(value) || replacements.has(value)) return
     const next = (counts.get(kind) ?? 0) + 1
     counts.set(kind, next)
     replacements.set(value, `${kind}_${String(next)}`)
+    ordered = undefined
+  }
+  const registerSecret = (value: string): void => {
+    const secret = value.replace(/^(?:bearer|basic|token)\s+/i, '')
+    if (secret.length < 24 && (secret.length < 8 || !/\d/.test(secret))) return
+    secrets.add(secret)
+    register(secret, 'SECRET')
+  }
+  const discoverField = (key: string, value: Json | undefined): void => {
+    if (typeof value !== 'string' && typeof value !== 'number') return
+    const kind = identityKind(key)
+    if (kind) register(String(value), kind)
+    else if (typeof value === 'string' && isCredential(key)) registerSecret(value)
   }
   const discoverText = (text: string): string => {
     for (const match of text.matchAll(email)) register(match[0], 'EMAIL')
@@ -53,6 +83,8 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map())
       const kind = identityKind(match[1] ?? '')
       if (kind !== undefined) register(match[2] ?? '', kind)
     }
+    for (const match of text.matchAll(credentials)) registerSecret(match[2] ?? '')
+    for (const match of text.matchAll(bearer)) registerSecret(match[1] ?? '')
     return text
   }
   const discoverValue = (value: Json): Json => {
@@ -60,16 +92,11 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map())
       structured(value, discoverValue, discoverText)
     } else if (Array.isArray(value)) {
       value.forEach(discoverValue)
-    } else if (value !== null && typeof value === 'object') {
-      const attributeKind = typeof value['key'] === 'string' ? identityKind(value['key']) : undefined
+    } else if (isRecord(value)) {
       const attribute = value['value']
-      if (attributeKind && attribute && typeof attribute === 'object' && !Array.isArray(attribute)) {
-        const content = attribute['stringValue']
-        if (typeof content === 'string') register(content, attributeKind)
-      }
+      if (typeof value['key'] === 'string' && isRecord(attribute)) discoverField(value['key'], attribute['stringValue'] ?? attribute['intValue'])
       for (const [key, nested] of Object.entries(value)) {
-        const kind = identityKind(key)
-        if (kind && (typeof nested === 'string' || typeof nested === 'number')) register(String(nested), kind)
+        discoverField(key, nested)
         discoverText(key)
         discoverValue(nested)
       }
@@ -77,27 +104,30 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map())
     return value
   }
   const replaceText = (input: string): string => {
+    ordered ??= [...replacements].sort(([left], [right]) => right.length - left.length)
     let text = input
-    for (const [before, after] of [...replacements].sort(([left], [right]) => right.length - left.length)) {
-      if (!paths.has(before) && (before.length < 4 || /^\d+$/.test(before))) continue
+    for (const [before, after] of ordered) {
+      if (!paths.has(before) && !secrets.has(before) && (before.length < 4 || /^\d+$/.test(before))) continue
       text = text.replaceAll(before, after)
     }
     text = text.replaceAll(assignments, (match: string, _key: string, value: string) =>
       match.slice(0, match.length - value.length) + (replacements.get(value) ?? value))
-    return text.replaceAll(homes, (home) => {
-      const prefix = /^(\/(?:Users|home)\/|[a-z]:[\\/]+Users[\\/]+)/i.exec(home)?.[0] ?? ''
-      return `${prefix}USER`
-    }).replaceAll(rootHome, '/home/USER').replaceAll(profile, 'REDACTED_HOME')
+    return text.replaceAll(homes, (_home, prefix: string) => `${prefix}USER`)
+      .replaceAll(rootHome, (_root, separator: string) => `${separator}home${separator}USER`)
+      .replaceAll(profile, 'REDACTED_HOME')
   }
+  const identity = (value: Json): Json =>
+    typeof value === 'string' || typeof value === 'number' ? replacements.get(String(value)) ?? mapValue(value) : mapValue(value)
   const mapValue = (value: Json): Json => {
-    if (typeof value === 'string') return structured(value, mapValue, replaceText)
+    if (typeof value === 'string') return (value.length >= 4 ? replacements.get(value) : undefined) ?? structured(value, mapValue, replaceText)
     if (Array.isArray(value)) return value.map(mapValue)
-    if (value !== null && typeof value === 'object') {
+    if (isRecord(value)) {
+      const attribute = isAttribute(value)
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [
         replaceText(key),
-        identityKind(key) && (typeof nested === 'number' || typeof nested === 'string')
-          ? replacements.get(String(nested)) ?? mapValue(nested)
-          : mapValue(nested),
+        identityKind(key) ? identity(nested)
+          : attribute && key === 'value' && isRecord(nested) ? Object.fromEntries(Object.entries(nested).map(([field, content]) => [field, identity(content)]))
+            : mapValue(nested),
       ]))
     }
     return value
@@ -108,16 +138,10 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map())
   }
 }
 
-export const assertAnonymous = (text: string): void => {
+export const assertAnonymous = (texts: readonly string[]): void => {
   const anonymizer = createAnonymizer()
-  anonymizer.discover([text])
-  const canonical = (value: Json): Json => {
-    if (typeof value === 'string') return structured(value, canonical, (plain) => plain)
-    if (Array.isArray(value)) return value.map(canonical)
-    if (value !== null && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, canonical(nested)]))
-    return value
-  }
-  if (anonymizer.text(text) !== structured(text, canonical, (value) => value)) {
+  anonymizer.discover(texts)
+  if (texts.some((text) => anonymizer.text(text) !== text)) {
     throw new Error('Recording contains private data; anonymization is required')
   }
 }

@@ -1,6 +1,6 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
 import { afterEach, expect, test } from 'vitest'
@@ -255,11 +255,99 @@ test('verification detects every private input class independently of the record
     { nested: JSON.stringify({ accountId: 'nested-personal' }) },
     { attributes: [{ key: 'user.account_id', value: { stringValue: 'attribute-personal' } }] },
     { text: 'Raw JSON: {"organization_id":"organization-personal"}' },
+    { access_token: 'synthetic-review-token-do-not-use' },
+    { output: 'curl -H "Authorization: Bearer syntheticBearer0123456789"' },
+    { attributes: [{ key: 'user.account_id', value: { stringValue: '123456' } }] },
+    { attributes: [{ key: 'organization.id', value: { stringValue: 'abc' } }] },
+    { text: String.raw`Raw JSON: {"cwd":"\/Users\/PrivatePerson\/work"}` },
+    { text: String.raw`Raw JSON: {"cwd":"\u002fhome\u002fPrivatePerson\u002fwork"}` },
+    { text: String.raw`Raw JSON: {"cwd":"C:\u005cUsers\u005cPrivatePerson\u005cwork"}` },
   ]
   for (const vector of vectors) {
     await writeFile(join(directory, 'unchecked.json'), JSON.stringify(vector))
     await expect(verifyRecording(directory), JSON.stringify(vector)).rejects.toThrow(/private/)
   }
+})
+
+test('masks credentials, short identities and escaped home paths while keeping exact values and agent paths', async () => {
+  const config = await options('codex')
+  const sample = await readFile(resolve('docs/research/samples/codex-sdk/rollout-session-meta.sdk-subagent.json'), 'utf8')
+  const token = 'synthetic-review-token-do-not-use'
+  const sessions = ['123456789012345678', '123456789012345679']
+  let mtime = ''
+  const directory = await recordSession(config, async (session) => {
+    const file = join(session.project, 'private.json')
+    await writeFile(join(session.project, 'agent.json'), sample)
+    await writeFile(file, JSON.stringify({
+      access_token: token,
+      Authorization: `Bearer ${token}`,
+      output: 'ANTHROPIC_API_KEY=sk-ant-synthetic-0001\ncurl -H "Authorization: Bearer syntheticBearer0123456789"',
+      attributes: [{ key: 'user.account_id', value: { stringValue: '123456' } }, { key: 'organization.id', value: { stringValue: 'abc' } }],
+      account_id: 123456,
+      refs: ['123456'],
+      usage: { input_tokens: 123456 },
+      sessions,
+      escaped: [
+        String.raw`Raw JSON: {"cwd":"\/Users\/PrivatePerson\/work"}`,
+        String.raw`Raw JSON: {"cwd":"\u002fhome\u002fPrivatePerson\u002fwork"}`,
+        String.raw`Raw JSON: {"cwd":"C:\\Users\\Private Person\\work","alt":"C:\u005cUsers\u005cPrivatePerson\u005cwork"}`,
+        String.raw`Raw JSON: {"cwd":"\/Users\/\u0418\u043c\u044f\/work"}`,
+      ],
+      config: '/root/.codex/config.toml',
+    }))
+    mtime = String((await stat(file, { bigint: true })).mtimeNs)
+    await session.checkpoint('private', { root: 'home', path: 'project/private.json' }, 'Private values are captured')
+  })
+  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as { artifacts: { source: string; mtime_ns: string }[] }
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const source = (path: string): string => {
+    const step = playback.steps.find((item) => 'target' in item && item.target.path === path)
+    return step && 'source' in step ? step.source : ''
+  }
+  const content = (path: string): string => playback.sources.get(source(path))?.toString() ?? ''
+  expect(manifest.artifacts.find((artifact) => artifact.source === source('project/private.json'))?.mtime_ns).toBe(mtime)
+  expect(content('project/private.json')).not.toMatch(/synthetic-review-token|sk-ant-synthetic|syntheticBearer|Private ?Person|u0418/)
+  const value = JSON.parse(content('project/private.json')) as {
+    access_token: string
+    Authorization: string
+    output: string
+    attributes: { value: { stringValue: string } }[]
+    account_id: string
+    refs: string[]
+    usage: { input_tokens: number }
+    sessions: string[]
+    escaped: string[]
+    config: string
+  }
+  expect(value.access_token).toMatch(/^SECRET_\d+$/)
+  expect(value.Authorization).toBe(`Bearer ${value.access_token}`)
+  expect(value.output).toMatch(/^ANTHROPIC_API_KEY=SECRET_\d+\ncurl -H "Authorization: Bearer SECRET_\d+"$/)
+  expect(value.account_id).toMatch(/^ACCOUNT_\d+$/)
+  expect(value.attributes[0]?.value.stringValue).toBe(value.account_id)
+  expect(value.refs).toEqual([value.account_id])
+  expect(value.attributes[1]?.value.stringValue).toMatch(/^ORGANIZATION_\d+$/)
+  expect(value.usage.input_tokens).toBe(123456)
+  expect(value.sessions).toEqual(sessions)
+  expect(value.escaped).toEqual([
+    String.raw`Raw JSON: {"cwd":"\/Users\/USER\/work"}`,
+    String.raw`Raw JSON: {"cwd":"\u002fhome\u002fUSER\u002fwork"}`,
+    String.raw`Raw JSON: {"cwd":"C:\\Users\\USER\\work","alt":"C:\u005cUsers\u005cUSER\u005cwork"}`,
+    String.raw`Raw JSON: {"cwd":"\/Users\/USER\/work"}`,
+  ])
+  expect(value.config).toBe('/home/USER/.codex/config.toml')
+  const agent = JSON.parse(content('project/agent.json')) as { payload: { source: { subagent: { thread_spawn: { agent_path: string } } } } }
+  expect(agent.payload.source.subagent.thread_spawn.agent_path).toBe('/root/pong')
+})
+
+test('rejects a missing, directory or non-executable hook binary before running the scenario', async () => {
+  const config = await options()
+  const plain = join(dirname(config.fixturesRoot), 'aang-hook')
+  await writeFile(plain, '', { mode: 0o644 })
+  const calls: string[] = []
+  for (const hookBinary of ['packages/hook/bin/missing-aang-hook', 'packages/hook/bin', ...(process.platform === 'win32' ? [] : [plain])]) {
+    await expect(recordSession({ ...config, hookBinary }, () => { calls.push(hookBinary); return Promise.resolve() }), hookBinary).rejects.toThrow(/Hook binary/)
+  }
+  expect(calls).toEqual([])
 })
 
 test('source root symlinks cannot collect files outside the recording profile', async () => {
