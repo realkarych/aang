@@ -115,20 +115,20 @@ export const runLive = (
   return { batches: () => checked(batches), results: () => checked(results), stop }
 }
 
-export const lockFile = async (register: Register, path: string): Promise<() => Promise<void>> => {
+export const denyReading = async (register: Register, path: string): Promise<() => Promise<void>> => {
   if (process.platform !== 'win32') {
-    await chmod(path, 0o000)
-    let held = true
+    await chmod(path, 0o200)
+    let denied = true
     const release = async (): Promise<void> => {
-      if (held) {
-        held = false
+      if (denied) {
+        denied = false
         await chmod(path, 0o644)
       }
     }
     register(release)
     return release
   }
-  const script = `$f = [System.IO.File]::Open('${path.replaceAll("'", "''")}', 'Open', 'ReadWrite', 'None'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); Start-Sleep -Seconds 120`
+  const script = `$f = [System.IO.File]::Open('${path.replaceAll("'", "''")}', 'Open', 'ReadWrite', 'Write'); [Console]::Out.WriteLine('locked'); [Console]::Out.Flush(); Start-Sleep -Seconds 120`
   const child: ChildProcess = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
     stdio: ['ignore', 'pipe', 'inherit'],
   })

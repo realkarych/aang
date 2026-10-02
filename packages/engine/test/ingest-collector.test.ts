@@ -9,7 +9,7 @@ import {
   createLiveRoots,
   deliverHook,
   type LiveRoots,
-  lockFile,
+  denyReading,
   runLive,
   spoolLeft,
   writeLines,
@@ -110,8 +110,8 @@ describe('a read failure reported by the real collector after the scope is decid
     }, settleTimeout)
     const head = store.changes.head()
 
+    const release = await denyReading(onTestFinished, path)
     await appendLines(path, lines.slice(50))
-    const release = await lockFile(onTestFinished, path)
     await vi.waitFor(() => {
       expect(live.batches().some((batch) => batch.gaps.length > 0)).toBe(true)
     }, settleTimeout)
