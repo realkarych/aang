@@ -63,31 +63,24 @@ const failureText = (contract: Contract, { exitCode }: CheckResult): string =>
     ? `Check "${contract.name}" failed`
     : `Check "${contract.name}" failed with exit code ${String(exitCode)}`
 
-const existingItem = (transaction: Transaction, run: RunId, ids: readonly AttentionItemId[]): AttentionItem | null => {
-  for (const id of ids) {
+const existingItems = (transaction: Transaction, run: RunId, ids: readonly AttentionItemId[]): AttentionItem[] =>
+  ids.flatMap((id) => {
     const entity = transaction.model.entity(run, { kind: 'attention_item', id })
-    if (entity?.kind === 'attention_item') {
-      return entity.value
-    }
-  }
-  return null
-}
+    return entity?.kind === 'attention_item' ? [entity.value] : []
+  })
 
-const streakChanges = (
-  transaction: Transaction,
+const latestFailure = ({ failures }: Streak): CheckResult => failures.at(-1) ?? failures[0]
+
+const streakItem = (
   run: RunId,
   contract: Contract,
-  { failures, success }: Streak,
-): StreakChanges | null => {
+  streak: Streak,
+  existing: AttentionItem | null,
+): AttentionItemDraft => {
+  const { failures, success } = streak
   const [first] = failures
-  const latest = failures.at(-1) ?? first
-  const existing = existingItem(
-    transaction,
-    run,
-    failures.map(({ action }) => itemId(run, contract, action)),
-  )
-  const evidence = [...new Set(failures.flatMap((failure) => failure.evidence))].sort()
-  const item: AttentionItemDraft = {
+  const latest = latestFailure(streak)
+  return {
     id: existing?.id ?? itemId(run, contract, first.action),
     run,
     kind: 'failed_check',
@@ -97,7 +90,7 @@ const streakChanges = (
     question: null,
     action: latest.action.id,
     basis: observed,
-    evidence,
+    evidence: [...new Set(failures.flatMap((failure) => failure.evidence))].sort(),
     runtime_wait: 'none',
     resolution: success === null ? 'open' : 'answered',
     likely_resolved: existing?.likely_resolved ?? null,
@@ -105,11 +98,34 @@ const streakChanges = (
     opened_at: first.at,
     closed_at: success?.at ?? null,
   }
+}
+
+const represents = (existing: AttentionItem, item: AttentionItemDraft): boolean =>
+  isDeepStrictEqual(existing, { ...item, change_seq: existing.change_seq })
+
+const streakChanges = (
+  transaction: Transaction,
+  run: RunId,
+  contract: Contract,
+  streak: Streak,
+): StreakChanges | null => {
+  const candidates = existingItems(
+    transaction,
+    run,
+    streak.failures.map(({ action }) => itemId(run, contract, action)),
+  )
+  const existing =
+    candidates.find(({ resolution }) => resolution === 'open') ??
+    candidates.find((candidate) => represents(candidate, streakItem(run, contract, streak, candidate))) ??
+    candidates[0] ??
+    null
+  const item = streakItem(run, contract, streak, existing)
+  const { success } = streak
   const opening: ModelChangeDraft = {
     op: 'attention.open',
     put: { kind: 'attention_item', value: { ...item, resolution: 'open', closed_at: null } },
     basis: observed,
-    evidence,
+    evidence: item.evidence,
   }
   const closing: ModelChangeDraft | null =
     success === null
@@ -120,11 +136,11 @@ const streakChanges = (
           basis: observed,
           evidence: success.evidence,
         }
-  const at = success?.at ?? latest.at
+  const at = success?.at ?? latestFailure(streak).at
   if (existing === null) {
     return { changes: closing === null ? [opening] : [opening, closing], at }
   }
-  if (isDeepStrictEqual(existing, { ...item, change_seq: existing.change_seq })) {
+  if (represents(existing, item)) {
     return null
   }
   return { changes: [closing ?? opening], at }

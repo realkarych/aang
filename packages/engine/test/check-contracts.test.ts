@@ -90,11 +90,96 @@ const check = (
   ]
 }
 
+const transcriptLine = (
+  source: Source,
+  uuid: string,
+  timestamp: string,
+  type: 'assistant' | 'user',
+  message: JsonValue,
+  extra: Record<string, JsonValue> = {},
+): string =>
+  JSON.stringify({ type, sessionId: source.session, uuid, timestamp, cwd: source.cwd, message, ...extra })
+
+const bashCall = (source: Source, uuid: string, timestamp: string, id: string): string =>
+  transcriptLine(source, uuid, timestamp, 'assistant', {
+    id: `message-${uuid}`,
+    role: 'assistant',
+    content: [{ type: 'tool_use', id, name: 'Bash', input: { command: 'pnpm test' } }],
+  })
+
+const bashFailure = (source: Source, uuid: string, timestamp: string, id: string): string =>
+  transcriptLine(source, uuid, timestamp, 'user', {
+    role: 'user',
+    content: [{ type: 'tool_result', tool_use_id: id, content: 'Exit code 1\nfailed', is_error: true }],
+  })
+
+const codexThread = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
+
+const codexTurn = '01a0f752-4102-7740-9432-0533263c2dc1'
+
+const codexStartMs = 1_790_855_800_000
+
+const zshTest = ['/bin/zsh', '-lc', 'pnpm test']
+
+const codexLine = (ordinal: number, type: string, payload: Record<string, JsonValue>): string =>
+  JSON.stringify({ timestamp: new Date(codexStartMs + ordinal * 1000).toISOString(), ordinal, type, payload })
+
+const functionCall = (ordinal: number, call: string, name = 'exec_command', input: JsonValue = { cmd: 'pnpm test' }) =>
+  codexLine(ordinal, 'response_item', {
+    type: 'function_call',
+    id: `fc_${call}`,
+    name,
+    arguments: JSON.stringify(input),
+    call_id: call,
+    internal_chat_message_metadata_passthrough: { turn_id: codexTurn },
+  })
+
+const functionOutput = (ordinal: number, call: string, output: string) =>
+  codexLine(ordinal, 'response_item', {
+    type: 'function_call_output',
+    call_id: call,
+    output,
+    internal_chat_message_metadata_passthrough: { turn_id: codexTurn },
+  })
+
+const exited = (exit: number): string => `Process exited with code ${String(exit)}\nOutput:\ntests\n`
+
+const commandItem = (
+  project: string,
+  ordinal: number,
+  call: string,
+  exit: number,
+  command: readonly string[] = zshTest,
+  started = ordinal,
+) =>
+  codexLine(ordinal, 'event_msg', {
+    type: 'item_completed',
+    thread_id: codexThread,
+    turn_id: codexTurn,
+    item: {
+      type: 'CommandExecution',
+      id: call,
+      command: [...command],
+      cwd: `file://${project}`,
+      status: exit === 0 ? 'completed' : 'failed',
+      aggregated_output: 'tests\n',
+      exit_code: exit,
+    },
+    started_at_ms: codexStartMs + started * 1000,
+    completed_at_ms: codexStartMs + ordinal * 1000,
+  })
+
+const codexAt = (ordinal: number): EpochNs => EpochNs.parse(BigInt(codexStartMs + ordinal * 1000) * 1_000_000n)
+
+const codexAction = (call: string) => objectId({ kind: 'action', runtime: 'codex', session: codexThread, call })
+
 const failedChecks = (store: Store, run: RunId): AttentionItem[] =>
   store.model
     .entities(run)
     .flatMap(({ kind, value }) => (kind === 'attention_item' && value.kind === 'failed_check' ? [value] : []))
-    .sort((left, right) => (left.opened_at < right.opened_at ? -1 : 1))
+    .sort((left, right) =>
+      left.opened_at !== right.opened_at ? (left.opened_at < right.opened_at ? -1 : 1) : left.id < right.id ? -1 : 1,
+    )
 
 const callFacts = (store: Store, call: string) =>
   factsOf(store).filter((fact) => fact.entity_key.kind === 'action' && fact.entity_key.call === call)
@@ -308,33 +393,16 @@ test('a transcript read at once keeps a failure that was fixed later as a closed
   const { store, engine, project } = await setup(onTestFinished, watchingTests)
   const source = { session: 'transcript-session', cwd: project }
   const run = runOf('claude', source.session)
-  const line = (uuid: string, second: number, type: 'assistant' | 'user', message: JsonValue, extra = {}) =>
-    JSON.stringify({
-      type,
-      sessionId: source.session,
-      uuid,
-      timestamp: `2026-10-01T12:00:${String(second).padStart(2, '0')}.000Z`,
-      cwd: project,
-      message,
-      ...extra,
-    })
-  const call = (uuid: string, second: number, id: string) =>
-    line(uuid, second, 'assistant', {
-      id: `message-${uuid}`,
-      role: 'assistant',
-      content: [{ type: 'tool_use', id, name: 'Bash', input: { command: 'pnpm test' } }],
-    })
+  const second = (value: number) => `2026-10-01T12:00:0${String(value)}.000Z`
   const lines = [
     ...claudeTranscript(source).slice(0, 5),
-    call('call-a', 1, 'tool-fail'),
-    line('result-a', 2, 'user', {
-      role: 'user',
-      content: [{ type: 'tool_result', tool_use_id: 'tool-fail', content: 'Exit code 1\nfailed', is_error: true }],
-    }),
-    call('call-b', 3, 'tool-pass'),
-    line(
+    bashCall(source, 'call-a', second(1), 'tool-fail'),
+    bashFailure(source, 'result-a', second(2), 'tool-fail'),
+    bashCall(source, 'call-b', second(3), 'tool-pass'),
+    transcriptLine(
+      source,
       'result-b',
-      4,
+      second(4),
       'user',
       { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tool-pass', content: 'ok', is_error: false }] },
       { toolUseResult: { stdout: 'ok', stderr: '', interrupted: false, isImage: false } },
@@ -389,6 +457,59 @@ test('a late earlier failure joins the open item and a late success splits it at
       resolution: 'open',
     },
   ])
+})
+
+test('a refined end time that merges two streaks closes the open item by the success it now precedes', async ({
+  onTestFinished,
+}) => {
+  const { home, store, engine, project } = await setup(onTestFinished, watchingTests)
+  const source = { session: 'merge-session', cwd: project }
+  const run = runOf('claude', source.session)
+  const second = 1_000_000_000
+  await engine.ingest(hookBatch(started(source), ...check(source, 'call-a', 'pnpm test', { exit: 1 }, second)))
+  await engine.ingest(hookBatch(...check(source, 'call-b', 'pnpm test', 'pass', 3 * second)))
+  await engine.ingest(hookBatch(...check(source, 'call-c', 'pnpm test', { exit: 1 }, 5 * second)))
+  const [first, open] = failedChecks(store, run)
+  if (first === undefined || open === undefined) {
+    throw new Error('both streaks must have an attention item')
+  }
+  expect([first, open]).toMatchObject([
+    { action: actionOf(source, 'call-a'), resolution: 'answered', closed_at: endedAt(store, 'call-b') },
+    { action: actionOf(source, 'call-c'), resolution: 'open' },
+  ])
+  const refinedMs = Number(endedAt(store, 'call-a') / 1_000_000n) + 500
+  const refined = EpochNs.parse(BigInt(refinedMs) * 1_000_000n)
+  const lines = [
+    bashCall(source, 'transcript-call-c', new Date(refinedMs - 100).toISOString(), 'call-c'),
+    bashFailure(source, 'transcript-result-c', new Date(refinedMs).toISOString(), 'call-c'),
+  ]
+  const transcript = jsonlFile({ runtime: 'claude', path: join(project, 'merge.jsonl'), lines, ino: 15n })
+  await engine.ingest(transcript.batch(1, lines.length))
+  const cited = callFacts(store, 'call-c').filter((fact) => fact.kind === 'action_start' || fact.at === refined)
+  const items = new Map(failedChecks(store, run).map((item) => [item.id, item]))
+  expect([...items.keys()].sort()).toEqual([first.id, open.id].sort())
+  expect(items.get(first.id)).toEqual(first)
+  expect(items.get(open.id)).toMatchObject({
+    action: actionOf(source, 'call-c'),
+    evidence: [...factIdsOf(store, 'call-a'), ...cited.map(({ id }) => id)].sort(),
+    opened_at: endedAt(store, 'call-a'),
+    resolution: 'answered',
+    closed_at: endedAt(store, 'call-b'),
+  })
+  expect(journalOf(store, run, open)).toEqual([
+    { op: 'attention.open', author: 'rule', basis: observed, evidence: open.evidence },
+    { op: 'attention.close', author: 'rule', basis: observed, evidence: factIdsOf(store, 'call-b') },
+  ])
+  const head = store.model.head(run)
+  await engine.ingest(hookBatch(...check(source, 'call-d', 'pnpm test', 'pass', 7 * second)))
+  expect(store.model.head(run)).toBe(head)
+  const after = failedChecks(store, run)
+  store.close()
+  const reopened = home.open()
+  reopened.transaction((transaction) => {
+    transaction.model.replay()
+  })
+  expect(failedChecks(reopened, run)).toEqual(after)
 })
 
 test('contracts apply to runs whose root directory lies in their root, the deepest root first', async ({
@@ -449,59 +570,21 @@ test('a Codex check is decided by the exit code of its command item, with or wit
   onTestFinished,
 }) => {
   const { store, engine, project } = await setup(onTestFinished, watchingTests)
-  const thread = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
-  const run = runOf('codex', thread)
-  const turn = '01a0f752-4102-7740-9432-0533263c2dc1'
-  const startMs = 1_790_855_800_000
-  const line = (ordinal: number, type: string, payload: Record<string, JsonValue>) =>
-    JSON.stringify({ timestamp: new Date(startMs + ordinal * 1000).toISOString(), ordinal, type, payload })
-  const functionCall = (ordinal: number, call: string) =>
-    line(ordinal, 'response_item', {
-      type: 'function_call',
-      id: `fc_${call}`,
-      name: 'exec_command',
-      arguments: JSON.stringify({ cmd: 'pnpm test' }),
-      call_id: call,
-      internal_chat_message_metadata_passthrough: { turn_id: turn },
-    })
-  const output = (ordinal: number, call: string, exit: number) =>
-    line(ordinal, 'response_item', {
-      type: 'function_call_output',
-      call_id: call,
-      output: `Process exited with code ${String(exit)}\nOutput:\ntests\n`,
-      internal_chat_message_metadata_passthrough: { turn_id: turn },
-    })
-  const item = (ordinal: number, call: string, exit: number) =>
-    line(ordinal, 'event_msg', {
-      type: 'item_completed',
-      thread_id: thread,
-      turn_id: turn,
-      item: {
-        type: 'CommandExecution',
-        id: call,
-        command: ['/bin/zsh', '-lc', 'pnpm test'],
-        cwd: `file://${project}`,
-        status: exit === 0 ? 'completed' : 'failed',
-        aggregated_output: 'tests\n',
-        exit_code: exit,
-      },
-      started_at_ms: startMs + ordinal * 1000,
-      completed_at_ms: startMs + ordinal * 1000,
-    })
+  const run = runOf('codex', codexThread)
   const lines = [
-    codexRollout({ thread, cwd: project })[0] ?? '',
+    codexRollout({ thread: codexThread, cwd: project })[0] ?? '',
     functionCall(1, 'call_fail'),
-    item(2, 'call_fail', 1),
-    output(3, 'call_fail', 1),
+    commandItem(project, 2, 'call_fail', 1),
+    functionOutput(3, 'call_fail', exited(1)),
     functionCall(4, 'call_unreported'),
-    output(5, 'call_unreported', 0),
-    item(6, 'exec-6f1c2d6e-0f8b-4c58-9a7e-3b1f2a4c5d6e', 0),
+    functionOutput(5, 'call_unreported', exited(0)),
+    commandItem(project, 6, 'exec-6f1c2d6e-0f8b-4c58-9a7e-3b1f2a4c5d6e', 0),
   ]
   const file = jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 9n })
   await engine.ingest(file.batch(1, 6))
   expect(failedChecks(store, run)).toMatchObject([
     {
-      action: objectId({ kind: 'action', runtime: 'codex', session: thread, call: 'call_fail' }),
+      action: codexAction('call_fail'),
       text: 'Check "test" failed with exit code 1',
       resolution: 'open',
     },
@@ -509,6 +592,72 @@ test('a Codex check is decided by the exit code of its command item, with or wit
   await engine.ingest(file.batch(7, lines.length))
   expect(failedChecks(store, run)).toMatchObject([
     { resolution: 'answered', closed_at: endedAt(store, 'exec-6f1c2d6e-0f8b-4c58-9a7e-3b1f2a4c5d6e') },
+  ])
+})
+
+test.for(['at once', 'line by line'] as const)(
+  'a Codex check still running after its interim output is ordered by its final result, read %s',
+  async (reading, { onTestFinished }) => {
+    const { store, engine, project } = await setup(onTestFinished, watchingTests)
+    const run = runOf('codex', codexThread)
+    const running = 'Chunk ID: 5c1f0a\nWall time: 10.0 seconds\nProcess running with session ID 4821\nOutput:\n'
+    const lines = [
+      codexRollout({ thread: codexThread, cwd: project })[0] ?? '',
+      functionCall(1, 'call_slow'),
+      functionOutput(2, 'call_slow', running),
+      functionCall(3, 'call_quick'),
+      commandItem(project, 4, 'call_quick', 0),
+      functionOutput(5, 'call_quick', exited(0)),
+      functionCall(6, 'call_poll', 'write_stdin', { session_id: 4821, chars: '' }),
+      functionOutput(7, 'call_poll', exited(1)),
+      commandItem(project, 8, 'call_slow', 1, zshTest, 1),
+    ]
+    const file = jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 11n })
+    const portions = reading === 'at once' ? [[1, lines.length]] : lines.map((_, index) => [index + 1, index + 1])
+    for (const [from = 1, to = from] of portions) {
+      await engine.ingest(file.batch(from, to))
+    }
+    expect(failedChecks(store, run)).toMatchObject([
+      {
+        action: codexAction('call_slow'),
+        text: 'Check "test" failed with exit code 1',
+        resolution: 'open',
+        opened_at: codexAt(8),
+        closed_at: null,
+      },
+    ])
+  },
+)
+
+test('a Codex check run through PowerShell or cmd without a function call opens and closes its item', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, project } = await setup(onTestFinished, watchingTests)
+  const run = runOf('codex', codexThread)
+  const pwsh = ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-NoProfile', '-Command', 'pnpm test']
+  const powershell = ['C:\\WINDOWS\\System32\\WindowsPowerShell\\v1.0\\powershell.exe', '-Command', 'pnpm test']
+  const cmd = ['C:\\WINDOWS\\system32\\cmd.exe', '/c', 'pnpm test --run']
+  const lint = ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-NoProfile', '-Command', 'pnpm lint']
+  const lines = [
+    codexRollout({ thread: codexThread, cwd: project })[0] ?? '',
+    commandItem(project, 1, 'exec-pwsh', 1, pwsh),
+    commandItem(project, 2, 'exec-lint', 0, lint),
+    commandItem(project, 3, 'exec-cmd', 0, cmd),
+    commandItem(project, 4, 'exec-powershell', 2, powershell),
+  ]
+  const file = jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 13n })
+  await engine.ingest(file.batch(1, 3))
+  expect(failedChecks(store, run)).toMatchObject([
+    { action: codexAction('exec-pwsh'), text: 'Check "test" failed with exit code 1', resolution: 'open' },
+  ])
+  await engine.ingest(file.batch(4, 4))
+  expect(failedChecks(store, run)).toMatchObject([
+    { action: codexAction('exec-pwsh'), resolution: 'answered', closed_at: endedAt(store, 'exec-cmd') },
+  ])
+  await engine.ingest(file.batch(5, lines.length))
+  expect(failedChecks(store, run)).toMatchObject([
+    { action: codexAction('exec-pwsh'), resolution: 'answered' },
+    { action: codexAction('exec-powershell'), text: 'Check "test" failed with exit code 2', resolution: 'open' },
   ])
 })
 

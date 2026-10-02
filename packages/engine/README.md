@@ -139,30 +139,39 @@ facts, after the observation projection (ADR-0006):
   `action_start` whose command line matches the `command` pattern of a contract.
   The pattern is a Unicode regular expression searched in the line. The line is the
   `command` or `cmd` string of the tool input, or an argument vector joined by
-  spaces; for a vector such as `/bin/zsh -lc 'pnpm test'` its script is also a
-  line. A command that matches no contract is not a check.
+  spaces. The script of a shell vector is also a line: the last argument after a
+  flag such as `-c` or `-lc` (`/bin/zsh -lc 'pnpm test'`), the arguments after
+  `-Command` or `-c` of `pwsh` and `powershell`, and the arguments after `/c` of
+  `cmd`, with the program recognised by its file name on any platform. A command
+  that matches no contract is not a check.
 - A reported exit code decides the result through `successExitCodes`. Without an
   exit code, an error is a failure, and a successful completion is exit code 0
   unless the command was started in the background (`run_in_background`), whose
   result is not observed. An interrupted or denied action, an action without an end
   and an end with an unknown outcome and no exit code give no result. The result
-  time is the earliest end of the action; results of the same contract are ordered
-  by it.
+  time is the earliest end of the action that has an exit code or a known outcome,
+  so an interim output, such as a Codex `function_call_output` of a command that
+  is still running, does not date it; results of the same contract are ordered by
+  it.
 - Failures of a contract without a success between them form one `failed_check`
   item of the rule: an action-level item without a stage and without a runtime
-  wait, with observed basis. Its evidence is the matching start and the deciding
-  end of every failure; it names the latest failure and its exit code, and opens at
-  the first. The next success of the same contract closes it with the resolution
-  `answered` and its time; the closing journal change cites the success. A failure
-  after that success opens a new item.
+  wait, with observed basis. Its evidence is the matching start, the dating end and
+  the deciding end of every failure; it names the latest failure and its exit code,
+  and opens at the first. The next success of the same contract closes it with the
+  resolution `answered` and its time; the closing journal change cites the success.
+  A failure after that success opens a new item.
 - Items are reconciled with the full result history of the run, so a transcript
   read at once records a failure that was already fixed as an item opened and
   closed in one version. An item id derives from the run, the contract name and one
   failure of its streak, and a streak keeps the item of any of its failures: a late
   earlier failure joins the open item, a late success between failures splits it,
-  and repeated delivery changes nothing. Observer fields of an item (likely
-  resolution, priority) are kept. An item whose failures no longer match a contract
-  after the configuration changes keeps its last state.
+  and repeated delivery changes nothing. When streaks merge, the streak keeps its
+  open item, which the success after the merged failures closes; the other items
+  of the merged streaks stay closed in history. Without an open item it keeps an
+  item that already describes it, otherwise the item of its earliest failure.
+  Observer fields of an item (likely resolution, priority) are kept. An item whose
+  failures no longer match a contract after the configuration changes keeps its
+  last state.
 
 The run of a session is the run of its `session_membership`, or the run of its own
 root key when there is none, the rule that run linking (E.4) uses for projections.
