@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { mkdir, mkdtemp, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -33,6 +33,18 @@ const build = async (directory: string, flags: readonly string[]): Promise<strin
   return binary
 }
 
+const mergeWorkerCoverage = async (): Promise<void> => {
+  const workers = (await readdir(coverageDirectory, { withFileTypes: true }))
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(coverageDirectory, entry.name))
+  if (workers.length > 0) {
+    await execFileAsync('go', ['tool', 'covdata', 'merge', `-i=${workers.join(',')}`, `-o=${coverageDirectory}`], {
+      cwd: moduleDirectory,
+    })
+    await Promise.all(workers.map((worker) => rm(worker, { recursive: true, force: true })))
+  }
+}
+
 export default async function setup(project: TestProject): Promise<() => Promise<void>> {
   const output = await mkdtemp(join(tmpdir(), 'aang-hook-build-'))
   await rm(coverageDirectory, { recursive: true, force: true })
@@ -42,5 +54,8 @@ export default async function setup(project: TestProject): Promise<() => Promise
     build(join(output, 'covered'), ['-cover']),
   ])
   project.provide('hookBinaries', { plain, covered, coverageDirectory })
-  return () => rm(output, { recursive: true, force: true, maxRetries: 5 })
+  return async () => {
+    await mergeWorkerCoverage()
+    await rm(output, { recursive: true, force: true, maxRetries: 5 })
+  }
 }

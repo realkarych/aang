@@ -72,11 +72,15 @@ export const typicalEnv: Readonly<Record<string, string>> = Object.fromEntries(
 
 const controlledEnvNames: readonly string[] = [...spoolEnvKeys, 'AANG_OBSERVER', 'GOCOVERDIR']
 
-const hookEnvironment = (overrides: Readonly<Record<string, string>>): NodeJS.ProcessEnv => ({
+const workerCoverageDirectory = join(inject('hookBinaries').coverageDirectory, process.env.VITEST_POOL_ID ?? 'main')
+
+await mkdir(workerCoverageDirectory, { recursive: true })
+
+export const hookEnvironment = (overrides: Readonly<Record<string, string>>): NodeJS.ProcessEnv => ({
   ...Object.fromEntries(
     Object.entries(process.env).filter(([name]) => !controlledEnvNames.includes(name.toUpperCase())),
   ),
-  GOCOVERDIR: inject('hookBinaries').coverageDirectory,
+  GOCOVERDIR: workerCoverageDirectory,
   ...overrides,
 })
 
