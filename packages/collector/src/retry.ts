@@ -17,9 +17,12 @@ export interface Failure extends Backoff {
   gap: CollectedGap | null
 }
 
-export interface Failing {
-  readonly path: string
+export interface FailureState {
   failure: Failure | null
+}
+
+export interface Failing extends FailureState {
+  readonly path: string
 }
 
 export interface Retrier {
@@ -27,7 +30,7 @@ export interface Retrier {
   readonly later: (backoff: Backoff, again: () => void) => void
   readonly lasted: (backoff: Backoff) => boolean
   readonly failed: (file: Failing, stream: StreamKey | null, error: unknown, again: () => void) => CollectedGap[]
-  readonly recovered: (file: Failing) => CollectedGap[]
+  readonly recovered: (file: FailureState) => CollectedGap[]
 }
 
 export const createRetrier = (retry: ReadRetry, maxPauseMs: number): Retrier => {
@@ -59,7 +62,7 @@ export const createRetrier = (retry: ReadRetry, maxPauseMs: number): Retrier => 
     return [failure.gap]
   }
 
-  const recovered = (file: Failing): CollectedGap[] => {
+  const recovered = (file: FailureState): CollectedGap[] => {
     const gap = file.failure?.gap ?? null
     clearTimeout(file.failure?.timer)
     file.failure = null

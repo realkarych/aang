@@ -8,6 +8,7 @@ if (spool === undefined || claude === undefined || codex === undefined) {
 const collector = createCollector({
   spool,
   runtimeRoots: { claude, codex },
+  adapters: new Map(),
   config: Config.parse({ collector: { fsWatch: false, rootsScanIntervalMs: 50, spoolScanIntervalMs: 50 } }),
 })
 const listener = await collector.listenOtel({ port: 0, token: 'reliability' })

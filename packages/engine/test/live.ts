@@ -15,6 +15,7 @@ import {
 } from '@aang/contract'
 import type { Engine, IngestResult } from '@aang/engine'
 import type { Store } from '@aang/store'
+import { adapters, gapsOf } from './harness.js'
 import type { Register } from './workspace.js'
 
 export interface LiveRoots {
@@ -84,6 +85,8 @@ export const runLive = (
     spool: roots.spool,
     runtimeRoots: { claude: roots.claude, codex: roots.codex },
     config: Config.parse({ collector: { spoolScanIntervalMs: 50, rootsScanIntervalMs: 50 } }),
+    adapters,
+    openGaps: gapsOf(store).filter((gap) => gap.closed_at === null),
     ...(readRetry === undefined ? {} : { readRetry }),
   })
   const batches: CollectorBatch[] = []
