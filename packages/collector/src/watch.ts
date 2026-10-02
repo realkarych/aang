@@ -7,6 +7,7 @@ export interface WatchEvents {
 
 export interface DirectoryWatch {
   readonly ensure: () => void
+  readonly reset: () => void
   readonly close: () => void
 }
 
@@ -18,7 +19,7 @@ export const watchDirectory = (directory: string, recursive: boolean, events: Wa
     watcher = null
   }
 
-  const fail = (): void => {
+  const reset = (): void => {
     close()
     events.lost()
   }
@@ -30,15 +31,15 @@ export const watchDirectory = (directory: string, recursive: boolean, events: Wa
     try {
       watcher = watch(directory, { recursive, encoding: 'utf8' }, (_event, name) => {
         if (name === null) {
-          fail()
+          reset()
         } else {
           events.changed(name)
         }
-      }).on('error', fail)
+      }).on('error', reset)
     } catch {
       watcher = null
     }
   }
 
-  return { ensure, close }
+  return { ensure, reset, close }
 }

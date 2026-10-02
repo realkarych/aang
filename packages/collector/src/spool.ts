@@ -101,7 +101,7 @@ export const createSpoolSource = (options: SpoolOptions, wakeup: Wakeup): SpoolS
   const list = async (): Promise<string[]> => {
     const created = await mkdir(ready, { recursive: true, mode: privateMode })
     if (created !== undefined) {
-      watch?.close()
+      watch?.reset()
     }
     watch?.ensure()
     return readdir(ready)
