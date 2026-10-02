@@ -554,10 +554,15 @@ test('a human prompt ends the wait of a blocking Codex question without answerin
   await engine.ingest(file.batch(1, file.lines.length))
   expect(itemOf(store, key, 'call_mock_25')).toMatchObject({ runtime_wait: 'active', resolution: 'open' })
   await engine.ingest(hookBatch(codexHooks(session).prompt('prompt.evt', ms(1))))
-  const prompt = factOf(store, 'prompt.evt')
-  expect(prompt).toMatchObject({ kind: 'prompt', speaker: 'human' })
+  const delivered = factsOf(store).filter(({ seq }) => seq === factOf(store, 'prompt.evt').seq)
+  expect(delivered.map(({ kind, speaker }) => `${kind}:${speaker}`).sort()).toEqual([
+    'prompt:human',
+    'turn_start:runtime',
+  ])
   expect(itemOf(store, key, 'call_mock_25')).toMatchObject({ runtime_wait: 'ended', resolution: 'open' })
-  expect(attentionChanges(store, key).at(-1)).toMatchObject({ op: 'attention.wait', evidence: [prompt.id] })
+  const wait = attentionChanges(store, key).at(-1)
+  expect(wait?.op).toBe('attention.wait')
+  expect(delivered.map(({ id }) => id)).toContain(wait?.evidence[0])
 })
 
 test.each([
