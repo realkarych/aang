@@ -274,6 +274,20 @@ describe.concurrent('Claude subagents: link to the Agent call', () => {
     ).toEqual(['action_end', 'action_end'])
   })
 
+  test('a hook response of another tool that names an agent links nothing', async ({ expect }) => {
+    const hook = await readJsonSample('claude-code-hooks/PostToolUse.Agent.completed.json')
+    const kindsOf = (tool: string, response: JsonObject) =>
+      factsOf(parseHookPayload({ ...hook, tool_name: tool, tool_use_id: 'lookup-1', tool_response: response })).map(
+        (fact) => fact.kind,
+      )
+    const lookup = { agentId: 'sales-17', name: 'Account manager', status: 'active' }
+
+    expect(kindsOf('mcp__directory__lookup_agent', lookup)).toEqual(['action_end'])
+    expect(kindsOf('mcp__directory__lookup_agent', teammateSpawned)).toEqual(['action_end'])
+    expect(kindsOf('Bash', hook.tool_response as JsonObject)).toEqual(['action_end'])
+    expect(kindsOf('Task', lookup)).toEqual(['action_end', 'agent_start'])
+  })
+
   test('an agent with an unfamiliar status is linked without a guess about the background', async ({ expect }) => {
     const sample = await readJsonSample('claude-code-transcripts/rec-user-tool-result-agent-sync.json')
     const toolUseResult = { ...(sample.toolUseResult as JsonObject), status: 'killed', agentType: null }

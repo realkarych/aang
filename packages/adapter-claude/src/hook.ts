@@ -124,7 +124,9 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
           },
           { ids: { call_id: event.tool_use_id } },
         ),
-        ...spawnedAgents(origin, event.session_id, event.tool_use_id, event.tool_response),
+        ...(actionKind(event.tool_name) === 'agent'
+          ? spawnedAgents(origin, event.session_id, event.tool_use_id, event.tool_response)
+          : []),
       ),
     ),
   ],
