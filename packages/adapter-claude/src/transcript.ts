@@ -190,20 +190,22 @@ interface PromptSource {
 }
 
 const promptSource = (line: UserLine, text: string): PromptSource => {
+  const raw = line.origin?.kind ?? line.promptSource ?? null
+  const declared = [line.origin?.kind, line.promptSource]
+    .map((value) => (typeof value === 'string' ? promptOrigins.get(value) : undefined))
+    .find((known) => known !== undefined)
+  if (declared !== undefined) {
+    const [origin, speaker] = declared
+    return { origin, raw, speaker }
+  }
   if (line.isMeta === true) {
-    return { origin: 'synthetic', raw: 'isMeta', speaker: 'runtime' }
+    return { origin: 'synthetic', raw: raw ?? 'isMeta', speaker: 'runtime' }
   }
   if (commandInvocation.test(text)) {
-    return { origin: 'command', raw: null, speaker: 'human' }
+    return { origin: 'command', raw, speaker: 'human' }
   }
   if (commandOutput.test(text)) {
-    return { origin: 'command', raw: null, speaker: 'runtime' }
-  }
-  const raw = line.origin?.kind ?? line.promptSource ?? null
-  const known = raw === null ? undefined : promptOrigins.get(raw)
-  if (known !== undefined) {
-    const [origin, speaker] = known
-    return { origin, raw, speaker }
+    return { origin: 'command', raw, speaker: 'runtime' }
   }
   return { origin: 'unknown', raw, speaker: (line.agentId ?? null) === null ? 'human' : 'solver' }
 }

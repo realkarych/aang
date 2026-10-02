@@ -308,16 +308,30 @@ describe.concurrent('Claude transcript: records', () => {
     ])
   })
 
-  test('prompt origin follows origin.kind first, then promptSource', async ({ expect }) => {
+  test('prompt origin follows origin.kind first, then promptSource, and both outweigh isMeta and command markup', async ({
+    expect,
+  }) => {
     const sample = await readJsonSample('claude-code-transcripts/rec-user-prompt.json')
     const originOf = (fields: JsonObject) => {
       const [prompt] = factsOf(parseLine({ ...sample, promptSource: null, ...fields }))
       return [prompt?.speaker, prompt?.payload]
     }
+    const quotedOutput = '<local-command-stdout>analyse this example</local-command-stdout>'
 
     expect(originOf({ origin: { kind: 'task-notification' }, promptSource: 'sdk' })).toEqual([
       'runtime',
       expect.objectContaining({ origin: 'task_notification', origin_raw: 'task-notification' }),
+    ])
+    expect(originOf({ origin: { kind: 'task-notification' }, promptSource: 'system', isMeta: true })).toEqual([
+      'runtime',
+      expect.objectContaining({ origin: 'task_notification', origin_raw: 'task-notification' }),
+    ])
+    expect(
+      originOf({ origin: { kind: 'human' }, promptSource: 'typed', message: { role: 'user', content: quotedOutput } }),
+    ).toEqual(['human', { text: quotedOutput, origin: 'human', origin_raw: 'human' }])
+    expect(originOf({ origin: { kind: 'peer' }, promptSource: 'system', isMeta: true })).toEqual([
+      'runtime',
+      expect.objectContaining({ origin: 'synthetic', origin_raw: 'peer' }),
     ])
     expect(originOf({ promptSource: 'typed' })).toEqual(['human', expect.objectContaining({ origin: 'human' })])
     expect(originOf({ promptSource: 'system' })).toEqual(['runtime', expect.objectContaining({ origin: 'synthetic' })])
