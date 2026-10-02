@@ -63,7 +63,7 @@ const schemas: Readonly<Record<string, z.ZodType>> = {
     (probes) => ['claude-exec-form', 'claude-shell-form'].every((label) => probes.some((probe) => probe.label === label)),
     'both command forms must run',
   ) }),
-  'codex hook command forms': z.looseObject({ session: codexSession, patchApplied: yes, installForm: z.string(), probeForm: z.string(),
+  'codex hook command forms': z.looseObject({ session: codexSession, patchApplied: z.boolean(), installForm: z.string(), probeForm: z.string(),
     delivered: z.record(z.string(), z.record(z.string(), z.number())) }).refine(
     (value) => (value.delivered[value.installForm]?.SessionStart ?? 0) > 0 && (value.delivered[value.installForm]?.PreToolUse ?? 0) > 0,
     'the selected command form must deliver both events',
