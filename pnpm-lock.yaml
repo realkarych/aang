@@ -194,6 +194,18 @@ importers:
         specifier: ~5.0.3
         version: 5.0.3(@types/node@26.6.3)(vite@8.3.1(@types/node@26.6.3)(yaml@2.9.1))
 
+  packages/aang:
+    dependencies:
+      '@aang/cli':
+        specifier: workspace:*
+        version: link:../cli
+      '@aang/daemon':
+        specifier: workspace:*
+        version: link:../daemon
+      '@aang/web':
+        specifier: workspace:*
+        version: link:../web
+
   packages/adapter-claude:
     dependencies:
       '@aang/contract':

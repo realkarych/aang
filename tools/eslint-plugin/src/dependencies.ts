@@ -11,6 +11,7 @@ export type PackageDirectory =
   | 'cli'
   | 'web'
   | 'testkit'
+  | 'aang'
 
 const productionDependencies: Readonly<Record<PackageDirectory, readonly PackageDirectory[]>> = {
   contract: [],
@@ -25,6 +26,7 @@ const productionDependencies: Readonly<Record<PackageDirectory, readonly Package
   cli: ['contract', 'hook'],
   web: ['contract'],
   testkit: ['contract'],
+  aang: ['cli', 'daemon', 'web'],
 }
 
 const testDependenciesOfEveryPackage: readonly PackageDirectory[] = ['testkit']
