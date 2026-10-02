@@ -46,7 +46,7 @@ test('uses stored speakers and kinds, accepts real plan facts and keeps rule att
   const input = inputFor(store, [solver, human, plan])
   input.batch.facts = input.batch.facts.map((fact) => ({ ...fact, speaker: 'solver' }))
   store.transaction((transaction) => {
-    beginObserverCall(transaction, { id: callId, input, at: at(10) })
+    beginObserverCall(transaction, { id: callId, backend: 'claude', crossVendor: false, input, at: at(10) })
   })
   const output = ObserverOutput.parse({
     base_version: 2,

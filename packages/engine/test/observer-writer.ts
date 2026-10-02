@@ -11,7 +11,7 @@ const store = openStore({ home })
 const input = ObserverInput.parse(store.settings.get('observer-test-input'))
 const call = ObserverCallId.parse('crash-call')
 store.transaction((transaction) => {
-  beginObserverCall(transaction, { id: call, input, at: EpochNs.parse(1_759_370_010_000_000_000n) })
+  beginObserverCall(transaction, { id: call, backend: 'claude', crossVendor: false, input, at: EpochNs.parse(1_759_370_010_000_000_000n) })
 })
 const hold = (): void => {
   writeSync(1, 'ready\n')

@@ -181,3 +181,31 @@ is its own root uses its `cwd`.
 Checks do not produce criterion statuses: a check alone never gives `confirmed`.
 Snapshots around checks, `passed_unversioned`, `confirmed` and `stale` belong to
 E.7b and E.7c.
+
+## Input scope and needs
+
+`inputScope(reader, { run, backend, crossVendor })` is the single filter for the
+observer input; chat materials (K.1) use the same filter. An object is in scope only
+when its session belongs to the run. A session of a vendor other than `backend`, the
+vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
+is attributed through its facts, so a record without facts is out of scope.
+`beginObserverCall` refuses batch facts outside the scope and a first call that
+already carries materials. The call records the backend it was started for.
+
+`resolveObserverNeeds` answers each distinct need, up to `MaterialLimits.needs`, with
+a material or with an `unavailable` reason: `out_of_scope`, `cross_vendor` or
+`not_found`. Thinking and reasoning blocks are removed from raw records before
+truncation: Claude `thinking` and `redacted_thinking` blocks and Codex reasoning
+items and events. Texts longer than `MaterialLimits.textLength` are cut and report
+their original length. Artifact versions and context records answer `not_found`
+until E.7b and F.7a provide their storage.
+
+A response with nonempty `needs` to a call without materials is not applied.
+`applyObserverResponse` records the verdict `needs_requested` and leaves the batch
+`in_call`. `beginObserverFollowUp` starts the only follow-up with the same snapshot
+and batch plus the resolved materials, with the backend of the first call. It hands
+the batch over to the follow-up without spending an attempt. The follow-up response
+is applied or rejected as usual, and its `needs` are ignored. After a restart the
+batch returns to `pending`, and the cycle starts again with a new first call. The
+scheduler (F.8) starts the follow-up immediately, outside the minimum interval
+between calls of a run.

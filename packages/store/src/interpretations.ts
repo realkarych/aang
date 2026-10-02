@@ -10,6 +10,7 @@ export interface InterpretationReader {
 export interface InterpretationWriter extends InterpretationReader {
   readonly begin: (run: RunId, call: ObserverCallId, facts: readonly FactId[]) => void
   readonly settle: (call: ObserverCallId, status: 'pending' | 'interpreted') => void
+  readonly handover: (from: ObserverCallId, to: ObserverCallId) => number
 }
 
 type InterpretationRow = {
@@ -54,6 +55,15 @@ export const createInterpretations = (database: DatabaseSync) => {
     database,
     "UPDATE fact_interpretation SET status = ? WHERE observer_call_id = ? AND status = 'in_call'",
   )
+  const handover = prepareStatement(
+    database,
+    `UPDATE fact_interpretation SET observer_call_id = :to
+     WHERE observer_call_id = :from AND status = 'in_call' AND EXISTS (
+       SELECT 1 FROM observer_calls previous JOIN observer_calls next ON next.run_id = previous.run_id
+       WHERE previous.id = :from AND previous.verdict = 'needs_requested'
+         AND next.id = :to AND next.finished_at IS NULL AND previous.run_id = fact_interpretation.run_id
+     )`,
+  )
   const reader: InterpretationReader = {
     ofRun: (run) => (byRun.all(run) as InterpretationRow[]).map(fromRow),
     ofCall: (call) => (byCall.all(call) as InterpretationRow[]).map(fromRow),
@@ -71,6 +81,10 @@ export const createInterpretations = (database: DatabaseSync) => {
     settle: (call, status) => {
       context.assertActive()
       settle.run(status, call)
+    },
+    handover: (from, to) => {
+      context.assertActive()
+      return Number(handover.run({ from, to }).changes)
     },
   })
   return { reader, writer }

@@ -11,6 +11,7 @@ export type {
   ObserverCallReader,
   ObserverCallWriter,
   ObserverCallStart,
+  ObserverCallVerdict,
   StoredObserverCall,
 } from './observer-calls.js'
 export type { InterpretationReader, InterpretationWriter } from './interpretations.js'
