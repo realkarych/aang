@@ -47,6 +47,26 @@ test('registry status and idle notifications determine waits without inventing q
   expect(read()?.support_mode).toBe('hooks_only')
 })
 
+test('new tool activity supersedes an older registry wait', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  await engine.ingest(joinBatches(hook('SessionStart', 0), registry('waiting', 10)))
+  expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  await engine.ingest(hook('PreToolUse', 20, { tool_use_id: 'next', tool_name: 'Bash', tool_input: { command: 'pwd' } }))
+  expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'running' })
+})
+
+test('a late Stop preserves an ended session until an explicit continuation', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  await engine.ingest(joinBatches(hook('SessionStart', 0), hook('SessionEnd', 10, { reason: 'other' })))
+  await engine.ingest(hook('Stop', 20))
+  expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'ended', execution: { state: 'done' } })
+  await engine.ingest(hook('SessionStart', 30, { source: 'resume' }))
+  await engine.ingest(hook('UserPromptSubmit', 40))
+  expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'turn_running', execution: { state: 'running' } })
+})
+
 test('a human transcript prompt starts a turn and a final message ends it without hooks', async () => {
   const store = (await createHome(onTestFinished)).open()
   const { engine } = clockedEngine(store)

@@ -49,7 +49,10 @@ export const turnState = (items: readonly Evidence[], all: readonly Evidence[] =
   const calls = new Map<string, ActionStartPayload>()
   const background = new Set<string>()
   const nonblocking = new Set(items.filter(({ fact }) => fact.kind === 'question_asked' && !fact.payload.blocking).map(({ fact }) => fact.seq))
-  const running = (): TurnState => ({ state: 'turn_running', execution: { state: 'running' } })
+  const running = (): TurnState => {
+    waits.delete('registry')
+    return { state: 'turn_running', execution: { state: 'running' } }
+  }
   const idle = (): TurnState => {
     waits.clear()
     calls.clear()
@@ -135,6 +138,7 @@ export const turnState = (items: readonly Evidence[], all: readonly Evidence[] =
         break
       }
       case 'turn_end':
+        if (status.state === 'ended') { break }
         status = idle()
         background.clear()
         for (const task of fact.payload.background_tasks) {
