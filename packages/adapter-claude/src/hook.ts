@@ -5,7 +5,7 @@ import { spawnedAgents } from './agents.js'
 import { fact, type FactOrigin, invalid, noRuntimeIds, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
 import { facts, HookCommon, type HookParser, hookParser } from './hook-parser.js'
-import { isJsonObject, type JsonObject, parseJson } from './json.js'
+import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { actionKey, ownerKey, questionKey } from './keys.js'
 import { sessionHookParsers } from './session-hooks.js'
 import { actionKind, exitCode, inputDescription, outputText, persistedOutputPath } from './tools.js'
@@ -257,6 +257,9 @@ export const parseHook = (record: CollectedRecord): ParseResult => {
   const payload = parseJson(record.payload)
   if (!isJsonObject(payload)) {
     return invalid('hook payload is not a JSON object')
+  }
+  if (!withinNestingLimit(payload)) {
+    return unknown(null)
   }
   const common = HookCommon.safeParse(payload)
   if (!common.success) {

@@ -28,6 +28,9 @@ export const sampleFiles = async (directory: string, pattern: RegExp): Promise<s
     .sort()
     .map((file) => `${directory}${file}`)
 
+export const nestedArrays = (depth: number): JsonValue =>
+  JSON.parse(`${'['.repeat(depth)}0${']'.repeat(depth)}`) as JsonValue
+
 export const field = (value: JsonValue | undefined, key: string): JsonValue | undefined =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? value[key] : undefined
 

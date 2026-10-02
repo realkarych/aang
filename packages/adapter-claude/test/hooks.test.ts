@@ -8,6 +8,7 @@ import {
   hookEvent,
   hookSamples,
   type JsonObject,
+  nestedArrays,
   observedAt,
   parseHookSample,
   readJsonSample,
@@ -437,5 +438,23 @@ describe.concurrent('Claude hooks: malformed payloads', () => {
 
   test('an event without a parser stays unknown even with an unexpected shape', ({ expect }) => {
     expect(parsePayload({ hook_event_name: 'FutureEvent', detail: 1 })).toEqual({ parse_state: 'unknown', source_ts: null })
+  })
+
+  test('a hook nested too deeply to read stays unknown and the next hook is still parsed', async ({ expect }) => {
+    const tooDeep = nestedArrays(5000)
+    const bash = await readJsonSample('claude-code-hooks/PreToolUse.Bash.json')
+    const stop = await readJsonSample('claude-code-hooks/Stop.json')
+
+    for (const payload of [
+      { ...bash, tool_input: tooDeep },
+      { ...stop, extra: tooDeep },
+      { ...stop, hook_event_name: 'FutureEvent', extra: tooDeep },
+    ]) {
+      expect(parsePayload(payload)).toEqual({ parse_state: 'unknown', source_ts: null })
+    }
+    expect(await parseCliSample('Stop.json')).toMatchObject([{ kind: 'turn_end' }])
+    expect(factsOf(parsePayload({ ...bash, tool_input: nestedArrays(100) }))).toMatchObject([
+      { kind: 'action_start', payload: { input: nestedArrays(100) } },
+    ])
   })
 })

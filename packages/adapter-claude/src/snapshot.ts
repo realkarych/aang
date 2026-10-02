@@ -12,7 +12,7 @@ import { z } from 'zod'
 import { startedAgent } from './agents.js'
 import { fact, type FactOrigin, fileOrigin, invalid, parsed, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
-import { isJsonObject, type JsonObject, parseJson } from './json.js'
+import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { agentKey, sessionKey, teammateKey } from './keys.js'
 import { type SnapshotFile, snapshotFile } from './paths.js'
 
@@ -198,6 +198,9 @@ export const parseSnapshot = (record: CollectedRecord, position: FilePosition | 
   const content = removed ? null : parseJson(record.payload)
   if (content === undefined) {
     return invalid(`${file.kind} snapshot is not JSON`)
+  }
+  if (!withinNestingLimit(content)) {
+    return unknown(null)
   }
   const snapshot: Snapshot = { record, path: position.path, removed, content }
   switch (file.kind) {

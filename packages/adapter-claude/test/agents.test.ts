@@ -7,6 +7,7 @@ import {
   hookRecord,
   type JsonObject,
   lineRecord,
+  nestedArrays,
   observedAt,
   readJsonSample,
   readSample,
@@ -485,6 +486,22 @@ describe.concurrent('Claude workflows', () => {
     claudeAdapter.parse(
       lineRecord({ payload: typeof entry === 'string' ? entry : JSON.stringify(entry), line: 1, path }),
     )
+
+  test('agent, team and workflow files nested too deeply to read are unknown', ({ expect }) => {
+    const tooDeep = nestedArrays(5000)
+    const unread = { parse_state: 'unknown', source_ts: null }
+    const metaPath = `${projects}/-work/${session}/subagents/agent-${teammateAgent}.meta.json`
+    const teamPath = '/home/user/.claude/teams/core/config.json'
+
+    expect(journalLine({ type: 'result', key: 'k1', agentId: workflowAgent, result: tooDeep })).toEqual(unread)
+    expect(journalLine({ type: 'started', key: 'k1', agentId: workflowAgent, extra: tooDeep })).toEqual(unread)
+    expect(parseSnapshot(workflowPath, { ...workflowSnapshot, phases: tooDeep })).toEqual(unread)
+    expect(parseSnapshot(metaPath, { ...teammateMeta, extra: tooDeep })).toEqual(unread)
+    expect(parseSnapshot(teamPath, { name: 'core', leadSessionId: session, extra: tooDeep })).toEqual(unread)
+    expect(factsOf(journalLine({ type: 'result', agentId: workflowAgent, result: nestedArrays(100) }))).toMatchObject([
+      { kind: 'agent_end', payload: { final_message: JSON.stringify(nestedArrays(100)) } },
+    ])
+  })
 
   test('the workflow snapshot keeps its summary, not its script and result, as an unverified session snapshot', ({
     expect,

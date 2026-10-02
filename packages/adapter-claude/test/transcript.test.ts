@@ -1,10 +1,11 @@
 import { claudeAdapter } from '@aang/adapter-claude'
-import { CollectedRecord, EpochNs, FactDraft, type ParseResult } from '@aang/contract'
+import { CollectedRecord, EpochNs, FactDraft, type JsonValue, type ParseResult } from '@aang/contract'
 import { describe, test } from 'vitest'
 import {
   factsOf,
   type JsonObject,
   lineRecord,
+  nestedArrays,
   observedAt,
   readJsonSample,
   sampleFiles,
@@ -499,6 +500,32 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
       parse_state: 'unknown',
       source_ts: null,
     })
+  })
+
+  test('a line nested too deeply to read is unknown with its time and keeps its keys', async ({ expect }) => {
+    const tooDeep = nestedArrays(5000)
+    const result = await readJsonSample('claude-code-transcripts/rec-user-tool-result-bash.json')
+    const toolUse = await readJsonSample('claude-code-transcripts/rec-assistant-tool-use-bash.json')
+    const withInput = (input: JsonValue): JsonObject => ({
+      ...toolUse,
+      message: {
+        ...(toolUse.message as JsonObject),
+        content: [{ type: 'tool_use', id: 'toolu_deep', name: 'Bash', input }],
+      },
+    })
+    const deepResult: JsonObject = { ...result, toolUseResult: tooDeep }
+    const record = (line: JsonObject) => lineRecord({ payload: JSON.stringify(line), line: 1 })
+
+    for (const line of [deepResult, { ...result, extra: tooDeep }, withInput(tooDeep)]) {
+      expect(parseLine(line)).toEqual({ parse_state: 'unknown', source_ts: epochOf(line.timestamp as string) })
+    }
+    expect(claudeAdapter.rawKey(record(deepResult))).toBe(claudeAdapter.rawKey(record(result)))
+    expect(claudeAdapter.streamKey([JSON.stringify(deepResult)])).toBe(
+      claudeAdapter.streamKey([JSON.stringify(result)]),
+    )
+    expect(factsOf(parseLine(withInput(nestedArrays(100))))).toMatchObject([
+      { kind: 'action_start', payload: { input: nestedArrays(100) } },
+    ])
   })
 
   test('cost-state, unfamiliar system lines and attachments are unknown until their parsers land', async ({

@@ -13,7 +13,7 @@ import { spawnedAgents } from './agents.js'
 import { compactionTrigger } from './compaction.js'
 import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
-import { isJsonObject, type JsonObject, parseJson } from './json.js'
+import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { actionKey, messageKey, ownerKey, sessionKey } from './keys.js'
 import { epochFromIso } from './time.js'
 import { actionKind, exitCode, inputDescription, outputText, persistedOutputPath } from './tools.js'
@@ -414,6 +414,7 @@ export const parseTranscriptLine = (record: CollectedRecord): ParseResult => {
     return invalid('transcript line is not a JSON object')
   }
   const sourceTs = timestampOf(payload)
-  const parser = typeof payload.type === 'string' ? lineParsers.get(payload.type) : undefined
+  const parser =
+    withinNestingLimit(payload) && typeof payload.type === 'string' ? lineParsers.get(payload.type) : undefined
   return parser === undefined ? unknown(sourceTs) : parser(payload, record, sourceTs)
 }

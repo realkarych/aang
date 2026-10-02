@@ -3,7 +3,7 @@ import { z } from 'zod'
 import { startedAgent } from './agents.js'
 import { fact, fileOrigin, invalid, parsed, schemaViolation, unknown } from './facts.js'
 import { name } from './fields.js'
-import { isJsonObject, type JsonObject, parseJson } from './json.js'
+import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { agentKey } from './keys.js'
 import type { WorkflowJournal } from './paths.js'
 
@@ -80,6 +80,6 @@ export const parseWorkflowJournalLine = (record: CollectedRecord, journal: Workf
   if (!isJsonObject(entry)) {
     return invalid('workflow journal line is not a JSON object')
   }
-  const parser = typeof entry.type === 'string' ? entryParsers.get(entry.type) : undefined
+  const parser = withinNestingLimit(entry) && typeof entry.type === 'string' ? entryParsers.get(entry.type) : undefined
   return parser === undefined ? unknown(null) : parser(entry, journal, record)
 }
