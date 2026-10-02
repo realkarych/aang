@@ -9,6 +9,7 @@ export interface RawInsertResult {
 }
 
 export interface RawRecordReader {
+  readonly ofStream: (stream: StreamKey, after: RawSeq | null, limit: number) => RawRecord[]
   readonly pendingOtel: (after: RawSeq | null, limit: number) => RawRecord[]
   readonly get: (seq: RawSeq) => RawRecord | null
 }
@@ -71,6 +72,7 @@ export const toRawRecord = (row: RawRecordRow): RawRecord =>
   })
 
 export const createRawRecords = (database: DatabaseSync): RawRecordRepository => {
+  const selectStream = prepareStatement(database, `SELECT ${rawRecordColumns} FROM raw_records WHERE stream = ? AND seq > ? ORDER BY seq LIMIT ?`)
   const selectBySeq = prepareStatement(database, `SELECT ${rawRecordColumns} FROM raw_records WHERE seq = ?`)
   const selectSeqByKey = prepareStatement(database, 'SELECT seq FROM raw_records WHERE dedupe_key = ?')
   const insertRecord = prepareStatement(database, `${insertInto('raw_records', insertedColumns)} RETURNING seq`)
@@ -79,6 +81,10 @@ export const createRawRecords = (database: DatabaseSync): RawRecordRepository =>
   const markParsed = prepareStatement(database, "UPDATE raw_records SET parse_state = 'parsed', stream = ?, source_ts = ?, change_seq = ? WHERE seq = ? AND parse_state = 'unknown'")
   const discard = prepareStatement(database, "DELETE FROM raw_records WHERE seq = ? AND parse_state = 'unknown' AND NOT EXISTS (SELECT 1 FROM facts WHERE facts.seq = raw_records.seq)")
   const reader: RawRecordReader = {
+    ofStream: (stream, after, limit) => {
+      if (!Number.isSafeInteger(limit) || limit < 1) { throw new RangeError('stream record limit must be positive') }
+      return (selectStream.all(stream, after ?? 0, limit) as RawRecordRow[]).map(toRawRecord)
+    },
     pendingOtel: (after, limit) => {
       if (!Number.isSafeInteger(limit) || limit < 1) { throw new RangeError('pending record limit must be positive') }
       return (selectPending.all(after ?? 0, limit) as RawRecordRow[]).map(toRawRecord)
