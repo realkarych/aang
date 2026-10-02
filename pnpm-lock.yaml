@@ -332,6 +332,10 @@ importers:
       '@aang/store':
         specifier: workspace:*
         version: link:../store
+    devDependencies:
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../testkit
 
   packages/store:
     dependencies:

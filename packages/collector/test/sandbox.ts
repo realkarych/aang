@@ -1,6 +1,6 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { chmod, mkdir, mkdtemp, realpath, rename, rm, utimes, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, realpath, rename, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
 import { promisify } from 'node:util'
@@ -83,7 +83,7 @@ export const createSandbox = async (register: Register): Promise<Sandbox> => {
   }
 }
 
-export const runCollector = (sandbox: Sandbox, settings: Settings = {}): Running => {
+export const prepareCollector = (sandbox: Sandbox, settings: Settings = {}): CollectorService => {
   const config = Config.parse({
     watch: { lookbackDays: settings.lookbackDays ?? 7 },
     collector: {
@@ -100,6 +100,15 @@ export const runCollector = (sandbox: Sandbox, settings: Settings = {}): Running
     adapters: new Map([['claude', claudeAdapter], ['codex', codexAdapter]]),
     ...(settings.readRetry === undefined ? {} : { readRetry: settings.readRetry }),
   })
+  sandbox.cleanup(() => collector.close())
+  return collector
+}
+
+export const runCollector = (
+  sandbox: Sandbox,
+  settings: Settings = {},
+  collector: CollectorService = prepareCollector(sandbox, settings),
+): Running => {
   const arrivals: Arrival[] = []
   let failure: { readonly error: unknown } | null = null
   const pumping = (async () => {
@@ -164,6 +173,12 @@ export const putSpoolFile = async (sandbox: Sandbox, name: string, bytes: Buffer
 }
 
 export const daysAgo = (days: number): Date => new Date(Date.now() - days * 24 * 60 * 60 * 1_000)
+
+export const filesUnder = async (directory: string): Promise<string[]> =>
+  (await readdir(directory, { recursive: true, withFileTypes: true }))
+    .filter((entry) => entry.isFile())
+    .map((entry) => join(entry.parentPath, entry.name))
+    .sort()
 
 export const sleep = (milliseconds: number): Promise<void> =>
   new Promise((resolve) => {
