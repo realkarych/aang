@@ -1,10 +1,11 @@
-import { chmod, lstat, mkdir, readdir, readFile, readlink, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import filesystem, { chmod, lstat, mkdir, readdir, readFile, readlink, rename, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { syncBuiltinESMExports } from 'node:module'
+import { basename, dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 import { HookInstallError, hookBinaryName, installCodexHooks, uninstallCodexHooks } from '@aang/hook'
-import { describe, inject, test } from 'vitest'
+import { describe, inject, test, vi } from 'vitest'
 import { cleanExit, readSpoolEvents, runProcess, typicalPayload, withoutNames } from './hook.js'
-import { createInstallHome, finishedProcessId, type InstallHome, readJson, sampleText } from './install.js'
+import { createInstallHome, absentProcessId, type InstallHome, readJson, sampleText } from './install.js'
 
 interface Handler {
   readonly type: string
@@ -25,8 +26,6 @@ interface HooksDocument {
 const binaries = inject('hookBinaries')
 const installWaitMs = 200
 const largeFileEntries = 40_000
-const paddingBytes = 32 * 1024 * 1024
-const replaceDelayMs = 2
 const concurrentInstalls = 3
 
 const loggerConfig = await sampleText('codex-cli/hooks/hooks.json.logger-config.json')
@@ -104,41 +103,30 @@ const foreignStop = (document: HooksDocument): HooksDocument => ({
   },
 })
 
-const paddedText = (document: HooksDocument): string => JSON.stringify({ ...document, padding: 'x'.repeat(paddingBytes) })
-
-const unpadded = (document: HooksDocument): HooksDocument => ({ ...document, padding: paddingBytes })
-
-const readUnpadded = async (path: string): Promise<HooksDocument> => {
-  const { padding, ...document } = (await readJson(path)) as HooksDocument
-  return { ...document, padding: typeof padding === 'string' ? padding.length : padding }
-}
-
-const stagedCopyWritten = async (home: InstallHome): Promise<boolean> => {
-  for (const name of (await readdir(home.codexHome)).filter((entry) => entry.endsWith('.tmp'))) {
-    const stats = await stat(join(home.codexHome, name)).catch(() => undefined)
-    if ((stats?.size ?? 0) >= paddingBytes) {
-      return true
-    }
-  }
-  return false
-}
-
-const replaceWhileSaving = async (home: InstallHome, replacement: string, saving: Promise<unknown>): Promise<boolean> => {
+const replaceBeforeVerification = async <T>(
+  home: InstallHome,
+  replacement: HooksDocument,
+  save: () => Promise<T>,
+): Promise<T> => {
   const replacementFile = join(home.root, 'replacement.json')
-  await writeFile(replacementFile, replacement)
-  const saved = new AbortController()
-  const stop = (): void => {
-    saved.abort()
-  }
-  void saving.then(stop, stop)
-  while (!saved.signal.aborted) {
-    if (await stagedCopyWritten(home)) {
-      await delay(replaceDelayMs)
+  await writeFile(replacementFile, JSON.stringify(replacement))
+  const originalChmod = filesystem.chmod
+  let replaced = false
+  const staged = /^hooks\.json\.[^.]+\.tmp$/
+  const changingMode = vi.spyOn(filesystem, 'chmod').mockImplementation(async (path, mode) => {
+    await originalChmod(path, mode)
+    if (!replaced && typeof path === 'string' && dirname(path) === home.codexHome && staged.test(basename(path))) {
+      replaced = true
       await rename(replacementFile, home.hooksFile)
-      return true
     }
+  })
+  syncBuiltinESMExports()
+  try {
+    return await save()
+  } finally {
+    changingMode.mockRestore()
+    syncBuiltinESMExports()
   }
-  return false
 }
 
 const holdDeployLock = async (home: InstallHome): Promise<() => Promise<void>> => {
@@ -353,41 +341,36 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(createdText)
   })
 
-  test('an entry another program writes by atomically replacing hooks.json while install saves is kept', async ({
+  test('an external replacement before install verifies its staged copy is preserved by the retry', async ({
     expect,
     onTestFinished,
   }) => {
     const home = await createInstallHome(onTestFinished)
     const original: HooksDocument = { hooks: {} }
-    await writeFile(home.hooksFile, paddedText(original))
+    await writeFile(home.hooksFile, JSON.stringify(original))
     const replacement = foreignStop(original)
-    const installing = install(home)
 
-    const replaced = await replaceWhileSaving(home, paddedText(replacement), installing)
-    const { command } = await installing
+    const installation = await replaceBeforeVerification(home, replacement, () => install(home))
 
-    expect(replaced).toBe(true)
-    expect([unpadded(withAangAppended(replacement, command)), unpadded(replacement)]).toContainEqual(
-      await readUnpadded(home.hooksFile),
-    )
+    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(replacement, installation.command))
+    expect(await backups(home)).toEqual([installation.backup])
+    expect(await readJson(installation.backup ?? '')).toEqual(replacement)
   })
 
-  test('an entry another program writes by atomically replacing hooks.json while uninstall saves is kept', async ({
+  test('an external replacement before uninstall verifies its staged copy is preserved by the retry', async ({
     expect,
     onTestFinished,
   }) => {
     const home = await createInstallHome(onTestFinished)
     const original: HooksDocument = { hooks: { Stop: [aangGroup('aang hook')] } }
-    await writeFile(home.hooksFile, paddedText(original))
+    await writeFile(home.hooksFile, JSON.stringify(original))
     const replacement = foreignStop(original)
-    const uninstalling = uninstall(home)
 
-    const replaced = await replaceWhileSaving(home, paddedText(replacement), uninstalling)
-    await uninstalling
+    const uninstallation = await replaceBeforeVerification(home, replacement, () => uninstall(home))
 
-    expect(replaced).toBe(true)
-    const neutralized = foreignStop({ hooks: { Stop: [aangGroup('true')] } })
-    expect([unpadded(neutralized), unpadded(replacement)]).toContainEqual(await readUnpadded(home.hooksFile))
+    expect(await readJson(home.hooksFile)).toEqual(foreignStop({ hooks: { Stop: [aangGroup('true')] } }))
+    expect(await backups(home)).toEqual([uninstallation.backup])
+    expect(await readJson(uninstallation.backup ?? '')).toEqual(replacement)
   })
 
   test('concurrent installs from several AANG_HOMEs into one Codex home end as if they ran one after another', async ({
@@ -398,7 +381,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     const codexHome = homes[0]?.codexHome ?? ''
     const hooksFile = join(codexHome, 'hooks.json')
     const original = foreignStop({ hooks: {} })
-    await writeFile(hooksFile, paddedText(original))
+    await writeFile(hooksFile, JSON.stringify(original))
 
     const installations = await Promise.all(
       homes.map((home) => installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome })),
@@ -406,9 +389,9 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
 
     const neutralized = Array.from({ length: concurrentInstalls - 1 }, () => 'true')
     const sequential = installations.map(({ command }) =>
-      unpadded([...neutralized, command].reduce(withAangAppended, original)),
+      [...neutralized, command].reduce(withAangAppended, original),
     )
-    expect(sequential).toContainEqual(await readUnpadded(hooksFile))
+    expect(sequential).toContainEqual(await readJson(hooksFile))
   })
 
   test('concurrent installs from one AANG_HOME change hooks.json once and leave one backup', async ({
@@ -431,7 +414,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
   }) => {
     const home = await createInstallHome(onTestFinished)
     await writeFile(home.hooksFile, loggerConfig)
-    await writeFile(`${home.hooksFile}.aang-lock`, String(await finishedProcessId(onTestFinished)))
+    await writeFile(`${home.hooksFile}.aang-lock`, String(absentProcessId()))
 
     const installation = await install(home)
 

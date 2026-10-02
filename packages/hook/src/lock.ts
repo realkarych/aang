@@ -25,21 +25,26 @@ const isRunning = (pid: number): boolean => {
 
 const lockOwner = (content: string): number => Number(content.split(' ', 1)[0])
 
-const readLock = async (lock: string): Promise<string | undefined> => {
-  try {
-    return await readFile(lock, 'utf8')
-  } catch (error) {
-    if (isErrorCode(error, 'ENOENT') || (process.platform === 'win32' && isErrorCode(error, 'EPERM', 'EACCES', 'EBUSY'))) {
-      return undefined
+const readLock = async (lock: string, deadline: number): Promise<string | undefined> => {
+  for (;;) {
+    try {
+      return await readFile(lock, 'utf8')
+    } catch (error) {
+      if (isErrorCode(error, 'ENOENT')) {
+        return undefined
+      }
+      if (!isErrorCode(error, 'EPERM', 'EBUSY') || Date.now() >= deadline) {
+        throw error
+      }
+      await delay(lockPollMs)
     }
-    throw error
   }
 }
 
-const removeAbandoned = async (lock: string, abandoned: string): Promise<boolean> => {
+const removeAbandoned = async (lock: string, abandoned: string, deadline: number): Promise<boolean> => {
   const recovery = `${lock}${recoverySuffix}`
   if (!(await createFileExclusively(recovery, String(process.pid), lockMode))) {
-    const recovering = await readLock(recovery)
+    const recovering = await readLock(recovery, deadline)
     if (recovering !== undefined && !isRunning(lockOwner(recovering))) {
       throw new HookInstallError(
         'install_locked',
@@ -49,7 +54,7 @@ const removeAbandoned = async (lock: string, abandoned: string): Promise<boolean
     return false
   }
   try {
-    if ((await readLock(lock)) === abandoned) {
+    if ((await readLock(lock, deadline)) === abandoned) {
       await rm(lock, { force: true })
     }
     return true
@@ -61,17 +66,16 @@ const removeAbandoned = async (lock: string, abandoned: string): Promise<boolean
 export const acquireLock = async (lock: string, operation: string): Promise<Unlock> => {
   const content = `${String(process.pid)} ${randomUUID()}`
   const deadline = Date.now() + lockWaitMs
-  let held: string | undefined
   while (!(await createFileExclusively(lock, content, lockMode))) {
+    const held = await readLock(lock, deadline)
+    if (held === undefined || (!isRunning(lockOwner(held)) && (await removeAbandoned(lock, held, deadline)))) {
+      continue
+    }
     if (Date.now() > deadline) {
       throw new HookInstallError(
         'install_locked',
-        `${lock}: ${operation} by process ${held === undefined ? 'unknown' : String(lockOwner(held))} has not finished`,
+        `${lock}: ${operation} by process ${String(lockOwner(held))} has not finished`,
       )
-    }
-    held = await readLock(lock)
-    if (held !== undefined && !isRunning(lockOwner(held)) && await removeAbandoned(lock, held)) {
-      continue
     }
     await delay(lockPollMs)
   }

@@ -1,5 +1,4 @@
-import { execFile, spawn } from 'node:child_process'
-import { once } from 'node:events'
+import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,50 +32,17 @@ const unusualHome = join('Имя Фамилия', process.platform === 'win32' ?
 export const sampleText = (path: string): Promise<string> =>
   readFile(new URL(`../../../docs/research/samples/${path}`, import.meta.url), 'utf8')
 
-const heldFinishedProcessId = async (onTestFinished: TestContext['onTestFinished']): Promise<number> => {
-  const script = `
-$heldProcess = New-Object System.Diagnostics.Process
-$heldProcess.StartInfo.FileName = $env:AANG_TEST_NODE
-$heldProcess.StartInfo.Arguments = '-e "process.exit(0)"'
-$heldProcess.StartInfo.UseShellExecute = $false
-$heldProcess.StartInfo.CreateNoWindow = $true
-$null = $heldProcess.Start()
-$heldHandle = $heldProcess.Handle
-$heldProcess.WaitForExit()
-[Console]::Out.WriteLine($heldProcess.Id)
-[Console]::Out.Flush()
-$null = [Console]::In.ReadLine()
-$heldProcess.Dispose()
-`
-  const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], {
-    env: { ...process.env, AANG_TEST_NODE: process.execPath },
-    stdio: ['pipe', 'pipe', 'inherit'],
-  })
-  onTestFinished(async () => {
-    if (holder.exitCode === null && holder.signalCode === null) {
-      const exited = once(holder, 'exit')
-      holder.kill()
-      await exited
+export const absentProcessId = (): number => {
+  const pid = 2_147_483_647
+  try {
+    process.kill(pid, 0)
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+      return pid
     }
-  })
-  const [chunk] = await once(holder.stdout, 'data') as [Buffer]
-  const pid = Number(chunk.toString('utf8').trim())
-  if (!Number.isSafeInteger(pid) || pid <= 0) {
-    throw new Error(`invalid finished process id: ${String(pid)}`)
+    throw error
   }
-  return pid
-}
-
-export const finishedProcessId = async (onTestFinished: TestContext['onTestFinished']): Promise<number> => {
-  if (process.platform === 'win32') {
-    return heldFinishedProcessId(onTestFinished)
-  }
-  const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
-  await once(child, 'exit')
-  if (child.pid === undefined) {
-    throw new Error('the finished process has no pid')
-  }
-  return child.pid
+  throw new Error(`the absent lock owner ${String(pid)} is running`)
 }
 
 export const readJson = async (path: string): Promise<unknown> => JSON.parse(await readFile(path, 'utf8')) as unknown
