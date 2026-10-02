@@ -18,7 +18,7 @@ export const writeNewFile = async (path: string, content: string | Buffer, mode:
 
 export const withStagedFile = async <T>(
   path: string,
-  content: string,
+  content: string | Buffer,
   mode: number,
   commit: (staged: string) => Promise<T>,
 ): Promise<T> => {

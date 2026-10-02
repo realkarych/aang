@@ -1,9 +1,12 @@
 import { randomBytes } from 'node:crypto'
 import type { BigIntStats } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises'
-import { dirname, join, posix, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import type { RegistrationTag, Runtime } from '@aang/contract'
 import { deployHookBinary } from './binary.js'
+import { listCodexHooks, type CodexAppServerOptions } from './codex-app-server.js'
+import { isAangCommand } from './codex-command.js'
+import { verifyForeignTrust } from './codex-state.js'
 import { HookInstallError, requireHookInstallSupport } from './errors.js'
 import {
   createFileExclusively,
@@ -15,7 +18,7 @@ import {
 } from './files.js'
 import { hookInstallPaths } from './layout.js'
 import { acquireLock } from './lock.js'
-import { leadingWords, posixQuote } from './shell.js'
+import { posixQuote } from './shell.js'
 
 const codexHookEvents: readonly string[] = [
   'SessionStart',
@@ -38,7 +41,6 @@ const hookTimeoutSeconds = 2
 const neutralCommand = 'true'
 const hooksFileName = 'hooks.json'
 const lockSuffix = '.aang-lock'
-const hookBinaryNames: readonly string[] = ['aang-hook', 'aang-hook.exe']
 const newHooksFileMode = 0o600
 const hooksFileAttempts = 5
 
@@ -48,7 +50,7 @@ export interface CodexHooksOptions {
   readonly codexHome: string
 }
 
-export interface CodexHooksInstallOptions extends CodexHooksOptions {
+export interface CodexHooksInstallOptions extends CodexAppServerOptions {
   readonly aangHome: string
   readonly hookBinarySource: string
 }
@@ -89,12 +91,6 @@ type SaveOutcome = { readonly saved: true; readonly backup: string | null } | { 
 
 const isObject = (value: unknown): value is JsonObject =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const isAangCommand = (command: string): boolean => {
-  const [program = '', subcommand] = leadingWords(command, 2)
-  const name = posix.basename(program)
-  return hookBinaryNames.includes(name) || (name === 'aang' && subcommand === 'hook')
-}
 
 const aangHandlers = (groups: unknown): JsonObject[] =>
   (Array.isArray(groups) ? groups : [])
@@ -213,12 +209,42 @@ const saveHooksDocument = async ({ file, document }: LoadedHooks): Promise<SaveO
   return { saved: true, backup }
 }
 
+interface TrustVerification {
+  readonly options: CodexHooksInstallOptions
+  readonly prepare: () => Promise<unknown>
+}
+
+const rollbackHooks = async (loaded: LoadedHooks, backup: string | null): Promise<void> => {
+  const { file, document } = loaded
+  const saved = Buffer.from(jsonText(document.root))
+  const version = await stat(file.target, { bigint: true }).catch(() => undefined)
+  const restore = async (staged?: string): Promise<void> => {
+    if (version === undefined || !(await hasContent(file.target, saved)) || !(await isCurrentVersion(file.target, version))) {
+      throw new HookInstallError(
+        'hooks_file_changed',
+        `${file.path}: another program changed the file after installation; its changes are preserved${backup === null ? '' : `; restore from ${backup} after review`}`,
+      )
+    }
+    if (staged === undefined) {
+      await rm(file.target)
+    } else {
+      await rename(staged, file.target)
+    }
+  }
+  if (file.existing === null) {
+    await restore()
+  } else {
+    await withStagedFile(file.target, file.existing.content, file.existing.mode, restore)
+  }
+}
+
 const changeHooksFile = async (
   codexHome: string,
   initial: LoadedHooks,
   change: (document: HooksDocument) => boolean,
+  verification?: TrustVerification,
 ): Promise<string | null> => {
-  if (!change(initial.document)) {
+  if (verification === undefined && !change(initial.document)) {
     return null
   }
   const { path, target } = initial.file
@@ -227,11 +253,24 @@ const changeHooksFile = async (
   try {
     for (let attempt = 1; attempt <= hooksFileAttempts; attempt += 1) {
       const loaded = await readHooks(codexHome)
-      if (!change(loaded.document)) {
+      const before = verification === undefined ? undefined : await listCodexHooks(verification.options)
+      await verification?.prepare()
+      const changed = change(loaded.document)
+      if (!changed && verification === undefined) {
         return null
       }
-      const outcome = await saveHooksDocument(loaded)
+      const outcome = changed ? await saveHooksDocument(loaded) : { saved: true, backup: null } as const
       if (outcome.saved) {
+        if (before !== undefined && verification !== undefined) {
+          try {
+            verifyForeignTrust(before, await listCodexHooks(verification.options))
+          } catch (error) {
+            if (changed) {
+              await rollbackHooks(loaded, outcome.backup)
+            }
+            throw error
+          }
+        }
         return outcome.backup
       }
     }
@@ -280,16 +319,16 @@ const neutralizeAang = ({ hooks }: HooksDocument): boolean => {
   return handlers.length > 0
 }
 
-export const installCodexHooks = async ({
-  aangHome,
-  hookBinarySource,
-  codexHome,
-}: CodexHooksInstallOptions): Promise<CodexHooksInstallation> => {
+export const installCodexHooks = async (options: CodexHooksInstallOptions): Promise<CodexHooksInstallation> => {
   requireHookInstallSupport()
+  const { aangHome, codexHome } = options
   const initial = await readHooks(codexHome)
-  const binary = await deployHookBinary({ aangHome, hookBinarySource })
+  const binary = hookInstallPaths(aangHome).binary
   const command = [posixQuote(binary), runtime, registration, posixQuote(hookInstallPaths(aangHome).spool)].join(' ')
-  const backup = await changeHooksFile(codexHome, initial, (document) => registerAang(document, command))
+  const backup = await changeHooksFile(codexHome, initial, (document) => registerAang(document, command), {
+    options,
+    prepare: () => deployHookBinary(options),
+  })
   return { binary, command, hooksFile: initial.file.path, backup }
 }
 

@@ -18,7 +18,7 @@ test.runIf(process.platform === 'win32')(
     )
     await expect(uninstallClaudePlugin({ aangHome: home.aangHome, claude })).rejects.toMatchObject(refused)
     await expect(
-      installCodexHooks({ aangHome: home.aangHome, hookBinarySource, codexHome: home.codexHome }),
+      installCodexHooks({ aangHome: home.aangHome, hookBinarySource, codexHome: home.codexHome, codex: home.codex }),
     ).rejects.toMatchObject(refused)
     await expect(uninstallCodexHooks({ codexHome: home.codexHome })).rejects.toMatchObject(refused)
 
