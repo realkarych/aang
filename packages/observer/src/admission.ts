@@ -37,7 +37,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
   const verified = [...(source.verifiedClaudeVersions ?? [])]
   const statusPath = source.admissionStatusPath ?? join(options.environment.HOME ?? options.environment.USERPROFILE ?? homedir(), '.aang', 'support', `${runtime}-observer.json`)
   const runner = createProcessRunner(options)
-  const makeLauncher = (version?: string) => runtime === 'claude' ? createClaudeLauncher(options) : createCodexLauncher(options, version)
+  const makeLauncher = (version?: string) => runtime === 'claude' ? createClaudeLauncher(options, version) : createCodexLauncher(options, version)
   let launcher = makeLauncher()
   let record: AdmissionStatus = { runtime, version: null, profile, platform: process.platform, admitted: false, checkedAt: null, reason: 'version_not_admitted', warning: null }
   let errorClass: LaunchErrorClass = 'version_not_admitted'

@@ -174,15 +174,53 @@ test('Codex admits the flat Responses inventory and can readmit after a working 
   expect(await backend.execute({ input })).toMatchObject({ ok: true })
 })
 
-test('Codex refuses a version change between the admission gate and model catalog lookup', async (context) => {
+for (const runtime of ['claude', 'codex'] as const) {
+  test(`${runtime} refuses a version change between the admission gate and working launch`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const fake = runtime === 'claude' ? installFakeClaude(root, { replies: [{ kind: 'answer', output }] }) : installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
+    const cli = { command: process.execPath, args: [fileURLToPath(new URL('version-wrapper.ts', import.meta.url)), runtime, join(root, 'version-count'), fake.command, ...fake.args] }
+    const backend = runtime === 'claude' ? createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins }) : createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+    expect(await backend.admit()).toMatchObject({ admitted: true })
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
+    expect(fake.calls().filter((call) => call.prompt?.includes(input.private))).toEqual([])
+    expect(backend.admission()).toMatchObject({ admitted: false })
+    expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toMatchObject({ admitted: false })
+  })
+}
+
+test.skipIf(process.platform === 'win32')('Claude refuses an unadmitted CLI after an updater switches its symlink during the version check', async (context) => {
   const { root, options } = await sandbox(context)
-  const fake = installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
-  const cli = { command: process.execPath, args: [fileURLToPath(new URL('version-wrapper.ts', import.meta.url)), join(root, 'version-count'), fake.command, ...fake.args] }
-  const backend = createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
-  expect(await backend.admit()).toMatchObject({ admitted: true })
+  const admitted = installFakeClaude(join(root, 'old'), { version: '2.1.286' })
+  const updated = installFakeClaude(join(root, 'new'), { version: '99.0.0', replies: [{ kind: 'answer', output }] })
+  const entry = join(root, 'claude-entry')
+  const wrapper = join(root, 'updater.mjs')
+  const enabled = join(root, 'update-enabled')
+  await writeFile(wrapper, `#!/usr/bin/env node
+import { spawnSync } from 'node:child_process'
+import { existsSync, renameSync, symlinkSync } from 'node:fs'
+const args = process.argv.slice(2)
+const result = spawnSync(${JSON.stringify(admitted.command)}, args, { stdio: 'inherit' })
+if (args.includes('--version') && existsSync(${JSON.stringify(enabled)})) {
+  symlinkSync(${JSON.stringify(updated.command)}, ${JSON.stringify(`${entry}.updated`)})
+  renameSync(${JSON.stringify(`${entry}.updated`)}, ${JSON.stringify(entry)})
+}
+process.exitCode = result.status ?? 1
+`, { mode: 0o755 })
+  await symlink(wrapper, entry)
+  const backend = createClaudeBackend({ ...options, cli: entry, model: 'claude-opus-5-5', builtins })
+  expect(await backend.admit()).toMatchObject({ admitted: true, version: '2.1.286' })
+  await writeFile(enabled, '')
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
-  expect(fake.calls().filter((call) => call.prompt?.includes(input.private))).toEqual([])
+  expect(await realpath(entry)).toBe(updated.command)
+  expect(updated.calls().filter((call) => call.prompt !== null)).toEqual([])
   expect(backend.admission()).toMatchObject({ admitted: false })
+  expect(backend.status()).toMatchObject({ activeCalls: 0, state: { state: 'disabled', reason: 'version_not_admitted' } })
+  expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toMatchObject({ admitted: false })
+  const count = updated.calls().length
+  expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
+  expect(updated.calls()).toHaveLength(count)
+  expect(await backend.admit()).toMatchObject({ admitted: true, version: '99.0.0' })
+  expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
 })
 
 test('readmission revokes the local success record before running new probes', async (context) => {

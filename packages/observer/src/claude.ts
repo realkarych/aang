@@ -40,9 +40,14 @@ const usageOf = (result: JsonObject, model: string): CallUsage => {
   }
 }
 
-export const createClaudeLauncher = (options: ClaudeBackendOptions) => {
+export const createClaudeLauncher = (options: ClaudeBackendOptions, admittedVersion?: string) => {
   let authenticated = false
   return createBackend('claude', options, async ({ run, input }) => {
+    if (admittedVersion !== undefined) {
+      const version = await run(['--version'])
+      requireSuccess(version)
+      if (version.stdout.trim() !== `${admittedVersion} (Claude Code)`) throw new LaunchError('version_not_admitted', 'Claude version changed after admission')
+    }
     if (!authenticated) {
       const auth = await run(['auth', 'status'])
       if (auth.failure !== null) requireSuccess(auth)
