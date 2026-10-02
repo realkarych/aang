@@ -7,10 +7,11 @@ import {
   EpochNs,
   type PermissionDecision,
   type Speaker,
+  StreamKey,
 } from '@aang/contract'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
-import { factsOf } from './rollout-records.js'
+import { factsOf, threadStream } from './rollout-records.js'
 
 const otelSamples = new URL('../../../docs/research/samples/codex-otel/', import.meta.url)
 const receivedAt = EpochNs.parse(1_790_860_423_509_072_000n)
@@ -53,20 +54,25 @@ const attribute = (log: LogRecord, key: string): string => {
   return value
 }
 
-const otelRecord = (payload: string, position: CollectedPosition = { kind: 'otel' }): CollectedRecord =>
+const otelRecord = (
+  payload: string,
+  stream: StreamKey | null,
+  position: CollectedPosition = { kind: 'otel' },
+): CollectedRecord =>
   CollectedRecord.parse({
     channel: 'otel',
     runtime: 'codex',
-    stream: null,
+    stream,
     position,
     hook: null,
     observed_at: receivedAt,
     payload,
   })
 
-const parseLog = (log: unknown) => codexAdapter.parse(otelRecord(JSON.stringify(log)))
+const parseLog = (log: unknown, stream: StreamKey | null) => codexAdapter.parse(otelRecord(JSON.stringify(log), stream))
 
-const keyOf = (log: unknown) => codexAdapter.rawKey(otelRecord(JSON.stringify(log)))
+const keyOf = (log: unknown, stream: StreamKey | null = null) =>
+  codexAdapter.rawKey(otelRecord(JSON.stringify(log), stream))
 
 const withAttributes = (log: LogRecord, changes: Record<string, string | undefined>): LogRecord => ({
   ...log,
@@ -84,6 +90,7 @@ interface Decision {
   readonly speaker: Speaker
   readonly tool: string
   readonly originator: string
+  readonly root?: string
 }
 
 const human = (decision: PermissionDecision, originator: string, tool = 'exec_command'): Decision => ({
@@ -103,6 +110,7 @@ const policy = (originator: string): Decision => ({
 })
 
 const probe = 'aang_otel_probe'
+const execSubagentRoot = '01a0f7a9-0000-7000-8000-0000000000a1'
 
 const decisions: Readonly<Record<string, Decision>> = {
   'app-server accept': human('approved', probe),
@@ -125,7 +133,7 @@ const decisions: Readonly<Record<string, Decision>> = {
     originator: 'codex_exec',
   },
   'Codex SDK 0.159.3 (approval never) echo hi': policy('codex_sdk_ts'),
-  'codex exec subagent thread': policy('codex_exec'),
+  'codex exec subagent thread': { ...policy('codex_exec'), root: execSubagentRoot },
 }
 
 describe('every recorded codex.tool_decision variant', () => {
@@ -143,19 +151,20 @@ describe('every recorded codex.tool_decision variant', () => {
     const log = variantRecord(name)
     const conversation = attribute(log, 'conversation.id')
     const call = attribute(log, 'call_id')
+    const root = expected.root ?? conversation
     const at = EpochNs.parse(log.observedTimeUnixNano)
-    const result = parseLog(log)
+    const result = parseLog(log, threadStream(root, conversation))
 
     expect(result).toMatchObject({ parse_state: 'parsed', source_ts: at })
     expect(factsOf(result)).toEqual([
       {
         kind: 'permission_decision',
-        entity_key: { kind: 'action', runtime: 'codex', session: conversation, call },
+        entity_key: { kind: 'action', runtime: 'codex', session: root, call },
         speaker: expected.speaker,
         urgent: false,
         at,
         runtime_ids: {
-          session_id: null,
+          session_id: root,
           agent_id: null,
           thread_id: conversation,
           turn_id: null,
@@ -192,8 +201,10 @@ test('the log record inside a full OTLP request is the same decision as the reco
     JSON.parse(readFileSync(new URL('logs.envelope.tool_decision.approved-user.app-server.json', otelSamples), 'utf8')),
   )
   const [log] = envelope.resourceLogs.flatMap(({ scopeLogs }) => scopeLogs.flatMap(({ logRecords }) => logRecords))
+  const accept = variantRecord('app-server accept')
+  const stream = threadStream(attribute(accept, 'conversation.id'))
 
-  expect(factsOf(parseLog(log))).toEqual(factsOf(parseLog(variantRecord('app-server accept'))))
+  expect(factsOf(parseLog(log, stream))).toEqual(factsOf(parseLog(accept, stream)))
   expect(keyOf(log)).toBe(keyOf(variantRecord('app-server accept')))
 })
 
@@ -202,7 +213,7 @@ test('other Codex log events are not recognized as facts', () => {
 
   expect(events.length).toBeGreaterThan(0)
   for (const { logRecord } of events) {
-    expect(parseLog(logRecord)).toEqual({
+    expect(parseLog(logRecord, null)).toEqual({
       parse_state: 'unknown',
       source_ts: EpochNs.parse(logRecord.observedTimeUnixNano),
     })
@@ -212,8 +223,9 @@ test('other Codex log events are not recognized as facts', () => {
 
 describe('decision values beyond the recorded ones', () => {
   const accept = variantRecord('app-server accept')
+  const stream = threadStream(attribute(accept, 'conversation.id'))
   const decisionOf = (changes: Record<string, string | undefined>) =>
-    factsOf(parseLog(withAttributes(accept, changes)))[0]
+    factsOf(parseLog(withAttributes(accept, changes), stream))[0]
 
   test.each([
     ['approved_mcp_policy_amendment', 'approved_with_amendment'],
@@ -259,19 +271,21 @@ describe('decision values beyond the recorded ones', () => {
 
 describe('times and raw keys', () => {
   const accept = variantRecord('app-server accept')
+  const stream = threadStream(attribute(accept, 'conversation.id'))
+  const parseAccept = (log: unknown) => parseLog(log, stream)
   const eventTime = '1790860422500000000'
 
   test('the event time is preferred, the observed time follows, the receive time is the last resort', () => {
     const timed = { ...accept, timeUnixNano: eventTime }
-    expect(parseLog(timed)).toMatchObject({ source_ts: EpochNs.parse(eventTime) })
-    expect(factsOf(parseLog(timed))[0]?.at).toBe(EpochNs.parse(eventTime))
+    expect(parseAccept(timed)).toMatchObject({ source_ts: EpochNs.parse(eventTime) })
+    expect(factsOf(parseAccept(timed))[0]?.at).toBe(EpochNs.parse(eventTime))
 
     const untimed = { ...accept, timeUnixNano: '0', observedTimeUnixNano: '0' }
-    expect(parseLog(untimed)).toMatchObject({ parse_state: 'parsed', source_ts: null })
-    expect(factsOf(parseLog(untimed))[0]?.at).toBe(receivedAt)
+    expect(parseAccept(untimed)).toMatchObject({ parse_state: 'parsed', source_ts: null })
+    expect(factsOf(parseAccept(untimed))[0]?.at).toBe(receivedAt)
 
     const numeric = { ...accept, timeUnixNano: 1790860422500000000, observedTimeUnixNano: undefined }
-    expect(parseLog(numeric)).toMatchObject({ parse_state: 'parsed', source_ts: null })
+    expect(parseAccept(numeric)).toMatchObject({ parse_state: 'parsed', source_ts: null })
   })
 
   test('the raw key is the conversation, call, decision and event time of the record', () => {
@@ -288,7 +302,7 @@ describe('times and raw keys', () => {
 
   test('a decision whose ids cannot form a raw key falls back to the content hash', () => {
     const colon = withAttributes(accept, { call_id: 'call:mock:3' })
-    expect(factsOf(parseLog(colon))[0]?.entity_key).toMatchObject({ call: 'call:mock:3' })
+    expect(factsOf(parseAccept(colon))[0]?.entity_key).toMatchObject({ call: 'call:mock:3' })
     expect(keyOf(colon)).toMatch(/^codex:otel:[0-9a-f]{64}$/)
     expect(keyOf(colon)).toBe(keyOf(colon))
     expect(keyOf(withAttributes(accept, { decision: 'not approved' }))).toMatch(/^codex:otel:[0-9a-f]{64}$/)
@@ -315,7 +329,7 @@ describe('records that are not a readable decision', () => {
       },
     ],
   ])('%s is kept as an unknown record', (_name, log) => {
-    expect(parseLog(log)).toEqual({
+    expect(parseLog(log, threadStream(attribute(accept, 'conversation.id')))).toEqual({
       parse_state: 'unknown',
       source_ts: EpochNs.parse(accept.observedTimeUnixNano),
     })
@@ -323,7 +337,7 @@ describe('records that are not a readable decision', () => {
 
   test('a payload that is not a JSON object is invalid', () => {
     for (const payload of ['not json', '[]', '"codex.tool_decision"', 'null']) {
-      expect(codexAdapter.parse(otelRecord(payload))).toEqual({
+      expect(codexAdapter.parse(otelRecord(payload, null))).toEqual({
         parse_state: 'invalid',
         reason: 'otel payload is not a JSON object',
       })
@@ -331,8 +345,43 @@ describe('records that are not a readable decision', () => {
   })
 
   test('an OTel record outside the OTel position is not read as a decision', () => {
-    const misplaced = otelRecord(JSON.stringify(accept), { kind: 'stream_lost', path: '/x' })
+    const misplaced = otelRecord(JSON.stringify(accept), null, { kind: 'stream_lost', path: '/x' })
     expect(codexAdapter.parse(misplaced)).toEqual({ parse_state: 'unknown', source_ts: null })
     expect(codexAdapter.rawKey(misplaced)).toMatch(/^codex:otel:[0-9a-f]{64}$/)
+  })
+})
+
+describe('a decision whose conversation has no known stream', () => {
+  const subagent = variantRecord('codex exec subagent thread')
+  const conversation = attribute(subagent, 'conversation.id')
+  const call = attribute(subagent, 'call_id')
+  const known = threadStream(execSubagentRoot, conversation)
+  const rawKey = `codex:otel:${conversation}:${call}:approved:0`
+
+  test.each([
+    ['no stream', null],
+    ['a stream key of another runtime', StreamKey.parse(`claude:${execSubagentRoot}:${conversation}`)],
+    ['a stream key without a thread', StreamKey.parse(`codex:${conversation}`)],
+    ['a stream key with extra parts', StreamKey.parse(`codex:${execSubagentRoot}:${conversation}:x`)],
+    ['a stream key with a blank id', StreamKey.parse(`codex:${execSubagentRoot}: `)],
+    ['the stream of another thread of the same root', threadStream(execSubagentRoot)],
+    ['the stream of another subagent', threadStream(execSubagentRoot, '01a0f7a9-0000-7000-8000-0000000000a2')],
+    ['the stream of a thread with the conversation as its root', threadStream(conversation, execSubagentRoot)],
+  ])('with %s is kept as an unknown record under the same raw key', (_name, stream) => {
+    expect(parseLog(subagent, stream)).toEqual({
+      parse_state: 'unknown',
+      source_ts: EpochNs.parse(subagent.observedTimeUnixNano),
+    })
+    expect(keyOf(subagent, stream)).toBe(rawKey)
+  })
+
+  test('with the known stream of its thread is a decision on the action of the root session', () => {
+    expect(keyOf(subagent, known)).toBe(rawKey)
+    expect(factsOf(parseLog(subagent, known))).toMatchObject([
+      {
+        entity_key: { kind: 'action', runtime: 'codex', session: execSubagentRoot, call },
+        runtime_ids: { session_id: execSubagentRoot, thread_id: conversation, call_id: call },
+      },
+    ])
   })
 })

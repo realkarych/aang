@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { qualifiedTool } from './calls.js'
 import { actionEntity, emptyEnv, emptyIds, fact } from './facts.js'
 import { readJson } from './json.js'
+import { decodeStream, type ThreadStream } from './stream.js'
 
 const toolDecisionEvent = 'codex.tool_decision'
 const unsetTime = 0n
@@ -93,18 +94,22 @@ const readOtel = (payload: string): OtelReading => {
 const toolOf = ({ tool_name: name, tool_namespace: namespace }: ToolDecision): string | null =>
   name === undefined || name === '' ? null : qualifiedTool(namespace, name)
 
-const decisionFact = (record: CollectedRecord, event: ToolDecision, at: EpochNs | null): FactDraft => {
-  const conversation = event['conversation.id']
+const conversationStream = (record: CollectedRecord, event: ToolDecision): ThreadStream | null => {
+  const stream = decodeStream(record.stream)
+  return stream?.thread === event['conversation.id'] ? stream : null
+}
+
+const decisionFact = (record: CollectedRecord, stream: ThreadStream, event: ToolDecision, at: EpochNs | null): FactDraft => {
   const reading = decisions.get(event.decision) ?? unknownDecision
   const source = event.source === undefined ? undefined : sources.get(event.source)
   return fact(
     'permission_decision',
     {
-      entity: actionEntity({ session: conversation, thread: conversation }, event.call_id),
+      entity: actionEntity(stream, event.call_id),
       speaker: source === 'user' ? 'human' : 'runtime',
       urgent: false,
       at: at ?? record.observed_at,
-      ids: { ...emptyIds, thread_id: conversation, call_id: event.call_id },
+      ids: { ...emptyIds, session_id: stream.session, thread_id: stream.thread, call_id: event.call_id },
       env: { ...emptyEnv, version: event['app.version'] ?? null, originator: event.originator ?? null },
       verified: reading.verified && source !== undefined,
     },
@@ -120,7 +125,10 @@ export const parseOtel = (record: CollectedRecord): ParseResult => {
   if (reading.kind === 'other') {
     return { parse_state: 'unknown', source_ts: reading.at }
   }
-  return { parse_state: 'parsed', source_ts: reading.at, facts: [decisionFact(record, reading.event, reading.at)] }
+  const stream = conversationStream(record, reading.event)
+  return stream === null
+    ? { parse_state: 'unknown', source_ts: reading.at }
+    : { parse_state: 'parsed', source_ts: reading.at, facts: [decisionFact(record, stream, reading.event, reading.at)] }
 }
 
 const KeyParts = z.tuple([Token, Token, Token])
