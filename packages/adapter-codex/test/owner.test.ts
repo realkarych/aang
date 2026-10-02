@@ -85,6 +85,30 @@ describe('the owner of a rollout line', () => {
     expect(codexAdapter.owner(record(line, streamFrom(line)))).toMatchObject({ thread: 'root', observer: true })
   })
 
+  test('of a line without the rollout envelope belongs to its thread and states nothing', () => {
+    expect(codexAdapter.owner(record('{"type":"future"}', threadStream(spawnRoot, spawnChild)))).toEqual({
+      session: session(spawnRoot),
+      thread: 'agent',
+      cwd: null,
+      start: false,
+      observer: false,
+    })
+    expect(codexAdapter.owner(record('not json', threadStream(realRoot)))).toMatchObject({ thread: 'root', cwd: null })
+  })
+
+  test('of a session_meta line of an unexpected shape still opens the root session', () => {
+    const sample = JSON.parse(sampleLine('session_meta.exec.real.json')) as { readonly payload: JsonObject }
+    const line = JSON.stringify({ ...sample, payload: { ...sample.payload, cwd: 42 } })
+
+    expect(codexAdapter.owner(record(line, threadStream(realRoot)))).toEqual({
+      session: session(realRoot),
+      thread: 'root',
+      cwd: null,
+      start: true,
+      observer: false,
+    })
+  })
+
   test('is unknown without a thread stream or outside a rollout line', () => {
     const line = sampleLine('turn_context.real.json')
 
@@ -121,6 +145,13 @@ describe('the owner of a hook event', () => {
     expect(ownerOfHook(cleared, { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' })).toMatchObject({
       start: true,
       observer: true,
+    })
+  })
+
+  test('opens nothing on a SessionStart without a source', () => {
+    expect(ownerOfHook(without(stdinOf('SessionStart.startup.json'), 'source'))).toMatchObject({
+      thread: 'root',
+      start: false,
     })
   })
 

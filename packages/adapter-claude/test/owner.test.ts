@@ -77,6 +77,7 @@ describe('the owner of a hook event', () => {
     const startup = await readJsonSample('claude-code-hooks/SessionStart.startup.json')
 
     expect(ownerOfHook({ ...startup, source: 'clear' })?.start).toBe(true)
+    expect(ownerOfHook({ ...startup, source: null })?.start).toBe(false)
     expect(ownerOfHook(await readJsonSample('claude-code-hooks/SessionStart.resume.json'))?.start).toBe(false)
     expect(ownerOfHook(await readJsonSample('claude-code-hooks/SessionStart.compact.json'))?.start).toBe(false)
     expect(ownerOfHook({ ...startup, agent_id: 'a1' })).toMatchObject({ thread: 'agent', start: false })
