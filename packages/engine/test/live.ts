@@ -7,6 +7,7 @@ import { createCollector, type ReadRetry } from '@aang/collector'
 import {
   type CollectorBatch,
   Config,
+  type Listener,
   type RegistrationTag,
   type Runtime,
   type SpoolEnv,
@@ -36,6 +37,7 @@ export interface Live {
   readonly batches: () => readonly CollectorBatch[]
   readonly results: () => readonly IngestResult[]
   readonly requestAttachment: (path: string, stream: StreamKey) => void
+  readonly listenOtel: (token: string) => Promise<Listener>
   readonly stop: () => Promise<void>
 }
 
@@ -121,6 +123,7 @@ export const runLive = (
     batches: () => checked(batches),
     results: () => checked(results),
     requestAttachment: (path, stream) => { collector.requestAttachment(path, stream) },
+    listenOtel: (token) => collector.listenOtel({ port: 0, token }),
     stop,
   }
 }

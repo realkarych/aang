@@ -307,6 +307,9 @@ importers:
       '@aang/collector':
         specifier: workspace:*
         version: link:../collector
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../testkit
 
   packages/hook:
     dependencies:

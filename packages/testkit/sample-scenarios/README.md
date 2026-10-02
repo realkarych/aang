@@ -1,0 +1,37 @@
+# Сценарии из образцов (T.5)
+
+Манифесты проигрывателя (`PlayerManifest`, T.2) для образцов спайка из `docs/research/samples`, в которых не нужно слияние hooks и файлов. Транскрипты и rollout берутся из образцов по относительному пути, без копий. Согласованные сценарии с hooks и файлами — записи R.4.
+
+```ts
+import { createPlayer, loadManifest, sampleScenarioManifest } from '@aang/testkit'
+
+const player = createPlayer(await loadManifest(sampleScenarioManifest('claude-fork')), { roots, timeScale: 0 })
+await player.play({ until: 'fork' })
+```
+
+| Сценарий | Что воспроизводит | Метки |
+| --- | --- | --- |
+| `claude-subagent` | первый запуск сессии `86f93ed5`: основной транскрипт (34 строки), meta и транскрипт субагента `aad616394e806288d` | `subagent`, `subagent-result` |
+| `claude-fork` | запуск, resume и continue основного транскрипта (52 строки), затем форк `cdfb3544` (49 строк) | `subagent`, `subagent-result`, `resume`, `continue`, `fork` |
+| `claude-compaction` | весь основной транскрипт (97 строк): те же три запуска, ручное сжатие и ход после него | `subagent`, `subagent-result`, `resume`, `continue`, `compaction`, `compact-boundary`, `post-compaction` |
+| `codex-resume-compaction` | rollout `01a0f752`: `codex exec`, затем `exec resume` с автоматическим сжатием (41 строка) | `resume`, `compaction` |
+| `codex-otel` | 24 OTLP-запроса логов: 15 `codex.tool_decision` и 9 других событий, которые приёмник отбрасывает | у каждого решения — имя случая из образца |
+
+Метка стоит на первом шаге фазы, поэтому `play({ until })` останавливается перед ней.
+
+## Как получено время шагов
+
+- **Claude.** Время записи строк — из `claude-code-transcripts/write-timeline-watch.jsonl`, смещение запусков — `run_start` из `sessions-registry-lifecycle-observed.jsonl`. Строки одного файла, увиденные в одну миллисекунду, пишутся одним шагом. При равном времени первым идёт файл с более ранней отметкой записи: субагент завершается раньше, чем результат появляется в родителе. Meta субагента пишется целиком в момент появления файла.
+- **Codex.** Журнала записи rollout в образцах нет, поэтому время шага — отметка `timestamp` записи; записи с одной отметкой пишутся одним шагом. Имя файла построено по времени `session_meta` в UTC.
+- **OTel.** Одна запись на запрос, порядок и время — по `observedTimeUnixNano`. Ресурс — атрибуты `/v1/logs` сервиса из `codex-otel/resource-attributes.by-service.json` в порядке конверта `logs.envelope.tool_decision.approved-user.app-server.json`, область — из того же конверта. Сервис остальных событий определяется по `originator`.
+
+Время первого шага — 0. Полные интервалы сохранены: между запусками спайка проходят минуты, поэтому тесты задают `timeScale`.
+
+## Чего нет
+
+- Снимков реестра `sessions/*.json`: в образцах есть только журнал смены статуса без полного содержимого файла.
+- Hook-событий: образцы hooks и транскриптов сняты в разных сессиях.
+
+Рабочие каталоги сессий — `/tmp/aang-spike/cc-transcripts/run` и `/tmp/aang-spike/codex-cli/run1`. Тесты включают их в охват через `watch.all`.
+
+Соответствие манифестов образцам проверяют `packages/testkit/test/sample-scenarios.test.ts` (время каждого шага, файлы на метках, тела OTLP) и `packages/engine/test/sample-scenarios.test.ts` (проход через настоящие сборщик, адаптеры и `engine`).
