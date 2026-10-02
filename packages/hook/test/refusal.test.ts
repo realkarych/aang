@@ -12,11 +12,12 @@ interface RefusalCase {
   readonly args?: (spool: Spool) => readonly string[]
   readonly env?: Readonly<Record<string, string>>
   readonly stdin?: HookStdin
-  readonly posixOnly?: boolean
+  readonly skipOnWindows?: string
 }
 
 const missingSpool = (spool: Spool): string => join(spool.root, 'missing')
 const fileSpool = (spool: Spool): string => join(spool.root, 'file')
+const launcherStatus = (spool: Spool): string => join(spool.root, 'status.json')
 
 const oversizedPayload = Buffer.from(JSON.stringify({ padding: 'x'.repeat(4 * 1024 * 1024) }))
 
@@ -43,13 +44,18 @@ const cases: readonly RefusalCase[] = [
   { name: 'a spool without its ready directory', prepare: (spool) => spool.remove(spoolLayout.readyDirectory) },
   { name: 'empty stdin', stdin: Buffer.alloc(0) },
   { name: 'stdin attached to the null device', stdin: 'ignored' },
-  { name: 'a closed stdin descriptor', stdin: 'closed', posixOnly: true },
+  { name: 'a closed stdin descriptor', stdin: 'closed', skipOnWindows: 'closing descriptor 0 is a POSIX shell feature' },
+  {
+    name: 'the launcher mode outside Windows',
+    args: (spool) => ['launch', launcherStatus(spool), '0', process.execPath, '--version'],
+    skipOnWindows: 'the launcher mode exists only on Windows',
+  },
 ]
 
 test.for(cases)(
   'exits 0 silently without writing an event on $name',
   async (refusal, { expect, onTestFinished, skip }) => {
-    skip(refusal.posixOnly === true && process.platform === 'win32', 'closing descriptor 0 is a POSIX shell feature')
+    skip(refusal.skipOnWindows !== undefined && process.platform === 'win32', refusal.skipOnWindows)
     const spool = await createSpool(onTestFinished, refusal.leases === undefined ? {} : { leases: refusal.leases })
     await refusal.prepare?.(spool)
 
@@ -61,5 +67,6 @@ test.for(cases)(
     expect(result).toEqual(cleanExit)
     expect(await spool.entries()).toEqual({ ready: [], pending: [] })
     expect(existsSync(missingSpool(spool))).toBe(false)
+    expect(existsSync(launcherStatus(spool))).toBe(false)
   },
 )

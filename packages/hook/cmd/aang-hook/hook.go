@@ -38,9 +38,9 @@ var (
 	}
 )
 
-func main() {
+func hook(args []string) {
 	defer drainStdin()
-	record(os.Args[1:], time.Now())
+	record(args, time.Now())
 }
 
 func drainStdin() {
