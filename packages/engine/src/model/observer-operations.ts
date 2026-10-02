@@ -12,6 +12,7 @@ import {
 } from '@aang/contract'
 import type { AttentionItemDraft, ModelEntityDraft, StageDraft } from './journal.js'
 import { ObserverContext } from './observer-context.js'
+import { stageLinkKey } from './stage-links.js'
 
 const requiredText = (context: ObserverContext, text: string): void => {
   context.check(text.trim().length > 0, 'invariant', 'text must not be empty')
@@ -22,6 +23,15 @@ export const planOperation = (context: ObserverContext, op: ObserverOp, at: Epoc
   const basis = context.basis(op, facts)
   const { run } = context.call
   const put = (entity: ModelEntityDraft): void => {
+    if (entity.kind === 'link' && 'stage' in entity.value) {
+      const key = stageLinkKey(entity.value)
+      for (const current of context.entities.values()) {
+        if (current.kind === 'link' && 'stage' in current.value && stageLinkKey(current.value) === key) {
+          entity = { kind: 'link', value: { ...entity.value, id: current.value.id } }
+          break
+        }
+      }
+    }
     context.put(op, entity, basis)
   }
   const stageId = (ref: StageRef, fields: readonly string[] = []) =>

@@ -16,12 +16,14 @@ import {
   type ValidationLimits,
 } from './observer-context.js'
 import { planOperation } from './observer-operations.js'
+import { refreshStageExecution, type StageObservations } from './stage-execution.js'
 
 export interface ObserverResponse {
   readonly call: ObserverCallId
   readonly output: unknown
   readonly at: EpochNs
   readonly limits?: ValidationLimits
+  readonly observations?: StageObservations
 }
 
 export type ObserverResponseResult =
@@ -162,6 +164,11 @@ export const applyObserverResponse = (
         [],
       )
     }
+  }
+  if (!rejected && response.observations !== undefined) {
+    version = refreshStageExecution(transaction, {
+      run: call.run, at: response.at, observations: response.observations,
+    })?.version.version ?? version
   }
   transaction.interpretations.settle(call.id, rejected ? 'pending' : 'interpreted')
   transaction.observerCalls.finish({

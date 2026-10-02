@@ -291,7 +291,7 @@ test('does not accept origin plan without an actual plan fact', async ({ onTestF
   const result = store.transaction((transaction) =>
     applyObserverResponse(transaction, {
       call: callId,
-      output: response([{ ...createStage([solver.id]), origin: 'plan' } as ObserverOp], 2),
+      output: response([{ ...createStage([solver.id]), origin: 'plan' }], 2),
       at: at(20),
     }),
   )

@@ -5,6 +5,7 @@ import {
   ObserverCallId,
   type ObserverInput,
   type ObserverOp,
+  type ObserverOpOf,
   type ObserverOutput,
   StageId,
   TempId,
@@ -24,7 +25,7 @@ export const existing = (id: string) => ({ kind: 'existing', id: StageId.parse(i
 export const temporary = (id: string) => ({ kind: 'new', temp_id: TempId.parse(id) }) as const
 export const version = (value: number) => ModelVersion.parse(value)
 
-export const createStage = (evidence: Fact['id'][], id = 'new-stage'): ObserverOp => ({
+export const createStage = (evidence: Fact['id'][], id = 'new-stage'): ObserverOpOf<'stage.create'> => ({
   op: 'stage.create',
   temp_id: TempId.parse(id),
   title: 'Validate operations',
