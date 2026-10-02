@@ -17,6 +17,7 @@ const StartedProcess = z.object({
   ppid: z.number(),
   name: z.string(),
   parentName: z.string().nullable(),
+  createdAt: z.string(),
 })
 type StartedProcess = z.infer<typeof StartedProcess>
 
@@ -135,6 +136,7 @@ const runInJob = async (
       .filter(({ pid }) => !treePids.has(pid) && !ownPids.has(pid))
       .map(({ pid, ppid, name, parentName }) => ({ pid, name, ppid, parent: names.get(ppid) ?? parentName })),
     stdoutTail: excerpt(stdout.trim().split(/\r?\n/).at(-1) ?? '', 400),
+    processEvidence: { rootPid: job.RootPid, harnessPid, started, seenInJob: job.Seen },
   }
 }
 

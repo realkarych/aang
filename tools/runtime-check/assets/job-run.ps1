@@ -364,7 +364,7 @@ if ($null -eq $traceError) {
     $started = @(Get-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue | ForEach-Object {
         $start = $_.SourceEventArgs.NewEvent
         $ppid = [int]$start.ParentProcessID
-        [pscustomobject]@{ pid = [int]$start.ProcessID; ppid = $ppid; name = [string]$start.ProcessName; parentName = $alive[$ppid] }
+        [pscustomobject]@{ pid = [int]$start.ProcessID; ppid = $ppid; name = [string]$start.ProcessName; parentName = $alive[$ppid]; createdAt = [string]$start.TIME_CREATED }
     })
     Unregister-Event -SourceIdentifier $traceName -ErrorAction SilentlyContinue
 }
