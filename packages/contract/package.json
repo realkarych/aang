@@ -6,6 +6,13 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./ids": {
+      "types": "./dist/ids.d.ts",
+      "default": "./dist/ids.js"
     }
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
   }
 }
