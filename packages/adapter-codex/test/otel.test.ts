@@ -196,16 +196,15 @@ describe('every recorded codex.tool_decision variant', () => {
   })
 })
 
-test('the log record inside a full OTLP request is the same decision as the recorded variant', () => {
+test('a single-record OTLP envelope is the same decision as the recorded variant', () => {
   const envelope = Envelope.parse(
     JSON.parse(readFileSync(new URL('logs.envelope.tool_decision.approved-user.app-server.json', otelSamples), 'utf8')),
   )
-  const [log] = envelope.resourceLogs.flatMap(({ scopeLogs }) => scopeLogs.flatMap(({ logRecords }) => logRecords))
   const accept = variantRecord('app-server accept')
   const stream = threadStream(attribute(accept, 'conversation.id'))
 
-  expect(factsOf(parseLog(log, stream))).toEqual(factsOf(parseLog(accept, stream)))
-  expect(keyOf(log)).toBe(keyOf(variantRecord('app-server accept')))
+  expect(factsOf(parseLog(envelope, stream))).toEqual(factsOf(parseLog(accept, stream)))
+  expect(keyOf(envelope)).toBe(keyOf(accept))
 })
 
 test('other Codex log events are not recognized as facts', () => {

@@ -28,6 +28,18 @@ const LogRecord = z.looseObject({
 })
 type LogRecord = z.infer<typeof LogRecord>
 
+const OtelEnvelope = z.object({
+  resourceLogs: z.tuple([z.object({
+    scopeLogs: z.tuple([z.object({ logRecords: z.tuple([LogRecord]) })]),
+  })]),
+})
+
+const readLogRecord = (payload: string): LogRecord | undefined => {
+  const value = readJson(payload)
+  const envelope = OtelEnvelope.safeParse(value).data
+  return envelope?.resourceLogs[0].scopeLogs[0].logRecords[0] ?? LogRecord.safeParse(value).data
+}
+
 const OtelIdentity = z.looseObject({
   'event.name': z.literal(toolDecisionEvent),
   'conversation.id': Token,
@@ -88,7 +100,7 @@ const attributesOf = (log: LogRecord): Record<string, string> =>
   )
 
 const readOtel = (payload: string): OtelReading => {
-  const log = LogRecord.safeParse(readJson(payload)).data
+  const log = readLogRecord(payload)
   if (log === undefined) {
     return { kind: 'malformed' }
   }
@@ -106,7 +118,7 @@ const conversationStream = (record: CollectedRecord, event: OtelIdentity): Threa
 }
 
 export const otelOwner = (record: CollectedRecord): RecordOwner | null => {
-  const log = LogRecord.safeParse(readJson(record.payload)).data
+  const log = readLogRecord(record.payload)
   if (log === undefined) {
     return null
   }
