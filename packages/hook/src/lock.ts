@@ -33,7 +33,8 @@ const readLock = async (lock: string, deadline: number): Promise<string | undefi
       if (isErrorCode(error, 'ENOENT')) {
         return undefined
       }
-      if (!isErrorCode(error, 'EPERM', 'EBUSY') || Date.now() >= deadline) {
+      const retryable = isErrorCode(error, 'EPERM', 'EBUSY') || (process.platform === 'win32' && isErrorCode(error, 'EACCES'))
+      if (!retryable || Date.now() >= deadline) {
         throw error
       }
       await delay(lockPollMs)
