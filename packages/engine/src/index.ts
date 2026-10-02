@@ -13,6 +13,7 @@ export {
   type ObserverResponseResult,
 } from './model/observer.js'
 export type { ValidationLimits } from './model/observer-context.js'
+export { refreshStageDecisions, type StageDecisionUpdate } from './model/stage-decision.js'
 export {
   refreshStageExecution,
   type StageAgentObservation,

@@ -13,6 +13,7 @@ import {
 } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type AppliedChangeSet, type ModelChangeDraft } from './journal.js'
+import { canonicalEvidence, stageAttention, stageDecision } from './stage-decision.js'
 
 export interface StageAgentObservation extends Agent {
   readonly execution_evidence: readonly FactId[]
@@ -30,8 +31,6 @@ export interface StageExecutionUpdate {
 }
 
 const basis: Basis = { kind: 'interpreted', interpreter: { kind: 'rule', rule: 'stage-execution' } }
-
-const canonicalEvidence = (evidence: readonly FactId[]): FactId[] => [...new Set(evidence)].sort()
 
 export const refreshStageExecution = (
   transaction: Transaction,
@@ -81,11 +80,7 @@ export const refreshStageExecution = (
       ...runningActions.flatMap((action) => action.input_fact === null ? [] : [action.input_fact]),
       ...runningAgents.flatMap((agent) => agent.execution_evidence),
     ])
-    const attention = entities.filter((entity) => entity.kind === 'attention_item').map(({ value }) => value)
-      .filter((item) => item.stage === stage.id || (
-        item.stage === null && item.action !== null && transaction.model.objectRun('action', item.action) === run &&
-        assignments.some((link) => link.action === item.action)
-      ))
+    const attention = stageAttention(transaction, run, stage.id, entities)
     const requests = attention.filter((item) =>
       item.resolution === 'open' && ['question', 'permission', 'review_request'].includes(item.kind),
     )
@@ -112,13 +107,7 @@ export const refreshStageExecution = (
     const claim = stage.execution_claim ?? (priorRule ? null : stage.execution)
     const execution = ruled ?? claim ?? { value: { state: 'unknown' } as const, basis, evidence: [] }
     const execution_claim = ruled === null ? null : claim
-    const derivedRequest = stage.decision.value === 'requested' && stage.decision.basis.kind === 'interpreted' &&
-      stage.decision.basis.interpreter.kind === 'rule' && stage.decision.basis.interpreter.rule === 'stage-execution'
-    const decision = requests.length === 0
-      ? derivedRequest
-        ? { value: 'unknown' as const, basis, evidence: canonicalEvidence(attention.flatMap((item) => item.evidence)) }
-        : stage.decision
-      : { value: 'requested' as const, basis, evidence: canonicalEvidence(requests.flatMap((item) => item.evidence)) }
+    const decision = stageDecision(transaction, run, stage, attention)
     const executionChanged = !isDeepStrictEqual(stage.execution, execution) ||
       !isDeepStrictEqual(stage.execution_claim, execution_claim)
     const decisionChanged = !isDeepStrictEqual(stage.decision, decision)

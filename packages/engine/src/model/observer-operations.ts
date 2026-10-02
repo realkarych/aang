@@ -5,6 +5,7 @@ import {
   CardId,
   CriterionId,
   type EpochNs,
+  type Fact,
   LinkId,
   type ObserverOp,
   StageId,
@@ -16,6 +17,18 @@ import { stageLinkKey } from './stage-links.js'
 
 const requiredText = (context: ObserverContext, text: string): void => {
   context.check(text.trim().length > 0, 'invariant', 'text must not be empty')
+}
+
+const finalText = (fact: Fact | undefined): string | null => {
+  switch (fact?.kind) {
+    case 'message':
+      return fact.speaker === 'solver' && fact.payload.final ? fact.payload.text : null
+    case 'turn_end':
+    case 'agent_end':
+      return fact.payload.final_message
+    default:
+      return null
+  }
 }
 
 export const planOperation = (context: ObserverContext, op: ObserverOp, at: EpochNs): void => {
@@ -197,19 +210,15 @@ export const planOperation = (context: ObserverContext, op: ObserverOp, at: Epoc
     }
     case 'card.add': {
       requiredText(context, op.text)
-      const source = context.facts({ ...op, evidence: [op.source.fact] })[0]
+      const original = finalText(context.facts({ ...op, evidence: [op.source.fact] })[0])
+      context.check(original !== null, 'invariant', 'a card must cite the final text of an agent')
       context.check(
-        source?.kind === 'message' && source.speaker === 'solver' && source.payload.final,
-        'invariant',
-        'a card must cite a final solver message',
-      )
-      context.check(
-        op.source.start < op.source.end && op.source.end <= source.payload.text.length,
+        op.source.start < op.source.end && op.source.end <= original.length,
         'invariant',
         'card coordinates are outside the original message',
       )
       context.check(
-        op.text === source.payload.text.slice(op.source.start, op.source.end),
+        op.text === original.slice(op.source.start, op.source.end),
         'invariant',
         'card text does not match the original message fragment',
       )
@@ -228,6 +237,7 @@ export const planOperation = (context: ObserverContext, op: ObserverOp, at: Epoc
       return
     }
     case 'brief.update': {
+      requiredText(context, op.text)
       const current = context.get('run', run)
       const changes = context.transaction.model.entityChanges(
         run,
