@@ -10,6 +10,7 @@ import {
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { Observation, Store, Transaction } from '@aang/store'
+import { normalizeOtel } from '../ingest/otel.js'
 import { type Adapters, collectedFields, sessionName } from '../ingest/records.js'
 import { lostSessions, type QuietWatch, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { projectSession } from '../observations/project.js'
@@ -54,14 +55,19 @@ const reparseRecords = (transaction: Transaction, adapters: Adapters, owned: Own
         const record = CollectedRecord.parse(collectedFields(raw))
         const result = adapter.parse(record)
         const sourceTs = result.parse_state === 'invalid' ? null : result.source_ts
-        if (result.parse_state !== raw.parse_state || sourceTs !== raw.source_ts) {
-          transaction.rawRecords.setParse(raw.seq, result.parse_state, sourceTs)
-        }
         const revision = transaction.facts.replace(
           raw.seq,
           adapter.normalizerVersion,
           result.parse_state === 'parsed' ? result.facts : [],
         )
+        if (
+          result.parse_state !== raw.parse_state ||
+          sourceTs !== raw.source_ts ||
+          revision.added.length > 0 ||
+          revision.removed.length > 0
+        ) {
+          transaction.rawRecords.setParse(raw.seq, result.parse_state, sourceTs)
+        }
         const owner = record.channel === 'otel' ? null : ownerOf(record)
         if (owner !== null) {
           const name = sessionName(owner.session)
@@ -77,6 +83,7 @@ const reparseRecords = (transaction: Transaction, adapters: Adapters, owned: Own
       }
     }
   }
+  tally.facts_added += normalizeOtel(transaction, adapters).length
   return tally
 }
 

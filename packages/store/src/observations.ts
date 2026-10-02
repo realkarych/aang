@@ -230,7 +230,9 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
         },
         delete: (observation) => {
           context.assertActive()
-          deleteObject.run(observation.id, observation.key.kind)
+          if (Number(deleteObject.run(observation.id, observation.key.kind).changes) > 0) {
+            context.nextChangeSeq()
+          }
         },
       }
     },

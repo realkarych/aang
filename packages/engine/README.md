@@ -304,9 +304,11 @@ Fact ids derive from the dedupe key, kind, entity key and the ordinal among fact
 of the same kind and key, so a fact keeps its id when the order of the facts in
 its record changes. Facts that are no longer produced are deleted, new facts are
 inserted, and a record is rewritten with new `change_seq` values only when its
-facts or parse state differ. A resolved OTel decision keeps its resolved stream;
-an unresolved one stays pending and is normalized by `ingest` once its thread
-appears.
+facts or parse state differ. A resolved OTel decision keeps its resolved stream.
+OTel records without a stream are then resolved through the stored streams in
+the same transaction, with the scope and observer checks of `ingest`, so a
+decision of a known thread is recovered without another `ingest`; one whose
+thread is not known yet stays pending until `ingest` sees the thread.
 
 Afterwards every session that has facts, owns records or has stored objects is
 projected again with the current time and source losses. Records are owned the
@@ -318,10 +320,13 @@ the support mode and the event times, are kept. A session without facts or owned
 records is deleted with its objects, and agent, action and question objects that
 no fact supports any longer are deleted.
 
-Deletions are not part of the change feed, so the daemon publishes the SSE
-`reset` with reason `reparsed` after a reparse. An object that is deleted and
-later projected again starts without fields owned by other rules, such as its
-run.
+A deleted fact, object or discarded record leaves no row in the change feed, so
+every deletion advances `change_seq`, and a record whose facts were added or
+removed is rewritten with a new `change_seq`. The head therefore moves with
+every visible change and a reparse that changes nothing keeps it. The daemon
+publishes the SSE `reset` with reason `reparsed` after a reparse. An object that
+is deleted and later projected again starts without fields owned by other rules,
+such as its run.
 
 The model journal and model entities are not changed. `resolveEvidence(facts,
 evidence)` returns each referenced fact, or `unavailable` for a fact the current

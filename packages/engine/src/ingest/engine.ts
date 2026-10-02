@@ -5,6 +5,7 @@ import type {
   CollectedGap,
   CollectedRecord,
   CollectorBatch,
+  Fact,
   FileCursor,
   EpochNs as EpochNsType,
   RecordOwner,
@@ -311,6 +312,13 @@ export const createEngine = ({
       const rescan = new Set<StreamKey>()
       const streamScopes = new Map<StreamKey, ScopeDecision>()
 
+      const changed = (facts: readonly Fact[]): void => {
+        for (const { entity_key } of facts) {
+          const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
+          changedSessions.set(sessionName(key), key)
+        }
+      }
+
       const insert = (parsed: Parsed, fallback: RecordOwner | null = null): void => {
         const { status, seq } = transaction.rawRecords.insert(draftOf(parsed))
         if (status === 'duplicate') {
@@ -326,10 +334,7 @@ export const createEngine = ({
           records.push({ raw: { ...draftOf(parsed), seq }, owner })
           sourceRecords.set(name, records)
         }
-        for (const { entity_key } of facts) {
-          const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
-          changedSessions.set(sessionName(key), key)
-        }
+        changed(facts)
         tally.inserted += 1
       }
 
@@ -490,7 +495,7 @@ export const createEngine = ({
         }
       }
       batch.gaps.forEach(resolveGap)
-      for (const key of normalizeOtel(transaction, adapters)) { changedSessions.set(sessionName(key), key) }
+      changed(normalizeOtel(transaction, adapters))
       const instant = now()
       const watch = new Map(quiet)
       const lost = changedSessions.size === 0 ? new Set<SessionId>() : lostSessions(transaction)

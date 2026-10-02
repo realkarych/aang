@@ -203,10 +203,14 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
         insertFact.run({ ...row, change_seq: context.nextChangeSeq() })
       }
       const current = new Set(facts.map(({ id }) => id))
+      const removed = stored.filter(({ id }) => !current.has(id as FactId)).map(toFact)
+      if (removed.length > 0) {
+        context.nextChangeSeq()
+      }
       return {
         kept: facts.filter(({ id }) => previous.has(id)),
         added: facts.filter(({ id }) => !previous.has(id)),
-        removed: stored.filter(({ id }) => !current.has(id as FactId)).map(toFact),
+        removed,
       }
     },
   })

@@ -120,7 +120,9 @@ export const createRawRecords = (database: DatabaseSync): RawRecordRepository =>
     },
     discardUnparsed: (seq) => {
       context.assertActive()
-      discard.run(seq)
+      if (Number(discard.run(seq).changes) > 0) {
+        context.nextChangeSeq()
+      }
     },
     insert: (draft) => {
       context.assertActive()
