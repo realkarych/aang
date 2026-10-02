@@ -374,7 +374,7 @@ const desktopSection = (input: SummaryInput, labeled: readonly Labeled[]): strin
     }),
     '### Метаданные Desktop (`claude-code-sessions/**/local_*.json`)',
     '',
-    'Только файлы сессий из spool. По ADR-0004 (решение 4) значения выводятся только для `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`; у остальных ключей — только тип. Длинный текст в `spawnSeed` заменён длиной.',
+    'Только файлы сессий из spool. По ADR-0004 (решение 4) значения выводятся только для `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`; у остальных ключей — только тип. Строки в `spawnSeed` и `lastSpawnRootDetected`, кроме идентификаторов UUID и `local_<uuid>`, заменены длиной.',
     '',
     ...(files.desktopSessions.length === 0 ? ['Метафайлов сессий из spool не найдено.', ''] : []),
     ...files.desktopSessions.flatMap((meta) => [
@@ -412,6 +412,11 @@ const rolloutLines = (rollout: CodexRollout | undefined, anonymize: Anonymize): 
         ),
       ]
 
+const subagentLines = (rollout: CodexRollout, anonymize: Anonymize): string[] => [
+  `- Субагент ${code(rollout.sessionId)}: parent_thread_id совпадает с session_id сессии: ${yesNo(rollout.parent_thread_id === rollout.subagentOf)}`,
+  ...rolloutLines(rollout, anonymize).map((line) => `  ${line}`),
+]
+
 const codexSection = (input: SummaryInput, labeled: readonly Labeled[]): string[] => {
   const codex = labeled.filter(({ session }) => session.runtime === 'codex')
   const worktrees = join(input.codexHome, 'worktrees')
@@ -428,9 +433,14 @@ const codexSection = (input: SummaryInput, labeled: readonly Labeled[]): string[
       pairsLine(session),
       permissionLine(session),
       ...rolloutLines(
-        input.files.codexRollouts.find((rollout) => rollout.sessionId === session.sessionId),
+        input.files.codexRollouts.find(
+          (rollout) => rollout.subagentOf === null && rollout.sessionId === session.sessionId,
+        ),
         input.anonymize,
       ),
+      ...input.files.codexRollouts
+        .filter((rollout) => rollout.subagentOf !== null && rollout.subagentOf === session.sessionId)
+        .flatMap((rollout) => subagentLines(rollout, input.anonymize)),
       '',
     ]),
   ]

@@ -36,6 +36,7 @@ export interface CodexTurnContext {
 
 export interface CodexRollout {
   readonly sessionId: string
+  readonly subagentOf: string | null
   readonly path: string | null
   readonly originator: unknown
   readonly source: unknown
@@ -134,10 +135,10 @@ const sessionIdsOf = (events: readonly ChecklistEvent[], runtime: string): strin
   ...new Set(events.filter((event) => event.runtime === runtime).flatMap((event) => event.sessionId ?? [])),
 ]
 
-const transcriptCandidates = (events: readonly ChecklistEvent[], runtime: string, sessionId: string): string[] => [
+const transcriptCandidates = (events: readonly ChecklistEvent[], sessionId: string): string[] => [
   ...new Set(
     events
-      .filter((event) => event.runtime === runtime && event.sessionId === sessionId && event.event !== 'SubagentStop')
+      .filter((event) => event.runtime === 'claude' && event.sessionId === sessionId && event.event !== 'SubagentStop')
       .flatMap((event) => textField(event, 'transcript_path') ?? []),
   ),
 ]
@@ -169,7 +170,7 @@ const inspectClaudeTranscript = async (
   events: readonly ChecklistEvent[],
   sessionId: string,
 ): Promise<ClaudeTranscript> => {
-  const path = await findClaudeTranscript(roots, transcriptCandidates(events, 'claude', sessionId), sessionId)
+  const path = await findClaudeTranscript(roots, transcriptCandidates(events, sessionId), sessionId)
   if (path === null) {
     return { sessionId, path, projectDir: null, lines: 0, entrypoints: {}, versions: [], compactBoundaries: 0, subagentFiles: 0 }
   }
@@ -191,15 +192,40 @@ const inspectClaudeTranscript = async (
   }
 }
 
-const findCodexRollout = async (roots: Roots, candidates: readonly string[], sessionId: string): Promise<string | null> => {
-  const direct = await firstExisting(candidates)
-  if (direct !== null) {
-    return direct
+interface RolloutFile {
+  readonly path: string
+  readonly records: readonly JsonObject[]
+}
+
+const payloadsOf = (records: readonly JsonObject[], type: string): JsonObject[] =>
+  records.filter((record) => record.type === type).flatMap((record) => (isObject(record.payload) ? [record.payload] : []))
+
+const codexEventsOf = (events: readonly ChecklistEvent[], sessionId: string): ChecklistEvent[] =>
+  events.filter((event) => event.runtime === 'codex' && event.sessionId === sessionId)
+
+const rolloutCandidates = (events: readonly ChecklistEvent[], sessionId: string): string[] => [
+  ...new Set(
+    codexEventsOf(events, sessionId).flatMap((event) =>
+      ['transcript_path', 'agent_transcript_path'].flatMap((name) => textField(event, name) ?? []),
+    ),
+  ),
+]
+
+const subagentIdsOf = (events: readonly ChecklistEvent[], sessionId: string): string[] => [
+  ...new Set(codexEventsOf(events, sessionId).flatMap((event) => textField(event, 'agent_id') ?? [])),
+]
+
+const findCodexRollout = async (roots: Roots, candidates: readonly string[], threadId: string): Promise<RolloutFile | null> => {
+  for (const path of candidates) {
+    const records = await jsonLines(path)
+    if (payloadsOf(records, 'session_meta')[0]?.id === threadId) {
+      return { path, records }
+    }
   }
   for (const directory of ['sessions', 'archived_sessions']) {
-    const found = (await filesUnder(join(roots.codexHome, directory))).find((path) => path.endsWith(`${sessionId}.jsonl`))
+    const found = (await filesUnder(join(roots.codexHome, directory))).find((path) => path.endsWith(`${threadId}.jsonl`))
     if (found !== undefined) {
-      return found
+      return { path: found, records: await jsonLines(found) }
     }
   }
   return null
@@ -229,23 +255,23 @@ const parentThread = (meta: JsonObject): unknown => {
 
 const inspectCodexRollout = async (
   roots: Roots,
-  events: readonly ChecklistEvent[],
-  sessionId: string,
+  candidates: readonly string[],
+  threadId: string,
+  subagentOf: string | null,
   outsideDir: string,
 ): Promise<CodexRollout> => {
-  const path = await findCodexRollout(roots, transcriptCandidates(events, 'codex', sessionId), sessionId)
-  const records = path === null ? [] : await jsonLines(path)
-  const payloads = (type: string): JsonObject[] =>
-    records.filter((record) => record.type === type).flatMap((record) => (isObject(record.payload) ? [record.payload] : []))
-  const meta = payloads('session_meta')[0] ?? {}
+  const found = await findCodexRollout(roots, candidates, threadId)
+  const records = found?.records ?? []
+  const meta = payloadsOf(records, 'session_meta')[0] ?? {}
   const contexts = new Map<string, CodexTurnContext>()
-  for (const payload of payloads('turn_context')) {
+  for (const payload of payloadsOf(records, 'turn_context')) {
     const context = turnContext(payload, outsideDir)
     contexts.set(JSON.stringify(context), context)
   }
   return {
-    sessionId,
-    path,
+    sessionId: threadId,
+    subagentOf,
+    path: found?.path ?? null,
     originator: meta.originator ?? null,
     source: meta.source ?? null,
     thread_source: meta.thread_source ?? null,
@@ -275,20 +301,17 @@ const shapeOf = (value: unknown): unknown => {
   return typeof value === 'boolean' ? 'bool' : typeof value
 }
 
-const identifierPattern = /^[\w.:@-]{1,64}$/
+const sessionIdentifier = (value: string): boolean => uuidPattern.test(value) || localUuidPattern.test(value)
 
-export const sanitizeSeed = (value: unknown, anonymize: (text: string) => string): unknown => {
+const sanitizeMeta = (value: unknown): unknown => {
   if (typeof value === 'string') {
-    const anonymized = anonymize(value)
-    return identifierPattern.test(value) || anonymized.startsWith('~') || anonymized.startsWith('<dir>')
-      ? anonymized
-      : `<text, ${String(value.length)} chars>`
+    return sessionIdentifier(value) ? value : `<text, ${String(value.length)} chars>`
   }
   if (Array.isArray(value)) {
-    return value.map((item) => sanitizeSeed(item, anonymize))
+    return value.map(sanitizeMeta)
   }
   if (isObject(value)) {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeSeed(item, anonymize)]))
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, sanitizeMeta(item)]))
   }
   return value
 }
@@ -304,7 +327,6 @@ const inspectDesktop = async (
   roots: Roots,
   events: readonly ChecklistEvent[],
   claudeSessionIds: readonly string[],
-  anonymize: (text: string) => string,
 ): Promise<{ sessions: DesktopSessionMeta[]; deleted: DesktopDeletedMarker[] }> => {
   const root = roots.claudeDesktopDir
   if (root === null) {
@@ -340,8 +362,8 @@ const inspectDesktop = async (
       file: maskedRelative(root, path),
       sessionId,
       cliSessionId,
-      lastSpawnRootDetected: document.lastSpawnRootDetected ?? null,
-      spawnSeed: sanitizeSeed(document.spawnSeed ?? null, anonymize),
+      lastSpawnRootDetected: sanitizeMeta(document.lastSpawnRootDetected ?? null),
+      spawnSeed: sanitizeMeta(document.spawnSeed ?? null),
       shape: shapeOf(document),
     })
   }
@@ -361,13 +383,22 @@ export const inspectSessionFiles = async (
   roots: Roots,
   events: readonly ChecklistEvent[],
   outsideDir: string,
-  anonymize: (text: string) => string,
 ): Promise<SessionFiles> => {
   const claudeIds = sessionIdsOf(events, 'claude')
   const codexIds = sessionIdsOf(events, 'codex')
+  const codexThreads = codexIds.flatMap((sessionId) => [
+    { sessionId, threadId: sessionId, subagentOf: null },
+    ...subagentIdsOf(events, sessionId)
+      .filter((agentId) => !codexIds.includes(agentId))
+      .map((agentId) => ({ sessionId, threadId: agentId, subagentOf: sessionId })),
+  ])
   const claudeTranscripts = await Promise.all(claudeIds.map((id) => inspectClaudeTranscript(roots, events, id)))
-  const codexRollouts = await Promise.all(codexIds.map((id) => inspectCodexRollout(roots, events, id, outsideDir)))
-  const desktop = await inspectDesktop(roots, events, claudeIds, anonymize)
+  const codexRollouts = await Promise.all(
+    codexThreads.map(({ sessionId, threadId, subagentOf }) =>
+      inspectCodexRollout(roots, rolloutCandidates(events, sessionId), threadId, subagentOf, outsideDir),
+    ),
+  )
+  const desktop = await inspectDesktop(roots, events, claudeIds)
   return { claudeTranscripts, codexRollouts, desktopSessions: desktop.sessions, desktopDeleted: desktop.deleted }
 }
 

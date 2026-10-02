@@ -64,7 +64,7 @@ New-Item -ItemType File -Path "$env:TEMP\aang-d7\aang-home\spool\lease-$expires"
 
 ## 3. TUI Claude, пункты (a)–(h)
 
-Откройте Windows Terminal (или окно PowerShell) и запустите сессию в пробном репозитории:
+Для сессий откройте отдельное окно Windows Terminal или PowerShell. Окно подготовки оставьте в корне репозитория aang: в нём выполняются сбор и откат (разделы 4 и 5). Запустите сессию в пробном репозитории:
 
 ```powershell
 Set-Location "$env:TEMP\aang-d7\probe-repo"
@@ -138,6 +138,8 @@ claude --permission-mode plan --plugin-dir "$env:TEMP\aang-d7\aang-home\claude-p
 
 ## 4. Сбор результатов
 
+Сбор, перенос результатов и откат выполняются в окне подготовки, из корня репозитория aang. Если оно закрыто, сначала перейдите в корень репозитория в новом окне: из `probe-repo` относительные пути команд не работают.
+
 ```powershell
 node tools\owner-checklist\dist\main.js collect --dir "$env:TEMP\aang-d7"
 ```
@@ -154,6 +156,8 @@ Copy-Item "$env:TEMP\aang-d7\results\*" docs\research\samples\owner-checklist\wi
 ```
 
 ## 5. Откат
+
+В окне подготовки, из корня репозитория aang:
 
 ```powershell
 node tools\owner-checklist\dist\main.js cleanup --dir "$env:TEMP\aang-d7"

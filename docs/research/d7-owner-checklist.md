@@ -195,12 +195,15 @@ claude --permission-mode plan --settings /tmp/aang-d7/probes/env-settings.json
 7. Откройте ChatGPT (Codex) и подтвердите доверие к hooks aang. Если приложение не предлагает этого само, используйте `/hooks` в терминальном Codex (`codex` в любом каталоге, без промпта): доверие хранится в общем `~/.codex/config.toml`. Проверьте `trustStatus` в ответах `hooks/list` в логах `~/Library/Logs/com.openai.codex/<ГГГГ>/<ММ>/<ДД>/codex-desktop-*.log`. Новые hooks без доверия Codex молча не выполняет, поэтому отсутствие событий Codex в сводке значит, что доверия нет.
 8. Новый чат Local в `/tmp/aang-d7/probe-repo` с одобрением on-request. Промпт: «Run `echo hi`, then reply OK». Безопасная команда в песочнице может пройти без запроса, поэтому шаг проверяет только SessionStart, UserPromptSubmit, PreToolUse, PostToolUse и Stop. `originator` и `source` нового rollout видны в сводке.
    - 8a. **Детерминированный запрос одобрения.** Выполните `collect` и проверьте в разделе Codex сводки, что `~/aang-desktop-probe-outside` не входит в корни записи. Промпт: «Run `touch ~/aang-desktop-probe-outside/allow.txt` and request escalated permissions for it (`sandbox_permissions: require_escalated`)». Одобрите. Ожидаются PermissionRequest и PostToolUse, файл создан (`ls ~/aang-desktop-probe-outside`). Повторите с `deny.txt` и откажите: PermissionRequest есть, PostToolUse и файла нет. Если OTel-экспорт включён, сверьте `codex.tool_decision` по `call_id` с `tool_use_id` у PreToolUse. Если запрос одобрения не появился, шаг не пройден; это не подтверждение исправных hooks.
-9. Повторите шаг 8 в чате Worktree: `cwd` должен лежать в `~/.codex/worktrees/…`. Затем попросите породить субагента: «Spawn a subagent that runs `echo sub` and reports back». Ожидаются SubagentStart, SubagentStop и rollout субагента с `parent_thread_id`. Закройте и снова откройте приложение, продолжите чат. Ожидается `SessionStart.source=resume`.
+9. Повторите шаг 8 в чате Worktree: `cwd` должен лежать в `~/.codex/worktrees/…`. Затем попросите породить субагента: «Spawn a subagent that runs `echo sub` and reports back». Ожидаются SubagentStart, SubagentStop и rollout субагента с `parent_thread_id`: сводка показывает его строкой «Субагент» в разделе сессии и сверяет `parent_thread_id` с `session_id` родителя. Закройте и снова откройте приложение, продолжите чат. Ожидается `SessionStart.source=resume`.
 10. Чат Cloud, если доступен, промпт «reply OK». Ожидается, что нет ни нового rollout, ни событий в spool. Запишите время чата: в сводке не должно быть сессии Codex с этим временем.
 
 ## 6. Сбор результатов
 
+Сбор, перенос результатов и откат (раздел 8) выполняются из корня репозитория aang, а не из `probe-repo`, куда терминал переходил для сессий TUI:
+
 ```sh
+cd ~/src/aang
 node tools/owner-checklist/dist/main.js collect --dir /tmp/aang-d7
 ```
 
@@ -210,16 +213,17 @@ node tools/owner-checklist/dist/main.js collect --dir /tmp/aang-d7
 | --- | --- |
 | `events.jsonl` | событие на строку: время приёма (mtime файла spool), рантайм, тег, окружение из заголовка spool, `hook_event_name`, `session_id` и только безопасные поля. Например, `tool_name`, `tool_use_id`, `notification_type`, `source`, `reason`, `cwd`, число вопросов AskUserQuestion, наличие `answers`, длина `plan`, наличие `planFilePath`, состав PostToolBatch без текста ответа |
 | `summary.md` | сессии по времени и пункты чек-листа. Задержки уведомлений, цепочки AskUserQuestion и ExitPlanMode, `SessionEnd.reason`, окружение hook, типы Notification, разделы Desktop и Codex. Пункты, которые проверяет только глаз владельца, помечены «заполняет владелец» |
-| `files.json` | транскрипты Claude (`entrypoint`, версии, `compact_boundary`, файлы `subagents/`), rollout Codex (`originator`, `source`, `parent_thread_id`, `approval_policy`, `sandbox_policy`) и метафайлы Desktop |
+| `files.json` | транскрипты Claude (`entrypoint`, версии, `compact_boundary`, файлы `subagents/`), rollout Codex и его субагентов (`originator`, `source`, `parent_thread_id`, `approval_policy`, `sandbox_policy`) и метафайлы Desktop |
 | `env-probe.jsonl` | записи зонда окружения (пункт f) |
 
-Промпты, ответы модели, вывод инструментов и содержимое файлов не сохраняются. Пути обезличены: рабочий каталог заменён на `<dir>`, домашний каталог — на `~`. Из метафайлов Desktop по решению 4 ADR-0004 берутся значения только `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`; у остальных ключей выводится только тип, длинный текст в `spawnSeed` заменён длиной. Метафайлы берутся только для сессий из spool, по `cliSessionId` или `CLAUDE_CODE_HOST_SESSION_ID`.
+Промпты, ответы модели, вывод инструментов и содержимое файлов не сохраняются. Пути обезличены: рабочий каталог заменён на `<dir>`, домашний каталог — на `~`. Из метафайлов Desktop по решению 4 ADR-0004 берутся значения только `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`; у остальных ключей выводится только тип. Строки в `spawnSeed` и `lastSpawnRootDetected`, кроме идентификаторов UUID и `local_<uuid>`, заменены длиной. Метафайлы берутся только для сессий из spool, по `cliSessionId` или `CLAUDE_CODE_HOST_SESSION_ID`.
 
 Сессии с `cwd` вне рабочего каталога и `~/.codex/worktrees` отбрасываются; их число указано в сводке. `--all-sessions` включает все сессии из spool; для `docs/research/` это не нужно.
 
 Перед переносом просмотрите файлы. Затем:
 
 ```sh
+cd ~/src/aang
 mkdir -p docs/research/samples/owner-checklist/macos
 cp /tmp/aang-d7/results/* docs/research/samples/owner-checklist/macos/
 ```
@@ -236,6 +240,7 @@ cp /tmp/aang-d7/results/* docs/research/samples/owner-checklist/macos/
 ## 8. Откат
 
 ```sh
+cd ~/src/aang
 node tools/owner-checklist/dist/main.js cleanup --dir /tmp/aang-d7
 ```
 
@@ -248,6 +253,6 @@ node tools/owner-checklist/dist/main.js cleanup --dir /tmp/aang-d7
 Затем она печатает:
 
 - что не откатывается автоматически: резервную копию `hooks.json`, доверие в `config.toml`, запись проекта в `~/.claude.json`;
-- созданные сессии: транскрипты Claude проекта `probe-repo` и его worktree, метафайлы Desktop, rollout Codex и worktree Codex из spool.
+- созданные сессии: транскрипты Claude проекта `probe-repo` и его worktree, метафайлы Desktop, rollout Codex и его субагентов, worktree Codex из spool.
 
 Сессии удаляет владелец, как в спайке.

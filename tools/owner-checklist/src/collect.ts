@@ -82,12 +82,7 @@ export const loadCollected = async (dir: string, overrides: RootOverrides, allSe
   const scoped = allSessions
     ? { events: spooled, droppedEvents: 0, droppedSessions: 0 }
     : scopeEvents(spooled, [state.dir, join(roots.codexHome, 'worktrees')])
-  const files = await inspectSessionFiles(
-    roots,
-    scoped.events,
-    state.outsideDir ?? outsideProbeDir(),
-    createAnonymizer(state.dir),
-  )
+  const files = await inspectSessionFiles(roots, scoped.events, state.outsideDir ?? outsideProbeDir())
   return { layout, state, roots, ...scoped, files }
 }
 
