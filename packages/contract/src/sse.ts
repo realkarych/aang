@@ -4,6 +4,7 @@ import { ChatMessage } from './chat.js'
 import { Fact } from './facts.js'
 import { ModelChange, ModelVersionRecord } from './journal.js'
 import { AttentionItem, Binding } from './model.js'
+import { ObservationRemoval } from './observation.js'
 import { ChangeSeq, RunId } from './primitives.js'
 import { AttentionView } from './view.js'
 
@@ -25,6 +26,7 @@ export const FactsDelta = z.strictObject({
   run: RunId,
   facts: z.array(Fact),
   objects: ObservationObjects,
+  removed: z.array(ObservationRemoval),
 })
 export type FactsDelta = z.infer<typeof FactsDelta>
 

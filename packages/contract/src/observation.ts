@@ -220,3 +220,13 @@ export const Gap = z.strictObject({
   change_seq: ChangeSeq,
 })
 export type Gap = z.infer<typeof Gap>
+
+export const ObservationRemoval = z.discriminatedUnion('kind', [
+  z
+    .strictObject({ kind: z.literal('agent'), id: AgentId, replaced_by: AgentId })
+    .refine(({ id, replaced_by }) => id !== replaced_by, {
+      message: 'an observation cannot replace itself',
+      path: ['replaced_by'],
+    }),
+])
+export type ObservationRemoval = z.infer<typeof ObservationRemoval>
