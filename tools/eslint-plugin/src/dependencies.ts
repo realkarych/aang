@@ -36,6 +36,7 @@ const locateOnlyDependencies: Readonly<Partial<Record<PackageDirectory, readonly
 const testDependenciesOfEveryPackage: readonly PackageDirectory[] = ['testkit']
 
 const testDependencies: Readonly<Partial<Record<PackageDirectory, readonly PackageDirectory[]>>> = {
+  collector: ['adapter-claude', 'adapter-codex'],
   engine: ['adapter-claude', 'adapter-codex', 'collector'],
 }
 

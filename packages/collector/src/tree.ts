@@ -21,6 +21,8 @@ export interface TreeOptions {
 
 export interface Tree {
   readonly open: () => void
+  readonly scan: () => Promise<void>
+  readonly requestScan: () => void
   readonly close: () => Promise<void>
 }
 
@@ -56,22 +58,18 @@ export const createTree = (options: TreeOptions, events: TreeEvents, wakeup: Wak
     }
   }
 
-  const runScans = async (): Promise<void> => {
-    while (scanRequested && !closed) {
+  const runScan = async (): Promise<void> => {
+    if (scanRequested && !closed) {
       scanRequested = false
       await scan()
-      wakeup.notify()
     }
-    scanning = null
+    clearTimeout(timer)
     timer = closed ? undefined : setTimeout(requestScan, options.scanIntervalMs)
   }
 
   const requestScan = (): void => {
     scanRequested = true
-    if (scanning === null) {
-      clearTimeout(timer)
-      scanning = runScans()
-    }
+    wakeup.notify()
   }
 
   const open = (): void => {
@@ -82,6 +80,7 @@ export const createTree = (options: TreeOptions, events: TreeEvents, wakeup: Wak
           watchDirectory(root.directory, root.recursive, {
             changed: (name) => {
               events.changed(root, join(root.directory, name))
+              requestScan()
             },
             lost: requestScan,
           }),
@@ -100,5 +99,15 @@ export const createTree = (options: TreeOptions, events: TreeEvents, wakeup: Wak
     await scanning
   }
 
-  return { open, close }
+  return {
+    open,
+    scan: () => {
+      if (scanRequested && !closed) {
+        scanning = runScan()
+      }
+      return scanning ?? Promise.resolve()
+    },
+    requestScan,
+    close,
+  }
 }

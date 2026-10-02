@@ -1,4 +1,4 @@
-import type { Collector, CollectorBatch, Config, FileCursor, Listener, Runtime } from '@aang/contract'
+import type { AdapterRegistry, CollectedGap, Collector, CollectorBatch, Config, FileCursor, Listener, Runtime } from '@aang/contract'
 import { createOtelReceiver, type OtelReceiverOptions } from './otel.js'
 import { createRetrier, type ReadRetry } from './retry.js'
 import { collectorRoots } from './roots.js'
@@ -11,11 +11,13 @@ import { createWakeup } from './wakeup.js'
 export interface CollectorOptions {
   readonly spool: string
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
-  readonly config: Pick<Config, 'collector' | 'spool'>
+  readonly config: Pick<Config, 'collector' | 'spool' | 'watch'>
+  readonly adapters: AdapterRegistry
   readonly readRetry?: ReadRetry
+  readonly openGaps?: readonly CollectedGap[]
 }
 
-export interface CollectorService extends Omit<Collector, 'rescan'> {
+export interface CollectorService extends Collector {
   listenOtel(options: OtelReceiverOptions): Promise<Listener>
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
@@ -41,7 +43,12 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   )
   const otel = createOtelReceiver(options.spool, wakeup)
   const snapshots = createSnapshotSource({ roots: roots.snapshots, retrier }, wakeup)
-  const tail = createTailSource({ roots: roots.tail, retrier }, wakeup)
+  const tail = createTailSource({
+    roots: roots.tail,
+    retrier,
+    adapters: options.adapters,
+    lookbackDays: options.config.watch.lookbackDays,
+  }, wakeup)
   const tree = createTree(
     { roots: roots.tree, fsWatch: collector.fsWatch, scanIntervalMs: collector.rootsScanIntervalMs },
     {
@@ -64,18 +71,24 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
     spool.close()
     await tree.close()
     snapshots.close()
-    tail.close()
+    await tail.close()
     await otel.close()
   }
 
-  const take = async (): Promise<CollectorBatch | null> =>
-    (await spool.take()) ?? (await otel.take()) ?? (await snapshots.take()) ?? (await tail.take())
+  const take = async (): Promise<CollectorBatch | null> => {
+    const queued = (await spool.take()) ?? (await otel.take())
+    if (queued !== null) {
+      return queued
+    }
+    await tree.scan()
+    return (await snapshots.take()) ?? (await tail.take())
+  }
 
   async function* batches(cursors: readonly FileCursor[]): AsyncGenerator<CollectorBatch> {
     try {
       await spool.open()
       await otel.open()
-      tail.open(cursors)
+      tail.open(cursors, options.openGaps ?? [])
       tree.open()
       while (running()) {
         const batch = await take()
@@ -97,6 +110,10 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       }
       state = 'running'
       return batches(cursors)
+    },
+    rescan: (streams) => {
+      tail.rescan(streams)
+      tree.requestScan()
     },
     ack: async (batch) => {
       await spool.ack(batch)

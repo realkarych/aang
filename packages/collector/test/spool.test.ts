@@ -386,6 +386,7 @@ test('spool statistics are empty before the spool exists and fail when spool/new
     spool: sandbox.spool,
     runtimeRoots: { claude: sandbox.claude, codex: sandbox.codex },
     config: Config.parse({}),
+    adapters: new Map(),
   })
   onTestFinished(() => collector.close())
 

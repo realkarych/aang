@@ -1,8 +1,8 @@
 import { createCollector } from '@aang/collector'
-import { Config } from '@aang/contract'
+import { type CollectorBatch, Config } from '@aang/contract'
 import { expect, onTestFinished, test } from 'vitest'
 import { hookBatch, joinBatches } from './batches.js'
-import { factsOf, recordsOf, startEngine } from './harness.js'
+import { adapters, factsOf, recordsOf, startEngine } from './harness.js'
 import { createHome } from './home.js'
 import { createLiveRoots, type LiveRoots } from './live.js'
 import { decisionRecord, otelCall, otelRoot, otelThread } from './otel-records.js'
@@ -16,6 +16,7 @@ const startReceiver = async (roots: LiveRoots) => {
     spool: roots.spool,
     runtimeRoots: { claude: roots.claude, codex: roots.codex },
     config: Config.parse({}),
+    adapters,
   })
   const batches = collector.start([])[Symbol.asyncIterator]()
   const close = async () => {
@@ -39,7 +40,7 @@ const startReceiver = async (roots: LiveRoots) => {
     expect(next.value.records).toHaveLength(1)
     return next.value
   }
-  return { receive, close, ack: collector.ack }
+  return { receive, close, ack: (batch: CollectorBatch) => collector.ack(batch) }
 }
 
 const envelope = (log: Readonly<Record<string, unknown>>, service = 'codex_exec') =>

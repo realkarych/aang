@@ -41,6 +41,7 @@ test('deferred OTLP parse failures and immediate rejections form a complete gap 
     const collector = createCollector({
       spool,
       runtimeRoots: { claude: join(root, 'claude'), codex: join(root, 'codex') },
+      adapters: new Map(),
       config: Config.parse({ collector: { fsWatch: false } }),
     })
     onTestFinished(() => collector.close())

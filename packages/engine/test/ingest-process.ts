@@ -2,7 +2,7 @@ import { writeSync } from 'node:fs'
 import { createCollector } from '@aang/collector'
 import { Config } from '@aang/contract'
 import { openStore } from '@aang/store'
-import { startEngine } from './harness.ts'
+import { adapters, gapsOf, startEngine } from './harness.ts'
 
 const [, , home, spool, claude, codex, root, mode] = process.argv
 
@@ -18,6 +18,8 @@ const collector = createCollector({
   spool,
   runtimeRoots: { claude, codex },
   config: Config.parse({ collector: { spoolScanIntervalMs: 50, rootsScanIntervalMs: 50 } }),
+  adapters,
+  openGaps: gapsOf(store).filter((gap) => gap.closed_at === null),
 })
 
 writeSync(1, 'ready\n')
