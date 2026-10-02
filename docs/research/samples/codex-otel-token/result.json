@@ -1,0 +1,271 @@
+{
+  "task": "A.5",
+  "started": "2026-10-02T18:57:17.758Z",
+  "finished": "2026-10-02T18:57:19.861Z",
+  "repository_commit": "a5484d804f06d269b885285c79f0163e055d54cc",
+  "platform": {
+    "os": "darwin",
+    "arch": "arm64",
+    "release": "27.0.0",
+    "node": "v26.10.0",
+    "codex": "codex-cli 0.160.0"
+  },
+  "isolation": {
+    "temporary_profile": true,
+    "auth_copied": true,
+    "auth_unchanged_in_copy": true,
+    "user_files_unchanged": {
+      "auth.json": true,
+      "config.toml": true,
+      "hooks.json": true
+    },
+    "cleanup_complete": true
+  },
+  "provider_background_requests": [
+    {
+      "method": "POST",
+      "path": "/v1/analytics/codex/turn-costs"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models?client_version=0.160.0"
+    },
+    {
+      "method": "GET",
+      "path": "/v1/models?client_version=0.160.0"
+    }
+  ],
+  "model_requests": [
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "model": "gpt-6-astra",
+      "round": 1,
+      "tool_output_received": false
+    },
+    {
+      "method": "POST",
+      "path": "/v1/responses",
+      "model": "gpt-6-astra",
+      "round": 2,
+      "tool_output_received": true
+    }
+  ],
+  "model_usage": "Synthetic usage from the local stub; no remote model calls.",
+  "command": {
+    "binary": "codex",
+    "args": [
+      "exec",
+      "--json",
+      "--ephemeral",
+      "--ignore-user-config",
+      "--ignore-rules",
+      "--skip-git-repo-check",
+      "--color",
+      "never",
+      "-C",
+      "<temporary-workspace>",
+      "-m",
+      "gpt-6-astra",
+      "-s",
+      "read-only",
+      "-c",
+      "model_provider=\"a5_stub\"",
+      "-c",
+      "model_providers.a5_stub.name=\"A.5 local Responses stub\"",
+      "-c",
+      "model_providers.a5_stub.base_url=\"http://127.0.0.1:<responses-port>/v1\"",
+      "-c",
+      "model_providers.a5_stub.wire_api=\"responses\"",
+      "-c",
+      "model_providers.a5_stub.requires_openai_auth=false",
+      "-c",
+      "model_providers.a5_stub.supports_websockets=false",
+      "-c",
+      "model_providers.a5_stub.request_max_retries=0",
+      "-c",
+      "model_providers.a5_stub.stream_max_retries=0",
+      "-c",
+      "approval_policy=\"never\"",
+      "-c",
+      "analytics.enabled=false",
+      "-c",
+      "check_for_update_on_startup=false",
+      "-c",
+      "otel.environment=\"aang-a5-token-live\"",
+      "-c",
+      "otel.log_user_prompt=false",
+      "-c",
+      "otel.exporter.otlp-http.endpoint=\"http://127.0.0.1:<otel-port>/otel/<token>/v1/logs\"",
+      "-c",
+      "otel.exporter.otlp-http.protocol=\"json\"",
+      "-c",
+      "otel.trace_exporter=\"none\"",
+      "-c",
+      "otel.metrics_exporter=\"none\"",
+      "Run the supplied local tool call and finish."
+    ]
+  },
+  "cli": {
+    "exit_code": 0,
+    "stdout": [
+      {
+        "type": "thread.started",
+        "thread_id": "01a0fdfa-59eb-7980-a9eb-0567489147b0"
+      },
+      {
+        "type": "turn.started"
+      },
+      {
+        "type": "item.started",
+        "item": {
+          "id": "item_0",
+          "type": "command_execution",
+          "command": "/bin/zsh -c 'printf aang-a5-otel-token'",
+          "aggregated_output": "",
+          "exit_code": null,
+          "status": "in_progress"
+        }
+      },
+      {
+        "type": "item.completed",
+        "item": {
+          "id": "item_0",
+          "type": "command_execution",
+          "command": "/bin/zsh -c 'printf aang-a5-otel-token'",
+          "aggregated_output": "aang-a5-otel-token",
+          "exit_code": 0,
+          "status": "completed"
+        }
+      },
+      {
+        "type": "item.completed",
+        "item": {
+          "id": "item_1",
+          "type": "agent_message",
+          "text": "A5_OK"
+        }
+      },
+      {
+        "type": "turn.completed",
+        "usage": {
+          "input_tokens": 2,
+          "cached_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 2,
+          "reasoning_output_tokens": 0
+        }
+      }
+    ],
+    "stderr": "Reading additional input from stdin...\n"
+  },
+  "otlp_http": [
+    {
+      "method": "POST",
+      "path": "/otel/<token>/v1/logs",
+      "content_type": "application/json",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/otel/<token>/v1/logs",
+      "content_type": "application/json",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/otel/<token>/v1/logs",
+      "content_type": "application/json",
+      "status": 200
+    }
+  ],
+  "collector": {
+    "record_count": 1,
+    "gap_count": 0,
+    "channel": "otel",
+    "runtime": "codex",
+    "position": {
+      "kind": "otel"
+    },
+    "observed_at": "1790967439840000000",
+    "envelope": {
+      "resourceLogs": [
+        {
+          "resource": {
+            "attributes": [
+              {
+                "key": "service.version",
+                "value": {
+                  "stringValue": "0.160.0"
+                }
+              },
+              {
+                "key": "service.name",
+                "value": {
+                  "stringValue": "codex_exec"
+                }
+              }
+            ]
+          },
+          "scopeLogs": [
+            {
+              "scope": {
+                "name": "codex_otel.log_only",
+                "version": "",
+                "attributes": [],
+                "droppedAttributesCount": 0
+              },
+              "logRecords": [
+                {
+                  "timeUnixNano": "0",
+                  "attributes": [
+                    {
+                      "key": "event.name",
+                      "value": {
+                        "stringValue": "codex.tool_decision"
+                      }
+                    },
+                    {
+                      "key": "tool_name",
+                      "value": {
+                        "stringValue": "exec_command"
+                      }
+                    },
+                    {
+                      "key": "call_id",
+                      "value": {
+                        "stringValue": "exec-aa9dd2cc-147a-4ebe-be20-790ad69998d9"
+                      }
+                    },
+                    {
+                      "key": "decision",
+                      "value": {
+                        "stringValue": "approved"
+                      }
+                    },
+                    {
+                      "key": "source",
+                      "value": {
+                        "stringValue": "Config"
+                      }
+                    },
+                    {
+                      "key": "conversation.id",
+                      "value": {
+                        "stringValue": "01a0fdfa-59eb-7980-a9eb-0567489147b0"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "wrong_token": {
+    "status": 404,
+    "record_count_after": 1
+  }
+}
