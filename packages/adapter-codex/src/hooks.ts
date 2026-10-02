@@ -19,6 +19,7 @@ import {
   actionEntity,
   agentEntity,
   emptyEnv,
+  emptyIds,
   type FactSpec,
   fact,
   namedMessageEntity,
@@ -29,6 +30,7 @@ import {
 import { readJson, withinNestingLimit } from './json.js'
 import { observerOriginator } from './session.js'
 import { isRoot, type ThreadStream } from './stream.js'
+import { surfaceOf } from './surface.js'
 
 const name = z.string().min(1)
 const optionalText = z.string().nullish()
@@ -136,7 +138,7 @@ const sessionStart = hookParser(
     return [
       fact('session_start', spec(context, entity, 'runtime', false), {
         launch: SessionLaunch.safeParse(source).data ?? 'unknown',
-        surface: null,
+        surface: surfaceOf(context.env.originator, null),
         cwd: context.env.cwd,
         forked_from: null,
         observer_marker: context.env.originator === observerOriginator,
@@ -279,16 +281,11 @@ const hookParsers: ReadonlyMap<string, HookParser> = new Map([
 ])
 
 const hookIds = (common: HookCommon): RuntimeIds => ({
+  ...emptyIds,
   session_id: common.session_id,
   agent_id: common.agent_id ?? null,
   thread_id: common.agent_id ?? common.session_id,
   turn_id: common.turn_id ?? null,
-  prompt_id: null,
-  record_uuid: null,
-  parent_uuid: null,
-  message_id: null,
-  call_id: null,
-  ordinal: null,
 })
 
 const hookContext = (record: CollectedRecord, file: string, payload: HookObject, common: HookCommon): HookContext => {

@@ -589,3 +589,21 @@ test('a session started by the aang observer is marked from the originator in it
     }),
   ).toMatchObject([{ runtime_env: { originator: 'aang_observer' }, payload: { observer_marker: true } }])
 })
+
+test('the originator override in the hook environment names Desktop and the TUI only as assumed surfaces', () => {
+  const surfaceWith = (originator?: string) =>
+    hookFacts(
+      unwrapCliSample('SessionStart.startup.json'),
+      'surface.spool',
+      originator === undefined ? cliEnv : { ...cliEnv, CODEX_INTERNAL_ORIGINATOR_OVERRIDE: originator },
+    )[0]?.payload
+
+  expect(surfaceWith('Codex Desktop')).toMatchObject({
+    surface: { surface: 'codex_desktop', basis: 'assumed' },
+    observer_marker: false,
+  })
+  expect(surfaceWith('codex-tui')).toMatchObject({ surface: { surface: 'codex_tui', basis: 'assumed' } })
+  expect(surfaceWith('codex_exec')).toMatchObject({ surface: null })
+  expect(surfaceWith('aang_observer')).toMatchObject({ surface: null, observer_marker: true })
+  expect(surfaceWith()).toMatchObject({ surface: null, observer_marker: false })
+})
