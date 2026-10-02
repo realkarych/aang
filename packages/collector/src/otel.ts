@@ -59,8 +59,8 @@ export const createOtelReceiver = (spool: string, wakeup: Wakeup): OtelReceiver 
       key: gap?.key ?? { kind: 'gap', gap: 'unknown_records', subject: `otel:${String(observedAt)}:${String(lost)}` },
       stream: null,
       details: `${details.slice(0, 512)}; affected requests: ${String(pendingLosses)}`,
-      detected_at: gap?.detected_at ?? observedAt,
-      closed_at: observedAt,
+      detected_at: gap !== null && gap.detected_at < observedAt ? gap.detected_at : observedAt,
+      closed_at: gap !== null && gap.closed_at !== null && gap.closed_at > observedAt ? gap.closed_at : observedAt,
     }
     wakeup.notify()
   }
