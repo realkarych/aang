@@ -2,17 +2,22 @@ CREATE TABLE model_versions (
   run_id TEXT NOT NULL,
   version INTEGER NOT NULL CHECK (version > 0),
   base_version INTEGER NOT NULL CHECK (base_version >= 0 AND base_version < version),
+  author TEXT NOT NULL CHECK (author IN ('rule', 'observer', 'user')),
+  observer_call_id TEXT REFERENCES observer_calls (id),
   created_at INTEGER NOT NULL,
   change_seq INTEGER NOT NULL CHECK (change_seq > 0),
-  PRIMARY KEY (run_id, version)
+  PRIMARY KEY (run_id, version),
+  CONSTRAINT model_versions_observer_call CHECK ((author = 'observer') = (observer_call_id IS NOT NULL))
 ) STRICT;
 
 CREATE INDEX model_versions_change_seq ON model_versions (change_seq);
+CREATE INDEX model_versions_observer_call ON model_versions (observer_call_id);
 
 CREATE TABLE model_changes (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   run_id TEXT NOT NULL,
   version INTEGER NOT NULL,
+  change_index INTEGER NOT NULL CHECK (change_index >= 0),
   operation TEXT NOT NULL,
   entity_kind TEXT NOT NULL,
   entity_id TEXT NOT NULL,
@@ -24,6 +29,7 @@ CREATE TABLE model_changes (
   evidence TEXT NOT NULL CHECK (json_type(evidence) = 'array'),
   rationale TEXT,
   observer_call_id TEXT REFERENCES observer_calls (id),
+  UNIQUE (run_id, version, change_index),
   FOREIGN KEY (run_id, version) REFERENCES model_versions (run_id, version),
   CONSTRAINT model_changes_state CHECK (before_state IS NOT NULL OR after_state IS NOT NULL),
   CONSTRAINT model_changes_observer_call CHECK ((author = 'observer') = (observer_call_id IS NOT NULL)),
@@ -36,8 +42,7 @@ CREATE TABLE model_changes (
   )
 ) STRICT;
 
-CREATE INDEX model_changes_version ON model_changes (run_id, version);
-CREATE INDEX model_changes_entity ON model_changes (run_id, entity_id);
+CREATE INDEX model_changes_entity ON model_changes (run_id, entity_kind, entity_id, version);
 CREATE INDEX model_changes_observer_call ON model_changes (observer_call_id);
 
 CREATE TABLE model_entities (
@@ -47,11 +52,10 @@ CREATE TABLE model_entities (
   data TEXT NOT NULL CHECK (json_valid(data)),
   version INTEGER NOT NULL,
   change_seq INTEGER NOT NULL CHECK (change_seq > 0),
-  PRIMARY KEY (run_id, id),
+  PRIMARY KEY (run_id, kind, id),
   FOREIGN KEY (run_id, version) REFERENCES model_versions (run_id, version)
 ) STRICT;
 
-CREATE INDEX model_entities_kind ON model_entities (run_id, kind);
 CREATE INDEX model_entities_version ON model_entities (run_id, version);
 CREATE INDEX model_entities_change_seq ON model_entities (change_seq);
 
