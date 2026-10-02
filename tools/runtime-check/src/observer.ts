@@ -7,6 +7,7 @@ import { dirname, join } from 'node:path'
 import { z } from 'zod'
 import { type CodexHook, type CommandForm, probeHook, writeCodexHome } from './codex.js'
 import { type CheckContext, clearProbeLog, type Invocation, probeArgs, readProbeLog } from './context.js'
+import { inspectCodexPersistence } from './persistence.js'
 import { filesUnder, inheritedEnv, runtimeEnv, stubApiKey, writeJson } from './profile.js'
 import { excerpt, isWindows, outcome, run, type RunResult } from './process.js'
 
@@ -22,6 +23,7 @@ interface InvocationOptions {
   readonly settingSources?: string
   readonly disableHooks?: boolean
   readonly args?: readonly string[]
+  readonly claudeTools?: string
 }
 
 interface PreparedObserver {
@@ -201,7 +203,7 @@ export const prepareClaudeObserver = async (context: CheckContext): Promise<Prep
   const stubEnv = { ANTHROPIC_BASE_URL: anthropic.url, ANTHROPIC_API_KEY: stubApiKey, CLAUDE_CONFIG_DIR: configDir }
   return {
     empty,
-    invocation: ({ fullEnv = false, cwd = empty.directory, settingSources = '' }) => ({
+    invocation: ({ fullEnv = false, cwd = empty.directory, settingSources = '', claudeTools = '' }) => ({
       command: clis.claude.command,
       args: [
         '-p',
@@ -218,7 +220,9 @@ export const prepareClaudeObserver = async (context: CheckContext): Promise<Prep
         '--mcp-config',
         '{"mcpServers":{}}',
         '--tools',
-        '',
+        claudeTools,
+        '--allowedTools',
+        claudeTools,
         '--disallowedTools',
         'mcp__*',
         '--disable-slash-commands',
@@ -277,7 +281,7 @@ const claudeAdmission = async (context: CheckContext): Promise<Record<string, un
   const fullEnvRerun = cleanRun.status === 0 ? null : await invoke({ fullEnv: true })
   const admission = join(claudeBase(context), 'admission')
   await mkdir(join(admission, '.claude'), { recursive: true })
-  const control = async (settingSources: string, marker: string): Promise<boolean> => {
+  const control = async (settingSources: string, marker: string): Promise<Record<string, unknown>> => {
     const markerPath = join(admission, marker)
     const hook = {
       type: 'command',
@@ -288,8 +292,29 @@ const claudeAdmission = async (context: CheckContext): Promise<Record<string, un
     await writeJson(join(admission, '.claude', 'settings.json'), {
       hooks: { SessionStart: [{ hooks: [hook] }], UserPromptSubmit: [{ hooks: [hook] }] },
     })
-    await invoke({ cwd: admission, settingSources })
-    return existsSync(markerPath)
+    const session = await invoke({ cwd: admission, settingSources })
+    return { session, marker: existsSync(markerPath) }
+  }
+  const toolAttempt = async (enabled: boolean): Promise<Record<string, unknown>> => {
+    const marker = join(admission, 'tool-marker.txt')
+    await rm(marker, { force: true })
+    const invocation = observer.invocation({ cwd: admission, claudeTools: enabled ? 'Write' : '' })
+    const result = await runInvocation({ ...invocation, arm: () => {
+      context.anthropic.use({ steps: [
+        { name: 'Write', input: { file_path: marker, content: 'aang tool control' } },
+        { name: 'StructuredOutput', input: { ok: true } },
+      ], text: 'done' })
+    } }, 120_000)
+    const outputs = context.anthropic.requests.flatMap((request) => request.outputs)
+      .filter((output) => output.toolUseId === 'toolu_aang_1')
+    const final = streamLines(result.stdout).findLast((line) => line.type === 'result')
+    return {
+      session: { ...outcome(result), result: final ?? null },
+      attempted: context.anthropic.requests.some((request) => request.responseTool === 'Write'),
+      rejected: outputs.some((output) => output.isError),
+      outputs,
+      marker: existsSync(marker),
+    }
   }
   return {
     env: isWindows ? [...windowsEnvNames, 'PATH (machine)'] : [...posixEnvNames, 'PATH=/usr/bin:/bin'],
@@ -300,6 +325,7 @@ const claudeAdmission = async (context: CheckContext): Promise<Record<string, un
       positiveSettingSourcesProject: await control('project', 'marker-positive'),
       negativeSettingSourcesEmpty: await control('', 'marker-negative'),
     },
+    toolExecution: { positive: await toolAttempt(true), negative: await toolAttempt(false) },
   }
 }
 
@@ -507,6 +533,7 @@ const codexAdmission = async (
       probeOutputs: context.responses.requests.flatMap(({ outputs }) => outputs.map((output) => excerpt(output, 200))),
       routerUnsupportedInStderr: result.stderr.includes('codex_core::tools::router: error=unsupported'),
       rolloutsWritten: (await filesUnder(join(paths.home, 'sessions'))).length,
+      sqlite: inspectCodexPersistence(paths.home),
       errorItems: streamLines(result.stdout).flatMap((line) => {
         const item = line.type === 'item.completed' ? JsonObject.safeParse(line.item) : null
         return item?.success === true && item.data.type === 'error' ? [excerpt(String(item.data.message), 300)] : []
@@ -523,7 +550,7 @@ const codexAdmission = async (
     const hook: CodexHook = probeHook(context, probeForm, `codex-control-${marker}`, ['marker', markerPath], 30)
     await writeCodexHome(context, paths.home, { SessionStart: [hook], UserPromptSubmit: [hook] })
     const session = await invoke({ disableHooks, fullEnv, args: ['--dangerously-bypass-hook-trust'] })
-    return { marker: existsSync(markerPath), status: session.status, errorItems: session.errorItems }
+    return { marker: existsSync(markerPath), session }
   }
   const positive = await control(false, 'marker-positive')
   const positiveWithFullEnv = positive.marker === false ? await control(false, 'marker-positive-full-env', true) : null

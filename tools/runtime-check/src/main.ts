@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { startAnthropicStub } from './anthropic-stub.js'
+import { checkSection, type SectionCheck } from './checks.js'
 import { claudeDelivery, claudeLaunchers } from './claude.js'
 import { inspectExecutables, locateClis } from './clis.js'
 import { codexBehaviour, codexForms } from './codex.js'
@@ -25,6 +26,7 @@ const { values } = parseArgs({
     work: { type: 'string' },
     claude: { type: 'string' },
     codex: { type: 'string' },
+    'disposable-profile': { type: 'boolean', default: false },
   },
 })
 
@@ -61,6 +63,9 @@ const report: Record<string, unknown> = {
 }
 const timings: Record<string, string> = {}
 const failed: string[] = []
+const checks: Record<string, SectionCheck> = {}
+
+const symbol = (name: string): string => checks[name]?.status === 'skipped' ? '↷' : failed.includes(name) ? '✘' : '✔'
 
 const describe = (error: unknown): string => (error instanceof Error ? (error.stack ?? error.message) : String(error))
 
@@ -76,12 +81,17 @@ const section = async <T>(
   try {
     value = await body()
     report[name] = present(value)
+    checks[name] = checkSection(name, report[name])
+    if (checks[name].status === 'failed') failed.push(name)
   } catch (error) {
     report[name] = { error: describe(error) }
+    checks[name] = { status: 'failed', reasons: [describe(error)] }
     failed.push(name)
   }
   timings[name] = `${String(Math.round((Date.now() - started) / 1000))} s`
-  process.stdout.write(`${failed.includes(name) ? '✘' : '✔'} ${name} (${timings[name]})\n`)
+  report.checks = checks
+  process.stdout.write(`${symbol(name)} ${name} (${timings[name]})\n`)
+  if (checks[name].status === 'failed') process.stdout.write(`${checks[name].reasons.join('\n')}\n`)
   await writeJson(reportPath, report)
   return value
 }
@@ -90,7 +100,7 @@ const summary = (): string =>
   [
     `# aang runtime check on ${platform()} ${release()} ${arch()}`,
     '',
-    ...Object.entries(timings).map(([name, time]) => `- ${failed.includes(name) ? '✘' : '✔'} ${name} — ${time}`),
+    ...Object.entries(timings).map(([name, time]) => `- ${symbol(name)} ${name} — ${time}`),
     '',
     ...Object.keys(timings).flatMap((name) => {
       const json = JSON.stringify(report[name], null, 2)
@@ -165,7 +175,7 @@ try {
   )
   await section('observer admission', () => observerAdmission(context, probeForm), null)
   await section('process trees in a job object', () => processTrees(context, installForm), null)
-  await section('default roots', () => defaultRoots(context), null)
+  await section('default roots', () => defaultRoots(context, values['disposable-profile']), null)
 } finally {
   report.finishedAt = new Date().toISOString()
   report.failedSections = failed

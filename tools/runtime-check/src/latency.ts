@@ -115,7 +115,7 @@ const splitWindowsCommandLine = (
 }
 
 type DerivedLauncher =
-  | { readonly launcher: Launcher; readonly chain: readonly string[] }
+  | { readonly launcher: Launcher; readonly chain: readonly string[]; readonly measurementScope: 'launcher' | 'binary only; shell may have exec-replaced itself' }
   | { readonly unavailable: string; readonly chain: readonly string[] }
 
 interface Replacement {
@@ -153,13 +153,13 @@ const launcherFromProbe = (
   const runtimeIndex = names.findIndex((name) => name.toLowerCase().includes(runtime))
   if (runtimeIndex === 0) {
     const [command = '', ...args] = replacement.direct
-    return { launcher: { id, command, args, verbatim: false }, chain: names }
+    return { launcher: { id, command, args, verbatim: false }, chain: names, measurementScope: 'binary only; shell may have exec-replaced itself' }
   }
   const below = runtimeIndex < 0 ? chain.slice(0, 1) : chain.slice(0, runtimeIndex)
   for (const link of below.toReversed()) {
     const launcher = reproduce(id, link, replacement)
     if (launcher !== null) {
-      return { launcher, chain: names }
+      return { launcher, chain: names, measurementScope: 'launcher' }
     }
   }
   return {
@@ -183,8 +183,7 @@ const seriesIncrement = async (
   once: (hooks: boolean) => Promise<SeriesRun>,
   pairs: number,
 ): Promise<Record<string, unknown>> => {
-  await once(true)
-  await once(false)
+  const warmup = { withHooks: await once(true), withoutHooks: await once(false) }
   const withHooks: SeriesRun[] = []
   const withoutHooks: SeriesRun[] = []
   for (let pair = 0; pair < pairs; pair += 1) {
@@ -202,6 +201,9 @@ const seriesIncrement = async (
   const medianEvents = median(withHooks.map(({ events }) => events))
   return {
     pairs,
+    warmup,
+    withHooks,
+    withoutHooks,
     medianWithHooksMs: round(medianWith),
     medianWithoutHooksMs: round(medianWithout),
     medianEventsPerRun: medianEvents,
@@ -295,7 +297,7 @@ const codexWithoutPwsh = async (
   return {
     session: codexOutcome(session),
     ...('launcher' in derived
-      ? { chain: derived.chain, ...(await measure(derived.launcher, spool, { warmup: 5, runs: 100 })) }
+      ? { chain: derived.chain, measurementScope: derived.measurementScope, ...(await measure(derived.launcher, spool, { warmup: 5, runs: 100 })) }
       : derived),
   }
 }
@@ -371,7 +373,7 @@ export const hookLatency = async (context: CheckContext, inputs: LatencyInputs):
   for (const [id, launcher] of Object.entries(derived)) {
     results[id] =
       'launcher' in launcher
-        ? { chain: launcher.chain, ...(await measure(launcher.launcher, spool, strictSeries)) }
+        ? { chain: launcher.chain, measurementScope: launcher.measurementScope, ...(await measure(launcher.launcher, spool, strictSeries)) }
         : launcher
   }
   if (isWindows && inputs.probeForm !== null && inputs.installForm !== null) {

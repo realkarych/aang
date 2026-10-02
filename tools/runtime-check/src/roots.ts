@@ -18,9 +18,12 @@ const placement = async (
     ),
   )
 
-export const defaultRoots = async (context: CheckContext): Promise<Record<string, unknown>> => {
+export const defaultRoots = async (context: CheckContext, disposableProfile: boolean): Promise<Record<string, unknown>> => {
   if (!isWindows) {
     return { skipped: 'the HOME and USERPROFILE split matters only on Windows' }
+  }
+  if (!disposableProfile) {
+    return { skipped: 'default-root probing writes to the OS account profile; requires --disposable-profile in a dedicated disposable account or CI runner' }
   }
   const base = join(context.work, 'default roots')
   const candidates = {

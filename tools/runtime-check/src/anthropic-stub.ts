@@ -16,6 +16,8 @@ interface AnthropicRequest {
   readonly model: string | null
   readonly tools: readonly string[]
   readonly toolResults: number
+  readonly responseTool: string | null
+  readonly outputs: readonly { readonly toolUseId: unknown; readonly isError: boolean; readonly content: unknown }[]
 }
 
 export interface AnthropicStub {
@@ -113,6 +115,10 @@ export const startAnthropicStub = async (): Promise<AnthropicStub> => {
       model: request.model ?? null,
       tools: (request.tools ?? []).map(({ name }) => name),
       toolResults: step,
+      responseTool: scenario.steps[step]?.name ?? null,
+      outputs: (request.messages ?? []).flatMap(({ content }) => typeof content === 'string' ? [] : content)
+        .filter((block) => block.type === 'tool_result')
+        .map((block) => ({ toolUseId: block.tool_use_id ?? null, isError: block.is_error === true, content: block.content ?? null })),
     })
     replies += 1
     const id = `msg_aang_${String(replies)}`

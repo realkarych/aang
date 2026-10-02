@@ -286,11 +286,19 @@ export const pipelineCheck = async (
   for (const watcher of watchers) {
     watcher.close()
   }
+  const assigned = await withStreams(records)
+  const lineRecords = assigned.filter((record) => record.position.kind === 'line')
+  const sourceFiles = (await Promise.all([claudeProjects, codexSessions].map(filesUnder))).flat().filter((file) => file.endsWith('.jsonl'))
+  const allFileLinesCollected = (await Promise.all(sourceFiles.map(async (file) => {
+    const expected = (await readFile(file, 'utf8')).split('\n').filter((line) => line.trim() !== '').length
+    return expected === lineRecords.filter((record) => record.position.kind === 'line' && record.position.path === file).length
+  }))).every(Boolean)
   return {
     sessions: { claude: claudeOutcome(claude), codex: codexOutcome(codex) },
     collector: {
       records: records.length,
-      channels: analyse(await withStreams(records)),
+      channels: analyse(assigned),
+      allFileLinesCollected,
       gaps: gaps.map(({ key, details }) => ({ key, details })),
       spoolLeft: (await listNames(spoolReady(profile.spool))).length,
     },

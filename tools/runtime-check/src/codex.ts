@@ -247,6 +247,7 @@ export const codexForms = async (context: CheckContext): Promise<CodexForms> => 
       patchApplied: existsSync(patch.file),
       delivered,
       installForm: installForm?.id ?? null,
+      probeForm: probeForm?.id ?? null,
       probes: probes.map(({ label, event, argv, chain }) => ({ label, event, argv, chain })),
     },
     installForm,
