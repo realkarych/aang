@@ -194,6 +194,9 @@ export const parseSnapshot = (record: CollectedRecord, position: FilePosition | 
   if (file === null) {
     return unknown(null)
   }
+  if (file.kind === 'tool_result') {
+    return parsed(null, [])
+  }
   const removed = position.kind === 'file_removed'
   const content = removed ? null : parseJson(record.payload)
   if (content === undefined) {

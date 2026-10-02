@@ -14,6 +14,9 @@ const jsonExtension = '.json'
 const metaExtension = '.meta.json'
 
 const isProjectSnapshot = (segments: readonly string[]): boolean => {
+  if (segments.slice(2, -1).includes('tool-results')) {
+    return false
+  }
   const name = segments.at(-1) ?? ''
   return name.endsWith(metaExtension) || (name.endsWith(jsonExtension) && segments.at(-2) === 'workflows')
 }

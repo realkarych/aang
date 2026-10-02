@@ -5,7 +5,7 @@ import type { AdapterRegistry, CollectedGap, CollectedRecord, CollectorBatch, Fi
 import { absent, isMissing } from './errors.js'
 import type { Failure, FailureState, Retrier } from './retry.js'
 import { epochNs, nowNs } from './time.js'
-import type { TreeRoot } from './tree.js'
+import { segmentsOf, type TreeRoot } from './tree.js'
 import type { Wakeup } from './wakeup.js'
 
 export interface TailRoot {
@@ -101,8 +101,9 @@ const rolloutOrdinal = (payload: string): number | null => {
   }
 }
 
-const accepts = (root: TailRoot, name: string): boolean =>
-  name.endsWith(fileExtension) || (root.runtime === 'claude' && name.includes('.jsonl.superseded-'))
+const accepts = (root: TailRoot, path: string): boolean =>
+  !(root.runtime === 'claude' && segmentsOf(root.root, path).slice(2, -1).includes('tool-results')) &&
+  (path.endsWith(fileExtension) || (root.runtime === 'claude' && path.includes('.jsonl.superseded-')))
 
 const contains = (root: TailRoot, path: string): boolean => {
   const within = relative(root.root.directory, path)
@@ -124,7 +125,7 @@ const listFiles = async (root: TailRoot): Promise<{ paths: string[]; failure: un
       const path = join(next, entry.name)
       if (entry.isDirectory()) {
         pending.push(path)
-      } else if (entry.isFile() && accepts(root, entry.name)) {
+      } else if (entry.isFile() && accepts(root, path)) {
         found.push(path)
       }
     }
@@ -451,7 +452,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
 
   const open = (cursors: readonly FileCursor[], gaps: readonly CollectedGap[]): void => {
     for (const cursor of cursors) {
-      const root = options.roots.find((candidate) => contains(candidate, cursor.path))
+      const root = options.roots.find((candidate) => contains(candidate, cursor.path) && accepts(candidate, cursor.path))
       if (root !== undefined) {
         track(root, cursor.path).cursor = cursor
       }
