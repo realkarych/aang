@@ -123,3 +123,52 @@ whole response, and every fact of the batch returns to `pending`.
 interpretation and evidence; the item stays open until a rule closes it or the
 user dismisses it. `attention.priority` records a recommendation with the call id
 and does not change the order of attention.
+
+## Check contracts
+
+`createEngine` takes the check contracts of each watched root in
+`watch.roots[].contracts`, the shape of `~/.aang/config.json`. A run uses the
+contracts of every root that contains the `cwd` of its root session, compared after
+resolving symbolic links. When roots are nested, a contract of the deepest root
+replaces contracts of the same name from outer roots.
+
+The ingest transaction re-evaluates the checks of every run whose sessions received
+facts, after the observation projection (ADR-0006):
+
+- A check is a command action of the run, not inherited by a fork, with an
+  `action_start` whose command line matches the `command` pattern of a contract.
+  The pattern is a Unicode regular expression searched in the line. The line is the
+  `command` or `cmd` string of the tool input, or an argument vector joined by
+  spaces; for a vector such as `/bin/zsh -lc 'pnpm test'` its script is also a
+  line. A command that matches no contract is not a check.
+- A reported exit code decides the result through `successExitCodes`. Without an
+  exit code, an error is a failure, and a successful completion is exit code 0
+  unless the command was started in the background (`run_in_background`), whose
+  result is not observed. An interrupted or denied action, an action without an end
+  and an end with an unknown outcome and no exit code give no result. The result
+  time is the earliest end of the action; results of the same contract are ordered
+  by it.
+- Failures of a contract without a success between them form one `failed_check`
+  item of the rule: an action-level item without a stage and without a runtime
+  wait, with observed basis. Its evidence is the matching start and the deciding
+  end of every failure; it names the latest failure and its exit code, and opens at
+  the first. The next success of the same contract closes it with the resolution
+  `answered` and its time; the closing journal change cites the success. A failure
+  after that success opens a new item.
+- Items are reconciled with the full result history of the run, so a transcript
+  read at once records a failure that was already fixed as an item opened and
+  closed in one version. An item id derives from the run, the contract name and one
+  failure of its streak, and a streak keeps the item of any of its failures: a late
+  earlier failure joins the open item, a late success between failures splits it,
+  and repeated delivery changes nothing. Observer fields of an item (likely
+  resolution, priority) are kept. An item whose failures no longer match a contract
+  after the configuration changes keeps its last state.
+
+The run of a session is the run of its `session_membership`, or the run of its own
+root key when there is none, the rule that run linking (E.4) uses for projections.
+The root session of a run comes from its `run` entity; without one, a session that
+is its own root uses its `cwd`.
+
+Checks do not produce criterion statuses: a check alone never gives `confirmed`.
+Snapshots around checks, `passed_unversioned`, `confirmed` and `stale` belong to
+E.7b and E.7c.
