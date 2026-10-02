@@ -1,4 +1,4 @@
-import type { AgentKey, AgentStartPayload, EpochNs, Execution, QuestionKey, Session, SessionKey } from '@aang/contract'
+import type { AgentKey, AgentStartPayload, EpochNs, Execution, QuestionKey, Session, SessionId, SessionKey } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
 import {
@@ -118,14 +118,15 @@ export const projectSession = (
   transaction: Transaction,
   key: SessionKey,
   records: readonly SourceRecord[],
+  lost: ReadonlySet<SessionId>,
   now: EpochNs,
   quietAfterMs: number,
-): void => {
+): Omit<Session, 'change_seq'> | null => {
   const items = sessionEvidence(transaction, key)
   const first = items[0]
   const firstRecord = records[0]
   if (first === undefined && firstRecord === undefined) {
-    return
+    return null
   }
   const root = items.filter(({ fact }) => agentKey(fact).agent.kind === 'main')
   const starts = ofKind(root, 'session_start')
@@ -152,7 +153,7 @@ export const projectSession = (
   ].sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
   const startedAt = times[0]
   const lastEventAt = times.at(-1)
-  if (startedAt === undefined || lastEventAt === undefined) { return }
+  if (startedAt === undefined || lastEventAt === undefined) { return null }
   const status = turnState(root, items)
   const draft: Omit<Session, 'change_seq'> = {
     id,
@@ -180,7 +181,8 @@ export const projectSession = (
     last_event_at: lastEventAt,
   }
   sourceGaps(transaction, draft, lastEventAt)
-  transaction.observations.save({ ...draft, freshness: freshnessOf(transaction, draft, now, quietAfterMs) })
+  const session = { ...draft, freshness: freshnessOf(draft, lost.has(id), now, quietAfterMs) }
+  transaction.observations.save(session)
   for (const agentItems of grouped(items, ({ fact }) => canonicalJson(agentKey(fact))).values()) {
     projectAgent(transaction, agentKey(agentItems[0].fact), agentItems, status.execution)
   }
@@ -206,4 +208,5 @@ export const projectSession = (
       projectQuestion(transaction, entity, entityItems, questionGroups.get(name) ?? null)
     }
   }
+  return session
 }

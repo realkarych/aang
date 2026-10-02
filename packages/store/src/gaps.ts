@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { Gap, type GapId, type SessionId } from '@aang/contract'
+import { Gap, type GapId, type GapKind } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import { decodeJson } from './codec.js'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
@@ -8,7 +8,7 @@ export type GapDraft = Omit<Gap, 'id' | 'kind' | 'change_seq'>
 
 export interface GapReader {
   readonly get: (id: GapId) => Gap | null
-  readonly ofSession: (session: SessionId) => Gap[]
+  readonly open: (kind: GapKind) => Gap[]
 }
 
 export interface GapWriter extends GapReader {
@@ -71,12 +71,12 @@ const sameGap = (stored: Gap, draft: GapDraft): boolean =>
   stored.closed_at === draft.closed_at
 
 export const createGaps = (database: DatabaseSync): GapRepository => {
-  const selectSession = prepareStatement(database, `SELECT ${gapColumns} FROM gaps WHERE session_id = ? ORDER BY detected_at, id`)
+  const selectOpen = prepareStatement(database, `SELECT ${gapColumns} FROM gaps WHERE kind = ? AND closed_at IS NULL ORDER BY detected_at, id`)
   const selectById = prepareStatement(database, `SELECT ${gapColumns} FROM gaps WHERE id = ?`)
   const upsertGap = prepareStatement(database, upsertInto('gaps', 'id', columns))
 
   const reader: GapReader = {
-    ofSession: (session) => (selectSession.all(session) as GapRow[]).map(toGap),
+    open: (kind) => (selectOpen.all(kind) as GapRow[]).map(toGap),
     get: (id) => {
       const row = selectById.get(id) as GapRow | undefined
       return row === undefined ? null : toGap(row)

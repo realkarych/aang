@@ -200,3 +200,68 @@ test('a nonblocking Codex question after the turn does not restart execution', a
   expect(store.observations.questions(sessionId('codex'))).toMatchObject([{ blocking: false }])
   expect(store.observations.getSession(sessionId('codex'))).toMatchObject({ state: 'turn_done', execution: { state: 'waiting', reason: 'idle' } })
 })
+
+const elicitation = (milliseconds: number, id: string, fields: Record<string, string> = {}) =>
+  hook('Elicitation', milliseconds, { mcp_server_name: 'docs', message: `Allow ${id}?`, elicitation_id: id, ...fields })
+
+const elicitationResult = (milliseconds: number, id: string, action: string, fields: Record<string, string> = {}) =>
+  hook('ElicitationResult', milliseconds, {
+    mcp_server_name: 'docs', elicitation_id: id, action, ...(action === 'accept' ? { content: { approved: 'yes' } } : {}), ...fields,
+  })
+
+test.each(['accept', 'decline', 'cancel'])('an Elicitation result ends only the wait it answers: %s', async (action) => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  const read = () => store.observations.getSession(sessionId())?.execution
+  await engine.ingest(joinBatches(hook('SessionStart', 0), hook('UserPromptSubmit', 1),
+    elicitation(2, 'request-1'), elicitation(3, 'request-2'),
+  ))
+  expect(read()).toEqual({ state: 'waiting', reason: 'human' })
+  await engine.ingest(elicitationResult(4, 'request-3', action))
+  expect(read()).toEqual({ state: 'waiting', reason: 'human' })
+  await engine.ingest(elicitationResult(5, 'request-1', action))
+  expect(read()).toEqual({ state: 'waiting', reason: 'human' })
+  await engine.ingest(joinBatches(elicitationResult(6, 'request-2', action),
+    hook('PreToolUse', 7, { tool_use_id: 'next', tool_name: 'Bash', tool_input: { command: 'pwd' } }),
+  ))
+  expect(read()).toEqual({ state: 'running' })
+  expect(store.observations.questions(sessionId())).toHaveLength(2)
+})
+
+test('an Elicitation result answers only the agent that asked', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  const child = objectId({ kind: 'agent', runtime: 'claude', session: source.session, agent: { kind: 'subagent', agent_id: 'child' } })
+  await engine.ingest(joinBatches(hook('SessionStart', 0), hook('UserPromptSubmit', 1),
+    hook('SubagentStart', 2, { agent_id: 'child' }), elicitation(3, 'request-1', { agent_id: 'child' }),
+  ))
+  expect(store.observations.getAgent(child)?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  await engine.ingest(elicitationResult(4, 'request-1', 'accept'))
+  expect(store.observations.getAgent(child)?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'running' })
+  await engine.ingest(elicitationResult(5, 'request-1', 'accept', { agent_id: 'child' }))
+  expect(store.observations.getAgent(child)?.execution).toEqual({ state: 'running' })
+  expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'running' })
+})
+
+test('a hooks-only Codex child starts every new turn from its prompt without changing the root', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  const child = objectId({ kind: 'agent', runtime: 'codex', session: source.session, agent: { kind: 'thread', thread_id: 'child-1' } })
+  const inChild = { agent_id: 'child-1' }
+  const read = () => store.observations.getAgent(child)?.execution
+  await engine.ingest(joinBatches(hook('SessionStart', 0, {}, 'codex'), hook('UserPromptSubmit', 1, { prompt: 'Delegate' }, 'codex'),
+    hook('SubagentStart', 2, { ...inChild, agent_type: 'default' }, 'codex'),
+    hook('UserPromptSubmit', 3, { ...inChild, prompt: 'First task' }, 'codex'),
+  ))
+  expect(read()).toEqual({ state: 'running' })
+  await engine.ingest(hook('Stop', 4, inChild, 'codex'))
+  expect(read()).toEqual({ state: 'waiting', reason: 'idle' })
+  const root = store.observations.getSession(sessionId('codex'))
+  await engine.ingest(hook('UserPromptSubmit', 5, { ...inChild, prompt: 'Second task' }, 'codex'))
+  expect(read()).toEqual({ state: 'running' })
+  expect(store.observations.getSession(sessionId('codex'))).toMatchObject({
+    state: root?.state, execution: root?.execution, support_mode: 'hooks_only',
+  })
+  expect(root).toMatchObject({ state: 'turn_running', execution: { state: 'running' } })
+})

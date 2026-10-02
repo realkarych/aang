@@ -150,6 +150,7 @@ const sessionStart = hookParser(
 const userPromptSubmit = hookParser(UserPromptSubmit, ({ prompt }, context) => {
   const root = isRoot(context.stream)
   return [
+    fact('turn_start', spec(context, threadEntity(context.stream), 'runtime', false), {}),
     fact(
       'prompt',
       spec(context, namedMessageEntity(context.stream.session, context.file), root ? 'human' : 'runtime', false),
