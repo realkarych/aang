@@ -12,6 +12,7 @@ import {
   type SpoolEnv,
   spoolFormat,
   spoolLayout,
+  type StreamKey,
 } from '@aang/contract'
 import type { Engine, IngestResult } from '@aang/engine'
 import type { Store } from '@aang/store'
@@ -34,6 +35,7 @@ export interface SpoolDelivery {
 export interface Live {
   readonly batches: () => readonly CollectorBatch[]
   readonly results: () => readonly IngestResult[]
+  readonly requestAttachment: (path: string, stream: StreamKey) => void
   readonly stop: () => Promise<void>
 }
 
@@ -115,7 +117,12 @@ export const runLive = (
     await loop
   }
   register(stop)
-  return { batches: () => checked(batches), results: () => checked(results), stop }
+  return {
+    batches: () => checked(batches),
+    results: () => checked(results),
+    requestAttachment: (path, stream) => { collector.requestAttachment(path, stream) },
+    stop,
+  }
 }
 
 export const denyReading = async (register: Register, path: string): Promise<() => Promise<void>> => {

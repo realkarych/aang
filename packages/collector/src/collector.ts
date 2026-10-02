@@ -1,4 +1,6 @@
-import type { AdapterRegistry, CollectedGap, Collector, CollectorBatch, Config, FileCursor, Listener, Runtime } from '@aang/contract'
+import { join } from 'node:path'
+import type { AdapterRegistry, CollectedGap, Collector, CollectorBatch, Config, FileCursor, Listener, Runtime, StreamKey } from '@aang/contract'
+import { createAttachmentSource } from './attachments.js'
 import { createOtelReceiver, type OtelReceiverOptions } from './otel.js'
 import { createRetrier, type ReadRetry } from './retry.js'
 import { collectorRoots } from './roots.js'
@@ -18,6 +20,7 @@ export interface CollectorOptions {
 }
 
 export interface CollectorService extends Collector {
+  requestAttachment(path: string, stream: StreamKey): void
   listenOtel(options: OtelReceiverOptions): Promise<Listener>
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
@@ -32,6 +35,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   const { collector, spool: spoolConfig } = options.config
   const roots = collectorRoots(options.runtimeRoots)
   const retrier = createRetrier(options.readRetry ?? defaultReadRetry, collector.rootsScanIntervalMs)
+  const attachments = createAttachmentSource(join(options.runtimeRoots.claude, 'projects'), retrier, wakeup, options.openGaps ?? [])
   const spool = createSpoolSource(
     {
       directory: options.spool,
@@ -68,6 +72,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   const running = (): boolean => state === 'running'
 
   const shutdown = async (): Promise<void> => {
+    attachments.close()
     spool.close()
     await tree.close()
     snapshots.close()
@@ -81,7 +86,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       return queued
     }
     await tree.scan()
-    return (await snapshots.take()) ?? (await tail.take())
+    return (await attachments.take()) ?? (await snapshots.take()) ?? (await tail.take())
   }
 
   async function* batches(cursors: readonly FileCursor[]): AsyncGenerator<CollectorBatch> {
@@ -104,6 +109,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   }
 
   return {
+    requestAttachment: attachments.request,
     start: (cursors) => {
       if (state !== 'ready') {
         throw new Error('the collector can only be started once')

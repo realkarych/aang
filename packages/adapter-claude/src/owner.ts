@@ -56,6 +56,7 @@ const snapshotOwner = (record: CollectedRecord, path: string): RecordOwner | nul
     case 'agent_meta':
       return fileOwner(file.session, 'agent')
     case 'workflow':
+    case 'tool_result':
       return fileOwner(file.session, 'root')
     case 'team': {
       const lead = stringField(parseJson(record.payload), 'leadSessionId')
