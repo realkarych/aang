@@ -12,7 +12,10 @@ export const otelThread = 'otel-child'
 export const otelRoot = 'otel-root'
 export const otelCall = 'otel-command'
 
-export const decisionRecord = (thread = otelThread): CollectedRecord => {
+export const decisionRecord = (
+  thread = otelThread,
+  changes: Readonly<Record<string, string | undefined>> = {},
+): CollectedRecord => {
   const variants = readFileSync(
     new URL('../../../docs/research/samples/codex-otel/logs.tool_decision.variants.jsonl', import.meta.url),
     'utf8',
@@ -24,15 +27,18 @@ export const decisionRecord = (thread = otelThread): CollectedRecord => {
   if (log === undefined) {
     throw new Error('missing subagent OTel sample')
   }
-  const replacements: Readonly<Record<string, string>> = {
+  const replacements: Readonly<Record<string, string | undefined>> = {
     'conversation.id': thread,
     call_id: otelCall,
     source: 'User',
+    ...changes,
   }
-  const attributes = log.attributes.map((attribute) => ({
-    ...attribute,
-    value: { stringValue: replacements[attribute.key] ?? attribute.value.stringValue },
-  }))
+  const attributes = [
+    ...log.attributes.filter(({ key }) => !(key in replacements)),
+    ...Object.entries(replacements).flatMap(([key, value]) =>
+      value === undefined ? [] : [{ key, value: { stringValue: value } }],
+    ),
+  ]
   return CollectedRecord.parse({
     channel: 'otel',
     runtime: 'codex',

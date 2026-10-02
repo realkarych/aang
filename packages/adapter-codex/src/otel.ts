@@ -5,12 +5,14 @@ import {
   type FactDraft,
   type ParseResult,
   type PermissionDecision,
+  type RecordOwner,
 } from '@aang/contract'
 import { z } from 'zod'
 import { qualifiedTool } from './calls.js'
-import { actionEntity, emptyEnv, emptyIds, fact } from './facts.js'
+import { actionEntity, emptyEnv, emptyIds, fact, sessionEntity } from './facts.js'
 import { readJson } from './json.js'
-import { decodeStream, type ThreadStream } from './stream.js'
+import { observerOriginator } from './session.js'
+import { decodeStream, isRoot, type ThreadStream } from './stream.js'
 
 const toolDecisionEvent = 'codex.tool_decision'
 const unsetTime = 0n
@@ -26,9 +28,13 @@ const LogRecord = z.looseObject({
 })
 type LogRecord = z.infer<typeof LogRecord>
 
-const ToolDecision = z.looseObject({
+const OtelIdentity = z.looseObject({
   'event.name': z.literal(toolDecisionEvent),
   'conversation.id': Token,
+})
+type OtelIdentity = z.infer<typeof OtelIdentity>
+
+const ToolDecision = OtelIdentity.extend({
   call_id: z.string().min(1),
   decision: z.string(),
   source: z.string().optional(),
@@ -94,9 +100,26 @@ const readOtel = (payload: string): OtelReading => {
 const toolOf = ({ tool_name: name, tool_namespace: namespace }: ToolDecision): string | null =>
   name === undefined || name === '' ? null : qualifiedTool(namespace, name)
 
-const conversationStream = (record: CollectedRecord, event: ToolDecision): ThreadStream | null => {
+const conversationStream = (record: CollectedRecord, event: OtelIdentity): ThreadStream | null => {
   const stream = decodeStream(record.stream)
   return stream?.thread === event['conversation.id'] ? stream : null
+}
+
+export const otelOwner = (record: CollectedRecord): RecordOwner | null => {
+  const log = LogRecord.safeParse(readJson(record.payload)).data
+  if (log === undefined) {
+    return null
+  }
+  const attributes = attributesOf(log)
+  const identity = OtelIdentity.safeParse(attributes).data
+  const stream = identity === undefined ? null : conversationStream(record, identity)
+  return stream === null ? null : {
+    session: sessionEntity(stream),
+    thread: isRoot(stream) ? 'root' : 'agent',
+    cwd: null,
+    start: false,
+    observer: attributes['originator'] === observerOriginator,
+  }
 }
 
 const decisionFact = (record: CollectedRecord, stream: ThreadStream, event: ToolDecision, at: EpochNs | null): FactDraft => {

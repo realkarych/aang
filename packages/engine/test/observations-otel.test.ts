@@ -203,3 +203,63 @@ test('keeps the original fallback dedupe key when an incoming OTel record alread
   await engine.ingest(batchOf({ records: [incoming] }))
   expect(store.changes.head()).toBe(head)
 })
+
+test.each(
+  ['decision', 'call_id'].flatMap((missing) =>
+    ['decision-first', 'hook-first'].flatMap((order) =>
+      ['external', 'observer', 'watched', 'otel-observer'].map((scope) => ({ missing, order, scope })),
+    ),
+  ),
+)('applies $scope scope to OTel without $missing: $order', async ({ missing, order, scope }) => {
+  const home = await createHome(onTestFinished)
+  let store = home.open()
+  const watch = { all: scope !== 'external' }
+  let engine = startEngine(store, watch)
+  const record = decisionRecord(otelThread, {
+    [missing]: undefined,
+    ...(scope === 'otel-observer' ? { originator: 'aang_observer' } : {}),
+  })
+  const decision = batchOf({ records: [record] })
+  const key = codexAdapter.rawKey(record)
+  const env = scope === 'observer' ? { CODEX_INTERNAL_ORIGINATOR_OVERRIDE: 'aang_observer' } : {}
+  const root = hookBatch({
+    runtime: 'codex',
+    file: 'start.evt',
+    payload: codexHook('SessionStart.startup.json', { session: otelRoot, cwd }),
+    env,
+  })
+  const child = hookBatch({
+    runtime: 'codex',
+    file: 'spawn.evt',
+    payload: codexHook('SubagentStart.json', { session: otelRoot, cwd }, { agent_id: otelThread }),
+    env,
+  })
+  const pending = () => recordsOf(store).filter(({ channel }) => channel === 'otel')
+  if (order === 'decision-first') {
+    await engine.ingest(decision)
+    expect(pending()).toMatchObject([{ dedupe_key: key, parse_state: 'unknown' }])
+    await engine.ingest(root)
+    expect(pending()).toHaveLength(1)
+  } else {
+    await engine.ingest(joinBatches(root, child))
+  }
+  store.close()
+  store = home.open()
+  engine = startEngine(store, watch)
+  await engine.ingest(order === 'decision-first' ? child : decision)
+  expect(factsOf(store).filter(({ kind }) => kind === 'permission_decision')).toEqual([])
+  expect(store.scopes.get(streamOf('codex', childLines()))?.scope).toBe(
+    scope === 'otel-observer' ? 'watched' : scope,
+  )
+  if (scope === 'watched') {
+    expect(pending()).toMatchObject([{ dedupe_key: key, parse_state: 'unknown', payload: record.payload }])
+    const head = store.changes.head()
+    expect((await engine.ingest(decision)).duplicates).toBe(1)
+    expect(store.changes.head()).toBe(head)
+    expect(pending()).toHaveLength(1)
+  } else {
+    expect(pending()).toEqual([])
+    await engine.ingest(decision)
+    expect(pending()).toEqual([])
+  }
+})

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { sessionEntity } from './facts.js'
 import { readJson } from './json.js'
 import { readLine } from './line.js'
+import { otelOwner } from './otel.js'
 import { observerOriginator, observerThreadSource } from './session.js'
 import { decodeStream, isRoot, type ThreadStream } from './stream.js'
 
@@ -86,6 +87,9 @@ const lineStatement = (payload: string, stream: ThreadStream): Statement => {
 export const owner = (record: CollectedRecord): RecordOwner | null => {
   if (record.channel === 'hook') {
     return hookOwner(record)
+  }
+  if (record.channel === 'otel' && record.position.kind === 'otel') {
+    return otelOwner(record)
   }
   const stream = decodeStream(record.stream)
   if (record.channel !== 'rollout' || record.position.kind !== 'line' || stream === null) {

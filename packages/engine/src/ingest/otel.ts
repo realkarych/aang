@@ -32,15 +32,17 @@ export const normalizeOtel = (transaction: Transaction, adapters: Adapters): Ses
         if (runtime !== record.runtime) {
           continue
         }
-        const result = adapter.parse({ ...record, stream })
-        if (result.parse_state !== 'parsed' || result.facts.length === 0) {
+        const candidate = { ...record, stream }
+        const owner = adapter.owner(candidate)
+        if (owner === null) {
           continue
         }
-        if (
-          scope !== 'watched' ||
-          result.facts.some(({ runtime_env }) => runtime_env.originator === 'aang_observer')
-        ) {
+        if (scope !== 'watched' || owner.observer) {
           transaction.rawRecords.discardUnparsed(raw.seq)
+          break
+        }
+        const result = adapter.parse(candidate)
+        if (result.parse_state !== 'parsed' || result.facts.length === 0) {
           break
         }
         const facts = transaction.facts.insert(raw.seq, adapter.normalizerVersion, result.facts)
