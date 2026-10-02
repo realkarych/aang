@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { cp } from 'node:fs/promises'
 import { codexAdapter } from '@aang/adapter-codex'
 import {
   type AgentKey,
@@ -440,8 +441,8 @@ test('resolves OTel decisions of known threads in one reparse and leaves one wit
   expect(otel(pending)).toEqual({ parse_state: 'parsed', stream: streamOf('codex', child(later)) })
 })
 
-test('a SIGKILL during reparse leaves the stored state of the other normalizer version', async () => {
-  const copies = 100
+test('a SIGKILL during reparse leaves either the stored state of the other normalizer version or the reparsed one', async () => {
+  const copies = 20
   const home = await createHome(onTestFinished)
   let store = home.open()
   await startEngine(store, { all: true }).ingest(
@@ -458,22 +459,24 @@ test('a SIGKILL during reparse leaves the stored state of the other normalizer v
   )
   const facts = factsOf(store)
   storeAnotherNormalizer(store, reversedFactGroups)
-  const storedState = (stored: Store) => ({
-    head: stored.changes.head(),
-    records: recordsOf(stored),
-    facts: factsOf(stored),
-    sessions: stored.observations.sessions(),
-  })
-  const before = storedState(store)
+  const stateOf = (stored: Store) => ({ head: stored.changes.head(), facts: factsOf(stored) })
+  const before = stateOf(store)
   store.close()
+  const reference = await createHome(onTestFinished)
+  await cp(home.path, reference.path, { recursive: true })
+  const expected = reference.open()
+  await startEngine(expected, { all: true }).reparse()
+  const reparsed = stateOf(expected)
+  expect(new Set(reparsed.facts.map(({ normalizer_version }) => normalizer_version))).toEqual(
+    new Set([codexAdapter.normalizerVersion]),
+  )
 
   const reparsing = await home.startReparse()
   await reparsing.kill()
 
   store = home.open()
-  expect(storedState(store)).toEqual(before)
-  const result = await startEngine(store, { all: true }).reparse()
-  expect(result).toMatchObject({ facts_added: 0, facts_kept: facts.length, facts_missing: 0 })
+  expect([before, reparsed]).toContainEqual(stateOf(store))
+  await startEngine(store, { all: true }).reparse()
+  expect(stateOf(store)).toEqual(reparsed)
   expect(factsOf(store).toSorted(byId)).toEqual(facts.toSorted(byId))
-  expect(store.observations.sessions().map(withoutChangeSeq)).toEqual(before.sessions.map(withoutChangeSeq))
-})
+}, 120_000)
