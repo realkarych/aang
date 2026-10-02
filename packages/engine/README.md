@@ -53,11 +53,8 @@ Execution follows ADR-0006:
   assessment. Different execution values expose the contradiction to the inspector.
   When activity ends, the assessment becomes visible again; without one, execution
   becomes `unknown`. Silence alone never infers success, failure or a wait.
-- An open question, permission request or review request sets the independent human
-  decision to `requested`, including nonblocking requests. Closing the last request
-  clears this derived value to `unknown`; the full projection of observed human
-  answers and approvals belongs to M.5c. Existing decisions from other rules are
-  preserved when there is no open request.
+- The independent human decision follows the stage's requests; see
+  [Human decision on a stage](#human-decision-on-a-stage).
 - An action-level request without an explicit stage applies only while that action
   belongs to the stage's run. Moving it preserves the historical assignment but
   removes its execution wait and requested decision from the old stage.
@@ -65,3 +62,63 @@ Execution follows ADR-0006:
 All writes use the caller's transaction and the existing journal/replay path. The
 caller must build the snapshot from current projections in that transaction; an
 observer input captured when a call started is not a current runtime snapshot.
+
+## Human decision on a stage
+
+A stage's requests are its questions, permission requests and review requests:
+items attached to the stage, and action-level items whose action is assigned to it
+and still belongs to the run. Blockers and failed checks are not requests.
+The rule `stage-decision` derives the decision from them (ADR-0006):
+
+- While any request is open, including a nonblocking one, the decision is
+  `requested` with the opening evidence of every open request.
+- Otherwise the most recently closed request decides (by `closed_at`, then id):
+  - a rule item linked to a question observation whose decision is `approved`,
+    `rejected` or `answered` takes that value and the observation's evidence;
+  - another item closed as `answered`, except a permission request, gives
+    `answered`;
+  - every other closing gives `unknown`: a wait that ended without an answer,
+    an observer `resolved` item, or a permission without an observed decision.
+  Without an observed decision, the evidence is that of the journal change that
+  closed the item.
+- A stage that never had a request keeps its decision. If its requests disappear,
+  for example because their action moved to another run, a derived decision
+  becomes `unknown` and keeps the evidence of the last derived decision.
+
+`refreshStageExecution` applies this rule together with execution.
+`refreshStageDecisions(transaction, { run, at })` applies only the decision for
+callers that change attention or question decisions without an observation
+snapshot. `applyObserverResponse` uses `refreshStageExecution` when it receives
+`observations` and `refreshStageDecisions` otherwise, so a `question.add` or an
+`attention.resolve` always reaches the stage in the same transaction. Both record
+a rule version only when a decision changes.
+
+## Criteria, cards and the run brief
+
+- `criterion.add` creates a `task` or `plan` criterion with status `not_checked`;
+  `plan` requires a plan fact among the evidence.
+- `criterion.assess` stores the observer's assessment: `not_checked`, `partial`,
+  `failed` or `reported_done`. The basis is `claimed` when every piece of evidence
+  is a solver statement and an LLM interpretation otherwise. The protocol has no
+  way to express `confirmed`, `passed_unversioned` or `stale`; an output that tries
+  is rejected by the schema with the whole response.
+- `card.add` cites a fragment of the final text of an agent: a final solver
+  message from a transcript or rollout, the `final_message` of a turn end (Stop
+  hook, Codex task completion) or of an agent end (SubagentStop). The coordinates
+  are UTF-16 offsets into that text, and the card text must equal the fragment.
+  The card's `source.fact` leads to the fact and, through its `seq`, to the
+  original raw record.
+- `brief.update` stores a nonempty retelling of the run goal beside the observed
+  goal from the first prompt. A user change of the brief after the base version is
+  a conflict.
+
+## Attention operations
+
+`question.add` and `attention.add` open observer items (`question`,
+`review_request` or `blocker`) without a runtime wait. `attention.resolve`
+closes only observer items and needs evidence; aimed at a rule item it rejects the
+whole response, and every fact of the batch returns to `pending`.
+`attention.likely_resolved` marks a rule item as probably answered with an LLM
+interpretation and evidence; the item stays open until a rule closes it or the
+user dismisses it. `attention.priority` records a recommendation with the call id
+and does not change the order of attention.
