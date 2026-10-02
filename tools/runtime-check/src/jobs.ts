@@ -82,13 +82,13 @@ const runInJob = async (
   id: string,
   invocation: Invocation,
 ): Promise<Record<string, unknown>> => {
-  const directory = join(context.work, `job-${id}`)
+  const prefix = join(context.work, `job-${id}`)
   const files = {
-    spec: `${directory}-spec.json`,
-    result: `${directory}-result.json`,
-    stdin: `${directory}-stdin.txt`,
-    stdout: `${directory}-stdout.txt`,
-    stderr: `${directory}-stderr.txt`,
+    spec: `${prefix}-spec.json`,
+    result: `${prefix}-result.json`,
+    stdin: `${prefix}-stdin.txt`,
+    stdout: `${prefix}-stdout.txt`,
+    stderr: `${prefix}-stderr.txt`,
   }
   await writeFile(files.stdin, invocation.stdin)
   await writeJson(files.spec, {
