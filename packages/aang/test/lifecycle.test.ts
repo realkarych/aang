@@ -76,7 +76,10 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
 
     const stopped = await sandbox.aang('stop')
 
-    expect(stopped).toMatchObject({ code: 0, stdout: `aang stopped: pid ${String(pid)}\n` })
+    expect(stopped, await readFile(join(sandbox.aangHome, 'daemon.log'), 'utf8')).toMatchObject({
+      code: 0,
+      stdout: `aang stopped: pid ${String(pid)}\n`,
+    })
     expect(isAlive(pid)).toBe(false)
     expect(await sandbox.daemonState()).toBeNull()
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
