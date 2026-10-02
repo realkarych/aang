@@ -1,6 +1,5 @@
-import { setTimeout as sleep } from 'node:timers/promises'
 import type { ScopeDecision } from '@aang/contract'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import {
   countsOf,
@@ -229,6 +228,12 @@ describe('the first cwd of a root session delivered after other records of the s
       })
 
       const early = await engine.ingest(hook)
+      vi.useFakeTimers({ toFake: ['Date'] })
+      onTestFinished(() => {
+        vi.useRealTimers()
+      })
+      vi.setSystemTime(Date.now() + 600_000)
+      await engine.ingest(batchOf({}))
       const decided = await engine.ingest(file.batch(1, lines.length))
 
       expect(countsOf(early)).toMatchObject({ inserted: 0, discarded: 0, waiting: 1 })
@@ -317,13 +322,13 @@ describe('a session seen only through hook events', () => {
     },
   )
 
-  test('without an observed start waits, then is decided by the earliest cwd of its root thread', async ({
+  test('without an observed start stays undecided after time passes and more batches arrive', async ({
     onTestFinished,
   }) => {
     const workspace = await createWorkspace(onTestFinished)
     const home = await createHome(onTestFinished)
     const store = home.open()
-    const engine = startEngine(store, { roots: [workspace.repository], holding: { startGraceMs: 1_500 } })
+    const engine = startEngine(store, { roots: [workspace.repository] })
     const subagent = hookBatch({
       file: 'h-subagent.evt',
       payload: claudeHook('PreToolUse.Bash.inside-subagent.json', { session: 's-late', cwd: workspace.outside }),
@@ -342,7 +347,11 @@ describe('a session seen only through hook events', () => {
     const batches = [subagent, first, second]
 
     const early = [await engine.ingest(subagent), await engine.ingest(first), await engine.ingest(second)]
-    await sleep(1_700)
+    vi.useFakeTimers({ toFake: ['Date'] })
+    onTestFinished(() => {
+      vi.useRealTimers()
+    })
+    vi.setSystemTime(Date.now() + 600_000)
     const settled = await engine.ingest(batchOf({}))
 
     expect(early.map((result) => [result.waiting, result.settled.length])).toEqual([
@@ -350,16 +359,16 @@ describe('a session seen only through hook events', () => {
       [2, 0],
       [3, 0],
     ])
-    expect(store.scopes.ofSession(sessionKey('claude', 's-late'))?.scope).toBe('watched')
-    expect(countsOf(settled)).toMatchObject({ inserted: 3, waiting: 0 })
-    expect(settledOf(settled, batches)).toEqual([0, 1, 2, -1])
+    expect(store.scopes.ofSession(sessionKey('claude', 's-late'))).toBeNull()
+    expect(countsOf(settled)).toMatchObject({ inserted: 0, waiting: 3 })
+    expect(settledOf(settled, batches)).toEqual([-1])
   })
 
   test('without any cwd of its root thread is not decided by its subagents', async ({ onTestFinished }) => {
     const workspace = await createWorkspace(onTestFinished)
     const home = await createHome(onTestFinished)
     const store = home.open()
-    const engine = startEngine(store, { roots: [workspace.repository], holding: { startGraceMs: 0 } })
+    const engine = startEngine(store, { roots: [workspace.repository] })
 
     const result = await engine.ingest(
       hookBatch({

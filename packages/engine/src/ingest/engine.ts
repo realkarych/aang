@@ -13,7 +13,7 @@ import type {
   StreamKey,
 } from '@aang/contract'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
-import { decidingCwd, type Evidence, noEvidence, withOwner } from './evidence.js'
+import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
   advanceFile,
   committedFile,
@@ -39,7 +39,6 @@ import { createScopeJudge, type WatchedRoots } from './scope.js'
 export interface HoldingLimits {
   readonly fileBytes: number
   readonly totalBytes: number
-  readonly startGraceMs: number
 }
 
 export interface EngineOptions {
@@ -107,7 +106,6 @@ const mebibyte = 1024 ** 2
 const defaultHolding: HoldingLimits = {
   fileBytes: 32 * mebibyte,
   totalBytes: 128 * mebibyte,
-  startGraceMs: 120_000,
 }
 
 const requireAdapter = (registry: AdapterRegistry, runtime: Runtime): Adapter => {
@@ -226,7 +224,6 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
     steps: ReadonlyMap<string, FileStep>,
     items: readonly Item[],
     scopes: SessionScopes,
-    now: number,
   ): Map<string, Evidence> => {
     const evidence = new Map(state.evidence)
     const note = (owner: RecordOwner, readFromStart: boolean): void => {
@@ -234,7 +231,7 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
         return
       }
       const name = sessionName(owner.session)
-      evidence.set(name, withOwner(evidence.get(name) ?? noEvidence(owner.session, now), owner, readFromStart))
+      evidence.set(name, withOwner(evidence.get(name) ?? noEvidence(owner.session), owner, readFromStart))
     }
     for (const step of steps.values()) {
       if (step.kind === 'held') {
@@ -254,12 +251,11 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
   const decideSessions = async (
     evidence: Map<string, Evidence>,
     scopes: SessionScopes,
-    now: number,
   ): Promise<SessionScope[]> => {
     const judge = createScopeJudge(watch)
     const decided: SessionScope[] = []
     for (const [name, gathered] of [...evidence]) {
-      const cwd = decidingCwd(gathered, now, limits.startGraceMs)
+      const cwd = gathered.start
       const stored = scopes.get(gathered.session)
       const scope = stored ?? (gathered.observer ? 'observer' : cwd === null ? null : await judge(cwd))
       if (scope !== null) {
@@ -442,6 +438,7 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
     const files = new Map(committed.files)
     const hooks: HeldHook[] = []
     const abandoned = new Set<CollectorBatch>()
+    const retained = new Set<CollectorBatch>()
     let deferred = 0
     let budget = limits.totalBytes
     const sources = [
@@ -454,12 +451,22 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
         files.set(file.path, file)
         budget -= file.bytes
         deferred += dropped
-      } else if (source.hook.hook.bytes <= budget) {
-        budget -= source.hook.hook.bytes
-        hooks.push(source.hook)
       } else {
-        abandoned.add(source.hook.batch)
-        deferred += 1
+        const { batch } = source.hook
+        if (!retained.has(batch) && !abandoned.has(batch)) {
+          const bytes = batch.records.reduce((total, record) => total + Buffer.byteLength(record.payload), 0)
+          if (bytes <= budget) {
+            budget -= bytes
+            retained.add(batch)
+          } else {
+            abandoned.add(batch)
+          }
+        }
+        if (retained.has(batch)) {
+          hooks.push(source.hook)
+        } else {
+          deferred += 1
+        }
       }
     }
     return { files, hooks, abandoned, deferred }
@@ -470,8 +477,8 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
     const steps = fileSteps(batch, now)
     const items = itemsOf(batch, now)
     const scopes = sessionScopes()
-    const evidence = gatherEvidence(steps, items, scopes, now)
-    const decided = await decideSessions(evidence, scopes, now)
+    const evidence = gatherEvidence(steps, items, scopes)
+    const decided = await decideSessions(evidence, scopes)
     const committed = commit(batch, items, steps, decided, scopes)
     const kept = withinLimits(committed)
     const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))

@@ -135,28 +135,80 @@ describe('a read failure reported by the real collector after the scope is decid
 })
 
 describe('a rollout that the real collector reads again after it is rewritten in place', () => {
-  test('with another thread yields the records of the new thread', async ({ onTestFinished }) => {
-    const workspace = await createWorkspace(onTestFinished)
-    const home = await createHome(onTestFinished)
-    const roots = await createLiveRoots(onTestFinished)
-    const store = home.open()
-    const path = join(roots.codex, 'sessions', '2026', '10', '01', 'rollout-2026-10-01T14-55-58-t.jsonl')
-    const oldLines = codexRollout({ thread: 't-old', cwd: workspace.repository })
-    const newLines = codexRollout({ thread: 't-new', cwd: workspace.repository }).slice(0, 20)
-    await writeLines(path, oldLines)
-    const live = runLive(onTestFinished, roots, store, startEngine(store, { roots: [workspace.repository] }))
-    await vi.waitFor(() => {
-      expect(recordsOf(store)).toHaveLength(oldLines.length)
-    }, settleTimeout)
+  test.for(['', '\n', '\n\r\n'])(
+    'with leading whitespace %j yields the records of the new thread',
+    async (prefix, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const roots = await createLiveRoots(onTestFinished)
+      const store = home.open()
+      const path = join(roots.codex, 'sessions', '2026', '10', '01', 'rollout-2026-10-01T14-55-58-t.jsonl')
+      const oldLines = codexRollout({ thread: 't-old', cwd: workspace.repository })
+      const newLines = codexRollout({ thread: 't-new', cwd: workspace.repository }).slice(0, 20)
+      await writeLines(path, oldLines)
+      const live = runLive(onTestFinished, roots, store, startEngine(store, { roots: [workspace.repository] }))
+      await vi.waitFor(() => {
+        expect(recordsOf(store)).toHaveLength(oldLines.length)
+      }, settleTimeout)
 
-    await writeFile(path, `${newLines.join('\n')}\n`)
-    const newStream = streamOf('codex', newLines)
-    await vi.waitFor(() => {
-      expect(recordsOf(store).filter((record) => record.stream === newStream)).toHaveLength(newLines.length)
-    }, settleTimeout)
-    await live.stop()
+      await writeFile(path, `${prefix}${newLines.join('\n')}\n`)
+      const newStream = streamOf('codex', newLines)
+      await vi.waitFor(() => {
+        expect(recordsOf(store).filter((record) => record.stream === newStream)).toHaveLength(newLines.length)
+      }, settleTimeout)
+      await live.stop()
 
-    expect(store.scopes.ofSession(sessionKey('codex', 't-new'))?.scope).toBe('watched')
-    expect(store.cursors.list().map(({ stream, line }) => [stream, line])).toEqual([[newStream, newLines.length]])
-  })
+      expect(store.scopes.ofSession(sessionKey('codex', 't-new'))?.scope).toBe('watched')
+      expect(store.cursors.list().map(({ stream, line }) => [stream, line])).toEqual([
+        [newStream, newLines.length + prefix.split('\n').length - 1],
+      ])
+    },
+  )
+})
+
+describe('metadata arriving after a transcript exceeds its holding budget', () => {
+  test.for(['file', 'total', 'unnamed'] as const)(
+    'still decides the scope and requests a reread when limited by %s',
+    async (limit, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const roots = await createLiveRoots(onTestFinished)
+      const store = home.open()
+      const transcript = claudeTranscript({ session: 's-full', cwd: workspace.repository })
+      const lines = limit === 'unnamed' ? ['{}', '{}', ...transcript] : transcript
+      const path = claudeFile(roots, 's-full.jsonl')
+      const firstBytes = Buffer.byteLength(lines[0] ?? '')
+      const other = claudeTranscript({ session: 's-other', cwd: workspace.repository }).slice(0, 2)
+      const otherBytes = other.reduce((total, line) => total + Buffer.byteLength(line), 0)
+      const engine = startEngine(store, {
+        all: true,
+        holding: limit === 'total' ? { totalBytes: otherBytes + firstBytes } : { fileBytes: firstBytes },
+      })
+      const live = runLive(onTestFinished, roots, store, engine)
+      if (limit === 'total') {
+        await writeLines(claudeFile(roots, 's-other.jsonl'), other)
+        await vi.waitFor(() => {
+          expect(live.results().at(-1)?.waiting).toBe(2)
+        }, settleTimeout)
+      }
+      await writeLines(path, lines.slice(0, 2))
+      await vi.waitFor(() => {
+        expect(live.results().at(-1)).toMatchObject({ waiting: limit === 'total' ? 3 : 1, deferred: 1 })
+      }, settleTimeout)
+      await appendLines(path, lines.slice(2))
+      const stream = streamOf('claude', transcript)
+      await vi.waitFor(() => {
+        expect(live.results().flatMap((result) => result.rescan)).toEqual([stream])
+      }, settleTimeout)
+      await live.stop()
+      expect(store.scopes.ofSession(sessionKey('claude', 's-full'))?.scope).toBe('watched')
+      expect(store.cursors.list()).toEqual([])
+      const reread = runLive(onTestFinished, roots, store, engine)
+      await vi.waitFor(() => {
+        expect(store.cursors.list()[0]?.line).toBe(lines.length)
+      }, settleTimeout)
+      await reread.stop()
+      expect(recordsOf(store)).toHaveLength(lines.length)
+    },
+  )
 })

@@ -685,6 +685,45 @@ describe('waiting records', () => {
     expect(store.cursors.list()).toContainEqual(subagent.cursor(subagentLines.length, subagentStream))
   })
 
+  test.for(['waiting', 'committed'] as const)(
+    'counts a large %s neighbour when retaining a small hook from the same batch',
+    async (neighbour, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const small = claudeHook('PreToolUse.Bash.json', { session: 's-small', cwd: workspace.repository })
+      const large = claudeHook(
+        neighbour === 'waiting' ? 'PreToolUse.Bash.json' : 'SessionStart.startup.json',
+        { session: 's-large', cwd: workspace.repository },
+        { padding: 'x'.repeat(4 * 1024 ** 2) },
+      )
+      const engine = startEngine(store, {
+        roots: [workspace.repository],
+        holding: { totalBytes: Buffer.byteLength(small) },
+      })
+      const batch = hookBatch(
+        { file: 'small.evt', payload: small, env: claudeHookEnv },
+        { file: 'large.evt', payload: large, env: claudeHookEnv },
+      )
+
+      const held = await engine.ingest(batch)
+
+      expect(held).toMatchObject({ waiting: 0, deferred: neighbour === 'waiting' ? 2 : 1, settled: [] })
+      const start = await engine.ingest(
+        hookBatch({
+          file: 'start.evt',
+          payload: claudeHook('SessionStart.startup.json', { session: 's-small', cwd: workspace.repository }),
+          env: claudeHookEnv,
+        }),
+      )
+      expect(start.inserted).toBe(1)
+      expect(start.settled).not.toContain(batch)
+      const redelivered = await engine.ingest(batch)
+      expect(redelivered).toMatchObject({ inserted: 1, waiting: 0 })
+      expect(redelivered.settled).toEqual(neighbour === 'waiting' ? [] : [batch])
+    },
+  )
+
   test('beyond the total limit leave their hook events to the spool, and the batch is never settled', async ({
     onTestFinished,
   }) => {

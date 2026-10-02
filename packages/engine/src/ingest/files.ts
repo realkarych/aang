@@ -22,14 +22,14 @@ export interface HeldFile {
 export interface CommittedFile {
   readonly kind: 'committed'
   readonly path: string
-  readonly identity: FileIdentity
+  readonly cursor: FileCursor
   readonly stream: StreamKey | null
 }
 
 export interface LaggingFile {
   readonly kind: 'lagging'
   readonly path: string
-  readonly identity: FileIdentity
+  readonly cursor: FileCursor
   readonly stream: StreamKey
 }
 
@@ -61,15 +61,15 @@ export type FileStep =
 
 const streamProbeLines = 16
 
-const identityOf = (file: TrackedFile): FileIdentity => (file.kind === 'held' ? file.cursor : file.identity)
-
 const sameFile = (left: FileIdentity, right: FileIdentity): boolean => left.dev === right.dev && left.ino === right.ino
 
-const progressed = (file: TrackedFile): boolean => file.kind !== 'held' || file.cursor.offset > 0
-
-const readsFromStart = (arrived: readonly CollectedRecord[]): boolean => {
+const rereads = (prior: FileCursor, cursor: FileCursor, arrived: readonly CollectedRecord[]): boolean => {
   const position = arrived[0]?.position
-  return position?.kind === 'line' && position.offset === 0
+  return (
+    cursor.offset < prior.offset ||
+    cursor.line < prior.line ||
+    (position?.kind === 'line' && (position.offset < prior.offset || position.line <= prior.line))
+  )
 }
 
 const continuing = (
@@ -77,7 +77,7 @@ const continuing = (
   cursor: FileCursor,
   arrived: readonly CollectedRecord[],
 ): TrackedFile | null =>
-  prior !== undefined && sameFile(identityOf(prior), cursor) && !(readsFromStart(arrived) && progressed(prior))
+  prior !== undefined && sameFile(prior.cursor, cursor) && !rereads(prior.cursor, cursor, arrived)
     ? prior
     : null
 
@@ -134,15 +134,18 @@ const advanceHeld = (
   cursor: FileCursor,
   arrived: readonly CollectedRecord[],
 ): FileStep => {
-  if (held.full) {
-    return { kind: 'held', file: { ...held, cursor }, sightings: [], skipped: arrived.length }
-  }
+  const next = (file: HeldFile, sightings: readonly RecordOwner[]): FileStep => ({
+    kind: 'held',
+    file: held.full ? { ...file, bytes: held.bytes, lines: file.lines.slice(0, held.lines.length) } : file,
+    sightings,
+    skipped: held.full ? arrived.length : 0,
+  })
   const added = arrived.map(unowned)
   const bytes = held.bytes + totalBytes(added)
   if (held.stream !== null) {
     const { sightings, ...named } = nameLines(adapters, held, held.stream, added)
     const file = { ...held, ...named, cursor, bytes, lines: [...held.lines, ...named.lines] }
-    return { kind: 'held', file, sightings, skipped: 0 }
+    return next(file, sightings)
   }
   const lines = [...held.lines, ...added]
   const probe = probeStream(adapters, lines)
@@ -157,10 +160,10 @@ const advanceHeld = (
         gaps: held.gaps,
       }
     case 'unnamed':
-      return { kind: 'held', file: { ...held, cursor, lines, bytes }, sightings: [], skipped: 0 }
+      return next({ ...held, cursor, lines, bytes }, [])
     case 'named': {
       const { sightings, ...named } = nameLines(adapters, held, probe.stream, lines)
-      return { kind: 'held', file: { ...held, ...named, cursor, bytes, stream: probe.stream }, sightings, skipped: 0 }
+      return next({ ...held, ...named, cursor, bytes, stream: probe.stream }, sightings)
     }
   }
 }
@@ -193,21 +196,19 @@ export const advanceFile = (
 }
 
 export const trackedFiles = (cursors: readonly FileCursor[]): Map<string, TrackedFile> =>
-  new Map(
-    cursors.map(({ path, dev, ino, stream }) => [path, { kind: 'committed', path, identity: { dev, ino }, stream }]),
-  )
+  new Map(cursors.map((cursor) => [cursor.path, committedFile(cursor, cursor.stream)]))
 
 export const committedFile = (cursor: FileCursor, stream: StreamKey | null): CommittedFile => ({
   kind: 'committed',
   path: cursor.path,
-  identity: { dev: cursor.dev, ino: cursor.ino },
+  cursor,
   stream,
 })
 
 export const laggingFile = (cursor: FileCursor, stream: StreamKey): LaggingFile => ({
   kind: 'lagging',
   path: cursor.path,
-  identity: { dev: cursor.dev, ino: cursor.ino },
+  cursor,
   stream,
 })
 

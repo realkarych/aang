@@ -4,16 +4,12 @@ export interface Evidence {
   readonly session: SessionKey
   readonly observer: boolean
   readonly start: string | null
-  readonly fallback: string | null
-  readonly since: number
 }
 
-export const noEvidence = (session: SessionKey, since: number): Evidence => ({
+export const noEvidence = (session: SessionKey): Evidence => ({
   session,
   observer: false,
   start: null,
-  fallback: null,
-  since,
 })
 
 export const withOwner = (evidence: Evidence, owner: RecordOwner, readFromStart: boolean): Evidence => {
@@ -22,9 +18,5 @@ export const withOwner = (evidence: Evidence, owner: RecordOwner, readFromStart:
     ...evidence,
     observer: evidence.observer || owner.observer,
     start: evidence.start ?? (owner.start || readFromStart ? rootCwd : null),
-    fallback: evidence.fallback ?? rootCwd,
   }
 }
-
-export const decidingCwd = (evidence: Evidence, now: number, startGraceMs: number): string | null =>
-  evidence.start ?? (now - evidence.since >= startGraceMs ? evidence.fallback : null)
