@@ -1,8 +1,9 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import { type ChildProcess, execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { chmod, mkdir, mkdtemp, realpath, rename, rm, utimes, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { tmpdir, userInfo } from 'node:os'
 import { dirname, join } from 'node:path'
+import { promisify } from 'node:util'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import { type CollectorService, createCollector, type ReadRetry } from '@aang/collector'
@@ -168,6 +169,29 @@ export const sleep = (milliseconds: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, milliseconds)
   })
+
+export const preventListing = async (sandbox: Sandbox, path: string): Promise<() => Promise<void>> => {
+  const run = promisify(execFile)
+  const username = userInfo().username
+  if (process.platform === 'win32') {
+    await run('icacls.exe', [path, '/deny', `${username}:(RD)`])
+  } else {
+    await chmod(path, 0o000)
+  }
+  let held = true
+  const release = async (): Promise<void> => {
+    if (held) {
+      if (process.platform === 'win32') {
+        await run('icacls.exe', [path, '/remove:d', username])
+      } else {
+        await chmod(path, 0o700)
+      }
+      held = false
+    }
+  }
+  sandbox.cleanup(release)
+  return release
+}
 
 export const holdExclusively = async (sandbox: Sandbox, path: string): Promise<() => Promise<void>> => {
   if (process.platform !== 'win32') {

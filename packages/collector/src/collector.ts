@@ -1,4 +1,4 @@
-import type { AdapterRegistry, Collector, CollectorBatch, Config, FileCursor, Runtime } from '@aang/contract'
+import type { AdapterRegistry, CollectedGap, Collector, CollectorBatch, Config, FileCursor, Runtime } from '@aang/contract'
 import { createSpoolSource, type SpoolStats } from './spool.js'
 import { createTailSource, type ReadRetry, tailRoots } from './tail.js'
 import { createWakeup } from './wakeup.js'
@@ -9,6 +9,7 @@ export interface CollectorOptions {
   readonly config: Pick<Config, 'collector' | 'spool' | 'watch'>
   readonly adapters: AdapterRegistry
   readonly readRetry?: ReadRetry
+  readonly openGaps?: readonly CollectedGap[]
 }
 
 export interface CollectorService extends Collector {
@@ -55,7 +56,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   async function* batches(cursors: readonly FileCursor[]): AsyncGenerator<CollectorBatch> {
     try {
       await spool.open()
-      tail.open(cursors)
+      tail.open(cursors, options.openGaps ?? [])
       while (running()) {
         const batch = (await spool.take()) ?? (await tail.take())
         if (batch === null) {

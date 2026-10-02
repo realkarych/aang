@@ -1,7 +1,25 @@
-import { appendFile, utimes } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, utimes } from 'node:fs/promises'
+import { join } from 'node:path'
 import { expect, test, vi } from 'vitest'
-import { createSandbox, daysAgo, runCollector, sleep } from './sandbox.js'
+import { createSandbox, daysAgo, preventListing, runCollector, sleep } from './sandbox.js'
 import { sessions, writeSession } from './sessions.js'
+
+test('periodic discovery reads healthy sources while a sibling directory cannot be listed', async ({ onTestFinished }) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const session = sessions[1]
+  const blocked = join(sandbox.codex, 'sessions', 'blocked')
+  await mkdir(blocked, { recursive: true })
+  const release = await preventListing(sandbox, blocked)
+  await expect(readdir(blocked)).rejects.toThrow()
+  const running = runCollector(sandbox, { fsWatch: false, rootsScanIntervalMs: 50 })
+  await writeSession(session.path(sandbox), session.lines)
+  await vi.waitFor(() => {
+    expect(running.payloads()).toEqual(session.lines)
+  }, { timeout: 5_000 })
+  await release()
+  await sleep(200)
+  expect(running.payloads()).toEqual(session.lines)
+})
 
 test('backfill skips files outside lookback until they are modified, while saved cursors ignore age', async ({ onTestFinished }) => {
   const sandbox = await createSandbox(onTestFinished)

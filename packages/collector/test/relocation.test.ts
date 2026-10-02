@@ -1,7 +1,7 @@
 import { appendFile, mkdir, rename, rm, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { expect, test, vi } from 'vitest'
-import { createSandbox, daysAgo, holdExclusively, runCollector, sleep } from './sandbox.js'
+import { createSandbox, daysAgo, holdExclusively, preventListing, runCollector, sleep } from './sandbox.js'
 import { sessions, writeSession } from './sessions.js'
 
 test.for(sessions)('$runtime relocation preserves the stream and raw keys, then follows appended lines', async (session, { onTestFinished }) => {
@@ -147,7 +147,7 @@ test.for(sessions)('$runtime restart locates an old moved stream and does not co
   expect(third.gaps()).toEqual([])
 })
 
-test('a locked relocation candidate delays source_lost and is retried until it can be identified', async ({ onTestFinished }) => {
+test.for(['missing', 'replaced', 'unlisted'] as const)('a blocked relocation candidate is retried independently of its old path: %s', async (scenario, { onTestFinished }) => {
   const sandbox = await createSandbox(onTestFinished)
   const session = sessions[1]
   const path = session.path(sandbox)
@@ -162,7 +162,12 @@ test('a locked relocation candidate delays source_lost and is retried until it c
   await mkdir(dirname(destination), { recursive: true })
   await rename(path, destination)
   await utimes(destination, daysAgo(30), daysAgo(30))
-  const release = await holdExclusively(sandbox, destination)
+  const release = await (scenario === 'unlisted' ? preventListing(sandbox, dirname(destination)) : holdExclusively(sandbox, destination))
+  const replace = scenario !== 'missing'
+  const replacement = replace ? session.lines.map((line) => line.replaceAll('thread-1', 'thread-2')) : []
+  if (replace) {
+    await writeSession(path, replacement)
+  }
   const running = runCollector(sandbox, {
     fsWatch: false,
     rootsScanIntervalMs: 60_000,
@@ -171,11 +176,12 @@ test('a locked relocation candidate delays source_lost and is retried until it c
   })
   await vi.waitFor(() => {
     expect(running.gaps().some(({ key }) => key.gap === 'read_failed')).toBe(true)
-  })
+  }, { timeout: 5_000 })
+  expect(running.gaps().find(({ key }) => key.gap === 'read_failed')?.stream).toBe(session.stream)
   expect(running.gaps().some(({ key }) => key.gap === 'source_lost')).toBe(false)
   await release()
   await vi.waitFor(() => {
-    expect(running.payloads()).toEqual(session.lines)
+    expect(running.payloads()).toEqual([...replacement, ...session.lines])
   }, { timeout: 5_000 })
   await vi.waitFor(() => {
     expect(running.gaps().filter(({ closed_at }) => closed_at !== null)).toHaveLength(
