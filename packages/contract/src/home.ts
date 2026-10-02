@@ -1,5 +1,6 @@
+import { randomUUID } from 'node:crypto'
 import { lstat, readdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { z } from 'zod'
 import { Listener } from './api.js'
 import { EpochNs } from './primitives.js'
@@ -150,8 +151,30 @@ export const readDaemonState = async (path: string): Promise<DaemonState | null>
   }
 }
 
+const replaceFile = async (path: string, content: string): Promise<void> => {
+  const staging = `${path}.${randomUUID()}.tmp`
+  try {
+    await writeFile(staging, content, { mode: 0o600, flag: 'wx' })
+    await rename(staging, path)
+  } catch (error) {
+    await rm(staging, { force: true })
+    throw error
+  }
+}
+
+const daemonStateWrites = new Map<string, Promise<void>>()
+
 export const writeDaemonState = async (path: string, state: DaemonState): Promise<void> => {
-  const staging = `${path}.${String(process.pid)}.tmp`
-  await writeFile(staging, `${JSON.stringify(DaemonState.encode(state))}\n`, { mode: 0o600 })
-  await rename(staging, path)
+  const content = `${JSON.stringify(DaemonState.encode(state))}\n`
+  const target = resolve(path)
+  const replace = (): Promise<void> => replaceFile(target, content)
+  const write = (daemonStateWrites.get(target) ?? Promise.resolve()).then(replace, replace)
+  daemonStateWrites.set(target, write)
+  try {
+    await write
+  } finally {
+    if (daemonStateWrites.get(target) === write) {
+      daemonStateWrites.delete(target)
+    }
+  }
 }

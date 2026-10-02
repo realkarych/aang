@@ -75,6 +75,13 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
     expect(await readSpoolState(paths.spool)).toMatchObject({ files: 1, leaseExpiresAt: null, stopped: true })
   })
 
+  test('a spool path that is not a directory is an error, not an empty spool', async ({ expect, onTestFinished }) => {
+    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    await place(paths.spool, 'not a directory')
+
+    await expect(readSpoolState(paths.spool)).rejects.toThrow()
+  })
+
   test('revoking leases of a spool that does not exist succeeds', async ({ expect, onTestFinished }) => {
     const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
 
@@ -104,6 +111,50 @@ describe.concurrent('files shared by the CLI and the daemon in AANG_HOME', () =>
 
     expect(await readDaemonState(paths.daemonState)).toEqual(overThreshold)
     expect(await readdir(paths.home)).toEqual(['daemon.json'])
+  })
+
+  test('concurrent writes of the daemon state all succeed and the last one is stored whole', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    await mkdir(paths.home, { recursive: true })
+    const states = Array.from(
+      { length: 4 },
+      (_, index): DaemonState => ({
+        pid: 4242 + index,
+        started_at: EpochNs.parse(1_900_000_000_123_456_789n),
+        api: { host: '127.0.0.1', port: 4280 },
+        spool_over_threshold:
+          index % 2 === 0 ? null : { detected_at: EpochNs.parse(1_900_000_060_987_654_321n), bytes: 1_073_741_825 },
+      }),
+    )
+
+    await Promise.all(states.map((state) => writeDaemonState(paths.daemonState, state)))
+
+    expect(await readDaemonState(paths.daemonState)).toEqual(states.at(-1))
+    expect(await readdir(paths.home)).toEqual(['daemon.json'])
+  })
+
+  test('a daemon state write that cannot replace the file fails without leaving a staging file', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const paths = aangHomePaths(await temporaryAangHome(onTestFinished))
+    await mkdir(paths.daemonState, { recursive: true })
+    const state: DaemonState = {
+      pid: 4242,
+      started_at: EpochNs.parse(1_900_000_000_123_456_789n),
+      api: { host: '127.0.0.1', port: 4280 },
+      spool_over_threshold: null,
+    }
+
+    await expect(writeDaemonState(paths.daemonState, state)).rejects.toThrow()
+    expect(await readdir(paths.home)).toEqual(['daemon.json'])
+
+    await rm(paths.daemonState, { recursive: true })
+    await writeDaemonState(paths.daemonState, state)
+    expect(await readDaemonState(paths.daemonState)).toEqual(state)
   })
 
   test('a malformed daemon state file is an error, not an absent daemon', async ({ expect, onTestFinished }) => {

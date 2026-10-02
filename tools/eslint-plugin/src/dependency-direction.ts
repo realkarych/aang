@@ -1,11 +1,18 @@
 import { posix, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { AST_NODE_TYPES, ASTUtils, ESLintUtils, type TSESTree } from '@typescript-eslint/utils'
-import { allowedDependencies, isPackageDirectory } from './dependencies.js'
+import { allowedDependencies, isPackageDirectory, locatableDependencies } from './dependencies.js'
 import { staticSource } from './syntax.js'
 import { toPosix, workspaceRoot } from './workspace.js'
 
-type MessageId = 'forbiddenPackage' | 'relativeIntoOwnImplementation' | 'relativeOutsidePackage' | 'unknownPackage'
+type MessageId =
+  | 'forbiddenPackage'
+  | 'locateOnlyPackage'
+  | 'relativeIntoOwnImplementation'
+  | 'relativeOutsidePackage'
+  | 'unknownPackage'
+
+type Reference = 'import' | 'locate'
 
 interface PackageFile {
   readonly path: string
@@ -59,6 +66,8 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
     docs: { description: 'Enforce the ADR-0011 dependency direction between packages' },
     messages: {
       forbiddenPackage: '{{importer}} {{code}} may not import {{imported}}; allowed: {{allowed}}',
+      locateOnlyPackage:
+        '{{importer}} {{code}} may only locate {{imported}} with import.meta.resolve; it may not import its code',
       relativeIntoOwnImplementation:
         "{{importer}} {{code}} may not reach {{target}} through the relative path '{{source}}'; import {{importer}} by name",
       relativeOutsidePackage:
@@ -83,6 +92,7 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       }
     }
     const allowed = allowedDependencies(file.directory, file.productCode)
+    const locatable = locatableDependencies(file.directory)
     const data = {
       importer: packageName(file.directory),
       code: file.productCode ? 'product code' : 'test code',
@@ -116,7 +126,7 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       }
     }
 
-    const check = (node: TSESTree.Node, source: string | undefined): void => {
+    const check = (node: TSESTree.Node, source: string | undefined, reference: Reference = 'import'): void => {
       if (source === undefined) {
         return
       }
@@ -126,6 +136,12 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       }
       const imported = importedPackage(source)
       if (imported === undefined || imported === file.directory || allowed.some((name) => name === imported)) {
+        return
+      }
+      if (locatable.some((name) => name === imported)) {
+        if (reference === 'import') {
+          context.report({ node, messageId: 'locateOnlyPackage', data: { ...data, imported: packageName(imported) } })
+        }
         return
       }
       context.report({ node, messageId: 'forbiddenPackage', data: { ...data, imported: packageName(imported) } })
@@ -166,7 +182,7 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
         }
         const source = staticSource(argument)
         if (parent === undefined || (source !== undefined && !isRelative(source))) {
-          check(argument, source)
+          check(argument, source, 'locate')
         }
       },
     }

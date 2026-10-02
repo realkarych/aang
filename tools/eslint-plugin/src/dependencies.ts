@@ -26,7 +26,11 @@ const productionDependencies: Readonly<Record<PackageDirectory, readonly Package
   cli: ['contract', 'hook'],
   web: ['contract'],
   testkit: ['contract'],
-  aang: ['cli', 'daemon', 'web'],
+  aang: ['cli', 'daemon'],
+}
+
+const locateOnlyDependencies: Readonly<Partial<Record<PackageDirectory, readonly PackageDirectory[]>>> = {
+  aang: ['web'],
 }
 
 const testDependenciesOfEveryPackage: readonly PackageDirectory[] = ['testkit']
@@ -43,3 +47,6 @@ export const allowedDependencies = (directory: PackageDirectory, productCode: bo
     (dependency) => dependency !== directory,
   )
 }
+
+export const locatableDependencies = (directory: PackageDirectory): readonly PackageDirectory[] =>
+  locateOnlyDependencies[directory] ?? []
