@@ -21,6 +21,19 @@ CREATE TABLE objects (
 CREATE INDEX objects_run ON objects (run_id, kind);
 CREATE INDEX objects_change_seq ON objects (change_seq);
 
+CREATE TABLE object_removals (
+  id TEXT PRIMARY KEY,
+  kind TEXT NOT NULL CHECK (kind IN ('agent')),
+  entity_key TEXT NOT NULL,
+  run_id TEXT,
+  replaced_by TEXT NOT NULL CHECK (replaced_by <> id),
+  change_seq INTEGER NOT NULL CHECK (change_seq > 0),
+  UNIQUE (kind, entity_key)
+) STRICT;
+
+CREATE INDEX object_removals_replaced_by ON object_removals (kind, replaced_by);
+CREATE INDEX object_removals_change_seq ON object_removals (change_seq);
+
 CREATE TABLE links (
   kind TEXT NOT NULL,
   from_id TEXT NOT NULL,

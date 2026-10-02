@@ -19,6 +19,15 @@ const object: Row = {
   change_seq: '1',
 }
 
+const removal: Row = {
+  id: "'o3'",
+  kind: "'agent'",
+  entity_key: "'claude:s1:a7'",
+  run_id: "'r1'",
+  replaced_by: "'o4'",
+  change_seq: '2',
+}
+
 const link: Row = {
   kind: "'spawned'",
   from_id: "'o1'",
@@ -54,6 +63,7 @@ beforeAll(async () => {
     [
       insert('runs', run),
       insert('objects', object),
+      insert('object_removals', removal),
       insert('links', link),
       "INSERT INTO blobs (hash, content) VALUES ('sha256:aa', x'6869')",
     ].join('; '),
@@ -94,6 +104,25 @@ const cases: readonly SchemaCase[] = [
     name: 'observation object attributes must be JSON',
     statement: insert('objects', object, { id: "'o2'", kind: "'agent'", data: "'main'" }),
     error: /CHECK constraint failed: json_valid\(data\)/,
+  },
+  {
+    name: 'a removed agent not linked to a run is accepted',
+    statement: insert('object_removals', removal, { id: "'o5'", entity_key: "'claude:s1:a8'", run_id: 'NULL' }),
+  },
+  {
+    name: 'an object is removed once',
+    statement: insert('object_removals', removal, { entity_key: "'claude:s1:a8'" }),
+    error: /UNIQUE constraint failed: object_removals\.id/,
+  },
+  {
+    name: 'an object cannot be replaced by itself',
+    statement: insert('object_removals', removal, { id: "'o5'", entity_key: "'claude:s1:a8'", replaced_by: "'o5'" }),
+    error: /CHECK constraint failed: replaced_by <> id/,
+  },
+  {
+    name: 'only an agent can be removed',
+    statement: insert('object_removals', removal, { id: "'o5'", kind: "'session'", entity_key: "'claude:s2'" }),
+    error: /CHECK constraint failed: kind IN/,
   },
   {
     name: 'a link interpreted by a rule is accepted',
