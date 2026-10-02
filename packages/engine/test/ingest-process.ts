@@ -22,6 +22,8 @@ const collector = createCollector({
   openGaps: gapsOf(store).filter((gap) => gap.closed_at === null),
 })
 
+writeSync(1, 'ready\n')
+
 let batches = 0
 for await (const batch of collector.start(store.cursors.list())) {
   const { settled } = await engine.ingest(batch)

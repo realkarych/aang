@@ -15,3 +15,4 @@ export type {
 } from './observer-calls.js'
 export type { InterpretationReader, InterpretationWriter } from './interpretations.js'
 export { openStore, type Store, type StoreOptions, type Transaction } from './store.js'
+export type { Observation, ObservationDraft, ObservationReader, ObservationWriter } from './observations.js'

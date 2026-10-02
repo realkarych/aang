@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { RawRecord, type RawRecordDraft, RawSeq } from '@aang/contract'
+import { type EpochNs, RawRecord, type RawRecordDraft, RawSeq, type StreamKey } from '@aang/contract'
 import { decodeJson, decodeText, encodeJson, encodeText } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
 
@@ -9,10 +9,13 @@ export interface RawInsertResult {
 }
 
 export interface RawRecordReader {
+  readonly pendingOtel: (after: RawSeq | null, limit: number) => RawRecord[]
   readonly get: (seq: RawSeq) => RawRecord | null
 }
 
 export interface RawRecordWriter extends RawRecordReader {
+  readonly markParsed: (seq: RawSeq, stream: StreamKey, sourceTs: EpochNs | null) => void
+  readonly discardUnparsed: (seq: RawSeq) => void
   readonly insert: (draft: RawRecordDraft) => RawInsertResult
 }
 
@@ -72,7 +75,14 @@ export const createRawRecords = (database: DatabaseSync): RawRecordRepository =>
   const selectSeqByKey = prepareStatement(database, 'SELECT seq FROM raw_records WHERE dedupe_key = ?')
   const insertRecord = prepareStatement(database, `${insertInto('raw_records', insertedColumns)} RETURNING seq`)
 
+  const selectPending = prepareStatement(database, `SELECT ${rawRecordColumns} FROM raw_records WHERE channel = 'otel' AND parse_state = 'unknown' AND seq > ? ORDER BY seq LIMIT ?`)
+  const markParsed = prepareStatement(database, "UPDATE raw_records SET parse_state = 'parsed', stream = ?, source_ts = ?, change_seq = ? WHERE seq = ? AND parse_state = 'unknown'")
+  const discard = prepareStatement(database, "DELETE FROM raw_records WHERE seq = ? AND parse_state = 'unknown' AND NOT EXISTS (SELECT 1 FROM facts WHERE facts.seq = raw_records.seq)")
   const reader: RawRecordReader = {
+    pendingOtel: (after, limit) => {
+      if (!Number.isSafeInteger(limit) || limit < 1) { throw new RangeError('pending record limit must be positive') }
+      return (selectPending.all(after ?? 0, limit) as RawRecordRow[]).map(toRawRecord)
+    },
     get: (seq) => {
       const row = selectBySeq.get(seq) as RawRecordRow | undefined
       return row === undefined ? null : toRawRecord(row)
@@ -81,6 +91,14 @@ export const createRawRecords = (database: DatabaseSync): RawRecordRepository =>
 
   const writer = (context: WriteContext): RawRecordWriter => ({
     ...reader,
+    markParsed: (seq, stream, sourceTs) => {
+      context.assertActive()
+      markParsed.run(stream, sourceTs, context.nextChangeSeq(), seq)
+    },
+    discardUnparsed: (seq) => {
+      context.assertActive()
+      discard.run(seq)
+    },
     insert: (draft) => {
       context.assertActive()
       const existing = selectSeqByKey.get(draft.dedupe_key) as Pick<RawRecordRow, 'seq'> | undefined

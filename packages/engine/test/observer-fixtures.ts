@@ -109,6 +109,11 @@ export const setupObserver = async (onTestFinished: TestContext['onTestFinished'
           put('run.create', { kind: 'session_membership', value: { run, session } }, observed, []),
         ],
       })
+      const observation = transaction.observations.getSession(session)
+      if (observation === null) {
+        throw new Error('the transcript must create a session observation')
+      }
+      transaction.observations.save({ ...observation, run })
     }
     applyChangeSet(transaction, {
       run: runA,
