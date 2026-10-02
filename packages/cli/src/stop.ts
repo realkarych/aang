@@ -1,4 +1,4 @@
-import { mkdir, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, rm, writeFile } from 'node:fs/promises'
 import { endpoints, ShutdownResponse } from '@aang/contract'
 import { processEnvironment, resolveAangHome } from '@aang/contract/config-file'
 import {
@@ -9,12 +9,22 @@ import {
   readUiToken,
   revokeLeases,
 } from '@aang/contract/home'
-import { daemonUrl, isAlive, waitForExit } from './daemon-process.js'
+import { daemonUrl, isAlive, waitForExit, waitUntil } from './daemon-process.js'
 import { describeError, type Output } from './output.js'
 
 const shutdownTimeoutMs = 5_000
 const exitTimeoutMs = 15_000
-const exitGraceMs = 2_000
+const markerNoticeMs = 2_000
+
+const isRemoved = (path: string): Promise<boolean> =>
+  access(path).then(
+    () => false,
+    () => true,
+  )
+
+const exitsOnMarker = async (paths: AangHomePaths, pid: number): Promise<boolean> =>
+  (await waitUntil(async () => !isAlive(pid) || (await isRemoved(paths.daemonState)), markerNoticeMs)) &&
+  (await waitForExit(pid, exitTimeoutMs))
 
 const requestShutdown = async (paths: AangHomePaths, state: DaemonState, output: Output): Promise<boolean> => {
   try {
@@ -64,7 +74,7 @@ export const stop = async (output: Output): Promise<number> => {
   }
   await revokeLeases(paths.spool)
   if (state !== null && isAlive(state.pid)) {
-    if (await waitForExit(state.pid, exitGraceMs)) {
+    if (await exitsOnMarker(paths, state.pid)) {
       await rm(paths.daemonState, { force: true })
       output.out(`aang stopped: pid ${String(state.pid)} exited after the stop marker`)
       return 0
