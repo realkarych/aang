@@ -2,7 +2,7 @@ import { chmod, readdir, readFile, stat, unlink, writeFile } from 'node:fs/promi
 import { join } from 'node:path'
 import { describe, test } from 'vitest'
 import { isAlive, kill, resume, sleep, suspend, waitUntil } from './processes.js'
-import { createSandbox, hookMayWrite, type SpoolView, startedPid } from './sandbox.js'
+import { createSandbox, type SpoolView, startedPid } from './sandbox.js'
 
 const posix = process.platform !== 'win32'
 const permissionsRestrict = posix && process.getuid?.() !== 0
@@ -20,7 +20,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(started.stdout).toMatch(/^aang started: pid [0-9]+, http:\/\/127\.0\.0\.1:[0-9]+$/m)
     const state = await sandbox.daemonState()
     expect(state).toMatchObject({ pid: startedPid(started), api: { host: '127.0.0.1' } })
-    expect(hookMayWrite(await sandbox.spoolView())).toBe(true)
+    expect(await sandbox.hookWrites()).toBe(true)
     if (posix) {
       expect((await stat(sandbox.aangHome)).mode & 0o777).toBe(0o700)
       expect((await stat(join(sandbox.aangHome, 'token'))).mode & 0o777).toBe(0o600)
@@ -32,7 +32,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(second.stderr).toContain(`an aang daemon is already running for ${sandbox.aangHome}`)
     expect(await sandbox.daemonState()).toEqual(state)
     expect(isAlive(startedPid(started))).toBe(true)
-    expect(hookMayWrite(await sandbox.spoolView())).toBe(true)
+    expect(await sandbox.hookWrites()).toBe(true)
 
     const foreground = await sandbox.aang('start', '--foreground')
 
@@ -54,7 +54,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     sandbox.track(pid)
     expect(await sandbox.daemonState()).toMatchObject({ pid })
     const view = await sandbox.spoolView()
-    expect(hookMayWrite(view)).toBe(true)
+    expect(await sandbox.hookWrites()).toBe(true)
     expect(Math.max(...view.leaseExpiries) * 1000).toBeLessThanOrEqual(Date.now() + 600_000)
     const status = await sandbox.aang('status')
     expect(status.stdout).toContain(`aang home: ${sandbox.aangHome}\n`)
@@ -80,6 +80,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(isAlive(pid)).toBe(false)
     expect(await sandbox.daemonState()).toBeNull()
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
+    expect(await sandbox.hookWrites()).toBe(false)
     const status = await sandbox.aang('status')
     expect(status.code).toBe(0)
     expect(status.stdout).toContain('daemon: not running\n')
@@ -89,9 +90,8 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     const restarted = await sandbox.aang('start')
 
     expect(restarted.code).toBe(0)
-    const view = await sandbox.spoolView()
-    expect(view.stopped).toBe(false)
-    expect(hookMayWrite(view)).toBe(true)
+    expect((await sandbox.spoolView()).stopped).toBe(false)
+    expect(await sandbox.hookWrites()).toBe(true)
     expect((await sandbox.aang('status')).stdout).toMatch(/^stop marker: not set$/m)
     expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
   })
@@ -104,13 +104,14 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     const pid = startedPid(await sandbox.aang('start'))
     kill(pid)
     await waitUntil(() => !isAlive(pid))
-    expect(hookMayWrite(await sandbox.spoolView())).toBe(true)
+    expect(await sandbox.hookWrites()).toBe(true)
 
     const stopped = await sandbox.aang('stop')
 
     expect(stopped.code).toBe(0)
     expect(stopped.stdout).toContain('aang is not running; the spool lease is removed and the stop marker is set')
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
+    expect(await sandbox.hookWrites()).toBe(false)
     expect(await sandbox.daemonState()).toBeNull()
   })
 
@@ -122,7 +123,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     const pid = startedPid(await sandbox.aang('start'))
     const renewedUntil = Date.now() + 3_500
     while (Date.now() < renewedUntil) {
-      expect(hookMayWrite(await sandbox.spoolView())).toBe(true)
+      expect(await sandbox.hookWrites()).toBe(true)
       await sleep(100)
     }
 
@@ -131,9 +132,10 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     const killedAt = Date.now()
     const leftover = await sandbox.spoolView()
 
-    expect(hookMayWrite(leftover)).toBe(true)
+    expect(await sandbox.hookWrites()).toBe(true)
     expect(Math.max(...leftover.leaseExpiries) * 1000).toBeLessThanOrEqual(killedAt + 2_000)
-    await waitUntil(async () => !hookMayWrite(await sandbox.spoolView()), 5_000)
+    await waitUntil(async () => !(await sandbox.hookWrites()), 5_000)
+    expect(await sandbox.hookWrites()).toBe(false)
     expect(await sandbox.spoolView()).toMatchObject({ stopped: false })
   })
 
@@ -153,6 +155,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
       expect(stopped.stderr).toContain(`process ${String(pid)} is alive`)
       expect(stopped.stderr).toContain('the stop is not confirmed')
       expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
+      expect(await sandbox.hookWrites()).toBe(false)
 
       const refused = await sandbox.aang('start')
 
@@ -169,14 +172,14 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
 
       expect(observed.filter((view) => view.leaseExpiries.length > 0 || !view.stopped)).toEqual([])
       expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
+      expect(await sandbox.hookWrites()).toBe(false)
       expect(await sandbox.daemonState()).toBeNull()
 
       const restarted = await sandbox.aang('start')
 
       expect(restarted.code).toBe(0)
-      const view = await sandbox.spoolView()
-      expect(view.stopped).toBe(false)
-      expect(hookMayWrite(view)).toBe(true)
+      expect((await sandbox.spoolView()).stopped).toBe(false)
+      expect(await sandbox.hookWrites()).toBe(true)
       expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
     },
   )
@@ -193,6 +196,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     await waitUntil(async () => ((await sandbox.daemonState())?.spool_over_threshold ?? null) !== null)
 
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: false })
+    expect(await sandbox.hookWrites()).toBe(false)
     await writeFile(join(ready, 'second-event'), 'y'.repeat(300))
     const status = await sandbox.aang('status')
     expect(status.stdout).toContain('spool: 2 files, 1800 bytes\n')
@@ -203,7 +207,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     await unlink(join(ready, 'first-event'))
     await unlink(join(ready, 'second-event'))
 
-    await waitUntil(async () => hookMayWrite(await sandbox.spoolView()))
+    await waitUntil(() => sandbox.hookWrites())
     expect((await sandbox.daemonState())?.spool_over_threshold).toBeNull()
     expect((await sandbox.aang('status')).stdout).not.toContain('over threshold since')
     expect(await sandbox.aang('stop')).toMatchObject({ code: 0 })
@@ -259,7 +263,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect,
     onTestFinished,
   }) => {
-    const sandbox = await createSandbox(onTestFinished, { spool: { checkIntervalMs: 200 } })
+    const sandbox = await createSandbox(onTestFinished, { spool: { checkIntervalMs: 1_000 } })
     const pid = startedPid(await sandbox.aang('start'))
     await unlink(join(sandbox.aangHome, 'token'))
 
@@ -270,6 +274,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(stopped.stdout).toBe(`aang stopped: pid ${String(pid)} exited after the stop marker\n`)
     expect(isAlive(pid)).toBe(false)
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
+    expect(await sandbox.hookWrites()).toBe(false)
   })
 
   test.skipIf(process.platform === 'win32')(
@@ -291,6 +296,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
       expect(await exited).toBe(0)
       expect(stdout).toContain('aang stopped: signal\n')
       expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: false })
+      expect(await sandbox.hookWrites()).toBe(false)
       expect(await sandbox.daemonState()).toBeNull()
     },
   )
@@ -310,7 +316,7 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     })
     await waitUntil(() => stdout.includes('aang running in the foreground: pid '))
     expect(stdout).toContain(`pid ${String(foreground.pid)}, http://127.0.0.1:`)
-    expect(hookMayWrite(await sandbox.spoolView())).toBe(true)
+    expect(await sandbox.hookWrites()).toBe(true)
 
     const stopped = await sandbox.aang('stop')
 
@@ -318,5 +324,6 @@ describe.concurrent('aang start, stop and status manage one daemon per AANG_HOME
     expect(await exited).toBe(0)
     expect(stdout).toContain('aang stopped: shutdown\n')
     expect(await sandbox.spoolView()).toEqual({ leaseExpiries: [], stopped: true })
+    expect(await sandbox.hookWrites()).toBe(false)
   })
 })

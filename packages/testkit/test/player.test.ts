@@ -1,0 +1,299 @@
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { mkdir, readdir, readFile, rm, stat } from 'node:fs/promises'
+import { join, relative } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { createPlayer, loadManifest, ManifestError, PlaybackError } from '@aang/testkit'
+import { describe, test } from 'vitest'
+import { createFixture, linesOf, sampleBytes } from './manifests.js'
+
+const transcriptSample = 'claude-code-transcripts/session-86f93ed5-main-full.jsonl'
+const transcriptTarget = { root: 'claude', path: 'projects/-tmp-aang-spike-cc-transcripts-run/86f93ed5.jsonl' }
+
+const filesUnder = async (root: string): Promise<Record<string, string>> => {
+  const entries = await readdir(root, { recursive: true, withFileTypes: true })
+  const files = await Promise.all(
+    entries
+      .filter((entry) => entry.isFile())
+      .map(async (entry): Promise<[string, string]> => {
+        const path = join(entry.parentPath, entry.name)
+        return [relative(root, path).replaceAll('\\', '/'), await readFile(path, 'utf8')]
+      }),
+  )
+  return Object.fromEntries(files.sort(([left], [right]) => left.localeCompare(right)))
+}
+
+describe.concurrent('the file player reproduces runtime files in a temporary profile', () => {
+  test('retrying a failed append writes the original chunk and resumes without skipping source bytes', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const source = Buffer.from('{"n":1}\n{"n":2}\n')
+    const target = { root: 'home', path: 'retry.jsonl' }
+    const file = await manifest('retry-append', {
+      sources: { 'lines.jsonl': source },
+      steps: [
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', lines: 1 },
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', label: 'rest' },
+      ],
+    })
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0 })
+    const path = join(profile.home, target.path)
+    await mkdir(path)
+
+    await expect(player.play()).rejects.toThrow(PlaybackError)
+    expect(player.position()).toBe(0)
+    expect(player.finished()).toBe(false)
+    await rm(path, { recursive: true })
+
+    await player.play({ until: 'rest' })
+
+    expect(await readFile(path)).toEqual(Buffer.from('{"n":1}\n'))
+    expect(player.position()).toBe(1)
+    await player.play()
+    expect(await readFile(path)).toEqual(source)
+    expect(player.finished()).toBe(true)
+  })
+
+  test('a transcript played line by line ends up byte-identical to its source, and playback can stop at a label and resume', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const transcript = sampleBytes(transcriptSample)
+    const awkward = Buffer.from(
+      '{"text":"первая строка ✓"}\r\n{"text":"🙂 вторая"}\r\n{"text":"без перевода строки"}',
+      'utf8',
+    )
+    const awkwardTarget = { root: 'codex', path: 'sessions/2026/10/01/rollout-awkward.jsonl' }
+    const file = await manifest('byte-identical', {
+      sources: { 'transcript.jsonl': transcript, 'awkward.jsonl': awkward },
+      steps: [
+        { at: 0, kind: 'append', target: transcriptTarget, source: 'transcript.jsonl', lines: 1 },
+        { at: 5, kind: 'append', target: transcriptTarget, source: 'transcript.jsonl', lines: 2 },
+        { at: 10, kind: 'append', target: awkwardTarget, source: 'awkward.jsonl', bytes: 30 },
+        { at: 15, kind: 'append', target: transcriptTarget, source: 'transcript.jsonl', lines: 40 },
+        { at: 20, kind: 'append', target: awkwardTarget, source: 'awkward.jsonl', bytes: 7, label: 'split character' },
+        { at: 25, kind: 'append', target: transcriptTarget, source: 'transcript.jsonl', label: 'rest' },
+        { at: 30, kind: 'append', target: awkwardTarget, source: 'awkward.jsonl' },
+      ],
+    })
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0 })
+    const transcriptPath = join(profile.claude, ...transcriptTarget.path.split('/'))
+    const awkwardPath = join(profile.codex, ...awkwardTarget.path.split('/'))
+
+    const first = await player.play({ until: 'split character' })
+
+    expect(first.map((step) => step.index)).toEqual([0, 1, 2, 3])
+    expect(player.position()).toBe(4)
+    expect(readFileSync(transcriptPath)).toEqual(Buffer.concat(linesOf(transcript).slice(0, 43)))
+    expect(readFileSync(awkwardPath)).toEqual(awkward.subarray(0, 30))
+
+    const second = await player.play({ until: 'rest' })
+
+    expect(second.map((step) => [step.index, step.label])).toEqual([[4, 'split character']])
+    expect(readFileSync(awkwardPath)).toEqual(awkward.subarray(0, 37))
+    expect(awkward.subarray(0, 37).toString('utf8')).toContain('�')
+
+    await player.play()
+
+    expect(player.finished()).toBe(true)
+    expect(readFileSync(transcriptPath)).toEqual(transcript)
+    expect(readFileSync(awkwardPath)).toEqual(awkward)
+  })
+
+  test(
+    'steps keep their recorded intervals multiplied by the time scale',
+    { concurrent: false },
+    async ({ expect, onTestFinished }) => {
+      const { profile, manifest } = await createFixture(onTestFinished)
+      const source = Buffer.from('{"n":1}\n{"n":2}\n{"n":3}\n{"n":4}\n')
+      const timeScale = 0.1
+      const recorded = [0, 3_000, 6_000, 12_000]
+      const file = await manifest('intervals', {
+        sources: { 'lines.jsonl': source },
+        steps: recorded.map((at) => ({
+          at,
+          kind: 'append',
+          target: transcriptTarget,
+          source: 'lines.jsonl',
+          lines: 1,
+        })),
+      })
+      const target = join(profile.claude, ...transcriptTarget.path.split('/'))
+      const sizeAfter = linesOf(source).map((_, index) => Buffer.concat(linesOf(source).slice(0, index + 1)).length)
+      const player = createPlayer(await loadManifest(file), { roots: profile, timeScale })
+      const observed: number[] = []
+
+      const startedAt = performance.now()
+      const playing = player.play()
+      while (observed.length < sizeAfter.length) {
+        const size = existsSync(target) ? statSync(target).size : 0
+        while (observed.length < sizeAfter.length && size >= (sizeAfter[observed.length] ?? Infinity)) {
+          observed.push(performance.now() - startedAt)
+        }
+        await sleep(1)
+      }
+      await playing
+
+      recorded.forEach((at, index) => {
+        expect(observed[index]).toBeGreaterThanOrEqual(at * timeScale)
+        expect(observed[index]).toBeLessThan(at * timeScale + 1_000)
+      })
+
+      const instant = await manifest('instant', {
+        sources: { 'lines.jsonl': source },
+        steps: [
+          { at: 0, kind: 'append', target: { root: 'home', path: 'instant.jsonl' }, source: 'lines.jsonl', lines: 1 },
+          { at: 60_000, kind: 'append', target: { root: 'home', path: 'instant.jsonl' }, source: 'lines.jsonl' },
+        ],
+      })
+      const instantStartedAt = performance.now()
+      await createPlayer(await loadManifest(instant), { roots: profile, timeScale: 0 }).play()
+      expect(performance.now() - instantStartedAt).toBeLessThan(5_000)
+      expect(readFileSync(join(profile.home, 'instant.jsonl'))).toEqual(source)
+    },
+  )
+
+  test('JSON files are written whole and rewritten, transcripts are moved and archived, and files are removed', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const transcript = Buffer.from('{"uuid":"a"}\n{"uuid":"b"}\n{"uuid":"c"}\n')
+    const rollout = Buffer.from('{"type":"session_meta"}\n{"type":"turn_context"}\n')
+    const metaBefore = '{"agentType":"pinger"}'
+    const metaAfter = '{"agentType":"pinger","description":"ping"}'
+    const meta = { root: 'claude', path: 'projects/-tmp-p/s1/subagents/agent-a.meta.json' }
+    const before = { root: 'claude', path: 'projects/-tmp-p/s1.jsonl' }
+    const after = { root: 'claude', path: 'projects/-tmp-q/s1.jsonl' }
+    const registry = { root: 'claude', path: 'sessions/4242.json' }
+    const live = { root: 'codex', path: 'sessions/2026/10/01/rollout-2026-10-01T15-07-28-thread.jsonl' }
+    const file = await manifest('files', {
+      sources: {
+        'meta-before.json': metaBefore,
+        'meta-after.json': metaAfter,
+        'registry.json': '{"pid":4242,"status":"busy"}',
+        'transcript.jsonl': transcript,
+        'rollout.jsonl': rollout,
+        'report.md': '# Report\n',
+      },
+      steps: [
+        { at: 0, kind: 'write', target: meta, source: 'meta-before.json' },
+        { at: 1, kind: 'append', target: before, source: 'transcript.jsonl', lines: 2 },
+        { at: 2, kind: 'write', target: registry, source: 'registry.json' },
+        { at: 3, kind: 'append', target: live, source: 'rollout.jsonl' },
+        { at: 4, kind: 'write', target: meta, source: 'meta-after.json', label: 'rewrite' },
+        { at: 5, kind: 'move', target: before, to: after },
+        { at: 6, kind: 'append', target: after, source: 'transcript.jsonl' },
+        { at: 7, kind: 'archive', target: live },
+        { at: 8, kind: 'remove', target: registry },
+        { at: 9, kind: 'write', target: { root: 'home', path: 'work/report.md' }, source: 'report.md' },
+      ],
+    })
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0 })
+    const path = (target: { root: string; path: string }): string =>
+      join(target.root === 'claude' ? profile.claude : profile.codex, ...target.path.split('/'))
+
+    await player.play({ until: 'rewrite' })
+
+    expect(await readFile(path(meta), 'utf8')).toBe(metaBefore)
+    const transcriptInode = (await stat(path(before), { bigint: true })).ino
+    const rolloutInode = (await stat(path(live), { bigint: true })).ino
+
+    await player.play()
+
+    expect(await filesUnder(profile.home)).toEqual({
+      '.aang/config.json': await readFile(join(profile.aangHome, 'config.json'), 'utf8'),
+      '.claude/projects/-tmp-p/s1/subagents/agent-a.meta.json': metaAfter,
+      '.claude/projects/-tmp-q/s1.jsonl': transcript.toString('utf8'),
+      '.codex/archived_sessions/rollout-2026-10-01T15-07-28-thread.jsonl': rollout.toString('utf8'),
+      'work/report.md': '# Report\n',
+    })
+    expect((await stat(path(after), { bigint: true })).ino).toBe(transcriptInode)
+    expect(
+      (
+        await stat(join(profile.codex, 'archived_sessions', 'rollout-2026-10-01T15-07-28-thread.jsonl'), {
+          bigint: true,
+        })
+      ).ino,
+    ).toBe(rolloutInode)
+  })
+
+  test('a manifest that cannot be played is rejected with the reason before it plays', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const append = { kind: 'append', target: { root: 'home', path: 'a.jsonl' }, source: 'a.jsonl' }
+    const sources = { 'a.jsonl': '{"n":1}\n' }
+    const invalid: [string, readonly unknown[], string][] = [
+      [
+        'unordered',
+        [
+          { ...append, at: 5 },
+          { ...append, at: 1 },
+        ],
+        'steps must be ordered by time',
+      ],
+      ['escaping', [{ ...append, at: 0, target: { root: 'home', path: '../outside.jsonl' } }], 'stays inside its root'],
+      ['absolute', [{ ...append, at: 0, target: { root: 'claude', path: '/etc/passwd' } }], 'stays inside its root'],
+      ['unknown root', [{ ...append, at: 0, target: { root: 'aang', path: 'spool/x' } }], 'root'],
+      [
+        'archive outside sessions',
+        [{ at: 0, kind: 'archive', target: { root: 'codex', path: 'x.jsonl' } }],
+        'sessions/',
+      ],
+      [
+        'duplicate labels',
+        [
+          { ...append, at: 0, label: 'x' },
+          { ...append, at: 1, label: 'x' },
+        ],
+        'labels must be unique',
+      ],
+      ['lines and bytes', [{ ...append, at: 0, lines: 1, bytes: 1 }], 'lines and bytes are exclusive'],
+      ['missing source', [{ ...append, at: 0, source: 'missing.jsonl' }], 'cannot read source missing.jsonl'],
+      ['unknown kind', [{ at: 0, kind: 'truncate', target: { root: 'home', path: 'a.jsonl' } }], 'kind'],
+    ]
+    for (const [name, steps, reason] of invalid) {
+      const load = loadManifest(await manifest(name, { sources, steps }))
+      await expect(load, name).rejects.toThrow(ManifestError)
+      await expect(load, name).rejects.toThrow(reason)
+    }
+
+    const hooks = await loadManifest(
+      await manifest('hook without target', {
+        sources,
+        steps: [{ at: 0, kind: 'hook', runtime: 'claude', registration: 'plugin', source: 'a.jsonl' }],
+      }),
+    )
+    expect(() => createPlayer(hooks, { roots: profile })).toThrow('has hook steps, but the player has no hook target')
+    const otlp = await loadManifest(
+      await manifest('otlp without endpoint', { sources, steps: [{ at: 0, kind: 'otlp', source: 'a.jsonl' }] }),
+    )
+    expect(() => createPlayer(otlp, { roots: profile })).toThrow('has OTLP steps, but the player has no OTLP endpoint')
+    const plain = await loadManifest(await manifest('plain', { sources, steps: [{ ...append, at: 0, label: 'only' }] }))
+    expect(() => createPlayer(plain, { roots: profile, timeScale: -1 })).toThrow('time scale')
+    await expect(createPlayer(plain, { roots: profile }).play({ until: 'missing' })).rejects.toThrow(
+      'no step labelled "missing"',
+    )
+
+    const exhausted = createPlayer(
+      await loadManifest(
+        await manifest('exhausted', {
+          sources,
+          steps: [
+            { ...append, at: 0 },
+            { ...append, at: 0, lines: 1, label: 'more' },
+          ],
+        }),
+      ),
+      { roots: profile, timeScale: 0 },
+    )
+    const failure = exhausted.play()
+    await expect(failure).rejects.toThrow(PlaybackError)
+    await expect(failure).rejects.toThrow('step 1 (append "more") failed: source a.jsonl has 0 of 1 lines left')
+    expect(exhausted.position()).toBe(1)
+  })
+})
