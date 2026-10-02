@@ -46,6 +46,34 @@ const violations: readonly DirectionCase[] = [
     errors: [[1, `@aang/daemon product code may not import @aang/cli; allowed: ${daemonDependencies}`]],
   },
   {
+    name: 'aang product code may not import packages beyond cli, daemon and web',
+    path: 'packages/aang/src/main.ts',
+    code: ["import '@aang/store'"],
+    errors: [[1, '@aang/aang product code may not import @aang/store; allowed: @aang/cli, @aang/daemon']],
+  },
+  {
+    name: 'aang code may locate web but may not import, re-export or type-import its code',
+    path: 'packages/aang/src/static.ts',
+    code: [
+      "import '@aang/web'",
+      "export const load = () => import('@aang/web/client')",
+      "export * from '@aang/web'",
+      "export type Web = typeof import('@aang/web')",
+    ],
+    errors: [
+      [1, '@aang/aang product code may only locate @aang/web with import.meta.resolve; it may not import its code'],
+      [2, '@aang/aang product code may only locate @aang/web with import.meta.resolve; it may not import its code'],
+      [3, '@aang/aang product code may only locate @aang/web with import.meta.resolve; it may not import its code'],
+      [4, '@aang/aang product code may only locate @aang/web with import.meta.resolve; it may not import its code'],
+    ],
+  },
+  {
+    name: 'cli product code may not import the aang entry that composes it',
+    path: 'packages/cli/src/start.ts',
+    code: ["import '@aang/aang'"],
+    errors: [[1, '@aang/cli product code may not import @aang/aang; allowed: @aang/contract, @aang/hook']],
+  },
+  {
     name: 'cli product code may not import testkit',
     path: 'packages/cli/src/main.ts',
     code: ["import '@aang/testkit'"],
@@ -250,6 +278,17 @@ const allowed: readonly DirectionCase[] = [
     name: 'daemon product code may import hook',
     path: 'packages/daemon/src/hooks.ts',
     code: ["import '@aang/hook'"],
+    errors: [],
+  },
+  {
+    name: 'aang product code may import cli and daemon and locate web with import.meta.resolve',
+    path: 'packages/aang/src/compose.ts',
+    code: [
+      "import '@aang/cli'",
+      "import '@aang/daemon'",
+      "export const web = import.meta.resolve('@aang/web')",
+      "export const page = import.meta.resolve('@aang/web/index.html', import.meta.url)",
+    ],
     errors: [],
   },
   {
