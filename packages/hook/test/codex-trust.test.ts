@@ -8,8 +8,8 @@ import { isAlive, waitUntil } from './launcher.js'
 
 const binaries = inject('hookBinaries')
 
-describe('Codex hook installation state over stdio', () => {
-  test.skipIf(process.platform === 'win32')('a wrapper cannot leave its server running after the listing', async ({ expect, onTestFinished }) => {
+describe.skipIf(process.platform === 'win32')('Codex hook installation state over stdio', () => {
+  test('a wrapper cannot leave its server running after the listing', async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
     const cli = await fakeAppServer(home, { descendant: true })
     const descendantFile = join(home.root, 'app-server.json.descendant')

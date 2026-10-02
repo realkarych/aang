@@ -1,7 +1,23 @@
-import { readFile, stat, writeFile } from 'node:fs/promises'
-import { installClaudePlugin, installCodexHooks, uninstallClaudePlugin, uninstallCodexHooks } from '@aang/hook'
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
+import { codexHooksState, installClaudePlugin, installCodexHooks, uninstallClaudePlugin, uninstallCodexHooks } from '@aang/hook'
 import { inject, test } from 'vitest'
 import { createInstallHome, sampleText } from './install.js'
+
+test.runIf(process.platform === 'win32')(
+  'on Windows checking Codex hook state fails explicitly without starting the CLI',
+  async ({ expect, onTestFinished }) => {
+    const home = await createInstallHome(onTestFinished)
+    const originalFiles = await readdir(home.root)
+
+    await expect(codexHooksState({ codexHome: home.codexHome, codex: home.codex })).rejects.toMatchObject({
+      reason: 'unsupported_platform',
+      message: expect.stringMatching(/Windows.*process.tree/u) as unknown,
+    })
+
+    expect(await readdir(home.root)).toEqual(originalFiles)
+    await expect(home.codex.calls()).rejects.toMatchObject({ code: 'ENOENT' })
+  },
+)
 
 test.runIf(process.platform === 'win32')(
   'on Windows hooks are not installed or removed for either runtime and nothing is written',

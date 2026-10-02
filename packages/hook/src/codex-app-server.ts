@@ -76,6 +76,13 @@ const Message = z.looseObject({
 
 export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs }: CodexAppServerOptions): Promise<CodexHookListing> =>
   new Promise((complete, reject) => {
+    if (process.platform === 'win32') {
+      reject(new HookInstallError(
+        'unsupported_platform',
+        'checking Codex hook state on Windows is not enabled yet: app-server requires a launcher with confirmed process-tree termination',
+      ))
+      return
+    }
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       reject(failure('timeoutMs must be positive and finite'))
       return
@@ -86,7 +93,7 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
       env: { ...process.env, CODEX_HOME: home },
       stdio: 'pipe',
       windowsHide: true,
-      detached: process.platform !== 'win32',
+      detached: true,
     })
     let pending = ''
     let stderr = ''
@@ -101,7 +108,7 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
       }
       terminated = true
       try {
-        if (process.platform !== 'win32' && child.pid !== undefined) {
+        if (child.pid !== undefined) {
           process.kill(-child.pid, 'SIGKILL')
         } else {
           child.kill('SIGKILL')
