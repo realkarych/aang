@@ -10,13 +10,16 @@ import type {
 } from '@aang/contract'
 import { z } from 'zod'
 import { spawnedAgents } from './agents.js'
+import { callStarted } from './calls.js'
 import { compactionTrigger } from './compaction.js'
 import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
 import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { actionKey, messageKey, ownerKey, sessionKey } from './keys.js'
+import { questionsAnswered } from './questions.js'
 import { epochFromIso } from './time.js'
-import { actionKind, exitCode, inputDescription, outputText, persistedOutputPath } from './tools.js'
+import { exitCode, outputText, persistedOutputPath } from './tools.js'
+import { CostState, costStatePayload, MessageUsage, messageUsage } from './usage.js'
 
 const Line = z.object({
   type: name,
@@ -76,6 +79,7 @@ const AssistantLine = Line.extend({
     model: optionalText,
     content: z.array(Block),
     stop_reason: optionalText,
+    usage: MessageUsage.nullish(),
   }),
   isApiErrorMessage: z.boolean().nullish(),
 })
@@ -89,6 +93,8 @@ const CompactBoundaryLine = Line.extend({
 })
 
 const QueueOperationLine = Line.extend({ operation: name, content: optionalText })
+
+const CostStateLine = Line.extend(CostState.shape)
 
 interface LineContext {
   readonly origin: FactOrigin
@@ -260,7 +266,11 @@ const parseUser = lineParser('user line', UserLine, (line, { origin, sourceTs })
       },
       { ids: { call_id: block.tool_use_id }, verified: outcome !== 'denied' },
     )
-    return [end, ...spawnedAgents(origin, line.sessionId, block.tool_use_id, toolResult)]
+    return [
+      end,
+      ...spawnedAgents(origin, line.sessionId, block.tool_use_id, toolResult),
+      ...questionsAnswered({ origin, session: line.sessionId, call: block.tool_use_id }, toolResult),
+    ]
   })
   if (results.length > 0 && texts.length === 0) {
     return parsed(sourceTs, resultFacts)
@@ -268,13 +278,17 @@ const parseUser = lineParser('user line', UserLine, (line, { origin, sourceTs })
   const source = promptSource(line, text)
   return parsed(sourceTs, [
     ...resultFacts,
-    fact(origin, {
-      kind: 'prompt',
-      entity_key: messageKey(line.sessionId, line.uuid),
-      speaker: source.speaker,
-      urgent: false,
-      payload: { text, origin: source.origin, origin_raw: source.raw },
-    }),
+    fact(
+      origin,
+      {
+        kind: 'prompt',
+        entity_key: messageKey(line.sessionId, line.uuid),
+        speaker: source.speaker,
+        urgent: false,
+        payload: { text, origin: source.origin, origin_raw: source.raw },
+      },
+      { verified: source.origin !== 'task_notification' },
+    ),
   ])
 })
 
@@ -289,6 +303,7 @@ const parseAssistant = lineParser('assistant line', AssistantLine, (line, { orig
   }
   const messageOrigin: FactOrigin = { ...origin, ids: { ...origin.ids, message_id: message.id } }
   const agent = line.agentId ?? null
+  const usage = messageUsage(messageOrigin, line.sessionId, message)
   if (line.isApiErrorMessage === true) {
     const text = blocks.data.flatMap((block) => (block.type === 'text' ? [block.text] : [])).join('\n')
     return parsed(sourceTs, [
@@ -303,12 +318,12 @@ const parseAssistant = lineParser('assistant line', AssistantLine, (line, { orig
         },
         { verified: false },
       ),
+      ...usage,
     ])
   }
   const final = message.stop_reason === finalStopReason
-  return parsed(
-    sourceTs,
-    blocks.data.flatMap((block): FactDraft[] => {
+  return parsed(sourceTs, [
+    ...blocks.data.flatMap((block): FactDraft[] => {
       switch (block.type) {
         case 'text':
           return [
@@ -326,31 +341,20 @@ const parseAssistant = lineParser('assistant line', AssistantLine, (line, { orig
             }),
           ]
         case 'tool_use':
-          return [
-            fact(
-              messageOrigin,
-              {
-                kind: 'action_start',
-                entity_key: actionKey(line.sessionId, block.id),
-                speaker: 'solver',
-                urgent: false,
-                payload: {
-                  tool: block.name,
-                  action_kind: actionKind(block.name),
-                  input: block.input,
-                  description: inputDescription(block.input),
-                  container_call: null,
-                },
-              },
-              { ids: { call_id: block.id } },
-            ),
-          ]
+          return callStarted({
+            origin: messageOrigin,
+            session: line.sessionId,
+            call: block.id,
+            tool: block.name,
+            input: block.input,
+          })
         case 'thinking':
         case 'redacted_thinking':
           return []
       }
     }),
-  )
+    ...usage,
+  ])
 })
 
 const parseCompactBoundary = lineParser('compact boundary', CompactBoundaryLine, (line, { origin, sourceTs }) =>
@@ -382,6 +386,22 @@ const parseQueueOperation = lineParser('queue operation', QueueOperationLine, (l
   ]),
 )
 
+const parseCostState = lineParser('cost state', CostStateLine, (line, { origin, sourceTs }) =>
+  parsed(sourceTs, [
+    fact(
+      origin,
+      {
+        kind: 'cost_state',
+        entity_key: sessionKey(line.sessionId),
+        speaker: 'runtime',
+        urgent: false,
+        payload: costStatePayload(line),
+      },
+      { verified: line.hasUnknownModelCost !== true },
+    ),
+  ]),
+)
+
 const parseSystem: LineParser = (payload, record, sourceTs) =>
   payload.subtype === 'compact_boundary' ? parseCompactBoundary(payload, record, sourceTs) : unknown(sourceTs)
 
@@ -401,6 +421,7 @@ const lineParsers: ReadonlyMap<string, LineParser> = new Map([
   ['assistant', parseAssistant],
   ['system', parseSystem],
   ['queue-operation', parseQueueOperation],
+  ['cost-state', parseCostState],
   ['attachment', parseAttachment],
   ...[...metadataLineTypes].map((type): [string, LineParser] => [type, parseMetadata]),
 ])

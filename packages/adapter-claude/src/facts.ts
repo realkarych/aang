@@ -4,6 +4,7 @@ import type {
   FactDraft,
   FactDraftOf,
   FactKind,
+  JsonValue,
   ParseResult,
   RuntimeEnv,
   RuntimeIds,
@@ -62,6 +63,20 @@ export const fact = (origin: FactOrigin, spec: FactSpec, options: FactOptions = 
   format_verified: options.verified ?? true,
   redelivery_key: origin.redeliveryKey,
 })
+
+export interface CallOrigin {
+  readonly origin: FactOrigin
+  readonly session: string
+  readonly call: string
+}
+
+export interface ToolCall extends CallOrigin {
+  readonly tool: string
+  readonly input: JsonValue
+}
+
+export const callFact = (call: CallOrigin, spec: FactSpec, verified = true): FactDraft =>
+  fact(call.origin, spec, { ids: { call_id: call.call }, verified })
 
 export const parsed = (sourceTs: EpochNs | null, facts: readonly FactDraft[]): ParseResult => ({
   parse_state: 'parsed',

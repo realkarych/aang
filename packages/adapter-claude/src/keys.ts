@@ -10,6 +10,7 @@ import {
   type QuestionKey,
   type SessionKey,
   StreamKey,
+  type UsageKey,
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import { isJsonObject, parseJson, stringField } from './json.js'
@@ -48,6 +49,8 @@ export const questionKey = (session: string, question: string): QuestionKey => (
   session,
   question,
 })
+
+export const usageKey = (session: string, usage: string): UsageKey => ({ kind: 'usage', runtime, session, usage })
 
 const streamOf = (session: string, agent: string | null): StreamKey =>
   StreamKey.parse(composite(agent === null ? [session, 'main'] : [session, 'agent', agent]))

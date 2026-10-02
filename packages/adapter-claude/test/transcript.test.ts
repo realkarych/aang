@@ -79,16 +79,16 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
     }
   })
 
-  test('in the main session only cost-state lines remain unknown', async ({ expect }) => {
+  test('every line of the main session is recognised', async ({ expect }) => {
     const records = await transcriptRecords('claude-code-transcripts/session-86f93ed5-main-full.jsonl')
     const unknownTypes = new Set(
       records.filter((record) => claudeAdapter.parse(record).parse_state === 'unknown').map(typeOf),
     )
 
-    expect([...unknownTypes]).toEqual(['cost-state'])
+    expect([...unknownTypes]).toEqual([])
   })
 
-  test('the main session yields its prompts, actions, messages, queue operations and compaction', async ({
+  test('the main session yields its prompts, actions, messages, usage, cost state, queue operations and compaction', async ({
     expect,
   }) => {
     const records = await transcriptRecords('claude-code-transcripts/session-86f93ed5-main-full.jsonl')
@@ -107,16 +107,21 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
       queue_operation: 10,
       prompt: 7,
       action_start: 3,
+      usage: 7,
       action_end: 3,
       agent_start: 1,
       message: 4,
+      cost_state: 7,
       compaction: 2,
     })
     expect(facts.every((fact) => fact.runtime_ids.session_id === mainSession)).toBe(true)
-    const versions = (queued: boolean) =>
-      new Set(facts.filter((fact) => (fact.kind === 'queue_operation') === queued).map((fact) => fact.runtime_env.version))
-    expect(versions(false)).toEqual(new Set(['2.1.286']))
-    expect(versions(true)).toEqual(new Set([null]))
+    const unversioned = new Set(['queue_operation', 'cost_state'])
+    const versions = (versioned: boolean) =>
+      new Set(
+        facts.filter((fact) => unversioned.has(fact.kind) !== versioned).map((fact) => fact.runtime_env.version),
+      )
+    expect(versions(true)).toEqual(new Set(['2.1.286']))
+    expect(versions(false)).toEqual(new Set([null]))
   })
 })
 
@@ -239,10 +244,12 @@ describe.concurrent('Claude transcript: records', () => {
     const thinking = { type: 'thinking', thinking: 'secret chain of thought', signature: 'sig' }
     const redacted = { type: 'redacted_thinking', data: 'opaque' }
 
-    expect(parseLine(withContent([thinking]))).toMatchObject({ parse_state: 'parsed', facts: [] })
-    expect(parseLine(withContent([redacted]))).toMatchObject({ parse_state: 'parsed', facts: [] })
+    const kindsOf = (content: JsonObject[]) => factsOf(parseLine(withContent(content))).map((fact) => fact.kind)
+
+    expect(kindsOf([thinking])).toEqual(['usage'])
+    expect(kindsOf([redacted])).toEqual(['usage'])
     const facts = factsOf(parseLine(withContent([thinking, { type: 'text', text: 'Done' }])))
-    expect(facts.map((fact) => fact.payload)).toEqual([
+    expect(facts.filter((fact) => fact.kind === 'message').map((fact) => fact.payload)).toEqual([
       { text: 'Done', final: true, audience: 'user', model: 'claude-opus-5-5' },
     ])
     expect(JSON.stringify(facts.map((fact) => fact.payload))).not.toContain('secret chain of thought')
@@ -382,6 +389,7 @@ describe.concurrent('Claude transcript: records', () => {
     expect(facts.map((fact) => [fact.kind, fact.speaker, fact.runtime_ids.agent_id])).toEqual([
       ['prompt', 'solver', subagent],
       ['message', 'solver', subagent],
+      ['usage', 'runtime', subagent],
     ])
     expect(facts[0]?.payload).toEqual({ text: 'ping', origin: 'unknown', origin_raw: null })
     expect(facts[1]?.payload).toMatchObject({ text: 'pong', final: true, audience: 'agent' })
@@ -525,15 +533,11 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
     )
     expect(factsOf(parseLine(withInput(nestedArrays(100))))).toMatchObject([
       { kind: 'action_start', payload: { input: nestedArrays(100) } },
+      { kind: 'usage' },
     ])
   })
 
-  test('cost-state, unfamiliar system lines and attachments are unknown until their parsers land', async ({
-    expect,
-  }) => {
-    const [costState] = await sampleLines('claude-code-transcripts/rec-cost-state-all.jsonl')
-
-    expect(parseLine(costState ?? '')).toEqual({ parse_state: 'unknown', source_ts: null })
+  test('unfamiliar system lines and attachments are unknown until their parsers land', ({ expect }) => {
     expect(parseLine({ type: 'system', subtype: 'turn_duration', sessionId: mainSession, durationMs: 5 }).parse_state).toBe(
       'unknown',
     )
@@ -605,17 +609,17 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
   })
 
   test('records of other channels are not transcript lines and stay unknown', ({ expect }) => {
-    const snapshot = CollectedRecord.parse({
-      channel: 'registry',
+    const otel = CollectedRecord.parse({
+      channel: 'otel',
       runtime: 'claude',
       stream: null,
-      position: { kind: 'file', path: '/home/user/.claude/sessions/1.json', content_hash: 'a'.repeat(64) },
+      position: { kind: 'otel' },
       hook: null,
       observed_at: observedAt,
-      payload: '{"pid":1}',
+      payload: '{"type":"user","sessionId":"s"}',
     })
 
-    expect(claudeAdapter.parse(snapshot)).toEqual({ parse_state: 'unknown', source_ts: null })
+    expect(claudeAdapter.parse(otel)).toEqual({ parse_state: 'unknown', source_ts: null })
   })
 })
 
