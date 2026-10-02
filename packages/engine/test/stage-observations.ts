@@ -1,5 +1,6 @@
 import { Action, Agent, type ArtifactVersion, type Fact } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
+import type { Store } from '@aang/store'
 import type { Home } from './home.js'
 import { runA, sessionA } from './model.js'
 
@@ -29,13 +30,24 @@ export const observationsFor = (facts: readonly Fact[]) => {
   return { action, agent: { ...agent, execution_evidence: [start.id] }, start }
 }
 
-export const recordObjectOwners = (home: Home, objects: readonly (Action | Agent | ArtifactVersion)[]): void => {
+export const recordObjectOwners = (store: Store, owned: readonly (Action | Agent)[]): void => {
+  store.transaction((transaction) => {
+    for (const { key, run } of owned) {
+      const observation = key.kind === 'action'
+        ? transaction.observations.getAction(objectId(key))
+        : transaction.observations.getAgent(objectId(key))
+      if (observation === null) {
+        throw new Error(`the ingested facts must project ${canonicalJson(key)}`)
+      }
+      transaction.observations.save({ ...observation, run })
+    }
+  })
+}
+
+export const recordArtifactVersion = (home: Home, version: ArtifactVersion): void => {
   const database = home.database()
-  const insert = database.prepare(
+  database.prepare(
     'INSERT INTO objects (id, kind, entity_key, run_id, data, change_seq) VALUES (?, ?, ?, ?, ?, ?)',
-  )
-  for (const object of objects) {
-    insert.run(object.id, object.key.kind, canonicalJson(object.key), object.run, '{}', object.change_seq)
-  }
+  ).run(version.id, version.key.kind, canonicalJson(version.key), version.run, '{}', version.change_seq)
   database.close()
 }
