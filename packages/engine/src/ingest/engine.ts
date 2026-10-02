@@ -6,31 +6,47 @@ import type {
   CollectedRecord,
   CollectorBatch,
   FileCursor,
+  RecordOwner,
   Runtime,
   ScopeDecision,
   SessionKey,
   StreamKey,
 } from '@aang/contract'
-import type { GapDraft, Store, Transaction } from '@aang/store'
-import { type FileState, type FileWork, fileWork, type KnownFile, knownFiles, type WaitingFile } from './files.js'
+import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
+import { decidingCwd, type Evidence, noEvidence, withOwner } from './evidence.js'
+import {
+  advanceFile,
+  committedFile,
+  type FileStep,
+  type HeldFile,
+  laggingFile,
+  type TrackedFile,
+  trackedFiles,
+  trimmed,
+} from './files.js'
 import {
   type Adapters,
   draftOf,
-  type Evidence,
   factsOf,
-  firstSession,
+  type Owned,
+  ownedRecord,
   type Parsed,
   parseRecord,
   sessionName,
-  sessionOf,
-  withFact,
-} from './parse.js'
+} from './records.js'
 import { createScopeJudge, type WatchedRoots } from './scope.js'
+
+export interface HoldingLimits {
+  readonly fileBytes: number
+  readonly totalBytes: number
+  readonly startGraceMs: number
+}
 
 export interface EngineOptions {
   readonly store: Store
   readonly adapters: AdapterRegistry
   readonly watch: WatchedRoots
+  readonly holding?: Partial<HoldingLimits>
 }
 
 export interface IngestResult {
@@ -39,48 +55,60 @@ export interface IngestResult {
   readonly duplicates: number
   readonly discarded: number
   readonly waiting: number
+  readonly deferred: number
+  readonly settled: readonly CollectorBatch[]
+  readonly rescan: readonly StreamKey[]
 }
 
 export interface Engine {
   readonly ingest: (batch: CollectorBatch) => Promise<IngestResult>
 }
 
-interface FileItem {
-  readonly kind: 'file'
-  readonly work: FileWork
-  readonly parsed: readonly Parsed[]
+interface HeldHook {
+  readonly hook: Owned
+  readonly owner: RecordOwner
+  readonly batch: CollectorBatch
+  readonly since: number
 }
 
-interface RecordItem {
-  readonly kind: 'record'
-  readonly parsed: Parsed
+interface State {
+  readonly files: ReadonlyMap<string, TrackedFile>
+  readonly hooks: readonly HeldHook[]
+  readonly evidence: ReadonlyMap<string, Evidence>
+  readonly open: readonly CollectorBatch[]
 }
 
-type Item = FileItem | RecordItem
+type Item =
+  | { readonly kind: 'file'; readonly path: string }
+  | { readonly kind: 'hook'; readonly hook: Owned; readonly owner: RecordOwner; readonly since: number }
+  | { readonly kind: 'unowned'; readonly record: CollectedRecord }
 
-interface SessionDecision {
-  readonly session: SessionKey
-  readonly scope: ScopeDecision
-}
-
-interface Decisions {
-  readonly streams: ReadonlyMap<StreamKey, ScopeDecision>
-  readonly sessions: ReadonlyMap<string, ScopeDecision>
-  readonly decided: readonly SessionDecision[]
-}
-
-interface Candidate {
-  readonly session: SessionKey
-  evidence: Evidence
+interface SessionScopes {
+  readonly get: (session: SessionKey) => ScopeDecision | null
+  readonly set: (session: SessionKey, scope: ScopeDecision) => void
 }
 
 interface Tally {
   inserted: number
   duplicates: number
   discarded: number
+  deferred: number
 }
 
-const noEvidence: Evidence = { observer: false, cwd: null }
+interface Committed {
+  readonly tally: Tally
+  readonly files: Map<string, TrackedFile>
+  readonly hooks: readonly HeldHook[]
+  readonly rescan: readonly StreamKey[]
+}
+
+const mebibyte = 1024 ** 2
+
+const defaultHolding: HoldingLimits = {
+  fileBytes: 32 * mebibyte,
+  totalBytes: 128 * mebibyte,
+  startGraceMs: 120_000,
+}
 
 const requireAdapter = (registry: AdapterRegistry, runtime: Runtime): Adapter => {
   const adapter = registry.get(runtime)
@@ -111,57 +139,12 @@ const linesByPath = (records: readonly CollectedRecord[]): Map<string, Collected
   return lines
 }
 
-const itemsOf = (adapters: Adapters, state: FileState, batch: CollectorBatch): Item[] => {
-  const lines = linesByPath(batch.records)
-  const cursors = new Map(batch.cursors.map((cursor) => [cursor.path, cursor]))
-  const seen = new Set<string>()
-  const fileItem = (cursor: FileCursor): FileItem => {
-    seen.add(cursor.path)
-    const work = fileWork(adapters, state, cursor, lines.get(cursor.path) ?? [])
-    const { naming } = work
-    return {
-      kind: 'file',
-      work,
-      parsed:
-        naming.kind === 'named'
-          ? work.records.map((record) => parseRecord(adapters, { ...record, stream: naming.stream }))
-          : [],
-    }
-  }
-  const items = batch.records.flatMap((record): Item[] => {
-    if (record.position.kind !== 'line') {
-      return [{ kind: 'record', parsed: parseRecord(adapters, record) }]
-    }
-    const { path } = record.position
-    if (seen.has(path)) {
-      return []
-    }
-    const cursor = cursors.get(path)
-    if (cursor === undefined) {
-      throw new Error(`the batch has lines of ${path} without the cursor of the file`)
-    }
-    return [fileItem(cursor)]
-  })
-  const unread = new Map<string, FileCursor>()
-  for (const cursor of [...batch.cursors, ...[...state.waiting.values()].map((file) => file.cursor)]) {
-    if (!seen.has(cursor.path) && !unread.has(cursor.path)) {
-      unread.set(cursor.path, cursor)
-    }
-  }
-  return [...items, ...[...unread.values()].map(fileItem)]
-}
-
-const namedStream = (item: Item): StreamKey | null =>
-  item.kind === 'file' && item.work.naming.kind === 'named' ? item.work.naming.stream : null
-
-const parsedOf = (item: Item): readonly Parsed[] => (item.kind === 'file' ? item.parsed : [item.parsed])
-
-const unattributedGap = ({ record, key, result }: Parsed, reason: string): GapDraft => ({
+const unattributedGap = ({ record, key, result }: Parsed): GapDraft => ({
   key: { kind: 'gap', gap: 'unknown_records', subject: `record:${key}` },
   run: null,
   session: null,
   stream: null,
-  details: `${record.runtime} ${record.channel} record (${result.parse_state}) discarded: ${reason}`,
+  details: `${record.runtime} ${record.channel} record (${result.parse_state}) discarded: it names no session`,
   detected_at: record.observed_at,
   closed_at: null,
 })
@@ -176,65 +159,133 @@ const namelessGap = (path: string, first: CollectedRecord): GapDraft => ({
   closed_at: null,
 })
 
-export const createEngine = ({ store, adapters: registry, watch }: EngineOptions): Engine => {
+const heldLines = (files: ReadonlyMap<string, TrackedFile>): number =>
+  [...files.values()].reduce((total, file) => total + (file.kind === 'held' ? file.lines.length : 0), 0)
+
+export const createEngine = ({ store, adapters: registry, watch, holding = {} }: EngineOptions): Engine => {
   const adapters = adaptersOf(registry)
-  const known = knownFiles(store.cursors.list())
-  let waiting: ReadonlyMap<string, WaitingFile> = new Map()
+  const limits: HoldingLimits = { ...defaultHolding, ...holding }
+  let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
   let queue: Promise<unknown> = Promise.resolve()
 
-  const storedStreamScope = (stream: StreamKey): ScopeDecision | null => store.scopes.get(stream)?.scope ?? null
+  const sessionScopes = (): SessionScopes => {
+    const known = new Map<string, ScopeDecision | null>()
+    return {
+      get: (session: SessionKey): ScopeDecision | null => {
+        const name = sessionName(session)
+        if (!known.has(name)) {
+          known.set(name, store.scopes.ofSession(session)?.scope ?? null)
+        }
+        return known.get(name) ?? null
+      },
+      set: (session: SessionKey, scope: ScopeDecision): void => {
+        known.set(sessionName(session), scope)
+      },
+    }
+  }
 
-  const decide = async (items: readonly Item[]): Promise<Decisions> => {
-    const streams = new Map<StreamKey, ScopeDecision>()
-    for (const stream of items.flatMap((item) => namedStream(item) ?? [])) {
-      const stored = storedStreamScope(stream)
-      if (stored !== null) {
-        streams.set(stream, stored)
+  const itemsOf = (batch: CollectorBatch, now: number): Item[] => {
+    const seen = new Set<string>()
+    const items = batch.records.flatMap((record): Item[] => {
+      if (record.position.kind === 'line') {
+        const { path } = record.position
+        if (seen.has(path)) {
+          return []
+        }
+        seen.add(path)
+        return [{ kind: 'file', path }]
+      }
+      const hook = ownedRecord(adapters, record)
+      return hook.owner === null
+        ? [{ kind: 'unowned', record }]
+        : [{ kind: 'hook', hook, owner: hook.owner, since: now }]
+    })
+    const cursorsOnly = batch.cursors
+      .filter(({ path }) => !seen.has(path))
+      .map(({ path }): Item => ({ kind: 'file', path }))
+    return [...items, ...cursorsOnly]
+  }
+
+  const fileSteps = (batch: CollectorBatch, now: number): Map<string, FileStep> => {
+    const lines = linesByPath(batch.records)
+    const cursors = new Map(batch.cursors.map((cursor) => [cursor.path, cursor]))
+    for (const path of lines.keys()) {
+      if (!cursors.has(path)) {
+        throw new Error(`the batch has lines of ${path} without the cursor of the file`)
       }
     }
-    const subjects = items.flatMap((item): SessionKey[] => {
-      const stream = namedStream(item)
-      const undecided = item.kind === 'record' || (stream !== null && !streams.has(stream))
-      const session = undecided ? firstSession(parsedOf(item)) : null
-      return session === null ? [] : [session]
-    })
-    const sessions = new Map<string, ScopeDecision>()
-    const candidates = new Map<string, Candidate>()
-    for (const session of subjects) {
-      const name = sessionName(session)
-      if (!sessions.has(name) && !candidates.has(name)) {
-        const stored = store.scopes.ofSession(session)
-        if (stored === null) {
-          candidates.set(name, { session, evidence: noEvidence })
-        } else {
-          sessions.set(name, stored.scope)
+    return new Map(
+      [...cursors.values()].map((cursor: FileCursor) => [
+        cursor.path,
+        advanceFile(adapters, state.files.get(cursor.path), cursor, lines.get(cursor.path) ?? [], now),
+      ]),
+    )
+  }
+
+  const gatherEvidence = (
+    steps: ReadonlyMap<string, FileStep>,
+    items: readonly Item[],
+    scopes: SessionScopes,
+    now: number,
+  ): Map<string, Evidence> => {
+    const evidence = new Map(state.evidence)
+    const note = (owner: RecordOwner, readFromStart: boolean): void => {
+      if (scopes.get(owner.session) !== null) {
+        return
+      }
+      const name = sessionName(owner.session)
+      evidence.set(name, withOwner(evidence.get(name) ?? noEvidence(owner.session, now), owner, readFromStart))
+    }
+    for (const step of steps.values()) {
+      if (step.kind === 'held') {
+        for (const owner of step.sightings) {
+          note(owner, true)
         }
       }
     }
-    for (const fact of items.flatMap(parsedOf).flatMap(factsOf)) {
-      const candidate = candidates.get(sessionName(sessionOf(fact)))
-      if (candidate !== undefined) {
-        candidate.evidence = withFact(candidate.evidence, fact)
+    for (const item of items) {
+      if (item.kind === 'hook') {
+        note(item.owner, false)
       }
     }
-    const judge = createScopeJudge(watch)
-    const decided: SessionDecision[] = []
-    for (const { session, evidence } of candidates.values()) {
-      const scope = await judge(evidence)
-      if (scope !== null) {
-        sessions.set(sessionName(session), scope)
-        decided.push({ session, scope })
-      }
-    }
-    return { streams, sessions, decided }
+    return evidence
   }
 
-  const commit = (items: readonly Item[], decisions: Decisions, gaps: readonly CollectedGap[]) =>
+  const decideSessions = async (
+    evidence: Map<string, Evidence>,
+    scopes: SessionScopes,
+    now: number,
+  ): Promise<SessionScope[]> => {
+    const judge = createScopeJudge(watch)
+    const decided: SessionScope[] = []
+    for (const [name, gathered] of [...evidence]) {
+      const cwd = decidingCwd(gathered, now, limits.startGraceMs)
+      const stored = scopes.get(gathered.session)
+      const scope = stored ?? (gathered.observer ? 'observer' : cwd === null ? null : await judge(cwd))
+      if (scope !== null) {
+        evidence.delete(name)
+        if (stored === null) {
+          scopes.set(gathered.session, scope)
+          decided.push({ session: gathered.session, scope })
+        }
+      }
+    }
+    return decided
+  }
+
+  const commit = (
+    batch: CollectorBatch,
+    items: readonly Item[],
+    steps: ReadonlyMap<string, FileStep>,
+    decided: readonly SessionScope[],
+    scopes: SessionScopes,
+  ): Committed =>
     store.transaction((transaction: Transaction) => {
-      const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0 }
-      const saved = new Map<string, KnownFile>()
-      const stillWaiting = new Map<string, WaitingFile>()
-      const streams = new Map(decisions.streams)
+      const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0, deferred: 0 }
+      const files = new Map(state.files)
+      const hooks: HeldHook[] = []
+      const rescan = new Set<StreamKey>()
+      const streamScopes = new Map<StreamKey, ScopeDecision>()
 
       const insert = (parsed: Parsed): void => {
         const { status, seq } = transaction.rawRecords.insert(draftOf(parsed))
@@ -246,97 +297,199 @@ export const createEngine = ({ store, adapters: registry, watch }: EngineOptions
         tally.inserted += 1
       }
 
-      const keep = (parsed: readonly Parsed[], scope: ScopeDecision): void => {
+      const keep = (records: readonly CollectedRecord[], scope: ScopeDecision): void => {
         if (scope === 'watched') {
-          parsed.forEach(insert)
+          for (const record of records) {
+            insert(parseRecord(adapters, record))
+          }
         } else {
-          tally.discarded += parsed.length
+          tally.discarded += records.length
         }
       }
 
-      const sessionScope = (session: SessionKey | null): ScopeDecision | null =>
-        session === null ? null : (decisions.sessions.get(sessionName(session)) ?? null)
+      const streamScope = (stream: StreamKey): ScopeDecision | null =>
+        streamScopes.get(stream) ?? transaction.scopes.get(stream)?.scope ?? null
 
-      const decideStream = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null => {
-        const scope = sessionScope(session)
-        if (session !== null && scope !== null) {
+      const settleStream = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null => {
+        const known = streamScope(stream)
+        if (known !== null || session === null) {
+          return known
+        }
+        const scope = scopes.get(session)
+        if (scope !== null) {
           transaction.scopes.decide({ stream, runtime: session.runtime, scope })
-          streams.set(stream, scope)
+          streamScopes.set(stream, scope)
         }
         return scope
       }
 
       const saveCursor = (cursor: FileCursor, stream: StreamKey | null): void => {
         transaction.cursors.save({ ...cursor, stream })
-        saved.set(cursor.path, { dev: cursor.dev, ino: cursor.ino, stream })
+        files.set(cursor.path, committedFile(cursor, stream))
       }
 
-      const commitFile = ({ work, parsed }: FileItem): void => {
-        const { path, cursor, records, naming } = work
-        switch (naming.kind) {
-          case 'nameless':
-            tally.discarded += records.length
-            if (naming.first !== null) {
-              transaction.gaps.save(namelessGap(path, naming.first))
-            }
-            saveCursor(cursor, null)
-            return
-          case 'unnamed':
-            stillWaiting.set(path, { cursor, stream: null, records })
-            return
-          case 'named': {
-            const scope = streams.get(naming.stream) ?? decideStream(naming.stream, firstSession(parsed))
-            if (scope === null) {
-              stillWaiting.set(path, { cursor, stream: naming.stream, records })
-              return
-            }
-            keep(parsed, scope)
-            saveCursor(cursor, naming.stream)
-          }
-        }
+      const saveGap = (gap: CollectedGap, stream: StreamKey | null): void => {
+        transaction.gaps.save({ ...gap, stream, run: null, session: null })
       }
 
-      const commitRecord = (parsed: Parsed): void => {
-        const session = firstSession([parsed])
-        const scope = sessionScope(session)
-        if (scope === null) {
-          tally.discarded += 1
-          const reason = session === null ? 'it names no session' : 'its session has no scope decision'
-          transaction.gaps.save(unattributedGap(parsed, reason))
+      const commitHeld = (file: HeldFile): void => {
+        const { stream } = file
+        const scope = stream === null ? null : settleStream(stream, file.session)
+        if (stream === null || scope === null) {
+          files.set(file.path, file)
           return
         }
-        keep([parsed], scope)
+        keep(
+          file.lines.map(({ record }) => record),
+          scope,
+        )
+        if (scope === 'watched') {
+          for (const gap of file.gaps) {
+            saveGap(gap, stream)
+          }
+        }
+        if (file.full && scope === 'watched') {
+          files.set(file.path, laggingFile(file.cursor, stream))
+          rescan.add(stream)
+          return
+        }
+        saveCursor(file.cursor, stream)
       }
 
-      for (const { session, scope } of decisions.decided) {
+      const commitStep = (step: FileStep): void => {
+        switch (step.kind) {
+          case 'append': {
+            const scope = streamScope(step.stream)
+            if (scope === null) {
+              throw new Error(`the stream ${step.stream} of ${step.file.path} has no scope decision`)
+            }
+            keep(step.lines, scope)
+            saveCursor(step.cursor, step.stream)
+            return
+          }
+          case 'nameless':
+            tally.discarded += step.lines.length
+            if (step.first !== null) {
+              transaction.gaps.save(namelessGap(step.path, step.first))
+            }
+            for (const gap of step.gaps) {
+              saveGap(gap, null)
+            }
+            saveCursor(step.cursor, null)
+            return
+          case 'lagging':
+            tally.deferred += step.skipped
+            return
+          case 'held':
+            tally.deferred += step.skipped
+            commitHeld(step.file)
+        }
+      }
+
+      const commitHook = (held: HeldHook): void => {
+        const scope = scopes.get(held.owner.session)
+        if (scope === null) {
+          hooks.push(held)
+        } else {
+          keep([held.hook.record], scope)
+        }
+      }
+
+      const resolveGap = (gap: CollectedGap): void => {
+        const file = gap.stream === null ? files.get(gap.key.subject) : undefined
+        if (file?.kind === 'held') {
+          files.set(file.path, { ...file, gaps: [...file.gaps, gap] })
+          return
+        }
+        const stream = gap.stream ?? file?.stream ?? null
+        const scope = stream === null ? null : streamScope(stream)
+        if (scope === null || scope === 'watched') {
+          saveGap(gap, stream)
+        }
+      }
+
+      for (const { session, scope } of decided) {
         transaction.scopes.decideSession({ session, scope })
       }
+      state.hooks.forEach(commitHook)
+      for (const file of state.files.values()) {
+        if (file.kind === 'held' && !steps.has(file.path)) {
+          commitHeld(file)
+        }
+      }
       for (const item of items) {
-        if (item.kind === 'file') {
-          commitFile(item)
-        } else {
-          commitRecord(item.parsed)
+        switch (item.kind) {
+          case 'file': {
+            const step = steps.get(item.path)
+            if (step !== undefined) {
+              commitStep(step)
+            }
+            break
+          }
+          case 'hook':
+            commitHook({ hook: item.hook, owner: item.owner, batch, since: item.since })
+            break
+          case 'unowned':
+            tally.discarded += 1
+            transaction.gaps.save(unattributedGap(parseRecord(adapters, item.record)))
         }
       }
-      for (const gap of gaps) {
-        const scope = gap.stream === null ? null : (streams.get(gap.stream) ?? storedStreamScope(gap.stream))
-        if (scope === null || scope === 'watched') {
-          transaction.gaps.save({ ...gap, run: null, session: null })
-        }
-      }
-      return { tally, saved, waiting: stillWaiting }
+      batch.gaps.forEach(resolveGap)
+      return { tally, files, hooks, rescan: [...rescan] }
     })
 
-  const ingestBatch = async (batch: CollectorBatch): Promise<IngestResult> => {
-    const items = itemsOf(adapters, { known, waiting }, batch)
-    const decisions = await decide(items)
-    const committed = commit(items, decisions, batch.gaps)
-    for (const [path, file] of committed.saved) {
-      known.set(path, file)
+  const withinLimits = (committed: Committed) => {
+    const files = new Map(committed.files)
+    const hooks: HeldHook[] = []
+    const abandoned = new Set<CollectorBatch>()
+    let deferred = 0
+    let budget = limits.totalBytes
+    const sources = [
+      ...[...files.values()].flatMap((file) => (file.kind === 'held' ? [{ since: file.since, file }] : [])),
+      ...committed.hooks.map((hook) => ({ since: hook.since, hook })),
+    ].sort((left, right) => left.since - right.since)
+    for (const source of sources) {
+      if ('file' in source) {
+        const { file, dropped } = trimmed(source.file, Math.min(limits.fileBytes, budget))
+        files.set(file.path, file)
+        budget -= file.bytes
+        deferred += dropped
+      } else if (source.hook.hook.bytes <= budget) {
+        budget -= source.hook.hook.bytes
+        hooks.push(source.hook)
+      } else {
+        abandoned.add(source.hook.batch)
+        deferred += 1
+      }
     }
-    waiting = committed.waiting
-    const held = [...waiting.values()].reduce((total, file) => total + file.records.length, 0)
-    return { head: store.changes.head(), ...committed.tally, waiting: held }
+    return { files, hooks, abandoned, deferred }
+  }
+
+  const ingestBatch = async (batch: CollectorBatch): Promise<IngestResult> => {
+    const now = Date.now()
+    const steps = fileSteps(batch, now)
+    const items = itemsOf(batch, now)
+    const scopes = sessionScopes()
+    const evidence = gatherEvidence(steps, items, scopes, now)
+    const decided = await decideSessions(evidence, scopes, now)
+    const committed = commit(batch, items, steps, decided, scopes)
+    const kept = withinLimits(committed)
+    const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))
+    const candidates = [...state.open, batch]
+    state = {
+      files: kept.files,
+      hooks: kept.hooks,
+      evidence,
+      open: candidates.filter((open) => holdingBatches.has(open) && !kept.abandoned.has(open)),
+    }
+    return {
+      head: store.changes.head(),
+      ...committed.tally,
+      deferred: committed.tally.deferred + kept.deferred,
+      waiting: heldLines(kept.files) + kept.hooks.length,
+      settled: candidates.filter((open) => !holdingBatches.has(open) && !kept.abandoned.has(open)),
+      rescan: committed.rescan,
+    }
   }
 
   return {

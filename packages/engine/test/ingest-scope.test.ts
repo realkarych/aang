@@ -1,17 +1,28 @@
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { ScopeDecision } from '@aang/contract'
 import { describe, expect, test } from 'vitest'
-import { hookBatch, joinBatches, jsonlFile } from './batches.js'
+import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import {
+  countsOf,
   noObservationRows,
   observationRows,
   recordsOf,
   sessionKey,
+  settledOf,
   startEngine,
   streamOf,
   type WatchSettings,
 } from './harness.js'
 import { createHome } from './home.js'
-import { claudeHook, claudeHookEnv, claudeSubagentTranscript, claudeTranscript, codexRollout } from './samples.js'
+import {
+  claudeHook,
+  claudeHookEnv,
+  claudeSubagentTranscript,
+  claudeTranscript,
+  codexChildRollout,
+  codexHook,
+  codexRollout,
+} from './samples.js'
 import { createWorkspace, type Workspace } from './workspace.js'
 
 interface ScopeCase {
@@ -128,7 +139,8 @@ describe('a session outside the watched roots', () => {
       ),
     )
 
-    expect(first).toEqual({ head: 0, inserted: 0, duplicates: 0, discarded: 63, waiting: 0 })
+    expect(countsOf(first)).toEqual({ inserted: 0, duplicates: 0, discarded: 63, waiting: 0, deferred: 0 })
+    expect(first.head).toBe(0)
     expect(appended).toMatchObject({ head: 0, inserted: 0, discarded: claudeLines.length + codexLines.length - 60 })
     expect(observationRows(home.database())).toEqual(noObservationRows)
     expect(reopened.changes.head()).toBe(0)
@@ -186,35 +198,206 @@ describe('an observer session', () => {
   )
 })
 
-describe('the scope of a root session', () => {
-  test('is decided once and later cwd changes do not alter it', async ({ onTestFinished }) => {
+type Place = 'repository' | 'outside'
+
+interface OrderCase {
+  readonly name: string
+  readonly start: Place
+  readonly later: Place
+  readonly scope: ScopeDecision
+}
+
+const orderCases: readonly OrderCase[] = [
+  { name: 'a start inside the root is watched', start: 'repository', later: 'outside', scope: 'watched' },
+  { name: 'a start outside the root is external', start: 'outside', later: 'repository', scope: 'external' },
+]
+
+describe('the first cwd of a root session delivered after other records of the session', () => {
+  test.for(orderCases)(
+    'is taken from the transcript, not from an earlier hook event: $name',
+    async ({ start, later, scope }, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const engine = startEngine(store, { roots: [workspace.repository] })
+      const lines = claudeTranscript({ session: 's-moved', cwd: workspace[start] })
+      const file = jsonlFile({ runtime: 'claude', path: '/p/s-moved.jsonl', lines, ino: 1n })
+      const hook = hookBatch({
+        file: 'h-moved.evt',
+        payload: claudeHook('PreToolUse.Bash.json', { session: 's-moved', cwd: workspace[later] }),
+        env: claudeHookEnv,
+      })
+
+      const early = await engine.ingest(hook)
+      const decided = await engine.ingest(file.batch(1, lines.length))
+
+      expect(countsOf(early)).toMatchObject({ inserted: 0, discarded: 0, waiting: 1 })
+      expect(store.scopes.ofSession(sessionKey('claude', 's-moved'))?.scope).toBe(scope)
+      expect(countsOf(decided)).toMatchObject(
+        scope === 'watched'
+          ? { inserted: lines.length + 1, discarded: 0 }
+          : { inserted: 0, discarded: lines.length + 1 },
+      )
+      expect(settledOf(decided, [hook])).toEqual([0, -1])
+    },
+  )
+
+  test.for(orderCases)(
+    'is taken from the main transcript, not from an earlier subagent transcript: $name',
+    async ({ start, later, scope }, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const engine = startEngine(store, { roots: [workspace.repository] })
+      const mainLines = claudeTranscript({ session: 's-parent', cwd: workspace[start] })
+      const subagentLines = claudeSubagentTranscript({ session: 's-parent', cwd: workspace[later] })
+      const main = jsonlFile({ runtime: 'claude', path: '/p/s-parent.jsonl', lines: mainLines, ino: 1n })
+      const subagent = jsonlFile({
+        runtime: 'claude',
+        path: '/p/s-parent/subagents/agent-a.jsonl',
+        lines: subagentLines,
+        ino: 2n,
+      })
+
+      const early = await engine.ingest(subagent.batch(1, subagentLines.length))
+      await engine.ingest(main.batch(1, mainLines.length))
+
+      expect(early).toMatchObject({ inserted: 0, waiting: subagentLines.length })
+      expect(store.scopes.ofSession(sessionKey('claude', 's-parent'))?.scope).toBe(scope)
+      expect(store.scopes.get(streamOf('claude', subagentLines))?.scope).toBe(scope)
+      expect(recordsOf(store)).toHaveLength(scope === 'watched' ? mainLines.length + subagentLines.length : 0)
+    },
+  )
+
+  test.for(orderCases)(
+    'is taken from the root rollout, not from an earlier child thread rollout: $name',
+    async ({ start, later, scope }, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const engine = startEngine(store, { roots: [workspace.repository] })
+      const rootLines = codexRollout({ thread: 't-root', cwd: workspace[start] })
+      const childLines = codexChildRollout({ root: 't-root', thread: 't-child', cwd: workspace[later] })
+      const root = jsonlFile({ runtime: 'codex', path: '/p/rollout-t-root.jsonl', lines: rootLines, ino: 1n })
+      const child = jsonlFile({ runtime: 'codex', path: '/p/rollout-t-child.jsonl', lines: childLines, ino: 2n })
+
+      const early = await engine.ingest(child.batch(1, childLines.length))
+      await engine.ingest(root.batch(1, rootLines.length))
+
+      expect(early).toMatchObject({ inserted: 0, waiting: childLines.length })
+      expect(store.scopes.ofSession(sessionKey('codex', 't-root'))?.scope).toBe(scope)
+      expect(store.scopes.get(streamOf('codex', childLines))?.scope).toBe(scope)
+      expect(recordsOf(store)).toHaveLength(scope === 'watched' ? rootLines.length + childLines.length : 0)
+    },
+  )
+})
+
+describe('a session seen only through hook events', () => {
+  test.for([
+    ['claude', 'repository', 'watched'],
+    ['codex', 'outside', 'external'],
+  ] as const)(
+    'of %s is decided at once by its SessionStart in %s',
+    async ([runtime, place, scope], { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const session = { session: 's-hooks', cwd: workspace[place] }
+      const batch = hookBatch(
+        runtime === 'claude'
+          ? { file: 'h-start.evt', payload: claudeHook('SessionStart.startup.json', session), env: claudeHookEnv }
+          : { file: 'h-start.evt', payload: codexHook('SessionStart.startup.json', session), runtime },
+      )
+
+      const result = await startEngine(store, { roots: [workspace.repository] }).ingest(batch)
+
+      expect(store.scopes.ofSession(sessionKey(runtime, 's-hooks'))?.scope).toBe(scope)
+      expect(countsOf(result)).toMatchObject(scope === 'watched' ? { inserted: 1 } : { discarded: 1 })
+      expect(settledOf(result, [batch])).toEqual([0])
+    },
+  )
+
+  test('without an observed start waits, then is decided by the earliest cwd of its root thread', async ({
+    onTestFinished,
+  }) => {
     const workspace = await createWorkspace(onTestFinished)
     const home = await createHome(onTestFinished)
     const store = home.open()
-    const engine = startEngine(store, { roots: [workspace.repository] })
-    const inside = { session: 's-moved', cwd: workspace.repository }
-    const lines = claudeTranscript(inside)
-    const file = jsonlFile({ runtime: 'claude', path: '/p/s-moved.jsonl', lines, ino: 1n })
+    const engine = startEngine(store, { roots: [workspace.repository], holding: { startGraceMs: 1_500 } })
+    const subagent = hookBatch({
+      file: 'h-subagent.evt',
+      payload: claudeHook('PreToolUse.Bash.inside-subagent.json', { session: 's-late', cwd: workspace.outside }),
+      env: claudeHookEnv,
+    })
+    const first = hookBatch({
+      file: 'h-first.evt',
+      payload: claudeHook('PreToolUse.Bash.json', { session: 's-late', cwd: workspace.repository }),
+      env: claudeHookEnv,
+    })
+    const second = hookBatch({
+      file: 'h-second.evt',
+      payload: claudeHook('PostToolUse.Bash.json', { session: 's-late', cwd: workspace.outside }),
+      env: claudeHookEnv,
+    })
+    const batches = [subagent, first, second]
 
-    await engine.ingest(
+    const early = [await engine.ingest(subagent), await engine.ingest(first), await engine.ingest(second)]
+    await sleep(1_700)
+    const settled = await engine.ingest(batchOf({}))
+
+    expect(early.map((result) => [result.waiting, result.settled.length])).toEqual([
+      [1, 0],
+      [2, 0],
+      [3, 0],
+    ])
+    expect(store.scopes.ofSession(sessionKey('claude', 's-late'))?.scope).toBe('watched')
+    expect(countsOf(settled)).toMatchObject({ inserted: 3, waiting: 0 })
+    expect(settledOf(settled, batches)).toEqual([0, 1, 2, -1])
+  })
+
+  test('without any cwd of its root thread is not decided by its subagents', async ({ onTestFinished }) => {
+    const workspace = await createWorkspace(onTestFinished)
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const engine = startEngine(store, { roots: [workspace.repository], holding: { startGraceMs: 0 } })
+
+    const result = await engine.ingest(
       hookBatch({
-        file: 'h-first.evt',
-        payload: claudeHook('PreToolUse.Bash.json', { session: 's-moved', cwd: workspace.outside }),
+        file: 'h-subagent.evt',
+        payload: claudeHook('PreToolUse.Bash.inside-subagent.json', { session: 's-agents', cwd: workspace.repository }),
         env: claudeHookEnv,
       }),
     )
-    const later = await engine.ingest(
-      joinBatches(
-        hookBatch({ file: 'h-later.evt', payload: claudeHook('PostToolUse.Bash.json', inside), env: claudeHookEnv }),
-        file.batch(1, lines.length),
-      ),
-    )
 
-    expect(later).toMatchObject({ inserted: 0, discarded: lines.length + 1 })
-    expect(observationRows(home.database())).toEqual(noObservationRows)
-    expect(store.scopes.ofSession(sessionKey('claude', 's-moved'))?.scope).toBe('external')
-    expect(store.scopes.get(streamOf('claude', lines))?.scope).toBe('external')
+    expect(countsOf(result)).toMatchObject({ inserted: 0, discarded: 0, waiting: 1 })
+    expect(store.scopes.ofSession(sessionKey('claude', 's-agents'))).toBeNull()
   })
+})
+
+describe('the scope of a root session', () => {
+  test.for(orderCases)(
+    'is decided once, and a later cwd does not change it: $name',
+    async ({ start, later, scope }, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const engine = startEngine(store, { roots: [workspace.repository] })
+      const lines = claudeTranscript({ session: 's-moved', cwd: workspace[start] })
+      const file = jsonlFile({ runtime: 'claude', path: '/p/s-moved.jsonl', lines, ino: 1n })
+      await engine.ingest(file.batch(1, lines.length))
+
+      const later_ = await engine.ingest(
+        hookBatch({
+          file: 'h-later.evt',
+          payload: claudeHook('SessionStart.resume.json', { session: 's-moved', cwd: workspace[later] }),
+          env: claudeHookEnv,
+        }),
+      )
+
+      expect(countsOf(later_)).toMatchObject(scope === 'watched' ? { inserted: 1 } : { discarded: 1 })
+      expect(store.scopes.ofSession(sessionKey('claude', 's-moved'))?.scope).toBe(scope)
+    },
+  )
 
   test('is inherited by a subagent stream whose cwd lies outside the roots', async ({ onTestFinished }) => {
     const workspace = await createWorkspace(onTestFinished)
@@ -238,29 +421,5 @@ describe('the scope of a root session', () => {
     expect(subagentStream).not.toBe(streamOf('claude', mainLines))
     expect(store.scopes.get(subagentStream)?.scope).toBe('watched')
     expect(recordsOf(store).filter((record) => record.stream === subagentStream)).toHaveLength(subagentLines.length)
-  })
-
-  test('is taken from the earliest cwd seen in the batch', async ({ onTestFinished }) => {
-    const workspace = await createWorkspace(onTestFinished)
-    const home = await createHome(onTestFinished)
-    const store = home.open()
-    const engine = startEngine(store, { roots: [workspace.repository] })
-    const lines = claudeTranscript({ session: 's-early', cwd: workspace.repository })
-    const file = jsonlFile({ runtime: 'claude', path: '/p/s-early.jsonl', lines, ino: 1n })
-
-    const result = await engine.ingest(
-      joinBatches(
-        hookBatch({
-          file: 'h-late.evt',
-          payload: claudeHook('PreToolUse.Bash.json', { session: 's-early', cwd: workspace.outside }),
-          env: claudeHookEnv,
-          arrival: 10_000_000_000_000,
-        }),
-        file.batch(1, lines.length),
-      ),
-    )
-
-    expect(result).toMatchObject({ inserted: lines.length + 1, discarded: 0 })
-    expect(store.scopes.ofSession(sessionKey('claude', 's-early'))?.scope).toBe('watched')
   })
 })

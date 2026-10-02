@@ -3,14 +3,13 @@ import { realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
 import type { ScopeDecision } from '@aang/contract'
-import type { Evidence } from './parse.js'
 
 export interface WatchedRoots {
   readonly all: boolean
   readonly roots: readonly { readonly path: string }[]
 }
 
-export type ScopeJudge = (evidence: Evidence) => Promise<ScopeDecision | null>
+export type ScopeJudge = (cwd: string) => Promise<ScopeDecision>
 
 const run = promisify(execFile)
 const gitTimeoutMs = 10_000
@@ -60,13 +59,5 @@ export const createScopeJudge = (watch: WatchedRoots): ScopeJudge => {
     const repository = await commonGitDirectory(directory)
     return repository !== null && (await rootRepositories()).includes(repository) ? 'watched' : 'external'
   }
-  return async ({ observer, cwd }) => {
-    if (observer) {
-      return 'observer'
-    }
-    if (cwd === null) {
-      return null
-    }
-    return watch.all ? 'watched' : judgeDirectory(cwd.path)
-  }
+  return async (cwd) => (watch.all ? 'watched' : judgeDirectory(cwd))
 }

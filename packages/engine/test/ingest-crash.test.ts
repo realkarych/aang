@@ -31,7 +31,12 @@ interface Running {
 }
 
 const processScript = fileURLToPath(new URL('./ingest-process.ts', import.meta.url))
-const hookSamples = ['PreToolUse.Bash.json', 'PermissionRequest.Bash.json', 'PostToolUse.Bash.json']
+const hookSamples = [
+  'SessionStart.startup.json',
+  'PreToolUse.Bash.json',
+  'PermissionRequest.Bash.json',
+  'PostToolUse.Bash.json',
+]
 const settleTimeoutMs = 20_000
 
 const spoolFile = (payload: string, env: SpoolEnv): Buffer =>

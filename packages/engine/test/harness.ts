@@ -6,6 +6,7 @@ import {
   type AdapterRegistry,
   ChangeSeq,
   type CollectedRecord,
+  type CollectorBatch,
   type Fact,
   type FactDraft,
   type Gap,
@@ -15,7 +16,7 @@ import {
   type SessionKey,
   type StreamKey,
 } from '@aang/contract'
-import { createEngine, type Engine } from '@aang/engine'
+import { createEngine, type Engine, type HoldingLimits, type IngestResult } from '@aang/engine'
 import type { Store } from '@aang/store'
 
 export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
@@ -26,10 +27,22 @@ export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
 export interface WatchSettings {
   readonly roots?: readonly string[]
   readonly all?: boolean
+  readonly holding?: Partial<HoldingLimits>
 }
 
-export const startEngine = (store: Store, { roots = [], all = false }: WatchSettings = {}): Engine =>
-  createEngine({ store, adapters, watch: { all, roots: roots.map((path) => ({ path })) } })
+export const startEngine = (store: Store, { roots = [], all = false, holding = {} }: WatchSettings = {}): Engine =>
+  createEngine({ store, adapters, watch: { all, roots: roots.map((path) => ({ path })) }, holding })
+
+export const countsOf = ({ inserted, duplicates, discarded, waiting, deferred }: IngestResult) => ({
+  inserted,
+  duplicates,
+  discarded,
+  waiting,
+  deferred,
+})
+
+export const settledOf = (result: IngestResult, batches: readonly CollectorBatch[]): number[] =>
+  result.settled.map((batch) => batches.indexOf(batch))
 
 const everything = 1_000_000
 

@@ -22,12 +22,14 @@ const collector = createCollector({
 
 let batches = 0
 for await (const batch of collector.start(store.cursors.list())) {
-  await engine.ingest(batch)
+  const { settled } = await engine.ingest(batch)
   batches += 1
   if (batches === crashAfter) {
     writeSync(1, 'committed\n')
     Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0)
   }
-  await collector.ack(batch)
+  for (const acknowledged of settled) {
+    await collector.ack(acknowledged)
+  }
   writeSync(1, `acknowledged ${String(batches)}\n`)
 }

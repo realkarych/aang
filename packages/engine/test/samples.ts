@@ -43,13 +43,25 @@ export const claudeTranscript = (session: ClaudeSession): string[] =>
     rewriteClaudeLine(line, session),
   )
 
-export const claudeSubagentTranscript = (session: ClaudeSession): string[] =>
-  sampleLines('claude-code-transcripts/subagent-agent-aad616394e806288d.jsonl').map((line) =>
+const renumbered = (line: string, copy: number): string => {
+  if (copy === 0) {
+    return line
+  }
+  const record = parseObject(line)
+  const suffix = (field: string): JsonObject =>
+    typeof record[field] === 'string' ? { [field]: `${record[field]}-${String(copy)}` } : {}
+  return JSON.stringify({ ...record, ...suffix('uuid'), ...suffix('parentUuid') })
+}
+
+export const claudeSubagentTranscript = (session: ClaudeSession, copies = 1): string[] => {
+  const lines = sampleLines('claude-code-transcripts/subagent-agent-aad616394e806288d.jsonl').map((line) =>
     rewriteClaudeLine(line, session),
   )
+  return Array.from({ length: copies }, (_, copy) => lines.map((line) => renumbered(line, copy))).flat()
+}
 
-export const claudeHook = (name: string, { session, cwd }: ClaudeSession): string =>
-  JSON.stringify({ ...parseObject(readSample(`claude-code-hooks/${name}`)), session_id: session, cwd })
+export const claudeHook = (name: string, { session, cwd }: ClaudeSession, changes: JsonObject = {}): string =>
+  JSON.stringify({ ...parseObject(readSample(`claude-code-hooks/${name}`)), session_id: session, cwd, ...changes })
 
 export const claudeHookWithoutCwd = (name: string, session: string): string =>
   JSON.stringify(
@@ -92,3 +104,33 @@ export const codexRollout = (session: CodexSession): string[] =>
   sampleLines('codex-cli/rollout/rollout-real-exec-then-resume-with-compaction.jsonl').map((line) =>
     rewriteCodexLine(line, session),
   )
+
+export interface CodexChild {
+  readonly root: string
+  readonly thread: string
+  readonly cwd: string
+}
+
+export const codexChildRollout = ({ root, thread, cwd }: CodexChild): string[] => {
+  const meta = parseObject(readSample('codex-cli/rollout/session_meta.subagent.thread_spawn.mock.json'))
+  const spawn = asObject(asObject(asObject(meta['payload'])['source'])['subagent'])
+  const payload = {
+    ...asObject(meta['payload']),
+    id: thread,
+    session_id: root,
+    cwd,
+    source: { subagent: { ...spawn, thread_spawn: { ...asObject(spawn['thread_spawn']), parent_thread_id: root } } },
+  }
+  const body = codexRollout({ thread, cwd }).slice(1, 12)
+  return [JSON.stringify({ ...meta, payload }), ...body]
+}
+
+export interface CodexHookSession {
+  readonly session: string
+  readonly cwd: string
+}
+
+export const codexHook = (name: string, { session, cwd }: CodexHookSession, changes: JsonObject = {}): string => {
+  const sample = parseObject(readSample(`codex-cli/hooks/${name}`))
+  return JSON.stringify({ ...asObject(sample['stdin']), session_id: session, cwd, ...changes })
+}
