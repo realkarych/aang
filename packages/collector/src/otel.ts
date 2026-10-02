@@ -1,9 +1,11 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
-import { once } from 'node:events'
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import type { CollectedGap, CollectedRecord, CollectorBatch, EpochNs, Listener } from '@aang/contract'
+import { join } from 'node:path'
+import type { CollectedGap, CollectorBatch, EpochNs, Listener } from '@aang/contract'
 import { describeError } from './errors.js'
+import { filterOtel } from './otel-envelope.js'
+import { createOtelQueue, maxOtelBodyBytes, maxOtelQueueBytes, maxOtelRequests, otelEnvelopeOverhead } from './otel-queue.js'
 import { nowNs } from './time.js'
 import type { Wakeup } from './wakeup.js'
 
@@ -13,59 +15,18 @@ export interface OtelReceiverOptions {
 }
 
 export interface OtelReceiver {
+  readonly open: () => Promise<void>
   readonly listen: (options: OtelReceiverOptions) => Promise<Listener>
-  readonly take: () => CollectorBatch | null
+  readonly take: () => Promise<CollectorBatch | null>
+  readonly ack: (batch: CollectorBatch) => Promise<void>
   readonly close: () => Promise<void>
 }
 
-type JsonObject = Readonly<Record<string, unknown>>
-
 const loopback = '127.0.0.1'
 const logsPath = /^\/otel\/([^/]+)\/v1\/logs$/
-const toolDecision = 'codex.tool_decision'
-const maxBodyBytes = 32 * 1024 ** 2
-const maxRecordsPerBatch = 4096
 const identityEncodings = new Set(['', 'identity'])
-
 const digest = (value: string): Buffer => createHash('sha256').update(value).digest()
-
-const isObject = (value: unknown): value is JsonObject =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const objects = (value: JsonObject, key: string): JsonObject[] => {
-  const member = value[key]
-  return Array.isArray(member) ? member.filter(isObject) : []
-}
-
-const isToolDecision = (logRecord: JsonObject): boolean =>
-  objects(logRecord, 'attributes').some(
-    ({ key, value }) => key === 'event.name' && isObject(value) && value.stringValue === toolDecision,
-  )
-
-const toolDecisions = (request: unknown): string[] =>
-  (isObject(request) ? objects(request, 'resourceLogs') : []).flatMap((resourceLog) =>
-    objects(resourceLog, 'scopeLogs').flatMap((scopeLog) =>
-      objects(scopeLog, 'logRecords')
-        .filter(isToolDecision)
-        .map((logRecord) =>
-          JSON.stringify({ resourceLogs: [{ ...resourceLog, scopeLogs: [{ ...scopeLog, logRecords: [logRecord] }] }] }),
-        ),
-    ),
-  )
-
 const mediaType = (header: string | undefined): string => (header ?? '').split(';', 1)[0]?.trim().toLowerCase() ?? ''
-
-const readBody = async (request: IncomingMessage): Promise<Buffer | null> => {
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const chunk of request as AsyncIterable<Buffer>) {
-    size += chunk.length
-    if (size <= maxBodyBytes) {
-      chunks.push(chunk)
-    }
-  }
-  return size > maxBodyBytes ? null : Buffer.concat(chunks)
-}
 
 const respond = (response: ServerResponse, status: number): void => {
   if (status === 200) {
@@ -75,26 +36,36 @@ const respond = (response: ServerResponse, status: number): void => {
   }
 }
 
-export const createOtelReceiver = (wakeup: Wakeup): OtelReceiver => {
-  const records: CollectedRecord[] = []
-  const gaps: CollectedGap[] = []
+export const createOtelReceiver = (spool: string, wakeup: Wakeup): OtelReceiver => {
+  const queue = createOtelQueue(join(spool, 'otel'))
+  const requests = new Set<Promise<void>>()
+  let processing: Promise<void> = Promise.resolve()
   let server: Server | null = null
   let expected: Buffer | null = null
+  let closed = false
+  let closing: Promise<void> | null = null
+  let reservedBytes = 0
+  let reservedRequests = 0
+  let gap: CollectedGap | null = null
   let lost = 0
+  let pendingLosses = 0
+
+  const isClosed = (): boolean => closed
 
   const lose = (observedAt: EpochNs, details: string): void => {
     lost += 1
-    gaps.push({
-      key: { kind: 'gap', gap: 'unknown_records', subject: `otel:${String(observedAt)}:${String(lost)}` },
+    pendingLosses += 1
+    gap = {
+      key: gap?.key ?? { kind: 'gap', gap: 'unknown_records', subject: `otel:${String(observedAt)}:${String(lost)}` },
       stream: null,
-      details,
-      detected_at: observedAt,
+      details: `${details.slice(0, 512)}; affected requests: ${String(pendingLosses)}`,
+      detected_at: gap?.detected_at ?? observedAt,
       closed_at: observedAt,
-    })
+    }
     wakeup.notify()
   }
 
-  const accept = (body: Buffer, observedAt: EpochNs): void => {
+  const accept = async (body: Buffer, observedAt: EpochNs): Promise<void> => {
     let request: unknown
     try {
       request = JSON.parse(body.toString('utf8'))
@@ -102,93 +73,156 @@ export const createOtelReceiver = (wakeup: Wakeup): OtelReceiver => {
       lose(observedAt, `OTLP logs request is not JSON and was discarded: ${describeError(error)}`)
       return
     }
-    const received = toolDecisions(request).map(
-      (payload): CollectedRecord => ({
-        channel: 'otel',
-        runtime: 'codex',
-        stream: null,
-        position: { kind: 'otel' },
-        hook: null,
-        observed_at: observedAt,
-        payload,
-      }),
-    )
-    if (received.length > 0) {
-      records.push(...received)
+    const envelope = filterOtel(request, String(observedAt))
+    if (envelope.resourceLogs.length > 0) {
+      await queue.save(envelope)
       wakeup.notify()
     }
   }
 
   const authorized = (request: IncomingMessage): boolean => {
     const token = logsPath.exec((request.url ?? '').split('?', 1)[0] ?? '')?.[1]
-    return (
-      request.method === 'POST' && token !== undefined && expected !== null && timingSafeEqual(digest(token), expected)
-    )
+    return request.method === 'POST' && token !== undefined && expected !== null && timingSafeEqual(digest(token), expected)
   }
-
-  const supported = (request: IncomingMessage): boolean =>
-    mediaType(request.headers['content-type']) === 'application/json' &&
-    identityEncodings.has(mediaType(request.headers['content-encoding']))
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     if (!authorized(request)) {
       respond(response, 404)
+      request.resume()
       return
     }
-    if (!supported(request)) {
+    if (mediaType(request.headers['content-type']) !== 'application/json' || !identityEncodings.has(mediaType(request.headers['content-encoding']))) {
       respond(response, 415)
+      request.resume()
       return
     }
-    const body = await readBody(request)
-    const observedAt = nowNs()
-    if (body === null) {
+    const declared = Number(request.headers['content-length'] ?? maxOtelBodyBytes)
+    if (declared > maxOtelBodyBytes) {
       respond(response, 413)
-      lose(observedAt, `OTLP logs request over ${String(maxBodyBytes)} bytes was rejected`)
+      request.resume()
+      lose(nowNs(), `OTLP logs request over ${String(maxOtelBodyBytes)} bytes was rejected`)
       return
     }
-    respond(response, 200)
-    setImmediate(() => {
-      accept(body, observedAt)
-    })
+    const reservation = declared + otelEnvelopeOverhead
+    if (closed || queue.bytes() + reservedBytes + reservation > maxOtelQueueBytes || queue.count() + reservedRequests >= maxOtelRequests) {
+      respond(response, 503)
+      request.resume()
+      lose(nowNs(), 'OTLP queue budget exhausted; request rejected')
+      return
+    }
+    reservedBytes += reservation
+    reservedRequests += 1
+    let deferred = false
+    const release = (): void => {
+      reservedBytes -= reservation
+      reservedRequests -= 1
+    }
+    try {
+      const chunks: Buffer[] = []
+      let size = 0
+      for await (const chunk of request as AsyncIterable<Buffer>) {
+        size += chunk.length
+        if (size > declared) {
+          respond(response, 413)
+          lose(nowNs(), `OTLP logs request over ${String(declared)} bytes was rejected`)
+          return
+        }
+        chunks.push(chunk)
+      }
+      if (isClosed()) {
+        respond(response, 503)
+        return
+      }
+      const body = Buffer.concat(chunks, size)
+      const observedAt = nowNs()
+      respond(response, 200)
+      deferred = true
+      processing = processing.then(() => new Promise<void>((resolve) => { setImmediate(resolve) }))
+        .then(() => accept(body, observedAt))
+        .catch((error: unknown) => { lose(observedAt, `OTLP request processing failed: ${describeError(error)}`) })
+        .finally(release)
+    } finally {
+      if (!deferred) {
+        release()
+      }
+    }
   }
 
   const listen = async ({ port, token }: OtelReceiverOptions): Promise<Listener> => {
+    if (closed) {
+      throw new Error('the OpenTelemetry receiver is closed')
+    }
     if (server !== null) {
       throw new Error('the OpenTelemetry receiver is already listening')
     }
     const created = createServer((request, response) => {
-      handle(request, response).catch(() => {
-        response.destroy()
-      })
+      const handled = handle(request, response).catch(() => { response.destroy() })
+      requests.add(handled)
+      void handled.finally(() => { requests.delete(handled) })
     })
+    created.maxConnections = 64
+    created.requestTimeout = 30_000
     server = created
     expected = digest(token)
-    created.listen(port, loopback)
     try {
-      await once(created, 'listening')
+      await queue.open()
+      if (isClosed() || server !== created) {
+        throw new Error('the OpenTelemetry receiver was closed during startup')
+      }
+      await new Promise<void>((resolve, reject) => {
+        const cleanup = (): void => {
+          created.off('listening', ready)
+          created.off('error', failed)
+          created.off('close', stopped)
+        }
+        const ready = (): void => { cleanup(); resolve() }
+        const failed = (error: Error): void => { cleanup(); reject(error) }
+        const stopped = (): void => { failed(new Error('the OpenTelemetry receiver was closed during startup')) }
+        created.once('listening', ready)
+        created.once('error', failed)
+        created.once('close', stopped)
+        created.listen(port, loopback)
+      })
+      const address = created.address() as AddressInfo | null
+      if (address === null || isClosed()) {
+        throw new Error('the OpenTelemetry receiver was closed during startup')
+      }
+      return { host: loopback, port: address.port }
     } catch (error) {
-      server = null
+      if (server === created) {
+        server = null
+      }
       throw error
     }
-    return { host: loopback, port: (created.address() as AddressInfo).port }
   }
 
-  const take = (): CollectorBatch | null =>
-    records.length === 0 && gaps.length === 0
-      ? null
-      : { records: records.splice(0, maxRecordsPerBatch), cursors: [], gaps: gaps.splice(0) }
-
-  const close = async (): Promise<void> => {
-    const running = server
-    server = null
-    if (running === null) {
-      return
+  const take = async (): Promise<CollectorBatch | null> => {
+    if (gap !== null) {
+      const batch: CollectorBatch = { records: [], cursors: [], gaps: [gap] }
+      gap = null
+      pendingLosses = 0
+      return batch
     }
-    const closed = once(running, 'close')
-    running.close()
-    running.closeAllConnections()
-    await closed
+    return queue.take()
   }
 
-  return { listen, take, close }
+  const close = (): Promise<void> => {
+    closed = true
+    closing ??= (async () => {
+      const running = server
+      server = null
+      if (running !== null) {
+        await new Promise<void>((resolve) => {
+          running.close(() => { resolve() })
+          running.closeAllConnections()
+        })
+      }
+      await Promise.all([...requests])
+      await processing
+      await queue.idle()
+    })()
+    return closing
+  }
+
+  return { open: queue.open, listen, take, ack: queue.ack, close }
 }

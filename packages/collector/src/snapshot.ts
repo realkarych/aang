@@ -93,9 +93,13 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     return file
   }
 
+  const current = (file: SnapshotFile): boolean => files.get(file.path) === file
+
   const mark = (file: SnapshotFile): void => {
-    dirty.set(file.path, file)
-    wakeup.notify()
+    if (current(file)) {
+      dirty.set(file.path, file)
+      wakeup.notify()
+    }
   }
 
   const settle = (file: SnapshotFile): void => {
@@ -115,10 +119,15 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
 
   const vanished = (file: SnapshotFile): CollectedRecord[] => {
     settle(file)
-    files.delete(file.path)
-    return file.emitted === null
+    const emitted = file.emitted
+    file.emitted = null
+    file.seen = null
+    if (dirty.get(file.path) !== file) {
+      files.delete(file.path)
+    }
+    return emitted === null
       ? []
-      : [record(file, { kind: 'file_removed', path: file.path, last_content_hash: file.emitted }, nowNs(), '')]
+      : [record(file, { kind: 'file_removed', path: file.path, last_content_hash: emitted }, nowNs(), '')]
   }
 
   const complete = (file: SnapshotFile, hash: ContentHash, payload: string): boolean => {
@@ -169,6 +178,9 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
       }
       content = null
     }
+    if (!current(file)) {
+      return { records: [], gaps: [] }
+    }
     const gaps = retrier.recovered(file)
     return { records: content === null ? vanished(file) : loaded(file, content), gaps }
   }
@@ -187,8 +199,8 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     }
     const present = new Set(paths.filter((path) => source.selects(segmentsOf(root, path))))
     for (const path of present) {
-      const file = track(source, path)
       const stats = await stat(path, { bigint: true }).catch(absent)
+      const file = track(source, path)
       if (stats === null || fingerprint(stats) !== file.seen) {
         mark(file)
       }
@@ -208,7 +220,12 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
       if (bytes >= maxBytesPerBatch || records.length >= maxRecordsPerBatch) {
         break
       }
-      dirty.delete(path)
+      if (!current(file)) {
+        continue
+      }
+      if (dirty.get(path) === file) {
+        dirty.delete(path)
+      }
       const outcome = await read(file)
       records.push(...outcome.records)
       gaps.push(...outcome.gaps)

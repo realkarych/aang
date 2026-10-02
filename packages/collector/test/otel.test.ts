@@ -129,13 +129,14 @@ test('a request built from the tool_decision variants yields one record per deci
   }
   expect(running.gaps()).toEqual([])
 
-  expect(await filesUnder(sandbox.root)).toEqual(filesBefore)
   for (const path of await filesUnder(sandbox.root)) {
     const content = await readFile(path, 'utf8')
-    for (const name of [...otherNames, 'codex.tool_decision']) {
+    for (const name of otherNames) {
       expect(content).not.toContain(name)
     }
   }
+  await running.ackAll()
+  expect(await filesUnder(sandbox.root)).toEqual(filesBefore)
 })
 
 test('requests to a wrong token, path or method get 404 and leave no records', async ({ onTestFinished }) => {

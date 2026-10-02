@@ -39,7 +39,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
     },
     wakeup,
   )
-  const otel = createOtelReceiver(wakeup)
+  const otel = createOtelReceiver(options.spool, wakeup)
   const snapshots = createSnapshotSource({ roots: roots.snapshots, retrier }, wakeup)
   const tail = createTailSource({ roots: roots.tail, retrier }, wakeup)
   const tree = createTree(
@@ -69,11 +69,12 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   }
 
   const take = async (): Promise<CollectorBatch | null> =>
-    (await spool.take()) ?? otel.take() ?? (await snapshots.take()) ?? (await tail.take())
+    (await spool.take()) ?? (await otel.take()) ?? (await snapshots.take()) ?? (await tail.take())
 
   async function* batches(cursors: readonly FileCursor[]): AsyncGenerator<CollectorBatch> {
     try {
       await spool.open()
+      await otel.open()
       tail.open(cursors)
       tree.open()
       while (running()) {
@@ -97,7 +98,10 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       state = 'running'
       return batches(cursors)
     },
-    ack: (batch) => spool.ack(batch),
+    ack: async (batch) => {
+      await spool.ack(batch)
+      await otel.ack(batch)
+    },
     listenOtel: (otelOptions) => {
       if (state === 'closed') {
         return Promise.reject(new Error('the collector is closed'))

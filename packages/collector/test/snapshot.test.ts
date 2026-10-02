@@ -363,3 +363,68 @@ test('after a restart the present snapshot files are issued again with the same 
       .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
   expect(positions(second)).toEqual(positions(first))
 })
+
+test('removals racing with scans and watch events are issued once per incarnation and a recreated file keeps its state', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const count = 300
+  const paths = Array.from({ length: count }, (_, index) => registryPath(sandbox, `${String(10_000 + index)}.json`))
+  const contentOf = (index: number, round: number): string =>
+    JSON.stringify({ pid: 10_000 + index, sessionId: `s-${String(index)}`, round })
+  const running = runCollector(sandbox, { fsWatch: true, rootsScanIntervalMs: 1 })
+
+  const present = new Map<string, string>()
+  const settled = (): void => {
+    for (const path of paths) {
+      const events = ofPath(running, path)
+      const last = events.at(-1)?.position
+      const content = present.get(path)
+      if (content === undefined) {
+        expect([path, last?.kind ?? 'file_removed']).toEqual([path, 'file_removed'])
+      } else {
+        expect([path, last]).toEqual([path, { kind: 'file', path, content_hash: sha256(content) }])
+      }
+    }
+  }
+
+  for (let round = 0; round < 4; round += 1) {
+    await Promise.all(
+      paths.map(async (path, index) => {
+        const content = contentOf(index, round * 2)
+        await put(path, content)
+        present.set(path, content)
+      }),
+    )
+    await vi.waitFor(settled, { timeout: 20_000, interval: 20 })
+    await Promise.all(
+      paths.map(async (path, index) => {
+        await rm(path)
+        present.delete(path)
+        if (index % 3 === 0) {
+          const content = contentOf(index, round * 2 + 1)
+          await put(path, content)
+          present.set(path, content)
+        }
+      }),
+    )
+    await vi.waitFor(settled, { timeout: 20_000, interval: 20 })
+  }
+  await sleep(300)
+  settled()
+
+  for (const path of paths) {
+    const events = ofPath(running, path).map(({ position }) => position)
+    let previous: CollectedPosition | undefined
+    for (const position of events) {
+      if (position.kind === 'file_removed') {
+        expect([path, previous?.kind]).toEqual([path, 'file'])
+        expect(previous?.kind === 'file' ? previous.content_hash : null).toBe(position.last_content_hash)
+      } else if (previous?.kind === 'file') {
+        expect([path, previous.content_hash]).not.toEqual([path, position.kind === 'file' ? position.content_hash : null])
+      }
+      previous = position
+    }
+  }
+  expect(running.gaps()).toEqual([])
+})
