@@ -13,6 +13,8 @@ import type {
   StreamKey,
 } from '@aang/contract'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
+import { projectSession } from '../observations/project.js'
+import { normalizeOtel } from './otel.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
   advanceFile,
@@ -80,6 +82,7 @@ interface State {
 type Item =
   | { readonly kind: 'file'; readonly path: string }
   | { readonly kind: 'hook'; readonly hook: Owned; readonly owner: RecordOwner; readonly since: number }
+  | { readonly kind: 'otel'; readonly record: CollectedRecord }
   | { readonly kind: 'unowned'; readonly record: CollectedRecord }
 
 interface SessionScopes {
@@ -193,6 +196,7 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
         seen.add(path)
         return [{ kind: 'file', path }]
       }
+      if (record.channel === 'otel' && record.runtime === 'codex') { return [{ kind: 'otel', record }] }
       const hook = ownedRecord(adapters, record)
       return hook.owner === null
         ? [{ kind: 'unowned', record }]
@@ -277,6 +281,7 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
     scopes: SessionScopes,
   ): Committed =>
     store.transaction((transaction: Transaction) => {
+      const changedSessions = new Map<string, SessionKey>()
       const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0, deferred: 0 }
       const files = new Map(state.files)
       const hooks: HeldHook[] = []
@@ -289,7 +294,11 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
           tally.duplicates += 1
           return
         }
-        transaction.facts.insert(seq, parsed.normalizerVersion, factsOf(parsed))
+        const facts = transaction.facts.insert(seq, parsed.normalizerVersion, factsOf(parsed))
+        for (const { entity_key } of facts) {
+          const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
+          changedSessions.set(sessionName(key), key)
+        }
         tally.inserted += 1
       }
 
@@ -387,7 +396,12 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
         if (scope === null) {
           hooks.push(held)
         } else {
-          keep([held.hook.record], scope)
+          const record = held.hook.record
+          const stream = adapters[record.runtime].streamKey([record.payload])
+          if (stream !== null) {
+            transaction.scopes.decide({ stream, runtime: record.runtime, scope })
+          }
+          keep([record], scope)
         }
       }
 
@@ -425,12 +439,19 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
           case 'hook':
             commitHook({ hook: item.hook, owner: item.owner, batch, since: item.since })
             break
+          case 'otel': {
+            const parsed = parseRecord(adapters, { ...item.record, stream: null })
+            insert({ ...parsed, record: item.record, key: adapters[item.record.runtime].rawKey(item.record) })
+            break
+          }
           case 'unowned':
             tally.discarded += 1
             transaction.gaps.save(unattributedGap(parseRecord(adapters, item.record)))
         }
       }
       batch.gaps.forEach(resolveGap)
+      for (const key of normalizeOtel(transaction, adapters)) { changedSessions.set(sessionName(key), key) }
+      for (const key of changedSessions.values()) { projectSession(transaction, key) }
       return { tally, files, hooks, rescan: [...rescan] }
     })
 

@@ -14,6 +14,7 @@ export interface SessionScope {
 }
 
 export interface ScopeReader {
+  readonly list: () => StreamScope[]
   readonly get: (stream: StreamKey) => StreamScope | null
   readonly ofSession: (session: SessionKey) => SessionScope | null
 }
@@ -51,7 +52,9 @@ export const createScopes = (database: DatabaseSync): ScopeRepository => {
      ON CONFLICT (runtime, session) DO UPDATE SET scope = excluded.scope`,
   )
 
+  const selectAll = prepareStatement(database, 'SELECT stream, runtime, scope FROM streams ORDER BY stream')
   const reader: ScopeReader = {
+    list: () => (selectAll.all() as ScopeRow[]).map((row) => ({ stream: StreamKey.parse(row.stream), runtime: Runtime.parse(row.runtime), scope: ScopeDecision.parse(row.scope) })),
     get: (stream) => {
       const row = selectByStream.get(stream) as ScopeRow | undefined
       return row === undefined

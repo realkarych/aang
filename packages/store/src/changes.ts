@@ -3,9 +3,11 @@ import { ChangeSeq, type Fact, type Gap, type RawRecord } from '@aang/contract'
 import { prepareStatement } from './context.js'
 import { factColumns, type FactRow, toFact } from './facts.js'
 import { gapColumns, type GapRow, toGap } from './gaps.js'
+import { type Observation, type ObservationRow, observationKinds, toObservation } from './observations.js'
 import { rawRecordColumns, type RawRecordRow, toRawRecord } from './raw-records.js'
 
 export type Change =
+  | { readonly layer: 'object'; readonly change_seq: ChangeSeq; readonly object: Observation }
   | { readonly layer: 'raw_record'; readonly change_seq: ChangeSeq; readonly record: RawRecord }
   | { readonly layer: 'fact'; readonly change_seq: ChangeSeq; readonly fact: Fact }
   | { readonly layer: 'gap'; readonly change_seq: ChangeSeq; readonly gap: Gap }
@@ -34,6 +36,9 @@ export const createChangeFeed = (database: DatabaseSync): ChangeFeed => {
     `SELECT ${gapColumns} FROM gaps WHERE change_seq > ? ORDER BY change_seq LIMIT ?`,
   )
 
+  const selectObjects = prepareStatement(database,
+    `SELECT kind, data, change_seq FROM objects WHERE kind IN (${observationKinds}) AND change_seq > ? ORDER BY change_seq LIMIT ?`,
+  )
   return {
     head: () => ChangeSeq.parse(Number((selectHead.get() as { readonly value: bigint }).value)),
     after: (position, limit) => {
@@ -49,7 +54,10 @@ export const createChangeFeed = (database: DatabaseSync): ChangeFeed => {
       const gaps = (selectGaps.all(position, limit) as GapRow[]).map(
         (row): Change => ({ layer: 'gap', change_seq: changeSeqOf(row), gap: toGap(row) }),
       )
-      return [...records, ...facts, ...gaps].sort(byChangeSeq).slice(0, limit)
+      const objects = (selectObjects.all(position, limit) as ObservationRow[]).map(
+        (row): Change => ({ layer: 'object', change_seq: changeSeqOf(row), object: toObservation(row) }),
+      )
+      return [...records, ...facts, ...gaps, ...objects].sort(byChangeSeq).slice(0, limit)
     },
   }
 }

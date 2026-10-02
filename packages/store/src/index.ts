@@ -8,3 +8,4 @@ export type { RawInsertResult, RawRecordReader, RawRecordWriter } from './raw-re
 export type { ScopeReader, ScopeWriter, SessionScope, StreamScope } from './scopes.js'
 export type { SettingReader, SettingWriter } from './settings.js'
 export { openStore, type Store, type StoreOptions, type Transaction } from './store.js'
+export type { Observation, ObservationDraft, ObservationReader, ObservationWriter } from './observations.js'

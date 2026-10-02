@@ -1,5 +1,6 @@
 import { StreamKey } from '@aang/contract'
 import { z } from 'zod'
+import { readJson } from './json.js'
 import { readLine } from './line.js'
 
 export interface ThreadStream {
@@ -12,6 +13,12 @@ const separator = ':'
 const rootChildDepth = 1
 
 const ThreadId = z.string().regex(/^[^:\s]+$/)
+
+const HookStream = z.looseObject({
+  hook_event_name: z.string().min(1),
+  session_id: ThreadId,
+  agent_id: ThreadId.nullish(),
+})
 
 const SessionMetaIds = z.looseObject({
   id: ThreadId,
@@ -52,7 +59,8 @@ export const streamKey = (firstLines: readonly string[]): StreamKey | null => {
   const [first] = firstLines
   const reading = first === undefined ? null : readLine(first)
   if (reading?.kind !== 'line' || reading.line.type !== 'session_meta') {
-    return null
+    const hook = first === undefined ? undefined : HookStream.safeParse(readJson(first)).data
+    return hook === undefined ? null : StreamKey.parse([runtimePrefix, hook.session_id, hook.agent_id ?? hook.session_id].join(separator))
   }
   const ids = SessionMetaIds.safeParse(reading.line.payload)
   if (!ids.success) {

@@ -9,6 +9,7 @@ import { createFacts, type FactReader, type FactWriter } from './facts.js'
 import { createGaps, type GapReader, type GapWriter } from './gaps.js'
 import { acquireWriterLock, type WriterLock } from './lock.js'
 import { createModel, type ModelReader, type ModelWriter } from './model.js'
+import { createObservations, type ObservationReader, type ObservationWriter } from './observations.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
@@ -21,6 +22,7 @@ export interface StoreOptions {
 
 export interface Transaction {
   readonly nextChangeSeq: () => ChangeSeq
+  readonly observations: ObservationWriter
   readonly rawRecords: RawRecordWriter
   readonly facts: FactWriter
   readonly scopes: ScopeWriter
@@ -34,6 +36,7 @@ type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
 
 export interface Store {
   readonly transaction: <T>(work: (transaction: Transaction) => Synchronous<T>) => T
+  readonly observations: ObservationReader
   readonly rawRecords: RawRecordReader
   readonly facts: FactReader
   readonly scopes: ScopeReader
@@ -47,6 +50,7 @@ export interface Store {
 
 const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const issueChangeSeq = prepareStatement(database, 'UPDATE change_counter SET value = value + 1 RETURNING value')
+  const observations = createObservations(database)
   const rawRecords = createRawRecords(database)
   const facts = createFacts(database)
   const scopes = createScopes(database)
@@ -72,6 +76,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     return {
       transaction: {
         nextChangeSeq: context.nextChangeSeq,
+        observations: observations.writer(context),
         rawRecords: rawRecords.writer(context),
         facts: facts.writer(context),
         scopes: scopes.writer(context),
@@ -96,6 +101,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         finish()
       }
     },
+    observations: observations.reader,
     rawRecords: rawRecords.reader,
     facts: facts.reader,
     scopes: scopes.reader,

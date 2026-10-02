@@ -7,6 +7,7 @@ import {
   type FactId,
   type NormalizerVersion,
   type RawSeq,
+  type SessionKey,
 } from '@aang/contract'
 import { canonicalJson, factIds } from '@aang/contract/ids'
 import { decodeJson, encodeFlag, encodeJson } from './codec.js'
@@ -16,6 +17,7 @@ import { MissingRawRecordError } from './errors.js'
 export interface FactReader {
   readonly get: (id: FactId) => Fact | null
   readonly ofRecord: (seq: RawSeq) => Fact[]
+  readonly ofSession: (key: SessionKey) => Fact[]
   readonly ofEntity: (key: FactEntityKey) => Fact[]
 }
 
@@ -92,6 +94,9 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
     database,
     `SELECT ${factColumns} FROM facts WHERE entity_key = ? ORDER BY seq, record_index`,
   )
+  const selectBySession = prepareStatement(database,
+    `SELECT ${factColumns} FROM facts WHERE json_extract(entity_key, '$.runtime') = ? AND json_extract(entity_key, '$.session') = ? ORDER BY seq, record_index`,
+  )
   const selectDedupeKey = prepareStatement(database, 'SELECT dedupe_key FROM raw_records WHERE seq = ?')
   const insertFact = prepareStatement(database, insertInto('facts', columns))
 
@@ -101,6 +106,7 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
       return row === undefined ? null : toFact(row)
     },
     ofRecord: (seq) => (selectByRecord.all(seq) as FactRow[]).map(toFact),
+    ofSession: (key) => (selectBySession.all(key.runtime, key.session) as FactRow[]).map(toFact),
     ofEntity: (key) => (selectByEntity.all(canonicalJson(key)) as FactRow[]).map(toFact),
   }
 
