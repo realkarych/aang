@@ -4,7 +4,7 @@ import { applyObserverResponse } from '@aang/engine'
 import { expect, test } from 'vitest'
 import { at, runA, stages } from './model.js'
 import { callId, existing, response, setupObserver, version } from './observer-fixtures.js'
-import { observationsFor, recordObjectOwners } from './stage-observations.js'
+import { observationsFor, recordArtifactVersion } from './stage-observations.js'
 
 test('preserves distinct artifact inputs, outputs and dependencies across repeated responses and replay', async ({ onTestFinished }) => {
   const { store, home, facts, solver, human, begin } = await setupObserver(onTestFinished)
@@ -15,7 +15,7 @@ test('preserves distinct artifact inputs, outputs and dependencies across repeat
     id: objectId(key), key, run: runA, artifact: objectId({ kind: 'artifact', run: runA, artifact }),
     ref: artifact, retention: { kind: 'reference' }, produced_by: action.id, observed_at: at(10), change_seq: 1,
   })
-  recordObjectOwners(home, [artifactVersion])
+  recordArtifactVersion(home, artifactVersion)
   const operations = (evidence: typeof solver.id[]): ObserverOp[] => [
     { op: 'artifact.link', stage: existing(stages.build), version: artifactVersion.id, direction: 'input', evidence, rationale: 'Input' },
     { op: 'artifact.link', stage: existing(stages.build), version: artifactVersion.id, direction: 'output', evidence, rationale: 'Output' },

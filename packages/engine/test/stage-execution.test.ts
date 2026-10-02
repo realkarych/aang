@@ -13,7 +13,7 @@ test('assigning a running action overrides completion and retains the solver cla
 }) => {
   const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
   const { action, agent, start } = observationsFor(facts)
-  recordObjectOwners(home, [action, agent])
+  recordObjectOwners(store, [action, agent])
   begin([solver, start])
   const grounds = { evidence: [solver.id], rationale: 'Completion reported while the action is running' }
   const result = store.transaction((transaction) =>
@@ -52,9 +52,9 @@ test('assigning a running action overrides completion and retains the solver cla
 test('repeated bindings retain one relationship per stage with stable ids and refreshed evidence', async ({
   onTestFinished,
 }) => {
-  const { store, home, facts, solver, human, begin } = await setupObserver(onTestFinished)
+  const { store, facts, solver, human, begin } = await setupObserver(onTestFinished)
   const { action, agent } = observationsFor(facts)
-  recordObjectOwners(home, [action, agent])
+  recordObjectOwners(store, [action, agent])
   const operations = (evidence: typeof solver.id[]): ObserverOp[] => [
     { op: 'actions.assign', stage: existing(stages.build), actions: [action.id, action.id], evidence, rationale: 'Assign' },
     { op: 'actions.assign', stage: existing(stages.test), actions: [action.id], evidence, rationale: 'Shared action' },
@@ -80,9 +80,9 @@ test('repeated bindings retain one relationship per stage with stable ids and re
 test('runtime completion restores the latest LLM claim without another observer call or duplicate versions', async ({
   onTestFinished,
 }) => {
-  const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
+  const { store, facts, solver, begin, stage } = await setupObserver(onTestFinished)
   const { action, agent } = observationsFor(facts)
-  recordObjectOwners(home, [action, agent])
+  recordObjectOwners(store, [action, agent])
   begin([solver])
   const grounds = { evidence: [solver.id], rationale: 'Assign work' }
   expect(store.transaction((transaction) => applyObserverResponse(transaction, {
@@ -109,9 +109,9 @@ test('runtime completion restores the latest LLM claim without another observer 
 })
 
 test('a participating agent keeps work running and records a later LLM state until activity ends', async ({ onTestFinished }) => {
-  const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
+  const { store, facts, solver, begin, stage } = await setupObserver(onTestFinished)
   const { agent } = observationsFor(facts)
-  recordObjectOwners(home, [agent])
+  recordObjectOwners(store, [agent])
   const running = { ...agent, execution: { state: 'running' } as const }
   const observations = { actions: [], agents: [running] }
   begin([solver])
@@ -187,9 +187,9 @@ test('a new nonblocking question leaves the completed stage done with a requeste
 })
 
 test('execution follows only current run ownership and leaves replaced history unchanged', async ({ onTestFinished }) => {
-  const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
+  const { store, facts, solver, begin, stage } = await setupObserver(onTestFinished)
   const { action, agent } = observationsFor(facts)
-  recordObjectOwners(home, [action, agent])
+  recordObjectOwners(store, [action, agent])
   begin([solver])
   const grounds = { evidence: [solver.id], rationale: 'Link the action' }
   expect(store.transaction((transaction) => applyObserverResponse(transaction, {
@@ -199,9 +199,7 @@ test('execution follows only current run ownership and leaves replaced history u
       { ...grounds, op: 'stage.state', stage: existing(stages.build), execution: { state: 'done' } },
     ], 2),
   })).status).toBe('accepted')
-  const database = home.database()
-  database.prepare('UPDATE objects SET run_id = ? WHERE id = ?').run(runB, action.id)
-  database.close()
+  recordObjectOwners(store, [{ ...action, run: runB }])
   const before = stage()
   expect(store.transaction((transaction) => refreshStageExecution(transaction, {
     run: runA, at: at(30), observations: { actions: [action], agents: [agent] },
@@ -223,9 +221,9 @@ test('execution follows only current run ownership and leaves replaced history u
 test.for(['human', 'background', 'idle', 'unknown'] as const)(
   'an explicitly waiting participant reports the known %s wait instead of inferring completion',
   async (reason, { onTestFinished }) => {
-    const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
+    const { store, facts, solver, begin, stage } = await setupObserver(onTestFinished)
     const { agent } = observationsFor(facts)
-    recordObjectOwners(home, [agent])
+    recordObjectOwners(store, [agent])
     begin([solver])
     expect(store.transaction((transaction) => applyObserverResponse(transaction, {
       call: callId, at: at(20),
@@ -269,9 +267,9 @@ test('an ended runtime wait restores done while keeping an unanswered question r
 })
 
 test('rejects the full response without applying runtime rules and rolls a successful response back with its transaction', async ({ onTestFinished }) => {
-  const { store, home, facts, solver, begin } = await setupObserver(onTestFinished)
+  const { store, facts, solver, begin } = await setupObserver(onTestFinished)
   const { action, agent } = observationsFor(facts)
-  recordObjectOwners(home, [action, agent])
+  recordObjectOwners(store, [action, agent])
   begin([solver])
   const before = store.model.entities(runA)
   const grounds = { evidence: [solver.id], rationale: 'Assign action' }
@@ -335,7 +333,7 @@ test('losing an active observation without an LLM state reports unknown instead 
 test('an action-level permission waits for a human before its agent is available and stops waiting after resolution', async ({ onTestFinished }) => {
   const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
   const { action } = observationsFor(facts)
-  recordObjectOwners(home, [action])
+  recordObjectOwners(store, [action])
   await startEngine(store, { all: true }).ingest(hookBatch({
     file: 'unassigned-permission.evt',
     payload: claudeHook('PermissionRequest.Bash.json', { session: 'session-a', cwd: home.path }),

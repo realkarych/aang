@@ -14,7 +14,7 @@ test.for(['empty', 'stale'] as const)(
   async (snapshot, { onTestFinished }) => {
     const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
     const { action } = observationsFor(facts)
-    recordObjectOwners(home, [action])
+    recordObjectOwners(store, [action])
     await startEngine(store, { all: true }).ingest(hookBatch({
       file: 'moving-permission.evt',
       payload: claudeHook('PermissionRequest.Bash.json', { session: 'session-a', cwd: home.path }),
@@ -43,9 +43,7 @@ test.for(['empty', 'stale'] as const)(
       execution_claim: { value: { state: 'done' } }, decision: { value: 'requested' },
     } })
     const links = store.model.entities(runA).filter((entity) => entity.kind === 'link')
-    const database = home.database()
-    database.prepare('UPDATE objects SET run_id = ? WHERE id = ?').run(runB, action.id)
-    database.close()
+    recordObjectOwners(store, [{ ...action, run: runB }])
     const observations = { actions: snapshot === 'empty' ? [] : [waiting], agents: [] }
     store.transaction((transaction) => refreshStageExecution(transaction, {
       run: runA, at: at(30), observations,
@@ -95,7 +93,7 @@ test.for(['running', 'waiting'] as const)(
     }] : [])
     expect(actions).toHaveLength(2)
     expect(agents).toHaveLength(2)
-    recordObjectOwners(home, [...actions, ...agents])
+    recordObjectOwners(store, [...actions, ...agents])
     begin([solver])
     const grounds = { evidence: [solver.id], rationale: 'Assign parallel work' }
     expect(store.transaction((transaction) => applyObserverResponse(transaction, {
@@ -128,7 +126,7 @@ test.for(['running', 'waiting'] as const)(
   async (state, { onTestFinished }) => {
     const { store, home, facts, solver, begin, stage } = await setupObserver(onTestFinished)
     const { agent, start } = observationsFor(facts)
-    recordObjectOwners(home, [agent])
+    recordObjectOwners(store, [agent])
     const engine = startEngine(store, { all: true })
     await engine.ingest(hookBatch({
       file: 'agent-permission.evt',
