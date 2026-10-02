@@ -53,6 +53,11 @@ const explicitNamespace = (namespace: string | null | undefined): string | null 
     ? null
     : namespace
 
+export const qualifiedTool = (namespace: string | null | undefined, name: string): string => {
+  const explicit = explicitNamespace(namespace)
+  return explicit === null ? name : `${explicit}/${name}`
+}
+
 const actionKind = (namespace: string | null, name: string): ActionKind => {
   if (namespace?.startsWith(mcpNamespacePrefix) === true) {
     return 'mcp'
@@ -74,7 +79,7 @@ export const functionCall = (context: LineContext): LineFacts => {
   const namespace = explicitNamespace(call.namespace)
   return [
     actionStarted(context, call.call_id, timing(context, call.internal_chat_message_metadata_passthrough), {
-      tool: namespace === null ? call.name : `${namespace}/${call.name}`,
+      tool: qualifiedTool(call.namespace, call.name),
       action_kind: actionKind(namespace, call.name),
       input: parsedArguments(call.arguments),
     }),

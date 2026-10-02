@@ -303,6 +303,13 @@ importers:
       '@aang/contract':
         specifier: workspace:*
         version: link:../contract
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../testkit
 
   packages/observer:
     dependencies:

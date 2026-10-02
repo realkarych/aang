@@ -8,6 +8,7 @@ import type { TestProject } from 'vitest/node'
 
 export interface HookBinaries {
   readonly plain: string
+  readonly stripped: string
   readonly covered: string
   readonly coverageDirectory: string
 }
@@ -49,11 +50,12 @@ export default async function setup(project: TestProject): Promise<() => Promise
   const output = await mkdtemp(join(tmpdir(), 'aang-hook-build-'))
   await rm(coverageDirectory, { recursive: true, force: true })
   await mkdir(coverageDirectory, { recursive: true })
-  const [plain, covered] = await Promise.all([
+  const [plain, stripped, covered] = await Promise.all([
     build(join(output, 'plain'), []),
+    build(join(output, 'stripped'), ['-ldflags=-s -w']),
     build(join(output, 'covered'), ['-cover']),
   ])
-  project.provide('hookBinaries', { plain, covered, coverageDirectory })
+  project.provide('hookBinaries', { plain, stripped, covered, coverageDirectory })
   return async () => {
     await mergeWorkerCoverage()
     await rm(output, { recursive: true, force: true, maxRetries: 5 })

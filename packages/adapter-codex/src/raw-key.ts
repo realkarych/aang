@@ -1,6 +1,7 @@
 import { type CollectedRecord, DedupeKey } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import { ordinalOf } from './line.js'
+import { otelKeyParts } from './otel.js'
 import { decodeStream } from './stream.js'
 
 const separator = ':'
@@ -18,6 +19,10 @@ export const rawKey = (record: CollectedRecord): DedupeKey => {
     return stream !== null && ordinal !== null
       ? dedupeKey('codex', stream.thread, String(ordinal))
       : dedupeKey('codex', stream?.thread ?? position.path, 'line', String(position.line), contentHash(record.payload))
+  }
+  const decision = record.channel === 'otel' && position.kind === 'otel' ? otelKeyParts(record.payload) : null
+  if (decision !== null) {
+    return dedupeKey('codex', 'otel', ...decision)
   }
   const content = canonicalJson({ stream: record.stream, position, payload: record.payload })
   return dedupeKey('codex', record.channel, contentHash(content))

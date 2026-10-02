@@ -2,6 +2,7 @@ import { type Adapter, type CollectedRecord, NormalizerVersion, type ParseResult
 import { unknown } from './facts.js'
 import { parseHook } from './hook.js'
 import { rawKey, streamKey } from './keys.js'
+import { owner } from './owner.js'
 import { workflowJournal } from './paths.js'
 import { parseRegistry } from './registry.js'
 import { parseSnapshot } from './snapshot.js'
@@ -38,4 +39,5 @@ export const claudeAdapter: Adapter = {
   streamKey,
   rawKey,
   parse,
+  owner,
 }
