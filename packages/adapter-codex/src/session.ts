@@ -120,7 +120,7 @@ export const sessionMeta = (context: LineContext): LineFacts => {
     speaker: 'runtime',
     urgent: false,
     at: (meta.timestamp === undefined ? null : instantFromIso(meta.timestamp)) ?? context.line.at,
-    ids: runtimeIds(context, { session_id: meta.session_id ?? meta.id, thread_id: meta.id }),
+    ids: runtimeIds(context),
     env,
   } as const
   const { stream } = context

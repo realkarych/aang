@@ -3,6 +3,7 @@ import type { FactDraft } from '@aang/contract'
 import { expect, test } from 'vitest'
 import {
   archivedPath,
+  expectUnknown,
   factsOf,
   realRollout,
   realThread,
@@ -11,12 +12,38 @@ import {
   sampleLine,
   sessionsPath,
   streamFrom,
+  withPayload,
 } from './rollout-records.js'
 
 const firstTurn = '01a0f752-4102-7740-9432-0533263c2dc1'
 const resumedTurn = '01a0f755-c3a7-75a1-acf1-7d0839bc2d5c'
 const codeCell = 'call_MxHF39QIUjLqImvlqfhdfE2y'
 const nestedCommand = 'exec-a8b47079-66cf-4c58-ba7c-268717fda6fb'
+const spawnRoot = '01a0f75c-465e-7a01-876f-c7df6fc989a0'
+const spawnChild = '01a0f75c-46d2-7430-92a2-c3b0cd5d85b6'
+const guardianThread = '01a0f75b-8064-73c2-8b8a-ba66c5467425'
+
+const multiAgentV1Meta = (spawn: Record<string, unknown>, meta: Record<string, unknown> = {}): string =>
+  withPayload('session_meta.subagent.thread_spawn.mock.json', {
+    session_id: spawnChild,
+    parent_thread_id: undefined,
+    agent_path: undefined,
+    agent_role: 'explorer',
+    multi_agent_version: undefined,
+    source: {
+      subagent: {
+        thread_spawn: {
+          parent_thread_id: spawnRoot,
+          depth: 1,
+          agent_path: null,
+          agent_nickname: 'Confucius',
+          agent_role: 'explorer',
+          ...spawn,
+        },
+      },
+    },
+    ...meta,
+  })
 
 const readRollout = (path: string) => {
   const lines = rolloutLines(realRollout)
@@ -123,6 +150,57 @@ test('the stream of a sub-agent rollout names its root session and its own threa
   expect(streamFrom(sampleLine('session_meta.guardian.mock.json'))).toBe(
     'codex:01a0f75b-8043-70d2-95ed-39bd0831b81a:01a0f75b-8064-73c2-8b8a-ba66c5467425',
   )
+})
+
+test('a multi-agent v1 sub-agent that names itself as the session joins its parent session and does not speak for the human', () => {
+  const lines = [
+    multiAgentV1Meta({}),
+    sampleLine('event_msg.task_started.subagent.mock.json'),
+    sampleLine('event_msg.item_completed.UserMessage.real.json'),
+    sampleLine('event_msg.item_completed.AgentMessage.final.real.json'),
+  ]
+  const stream = codexAdapter.streamKey(lines.slice(0, 3))
+  const childAgent = { kind: 'agent', session: spawnRoot, agent: { kind: 'thread', thread_id: spawnChild } }
+
+  expect(stream).toBe(`codex:${spawnRoot}:${spawnChild}`)
+  expect(lines.flatMap((payload) => factsOf(codexAdapter.parse(record(payload, stream))))).toMatchObject([
+    {
+      kind: 'agent_start',
+      entity_key: childAgent,
+      runtime_ids: { session_id: spawnRoot, thread_id: spawnChild },
+      payload: {
+        role: 'subagent',
+        agent_role: 'explorer',
+        description: null,
+        nickname: 'Confucius',
+        parent: { kind: 'main' },
+        depth: 1,
+      },
+    },
+    { kind: 'turn_start', entity_key: childAgent },
+    {
+      kind: 'prompt',
+      entity_key: { kind: 'message', session: spawnRoot, message: `${spawnChild}:9` },
+      speaker: 'runtime',
+      payload: { origin: 'unknown' },
+    },
+    { kind: 'message', entity_key: { session: spawnRoot }, payload: { final: true, audience: 'agent' } },
+  ])
+  expect(streamFrom(multiAgentV1Meta({}, { session_id: undefined }))).toBe(`codex:${spawnRoot}:${spawnChild}`)
+})
+
+test('a sub-agent rollout whose root session cannot be established has no stream and stays unknown', () => {
+  const unresolved = [
+    multiAgentV1Meta({ depth: 2, parent_thread_id: 'nested-parent-thread' }),
+    multiAgentV1Meta({ parent_thread_id: undefined }),
+    multiAgentV1Meta({ parent_thread_id: 'parent:thread' }),
+    withPayload('session_meta.guardian.mock.json', { session_id: guardianThread }),
+  ]
+
+  for (const line of unresolved) {
+    expect(codexAdapter.streamKey([line])).toBeNull()
+    expectUnknown(line, null)
+  }
 })
 
 test('a file that does not open with session_meta has no stream', () => {

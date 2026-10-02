@@ -9,13 +9,31 @@ export interface ThreadStream {
 
 const runtimePrefix = 'codex'
 const separator = ':'
+const rootChildDepth = 1
 
 const ThreadId = z.string().regex(/^[^:\s]+$/)
 
 const SessionMetaIds = z.looseObject({
   id: ThreadId,
   session_id: ThreadId.optional(),
+  source: z.unknown().optional(),
 })
+type SessionMetaIds = z.infer<typeof SessionMetaIds>
+
+const SubagentSource = z.looseObject({ subagent: z.looseObject({ thread_spawn: z.unknown().optional() }) })
+
+const RootChildSpawn = z.looseObject({ parent_thread_id: ThreadId, depth: z.literal(rootChildDepth) })
+
+const rootSession = ({ id, session_id: session, source }: SessionMetaIds): string | null => {
+  if (session !== undefined && session !== id) {
+    return session
+  }
+  const subagent = SubagentSource.safeParse(source)
+  if (!subagent.success) {
+    return id
+  }
+  return RootChildSpawn.safeParse(subagent.data.subagent.thread_spawn).data?.parent_thread_id ?? null
+}
 
 export const isRoot = (stream: ThreadStream): boolean => stream.session === stream.thread
 
@@ -40,6 +58,6 @@ export const streamKey = (firstLines: readonly string[]): StreamKey | null => {
   if (!ids.success) {
     return null
   }
-  const { id, session_id: session = id } = ids.data
-  return StreamKey.parse([runtimePrefix, session, id].join(separator))
+  const session = rootSession(ids.data)
+  return session === null ? null : StreamKey.parse([runtimePrefix, session, ids.data.id].join(separator))
 }

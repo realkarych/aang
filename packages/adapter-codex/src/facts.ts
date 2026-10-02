@@ -123,24 +123,30 @@ export type ActionStart = Pick<ActionStartPayload, 'tool' | 'action_kind' | 'inp
 
 export type ActionEnd = Pick<ActionEndPayload, 'outcome' | 'output'> & Partial<ActionEndPayload>
 
-const callSpec = (context: LineContext, call: string, timing: CallTiming, speaker: Speaker): FactSpec => ({
+const callSpec = (
+  context: LineContext,
+  call: string,
+  timing: CallTiming,
+  speaker: Speaker,
+  urgent: boolean,
+): FactSpec => ({
   entity: actionEntity(context.stream, call),
   speaker,
-  urgent: false,
+  urgent,
   at: timing.at,
   ids: runtimeIds(context, { turn_id: timing.turn, call_id: call }),
   verified: timing.verified,
 })
 
 export const actionStarted = (context: LineContext, call: string, timing: CallTiming, start: ActionStart): FactDraft =>
-  fact('action_start', callSpec(context, call, timing, 'solver'), {
+  fact('action_start', callSpec(context, call, timing, 'solver', false), {
     ...start,
     description: null,
     container_call: null,
   })
 
 export const actionEnded = (context: LineContext, call: string, timing: CallTiming, end: ActionEnd): FactDraft =>
-  fact('action_end', callSpec(context, call, timing, 'tool'), {
+  fact('action_end', callSpec(context, call, timing, 'tool', end.outcome === 'error'), {
     persisted_output_path: null,
     exit_code: null,
     duration_ms: null,

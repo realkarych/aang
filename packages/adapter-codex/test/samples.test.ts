@@ -276,6 +276,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
         kind: 'action_end',
         entity_key: action(real, 'exec-a8b47079-66cf-4c58-ba7c-268717fda6fb'),
         speaker: 'tool',
+        urgent: false,
         at: millis(1790855785136),
         payload: { outcome: 'ok', output: 'hi\n', exit_code: 0, duration_ms: 0 },
       },
@@ -284,10 +285,16 @@ const expectations: Readonly<Record<string, Expectation>> = {
   'event_msg.item_completed.CommandExecution.failed.mock.json': {
     stream: failedRun,
     facts: [
-      { kind: 'action_start', entity_key: action(failedRun, 'call_mock_13'), payload: { action_kind: 'command' } },
+      {
+        kind: 'action_start',
+        entity_key: action(failedRun, 'call_mock_13'),
+        urgent: false,
+        payload: { action_kind: 'command' },
+      },
       {
         kind: 'action_end',
         entity_key: action(failedRun, 'call_mock_13'),
+        urgent: true,
         payload: { outcome: 'error', exit_code: 1, output: 'ls: /definitely/not/here: No such file or directory\n' },
       },
     ],
@@ -299,6 +306,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
       {
         kind: 'action_end',
         entity_key: action(interruptRun, 'call_mock_5'),
+        urgent: true,
         at: millis(1790857024080),
         payload: { outcome: 'error', exit_code: -1, output: '', duration_ms: 19722 },
       },
@@ -320,6 +328,7 @@ const expectations: Readonly<Record<string, Expectation>> = {
       {
         kind: 'action_end',
         entity_key: action(patchRun, 'call_mock_21'),
+        urgent: false,
         at: millis(1790856393277),
         payload: {
           outcome: 'ok',

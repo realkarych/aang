@@ -145,16 +145,18 @@ test('an MCP tool call item is parsed from its observed structure and marked unv
     },
     {
       kind: 'action_end',
+      urgent: false,
       format_verified: false,
       payload: { outcome: 'ok', output: 'Example', duration_ms: 1500, result: mcpItem.result },
     },
   ])
   expect(mcp({ result: { content: [], isError: true } })[1]).toMatchObject({
+    urgent: true,
     payload: { outcome: 'error', output: null },
   })
   expect(mcp({ status: 'failed', result: null, arguments: undefined })).toMatchObject([
-    { payload: { input: null } },
-    { payload: { outcome: 'error', output: null, result: null } },
+    { urgent: false, payload: { input: null } },
+    { urgent: true, payload: { outcome: 'error', output: null, result: null } },
   ])
 })
 
@@ -292,9 +294,10 @@ test('item times fall back to the line time when the item omits or garbles them'
 })
 
 test('command and call variants keep their observed outcome, kind and raw input', () => {
-  const command = (changes: Record<string, unknown>) =>
-    parseFacts(withItem('event_msg.item_completed.CommandExecution.real.json', changes), real)[1]?.payload
-  expect(command({ status: 'declined' })).toMatchObject({ outcome: 'denied' })
+  const commandEnd = (changes: Record<string, unknown>) =>
+    parseFacts(withItem('event_msg.item_completed.CommandExecution.real.json', changes), real)[1]
+  const command = (changes: Record<string, unknown>) => commandEnd(changes)?.payload
+  expect(commandEnd({ status: 'declined' })).toMatchObject({ urgent: false, payload: { outcome: 'denied' } })
   expect(command({ status: 'in_progress', duration: null, exit_code: null })).toMatchObject({
     outcome: 'unknown',
     exit_code: null,
@@ -326,4 +329,10 @@ test('command and call variants keep their observed outcome, kind and raw input'
     parseFacts(withItem('event_msg.item_completed.FileChange.mock.json', { stdout: '', stderr: null }), real)[1]
       ?.payload,
   ).toMatchObject({ output: null })
+  expect(
+    parseFacts(withItem('event_msg.item_completed.FileChange.mock.json', { status: 'failed' }), real),
+  ).toMatchObject([
+    { kind: 'action_start', urgent: false },
+    { kind: 'action_end', urgent: true, payload: { outcome: 'error' } },
+  ])
 })
