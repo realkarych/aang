@@ -3,6 +3,8 @@ import { once } from 'node:events'
 import { chmod, mkdir, mkdtemp, realpath, rename, rm, utimes, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
+import { claudeAdapter } from '@aang/adapter-claude'
+import { codexAdapter } from '@aang/adapter-codex'
 import { type CollectorService, createCollector, type ReadRetry } from '@aang/collector'
 import {
   type CollectedGap,
@@ -33,6 +35,7 @@ export interface Settings {
   readonly maxAgeDays?: number
   readonly readRetry?: ReadRetry
   readonly cursors?: readonly FileCursor[]
+  readonly lookbackDays?: number
 }
 
 export interface Arrival {
@@ -81,6 +84,7 @@ export const createSandbox = async (register: Register): Promise<Sandbox> => {
 
 export const runCollector = (sandbox: Sandbox, settings: Settings = {}): Running => {
   const config = Config.parse({
+    watch: { lookbackDays: settings.lookbackDays ?? 7 },
     collector: {
       fsWatch: settings.fsWatch ?? true,
       spoolScanIntervalMs: settings.spoolScanIntervalMs ?? 5_000,
@@ -92,6 +96,7 @@ export const runCollector = (sandbox: Sandbox, settings: Settings = {}): Running
     spool: sandbox.spool,
     runtimeRoots: { claude: sandbox.claude, codex: sandbox.codex },
     config,
+    adapters: new Map([['claude', claudeAdapter], ['codex', codexAdapter]]),
     ...(settings.readRetry === undefined ? {} : { readRetry: settings.readRetry }),
   })
   const arrivals: Arrival[] = []

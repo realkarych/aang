@@ -13,6 +13,12 @@ const daemonDependencies =
 
 const violations: readonly DirectionCase[] = [
   {
+    name: 'collector product code may not import an adapter',
+    path: 'packages/collector/src/adapter.ts',
+    code: ["import '@aang/adapter-codex'"],
+    errors: [[1, '@aang/collector product code may not import @aang/adapter-codex; allowed: @aang/contract']],
+  },
+  {
     name: 'engine product code may not import an adapter',
     path: 'packages/engine/src/registry.ts',
     code: ["import '@aang/adapter-claude'"],
@@ -262,6 +268,12 @@ const violations: readonly DirectionCase[] = [
 ]
 
 const allowed: readonly DirectionCase[] = [
+  {
+    name: 'collector integration tests may import both adapters',
+    path: 'packages/collector/test/adapters.test.ts',
+    code: ["import '@aang/adapter-claude'", "import '@aang/adapter-codex'"],
+    errors: [],
+  },
   {
     name: 'engine tests may import both adapters and testkit',
     path: 'packages/engine/test/adapters.test.ts',

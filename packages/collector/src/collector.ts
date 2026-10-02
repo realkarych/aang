@@ -1,4 +1,4 @@
-import type { Collector, CollectorBatch, Config, FileCursor, Runtime } from '@aang/contract'
+import type { AdapterRegistry, Collector, CollectorBatch, Config, FileCursor, Runtime } from '@aang/contract'
 import { createSpoolSource, type SpoolStats } from './spool.js'
 import { createTailSource, type ReadRetry, tailRoots } from './tail.js'
 import { createWakeup } from './wakeup.js'
@@ -6,11 +6,12 @@ import { createWakeup } from './wakeup.js'
 export interface CollectorOptions {
   readonly spool: string
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
-  readonly config: Pick<Config, 'collector' | 'spool'>
+  readonly config: Pick<Config, 'collector' | 'spool' | 'watch'>
+  readonly adapters: AdapterRegistry
   readonly readRetry?: ReadRetry
 }
 
-export interface CollectorService extends Omit<Collector, 'rescan'> {
+export interface CollectorService extends Collector {
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
 }
@@ -37,6 +38,8 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       fsWatch: collector.fsWatch,
       scanIntervalMs: collector.rootsScanIntervalMs,
       readRetry: options.readRetry ?? defaultReadRetry,
+      adapters: options.adapters,
+      lookbackDays: options.config.watch.lookbackDays,
     },
     wakeup,
   )
@@ -75,6 +78,9 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       return batches(cursors)
     },
     ack: (batch) => spool.ack(batch),
+    rescan: (streams) => {
+      tail.rescan(streams)
+    },
     spoolStats: () => spool.stats(),
     close: async () => {
       state = 'closed'
