@@ -20,6 +20,8 @@ const collector = createCollector({
   config: Config.parse({ collector: { spoolScanIntervalMs: 50, rootsScanIntervalMs: 50 } }),
 })
 
+writeSync(1, 'ready\n')
+
 let batches = 0
 for await (const batch of collector.start(store.cursors.list())) {
   const { settled } = await engine.ingest(batch)

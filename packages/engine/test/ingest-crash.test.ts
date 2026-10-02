@@ -26,6 +26,7 @@ interface Fixture {
 }
 
 interface Running {
+  readonly exited: Promise<never>
   readonly output: (text: string) => Promise<void>
   readonly kill: () => Promise<void>
 }
@@ -97,6 +98,7 @@ const runIngest = (register: Register, fixture: Fixture, mode = 'drain'): Runnin
   })
   exited.catch(() => undefined)
   return {
+    exited,
     output: async (text) => {
       const shown = (async () => {
         while (!stdout.includes(text)) {
@@ -146,7 +148,8 @@ const describeStore = (store: Store): unknown => ({
 
 const ingestToEnd = async (register: Register, fixture: Fixture, mode?: string): Promise<unknown> => {
   const running = runIngest(register, fixture, mode)
-  await settled(fixture)
+  await running.output('ready\n')
+  await Promise.race([settled(fixture), running.exited])
   await running.kill()
   const store = openStore({ home: fixture.home })
   register(() => {
