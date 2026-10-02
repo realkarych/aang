@@ -1033,6 +1033,8 @@
 
 **6a. OpenTelemetry: решение по одобрению** (Э(mock), закрыто кросс-ревью; `samples/codex-otel/`).
 
+Дополнение 2026-10-02: [A.5 — проверка пути с токеном](a5-otel-token-live.md) на настоящем `codex exec` 0.160.0 и локальной заглушке Responses API подтвердила доставку `codex.tool_decision` с `source: Config` в приёмник aang по `/otel/<токен>/v1/logs` (macOS arm64).
+
 При `[otel] exporter = { otlp-http = { endpoint = "http://127.0.0.1:<port>/v1/logs", protocol = "json" } }` Codex шлёт лог-событие `codex.tool_decision{conversation.id, call_id, tool_name, decision, source}`.
 
 **Наблюдаемые значения `decision` / `source`:**
