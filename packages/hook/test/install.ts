@@ -1,5 +1,4 @@
-import { execFile, spawn } from 'node:child_process'
-import { once } from 'node:events'
+import { execFile } from 'node:child_process'
 import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -33,13 +32,17 @@ const unusualHome = join('Имя Фамилия', process.platform === 'win32' ?
 export const sampleText = (path: string): Promise<string> =>
   readFile(new URL(`../../../docs/research/samples/${path}`, import.meta.url), 'utf8')
 
-export const finishedProcessId = async (): Promise<number> => {
-  const child = spawn(process.execPath, ['-e', ''], { stdio: 'ignore' })
-  await once(child, 'exit')
-  if (child.pid === undefined) {
-    throw new Error('the finished process has no pid')
+export const absentProcessId = (): number => {
+  const pid = 2_147_483_647
+  try {
+    process.kill(pid, 0)
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ESRCH') {
+      return pid
+    }
+    throw error
   }
-  return child.pid
+  throw new Error(`the absent lock owner ${String(pid)} is running`)
 }
 
 export const readJson = async (path: string): Promise<unknown> => JSON.parse(await readFile(path, 'utf8')) as unknown
