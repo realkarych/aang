@@ -3,6 +3,8 @@ import { z } from 'zod'
 import {
   actionEnded,
   actionStarted,
+  agentEntity,
+  agentRef,
   type CallTiming,
   fact,
   type FactSpec,
@@ -84,6 +86,23 @@ const AgentMessage = z.looseObject({
 const UserMessage = z.looseObject({
   id,
   content: z.array(TextPart),
+})
+
+const SubAgentActivity = z.looseObject({
+  id,
+  kind: z.string(),
+  agent_thread_id: id,
+  agent_path: optionalText,
+})
+
+const CollabAgentToolCall = z.looseObject({
+  id,
+  tool: id,
+  status: optionalText,
+  sender_thread_id: optionalText,
+  receiver_thread_ids: z.array(z.string()).optional(),
+  prompt: optionalText,
+  agents_states: JsonValue.optional(),
 })
 
 interface ItemContext extends LineContext {
@@ -281,6 +300,76 @@ const contextCompaction: ItemParser = (context) => {
   ]
 }
 
+const subAgentActivity: ItemParser = (context) => {
+  const parsed = SubAgentActivity.safeParse(context.item)
+  const { session, thread } = context.stream
+  if (!parsed.success || parsed.data.agent_thread_id === session || parsed.data.agent_thread_id === thread) {
+    return null
+  }
+  const activity = parsed.data
+  const spec = (urgent: boolean): FactSpec => ({
+    entity: agentEntity(context.stream, activity.agent_thread_id),
+    speaker: 'runtime',
+    urgent,
+    at: context.completed,
+    ids: runtimeIds(context, { turn_id: context.turn, agent_id: activity.agent_thread_id }),
+  })
+  switch (activity.kind) {
+    case 'started':
+      return [
+        fact('agent_start', spec(false), {
+          role: 'subagent',
+          service: null,
+          agent_type: null,
+          agent_role: null,
+          description: activity.agent_path ?? null,
+          nickname: null,
+          parent: agentRef(context.stream, context.stream.thread),
+          spawned_by_call: activity.id,
+          background: null,
+          depth: null,
+        }),
+      ]
+    case 'completed':
+      return [
+        fact('agent_end', spec(true), {
+          outcome: 'completed',
+          final_message: null,
+          agent_type: null,
+          transcript_path: null,
+        }),
+      ]
+    default:
+      return null
+  }
+}
+
+const collabAgentToolCall: ItemParser = (context) => {
+  const parsed = CollabAgentToolCall.safeParse(context.item)
+  if (!parsed.success) {
+    return null
+  }
+  const call = parsed.data
+  return [
+    actionStarted(context, call.id, startTiming(context), {
+      tool: 'CollabAgentToolCall',
+      action_kind: 'agent',
+      input: {
+        tool: call.tool,
+        sender_thread_id: call.sender_thread_id ?? null,
+        receiver_thread_ids: call.receiver_thread_ids ?? [],
+        prompt: call.prompt ?? null,
+      },
+    }),
+    actionEnded(context, call.id, endTiming(context), {
+      outcome: statusOutcome(call.status),
+      output: null,
+      duration_ms: elapsedMs(context),
+      result: call.agents_states ?? null,
+    }),
+  ]
+}
+
 const itemParsers: ReadonlyMap<string, ItemParser> = new Map([
   ['CommandExecution', commandExecution],
   ['FileChange', fileChange],
@@ -288,6 +377,8 @@ const itemParsers: ReadonlyMap<string, ItemParser> = new Map([
   ['AgentMessage', agentMessage],
   ['UserMessage', userMessage],
   ['ContextCompaction', contextCompaction],
+  ['SubAgentActivity', subAgentActivity],
+  ['CollabAgentToolCall', collabAgentToolCall],
   ['Reasoning', () => []],
 ])
 

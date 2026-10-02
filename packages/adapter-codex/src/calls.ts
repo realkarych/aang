@@ -4,8 +4,8 @@ import { actionEnded, actionStarted, type CallTiming, joinText, type LineContext
 
 const id = z.string().min(1)
 const defaultNamespace = 'functions'
-const mcpNamespacePrefix = 'mcp__'
-const agentNamespaces: ReadonlySet<string> = new Set(['collaboration', 'multi_agent_v1'])
+export const mcpNamespacePrefix = 'mcp__'
+export const agentNamespaces: readonly string[] = ['collaboration', 'multi_agent_v1']
 
 const toolKinds: ReadonlyMap<string, ActionKind> = new Map([
   ['exec_command', 'command'],
@@ -56,7 +56,7 @@ const actionKind = (namespace: string | null, name: string): ActionKind => {
   if (namespace?.startsWith(mcpNamespacePrefix) === true) {
     return 'mcp'
   }
-  if (namespace !== null && agentNamespaces.has(namespace)) {
+  if (namespace !== null && agentNamespaces.includes(namespace)) {
     return 'agent'
   }
   return toolKinds.get(name) ?? 'other'

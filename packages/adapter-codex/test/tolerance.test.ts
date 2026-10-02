@@ -336,3 +336,110 @@ test('command and call variants keep their observed outcome, kind and raw input'
     { kind: 'action_end', urgent: true, payload: { outcome: 'error' } },
   ])
 })
+
+test('usage records count each response once under the thread of the file and reject inconsistent token counts', () => {
+  const usage = (changes: Record<string, unknown>) => withPayload('token_usage_record.real.json', changes)
+  const tokens = (input: number, cached: number, write?: number) => ({
+    input_tokens: input,
+    cached_input_tokens: cached,
+    cache_write_input_tokens: write,
+    output_tokens: 3,
+    reasoning_output_tokens: null,
+    total_tokens: input + 3,
+  })
+
+  expect(parseFacts(usage({ thread_id: 'another-thread', session_id: 'another-root' }), real)[0]?.entity_key).toEqual({
+    kind: 'usage',
+    runtime: 'codex',
+    session: realThread,
+    usage: `${realThread}:resp_00a7ba1502c50863016abe4a6679b887d29972f57cdb348c7b`,
+  })
+  expect(
+    parseFacts(usage({ usage: tokens(100, 60, 10), thread_token_usage: undefined, turn_id: undefined }), real),
+  ).toMatchObject([
+    {
+      kind: 'usage',
+      runtime_ids: { turn_id: null },
+      payload: {
+        tokens: {
+          uncached_input_tokens: 30,
+          cache_read_input_tokens: 60,
+          cache_write_input_tokens: 10,
+          output_tokens: 3,
+          reasoning_output_tokens: null,
+        },
+      },
+    },
+  ])
+  expect(
+    parseFacts(usage({ usage: { input_tokens: 5, output_tokens: 1 }, thread_token_usage: undefined }), real)[0],
+  ).toMatchObject({ payload: { tokens: { uncached_input_tokens: 5, cache_read_input_tokens: 0 } } })
+  expectUnknown(usage({ usage: tokens(10, 20) }), real)
+  expectUnknown(usage({ thread_token_usage: tokens(10, 20) }), real)
+  expectUnknown(usage({ response_id: undefined }), real)
+  expectUnknown(withPayload('event_msg.token_count.real.json', { info: { total_token_usage: tokens(10, 20) } }), real)
+  expectUnknown(withPayload('event_msg.token_count.real.json', { info: 'unavailable' }), real)
+  expect(parseFacts(withPayload('event_msg.token_count.real.json', { info: null }), real)).toEqual([])
+  expect(parseFacts(withPayload('event_msg.token_count.real.json', { info: undefined }), real)).toEqual([])
+})
+
+test('sub-agent activity and collaboration calls keep unobserved variants unknown or unresolved', () => {
+  const parent = threadStream(root)
+  const activity = (changes: Record<string, unknown>) =>
+    withItem('event_msg.item_completed.SubAgentActivity.started.mock.json', changes)
+
+  expectUnknown(activity({ kind: 'interrupted' }), parent)
+  expectUnknown(activity({ agent_thread_id: root }), parent)
+  expectUnknown(activity({ agent_thread_id: undefined }), parent)
+  expect(parseFacts(activity({ agent_path: undefined }), parent)[0]).toMatchObject({
+    kind: 'agent_start',
+    payload: { description: null },
+  })
+  expectUnknown(activity({}), child)
+  expect(parseFacts(activity({ agent_thread_id: 'grandchild-thread' }), child)[0]).toMatchObject({
+    entity_key: { session: root, agent: { kind: 'thread', thread_id: 'grandchild-thread' } },
+    payload: { parent: { kind: 'thread', thread_id: '01a0f75c-46d2-7430-92a2-c3b0cd5d85b6' } },
+  })
+
+  const collab = (changes: Record<string, unknown>) =>
+    parseFacts(withItem('event_msg.item_completed.CollabAgentToolCall.wait.mock.json', changes), parent)
+  expect(
+    collab({
+      status: 'failed',
+      sender_thread_id: undefined,
+      receiver_thread_ids: undefined,
+      agents_states: undefined,
+      started_at_ms: undefined,
+    }),
+  ).toMatchObject([
+    { kind: 'action_start', payload: { input: { sender_thread_id: null, receiver_thread_ids: [], prompt: null } } },
+    { kind: 'action_end', urgent: true, payload: { outcome: 'error', result: null } },
+  ])
+  expectUnknown(withItem('event_msg.item_completed.CollabAgentToolCall.wait.mock.json', { tool: '' }), parent)
+})
+
+test('inter-agent messages keep only readable text and compaction records keep only a readable summary', () => {
+  const parent = threadStream(root)
+  const message = (changes: Record<string, unknown>) =>
+    withPayload('response_item.agent_message.child-final-to-parent.mock.json', changes)
+
+  expect(
+    parseFacts(
+      message({
+        content: [
+          { type: 'input_text', text: 'Payload:\n' },
+          { type: 'encrypted_content', encrypted_content: 'gAAAA-task' },
+        ],
+        internal_chat_message_metadata_passthrough: null,
+      }),
+      parent,
+    ),
+  ).toMatchObject([{ kind: 'message', runtime_ids: { turn_id: null }, payload: { text: 'Payload:\n' } }])
+  expectUnknown(message({ content: 'CHILD DONE' }), parent)
+  expect(parseFacts(sampleLine('inter_agent_communication_metadata.mock.json'), parent)).toEqual([])
+
+  expect(parseFacts(withPayload('compacted.inline-local.mock.json', { message: 'summary' }), real)).toMatchObject([
+    { kind: 'compaction', urgent: true, payload: { phase: 'boundary', summary: 'summary' } },
+  ])
+  expectUnknown(withPayload('compacted.remote.real.json', { message: null }), real)
+})

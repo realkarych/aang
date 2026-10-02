@@ -50,15 +50,16 @@ export type LineReading =
   | { readonly kind: 'unrecognized'; readonly at: EpochNs | null }
   | { readonly kind: 'malformed'; readonly reason: string }
 
-const readObject = (text: string): Record<string, unknown> | null => {
-  let value: unknown
+export const readJson = (text: string): unknown => {
   try {
-    value = JSON.parse(text)
+    return JSON.parse(text)
   } catch {
-    return null
+    return undefined
   }
-  return z.record(z.string(), z.unknown()).safeParse(value).data ?? null
 }
+
+const readObject = (text: string): Record<string, unknown> | null =>
+  z.record(z.string(), z.unknown()).safeParse(readJson(text)).data ?? null
 
 const timestampOf = (value: Record<string, unknown>): EpochNs | null => {
   const timestamped = Timestamped.safeParse(value)
