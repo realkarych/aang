@@ -539,13 +539,39 @@ export const JournalTotals = z.strictObject({
 })
 export type JournalTotals = z.infer<typeof JournalTotals>
 
+const rate = z.number().nonnegative()
+
+export const TokenUsageRate = z.strictObject({
+  uncached_input_tokens: rate,
+  cache_read_input_tokens: rate,
+  cache_write_input_tokens: rate,
+  output_tokens: rate,
+  reasoning_output_tokens: rate.nullable(),
+})
+export type TokenUsageRate = z.infer<typeof TokenUsageRate>
+
+export const UsageRate = z.strictObject({
+  tokens: TokenUsageRate,
+  records: rate,
+  output_lower_bound: z.boolean(),
+  cost_usd: rate.nullable(),
+})
+export type UsageRate = z.infer<typeof UsageRate>
+
+export const JournalRates = z.strictObject({
+  solver: UsageRate,
+  observer: UsageRate,
+  chat: UsageRate,
+})
+export type JournalRates = z.infer<typeof JournalRates>
+
 export const UsageReport = z.strictObject({
   from: EpochNs.nullable(),
   to: EpochNs.nullable(),
   runs: z.array(RunUsage),
   totals: JournalTotals,
   active_hours: count,
-  per_active_hour: JournalTotals.nullable(),
+  per_active_hour: JournalRates.nullable(),
 })
 export type UsageReport = z.infer<typeof UsageReport>
 

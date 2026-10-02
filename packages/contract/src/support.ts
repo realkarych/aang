@@ -37,9 +37,30 @@ export const SupportScenarios = z.strictObject({
 })
 export type SupportScenarios = z.infer<typeof SupportScenarios>
 
+export const BuiltinMcpServer = z.strictObject({
+  name,
+  source: name,
+})
+export type BuiltinMcpServer = z.infer<typeof BuiltinMcpServer>
+
+export const BuiltinPlugin = z.strictObject({
+  name,
+  source: name,
+  path: name,
+})
+export type BuiltinPlugin = z.infer<typeof BuiltinPlugin>
+
+export const ObserverBuiltins = z.strictObject({
+  mcp_servers: z.array(BuiltinMcpServer),
+  plugins: z.array(BuiltinPlugin),
+  skills: z.array(name),
+})
+export type ObserverBuiltins = z.infer<typeof ObserverBuiltins>
+
 export const ObserverIsolationResult = z.strictObject({
   admission: CheckResult,
   cross_session_inbound: CheckResult,
+  builtins: ObserverBuiltins,
 })
 export type ObserverIsolationResult = z.infer<typeof ObserverIsolationResult>
 
