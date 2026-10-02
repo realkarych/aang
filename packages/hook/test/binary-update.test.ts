@@ -3,7 +3,6 @@ import { once } from 'node:events'
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
-import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 import { deployHookBinary, hookBinaryName, writeClaudePlugin } from '@aang/hook'
 import { inject, test } from 'vitest'
@@ -32,7 +31,7 @@ const deploysPerLoop = 12
 
 const execFileAsync = promisify(execFile)
 
-const hookModule = fileURLToPath(new URL('../dist/index.js', import.meta.url))
+const hookModule = new URL('../dist/index.js', import.meta.url).href
 
 const deployLoops = `
 const [hookModule, aangHome, rounds, ...sources] = process.argv.slice(1)
