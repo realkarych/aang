@@ -502,7 +502,7 @@ export const createEngine = ({ store, adapters: registry, watch, holding = {} }:
   return {
     ingest: (batch) => {
       const result = queue.then(() => ingestBatch(batch))
-      queue = result.catch(() => undefined)
+      queue = result.then(() => undefined, () => undefined)
       return result
     },
   }
