@@ -1,1 +1,1 @@
-export {}
+export { claudeAdapter } from './adapter.js'
