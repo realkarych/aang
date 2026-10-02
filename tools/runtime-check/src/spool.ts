@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { spoolFormat } from '@aang/contract'
 import { spoolReady } from './profile.js'
 
-interface DeliveredEvent {
+export interface DeliveredEvent {
   readonly runtime: string
   readonly registration: string
   readonly env: Readonly<Record<string, string>>

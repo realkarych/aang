@@ -1,13 +1,13 @@
 {
-  "name": "@aang/runtime-check",
+  "name": "@aang/owner-checklist",
   "private": true,
   "type": "module",
   "dependencies": {
-    "@aang/adapter-claude": "workspace:*",
-    "@aang/adapter-codex": "workspace:*",
-    "@aang/collector": "workspace:*",
     "@aang/contract": "workspace:*",
     "@aang/hook": "workspace:*",
     "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@aang/testkit": "workspace:*"
   }
 }

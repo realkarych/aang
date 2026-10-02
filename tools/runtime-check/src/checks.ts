@@ -50,6 +50,16 @@ const codexObserver = codexSession.extend({
   sqlite: persistence,
 })
 
+const pluginEvents = events.extend({ UserPromptSubmit: positive, PostToolBatch: positive })
+const delivered = (session: z.ZodType) => z.looseObject({
+  session, delivered: positive, byEvent: pluginEvents, registrations: z.tuple([z.literal('plugin')]),
+  pluginRoots: z.tuple([z.string()]),
+})
+const sdkSession = z.looseObject({ error: z.null(), result: z.looseObject({ subtype: z.literal('success'), is_error: no }) })
+const pluginDelivery = z.looseObject({ cli: delivered(claudeSession), sdk: delivered(sdkSession) })
+const codexEvents = z.looseObject({ SessionStart: positive, UserPromptSubmit: positive, PreToolUse: positive, PostToolUse: positive, Stop: positive })
+const leasedMeasurement = measurement.refine((value) => value.delivered === value.runs + 20, 'each invocation must deliver one event')
+
 const schemas: Readonly<Record<string, z.ZodType>> = {
   executables: z.looseObject(Object.fromEntries(['claude', 'codex'].map((runtime) => [runtime,
     z.looseObject({ spawnChecks: z.looseObject({ 'spawn(real executable)': z.string().startsWith('exit 0:') }) }),
@@ -111,6 +121,33 @@ const schemas: Readonly<Record<string, z.ZodType>> = {
     activeAfterTerminate: zero, stopConfirmedMs: z.number().nonnegative(), traceError: z.null(), jobTotalProcesses: positive,
     treeFromTrace: z.looseObject({ processes: positive }),
   }).refine((entry) => entry.jobTotalProcesses === entry.treeFromTrace.processes, 'the traced process tree must be contained in the job')]))),
+  'agent sdk': z.looseObject({ version: z.string() }),
+  'claude plugin from the marketplace': pluginDelivery.extend({
+    installation: z.looseObject({ binary: z.string(), plugin: z.string() }), repeatedInstall: z.looseObject({ error: z.null() }),
+    state: z.literal('enabled'),
+  }),
+  'claude plugin from the skills directory': pluginDelivery,
+  'codex hooks installed by aang': z.looseObject({
+    commandMatchesMeasuredForm: yes,
+    repeatedInstall: z.looseObject({ error: z.null(), commandUnchanged: yes, hooksFileUnchanged: yes }),
+    state: z.looseObject({ status: z.literal('untrusted') }),
+    session: codexSession.extend({ patchApplied: yes, delivered: positive, byEvent: codexEvents, registrations: z.tuple([z.literal('user')]) }),
+    accountShell: z.looseObject({ launcher: z.array(z.string()).min(3) }),
+  }),
+  'installed hook latency': z.looseObject({
+    'claude: aang-hook started directly (exec form)': leasedMeasurement,
+    'claude: aang-hook without a lease (no spool write)': measurement.extend({ delivered: zero }),
+    'codex: installed command through the account shell': leasedMeasurement,
+    'codex: aang-hook alone': leasedMeasurement,
+  }),
+  'claude plugin removal': z.looseObject({
+    uninstall: z.looseObject({ error: z.null() }), repeatedUninstall: z.looseObject({ error: z.null() }),
+    state: z.literal('not_installed'), pluginDirectoryRemoved: yes,
+    cli: z.looseObject({ session: claudeSession, delivered: zero }),
+  }),
+  'user profile untouched': z.looseObject({
+    changedFiles: empty, skillsAdded: empty, projectDirectoriesForWork: empty, claudeJsonMentionsWork: no, rolloutsForWork: empty,
+  }),
   'default roots': z.looseObject({
     claude: z.looseObject({ run: success, transcriptsBefore: rootCounts, transcriptsAfter: rootCounts })
       .refine((value) => rootPlacement(value.transcriptsBefore, value.transcriptsAfter), 'no transcript was created'),

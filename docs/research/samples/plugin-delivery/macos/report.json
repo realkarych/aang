@@ -1,0 +1,1481 @@
+{
+  "platform": {
+    "os": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M4 Pro",
+    "node": "v26.10.0",
+    "loadAverageAtStart": [
+      7.7568359375,
+      11.11376953125,
+      11.1416015625
+    ]
+  },
+  "suite": "delivery",
+  "startedAt": "2026-10-02T22:41:50.750Z",
+  "versions": {
+    "claude": "2.1.288 (Claude Code)",
+    "codex": "codex-cli 0.160.0"
+  },
+  "profile": {
+    "home": "<work>/Users/Имя Фамилия",
+    "claudeConfigDir": "<work>/Users/Имя Фамилия/.claude",
+    "codexHome": "<work>/Users/Имя Фамилия/.codex",
+    "aangHome": "<work>/Users/Имя Фамилия/.aang",
+    "hook": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+    "spool": "<work>/Users/Имя Фамилия/.aang/spool",
+    "project": "<work>/Users/Имя Фамилия/проект с пробелами"
+  },
+  "executables": {
+    "npmRoot": "/opt/homebrew/lib/node_modules",
+    "pathEntries": [
+      "~/.local/bin"
+    ],
+    "claude": {
+      "onPath": [
+        "~/.local/bin/claude"
+      ],
+      "candidates": [
+        "npm package bin/claude.exe: /opt/homebrew/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe (missing)",
+        "npm platform package: none",
+        "native installer: ~/.local/bin/claude (229255312 bytes)",
+        "PATH: ~/.local/bin/claude (229255312 bytes)"
+      ],
+      "realExecutable": "~/.local/bin/claude",
+      "source": "native installer",
+      "wrapper": null,
+      "shims": [],
+      "spawnChecks": {
+        "spawn('claude') without shell": "exit 0: 2.1.288 (Claude Code)",
+        "spawn(real executable)": "exit 0: 2.1.288 (Claude Code)"
+      }
+    },
+    "codex": {
+      "onPath": [
+        "/opt/homebrew/bin/codex"
+      ],
+      "candidates": [
+        "npm platform package: none",
+        "PATH: /opt/homebrew/bin/codex (241555024 bytes)"
+      ],
+      "realExecutable": "/opt/homebrew/bin/codex",
+      "source": "PATH",
+      "wrapper": null,
+      "shims": [],
+      "spawnChecks": {
+        "spawn('codex') without shell": "exit 0: codex-cli 0.160.0",
+        "spawn(real executable)": "exit 0: codex-cli 0.160.0"
+      }
+    },
+    "nativeClaudeInstall": {
+      "path": "~/.local/bin/claude",
+      "version": "exit 0: 2.1.288 (Claude Code)"
+    }
+  },
+  "checks": {
+    "executables": {
+      "status": "passed",
+      "reasons": []
+    },
+    "agent sdk": {
+      "status": "passed",
+      "reasons": []
+    },
+    "claude plugin from the marketplace": {
+      "status": "passed",
+      "reasons": []
+    },
+    "claude plugin from the skills directory": {
+      "status": "passed",
+      "reasons": []
+    },
+    "claude hook launchers": {
+      "status": "passed",
+      "reasons": []
+    },
+    "codex hooks installed by aang": {
+      "status": "passed",
+      "reasons": []
+    },
+    "codex hook exit and timeout": {
+      "status": "passed",
+      "reasons": []
+    },
+    "installed hook latency": {
+      "status": "passed",
+      "reasons": []
+    },
+    "claude series with and without hooks": {
+      "status": "passed",
+      "reasons": []
+    },
+    "codex series with and without hooks": {
+      "status": "passed",
+      "reasons": []
+    },
+    "claude plugin removal": {
+      "status": "passed",
+      "reasons": []
+    },
+    "user profile untouched": {
+      "status": "passed",
+      "reasons": []
+    }
+  },
+  "agent sdk": {
+    "requested": "0.3.288",
+    "version": "0.3.288"
+  },
+  "claude plugin from the marketplace": {
+    "installation": {
+      "binary": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+      "plugin": "<work>/Users/Имя Фамилия/.aang/claude-plugin"
+    },
+    "repeatedInstall": {
+      "error": null
+    },
+    "state": "enabled",
+    "hookEntry": {
+      "events": 29,
+      "PreToolUse": {
+        "type": "command",
+        "command": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+        "args": [
+          "claude",
+          "plugin",
+          "<work>/Users/Имя Фамилия/.aang/spool"
+        ],
+        "timeout": 2
+      }
+    },
+    "pluginList": [
+      {
+        "id": "aang@aang",
+        "version": "1.0.0",
+        "scope": "user",
+        "enabled": true,
+        "installPath": "<work>/Users/Имя Фамилия/.claude/plugins/cache/aang/aang/1.0.0",
+        "installedAt": "2026-10-02T22:41:55.664Z",
+        "lastUpdated": "2026-10-02T22:41:55.664Z",
+        "projectEnabled": true
+      }
+    ],
+    "cli": {
+      "session": {
+        "status": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false,
+        "durationMs": 727,
+        "stderr": "",
+        "result": {
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 3
+        }
+      },
+      "initPlugins": [
+        {
+          "name": "aang",
+          "path": "<work>/Users/Имя Фамилия/.aang/claude-plugin",
+          "source": "aang@aang",
+          "version": "1.0.0"
+        },
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "delivered": 10,
+      "byEvent": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 2,
+        "PostToolUse": 2,
+        "PostToolBatch": 2,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "registrations": [
+        "plugin"
+      ],
+      "pluginRoots": [
+        "<work>/Users/Имя Фамилия/.aang/claude-plugin"
+      ],
+      "entrypoints": [
+        "sdk-cli"
+      ],
+      "agentSdkVersions": [
+        null
+      ]
+    },
+    "sdk": {
+      "sdkVersion": "0.3.288",
+      "session": {
+        "error": null,
+        "durationMs": 1668,
+        "engineVersion": "2.1.288",
+        "plugins": [
+          {
+            "name": "aang",
+            "path": "<work>/Users/Имя Фамилия/.aang/claude-plugin",
+            "source": "aang@aang",
+            "version": "1.0.0"
+          },
+          {
+            "name": "cc-plugin-agents-md",
+            "path": "builtin",
+            "source": "cc-plugin-agents-md@builtin"
+          },
+          {
+            "name": "cc-plugin-plugin-authoring",
+            "path": "builtin",
+            "source": "cc-plugin-plugin-authoring@builtin"
+          }
+        ],
+        "result": {
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 3
+        }
+      },
+      "delivered": 10,
+      "byEvent": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 2,
+        "PostToolUse": 2,
+        "PostToolBatch": 2,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "registrations": [
+        "plugin"
+      ],
+      "pluginRoots": [
+        "<work>/Users/Имя Фамилия/.aang/claude-plugin"
+      ],
+      "entrypoints": [
+        "sdk-ts"
+      ],
+      "agentSdkVersions": [
+        "0.3.288"
+      ]
+    }
+  },
+  "claude plugin from the skills directory": {
+    "configDir": "<work>/Users/Имя Фамилия/.claude-skills-fallback",
+    "plugin": "<work>/Users/Имя Фамилия/.claude-skills-fallback/skills/aang",
+    "hookEntry": {
+      "events": 29,
+      "PreToolUse": {
+        "type": "command",
+        "command": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+        "args": [
+          "claude",
+          "plugin",
+          "<work>/Users/Имя Фамилия/.aang/spool"
+        ],
+        "timeout": 2
+      }
+    },
+    "pluginList": [
+      {
+        "id": "aang@skills-dir",
+        "version": "1.0.0",
+        "scope": "user",
+        "enabled": true,
+        "installPath": "<work>/Users/Имя Фамилия/.claude-skills-fallback/skills/aang"
+      }
+    ],
+    "cli": {
+      "session": {
+        "status": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false,
+        "durationMs": 249,
+        "stderr": "",
+        "result": {
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 3
+        }
+      },
+      "initPlugins": [
+        {
+          "name": "aang",
+          "path": "<work>/Users/Имя Фамилия/.claude-skills-fallback/skills/aang",
+          "source": "aang@skills-dir",
+          "version": "1.0.0"
+        },
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "delivered": 10,
+      "byEvent": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 2,
+        "PostToolUse": 2,
+        "PostToolBatch": 2,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "registrations": [
+        "plugin"
+      ],
+      "pluginRoots": [
+        "<work>/Users/Имя Фамилия/.claude-skills-fallback/skills/aang"
+      ],
+      "entrypoints": [
+        "sdk-cli"
+      ],
+      "agentSdkVersions": [
+        null
+      ]
+    },
+    "sdk": {
+      "sdkVersion": "0.3.288",
+      "session": {
+        "error": null,
+        "durationMs": 253,
+        "engineVersion": "2.1.288",
+        "plugins": [
+          {
+            "name": "aang",
+            "path": "<work>/Users/Имя Фамилия/.claude-skills-fallback/skills/aang",
+            "source": "aang@skills-dir",
+            "version": "1.0.0"
+          },
+          {
+            "name": "cc-plugin-agents-md",
+            "path": "builtin",
+            "source": "cc-plugin-agents-md@builtin"
+          },
+          {
+            "name": "cc-plugin-plugin-authoring",
+            "path": "builtin",
+            "source": "cc-plugin-plugin-authoring@builtin"
+          }
+        ],
+        "result": {
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 3
+        }
+      },
+      "delivered": 10,
+      "byEvent": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 2,
+        "PostToolUse": 2,
+        "PostToolBatch": 2,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "registrations": [
+        "plugin"
+      ],
+      "pluginRoots": [
+        "<work>/Users/Имя Фамилия/.claude-skills-fallback/skills/aang"
+      ],
+      "entrypoints": [
+        "sdk-ts"
+      ],
+      "agentSdkVersions": [
+        "0.3.288"
+      ]
+    }
+  },
+  "claude hook launchers": {
+    "pluginDirectory": "<work>/Users/Имя Фамилия/claude probe plugin",
+    "hooks": [
+      {
+        "type": "command",
+        "command": "/opt/homebrew/Cellar/node/26.10.0_1/bin/node",
+        "args": [
+          "~/src/aang-wt/d5/tools/runtime-check/dist/probe.js",
+          "<work>/probe.jsonl",
+          "claude-exec-form",
+          "chain"
+        ],
+        "timeout": 60
+      },
+      {
+        "type": "command",
+        "command": "\"/opt/homebrew/Cellar/node/26.10.0_1/bin/node\" \"~/src/aang-wt/d5/tools/runtime-check/dist/probe.js\" \"<work>/probe.jsonl\" \"claude-shell-form\" \"chain\"",
+        "timeout": 60
+      },
+      {
+        "type": "command",
+        "command": "\"<work>/Users/Имя Фамилия/.aang/bin/aang-hook\" \"claude\" \"plugin\" \"<work>/Users/Имя Фамилия/.aang/spool-claude-shell\"",
+        "timeout": 10
+      }
+    ],
+    "session": {
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "timedOut": false,
+      "durationMs": 458,
+      "stderr": "",
+      "result": {
+        "subtype": "success",
+        "is_error": false,
+        "num_turns": 2
+      }
+    },
+    "probes": [
+      {
+        "label": "claude-exec-form",
+        "event": "SessionStart",
+        "argv": [
+          "<work>/probe.jsonl",
+          "claude-exec-form",
+          "chain"
+        ],
+        "chain": [
+          {
+            "name": "~/.local/bin/claude",
+            "commandLine": "~/.local/bin/claude -p Read note.txt and reply with done. --output-format stream-json --verbose --allowedTools Read --plugin-dir <work>/Users/Имя Фамилия/claude probe plugin",
+            "argv": null
+          }
+        ]
+      },
+      {
+        "label": "claude-shell-form",
+        "event": "SessionStart",
+        "argv": [
+          "<work>/probe.jsonl",
+          "claude-shell-form",
+          "chain"
+        ],
+        "chain": [
+          {
+            "name": "~/.local/bin/claude",
+            "commandLine": "~/.local/bin/claude -p Read note.txt and reply with done. --output-format stream-json --verbose --allowedTools Read --plugin-dir <work>/Users/Имя Фамилия/claude probe plugin",
+            "argv": null
+          }
+        ]
+      },
+      {
+        "label": "claude-exec-form",
+        "event": "PreToolUse",
+        "argv": [
+          "<work>/probe.jsonl",
+          "claude-exec-form",
+          "chain"
+        ],
+        "chain": [
+          {
+            "name": "~/.local/bin/claude",
+            "commandLine": "~/.local/bin/claude -p Read note.txt and reply with done. --output-format stream-json --verbose --allowedTools Read --plugin-dir <work>/Users/Имя Фамилия/claude probe plugin",
+            "argv": null
+          }
+        ]
+      },
+      {
+        "label": "claude-shell-form",
+        "event": "PreToolUse",
+        "argv": [
+          "<work>/probe.jsonl",
+          "claude-shell-form",
+          "chain"
+        ],
+        "chain": [
+          {
+            "name": "~/.local/bin/claude",
+            "commandLine": "~/.local/bin/claude -p Read note.txt and reply with done. --output-format stream-json --verbose --allowedTools Read --plugin-dir <work>/Users/Имя Фамилия/claude probe plugin",
+            "argv": null
+          }
+        ]
+      }
+    ],
+    "shellFormHookDelivered": {
+      "SessionStart": 1,
+      "PreToolUse": 1
+    }
+  },
+  "codex hooks installed by aang": {
+    "installation": {
+      "binary": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+      "command": "'<work>/Users/Имя Фамилия/.aang/bin/aang-hook' codex user '<work>/Users/Имя Фамилия/.aang/spool'",
+      "hooksFile": "<work>/codex-installed/hooks.json",
+      "backup": null
+    },
+    "commandMatchesMeasuredForm": true,
+    "repeatedInstall": {
+      "error": null,
+      "commandUnchanged": true,
+      "hooksFileUnchanged": true
+    },
+    "state": {
+      "status": "untrusted",
+      "trust": [
+        {
+          "eventName": "preToolUse",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "permissionRequest",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "postToolUse",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "preCompact",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "postCompact",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "sessionStart",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "sessionEnd",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "userPromptSubmit",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "subagentStart",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "subagentStop",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "stop",
+          "trustStatus": "untrusted",
+          "enabled": true
+        },
+        {
+          "eventName": "interrupt",
+          "trustStatus": "untrusted",
+          "enabled": true
+        }
+      ],
+      "warnings": []
+    },
+    "session": {
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "timedOut": false,
+      "durationMs": 660,
+      "stderr": "Reading additional input from stdin...",
+      "turnCompleted": true,
+      "turnFailed": false,
+      "items": [
+        {
+          "type": "error",
+          "status": null,
+          "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+        },
+        {
+          "type": "error",
+          "status": null,
+          "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+        },
+        {
+          "type": "file_change",
+          "status": "completed",
+          "message": null
+        },
+        {
+          "type": "agent_message",
+          "status": null,
+          "message": null
+        }
+      ],
+      "patchApplied": true,
+      "delivered": 6,
+      "byEvent": {
+        "SessionStart": 1,
+        "UserPromptSubmit": 1,
+        "PreToolUse": 1,
+        "PostToolUse": 1,
+        "Stop": 1,
+        "SessionEnd": 1
+      },
+      "registrations": [
+        "user"
+      ],
+      "pluginRoots": [
+        null
+      ],
+      "entrypoints": [
+        null
+      ],
+      "agentSdkVersions": [
+        null
+      ]
+    },
+    "accountShell": {
+      "probeCommand": "'/opt/homebrew/Cellar/node/26.10.0_1/bin/node' '~/src/aang-wt/d5/tools/runtime-check/dist/probe.js' '<work>/probe.jsonl' 'codex-account-shell' 'chain'; true",
+      "chain": [
+        {
+          "name": "/bin/zsh",
+          "commandLine": "/bin/zsh -c '/opt/homebrew/Cellar/node/26.10.0_1/bin/node' '~/src/aang-wt/d5/tools/runtime-check/dist/probe.js' '<work>/probe.jsonl' 'codex-account-shell' 'chain'; true",
+          "argv": null
+        },
+        {
+          "name": "/opt/homebrew/bin/codex",
+          "commandLine": "/opt/homebrew/bin/codex exec --json --skip-git-repo-check --dangerously-bypass-hook-trust Apply the patches and reply with done.",
+          "argv": null
+        }
+      ],
+      "launcher": [
+        "/bin/zsh",
+        "-c",
+        "'<work>/Users/Имя Фамилия/.aang/bin/aang-hook' codex user '<spool>'"
+      ]
+    }
+  },
+  "codex hook exit and timeout": {
+    "probeForm": "aang install (POSIX single quotes)",
+    "results": {
+      "PreToolUse exit 1": {
+        "hook": {
+          "event": "PreToolUse",
+          "action": "exit 1",
+          "timeout": 10
+        },
+        "session": {
+          "status": 0,
+          "signal": null,
+          "error": null,
+          "timedOut": false,
+          "durationMs": 782,
+          "stderr": "Reading additional input from stdin...",
+          "turnCompleted": true,
+          "turnFailed": false,
+          "items": [
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "file_change",
+              "status": "completed",
+              "message": null
+            },
+            {
+              "type": "agent_message",
+              "status": null,
+              "message": null
+            }
+          ]
+        },
+        "patchApplied": true,
+        "hookStarted": 1,
+        "hookFinished": 0,
+        "aliveAfterSession": {}
+      },
+      "PreToolUse exit 2": {
+        "hook": {
+          "event": "PreToolUse",
+          "action": "exit 2",
+          "timeout": 10
+        },
+        "session": {
+          "status": 0,
+          "signal": null,
+          "error": null,
+          "timedOut": false,
+          "durationMs": 791,
+          "stderr": "Reading additional input from stdin...\n2026-10-02T22:42:03.188342Z ERROR codex_core::tools::router: error=Command blocked by PreToolUse hook: aang runtime check probe exit. Command: *** Begin Patch\n*** Add File: PreToolUse-exit-2-805dfc2b.txt\n+aang\n*** End Patch",
+          "turnCompleted": true,
+          "turnFailed": false,
+          "items": [
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "agent_message",
+              "status": null,
+              "message": null
+            }
+          ]
+        },
+        "patchApplied": false,
+        "hookStarted": 1,
+        "hookFinished": 0,
+        "aliveAfterSession": {}
+      },
+      "PreToolUse timeout 2 s": {
+        "hook": {
+          "event": "PreToolUse",
+          "action": "sleep 20000",
+          "timeout": 2
+        },
+        "session": {
+          "status": 0,
+          "signal": null,
+          "error": null,
+          "timedOut": false,
+          "durationMs": 3038,
+          "stderr": "Reading additional input from stdin...",
+          "turnCompleted": true,
+          "turnFailed": false,
+          "items": [
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "file_change",
+              "status": "completed",
+              "message": null
+            },
+            {
+              "type": "agent_message",
+              "status": null,
+              "message": null
+            }
+          ]
+        },
+        "patchApplied": true,
+        "hookStarted": 1,
+        "hookFinished": 0,
+        "aliveAfterSession": {
+          "43283": false
+        }
+      },
+      "UserPromptSubmit timeout 2 s": {
+        "hook": {
+          "event": "UserPromptSubmit",
+          "action": "sleep 20000",
+          "timeout": 2
+        },
+        "session": {
+          "status": 0,
+          "signal": null,
+          "error": null,
+          "timedOut": false,
+          "durationMs": 2927,
+          "stderr": "Reading additional input from stdin...",
+          "turnCompleted": true,
+          "turnFailed": false,
+          "items": [
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "file_change",
+              "status": "completed",
+              "message": null
+            },
+            {
+              "type": "agent_message",
+              "status": null,
+              "message": null
+            }
+          ]
+        },
+        "patchApplied": true,
+        "hookStarted": 1,
+        "hookFinished": 0,
+        "aliveAfterSession": {
+          "43373": false
+        }
+      },
+      "Stop timeout 2 s": {
+        "hook": {
+          "event": "Stop",
+          "action": "sleep 20000",
+          "timeout": 2
+        },
+        "session": {
+          "status": 0,
+          "signal": null,
+          "error": null,
+          "timedOut": false,
+          "durationMs": 2944,
+          "stderr": "Reading additional input from stdin...",
+          "turnCompleted": true,
+          "turnFailed": false,
+          "items": [
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "error",
+              "status": null,
+              "message": "`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."
+            },
+            {
+              "type": "file_change",
+              "status": "completed",
+              "message": null
+            },
+            {
+              "type": "agent_message",
+              "status": null,
+              "message": null
+            }
+          ]
+        },
+        "patchApplied": true,
+        "hookStarted": 1,
+        "hookFinished": 0,
+        "aliveAfterSession": {
+          "43566": false
+        }
+      }
+    }
+  },
+  "installed hook latency": {
+    "series": {
+      "warmup": 20,
+      "runs": 500
+    },
+    "claudeExecFormParent": [
+      {
+        "name": "~/.local/bin/claude",
+        "commandLine": "~/.local/bin/claude -p Read note.txt and reply with done. --output-format stream-json --verbose --allowedTools Read --plugin-dir <work>/Users/Имя Фамилия/claude probe plugin",
+        "argv": null
+      }
+    ],
+    "claude: aang-hook started directly (exec form)": {
+      "launcher": {
+        "id": "direct spawn",
+        "command": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+        "args": [
+          "claude",
+          "plugin",
+          "<work>/Users/Имя Фамилия/.aang/spool-installed-latency"
+        ],
+        "verbatim": false
+      },
+      "runs": 500,
+      "p50": 2.16,
+      "p95": 2.48,
+      "max": 2.82,
+      "failures": 0,
+      "delivered": 520
+    },
+    "claude: aang-hook without a lease (no spool write)": {
+      "launcher": {
+        "id": "direct spawn",
+        "command": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+        "args": [
+          "claude",
+          "plugin",
+          "<work>/Users/Имя Фамилия/.aang/spool-installed-latency-unleased"
+        ],
+        "verbatim": false
+      },
+      "runs": 500,
+      "p50": 1.73,
+      "p95": 1.98,
+      "max": 2.66,
+      "failures": 0,
+      "delivered": 0
+    },
+    "codex: installed command through the account shell": {
+      "launcher": {
+        "id": "codex account shell",
+        "command": "/bin/zsh",
+        "args": [
+          "-c",
+          "'<work>/Users/Имя Фамилия/.aang/bin/aang-hook' codex user '<work>/Users/Имя Фамилия/.aang/spool-installed-latency'"
+        ],
+        "verbatim": false
+      },
+      "runs": 500,
+      "p50": 4.14,
+      "p95": 5.17,
+      "max": 6.68,
+      "failures": 0,
+      "delivered": 520
+    },
+    "codex: aang-hook alone": {
+      "launcher": {
+        "id": "direct spawn",
+        "command": "<work>/Users/Имя Фамилия/.aang/bin/aang-hook",
+        "args": [
+          "codex",
+          "user",
+          "<work>/Users/Имя Фамилия/.aang/spool-installed-latency"
+        ],
+        "verbatim": false
+      },
+      "runs": 500,
+      "p50": 1.98,
+      "p95": 2.35,
+      "max": 3.6,
+      "failures": 0,
+      "delivered": 520
+    }
+  },
+  "claude series with and without hooks": {
+    "pairs": 15,
+    "warmup": {
+      "withHooks": {
+        "durationMs": 645.403459000001,
+        "ok": true,
+        "events": 64
+      },
+      "withoutHooks": {
+        "durationMs": 407.73229100000026,
+        "ok": true,
+        "events": 0
+      }
+    },
+    "withHooks": [
+      {
+        "durationMs": 634.8980410000004,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 611.6572080000042,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 610.6437920000026,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 610.7573330000014,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 603.6868340000001,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 646.8910840000026,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 606.0145840000041,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 616.3487500000047,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 611.275959000006,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 602.2355000000025,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 589.4502499999944,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 654.9392080000034,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 659.0847920000015,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 620.0975420000032,
+        "ok": true,
+        "events": 64
+      },
+      {
+        "durationMs": 619.6690000000017,
+        "ok": true,
+        "events": 64
+      }
+    ],
+    "withoutHooks": [
+      {
+        "durationMs": 378.0502079999933,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 375.70395799999824,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 388.6128749999989,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 388.58674999999494,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 371.08233299999847,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 370.599209,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 367.92579199999454,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 365.34383399999933,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 359.9282500000045,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 366.93970799999806,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 370.30399999999645,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 401.9939169999998,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 386.19895800000086,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 380.2178750000021,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 375.4543330000015,
+        "ok": true,
+        "events": 0
+      }
+    ],
+    "medianWithHooksMs": 611.66,
+    "medianWithoutHooksMs": 375.45,
+    "medianEventsPerRun": 64,
+    "perEventMs": 3.69,
+    "perEventPairedMs": 3.75,
+    "failures": 0,
+    "withHooksMs": [
+      634.9,
+      611.66,
+      610.64,
+      610.76,
+      603.69,
+      646.89,
+      606.01,
+      616.35,
+      611.28,
+      602.24,
+      589.45,
+      654.94,
+      659.08,
+      620.1,
+      619.67
+    ],
+    "withoutHooksMs": [
+      378.05,
+      375.7,
+      388.61,
+      388.59,
+      371.08,
+      370.6,
+      367.93,
+      365.34,
+      359.93,
+      366.94,
+      370.3,
+      401.99,
+      386.2,
+      380.22,
+      375.45
+    ]
+  },
+  "codex series with and without hooks": {
+    "pairs": 15,
+    "warmup": {
+      "withHooks": {
+        "durationMs": 987.2130419999958,
+        "ok": true,
+        "events": 44
+      },
+      "withoutHooks": {
+        "durationMs": 761.2522919999974,
+        "ok": true,
+        "events": 0
+      }
+    },
+    "withHooks": [
+      {
+        "durationMs": 1140.7113329999993,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1043.1737500000017,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1023.8186249999999,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1181.3581249999988,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1292.7843330000032,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1137.2426660000056,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1308.635083000001,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1032.7503330000036,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1168.6705829999992,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1063.6072080000013,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1297.2712080000056,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1293.8393329999963,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1845.2417080000014,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1362.4401669999934,
+        "ok": true,
+        "events": 44
+      },
+      {
+        "durationMs": 1263.1758749999863,
+        "ok": true,
+        "events": 44
+      }
+    ],
+    "withoutHooks": [
+      {
+        "durationMs": 886.6808329999985,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1009.1505409999954,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 969.6593749999956,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 816.3555000000051,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1604.3175420000043,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 946.6996660000004,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 753.1713750000054,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 808.9007500000007,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1130.3237089999893,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 844.1806670000078,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1299.7885410000017,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1072.1032500000001,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1127.8372919999965,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 955.3260420000006,
+        "ok": true,
+        "events": 0
+      },
+      {
+        "durationMs": 1030.744292000003,
+        "ok": true,
+        "events": 0
+      }
+    ],
+    "medianWithHooksMs": 1181.36,
+    "medianWithoutHooksMs": 969.66,
+    "medianEventsPerRun": 44,
+    "perEventMs": 4.81,
+    "perEventPairedMs": 5.04,
+    "failures": 0,
+    "withHooksMs": [
+      1140.71,
+      1043.17,
+      1023.82,
+      1181.36,
+      1292.78,
+      1137.24,
+      1308.64,
+      1032.75,
+      1168.67,
+      1063.61,
+      1297.27,
+      1293.84,
+      1845.24,
+      1362.44,
+      1263.18
+    ],
+    "withoutHooksMs": [
+      886.68,
+      1009.15,
+      969.66,
+      816.36,
+      1604.32,
+      946.7,
+      753.17,
+      808.9,
+      1130.32,
+      844.18,
+      1299.79,
+      1072.1,
+      1127.84,
+      955.33,
+      1030.74
+    ]
+  },
+  "claude plugin removal": {
+    "uninstall": {
+      "error": null
+    },
+    "repeatedUninstall": {
+      "error": null
+    },
+    "state": "not_installed",
+    "pluginDirectoryRemoved": true,
+    "cli": {
+      "session": {
+        "status": 0,
+        "signal": null,
+        "error": null,
+        "timedOut": false,
+        "durationMs": 215,
+        "stderr": "",
+        "result": {
+          "subtype": "success",
+          "is_error": false,
+          "num_turns": 3
+        }
+      },
+      "initPlugins": [
+        {
+          "name": "cc-plugin-agents-md",
+          "path": "builtin",
+          "source": "cc-plugin-agents-md@builtin"
+        },
+        {
+          "name": "cc-plugin-plugin-authoring",
+          "path": "builtin",
+          "source": "cc-plugin-plugin-authoring@builtin"
+        }
+      ],
+      "delivered": 0,
+      "byEvent": {},
+      "registrations": [],
+      "pluginRoots": [],
+      "entrypoints": [],
+      "agentSdkVersions": []
+    }
+  },
+  "user profile untouched": {
+    "claudeRoot": "~/.claude",
+    "codexRoot": "~/.codex",
+    "checkedFiles": [
+      {
+        "path": "~/.claude/settings.json",
+        "present": true
+      },
+      {
+        "path": "~/.claude/settings.local.json",
+        "present": false
+      },
+      {
+        "path": "~/.claude/plugins/known_marketplaces.json",
+        "present": true
+      },
+      {
+        "path": "~/.claude/plugins/installed_plugins.json",
+        "present": true
+      },
+      {
+        "path": "~/.codex/hooks.json",
+        "present": true
+      },
+      {
+        "path": "~/.codex/config.toml",
+        "present": true
+      },
+      {
+        "path": "~/.codex/auth.json",
+        "present": true
+      }
+    ],
+    "changedFiles": [],
+    "skillsAdded": [],
+    "projectDirectoriesForWork": [],
+    "claudeJsonMentionsWork": false,
+    "rolloutsForWork": []
+  },
+  "finishedAt": "2026-10-02T22:43:14.524Z",
+  "loadAverageAtFinish": [
+    5.79052734375,
+    9.591796875,
+    10.5498046875
+  ],
+  "failedSections": []
+}
