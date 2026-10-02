@@ -6,6 +6,7 @@ import type { LineContext, LineFacts, LineParser } from './facts.js'
 import { parseHook } from './hooks.js'
 import { itemCompleted } from './items.js'
 import { readLine } from './line.js'
+import { parseOtel } from './otel.js'
 import { compacted, sessionMeta, taskComplete, taskStarted, turnAborted, turnContext } from './session.js'
 import { decodeStream } from './stream.js'
 import { tokenCount, tokenUsageRecord } from './usage.js'
@@ -58,6 +59,9 @@ const parseLine = (context: LineContext): LineFacts => lineParsers.get(context.l
 export const parse = (record: CollectedRecord): ParseResult => {
   if (record.channel === 'hook' && record.position.kind === 'spool') {
     return parseHook(record, record.position.file)
+  }
+  if (record.channel === 'otel' && record.position.kind === 'otel') {
+    return parseOtel(record)
   }
   if (record.channel !== 'rollout' || record.position.kind !== 'line') {
     return { parse_state: 'unknown', source_ts: null }

@@ -11,6 +11,7 @@ import {
   textResultEvent,
   type ClaudeSession,
 } from './claude-events.js'
+import { emulatePluginCommand } from './claude-plugin.js'
 import { claudeOptions, claudeViolations } from './claude-profile.js'
 import { emit, finish, hang, parseJson, readStdin, say, tryReadText, type TextRead } from './io.js'
 import { lastValue, parseOptions, type ParsedOptions } from './options.js'
@@ -143,8 +144,15 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
 
 const isVersion = (argument: string | undefined): boolean => argument === '--version' || argument === '-v'
 
+const isPlugin = (argument: string | undefined): boolean => argument === 'plugin' || argument === 'plugins'
+
 const main = async (): Promise<void> => {
   const scenario = readScenario(state, ClaudeScenario)
+  if (isPlugin(argv[0])) {
+    record('plugin')
+    emulatePluginCommand(state, argv.slice(1), scenario.pluginFailures)
+    return
+  }
   if (argv[0] === 'auth' && argv[1] === 'status') {
     authStatus(scenario)
     return
@@ -167,7 +175,7 @@ const main = async (): Promise<void> => {
   }
   if (!parsed.options.flags.has('print')) {
     record('unknown')
-    say(process.stderr, scenarioMessage('claude', 'only -p, auth status and --version are emulated'))
+    say(process.stderr, scenarioMessage('claude', 'only -p, plugin, auth status and --version are emulated'))
     finish(fakeCliExitCodes.scenario)
     return
   }

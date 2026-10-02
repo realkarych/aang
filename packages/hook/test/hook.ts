@@ -98,11 +98,11 @@ const collect = (stream: Readable | null): (() => string) => {
   return () => text
 }
 
-export const runHook = async (
-  args: readonly string[],
-  { binary = 'covered', env = {}, stdin = typicalPayload }: HookOptions = {},
+export const runProcess = async (
+  command: string,
+  commandArgs: readonly string[],
+  { env = {}, stdin = typicalPayload }: Omit<HookOptions, 'binary'> = {},
 ): Promise<HookResult> => {
-  const [command, commandArgs] = launch(inject('hookBinaries')[binary], args, stdin)
   const piped = stdin !== 'ignored' && stdin !== 'closed'
   const child = spawn(command, commandArgs, {
     env: hookEnvironment(env),
@@ -120,6 +120,12 @@ export const runHook = async (
       : Promise.resolve(true)
   const [[status, signal], accepted] = await Promise.all([closed, stdinAccepted])
   return { status, signal, stdout: stdout(), stderr: stderr(), stdinAccepted: accepted }
+}
+
+export const runHook = async (args: readonly string[], options: HookOptions = {}): Promise<HookResult> => {
+  const stdin = options.stdin ?? typicalPayload
+  const [command, commandArgs] = launch(inject('hookBinaries')[options.binary ?? 'covered'], args, stdin)
+  return runProcess(command, commandArgs, { ...options, stdin })
 }
 
 export const withoutNames = (events: readonly SpoolEvent[]): Omit<SpoolEvent, 'name'>[] =>
@@ -171,6 +177,11 @@ const parseSpoolFile = (name: string, bytes: Buffer): SpoolEvent => {
   }
 }
 
+export const readSpoolEvents = async (spool: string): Promise<SpoolEvent[]> => {
+  const ready = join(spool, spoolLayout.readyDirectory)
+  return Promise.all((await namesIn(ready)).map(async (name) => parseSpoolFile(name, await readFile(join(ready, name)))))
+}
+
 const denyDirectoryWrites = async (directory: string): Promise<Cleanup> => {
   if (process.platform === 'win32') {
     await execFileAsync('icacls', [directory, '/deny', '*S-1-1-0:(WD,AD)'])
@@ -215,7 +226,6 @@ export const createSpool = async (
       }
     },
     entries: async () => ({ ready: await namesIn(ready), pending: await namesIn(pending) }),
-    events: async () =>
-      Promise.all((await namesIn(ready)).map(async (name) => parseSpoolFile(name, await readFile(join(ready, name))))),
+    events: () => readSpoolEvents(path),
   }
 }

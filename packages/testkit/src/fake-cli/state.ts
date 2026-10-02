@@ -42,15 +42,26 @@ export const writeScenario = (state: string, scenario: unknown): void => {
   writeAtomically(scenarioFile(state), JSON.stringify(scenario, null, 2))
 }
 
-export const readScenario = <S extends z.ZodType>(state: string, schema: S): z.output<S> => {
+const readDocument = <S extends z.ZodType>(path: string, schema: S): z.output<S> => {
   try {
-    return schema.parse(JSON.parse(readFileSync(scenarioFile(state), 'utf8')))
+    return schema.parse(JSON.parse(readFileSync(path, 'utf8')))
   } catch (error) {
     if (isCode(error, 'ENOENT')) {
       return schema.parse({})
     }
     throw error
   }
+}
+
+export const readScenario = <S extends z.ZodType>(state: string, schema: S): z.output<S> =>
+  readDocument(scenarioFile(state), schema)
+
+export const readStateDocument = <S extends z.ZodType>(state: string, name: string, schema: S): z.output<S> =>
+  readDocument(join(state, name), schema)
+
+export const writeStateDocument = (state: string, name: string, document: unknown): void => {
+  mkdirSync(state, { recursive: true })
+  writeAtomically(join(state, name), JSON.stringify(document, null, 2))
 }
 
 export const claimCall = (state: string): number => claim(callsDirectory(state))
