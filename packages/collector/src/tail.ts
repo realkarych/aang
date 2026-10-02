@@ -232,7 +232,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     return [{ ...gap, closed_at: now > gap.detected_at ? now : gap.detected_at }]
   }
 
-  const read = async (file: TrackedFile): Promise<ReadOutcome> => {
+  const read = async (file: TrackedFile, budget: number): Promise<ReadOutcome> => {
     let stats: BigIntStats
     let start: FileCursor
     let chunk: Chunk
@@ -252,7 +252,11 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     let lineStart = 0
     let line = start.line
     let lastOrdinal = start.last_ordinal
-    for (let lineEnd = chunk.bytes.indexOf(lineFeed); lineEnd >= 0; lineEnd = chunk.bytes.indexOf(lineFeed, lineStart)) {
+    for (
+      let lineEnd = chunk.bytes.indexOf(lineFeed);
+      lineEnd >= 0 && records.length < budget;
+      lineEnd = chunk.bytes.indexOf(lineFeed, lineStart)
+    ) {
       const contentEnd = lineEnd > lineStart && chunk.bytes[lineEnd - 1] === carriageReturn ? lineEnd - 1 : lineEnd
       line += 1
       if (contentEnd > lineStart) {
@@ -272,11 +276,12 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       }
       lineStart = lineEnd + 1
     }
+    const examined = records.length < budget ? chunk.bytes.length : lineStart
     const cursor: FileCursor = {
       ...start,
       offset: start.offset + lineStart,
       line,
-      size: Number(stats.size),
+      size: start.offset + examined,
       last_ordinal: lastOrdinal,
     }
     file.cursor = cursor
@@ -284,8 +289,8 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       records,
       cursor: lineStart > 0 ? cursor : null,
       gaps,
-      bytes: chunk.bytes.length,
-      more: chunk.bytes.length < chunk.available,
+      bytes: lineStart,
+      more: examined < chunk.available,
     }
   }
 
@@ -299,7 +304,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
         break
       }
       dirty.delete(path)
-      const outcome = await read(file)
+      const outcome = await read(file, maxRecordsPerBatch - records.length)
       records.push(...outcome.records)
       gaps.push(...outcome.gaps)
       if (outcome.cursor !== null) {

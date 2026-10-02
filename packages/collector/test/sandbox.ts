@@ -201,3 +201,20 @@ export const holdExclusively = async (sandbox: Sandbox, path: string): Promise<(
   sandbox.cleanup(release)
   return release
 }
+
+export const preventRemoval = async (sandbox: Sandbox, path: string): Promise<() => Promise<void>> => {
+  if (process.platform === 'win32') {
+    return holdExclusively(sandbox, path)
+  }
+  const directory = dirname(path)
+  await chmod(directory, 0o500)
+  let held = true
+  const release = async (): Promise<void> => {
+    if (held) {
+      held = false
+      await chmod(directory, 0o700)
+    }
+  }
+  sandbox.cleanup(release)
+  return release
+}

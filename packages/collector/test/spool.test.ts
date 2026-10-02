@@ -1,5 +1,5 @@
-import { existsSync } from 'node:fs'
-import { mkdir, readdir, rm, stat, utimes, writeFile } from 'node:fs/promises'
+import { existsSync, renameSync, writeFileSync } from 'node:fs'
+import { mkdir, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { createCollector } from '@aang/collector'
 import { CollectedRecord, Config } from '@aang/contract'
 import { expect, test, vi } from 'vitest'
@@ -7,6 +7,7 @@ import {
   createSandbox,
   daysAgo,
   holdExclusively,
+  preventRemoval,
   putSpoolFile,
   runCollector,
   sleep,
@@ -124,6 +125,59 @@ test('a file issued but not acknowledged stays in the spool and is issued again 
   expect(existsSync(path)).toBe(false)
 })
 
+test('an ack that fails part way can be repeated and removes the files it left behind without issuing them again', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const scanIntervalMs = 300
+  const base = Date.now() - 1_000
+  const first = await putSpoolFile(sandbox, 'event-1', spoolBytes({ payload: '{"n":1}' }), new Date(base))
+  const second = await putSpoolFile(sandbox, 'event-2', spoolBytes({ payload: '{"n":2}' }), new Date(base + 1))
+  const running = runCollector(sandbox, { spoolScanIntervalMs: scanIntervalMs })
+  await vi.waitFor(() => {
+    expect(running.payloads()).toEqual(['{"n":1}', '{"n":2}'])
+  })
+  expect(running.arrivals).toHaveLength(1)
+
+  const release = await preventRemoval(sandbox, second)
+  await expect(running.ackAll()).rejects.toThrow(/^E[A-Z]+: /)
+  expect(existsSync(second)).toBe(true)
+  await expect(running.ackAll()).rejects.toThrow(/^E[A-Z]+: /)
+
+  await release()
+  await sleep(scanIntervalMs * 3)
+  expect(running.payloads()).toEqual(['{"n":1}', '{"n":2}'])
+  await running.ackAll()
+  expect([first, second].map((path) => existsSync(path))).toEqual([false, false])
+  expect(await running.collector.spoolStats()).toEqual({ files: 0, bytes: 0 })
+})
+
+test('a burst of spool files written while the collector is busy is collected without waiting for the next listing', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  await putSpoolFile(sandbox, 'warmup', spoolBytes({ payload: '{}' }))
+  const running = runCollector(sandbox, { spoolScanIntervalMs: 600_000 })
+  await vi.waitFor(() => {
+    expect(running.records()).toHaveLength(1)
+  })
+
+  const count = 2_000
+  for (let index = 0; index < count; index += 1) {
+    const name = `burst-${String(index).padStart(4, '0')}`
+    writeFileSync(temporarySpoolPath(sandbox, name), spoolBytes({ payload: String(index) }))
+    renameSync(temporarySpoolPath(sandbox, name), spoolPath(sandbox, name))
+  }
+  await vi.waitFor(
+    () => {
+      expect(running.records()).toHaveLength(count + 1)
+    },
+    { timeout: 20_000 },
+  )
+
+  expect(new Set(running.payloads()).size).toBe(count + 1)
+})
+
 test('batches follow the receipt order and every file is issued exactly once', async ({ onTestFinished }) => {
   const sandbox = await createSandbox(onTestFinished)
   const count = 600
@@ -205,7 +259,7 @@ test('leftovers in spool/tmp from killed hooks are removed at start while files 
   expect(existsSync(live)).toBe(true)
 })
 
-test('a spool file with a broken header becomes an unknown_records gap and is removed after ack', async ({
+test('a spool file with a broken header becomes an unknown_records gap and stays in the spool after ack and restart', async ({
   onTestFinished,
 }) => {
   const sandbox = await createSandbox(onTestFinished)
@@ -220,26 +274,26 @@ test('a spool file with a broken header becomes an unknown_records gap and is re
     'empty-key': Buffer.from('aang-spool/1 claude plugin\n=1\0\0{}'),
   }
   const base = Date.now() - 1_000
-  const paths = []
+  const brokenPaths: string[] = []
   for (const [index, [name, bytes]] of Object.entries(broken).entries()) {
-    paths.push(await putSpoolFile(sandbox, name, bytes, new Date(base + index)))
+    brokenPaths.push(await putSpoolFile(sandbox, name, bytes, new Date(base + index)))
   }
   const payload = Buffer.from('\uFEFF{"text":"a\0b\nc"}', 'utf8')
-  paths.push(
-    await putSpoolFile(
-      sandbox,
-      'valid',
-      spoolBytes({
-        runtime: 'codex',
-        registration: 'user',
-        env: { CODEX_HOME: '/home/user/.codex', FUTURE_KEY: 'ignored', AI_AGENT: 'a=b\nc' },
-        payload,
-      }),
-      new Date(base + 100),
-    ),
+  const valid = await putSpoolFile(
+    sandbox,
+    'valid',
+    spoolBytes({
+      runtime: 'codex',
+      registration: 'user',
+      env: { CODEX_HOME: '/home/user/.codex', FUTURE_KEY: 'ignored', AI_AGENT: 'a=b\nc' },
+      payload,
+    }),
+    new Date(base + 100),
   )
+  const brokenContents = async (): Promise<Buffer[]> => Promise.all(brokenPaths.map((path) => readFile(path)))
 
-  const running = runCollector(sandbox)
+  const scanIntervalMs = 300
+  const running = runCollector(sandbox, { spoolScanIntervalMs: scanIntervalMs })
   await vi.waitFor(() => {
     expect(running.records()).toHaveLength(1)
   })
@@ -256,10 +310,27 @@ test('a spool file with a broken header becomes an unknown_records gap and is re
       closed_at: null,
     })),
   )
-  expect(paths.every((path) => existsSync(path))).toBe(true)
+  expect(existsSync(valid)).toBe(true)
 
   await running.ackAll()
-  expect(paths.some((path) => existsSync(path))).toBe(false)
+  await sleep(scanIntervalMs * 3)
+  expect(await brokenContents()).toEqual(Object.values(broken))
+  expect(existsSync(valid)).toBe(false)
+  expect(running.gaps()).toHaveLength(Object.keys(broken).length)
+  await running.close()
+
+  const restarted = runCollector(sandbox)
+  await vi.waitFor(() => {
+    expect(restarted.gaps()).toHaveLength(Object.keys(broken).length)
+  })
+  expect(restarted.gaps().map(({ key }) => key)).toEqual(running.gaps().map(({ key }) => key))
+  expect(restarted.records()).toEqual([])
+  await restarted.ackAll()
+  expect(await brokenContents()).toEqual(Object.values(broken))
+  expect(await restarted.collector.spoolStats()).toEqual({
+    files: brokenPaths.length,
+    bytes: Object.values(broken).reduce((sum, bytes) => sum + bytes.length, 0),
+  })
 })
 
 test('a spool/new removed while running is recreated and files written afterwards are still collected', async ({

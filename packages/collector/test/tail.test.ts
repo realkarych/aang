@@ -17,6 +17,8 @@ const writeLines = async (path: string, content: string | Buffer): Promise<void>
   await writeFile(path, content)
 }
 
+const maxRecordsPerBatch = 4096
+
 const line = (index: number, text = 'строка'): string => JSON.stringify({ uuid: `u-${String(index)}`, text: `${text} ${String(index)}` })
 
 const lines = (from: number, to: number): string[] => Array.from({ length: to - from + 1 }, (_, index) => line(from + index))
@@ -338,5 +340,59 @@ test('a backlog larger than a batch and a line longer than a read chunk are deli
   }
   expect(running.records().filter(({ position }) => position.kind === 'line' && position.path === long).map(({ payload }) => payload)).toEqual([longLine, line(2)])
   expect(running.arrivals.length).toBeGreaterThan(backlog.length)
-  expect(Math.max(...running.arrivals.map(({ batch }) => batch.records.length))).toBeLessThan(perFile)
+  expect(Math.max(...running.arrivals.map(({ batch }) => batch.records.length))).toBeLessThanOrEqual(maxRecordsPerBatch)
+})
+
+test('a file of many short lines is delivered in batches of at most 4096 records while other files keep being read', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const short = transcriptPath(sandbox, 'short-lines')
+  const count = 200_000
+  await writeLines(short, '{}\n'.repeat(count))
+  const other = transcriptPath(sandbox, 'other')
+  await writeLines(other, `${lines(1, 3).join('\n')}\n`)
+  const running = runCollector(sandbox)
+
+  await vi.waitFor(
+    () => {
+      expect(running.records()).toHaveLength(count + 3)
+    },
+    { timeout: 20_000 },
+  )
+
+  const ofShort = running.records().filter(({ position }) => position.kind === 'line' && position.path === short)
+  expect(ofShort.map(({ position }) => (position.kind === 'line' ? position.line : 0))).toEqual(
+    Array.from({ length: count }, (_, index) => index + 1),
+  )
+  expect(running.cursor(short)).toMatchObject({ line: count, offset: count * 3, size: count * 3 })
+  expect(running.arrivals.every(({ batch }) => batch.records.length <= maxRecordsPerBatch)).toBe(true)
+  const otherBatch = running.arrivals.findIndex(({ batch }) => batch.records.some(({ payload }) => payload === line(1)))
+  expect(otherBatch).toBeLessThan(running.arrivals.length - 1)
+  expect(running.records().filter(({ position }) => position.kind === 'line' && position.path === other).map(({ payload }) => payload)).toEqual(lines(1, 3))
+})
+
+test('a restart from a cursor taken between batches of an unchanged file reads the rest of it exactly once', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = transcriptPath(sandbox)
+  const count = 20_000
+  await writeLines(path, `${lines(1, count).join('\n')}\n`)
+  const first = runCollector(sandbox)
+  await vi.waitFor(() => {
+    expect(first.payloads()).toEqual(lines(1, count))
+  })
+  const committed = first.arrivals[0]?.batch.cursors.find((cursor) => cursor.path === path)
+  await first.close()
+  expect(committed).toMatchObject({ line: maxRecordsPerBatch })
+
+  const second = runCollector(sandbox, { fsWatch: false, cursors: committed === undefined ? [] : [committed] })
+  await vi.waitFor(() => {
+    expect(second.payloads()).toEqual(lines(maxRecordsPerBatch + 1, count))
+  })
+  expect(second.records()[0]?.position).toMatchObject({ line: maxRecordsPerBatch + 1, offset: committed?.offset })
+  await sleep(300)
+  expect(second.payloads()).toHaveLength(count - maxRecordsPerBatch)
+  expect(second.cursor(path)).toMatchObject({ line: count, offset: (await stat(path)).size })
 })

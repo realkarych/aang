@@ -71,7 +71,7 @@ const expiredGap = (expired: readonly Waiting[], maxAgeDays: number): CollectedG
 const unknownRecordGap = (name: string, reason: string): CollectedGap => ({
   key: { kind: 'gap', gap: 'unknown_records', subject: `spool:${name}` },
   stream: null,
-  details: `spool file ${name} discarded: ${reason}`,
+  details: `spool file ${name} left in the spool: ${reason}`,
   detected_at: nowNs(),
   closed_at: null,
 })
@@ -80,9 +80,10 @@ export const createSpoolSource = (options: SpoolOptions, wakeup: Wakeup): SpoolS
   const ready = join(options.directory, spoolLayout.readyDirectory)
   const temporary = join(options.directory, spoolLayout.temporaryDirectory)
   const issued = new Set<string>()
+  const held = new Set<string>()
   const hinted = new Set<string>()
   const waiting = new Map<string, Waiting>()
-  const deletions = new WeakMap<CollectorBatch, readonly string[]>()
+  const deletions = new WeakMap<CollectorBatch, Set<string>>()
   let listingRequested = true
   let expiryPending = true
   let watch: DirectoryWatch | null = null
@@ -113,7 +114,7 @@ export const createSpoolSource = (options: SpoolOptions, wakeup: Wakeup): SpoolS
     const hints = [...hinted]
     hinted.clear()
     for (const name of listing ? await list() : hints) {
-      if (issued.has(name) || waiting.has(name)) {
+      if (issued.has(name) || held.has(name) || waiting.has(name)) {
         continue
       }
       const entry = await inspect(name)
@@ -165,13 +166,14 @@ export const createSpoolSource = (options: SpoolOptions, wakeup: Wakeup): SpoolS
       if (bytes === null) {
         continue
       }
-      issued.add(entry.name)
-      names.push(entry.name)
       const file = parseSpoolFile(bytes)
       if (file.header === null) {
+        held.add(entry.name)
         gaps.push(unknownRecordGap(entry.name, file.reason))
         continue
       }
+      issued.add(entry.name)
+      names.push(entry.name)
       records.push({
         channel: 'hook',
         runtime: file.header.runtime,
@@ -186,20 +188,21 @@ export const createSpoolSource = (options: SpoolOptions, wakeup: Wakeup): SpoolS
       return null
     }
     const batch: CollectorBatch = { records, cursors: [], gaps }
-    deletions.set(batch, names)
+    deletions.set(batch, new Set(names))
     return batch
   }
 
   const ack = async (batch: CollectorBatch): Promise<void> => {
-    const names = deletions.get(batch)
-    if (names === undefined) {
+    const pending = deletions.get(batch)
+    if (pending === undefined) {
       return
     }
-    deletions.delete(batch)
-    for (const name of names) {
+    for (const name of [...pending]) {
       await rm(join(ready, name), { force: true })
+      pending.delete(name)
       issued.delete(name)
     }
+    deletions.delete(batch)
   }
 
   const removeStaleTemporaryFiles = async (): Promise<void> => {
