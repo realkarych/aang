@@ -89,15 +89,15 @@ export const retainBases = async (
   options: RetentionOptions,
   runs: ReadonlySet<RunId> | null,
 ): Promise<ArtifactVersion[]> => {
-  const pending = store.artifacts.unretained().filter(({ run }) => runs === null || runs.has(run))
-  const bases = new Map<RunId, Set<ArtifactVersionId>>()
+  const scanned = runs ?? new Set(store.artifacts.unretained().map(({ run }) => run))
+  const pending = [...scanned].flatMap((run) =>
+    [...basesOf(store, run)].flatMap((id) => {
+      const version = store.artifacts.getVersion(id)
+      return version?.retention.kind === 'reference' ? [version] : []
+    }),
+  )
   const retained: { readonly version: ArtifactVersion; readonly content: RetainedContent }[] = []
   for (const version of pending) {
-    const linked = bases.get(version.run) ?? basesOf(store, version.run)
-    bases.set(version.run, linked)
-    if (!linked.has(version.id)) {
-      continue
-    }
     const content = await retainedContent(store, version, options)
     if (content !== null) {
       retained.push({ version, content })

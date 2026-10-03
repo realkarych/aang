@@ -6,6 +6,8 @@ import { matchedStarts } from '../checks/results.js'
 import { rootSessionOf, sessionRun } from '../observations/runs.js'
 import type { SnapshotRequest } from './take.js'
 
+const directory = (path: string | null): string | null => (path === '' ? null : path)
+
 const checkRequests = (transaction: Transaction, key: ActionKey, catalog: ContractCatalog): SnapshotRequest[] => {
   const action = transaction.observations.getAction(objectId(key))
   const session = action === null ? null : transaction.observations.getSession(action.session)
@@ -14,7 +16,7 @@ const checkRequests = (transaction: Transaction, key: ActionKey, catalog: Contra
   }
   const run = sessionRun(transaction, session.key)
   const root = rootSessionOf(transaction, run, session)
-  const rootCwd = root?.cwd ?? null
+  const rootCwd = directory(root?.cwd ?? null)
   if (root === null || rootCwd === null) {
     return []
   }
@@ -27,7 +29,7 @@ const checkRequests = (transaction: Transaction, key: ActionKey, catalog: Contra
           {
             run,
             root: root.key,
-            cwd: start.runtime_env.cwd ?? session.cwd ?? rootCwd,
+            cwd: directory(start.runtime_env.cwd) ?? directory(session.cwd) ?? rootCwd,
             maskRoot: contract.root,
             masks: contract.inputMasks,
             trigger: 'check',
