@@ -11,10 +11,13 @@ import {
   type SseEvent,
 } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
+import { createReadQueries } from '@aang/engine'
+import { openStore } from '@aang/store'
 import { applyFeed } from '@aang/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
+import { admin, storedCount, waitUntil } from './sessions.js'
 import { endsWithRun, lastId, openKnownRun, openStream, requestStream, segmentsOf } from './stream-client.js'
 
 interface Transcript {
@@ -120,6 +123,16 @@ const read = async <S extends z.ZodType>(
 
 const runPath = (run: RunId): string => `/api/runs/${run}`
 
+const stopped = async (daemon: RunningDaemon): Promise<void> => {
+  daemon.abort()
+  await daemon.stopped
+}
+
+const ok = () => ({ state: { state: 'ok' }, isolation_unverified: false }) as const
+
+const endedAction = `SELECT count(*) AS count FROM objects WHERE kind = 'action' AND run_id = ?
+  AND json_extract(entity_key, '$.call') = ? AND json_extract(data, '$.ended_at') IS NOT NULL`
+
 describe.concurrent('the run stream delivers the change feed over SSE', () => {
   test('a reconnection with Last-Event-ID after the last received event neither loses nor repeats events', async ({
     expect,
@@ -188,6 +201,56 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
     await stale.ended
 
     expect(stale.events).toEqual([{ event: 'reset', id: null, data: { reason: 'stale_position' } }])
+  })
+
+  test('a position taken before a prune gives a reset once the session continues, also after a restart', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { home, daemon, transcript } = await openScene(onTestFinished)
+    const session = await transcript('g5-pruned')
+    await session.append(session.call('toolu_g5_pruned'))
+    const known = await openKnownRun(daemon.base, home.token, { run: session.run, lastEventId: '0' })
+    await known.until(ended('toolu_g5_pruned'))
+    await known.close()
+    const held = String(lastId(known.events))
+    const live = await openStream(daemon.base, home.token, { run: session.run, lastEventId: held })
+    await live.until(endsWithRun)
+
+    const pruned = await admin(home, daemon.base, 'prune', { scope: 'run', run: session.run })
+    await live.ended
+    await session.append(session.call('toolu_g5_continued'))
+    await waitUntil(() => storedCount(home, endedAction, session.run, 'toolu_g5_continued') === 1)
+    const resumed = await openStream(daemon.base, home.token, { run: session.run, lastEventId: held })
+    await resumed.ended
+    await stopped(daemon)
+
+    const store = openStore({ home: home.paths.home })
+    const reread = (() => {
+      try {
+        return createReadQueries({ store, observer: ok }).snapshot(session.run)
+      } finally {
+        store.close()
+      }
+    })()
+    const restarted = await startDaemon(home, onTestFinished)
+    const afterRestart = await openStream(restarted.base, home.token, { run: session.run, lastEventId: held })
+    await afterRestart.ended
+    const current = await openStream(restarted.base, home.token, {
+      run: session.run,
+      lastEventId: String(reread?.change_seq),
+    })
+    await current.until(endsWithRun)
+    await current.close()
+
+    const reset = { event: 'reset', id: null, data: { reason: 'stale_position' } }
+    expect(pruned).toEqual({ status: 200, body: { runs: [session.run], streams: 1 } })
+    expect(live.events.at(-1)).toEqual(reset)
+    expect(resumed.events).toEqual([reset])
+    expect(afterRestart.events).toEqual([reset])
+    expect(reread?.summary.start_pruned).toBe(true)
+    expect(reread?.objects.actions.map(({ key }) => key.call)).toEqual(['toolu_g5_continued'])
+    expect(current.events.map(({ event }) => event)).toEqual(['run'])
   })
 
   test('without Last-Event-ID the stream starts at the current position, agrees with the reads over GET and then follows new changes', async ({
