@@ -1,6 +1,8 @@
+import type { MachineIdentity } from './machine.js'
+
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 
-export type Identity = 'ACCOUNT' | 'ORGANIZATION' | 'INSTALLATION' | 'USER' | 'HOST' | 'MACHINE'
+type Identity = 'ACCOUNT' | 'ORGANIZATION' | 'INSTALLATION' | 'USER' | 'HOST' | 'MACHINE'
 
 const normalize = (key: string): string => key.replaceAll(/[^a-z]/gi, '').toLowerCase()
 
@@ -19,24 +21,11 @@ const isCredential = (key: string): boolean => /(?:token|apikey|secret|password|
 
 const processDomain = /^[a-z\d]+:([^:\s]+)/i
 
-const hostLabel = /^([^.]+)\./
-
 const isMachine = (kind: string): boolean => kind === 'HOST' || kind === 'MACHINE'
 
+const holdsMachineName = (key: string): boolean => normalize(key) === 'servername'
+
 const isAmbiguous = (value: string): boolean => value.length < 4 || /^\d+$/.test(value)
-
-const nameCharacter = String.raw`[\p{L}\p{N}_-]`
-const afterEscape = String.raw`(?<=\\[bfnrt]|\\u[\da-f]{4}|%[\da-f]{2})`
-const compoundGuards = [String.raw`(?<![\p{L}\p{N}][./])`, String.raw`(?!\.\p{N})`] as const
-const timeGuards = [String.raw`(?<![\p{L}\p{N}]:)`, String.raw`(?!:\p{N})`] as const
-
-const machinePattern = (name: string, kind: string): string => {
-  if (kind === 'MACHINE' && !isAmbiguous(name)) return `(?i:${RegExp.escape(name)})`
-  const guards = [...isAmbiguous(name) ? [compoundGuards] : [], .../^\d+$/.test(name) ? [timeGuards] : []]
-  const before = guards.map(([guard]) => guard).join('')
-  const after = guards.map(([, guard]) => guard).join('')
-  return `(?i:(?:(?<!${nameCharacter})${before}|${afterEscape})${RegExp.escape(name)}(?!${nameCharacter})${after})`
-}
 
 const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|HOST|MACHINE|EMAIL|SECRET)_\d+$/
 const email = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[a-z]{2,}/giu
@@ -112,45 +101,28 @@ export interface Anonymizer {
   readonly path: (path: string) => string
 }
 
-export const createAnonymizer = (
-  paths: ReadonlyMap<string, string> = new Map(),
-  identities: Iterable<readonly [Identity, string]> = [],
-  protocol: Iterable<string> = [],
-): Anonymizer => {
-  const protocolValues = [...new Set(protocol)]
+export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map(), own: Iterable<MachineIdentity> = []): Anonymizer => {
   const replacements = new Map(paths)
-  const machines = new Map<string, { readonly after: string; readonly pattern: string }>()
+  const machines = new Map<string, string>()
   const secrets = new Set<string>()
   const counts = new Map<string, number>()
-  const patterns = new Map<boolean, RegExp>()
-  const lookup = (value: string): string | undefined => replacements.get(value) ?? machines.get(value.toLowerCase())?.after
-  const protocolClash = (source: string): string | undefined => {
-    const machine = new RegExp(source, 'u')
-    return protocolValues.find((value) => machine.test(value))
-  }
-  const register = (value: string, kind: string, aliases: readonly string[] = [], own = false): void => {
-    const names = [value, ...aliases]
-    if (!value || placeholder.test(value) || lookup(value) !== undefined || (kind === 'HOST' && names.some((name) => /^localhost$/i.test(name)))) return
+  let cached: RegExp | undefined
+  const lookup = (value: string): string | undefined => replacements.get(value)
+  const machine = (value: string): string | undefined => machines.get(value.toLowerCase())
+  const known = (kind: string): (value: string) => string | undefined => isMachine(kind) ? machine : lookup
+  const register = (value: string, kind: Identity | 'EMAIL' | 'SECRET', aliases: readonly string[] = []): void => {
+    if (!value || placeholder.test(value) || known(kind)(value) !== undefined || (kind === 'HOST' && /^localhost$/i.test(value))) return
     const next = (counts.get(kind) ?? 0) + 1
     counts.set(kind, next)
     const after = `${kind}_${String(next)}`
     if (isMachine(kind)) {
-      for (const name of names) {
-        const source = machinePattern(name, kind)
-        const clash = protocolClash(source)
-        if (clash !== undefined) {
-          throw new Error(own
-            ? `The host name "${name}" of this machine matches the protocol value "${clash}" in the recording, and masking it would corrupt the recording; give the machine another host name and record again`
-            : `The host name "${name}" in the recording matches its protocol value "${clash}", and masking it would corrupt the recording; change the scenario so that the recording does not carry this host name`)
-        }
-        machines.set(name.toLowerCase(), machines.get(name.toLowerCase()) ?? { after, pattern: source })
-      }
+      for (const name of [value, ...aliases]) if (machine(name) === undefined) machines.set(name.toLowerCase(), after)
     } else {
       replacements.set(value, after)
+      cached = undefined
     }
-    patterns.clear()
   }
-  for (const [kind, value] of identities) register(value, kind, kind === 'HOST' ? hostLabel.exec(value)?.slice(1) : undefined, true)
+  for (const { kind, names: [name = '', ...aliases] } of own) register(name, kind, aliases)
   const registerSecret = (value: string): void => {
     const secret = value.replace(/^(?:bearer|basic|token)\s+/i, '')
     if (secret.length < 24 && (secret.length < 8 || !/\d/.test(secret))) return
@@ -192,20 +164,15 @@ export const createAnonymizer = (
   }
   const longestFirst = (entries: (readonly [string, string])[]): string[] =>
     entries.sort(([left], [right]) => right.length - left.length).map(([, source]) => source)
-  const pattern = (withMachines: boolean): RegExp => {
-    const cached = patterns.get(withMachines)
+  const pattern = (): RegExp => {
     if (cached) return cached
     const registered = [...replacements.keys()].filter((before) => !paths.has(before) && (secrets.has(before) || !isAmbiguous(before)))
-    const compiled = new RegExp([
+    cached = new RegExp([
       ...longestFirst([...paths.keys()].map((before) => [before, RegExp.escape(before)])),
       homePaths,
-      ...longestFirst([
-        ...registered.map((before) => [before, RegExp.escape(before)] as const),
-        ...withMachines ? [...machines].map(([name, { pattern: source }]) => [name, source] as const) : [],
-      ]),
+      ...longestFirst(registered.map((before) => [before, RegExp.escape(before)])),
     ].join('|'), 'gu')
-    patterns.set(withMachines, compiled)
-    return compiled
+    return cached
   }
   const substitute = (match: string, ...captures: unknown[]): string => {
     const { home, root, profile } = captures.at(-1) as { home?: string; root?: string; profile?: string }
@@ -214,18 +181,24 @@ export const createAnonymizer = (
     if (profile !== undefined) return 'REDACTED_HOME'
     return lookup(match) ?? match
   }
-  const replaceText = (input: string, withMachines = true): string => input.replaceAll(pattern(withMachines), substitute)
+  const replaceText = (input: string): string => input.replaceAll(pattern(), substitute)
     .replaceAll(assignments, (match: string, _key: string, value: string) => match.slice(0, match.length - value.length) + (lookup(value) ?? value))
-  const identity = (value: Json): Json => typeof value === 'number' ? lookup(String(value)) ?? value : mapValue(value)
+  const identity = (kind: Identity, value: Json): Json => {
+    if (typeof value === 'number') return known(kind)(String(value)) ?? value
+    return typeof value === 'string' ? known(kind)(value) ?? mapValue(value) : mapValue(value)
+  }
   const processDomainOf = (value: string): string => {
     const [match, segment] = processDomain.exec(value) ?? []
     if (match === undefined || segment === undefined) return replaceText(value)
-    return match.slice(0, -segment.length) + (lookup(segment) ?? replaceText(segment)) + replaceText(value.slice(match.length))
+    return match.slice(0, -segment.length) + (machine(segment) ?? replaceText(segment)) + replaceText(value.slice(match.length))
   }
-  const field = (key: string, value: Json): Json =>
-    identityKind(key) ? identity(value)
-      : normalize(key) === 'piddomain' && typeof value === 'string' ? processDomainOf(value)
-        : mapValue(value)
+  const field = (key: string, value: Json): Json => {
+    const kind = identityKind(key)
+    if (kind !== undefined) return identity(kind, value)
+    if (normalize(key) === 'piddomain' && typeof value === 'string') return processDomainOf(value)
+    if (holdsMachineName(key) && typeof value === 'string') return machine(value) ?? mapValue(value)
+    return mapValue(value)
+  }
   const attributeValue = (key: string, value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([kind, content]) => {
     const masked = field(key, content)
     return [kind === 'intValue' && masked !== content ? 'stringValue' : kind, masked]
@@ -236,8 +209,8 @@ export const createAnonymizer = (
     if (isRecord(value)) {
       const attribute = attributeKey(value)
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [
-        replaceText(key, false),
-        attribute !== undefined && key === 'key' ? replaceText(attribute, false)
+        replaceText(key),
+        attribute !== undefined && key === 'key' ? replaceText(attribute)
           : attribute !== undefined && key === 'value' && isRecord(nested) ? attributeValue(attribute, nested)
             : field(key, nested),
       ]))
@@ -247,7 +220,7 @@ export const createAnonymizer = (
   return {
     discover: (texts) => { for (const text of texts) structured(text, discoverValue, discoverText) },
     text: (text) => structured(text, mapValue, replaceText),
-    path: (path) => replaceText(path, false),
+    path: replaceText,
   }
 }
 

@@ -2,7 +2,6 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import { CollectedRecord, type ParseResult } from '@aang/contract'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
@@ -11,6 +10,7 @@ import { recordSession, verifyRecording, type RecordContext, type RecordOptions 
 
 const temporary: string[] = []
 const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
+const hookScript = fileURLToPath(new URL('./hook-event.ts', import.meta.url))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
@@ -385,173 +385,63 @@ test('masks credentials, short identities and escaped home paths while keeping e
   expect(agent.payload.source.subagent.thread_spawn.agent_path).toBe('/root/pong')
 })
 
-test.each([
-  { name: 'Private-Laptop.local', spellings: ['PRIVATE-Laptop.local', 'pRiVaTe-LaPtOp.local', 'private-LAPTOP'] },
-  { name: 'bob.local', spellings: ['bob', 'BOB.local', 'Bob'] },
-  { name: '7-private.local', spellings: ['7-private', '7-PRIVATE.local'] },
-  { name: 'bob', spellings: ['bob', 'BOB'] },
-])('masks the host name $name and the machine id of the recording machine in any letter case', async ({ name, spellings }) => {
-  vi.stubEnv('COMPUTERNAME', name)
-  const config = await options('codex')
-  const machine = await readFile('/etc/machine-id', 'utf8').then((text) => text.trim(), () => '')
-  const directory = await recordSession(config, async (session) => {
-    await writeFile(join(session.project, 'host.json'), JSON.stringify({
-      resource: { attributes: [{ key: 'host.name', value: { stringValue: name } }] },
-      params: { serverName: spellings[0], status: 'disabled' },
-      pidDomain: `win32:${String(spellings.at(-1)).toUpperCase()}`,
-      text: `${spellings.map((spelling) => `Connected to ${spelling}`).join('; ')} on ${machine || 'no machine id'}`,
-      word: 'Bobsled',
-      local: 'http://localhost:4318/v1/logs',
-    }))
-  })
-  const playback = await loadManifest(join(directory, 'playback.json'))
-  const step = playback.steps.find((item) => 'target' in item && item.target.path === 'project/host.json')
-  const content = playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
-  if (machine) expect(content).not.toContain(machine)
-  const value = JSON.parse(content) as {
-    resource: { attributes: { value: { stringValue: string } }[] }
-    params: { serverName: string }
-    pidDomain: string
-    text: string
-    word: string
-    local: string
-  }
-  const masked = String(value.resource.attributes[0]?.value.stringValue)
-  expect(masked).toMatch(/^HOST_\d+$/)
-  expect(value.params.serverName).toBe(masked)
-  expect(value.pidDomain).toBe(`win32:${masked}`)
-  expect(value.text).toBe(`${spellings.map(() => `Connected to ${masked}`).join('; ')} on ${machine ? 'MACHINE_1' : 'no machine id'}`)
-  expect(value.word).toBe('Bobsled')
-  expect(value.local).toBe('http://localhost:4318/v1/logs')
-  await verifyRecording(directory)
-})
-
-test.each(['1', '3', '10', 'os', 'id', 'home', 'user', 'project', 'data'])('a host name %s masks its mentions but keeps keys, versions, times, paths and the manifest', async (name) => {
-  vi.stubEnv('COMPUTERNAME', name)
-  const config = { ...await options('codex'), engineVersion: '0.159.3' }
-  const directory = await recordSession(config, async (session) => {
-    await writeFile(join(session.project, 'host.json'), JSON.stringify({
-      hostname: name,
-      id: 'session-identifier',
-      serverName: name,
-      pidDomain: `win32:${name}`,
-      text: `Connected to ${name}`,
-      version: '0.159.3',
-      timestamp: '2026-10-03T12:10:03.123Z',
-      format: 'aang-recording/1',
-      type: 'metadata',
-      homes: '/home/PrivatePerson/notes.txt and /Users/PrivatePerson/notes.txt',
-      cwd: `cwd is ${session.project}`,
-    }))
-    await session.checkpoint('written', { root: 'home', path: 'project/host.json' }, 'The host file is written')
-  })
-  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as Record<string, unknown> & { artifacts: { source: string }[] }
-  expect(Object.keys(manifest)).toEqual(['format', 'runtime', 'engine_version', 'app_version', 'surface', 'os', 'scenario', 'model', 'recorded_at', 'expected_facts', 'control_events', 'artifacts', 'playback'])
-  expect(manifest).toMatchObject({
-    format: 'aang-recording/1', engine_version: '0.159.3', os, scenario: 'tools', playback: 'playback.json',
-    expected_facts: config.expectedFacts, control_events: [{ label: 'written', expected_map_change: { description: 'The host file is written' } }],
-  })
-  expect(manifest.artifacts.map((artifact) => artifact.source)).toEqual(['data/000001.json'])
-  const playback = await loadManifest(join(directory, 'playback.json'))
-  expect(playback.steps).toMatchObject([{ kind: 'write', label: 'written', target: { root: 'home', path: 'project/host.json' }, source: 'data/000001.json' }])
-  const value = JSON.parse(playback.sources.get('data/000001.json')?.toString() ?? 'null') as { hostname: string }
-  const host = value.hostname
-  expect(host).toMatch(/^HOST_\d+$/)
-  expect(value).toEqual({
-    hostname: host,
-    id: 'session-identifier',
-    serverName: host,
-    pidDomain: `win32:${host}`,
-    text: `Connected to ${host}`,
-    version: '0.159.3',
-    timestamp: '2026-10-03T12:10:03.123Z',
-    format: 'aang-recording/1',
-    type: 'metadata',
-    homes: '/home/USER/notes.txt and /Users/USER/notes.txt',
-    cwd: `cwd is ${os === 'windows' ? 'C:\\fixture\\project' : '/fixture/project'}`,
-  })
-  await verifyRecording(directory)
-})
-
 const recordedSource = (playback: Awaited<ReturnType<typeof loadManifest>>, root: string, path: string): string => {
   const step = playback.steps.find((item) => 'target' in item && item.target.root === root && item.target.path === path)
   return playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
 }
 
-interface RuntimeSample {
-  readonly sample: string
-  readonly root: 'claude' | 'codex'
-  readonly mention?: readonly [string, string]
-  readonly fact: { readonly kind: string; readonly urgent?: boolean; readonly payload?: Readonly<Record<string, unknown>> }
-}
+const machineId = (): Promise<string> => readFile('/etc/machine-id', 'utf8').then((text) => text.trim(), () => '')
 
-const runtimeSamples = {
-  userPrompt: { sample: 'claude-code-transcripts/rec-user-prompt.json', root: 'claude', fact: { kind: 'prompt' } },
-  endTurn: {
-    sample: 'claude-code-transcripts/rec-assistant-text-end-turn.json', root: 'claude', mention: ['"text":"OK"', '"text":"Connected to Private-Owner-Mac"'],
-    fact: { kind: 'message', urgent: true, payload: { text: 'Connected to HOST', final: true } },
-  },
-  toolUseAgent: {
-    sample: 'claude-code-transcripts/rec-assistant-tool-use-agent.json', root: 'claude', mention: ['Ping the pinger agent', 'Ping Private-Owner-Mac'],
-    fact: { kind: 'action_start', payload: { action_kind: 'agent', tool: 'Agent', description: 'Ping HOST' } },
-  },
-  turnAborted: {
-    sample: 'codex-cli/rollout/event_msg.turn_aborted.mock-tui.json', root: 'codex',
-    fact: { kind: 'turn_end', payload: { outcome: 'interrupted', reason: 'interrupted' } },
-  },
-  spawnAgent: {
-    sample: 'codex-cli/rollout/response_item.function_call.spawn_agent.mock.json', root: 'codex', mention: ['run echo from-child', 'run echo on Private-Owner-Mac'],
-    fact: { kind: 'action_start', payload: { action_kind: 'agent', tool: 'collaboration/spawn_agent' } },
-  },
-} satisfies Record<string, RuntimeSample>
-
-const runtimeFile = { claude: 'projects/sample/session.jsonl', codex: 'sessions/2026/10/01/rollout-2026-10-01T12-00-00-sample.jsonl' } as const
-
-const sampleLine = async ({ sample, mention }: RuntimeSample): Promise<string> => {
-  const line = JSON.stringify(JSON.parse(await readFile(new URL(sample, samples), 'utf8')))
-  return mention === undefined ? line : line.replaceAll(...mention)
-}
-
-const writeRuntimeLine = async (session: RecordContext, root: 'claude' | 'codex', line: string): Promise<void> => {
-  const file = join(root === 'claude' ? session.claude : session.codex, runtimeFile[root])
-  await mkdir(dirname(file), { recursive: true })
-  await writeFile(file, `${line}\n`)
-}
-
-const codexStream = codexAdapter.streamKey([JSON.stringify({ hook_event_name: 'SessionStart', session_id: '01a0f765-4454-74d1-8523-2749f1374bef' })])
-
-const parseRuntimeLine = (root: 'claude' | 'codex', payload: string): ParseResult => {
-  const observed = { hook: null, observed_at: 1_790_856_592_228_739_000n, payload }
-  return root === 'claude'
-    ? claudeAdapter.parse(CollectedRecord.parse({ ...observed, channel: 'transcript', runtime: 'claude', stream: null, position: { kind: 'line', path: `/fixture/.claude/${runtimeFile.claude}`, offset: 0, line: 1 } }))
-    : codexAdapter.parse(CollectedRecord.parse({ ...observed, channel: 'rollout', runtime: 'codex', stream: codexStream, position: { kind: 'line', path: `/fixture/.codex/${runtimeFile.codex}`, offset: 0, line: 1 } }))
-}
-
-const nestedJson = (value: unknown): unknown => {
-  if (typeof value === 'string') {
-    const parsed = ((): unknown => { try { return JSON.parse(value) } catch { return value } })()
-    return parsed !== null && typeof parsed === 'object' ? nestedJson(parsed) : value
-  }
-  if (Array.isArray(value)) return value.map(nestedJson)
-  return value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, nestedJson(nested)])) : value
-}
-
-test.each(Object.entries(runtimeSamples))('a host name in the free text of %s is masked while protocol values and adapter facts stay the same', async (_name, runtimeSample: RuntimeSample) => {
-  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac')
-  const { root, fact } = runtimeSample
-  const line = await sampleLine(runtimeSample)
-  const directory = await recordSession(await options(root), async (session) => {
-    await writeRuntimeLine(session, root, line)
+test.each([
+  { name: 'Private-Laptop.local', spellings: ['PRIVATE-Laptop.local', 'pRiVaTe-LaPtOp.local', 'private-LAPTOP'] },
+  { name: 'bob.local', spellings: ['bob', 'BOB.local', 'Bob'] },
+  { name: '7-private.local', spellings: ['7-private', '7-PRIVATE.local'] },
+  { name: 'bob', spellings: ['bob', 'BOB'] },
+])('replaces the host name $name and the machine id of the recording machine in machine name fields in any letter case', async ({ name, spellings }) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const machine = await machineId()
+  const identities = machine ? { machine_id: machine, registry: { pidDomain: `linux:${machine}:pid:[4026531836]` } } : {}
+  const directory = await recordSession(await options('codex'), async (session) => {
+    await writeFile(join(session.project, 'host.json'), JSON.stringify({
+      resource: { attributes: [{ key: 'host.name', value: { stringValue: name } }] },
+      params: { serverName: spellings[0], status: 'disabled' },
+      pidDomain: `win32:${String(spellings.at(-1)).toUpperCase()}`,
+      origin: JSON.stringify({ hostname: spellings.at(-1) }),
+      ...identities,
+      word: 'Bobsled',
+      local: 'http://localhost:4318/v1/logs',
+    }))
   })
   await verifyRecording(directory)
-  const recorded = recordedSource(await loadManifest(join(directory, 'playback.json')), root, runtimeFile[root]).trim()
-  const host = /HOST_\d+/.exec(recorded)?.[0] ?? 'HOST'
-  expect(recorded).not.toMatch(/private-owner-mac/i)
-  expect(nestedJson(recorded)).toEqual(nestedJson(line.replaceAll('Private-Owner-Mac', host)))
-  const result = parseRuntimeLine(root, recorded)
-  expect(result.parse_state).toBe('parsed')
-  const facts = result.parse_state === 'parsed' ? result.facts : []
-  expect(facts.find(({ kind }) => kind === fact.kind)).toMatchObject(JSON.parse(JSON.stringify(fact).replaceAll(' HOST"', ` ${host}"`)) as object)
+  const value = JSON.parse(recordedSource(await loadManifest(join(directory, 'playback.json')), 'home', 'project/host.json')) as { params: { serverName: string } }
+  const host = value.params.serverName
+  expect(host).toMatch(/^HOST_\d+$/)
+  expect(value).toEqual({
+    resource: { attributes: [{ key: 'host.name', value: { stringValue: host } }] },
+    params: { serverName: host, status: 'disabled' },
+    pidDomain: `win32:${host}`,
+    origin: JSON.stringify({ hostname: host }),
+    ...machine ? { machine_id: 'MACHINE_1', registry: { pidDomain: 'linux:MACHINE_1:pid:[4026531836]' } } : {},
+    word: 'Bobsled',
+    local: 'http://localhost:4318/v1/logs',
+  })
+})
+
+test('verification rejects a host name or machine id of this machine anywhere in any file, but not inside longer words', async () => {
+  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac.local')
+  const directory = await recordSession(await options('codex'), async (session) => {
+    await writeFile(join(session.project, 'result.json'), JSON.stringify({ text: 'Private-Owner-Machine and private-owner-macs' }))
+  })
+  await verifyRecording(directory)
+  const machine = await machineId()
+  const mentions = [
+    'ssh Private-Owner-Mac', 'PRIVATE-OWNER-MAC.local:22', String.raw`{"text":"line\nprivate-owner-mac"}`, 'user_Private-Owner-Mac', 'Private-Owner-Mac-2',
+    ...machine ? [`id ${machine}`] : [],
+  ]
+  for (const mention of mentions) {
+    await writeFile(join(directory, 'unchecked.txt'), mention)
+    await expect(verifyRecording(directory), mention).rejects.toThrow(/^Recording file unchecked\.txt contains the (?:host name|machine id) "/)
+  }
 })
 
 interface OtlpAttribute { readonly key: string; readonly value: { readonly stringValue: string } }
@@ -584,10 +474,10 @@ const sendOtlp = async (session: RecordContext, logs: OtlpLogs): Promise<void> =
   await response.arrayBuffer()
 }
 
-test('a host name host keeps OTLP attribute names and protocol values readable by the Codex adapter', async () => {
-  vi.stubEnv('COMPUTERNAME', 'host')
+test('the host name in OTLP resource attributes is replaced while the Codex adapter reads the same facts', async () => {
+  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac')
   const { resourceLogs } = await decisionLogs()
-  const sent = identified({ resourceLogs }, 'host', 'acct-private-4477')
+  const sent = identified({ resourceLogs }, 'Private-Owner-Mac', 'acct-private-4477')
   const directory = await recordSession(await options('codex'), async (session) => {
     await sendOtlp(session, sent)
   })
@@ -609,78 +499,72 @@ test('a host name host keeps OTLP attribute names and protocol values readable b
   expect(parse(recorded)).toEqual(parse(JSON.stringify(sent)))
 })
 
+const runtimeFile = { claude: 'projects/sample/session.jsonl', codex: 'sessions/2026/10/01/rollout-2026-10-01T12-00-00-sample.jsonl' } as const
+
+const sampleRecord = async (sample: string, line = 0): Promise<string> => {
+  const text = await readFile(new URL(sample, samples), 'utf8')
+  return JSON.stringify(JSON.parse(sample.endsWith('.jsonl') ? text.trim().split('\n')[line] ?? '' : text))
+}
+
+type Write = (session: RecordContext) => Promise<unknown>
+
+const runtimeLine = (root: 'claude' | 'codex', sample: string, line = 0, mention?: readonly [string, string]): Write => async (session) => {
+  const record = await sampleRecord(sample, line)
+  const file = join(root === 'claude' ? session.claude : session.codex, runtimeFile[root])
+  await mkdir(dirname(file), { recursive: true })
+  await writeFile(file, `${mention === undefined ? record : record.replaceAll(...mention)}\n`)
+}
+
+const hookEvent = (payload: string | Readonly<Record<string, unknown>>): Write => async (session) =>
+  session.run(process.execPath, [hookScript, typeof payload === 'string' ? await sampleRecord(payload) : JSON.stringify({ session_id: 'session-public-1', ...payload })])
+
+const projectFile = (content: Readonly<Record<string, unknown>>): Write => (session) => writeFile(join(session.project, 'result.json'), JSON.stringify(content))
+
+const commandMarkers = 'claude-code-transcripts/rec-compact-local-command-users.jsonl'
+const bashFailure = 'claude-code-hooks/PostToolUseFailure.Bash.json'
+
 test.each([
-  { name: 'user', key: 'userPrompt', value: 'user' },
-  { name: 'external', key: 'userPrompt', value: 'external' },
-  { name: 'default', key: 'userPrompt', value: 'default' },
-  { name: 'sdk', key: 'userPrompt', value: 'sdk' },
-  { name: 'agent', key: 'toolUseAgent', value: 'Agent' },
-  { name: 'end_turn', key: 'endTurn', value: 'end_turn' },
-  { name: 'interrupted', key: 'turnAborted', value: 'interrupted' },
-  { name: 'collaboration', key: 'spawnAgent', value: 'collaboration' },
-  { name: 'user', key: 'otlp', value: 'User' },
-] as const)('a host name $name equal to the protocol value $value of $key aborts the recording instead of corrupting it', async ({ name, key, value }) => {
+  { name: 'command-name', runtime: 'claude', source: 'a Claude command marker', write: runtimeLine('claude', commandMarkers, 1) },
+  { name: 'local-command-stdout', runtime: 'claude', source: 'a Claude command output marker', write: runtimeLine('claude', commandMarkers, 2) },
+  { name: 'code', runtime: 'claude', source: 'the exit code prefix of a hook error', write: hookEvent(bashFailure) },
+  { name: '1', runtime: 'claude', source: 'the exit code of a hook error', write: hookEvent(bashFailure) },
+  { name: 'user', runtime: 'claude', source: 'a Claude record type', write: runtimeLine('claude', 'claude-code-transcripts/rec-user-prompt.json') },
+  { name: 'Agent', runtime: 'claude', source: 'a Claude tool name', write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-tool-use-agent.json') },
+  { name: 'end_turn', runtime: 'claude', source: 'a Claude stop reason', write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json') },
+  { name: 'interrupted', runtime: 'codex', source: 'a Codex interruption reason', write: runtimeLine('codex', 'codex-cli/rollout/event_msg.turn_aborted.mock-tui.json') },
+  { name: 'collaboration', runtime: 'codex', source: 'a Codex tool namespace', write: runtimeLine('codex', 'codex-cli/rollout/response_item.function_call.spawn_agent.mock.json') },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', '"text":"Connected to Private-Owner-Mac"']),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'a permission denial reason',
+    write: hookEvent({ hook_event_name: 'PermissionDenied', tool_name: 'Bash', tool_use_id: 'toolu_denied', reason: 'SSH to Private-Owner-Mac was denied by the user' }),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'an MCP tool result',
+    write: hookEvent({ hook_event_name: 'PostToolUse', tool_name: 'mcp__inspect__host', tool_use_id: 'toolu_mcp', tool_response: { status: 'Connected to Private-Owner-Mac' } }),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'codex', source: 'project values and addresses',
+    write: projectFile({ status: 'Connected to Private-Owner-Mac', source: 'ssh://Private-Owner-Mac/project', type: 'private-owner-mac' }),
+  },
+  { name: 'host', runtime: 'codex', source: 'an OTLP attribute name', write: async (session: RecordContext) => sendOtlp(session, identified(await decisionLogs(), 'host', 'acct-private-4477')) },
+  { name: 'plugin', runtime: 'claude', source: 'a spool header', write: (session: RecordContext) => session.run(process.execPath, [runtimeScript, 'claude', 'first']) },
+  { name: 'data', runtime: 'codex', source: 'the recording layout', write: projectFile({ state: 'done' }) },
+  { name: 'home', runtime: 'codex', source: 'a playback target root', write: projectFile({ state: 'done' }) },
+] as const)('the host name $name in $source aborts the recording and publishes nothing', async ({ name, runtime, write }) => {
   vi.stubEnv('COMPUTERNAME', name)
-  const runtime = key === 'otlp' ? 'codex' : runtimeSamples[key].root
   const config = await options(runtime)
-  const line = key === 'otlp' ? '' : await sampleLine(runtimeSamples[key])
-  const logs = key === 'otlp' ? identified(await decisionLogs(), name, 'acct-private-4477') : undefined
   let project = ''
   await expect(recordSession(config, async (session) => {
     project = session.project
-    await (logs === undefined ? writeRuntimeLine(session, runtime, line) : sendOtlp(session, logs))
-  })).rejects.toThrow(`The host name "${name}" of this machine matches the protocol value "${value}" in the recording, and masking it would corrupt the recording`)
+    await write(session)
+  })).rejects.toThrow(`contains the host name "${name}" of this machine, which anonymization replaces only in machine name fields and never in free text or other values`)
   await expect(stat(project)).rejects.toMatchObject({ code: 'ENOENT' })
-  await expect(stat(join(config.fixturesRoot, runtime, '0.0.1', config.surface, os, 'tools'))).rejects.toMatchObject({ code: 'ENOENT' })
-})
-
-test('a host name in free text, addresses and nested JSON of protocol-like project fields is masked in every recorded file', async () => {
-  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac')
-  const directory = await recordSession(await options('codex'), async (session) => {
-    await writeFile(join(session.project, 'result.json'), JSON.stringify({
-      hostname: 'Private-Owner-Mac',
-      status: 'Connected to Private-Owner-Mac',
-      source: 'ssh://Private-Owner-Mac/project',
-      text: 'Connected to Private-Owner-Mac',
-      origin: JSON.stringify({ hostname: 'Private-Owner-Mac' }),
-      type: 'private-owner-mac',
-    }))
-  })
-  await verifyRecording(directory)
-  const entries = await readdir(directory, { recursive: true, withFileTypes: true })
-  for (const entry of entries.filter((item) => item.isFile())) {
-    expect(await readFile(join(entry.parentPath, entry.name), 'utf8'), entry.name).not.toMatch(/private-owner-mac/i)
-  }
-  const value = JSON.parse(recordedSource(await loadManifest(join(directory, 'playback.json')), 'home', 'project/result.json')) as { hostname: string }
-  const host = value.hostname
-  expect(host).toMatch(/^HOST_\d+$/)
-  expect(value).toEqual({
-    hostname: host,
-    status: `Connected to ${host}`,
-    source: `ssh://${host}/project`,
-    text: `Connected to ${host}`,
-    origin: JSON.stringify({ hostname: host }),
-    type: host,
-  })
-})
-
-test('a host name equal to a spool header value keeps the raw spool header', async () => {
-  vi.stubEnv('COMPUTERNAME', 'plugin')
-  const config = await options('claude')
-  const directory = await recordSession(config, async (session) => {
-    await session.run(process.execPath, [runtimeScript, 'claude', 'first'])
-  })
-  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as { artifacts: { source: string }[] }
-  const spools = manifest.artifacts.filter((artifact) => artifact.source.startsWith('spool/'))
-  expect(spools).toHaveLength(1)
-  for (const { source } of spools) {
-    const [header, ...rest] = (await readFile(join(directory, source), 'utf8')).split('\n')
-    expect(header).toBe('aang-spool/1 claude plugin')
-    expect(rest.join('\n')).not.toMatch(/someone\.personal|acct-private/)
-  }
-  const playback = await loadManifest(join(directory, 'playback.json'))
-  expect(playback.steps.filter((step) => step.kind === 'hook')).toMatchObject([{ runtime: 'claude', registration: 'plugin' }])
-  await verifyRecording(directory)
+  const destination = join(config.fixturesRoot, runtime, '0.0.1', config.surface, os, 'tools')
+  await expect(stat(destination)).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readdir(dirname(destination))).toEqual([])
 })
 
 test('rejects a missing, directory or non-executable hook binary before running the scenario', async () => {
