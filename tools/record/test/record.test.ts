@@ -273,6 +273,8 @@ test('verification detects every private input class independently of the record
     { pidDomain: 'linux:0123456789abcdef0123456789abcdef:pid:[4026531836]' },
     { pidDomain: 'win32:PRIVATE-DESKTOP' },
     { pidDomain: 'win32:bob' },
+    { origin: JSON.stringify({ hostname: 'Private-Owner-Mac' }) },
+    { status: 'Connected', source: JSON.stringify({ hostname: 'private-owner-mac' }) },
   ]
   for (const vector of vectors) {
     await writeFile(join(directory, 'unchecked.json'), JSON.stringify(vector))
@@ -476,27 +478,80 @@ const recordedSource = (playback: Awaited<ReturnType<typeof loadManifest>>, root
   return playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
 }
 
-test.each(['user', 'external', 'default', 'sdk'])('a host name %s equal to a protocol value keeps a Claude transcript readable by the adapter', async (name) => {
-  vi.stubEnv('COMPUTERNAME', name)
-  const line = JSON.stringify(JSON.parse(await readFile(new URL('claude-code-transcripts/rec-user-prompt.json', samples), 'utf8')))
-  const directory = await recordSession(await options('claude'), async (session) => {
-    await mkdir(join(session.claude, 'projects', 'sample'), { recursive: true })
-    await writeFile(join(session.claude, 'projects', 'sample', 'session.jsonl'), `${line}\n`)
-    await writeFile(join(session.project, 'host.json'), JSON.stringify({ hostname: name, text: `Connected to ${name}` }))
+interface RuntimeSample {
+  readonly sample: string
+  readonly root: 'claude' | 'codex'
+  readonly mention?: readonly [string, string]
+  readonly fact: { readonly kind: string; readonly urgent?: boolean; readonly payload?: Readonly<Record<string, unknown>> }
+}
+
+const runtimeSamples = {
+  userPrompt: { sample: 'claude-code-transcripts/rec-user-prompt.json', root: 'claude', fact: { kind: 'prompt' } },
+  endTurn: {
+    sample: 'claude-code-transcripts/rec-assistant-text-end-turn.json', root: 'claude', mention: ['"text":"OK"', '"text":"Connected to Private-Owner-Mac"'],
+    fact: { kind: 'message', urgent: true, payload: { text: 'Connected to HOST', final: true } },
+  },
+  toolUseAgent: {
+    sample: 'claude-code-transcripts/rec-assistant-tool-use-agent.json', root: 'claude', mention: ['Ping the pinger agent', 'Ping Private-Owner-Mac'],
+    fact: { kind: 'action_start', payload: { action_kind: 'agent', tool: 'Agent', description: 'Ping HOST' } },
+  },
+  turnAborted: {
+    sample: 'codex-cli/rollout/event_msg.turn_aborted.mock-tui.json', root: 'codex',
+    fact: { kind: 'turn_end', payload: { outcome: 'interrupted', reason: 'interrupted' } },
+  },
+  spawnAgent: {
+    sample: 'codex-cli/rollout/response_item.function_call.spawn_agent.mock.json', root: 'codex', mention: ['run echo from-child', 'run echo on Private-Owner-Mac'],
+    fact: { kind: 'action_start', payload: { action_kind: 'agent', tool: 'collaboration/spawn_agent' } },
+  },
+} satisfies Record<string, RuntimeSample>
+
+const runtimeFile = { claude: 'projects/sample/session.jsonl', codex: 'sessions/2026/10/01/rollout-2026-10-01T12-00-00-sample.jsonl' } as const
+
+const sampleLine = async ({ sample, mention }: RuntimeSample): Promise<string> => {
+  const line = JSON.stringify(JSON.parse(await readFile(new URL(sample, samples), 'utf8')))
+  return mention === undefined ? line : line.replaceAll(...mention)
+}
+
+const writeRuntimeLine = async (session: RecordContext, root: 'claude' | 'codex', line: string): Promise<void> => {
+  const file = join(root === 'claude' ? session.claude : session.codex, runtimeFile[root])
+  await mkdir(dirname(file), { recursive: true })
+  await writeFile(file, `${line}\n`)
+}
+
+const codexStream = codexAdapter.streamKey([JSON.stringify({ hook_event_name: 'SessionStart', session_id: '01a0f765-4454-74d1-8523-2749f1374bef' })])
+
+const parseRuntimeLine = (root: 'claude' | 'codex', payload: string): ParseResult => {
+  const observed = { hook: null, observed_at: 1_790_856_592_228_739_000n, payload }
+  return root === 'claude'
+    ? claudeAdapter.parse(CollectedRecord.parse({ ...observed, channel: 'transcript', runtime: 'claude', stream: null, position: { kind: 'line', path: `/fixture/.claude/${runtimeFile.claude}`, offset: 0, line: 1 } }))
+    : codexAdapter.parse(CollectedRecord.parse({ ...observed, channel: 'rollout', runtime: 'codex', stream: codexStream, position: { kind: 'line', path: `/fixture/.codex/${runtimeFile.codex}`, offset: 0, line: 1 } }))
+}
+
+const nestedJson = (value: unknown): unknown => {
+  if (typeof value === 'string') {
+    const parsed = ((): unknown => { try { return JSON.parse(value) } catch { return value } })()
+    return parsed !== null && typeof parsed === 'object' ? nestedJson(parsed) : value
+  }
+  if (Array.isArray(value)) return value.map(nestedJson)
+  return value !== null && typeof value === 'object' ? Object.fromEntries(Object.entries(value).map(([key, nested]) => [key, nestedJson(nested)])) : value
+}
+
+test.each(Object.entries(runtimeSamples))('a host name in the free text of %s is masked while protocol values and adapter facts stay the same', async (_name, runtimeSample: RuntimeSample) => {
+  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac')
+  const { root, fact } = runtimeSample
+  const line = await sampleLine(runtimeSample)
+  const directory = await recordSession(await options(root), async (session) => {
+    await writeRuntimeLine(session, root, line)
   })
   await verifyRecording(directory)
-  const playback = await loadManifest(join(directory, 'playback.json'))
-  const host = JSON.parse(recordedSource(playback, 'home', 'project/host.json')) as { hostname: string; text: string }
-  expect(host.hostname).toMatch(/^HOST_\d+$/)
-  expect(host.text).toBe(`Connected to ${host.hostname}`)
-  const transcript = recordedSource(playback, 'claude', 'projects/sample/session.jsonl').trim()
-  expect(JSON.parse(transcript)).toEqual(JSON.parse(line))
-  const parse = (payload: string): ParseResult => claudeAdapter.parse(CollectedRecord.parse({
-    channel: 'transcript', runtime: 'claude', stream: null, hook: null, observed_at: 1_790_856_592_228_739_000n, payload,
-    position: { kind: 'line', path: '/fixture/.claude/projects/sample/session.jsonl', offset: 0, line: 1 },
-  }))
-  expect(parse(transcript)).toMatchObject({ parse_state: 'parsed', facts: [{ kind: 'prompt' }] })
-  expect(parse(transcript)).toEqual(parse(line))
+  const recorded = recordedSource(await loadManifest(join(directory, 'playback.json')), root, runtimeFile[root]).trim()
+  const host = /HOST_\d+/.exec(recorded)?.[0] ?? 'HOST'
+  expect(recorded).not.toMatch(/private-owner-mac/i)
+  expect(nestedJson(recorded)).toEqual(nestedJson(line.replaceAll('Private-Owner-Mac', host)))
+  const result = parseRuntimeLine(root, recorded)
+  expect(result.parse_state).toBe('parsed')
+  const facts = result.parse_state === 'parsed' ? result.facts : []
+  expect(facts.find(({ kind }) => kind === fact.kind)).toMatchObject(JSON.parse(JSON.stringify(fact).replaceAll(' HOST"', ` ${host}"`)) as object)
 })
 
 interface OtlpAttribute { readonly key: string; readonly value: { readonly stringValue: string } }
@@ -521,13 +576,20 @@ const identified = (logs: OtlpLogs, host: string, account: string): OtlpLogs => 
   })),
 })
 
-test.each(['user', 'host'])('a host name %s keeps OTLP attribute names and protocol values readable by the Codex adapter', async (name) => {
-  vi.stubEnv('COMPUTERNAME', name)
-  const { resourceLogs } = JSON.parse(await readFile(new URL('codex-otel/logs.envelope.tool_decision.approved-user.app-server.json', samples), 'utf8')) as OtlpLogs
-  const sent = identified({ resourceLogs }, name, 'acct-private-4477')
+const decisionLogs = async (): Promise<OtlpLogs> =>
+  JSON.parse(await readFile(new URL('codex-otel/logs.envelope.tool_decision.approved-user.app-server.json', samples), 'utf8')) as OtlpLogs
+
+const sendOtlp = async (session: RecordContext, logs: OtlpLogs): Promise<void> => {
+  const response = await fetch(session.otlp, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(logs) })
+  await response.arrayBuffer()
+}
+
+test('a host name host keeps OTLP attribute names and protocol values readable by the Codex adapter', async () => {
+  vi.stubEnv('COMPUTERNAME', 'host')
+  const { resourceLogs } = await decisionLogs()
+  const sent = identified({ resourceLogs }, 'host', 'acct-private-4477')
   const directory = await recordSession(await options('codex'), async (session) => {
-    const response = await fetch(session.otlp, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sent) })
-    await response.arrayBuffer()
+    await sendOtlp(session, sent)
   })
   await verifyRecording(directory)
   const playback = await loadManifest(join(directory, 'playback.json'))
@@ -545,6 +607,61 @@ test.each(['user', 'host'])('a host name %s keeps OTLP attribute names and proto
   }))
   expect(parse(recorded)).toMatchObject({ parse_state: 'parsed', facts: [{ kind: 'permission_decision', payload: { decision: 'approved', source: 'user' } }] })
   expect(parse(recorded)).toEqual(parse(JSON.stringify(sent)))
+})
+
+test.each([
+  { name: 'user', key: 'userPrompt', value: 'user' },
+  { name: 'external', key: 'userPrompt', value: 'external' },
+  { name: 'default', key: 'userPrompt', value: 'default' },
+  { name: 'sdk', key: 'userPrompt', value: 'sdk' },
+  { name: 'agent', key: 'toolUseAgent', value: 'Agent' },
+  { name: 'end_turn', key: 'endTurn', value: 'end_turn' },
+  { name: 'interrupted', key: 'turnAborted', value: 'interrupted' },
+  { name: 'collaboration', key: 'spawnAgent', value: 'collaboration' },
+  { name: 'user', key: 'otlp', value: 'User' },
+] as const)('a host name $name equal to the protocol value $value of $key aborts the recording instead of corrupting it', async ({ name, key, value }) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const runtime = key === 'otlp' ? 'codex' : runtimeSamples[key].root
+  const config = await options(runtime)
+  const line = key === 'otlp' ? '' : await sampleLine(runtimeSamples[key])
+  const logs = key === 'otlp' ? identified(await decisionLogs(), name, 'acct-private-4477') : undefined
+  let project = ''
+  await expect(recordSession(config, async (session) => {
+    project = session.project
+    await (logs === undefined ? writeRuntimeLine(session, runtime, line) : sendOtlp(session, logs))
+  })).rejects.toThrow(`The host name "${name}" of this machine matches the protocol value "${value}" in the recording, and masking it would corrupt the recording`)
+  await expect(stat(project)).rejects.toMatchObject({ code: 'ENOENT' })
+  await expect(stat(join(config.fixturesRoot, runtime, '0.0.1', config.surface, os, 'tools'))).rejects.toMatchObject({ code: 'ENOENT' })
+})
+
+test('a host name in free text, addresses and nested JSON of protocol-like project fields is masked in every recorded file', async () => {
+  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac')
+  const directory = await recordSession(await options('codex'), async (session) => {
+    await writeFile(join(session.project, 'result.json'), JSON.stringify({
+      hostname: 'Private-Owner-Mac',
+      status: 'Connected to Private-Owner-Mac',
+      source: 'ssh://Private-Owner-Mac/project',
+      text: 'Connected to Private-Owner-Mac',
+      origin: JSON.stringify({ hostname: 'Private-Owner-Mac' }),
+      type: 'private-owner-mac',
+    }))
+  })
+  await verifyRecording(directory)
+  const entries = await readdir(directory, { recursive: true, withFileTypes: true })
+  for (const entry of entries.filter((item) => item.isFile())) {
+    expect(await readFile(join(entry.parentPath, entry.name), 'utf8'), entry.name).not.toMatch(/private-owner-mac/i)
+  }
+  const value = JSON.parse(recordedSource(await loadManifest(join(directory, 'playback.json')), 'home', 'project/result.json')) as { hostname: string }
+  const host = value.hostname
+  expect(host).toMatch(/^HOST_\d+$/)
+  expect(value).toEqual({
+    hostname: host,
+    status: `Connected to ${host}`,
+    source: `ssh://${host}/project`,
+    text: `Connected to ${host}`,
+    origin: JSON.stringify({ hostname: host }),
+    type: host,
+  })
 })
 
 test('a host name equal to a spool header value keeps the raw spool header', async () => {

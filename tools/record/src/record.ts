@@ -10,6 +10,7 @@ import { createAnonymizer, type Identity } from './anonymize.js'
 import { createCapture, type ControlTarget } from './capture.js'
 import { isMissing } from './files.js'
 import { startOtlpReceiver } from './otlp.js'
+import { protocolValues } from './protocol.js'
 import { type CodexHome, type ModelMode, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
 import { verifyRecording } from './verify.js'
 
@@ -191,7 +192,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     for (const [before, after] of [...paths]) {
       paths.set(before.replaceAll('\\', '/'), after.replaceAll('\\', '/'))
     }
-    const anonymizer = createAnonymizer(paths, await machineIdentities())
+    const anonymizer = createAnonymizer(paths, await machineIdentities(), protocolValues(capture.artifacts, capture.steps))
     anonymizer.discover([...capture.artifacts.map(({ content }) => content), json({ steps: capture.steps })])
     const anonymous = (source: string, content: string): string => {
       const header = source.startsWith('spool/') ? content.indexOf(spoolFormat.headerLineTerminator) + spoolFormat.headerLineTerminator.length : 0

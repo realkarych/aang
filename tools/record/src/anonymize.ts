@@ -17,14 +17,6 @@ const identityKind = (key: string): Identity | undefined => {
 
 const isCredential = (key: string): boolean => /(?:token|apikey|secret|password|authorization)$/.test(normalize(key))
 
-const protocolWords = new Set(['type', 'subtype', 'kind', 'role', 'source', 'origin', 'originator', 'entrypoint', 'mode', 'status', 'operation', 'trigger', 'decision'])
-
-const isProtocol = (key: string): boolean => {
-  const words = key.split(/[^A-Za-z]+|(?<=[a-z])(?=[A-Z])/).filter(Boolean).map((word) => word.toLowerCase())
-  const [last = '', previous = ''] = words.toReversed()
-  return protocolWords.has(last) || (last === 'name' && (previous === 'event' || previous === 'tool'))
-}
-
 const processDomain = /^[a-z\d]+:([^:\s]+)/i
 
 const hostLabel = /^([^.]+)\./
@@ -123,24 +115,42 @@ export interface Anonymizer {
 export const createAnonymizer = (
   paths: ReadonlyMap<string, string> = new Map(),
   identities: Iterable<readonly [Identity, string]> = [],
+  protocol: Iterable<string> = [],
 ): Anonymizer => {
+  const protocolValues = [...new Set(protocol)]
   const replacements = new Map(paths)
   const machines = new Map<string, { readonly after: string; readonly pattern: string }>()
   const secrets = new Set<string>()
   const counts = new Map<string, number>()
   const patterns = new Map<boolean, RegExp>()
   const lookup = (value: string): string | undefined => replacements.get(value) ?? machines.get(value.toLowerCase())?.after
-  const register = (value: string, kind: string, aliases: readonly string[] = []): void => {
+  const protocolClash = (source: string): string | undefined => {
+    const machine = new RegExp(source, 'u')
+    return protocolValues.find((value) => machine.test(value))
+  }
+  const register = (value: string, kind: string, aliases: readonly string[] = [], own = false): void => {
     const names = [value, ...aliases]
     if (!value || placeholder.test(value) || lookup(value) !== undefined || (kind === 'HOST' && names.some((name) => /^localhost$/i.test(name)))) return
     const next = (counts.get(kind) ?? 0) + 1
     counts.set(kind, next)
     const after = `${kind}_${String(next)}`
-    if (isMachine(kind)) for (const name of names) machines.set(name.toLowerCase(), machines.get(name.toLowerCase()) ?? { after, pattern: machinePattern(name, kind) })
-    else replacements.set(value, after)
+    if (isMachine(kind)) {
+      for (const name of names) {
+        const source = machinePattern(name, kind)
+        const clash = protocolClash(source)
+        if (clash !== undefined) {
+          throw new Error(own
+            ? `The host name "${name}" of this machine matches the protocol value "${clash}" in the recording, and masking it would corrupt the recording; give the machine another host name and record again`
+            : `The host name "${name}" in the recording matches its protocol value "${clash}", and masking it would corrupt the recording; change the scenario so that the recording does not carry this host name`)
+        }
+        machines.set(name.toLowerCase(), machines.get(name.toLowerCase()) ?? { after, pattern: source })
+      }
+    } else {
+      replacements.set(value, after)
+    }
     patterns.clear()
   }
-  for (const [kind, value] of identities) register(value, kind, kind === 'HOST' ? hostLabel.exec(value)?.slice(1) : undefined)
+  for (const [kind, value] of identities) register(value, kind, kind === 'HOST' ? hostLabel.exec(value)?.slice(1) : undefined, true)
   const registerSecret = (value: string): void => {
     const secret = value.replace(/^(?:bearer|basic|token)\s+/i, '')
     if (secret.length < 24 && (secret.length < 8 || !/\d/.test(secret))) return
@@ -215,7 +225,6 @@ export const createAnonymizer = (
   const field = (key: string, value: Json): Json =>
     identityKind(key) ? identity(value)
       : normalize(key) === 'piddomain' && typeof value === 'string' ? processDomainOf(value)
-      : isProtocol(key) && typeof value === 'string' ? replaceText(value, false)
         : mapValue(value)
   const attributeValue = (key: string, value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([kind, content]) => {
     const masked = field(key, content)
