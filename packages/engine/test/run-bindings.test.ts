@@ -1,6 +1,7 @@
 import {
   type ActionId,
   type AgentId,
+  type AttentionItem,
   BindingId,
   type CollectorBatch,
   EpochNs,
@@ -26,7 +27,8 @@ import {
 } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
-import { jsonlFile } from './batches.js'
+import { claudeHooks, millisecond } from './attention-fixtures.js'
+import { hookBatch, jsonlFile } from './batches.js'
 import { factsOf, sessionKey, startEngine } from './harness.js'
 import { createHome, type Home } from './home.js'
 import { inputFor } from './observer-fixtures.js'
@@ -354,6 +356,69 @@ describe('moving a session between runs', () => {
     expect(runsOfObjects(store, 'first')).toEqual([runOf('first')])
     expect(membersOf(store, runOf('first'))).toEqual([sessionOf('first')])
   })
+
+  test.for(['detach', 'revoke'] as const)(
+    'the rule attention items of the session move with it without run marks and come back on %s',
+    async (move) => {
+      const { store, engine } = await started([])
+      const [root, asker] = [claudeHooks('root'), claudeHooks('asker')]
+      const [run, own, session] = [runOf('root'), runOf('asker'), sessionOf('asker')]
+      const question = 'Which database should the parser use?'
+      const ask = { questions: [{ question, header: 'Database', options: [{ label: 'SQLite' }, { label: 'Postgres' }] }] }
+      const answer = { questions: [{ question }], answers: { [question]: 'SQLite' } }
+      const ruleItems = (target: RunId): AttentionItem[] =>
+        store.model
+          .entities(target)
+          .flatMap((entity) => (entity.kind === 'attention_item' && entity.value.question !== null ? [entity.value] : []))
+      await engine.ingest(hookBatch({ ...root.start(), file: 'root-start.evt' }, { ...asker.start(), file: 'asker-start.evt' }))
+      await engine.ingest(hookBatch(asker.pre('ask.evt', 'ask', millisecond, ask, 'AskUserQuestion')))
+      const [item, ...others] = ruleItems(own)
+      if (item === undefined) {
+        throw new Error('the question must have a rule attention item')
+      }
+      expect(others).toEqual([])
+      const ref = { kind: 'attention_item', id: item.id } as const
+      const opsOf = (target: RunId) =>
+        store.model.entityChanges(target, ref, ModelVersion.parse(0)).map(({ op, after }) => [op, after?.kind ?? null])
+      seedStage(store, own, 'asker')
+      store.transaction((transaction) => {
+        applyChangeSet(transaction, {
+          run: own,
+          author: 'rule',
+          at: item.opened_at,
+          changes: [
+            {
+              op: 'attention.priority',
+              basis: observed,
+              evidence: [],
+              put: {
+                kind: 'attention_item',
+                value: {
+                  ...item,
+                  stage,
+                  likely_resolved: { basis: observed, evidence: [] },
+                  priority: { value: 'high', call: ObserverCallId.parse('marks-call') },
+                },
+              },
+            },
+          ],
+        })
+      })
+
+      const attached = await engine.bind({ kind: 'attach', session, run })
+      expect(ruleItems(own)).toEqual([])
+      expect(ruleItems(run)).toEqual([{ ...item, run, change_seq: expect.any(Number) as unknown }])
+      expect(opsOf(own).at(-1)).toEqual(['session.move', null])
+      expect(opsOf(run)).toEqual([['session.move', 'attention_item']])
+      await engine.ingest(hookBatch(asker.post('answer.evt', 'ask', 2 * millisecond, 'AskUserQuestion', answer)))
+      expect(ruleItems(run)).toMatchObject([{ id: item.id, resolution: 'answered' }])
+
+      await (move === 'detach' ? engine.bind({ kind: 'detach', session }) : engine.revokeBinding(attached.binding.id))
+      expect(ruleItems(run)).toEqual([])
+      expect(ruleItems(own)).toMatchObject([{ id: item.id, run: own, resolution: 'answered' }])
+      expect(opsOf(run).at(-1)).toEqual(['session.move', null])
+    },
+  )
 
   test('a fork attached to the run of its original joins it with its history still inherited', async () => {
     const { store, engine } = await started([transcript('original', 1n), forkTranscript('fork', 2n)])

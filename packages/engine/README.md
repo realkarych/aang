@@ -302,6 +302,10 @@ binding's transaction:
 
 - the session membership and the spawn links of the session's agents leave the
   source run and enter the target run;
+- the rule attention items of the session's questions leave the source run and
+  enter the target run with their state, without a stage and without the marks
+  of the source run's observer (likely resolution, priority), so a question is
+  in the attention zone of one run only and its later answer closes it there;
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending

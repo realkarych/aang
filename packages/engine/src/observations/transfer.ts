@@ -1,4 +1,5 @@
 import type {
+  AttentionItem,
   Basis,
   EpochNs,
   Link,
@@ -45,6 +46,19 @@ const stagesOf = (transaction: Transaction, run: RunId): Map<StageId, Stage> =>
       .entities(run)
       .flatMap((entity) => (entity.kind === 'stage' ? [[entity.value.id, entity.value] as const] : [])),
   )
+
+const ruleAttentionOf = (transaction: Transaction, run: RunId, session: SessionId): AttentionItem[] =>
+  transaction.model
+    .entities(run)
+    .flatMap((entity) =>
+      entity.kind === 'attention_item' &&
+      entity.value.author === 'rule' &&
+      entity.value.question !== null &&
+      transaction.observations.getQuestion(entity.value.question)?.session === session
+        ? [entity.value]
+        : [],
+    )
+    .sort((left, right) => compareText(left.id, right.id))
 
 const stageMarks = (
   transaction: Transaction,
@@ -95,9 +109,11 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
   const spawns = linksOf(transaction, from).filter((link) => link.kind === 'spawn' && agents.has(link.child))
   const membership: ModelEntityRef = { kind: 'session_membership', id: session.id }
   const member = transaction.model.entity(from, membership) !== null
+  const attention = ruleAttentionOf(transaction, from, session.id)
   const leaving = [
     ...(member ? [moveOut(membership)] : []),
     ...spawns.map((link) => moveOut({ kind: 'link', id: link.id })),
+    ...attention.map(({ id }) => moveOut({ kind: 'attention_item', id })),
     ...stageMarks(transaction, from, runOf, touched),
   ]
   if (leaving.length > 0) {
@@ -110,6 +126,12 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
     changes: [
       moveIn({ kind: 'session_membership', value: { session: session.id, run: to } }),
       ...spawns.map((link) => moveIn({ kind: 'link', value: { ...link, run: to } })),
+      ...attention.map((item) =>
+        moveIn({
+          kind: 'attention_item',
+          value: { ...item, run: to, stage: null, likely_resolved: null, priority: null },
+        }),
+      ),
       ...stageMarks(transaction, to, runOf, touched),
     ],
   })
