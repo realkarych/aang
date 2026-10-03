@@ -75,7 +75,7 @@ export const SupportRow = z.strictObject({
 })
 export type SupportRow = z.infer<typeof SupportRow>
 
-const supportKeyText = (key: SupportKey): string =>
+export const supportKeyText = (key: SupportKey): string =>
   JSON.stringify([key.runtime, key.surface, key.os, key.placement, key.engine_version])
 
 export const SupportMatrix = z
@@ -94,3 +94,9 @@ export const SupportMatrix = z
     })
   })
 export type SupportMatrix = z.infer<typeof SupportMatrix>
+
+export const supportRowOf = (matrix: SupportMatrix, key: SupportKey): SupportRow | null =>
+  matrix.rows.find((row) => supportKeyText(row) === supportKeyText(key)) ?? null
+
+export const supportStatusOf = (matrix: SupportMatrix, key: SupportKey): SupportStatus =>
+  supportRowOf(matrix, key)?.status ?? 'unverified'
