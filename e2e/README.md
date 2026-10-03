@@ -29,6 +29,7 @@ test('прогон из образца виден в API', async ({ player, page
 | `baseURL` | адрес демона: относительные пути встроенных `page`, `context` и `request` идут к нему |
 | `context`, `page` | вошедший пользователь: одноразовая ссылка настоящего `aang open` открыта через `context.request`, cookie лежит в контексте браузера |
 | `request` | встроенный анонимный `APIRequestContext`, для проверок 401 |
+| `aang(...args)` | команда собранного `aang` в окружении профиля; возвращает stdout |
 | `signInLink()` | новая неиспользованная одноразовая ссылка от `aang open` |
 | `player(manifest, { timeScale })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля |
 
@@ -47,7 +48,7 @@ test('прогон из образца виден в API', async ({ player, page
 `pnpm coverage` сводит V8-покрытие в один отчёт `c8`:
 
 1. `coverage:test` — Vitest под `c8`, сырые данные в `coverage/tmp`;
-2. `coverage:e2e` — Playwright под `c8 --clean=false`. Демоны и `aang open` наследуют `NODE_V8_COVERAGE` через окружение профиля и пишут покрытие при штатной остановке;
+2. `coverage:e2e` — Playwright под `c8 --clean=false`. Демоны и `aang open` наследуют `NODE_V8_COVERAGE` через окружение профиля и пишут покрытие при штатной остановке. Фикстура `page` снимает JS-покрытие Chromium и пишет его для сборки `web` в тот же каталог; `c8` переводит его в исходники через source map;
 3. `coverage:report` — общий отчёт и покрытие `aang-hook`.
 
 В CI это шаги задания `check` на macOS, Linux и Windows. При падении выкладываются `test-results/` с трассами Playwright.
