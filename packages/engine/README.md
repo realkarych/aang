@@ -854,6 +854,12 @@ daemon saves the watch settings. Observer sessions keep their decision.
   lines of a session that left the roots are discarded and make the stream
   `external`. A hook decides the stream it names only when the stream has no
   decision yet.
+- A hook record is stored with the stream its adapter names: Codex the thread,
+  Claude the main or subagent transcript of the event; a Claude registry entry
+  names the main transcript. A stream whose only stored records are such records
+  still belongs to their session, so a gap of its file, such as `source_lost`
+  after the file is deleted before the reread, is taken by the session's
+  decision and attached to the session and its run.
 
 `engine.prune(request, prefixHash)` removes the runs of `aang prune --run` or of
 `aang prune --before`: the runs whose sessions had their last event before the
@@ -862,11 +868,10 @@ sessions with their facts, objects, gaps, the model and its journal, observer
 calls, view state, chat and bindings, and saves a boundary per stream in
 `pruned_streams` (ADR-0005). Cursors and scope decisions stay.
 
-- The streams of a run are the streams of any decision whose records belong to
-  one of its sessions, and the streams pruned with those sessions before. A
-  session without such a stream gets a boundary for the stream its hook records
-  name: both adapters name one, Codex the thread and Claude the main or subagent
-  transcript of the event, so a session known only from hooks is bounded too.
+- The streams of a run are the streams of any decision whose records, lines or
+  hooks, belong to one of its sessions, and the streams pruned with those
+  sessions before. Since a hook record keeps the stream its adapter names, a
+  session known only from hooks is bounded too.
 - A Claude boundary is the offset of the furthest cursor of the stream with the
   hash of the file prefix up to it, from `prefixHash`. Without a cursor the
   boundary is the empty prefix. When the file can no longer be read, the boundary

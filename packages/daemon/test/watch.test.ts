@@ -1,5 +1,6 @@
-import { appendFile, mkdir, readFile, utimes, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { appendFile, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import type { Runtime, SessionKey } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import { describe, test } from 'vitest'
 import { type Home, spawnDaemon } from './daemon.js'
@@ -9,10 +10,13 @@ import {
   claudeSession,
   claudeStream,
   claudeTranscript,
+  codexHook,
   daysAgo,
   enqueue,
   openFinished,
   rawRecords,
+  rolloutLines,
+  rolloutThread,
   sleep,
   spoolFilesOf,
   storedCount,
@@ -33,11 +37,42 @@ interface Resumed {
   readonly lines: number
 }
 
+interface LostSource {
+  readonly runtime: Runtime
+  readonly session: SessionKey
+  readonly write: (home: Home, cwd: string) => Promise<string>
+  readonly hook: (cwd: string) => string
+}
+
 const cursors = 'SELECT count(*) AS count FROM cursors WHERE stream IS NOT NULL'
 
-const streamRecords = 'SELECT count(*) AS count FROM raw_records WHERE stream = ?'
+const streamRecords = "SELECT count(*) AS count FROM raw_records WHERE stream = ? AND channel = 'transcript'"
+
+const openLost = "SELECT count(*) AS count FROM gaps WHERE kind = 'source_lost' AND closed_at IS NULL"
 
 const resumedSession = 'g9-resumed'
+
+const lostSession = 'g9-lost'
+
+const lostSources: readonly LostSource[] = [
+  {
+    runtime: 'claude',
+    session: claudeSession(lostSession),
+    write: (home, cwd) => claudeTranscript(home, '-project', lostSession, transcriptLines(lostSession, cwd, 22)),
+    hook: (cwd) => claudeHook('UserPromptSubmit', lostSession, cwd),
+  },
+  {
+    runtime: 'codex',
+    session: { kind: 'session', runtime: 'codex', session: rolloutThread },
+    write: async (home, cwd) => {
+      const path = join(home.root, '.codex', 'sessions', '2026', '10', '01', 'rollout-g9-lost.jsonl')
+      await mkdir(dirname(path), { recursive: true })
+      await writeFile(path, `${rolloutLines(cwd).join('\n')}\n`)
+      return path
+    },
+    hook: (cwd) => codexHook('UserPromptSubmit', rolloutThread, cwd),
+  },
+]
 
 const recordsOf = (home: Home, session: string): number => storedCount(home, streamRecords, claudeStream(session))
 
@@ -170,6 +205,42 @@ describe.concurrent('aang watch and unwatch change which sessions the daemon tak
       expect(spoolFilesOf(store)).toEqual(resumed.spool)
       expect(store.scopes.get(claudeStream(resumedSession))?.scope).toBe('watched')
       expect(store.observations.getSession(objectId(claudeSession(resumedSession)))).toMatchObject({ cwd: project })
+    },
+  )
+
+  test.for(lostSources)(
+    'after a watch with a short lookback skips an older discarded $runtime file, a hook alone ties the loss of the file to its session and the gap survives a restart',
+    { timeout: 60_000 },
+    async ({ runtime, session, write, hook }, { expect, onTestFinished }) => {
+      const { home } = await watchedHome(onTestFinished)
+      const project = join(home.root, 'project')
+      await mkdir(project)
+      const path = await write(home, project)
+      await utimes(path, daysAgo(2), daysAgo(2))
+      const first = await spawnDaemon(home, onTestFinished)
+      await waitUntil(() => storedCount(home, cursors) === 1)
+      const short = await admin(home, first.base, 'watch', { scope: 'path', path: project, lookback_days: 1 })
+      await sleep(500)
+      const spool = await enqueue(home, 'lost', [hook(project)], runtime)
+      await waitUntil(() => storedCount(home, 'SELECT count(*) AS count FROM raw_records') === 1)
+      await rm(path)
+      await waitUntil(() => storedCount(home, openLost) === 1)
+      expect(await first.shutdown()).toBe(0)
+
+      const second = await spawnDaemon(home, onTestFinished)
+      await sleep(500)
+      expect(await second.shutdown()).toBe(0)
+
+      expect(short).toMatchObject({ status: 200, body: { rescanned_streams: 1 } })
+      const store = openFinished(home, onTestFinished)
+      const id = objectId(session)
+      const taken = store.observations.getSession(id)
+      const lost = store.gaps.open('source_lost')
+      expect(taken).toMatchObject({ freshness: 'lost' })
+      expect(taken?.run).not.toBeNull()
+      expect(lost).toMatchObject([{ session: id, run: taken?.run, closed_at: null }])
+      expect(store.scopes.list()).toEqual([{ stream: lost[0]?.stream, runtime, scope: 'external' }])
+      expect(spoolFilesOf(store)).toEqual(spool)
     },
   )
 

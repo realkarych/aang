@@ -50,18 +50,6 @@ export const pruneRuns = (store: Store, request: PruneRequest): RunId[] => {
   return [...latest].flatMap(([run, at]) => (at < request.before ? [run] : [])).sort(compareText)
 }
 
-const hookStream = (store: Store, adapters: Adapters, session: SessionKey): StreamKey | null => {
-  for (const fact of store.facts.ofSession(session)) {
-    const raw = store.rawRecords.get(fact.seq)
-    const record = raw?.channel === 'hook' ? collectedOf(raw) : null
-    const stream = record === null ? null : adapters[record.runtime].streamKey([record.payload])
-    if (stream !== null) {
-      return stream
-    }
-  }
-  return null
-}
-
 const hooksOf = (store: Store, adapters: Adapters, sessions: ReadonlySet<string>): RawSeq[] => {
   const owned: RawSeq[] = []
   let after: RawSeq | null = null
@@ -106,11 +94,6 @@ export const pruneTarget = (store: Store, adapters: Adapters, runs: readonly Run
   }
   for (const session of sessions.values()) {
     for (const { stream } of store.pruned.ofSession(session)) {
-      owners.set(stream, { stream, session })
-    }
-    const bounded = [...owners.values()].some((owner) => sessionName(owner.session) === sessionName(session))
-    const stream = bounded ? null : hookStream(store, adapters, session)
-    if (stream !== null) {
       owners.set(stream, { stream, session })
     }
   }

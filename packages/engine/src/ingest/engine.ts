@@ -504,7 +504,7 @@ export const createEngine = ({
           if (stream !== null && streamScope(stream) === null) {
             decideStream(stream, record.runtime, scope)
           }
-          keep([record], scope)
+          keep([{ ...record, stream: record.stream ?? stream }], scope)
         }
       }
 
