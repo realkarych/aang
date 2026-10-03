@@ -1,5 +1,5 @@
 import type { AgentId, AgentKey, AgentRef, Fact, FactId, SessionKey } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { agentKey, byContent, type Evidence, ofKind } from './evidence.js'
 
@@ -66,8 +66,37 @@ export interface Replacement {
   readonly evidence: readonly FactId[]
 }
 
-export const retireRefined = (transaction: Transaction, identity: AgentIdentity): Replacement[] =>
-  identity.refinements.flatMap(({ from, to, evidence }) => {
+export interface AgentMove {
+  readonly to: AgentKey
+  readonly evidence: readonly FactId[]
+}
+
+export type AgentMoves = ReadonlyMap<string, readonly AgentMove[]>
+
+export const movedAgents = (
+  transaction: Transaction,
+  key: SessionKey,
+  identity: AgentIdentity,
+  projected: ReadonlySet<string>,
+  moves: AgentMoves,
+): Refinement[] =>
+  transaction.observations.agents(objectId(key)).flatMap(({ id, key: from }) => {
+    const targets = projected.has(id)
+      ? []
+      : (moves.get(canonicalJson(from)) ?? []).flatMap(({ to, evidence }) => {
+          const resolved = identity.resolve(to)
+          const target = objectId(resolved)
+          return projected.has(target) ? [{ target, to: resolved, evidence }] : []
+        })
+    const [first] = targets
+    if (first === undefined || targets.some(({ target }) => target !== first.target)) {
+      return []
+    }
+    return [{ from, to: first.to, evidence: [...new Set(targets.flatMap(({ evidence }) => evidence))] }]
+  })
+
+export const retireRefined = (transaction: Transaction, refinements: readonly Refinement[]): Replacement[] =>
+  refinements.flatMap(({ from, to, evidence }) => {
     const retired = objectId(from)
     if (transaction.observations.getAgent(retired) === null) {
       return []

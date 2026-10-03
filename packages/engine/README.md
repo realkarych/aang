@@ -169,9 +169,12 @@ facts, after the observation projection (ADR-0006):
   open item, which the success after the merged failures closes; the other items
   of the merged streaks stay closed in history. Without an open item it keeps an
   item that already describes it, otherwise the item of its earliest failure.
-  Observer fields of an item (likely resolution, priority) are kept. An item whose
-  failures no longer match a contract after the configuration changes keeps its
-  last state.
+  Observer fields of an item (likely resolution, priority) are kept. An open item
+  whose id derives from an action that now succeeds, for example after its facts
+  are read again, is closed with the resolution `answered` and the time of that
+  success; the closing journal change cites the success, and the remaining
+  failures of its former streak form their own item. An item whose failures no
+  longer match a contract after the configuration changes keeps its last state.
 
 The run of a session is the run of its `session_membership`, or the run of its own
 root key when there is none, the rule that run linking (E.4) uses for projections.
@@ -333,3 +336,68 @@ Rule fields never touch `likely_resolved` and `priority`, which belong to the
 observer. Dismissal by the user is view state (`AttentionView.dismissed_at`) and
 is not part of the item. Notifications other than requests for input
 (`idle_prompt`, `permission_prompt`) open no item.
+
+## Reparse
+
+`engine.reparse()` runs in the same queue as `ingest` and applies its result in
+one transaction. A failure leaves facts, raw records, objects and the model
+unchanged.
+
+It parses again every collector record that has no fact of the current
+adapter's `normalizer_version`: records whose facts come from another
+normalizer, and records without facts (`unknown`, `invalid` or parsed without
+facts). A record that already has facts of the current version is skipped,
+because parsing is deterministic. The adapter receives the stored payload,
+stream, position and hook envelope; the dedupe key never changes. Daemon
+channels (`snapshot`, `context`) are not reparsed.
+
+Fact ids derive from the dedupe key, kind, entity key and the ordinal among facts
+of the same kind and key, so a fact keeps its id when the order of the facts in
+its record changes. Facts that are no longer produced are deleted, new facts are
+inserted, and a record is rewritten with new `change_seq` values only when its
+facts or parse state differ. A resolved OTel decision keeps its resolved stream.
+OTel records without a stream are then resolved through the stored streams in
+the same transaction, with the scope and observer checks of `ingest`, so a
+decision of a known thread is recovered without another `ingest`; one whose
+thread is not known yet stays pending until `ingest` sees the thread.
+
+Afterwards every session that has facts, owns records or has stored objects is
+projected again with the current time and source losses. Records are owned the
+same way `ingest` attributes them, without OTel records. A session stays while
+it has facts or owned records; its `unknown_records` is recounted from the owned
+records that are still not parsed, and its `unknown_records` gap closes when the
+count drops to zero. Fields that `ingest` keeps from earlier records, such as
+the support mode and the event times, are kept. A session without facts or owned
+records is deleted with its objects, and action and question objects that no
+fact supports any longer are deleted.
+
+An agent that no fact supports any longer is replaced when the records that
+named it now name exactly one other projected agent of its session: the records
+whose facts lost the agent and gained other agents give the candidates, resolved
+through the teammate identity of the session. The agent is then removed with
+that replacement in the same transaction, as an identity refinement of
+ADR-0006: removals that named it are redirected to the replacement, and its
+model links are retargeted by the run linking rule through the journal, with
+the moved facts as evidence. An agent without such a replacement is deleted.
+The store refuses to delete an object that stored removals name as their
+replacement, so a reparse that would leave such an agent without a replacement
+fails and changes nothing: the contract has no removal without a replacement.
+
+A deleted fact, object or discarded record leaves no row in the change feed, so
+every deletion advances `change_seq`, and a record whose facts were added or
+removed is rewritten with a new `change_seq`. The head therefore moves with
+every visible change and a reparse that changes nothing keeps it. The daemon
+publishes the SSE `reset` with reason `reparsed` after a reparse. An object that
+is deleted and later projected again starts without fields owned by other rules,
+such as its run.
+
+The deterministic rules of `ingest` run on the rebuilt sessions in the same
+transaction: run linking (E.4), the rule attention of questions (E.6) and the
+failed check rule (E.7a) with the current contracts. A request, answer or check
+result that only the current normalizer recognises therefore opens or closes its
+item without another `ingest`, and an open item of a failure that the current
+normalizer reads as a success of the same action is closed. Their changes are
+appended to the journal; earlier journal changes are never rewritten.
+`resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
+for a fact the current normalizer no longer produces. Reparse does not write
+`fact_interpretation`.

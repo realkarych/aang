@@ -23,6 +23,7 @@ import { createContractCatalog } from '../checks/catalog.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
+import { reparse, type ReparseResult } from '../reparse/reparse.js'
 import { normalizeOtel } from './otel.js'
 import { queueFacts } from './queue.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
@@ -76,6 +77,7 @@ export interface IngestResult {
 export interface Engine {
   readonly ingest: (batch: CollectorBatch) => Promise<IngestResult>
   readonly refreshFreshness: () => Promise<ChangeSeq>
+  readonly reparse: () => Promise<ReparseResult>
 }
 
 interface HeldHook {
@@ -312,6 +314,13 @@ export const createEngine = ({
       const streamScopes = new Map<StreamKey, ScopeDecision>()
       const inserted: Fact[] = []
 
+      const changed = (facts: readonly Fact[]): void => {
+        for (const { entity_key } of facts) {
+          const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
+          changedSessions.set(sessionName(key), key)
+        }
+      }
+
       const insert = (parsed: Parsed, fallback: RecordOwner | null = null): void => {
         const { status, seq } = transaction.rawRecords.insert(draftOf(parsed))
         if (status === 'duplicate') {
@@ -328,10 +337,7 @@ export const createEngine = ({
           records.push({ raw: { ...draftOf(parsed), seq }, owner })
           sourceRecords.set(name, records)
         }
-        for (const { entity_key } of facts) {
-          const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
-          changedSessions.set(sessionName(key), key)
-        }
+        changed(facts)
         tally.inserted += 1
       }
 
@@ -494,16 +500,13 @@ export const createEngine = ({
       batch.gaps.forEach(resolveGap)
       const otelFacts = normalizeOtel(transaction, adapters)
       inserted.push(...otelFacts)
-      for (const { entity_key } of otelFacts) {
-        const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
-        changedSessions.set(sessionName(key), key)
-      }
+      changed(otelFacts)
       const instant = now()
       const watch = new Map(quiet)
       const lost = changedSessions.size === 0 ? new Set<SessionId>() : lostSessions(transaction)
       for (const key of changedSessions.values()) {
-        const session = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
-        if (session !== null) { watchQuiet(watch, session) }
+        const projection = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
+        if (projection !== null) { watchQuiet(watch, projection.session) }
       }
       queueFacts(transaction, inserted)
       refreshChecks(transaction, changedSessions.values(), contracts)
@@ -577,21 +580,27 @@ export const createEngine = ({
     }
   }
 
+  const enqueue = <T>(work: () => T | Promise<T>): Promise<T> => {
+    const result = queue.then(work)
+    queue = result.then(() => undefined, () => undefined)
+    return result
+  }
+
   return {
-    refreshFreshness: () => {
-      const result = queue.then(() => {
+    refreshFreshness: () =>
+      enqueue(() => {
         const watch = new Map(quiet)
         store.transaction((transaction) => { settleQuiet(transaction, watch, now(), quietAfterMs) })
         quiet = watch
         return store.changes.head()
-      })
-      queue = result.then(() => undefined, () => undefined)
-      return result
-    },
-    ingest: (batch) => {
-      const result = queue.then(() => ingestBatch(batch))
-      queue = result.then(() => undefined, () => undefined)
-      return result
-    },
+      }),
+    ingest: (batch) => enqueue(() => ingestBatch(batch)),
+    reparse: () =>
+      enqueue(() => {
+        const watch = new Map(quiet)
+        const result = reparse(store, adapters, contracts, watch, now(), quietAfterMs)
+        quiet = watch
+        return result
+      }),
   }
 }

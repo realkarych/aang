@@ -1,29 +1,21 @@
 import { CollectedRecord, type Fact, type RawSeq } from '@aang/contract'
 import type { Transaction } from '@aang/store'
-import type { Adapters } from './records.js'
+import { type Adapters, collectedFields } from './records.js'
 
 const pageSize = 256
 
 export const normalizeOtel = (transaction: Transaction, adapters: Adapters): Fact[] => {
   const streams = transaction.scopes.list()
-  const normalized: Fact[] = []
+  const inserted: Fact[] = []
   let after: RawSeq | null = null
   for (;;) {
     const records = transaction.rawRecords.pendingOtel(after, pageSize)
     if (records.length === 0) {
-      return normalized
+      return inserted
     }
     for (const raw of records) {
       after = raw.seq
-      const record = CollectedRecord.safeParse({
-        channel: raw.channel,
-        runtime: raw.runtime,
-        stream: raw.stream,
-        position: raw.position,
-        hook: raw.hook,
-        observed_at: raw.observed_at,
-        payload: raw.payload,
-      }).data
+      const record = CollectedRecord.safeParse(collectedFields(raw)).data
       if (record === undefined) {
         continue
       }
@@ -45,7 +37,7 @@ export const normalizeOtel = (transaction: Transaction, adapters: Adapters): Fac
         if (result.parse_state !== 'parsed' || result.facts.length === 0) {
           break
         }
-        normalized.push(...transaction.facts.insert(raw.seq, adapter.normalizerVersion, result.facts))
+        inserted.push(...transaction.facts.insert(raw.seq, adapter.normalizerVersion, result.facts))
         transaction.rawRecords.markParsed(raw.seq, stream, result.source_ts)
         break
       }

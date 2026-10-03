@@ -5,6 +5,7 @@ import type {
   FactDraft,
   NormalizerVersion,
   ParseResult,
+  RawRecord,
   RawRecordDraft,
   RecordOwner,
   Runtime,
@@ -56,6 +57,16 @@ export const draftOf = ({ record, key, result }: Parsed): RawRecordDraft => ({
   source_ts: result.parse_state === 'invalid' ? null : result.source_ts,
   payload: record.payload,
   parse_state: result.parse_state,
+})
+
+export const collectedFields = (raw: RawRecord): Readonly<Record<keyof CollectedRecord, unknown>> => ({
+  channel: raw.channel,
+  runtime: raw.runtime,
+  stream: raw.stream,
+  position: raw.position,
+  hook: raw.hook,
+  observed_at: raw.observed_at,
+  payload: raw.payload,
 })
 
 export const sessionName = ({ runtime, session }: SessionKey): string => `${runtime}\0${session}`

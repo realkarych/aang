@@ -32,10 +32,10 @@ const projectAction = (
   transaction: Transaction,
   { key, items }: ActionEvidence,
   { run, identity }: ActionContext,
-): void => {
+): string | null => {
   const first = items[0]?.fact
   if (first === undefined) {
-    return
+    return null
   }
   const starts = ofKind(items, 'action_start')
   const ends = ofKind(items, 'action_end')
@@ -79,7 +79,7 @@ const projectAction = (
     output_fact: end?.id ?? batch?.id ?? null,
     inherited: previous?.inherited ?? false,
   }
-  transaction.observations.save(draft)
+  return transaction.observations.save(draft).id
 }
 
 export const projectActions = (
@@ -87,7 +87,7 @@ export const projectActions = (
   session: SessionKey,
   evidence: readonly Evidence[],
   context: ActionContext,
-): void => {
+): string[] => {
   const groups = new Map<string, ActionEvidence>()
   const add = (key: ActionKey, item: Evidence): void => {
     const name = canonicalJson(key)
@@ -109,7 +109,5 @@ export const projectActions = (
       }
     }
   }
-  for (const group of groups.values()) {
-    projectAction(transaction, group, context)
-  }
+  return [...groups.values()].flatMap((group) => projectAction(transaction, group, context) ?? [])
 }
