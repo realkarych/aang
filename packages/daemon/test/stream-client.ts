@@ -141,7 +141,7 @@ export const openKnownRun = async (
 }
 
 const isFeedEvent = (event: SseEvent): event is FeedEvent & SseEvent =>
-  event.event === 'facts' || event.event === 'model'
+  event.event === 'facts' || event.event === 'model' || event.event === 'attention'
 
 export const segmentsOf = (events: readonly SseEvent[]): FeedSegment[] => {
   const segments: FeedSegment[] = []
