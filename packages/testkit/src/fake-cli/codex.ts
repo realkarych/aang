@@ -10,13 +10,14 @@ import { bundledCatalog } from './codex-catalog.js'
 import { catalogEntry, codexExecOptions, codexViolations, readCatalog } from './codex-profile.js'
 import { emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
 import { allValues, lastValue, parseOptions, type ParsedOptions } from './options.js'
-import { invocation, runEntry } from './invocation.js'
+import { invocation, purposeOf, runEntry } from './invocation.js'
 import { isolationMessage } from './profile.js'
+import { answerOutput } from './reply.js'
 import { converse, type ResponsesRequest } from './responses.js'
 import { CodexScenario, fakeCliExitCodes, type CodexUsage } from './scenario.js'
 import { readScenario } from './state.js'
 import { configOverrides, configValue } from './toml.js'
-import { extractInput, renderTemplate } from './template.js'
+import { extractInput } from './template.js'
 
 type Scenario = z.output<typeof CodexScenario>
 type Reply = Scenario['replies'][number]
@@ -77,12 +78,14 @@ const limitMessage = (resetsAt: number | undefined): string =>
     resetsAt === undefined ? 'later' : `at ${new Date(resetsAt * 1000).toISOString()}`
   }.`
 
-const respond = (turn: Turn, reply: Reply, prompt: string): void => {
+const respond = (turn: Turn, reply: Reply, input: JsonValue | undefined): void => {
   switch (reply.kind) {
-    case 'answer': {
-      const output = renderTemplate(reply.output, extractInput(prompt))
+    case 'answer':
+    case 'script': {
+      const output = answerOutput(reply, input)
       startTurn(turn)
-      reply.toolAttempts.forEach((tool) => {
+      const attempts = reply.kind === 'answer' ? reply.toolAttempts : []
+      attempts.forEach((tool) => {
         routerError(`unsupported call: ${tool}`)
       })
       completeTurn(turn, JSON.stringify(output), reply.usage ?? defaultCodexUsage)
@@ -210,6 +213,8 @@ const runMock = async (call: MockCall, config: JsonValue): Promise<void> => {
 const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {
   const positional = options.positionals[0]
   const prompt = positional === undefined || positional === '-' ? await readStdin() : positional
+  const input = extractInput(prompt)
+  const purpose = purposeOf(input)
   const config = configOverrides(allValues(options, 'config'))
   const catalog = readCatalog(config, process.cwd())
   const instructionsSetting = configValue(config, 'model_instructions_file')
@@ -220,11 +225,11 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
   const { url, provider } = providerUrl(config)
   const mock = provider !== undefined
   const reachesModel = instructions?.ok !== false && violations.length === 0 && (mock || scenario.loggedIn)
-  const { index, reply } = reachesModel && !mock ? nextReply(scenario.replies) : { index: null, reply: undefined }
+  const { index, reply } = reachesModel && !mock ? nextReply(purpose === 'chat' ? scenario.chatReplies : scenario.replies, purpose) : { index: null, reply: undefined }
   const systemPrompt = instructions?.ok === true ? instructions.text : null
   const schemaFile = lastValue(options, 'output-schema')
   const schema = parseJson(schemaFile === undefined ? undefined : readText(schemaFile)) ?? null
-  record('exec', { prompt, systemPrompt, schema, reply: index, violations })
+  record('exec', { prompt, systemPrompt, schema, purpose, reply: index, violations })
   if (instructions?.ok === false) {
     say(
       process.stderr,
@@ -259,7 +264,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     return
   }
   if (!scenario.loggedIn) {
-    respond(turn, { kind: 'auth' }, prompt)
+    respond(turn, { kind: 'auth' }, input)
     return
   }
   if (reply === undefined) {
@@ -267,7 +272,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     return
   }
   await startDescendant(scenario.descendant)
-  respond(turn, reply, prompt)
+  respond(turn, reply, input)
 }
 
 const loginStatus = (scenario: Scenario): void => {
