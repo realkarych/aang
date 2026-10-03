@@ -420,6 +420,72 @@ test.each([
   await verifyRecording(directory)
 })
 
+test.each(['1', '3', '10', 'os', 'id', 'home', 'user', 'project', 'data'])('a host name %s masks its mentions but keeps keys, versions, times, paths and the manifest', async (name) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const config = { ...await options('codex'), engineVersion: '0.159.3' }
+  const directory = await recordSession(config, async (session) => {
+    await writeFile(join(session.project, 'host.json'), JSON.stringify({
+      hostname: name,
+      id: 'session-identifier',
+      serverName: name,
+      pidDomain: `win32:${name}`,
+      text: `Connected to ${name}`,
+      version: '0.159.3',
+      timestamp: '2026-10-03T12:10:03.123Z',
+      format: 'aang-recording/1',
+      type: 'metadata',
+      homes: '/home/PrivatePerson/notes.txt and /Users/PrivatePerson/notes.txt',
+      cwd: `cwd is ${session.project}`,
+    }))
+    await session.checkpoint('written', { root: 'home', path: 'project/host.json' }, 'The host file is written')
+  })
+  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as Record<string, unknown> & { artifacts: { source: string }[] }
+  expect(Object.keys(manifest)).toEqual(['format', 'runtime', 'engine_version', 'app_version', 'surface', 'os', 'scenario', 'model', 'recorded_at', 'expected_facts', 'control_events', 'artifacts', 'playback'])
+  expect(manifest).toMatchObject({
+    format: 'aang-recording/1', engine_version: '0.159.3', os, scenario: 'tools', playback: 'playback.json',
+    expected_facts: config.expectedFacts, control_events: [{ label: 'written', expected_map_change: { description: 'The host file is written' } }],
+  })
+  expect(manifest.artifacts.map((artifact) => artifact.source)).toEqual(['data/000001.json'])
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  expect(playback.steps).toMatchObject([{ kind: 'write', label: 'written', target: { root: 'home', path: 'project/host.json' }, source: 'data/000001.json' }])
+  const value = JSON.parse(playback.sources.get('data/000001.json')?.toString() ?? 'null') as { hostname: string }
+  const host = value.hostname
+  expect(host).toMatch(/^HOST_\d+$/)
+  expect(value).toEqual({
+    hostname: host,
+    id: 'session-identifier',
+    serverName: host,
+    pidDomain: `win32:${host}`,
+    text: `Connected to ${host}`,
+    version: '0.159.3',
+    timestamp: '2026-10-03T12:10:03.123Z',
+    format: 'aang-recording/1',
+    type: 'metadata',
+    homes: '/home/USER/notes.txt and /Users/USER/notes.txt',
+    cwd: `cwd is ${os === 'windows' ? 'C:\\fixture\\project' : '/fixture/project'}`,
+  })
+  await verifyRecording(directory)
+})
+
+test('a host name equal to a spool header value keeps the raw spool header', async () => {
+  vi.stubEnv('COMPUTERNAME', 'plugin')
+  const config = await options('claude')
+  const directory = await recordSession(config, async (session) => {
+    await session.run(process.execPath, [runtimeScript, 'claude', 'first'])
+  })
+  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as { artifacts: { source: string }[] }
+  const spools = manifest.artifacts.filter((artifact) => artifact.source.startsWith('spool/'))
+  expect(spools).toHaveLength(1)
+  for (const { source } of spools) {
+    const [header, ...rest] = (await readFile(join(directory, source), 'utf8')).split('\n')
+    expect(header).toBe('aang-spool/1 claude plugin')
+    expect(rest.join('\n')).not.toMatch(/someone\.personal|acct-private/)
+  }
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  expect(playback.steps.filter((step) => step.kind === 'hook')).toMatchObject([{ runtime: 'claude', registration: 'plugin' }])
+  await verifyRecording(directory)
+})
+
 test('rejects a missing, directory or non-executable hook binary before running the scenario', async () => {
   const config = await options()
   const plain = join(dirname(config.fixturesRoot), 'aang-hook')

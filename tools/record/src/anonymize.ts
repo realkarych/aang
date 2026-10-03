@@ -25,18 +25,28 @@ const isMachine = (kind: string): boolean => kind === 'HOST' || kind === 'MACHIN
 
 const isAmbiguous = (value: string): boolean => value.length < 4 || /^\d+$/.test(value)
 
-const machineName = (name: string): RegExp => new RegExp(isAmbiguous(name)
-  ? String.raw`(?:(?<![\p{L}\p{N}_-])|(?<=\\[bfnrt]))${RegExp.escape(name)}(?![\p{L}\p{N}_-])`
-  : RegExp.escape(name), 'giu')
+const nameCharacter = String.raw`[\p{L}\p{N}_-]`
+const afterEscape = String.raw`(?<=\\[bfnrt]|\\u[\da-f]{4}|%[\da-f]{2})`
+const compoundGuards = [String.raw`(?<![\p{L}\p{N}][./])`, String.raw`(?!\.\p{N})`] as const
+const timeGuards = [String.raw`(?<![\p{L}\p{N}]:)`, String.raw`(?!:\p{N})`] as const
+
+const machinePattern = (name: string, kind: string): string => {
+  if (kind === 'MACHINE' && !isAmbiguous(name)) return `(?i:${RegExp.escape(name)})`
+  const guards = [...isAmbiguous(name) ? [compoundGuards] : [], .../^\d+$/.test(name) ? [timeGuards] : []]
+  const before = guards.map(([guard]) => guard).join('')
+  const after = guards.map(([, guard]) => guard).join('')
+  return `(?i:(?:(?<!${nameCharacter})${before}|${afterEscape})${RegExp.escape(name)}(?!${nameCharacter})${after})`
+}
 
 const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|HOST|MACHINE|EMAIL|SECRET)_\d+$/
 const email = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[a-z]{2,}/giu
 const slash = String.raw`(?:\\*/|\\+u002f)`
 const separators = String.raw`(?:\\+u00(?:5c|2f)|\\*/|\\+)+`
 const segment = String.raw`(?:[^\\/\r\n\0"'<>]|\\+u(?!00(?:5c|2f))[0-9a-f]{4})+`
-const homes = new RegExp(String.raw`(${slash}(?:Users|home)${slash}|[a-z]:${separators}Users${separators})${segment}`, 'giu')
-const rootHome = new RegExp(String.raw`(${slash})root(?=${slash}\.)`, 'gi')
-const profile = /%USERPROFILE%|\$\{?USERPROFILE\}?/gi
+const homeDirectory = String.raw`(?<home>${slash}(?:Users|home)${slash}|[a-z]:${separators}Users${separators})${segment}`
+const rootDirectory = String.raw`(?<root>${slash})root(?=${slash}\.)`
+const profileVariable = String.raw`(?<profile>%USERPROFILE%|\$\{?USERPROFILE\}?)`
+const homePaths = `(?i:${homeDirectory}|${rootDirectory}|${profileVariable})`
 const assignments = /((?:creator[._-]?)?(?:user[._-]?)?(?:account|organization|org|installation|install|user)[._-]?(?:id|uuid))(?:\\*["'])?\s*[:=]\s*(?:\\*["'])?([\w.-]+)/gi
 const credentials = /([\w.-]*?(?:token|api[._-]?key|secret|password|authorization))(?:\\*["'])?\s*[:=]\s*(?:\\*["'])?(?:(?:bearer|basic|token)\s+)?([\w.~+/=-]{8,})/gi
 const bearer = /\bBearer\s+([\w.~+/-]+=*)/g
@@ -94,6 +104,7 @@ const structured = (text: string, map: (value: Json) => Json, plain: (value: str
 export interface Anonymizer {
   readonly discover: (texts: Iterable<string>) => void
   readonly text: (text: string) => string
+  readonly path: (path: string) => string
 }
 
 export const createAnonymizer = (
@@ -101,20 +112,20 @@ export const createAnonymizer = (
   identities: Iterable<readonly [Identity, string]> = [],
 ): Anonymizer => {
   const replacements = new Map(paths)
-  const machines = new Map<string, string>()
+  const machines = new Map<string, { readonly after: string; readonly pattern: string }>()
   const secrets = new Set<string>()
   const counts = new Map<string, number>()
-  let ordered: (readonly [string, string, string | RegExp])[] | undefined
-  const lookup = (value: string): string | undefined => replacements.get(value) ?? machines.get(value.toLowerCase())
+  const patterns = new Map<boolean, RegExp>()
+  const lookup = (value: string): string | undefined => replacements.get(value) ?? machines.get(value.toLowerCase())?.after
   const register = (value: string, kind: string, aliases: readonly string[] = []): void => {
     const names = [value, ...aliases]
     if (!value || placeholder.test(value) || lookup(value) !== undefined || (kind === 'HOST' && names.some((name) => /^localhost$/i.test(name)))) return
     const next = (counts.get(kind) ?? 0) + 1
     counts.set(kind, next)
     const after = `${kind}_${String(next)}`
-    if (isMachine(kind)) for (const name of names) machines.set(name.toLowerCase(), machines.get(name.toLowerCase()) ?? after)
+    if (isMachine(kind)) for (const name of names) machines.set(name.toLowerCase(), machines.get(name.toLowerCase()) ?? { after, pattern: machinePattern(name, kind) })
     else replacements.set(value, after)
-    ordered = undefined
+    patterns.clear()
   }
   for (const [kind, value] of identities) register(value, kind, kind === 'HOST' ? hostLabel.exec(value)?.slice(1) : undefined)
   const registerSecret = (value: string): void => {
@@ -156,23 +167,38 @@ export const createAnonymizer = (
     }
     return value
   }
-  const replaceText = (input: string): string => {
-    ordered ??= [
-      ...[...replacements].filter(([before]) => paths.has(before) || secrets.has(before) || !isAmbiguous(before))
-        .map(([before, after]) => [before, after, before] as const),
-      ...[...machines].map(([name, after]) => [name, after, machineName(name)] as const),
-    ].sort(([left], [right]) => right.length - left.length)
-    let text = input
-    for (const [, after, matcher] of ordered) text = text.replaceAll(matcher, after)
-    text = text.replaceAll(assignments, (match: string, _key: string, value: string) =>
-      match.slice(0, match.length - value.length) + (lookup(value) ?? value))
-    return text.replaceAll(homes, (_home, prefix: string) => `${prefix}USER`)
-      .replaceAll(rootHome, (_root, separator: string) => `${separator}home${separator}USER`)
-      .replaceAll(profile, 'REDACTED_HOME')
+  const longestFirst = (entries: (readonly [string, string])[]): string[] =>
+    entries.sort(([left], [right]) => right.length - left.length).map(([, source]) => source)
+  const pattern = (withMachines: boolean): RegExp => {
+    const cached = patterns.get(withMachines)
+    if (cached) return cached
+    const registered = [...replacements.keys()].filter((before) => !paths.has(before) && (secrets.has(before) || !isAmbiguous(before)))
+    const compiled = new RegExp([
+      ...longestFirst([...paths.keys()].map((before) => [before, RegExp.escape(before)])),
+      homePaths,
+      ...longestFirst([
+        ...registered.map((before) => [before, RegExp.escape(before)] as const),
+        ...withMachines ? [...machines].map(([name, { pattern: source }]) => [name, source] as const) : [],
+      ]),
+    ].join('|'), 'gu')
+    patterns.set(withMachines, compiled)
+    return compiled
   }
+  const substitute = (match: string, ...captures: unknown[]): string => {
+    const { home, root, profile } = captures.at(-1) as { home?: string; root?: string; profile?: string }
+    if (home !== undefined) return `${home}USER`
+    if (root !== undefined) return `${root}home${root}USER`
+    if (profile !== undefined) return 'REDACTED_HOME'
+    return lookup(match) ?? match
+  }
+  const replaceText = (input: string, withMachines = true): string => input.replaceAll(pattern(withMachines), substitute)
+    .replaceAll(assignments, (match: string, _key: string, value: string) => match.slice(0, match.length - value.length) + (lookup(value) ?? value))
   const identity = (value: Json): Json => typeof value === 'number' ? lookup(String(value)) ?? value : mapValue(value)
-  const processDomainOf = (value: string): string => replaceText(value.replace(processDomain, (match: string, segment: string) =>
-    match.slice(0, match.length - segment.length) + (lookup(segment) ?? segment)))
+  const processDomainOf = (value: string): string => {
+    const [match, segment] = processDomain.exec(value) ?? []
+    if (match === undefined || segment === undefined) return replaceText(value)
+    return match.slice(0, -segment.length) + (lookup(segment) ?? replaceText(segment)) + replaceText(value.slice(match.length))
+  }
   const attributeValue = (value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([field, content]) => {
     const masked = identity(content)
     return [field === 'intValue' && masked !== content ? 'stringValue' : field, masked]
@@ -183,7 +209,7 @@ export const createAnonymizer = (
     if (isRecord(value)) {
       const attribute = isAttribute(value)
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [
-        replaceText(key),
+        replaceText(key, false),
         identityKind(key) ? identity(nested)
           : normalize(key) === 'piddomain' && typeof nested === 'string' ? processDomainOf(nested)
           : attribute && key === 'value' && isRecord(nested) ? attributeValue(nested)
@@ -195,6 +221,7 @@ export const createAnonymizer = (
   return {
     discover: (texts) => { for (const text of texts) structured(text, discoverValue, discoverText) },
     text: (text) => structured(text, mapValue, replaceText),
+    path: (path) => replaceText(path, false),
   }
 }
 
