@@ -1,6 +1,6 @@
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { ApiError, endpoints, EpochNs, type PruneRequest, type WatchState } from '@aang/contract'
-import { processEnvironment, resolveAangHome } from '@aang/contract/config-file'
+import { loadConfig, processEnvironment, resolveAangHome } from '@aang/contract/config-file'
 import { aangHomePaths, readDaemonState, readUiToken } from '@aang/contract/home'
 import type { z } from 'zod'
 import { daemonUrl, isAlive } from './daemon-process.js'
@@ -105,4 +105,20 @@ export const prune = async (output: Output, request: PruneRequest): Promise<numb
 export const epochOfDate = (value: string): EpochNs | null => {
   const milliseconds = Date.parse(value)
   return Number.isNaN(milliseconds) ? null : EpochNs.parse(BigInt(milliseconds) * 1_000_000n)
+}
+
+const restartNotice = 'then restart the Codex TUI daemon with `codex app-server daemon restart` and restart Codex Desktop'
+
+export const otelConfig = async (output: Output, rotate: boolean): Promise<number> => {
+  const { runtimeRoots } = await loadConfig(processEnvironment())
+  const codexConfig = join(runtimeRoots.codex, 'config.toml')
+  const { endpoint } = await callDaemon(endpoints.otelConfig, { rotate })
+  output.out('[otel]')
+  output.out(`exporter = { otlp-http = { endpoint = ${JSON.stringify(endpoint)}, protocol = "json" } }`)
+  output.error(
+    rotate
+      ? `aang otel-config: the OTel ingest token is replaced and the previous endpoint no longer accepts records; replace the [otel] section in ${codexConfig}, ${restartNotice}`
+      : `aang otel-config: add this section to ${codexConfig} yourself, aang does not change it; ${restartNotice}`,
+  )
+  return 0
 }
