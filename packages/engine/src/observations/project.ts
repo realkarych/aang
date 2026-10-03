@@ -1,8 +1,18 @@
-import type { AgentKey, AgentStartPayload, EpochNs, Execution, QuestionKey, Session, SessionId, SessionKey } from '@aang/contract'
+import type {
+  AgentKey,
+  AgentStartPayload,
+  EpochNs,
+  Execution,
+  QuestionKey,
+  RunId,
+  Session,
+  SessionId,
+  SessionKey,
+} from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
+import { type AgentIdentity, agentIdentity, compactionStop, retireRefined } from './agents.js'
 import {
-  agentKey,
   byContent,
   byTime,
   compareText,
@@ -10,6 +20,7 @@ import {
   type Evidence,
   grouped,
   isFile,
+  type KindEvidence,
   ofKind,
   sessionEvidence,
 } from './evidence.js'
@@ -18,8 +29,32 @@ import { redeliveries, registrationOf } from './redelivery.js'
 import { freshnessOf } from './freshness.js'
 import { sourceGaps, type SourceRecord } from './sources.js'
 import { turnState } from './state.js'
+import { linkSession, type Spawn, sessionRun } from './runs.js'
 
-const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly Evidence[], sessionExecution: Execution): void => {
+interface SessionContext {
+  readonly run: RunId
+  readonly identity: AgentIdentity
+  readonly spawners: ReadonlyMap<string, KindEvidence<'action_start'>>
+}
+
+const spawnersOf = (items: readonly Evidence[]): Map<string, KindEvidence<'action_start'>> => {
+  const spawners = new Map<string, KindEvidence<'action_start'>>()
+  for (const item of ofKind(items, 'action_start').toSorted(byContent)) {
+    const key = item.fact.entity_key
+    if (key.kind === 'action' && !spawners.has(key.call)) {
+      spawners.set(key.call, item)
+    }
+  }
+  return spawners
+}
+
+const projectAgent = (
+  transaction: Transaction,
+  key: AgentKey,
+  items: readonly Evidence[],
+  { run, identity, spawners }: SessionContext,
+  sessionExecution: Execution,
+): Spawn | null => {
   const starts = ofKind(items, 'agent_start')
   const ends = ofKind(items, 'agent_end')
   const content = starts.toSorted(byContent)
@@ -29,30 +64,34 @@ const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly E
   const end = ends.toSorted(byContent)[0]?.fact
   const id = objectId(key)
   const previous = transaction.observations.getAgent(id)
-  const parent = field('parent')
+  const named = field('parent')
   const spawnedBy = field('spawned_by_call')
+  const spawner = spawnedBy === null ? undefined : spawners.get(spawnedBy)
+  const parentKey =
+    named !== null ? identity.resolve({ ...key, agent: named }) : spawner === undefined ? null : identity.of(spawner.fact)
+  const parent = parentKey === null ? null : objectId(parentKey)
   const main = key.agent.kind === 'main'
   const service = key.agent.kind === 'service' ? key.agent.service : null
   const role =
-    start?.payload.role ??
-    (main ? 'main' : service !== null ? 'service' : key.agent.kind === 'teammate' ? 'teammate' : 'subagent')
+    key.agent.kind === 'teammate'
+      ? 'teammate'
+      : (start?.payload.role ?? (main ? 'main' : service !== null ? 'service' : 'subagent'))
   const status = turnState(items)
+  const spawnedByAction =
+    spawnedBy === null ? null : objectId({ kind: 'action', runtime: key.runtime, session: key.session, call: spawnedBy })
   const draft: ObservationDraft = {
     id,
     key,
     session: objectId({ kind: 'session', runtime: key.runtime, session: key.session }),
-    run: previous?.run ?? null,
+    run,
     role,
     service: field('service') ?? service,
     agent_type: field('agent_type') ?? end?.payload.agent_type ?? null,
     agent_role: field('agent_role'),
     name: field('nickname') ?? (key.agent.kind === 'teammate' ? key.agent.name : null),
     description: field('description'),
-    parent: parent === null ? null : objectId({ ...key, agent: parent }),
-    spawned_by:
-      spawnedBy === null
-        ? null
-        : objectId({ kind: 'action', runtime: key.runtime, session: key.session, call: spawnedBy }),
+    parent,
+    spawned_by: spawnedByAction,
     execution:
       main ? sessionExecution : end === undefined
         ? status.state === 'unknown' ? { state: starts.length === 0 ? 'unknown' : 'running' } : status.execution
@@ -73,6 +112,18 @@ const projectAgent = (transaction: Transaction, key: AgentKey, items: readonly E
     ended_at: ends.toSorted(byTime)[0]?.fact.at ?? null,
   }
   transaction.observations.save(draft)
+  if (parent === null || parent === id) {
+    return null
+  }
+  const relation = starts
+    .filter(({ fact }) => fact.payload.parent !== null || fact.payload.spawned_by_call !== null)
+    .map(({ fact }) => fact.id)
+  return {
+    parent,
+    child: id,
+    via: spawnedByAction,
+    evidence: named === null && spawner !== undefined ? [...relation, spawner.fact.id] : relation,
+  }
 }
 
 const projectQuestion = (
@@ -80,6 +131,7 @@ const projectQuestion = (
   key: QuestionKey,
   items: readonly Evidence[],
   group: QuestionKey | null,
+  { run, identity }: SessionContext,
 ): void => {
   const request = ofKind(items, 'permission_request')[0]?.fact
   const asked = ofKind(items, 'question_asked').toSorted(byContent)[0]?.fact
@@ -98,8 +150,8 @@ const projectQuestion = (
     id,
     key,
     session: objectId({ kind: 'session', runtime: key.runtime, session: key.session }),
-    agent: objectId(agentKey(first)),
-    run: previous?.run ?? null,
+    agent: objectId(identity.of(first)),
+    run,
     kind: request === undefined ? (asked?.payload.source ?? 'permission') : 'permission',
     blocking: request !== undefined || asked?.payload.blocking === true,
     text: asked?.payload.questions.map(({ text }) => text).join('\n') ?? null,
@@ -128,7 +180,9 @@ export const projectSession = (
   if (items.length === 0 && records.length === 0 && previous === null) {
     return null
   }
-  const root = items.filter(({ fact }) => agentKey(fact).agent.kind === 'main')
+  const identity = agentIdentity(key, items)
+  const context: SessionContext = { run: sessionRun(transaction, key), identity, spawners: spawnersOf(items) }
+  const root = items.filter(({ fact }) => identity.of(fact).agent.kind === 'main')
   const starts = ofKind(root, 'session_start')
   const content = root.toSorted(byContent)
   const hooks = items.some(({ raw }) => raw.channel === 'hook') ||
@@ -156,7 +210,7 @@ export const projectSession = (
   const draft: Omit<Session, 'change_seq'> = {
     id,
     key,
-    run: previous?.run ?? null,
+    run: items.length === 0 ? (previous?.run ?? null) : context.run,
     surface,
     version: content.find(({ fact }) => fact.runtime_env.version !== null)?.fact.runtime_env.version ?? null,
     cwd:
@@ -181,8 +235,15 @@ export const projectSession = (
   sourceGaps(transaction, draft, lastEventAt)
   const session = { ...draft, freshness: freshnessOf(draft, lost.has(id), now, quietAfterMs) }
   transaction.observations.save(session)
-  for (const agentItems of grouped(items, ({ fact }) => canonicalJson(agentKey(fact))).values()) {
-    projectAgent(transaction, agentKey(agentItems[0].fact), agentItems, status.execution)
+  const spawns: Spawn[] = []
+  for (const agentItems of grouped(items, ({ fact }) => canonicalJson(identity.of(fact))).values()) {
+    const agent = identity.of(agentItems[0].fact)
+    const spawn = compactionStop(agent, agentItems)
+      ? null
+      : projectAgent(transaction, agent, agentItems, context, status.execution)
+    if (spawn !== null) {
+      spawns.push(spawn)
+    }
   }
   const groups = redeliveries(items)
   const questionGroups = new Map<string, QuestionKey>()
@@ -199,12 +260,18 @@ export const projectSession = (
       }
     }
   }
-  projectActions(transaction, key, items)
+  projectActions(transaction, key, items, context)
   for (const [name, entityItems] of entityEvidence(items)) {
     const entity = entityItems[0].fact.entity_key
     if (entity.kind === 'question') {
-      projectQuestion(transaction, entity, entityItems, questionGroups.get(name) ?? null)
+      projectQuestion(transaction, entity, entityItems, questionGroups.get(name) ?? null, context)
     }
+  }
+  const replacements = retireRefined(transaction, identity)
+  const first = items[0]
+  const last = items.at(-1)
+  if (first !== undefined && last !== undefined) {
+    linkSession(transaction, { key, run: context.run, root: first.fact, at: last.fact.at, spawns, replacements })
   }
   return session
 }

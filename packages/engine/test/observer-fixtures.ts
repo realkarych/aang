@@ -96,31 +96,25 @@ export const setupObserver = async (onTestFinished: TestContext['onTestFinished'
   if (solver === undefined || human === undefined || tool === undefined) {
     throw new Error('the transcript must contain solver, human and tool facts')
   }
+  for (const [run, session] of [
+    [runA, sessionA],
+    [runB, sessionB],
+  ] as const) {
+    if (store.model.head(run) !== version(1) || store.observations.getSession(session)?.run !== run) {
+      throw new Error('ingesting a root session must create its run')
+    }
+  }
   store.transaction((transaction) => {
-    for (const [run, session, draft] of [
-      [runA, sessionA, drafts.runA],
-      [runB, sessionB, drafts.runB],
-    ] as const) {
-      applyChangeSet(transaction, {
-        run,
-        author: 'rule',
-        at: at(1),
-        changes: [
-          put('run.create', { kind: 'run', value: draft }, observed, []),
-          put('run.create', { kind: 'session_membership', value: { run, session } }, observed, []),
-        ],
-      })
-      const observation = transaction.observations.getSession(session)
-      if (observation === null) {
-        throw new Error('the transcript must create a session observation')
-      }
-      transaction.observations.save({ ...observation, run })
+    const ingested = transaction.model.entity(runA, { kind: 'run', id: runA })
+    if (ingested?.kind !== 'run') {
+      throw new Error('ingesting a root session must create its run')
     }
     applyChangeSet(transaction, {
       run: runA,
       author: 'rule',
       at: at(2),
       changes: [
+        put('run.goal', { kind: 'run', value: { ...ingested.value, goal: drafts.runA.goal } }, observed, []),
         put('stage.create', { kind: 'stage', value: drafts.build }, observed, []),
         put('stage.create', { kind: 'stage', value: drafts.testing }, observed, []),
         put('criterion.add', { kind: 'criterion', value: drafts.testsPass }, observed, []),

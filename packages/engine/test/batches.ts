@@ -8,6 +8,7 @@ import {
   type SpoolEnv,
   type StreamKey,
 } from '@aang/contract'
+import { contentHash } from '@aang/contract/ids'
 
 const arrivedAt = 1_790_856_592_228_739_000n
 
@@ -113,3 +114,25 @@ export const hookRecord = ({
 
 export const hookBatch = (...deliveries: readonly HookDelivery[]): CollectorBatch =>
   batchOf({ records: deliveries.map(hookRecord) })
+
+export interface SnapshotDelivery {
+  readonly path: string
+  readonly content: unknown
+  readonly arrival?: number
+}
+
+export const snapshotBatch = (...snapshots: readonly SnapshotDelivery[]): CollectorBatch =>
+  batchOf({
+    records: snapshots.map(({ path, content, arrival = 0 }) => {
+      const payload = JSON.stringify(content)
+      return CollectedRecord.parse({
+        channel: 'transcript',
+        runtime: 'claude',
+        stream: null,
+        position: { kind: 'file', path, content_hash: contentHash(payload) },
+        hook: null,
+        observed_at: instant(arrival),
+        payload,
+      })
+    }),
+  })

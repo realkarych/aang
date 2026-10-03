@@ -64,7 +64,7 @@ test('repeated bindings retain one relationship per stage with stable ids and re
   expect(store.transaction((transaction) => applyObserverResponse(transaction, {
     call: callId, output: response(operations([solver.id]), 2), at: at(20),
   })).status).toBe('accepted')
-  const links = () => store.model.entities(runA).filter((entity) => entity.kind === 'link')
+  const links = () => store.model.entities(runA).filter((entity) => entity.kind === 'link').filter(({ value }) => value.kind !== 'spawn')
   expect(links()).toHaveLength(3)
   const ids = links().map(({ value }) => value.id)
   const call = ObserverCallId.parse('repeat-bindings')

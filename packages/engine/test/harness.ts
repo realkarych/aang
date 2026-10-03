@@ -17,7 +17,7 @@ import {
   type StreamKey,
 } from '@aang/contract'
 import { createEngine, type Engine, type HoldingLimits, type IngestResult } from '@aang/engine'
-import type { Store } from '@aang/store'
+import type { Store, StoredObservationRemoval } from '@aang/store'
 
 export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
   ['claude', claudeAdapter],
@@ -57,9 +57,22 @@ export const factsOf = (store: Store): Fact[] =>
 export const gapsOf = (store: Store): Gap[] =>
   changesOf(store).flatMap((change) => (change.layer === 'gap' ? [change.gap] : []))
 
+export const removalsOf = (store: Store): StoredObservationRemoval[] =>
+  changesOf(store).flatMap((change) => (change.layer === 'removal' ? [change.removal] : []))
+
 export const sessionKey = (runtime: Runtime, session: string): SessionKey => ({ kind: 'session', runtime, session })
 
-const observationTables = ['raw_records', 'facts', 'gaps', 'runs', 'objects', 'links'] as const
+const observationTables = [
+  'raw_records',
+  'facts',
+  'gaps',
+  'runs',
+  'objects',
+  'links',
+  'model_versions',
+  'model_changes',
+  'model_entities',
+] as const
 
 export const observationRows = (database: DatabaseSync): Record<string, number> =>
   Object.fromEntries(
