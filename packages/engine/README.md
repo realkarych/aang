@@ -198,10 +198,16 @@ sessions and agents of the run description, the context record, the stages,
 criteria and attention items of the snapshot, the facts of the batch with their
 sessions, agents and actions, the agents of collapsed facts and of the backlog, and
 the artifact versions with the actions that produced them. Snapshot entities must
-belong to the run. The context record follows the raw record rule, and an artifact
-version must be bound to the run, so both are refused until F.7a and E.7b provide
-their storage. `beginObserverCall` refuses an input with any violation and a first
-call that already carries materials; `beginObserverFollowUp` checks the stored input
+belong to the run. The context record follows the raw record rule through its
+`context` facts, one keyed by the run of the root session and one for every other
+session whose data the context was assembled from (F.7a). A context that read a
+session of another vendor is therefore refused without `crossVendor`, whether it is
+the context of the input, the input checked again before a follow-up or a requested
+raw record. An
+artifact version must be bound to the run, so it is refused until E.7b provides its
+storage.
+`beginObserverCall` refuses an input with any violation and a first call that already
+carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started
 for.
 
@@ -219,8 +225,9 @@ output of `action_end` or `PostToolBatch`. When the action has a structured resu
 such as an edit patch or an MCP result, the output is the JSON text
 `{"output": <text>, "result": <result>}`. Texts longer than
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
-and report their path and original length. Artifact versions and context records
-answer `not_found` until E.7b and F.7a provide their storage.
+and report their path and original length. Artifact versions answer `not_found`
+until E.7b provides their storage. Context records answer `not_found`: the resolver
+does not read the stored context of F.7a yet.
 
 A response with nonempty `needs` to a call without materials is not applied.
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch
@@ -354,3 +361,70 @@ appended to the journal; earlier journal changes are never rewritten.
 `resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
 for a fact the current normalizer no longer produces. Reparse does not write
 `fact_interpretation`.
+
+## Run context
+
+`recordRunContext(store, { run, backend, crossVendor, at, claudeConfigDir, limits })`
+collects the context of a run for the observer input (ADR-0007) from the allowed
+sources only:
+
+- `task`: the earliest nonempty prompt of a human to the main agent of the root
+  session; `ref` is the id of the prompt fact.
+- `instructions`: the files named by `InstructionsLoaded` facts of a session, or,
+  when a session has none, `CLAUDE.md` (Claude) or `AGENTS.md` (Codex) in its `cwd`
+  and every ancestor directory; `ref` is the path.
+- `agent_definition`: for each subagent or teammate type of a Claude session, the
+  file `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
+  hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
+  file. Types without such a file, such as built-in and plugin agents, have no entry.
+- `skill`: only skills invoked through the `Skill` tool of a Claude session, except
+  calls that ended with an error or were denied. A skill listed in the catalog but
+  not invoked is never included. The text is the `description` of `SKILL.md` in
+  `.claude/skills/<name>/` of the nearest directory of the session's `cwd` hierarchy
+  or in `skills/<name>/` of `claudeConfigDir`, and `ref` is the path of that file.
+  When there is no such file, `ref` is the name of the skill and the text is empty.
+  Codex has no skill tool, so a Codex run has no skill entries.
+- `mcp_server`: the servers of MCP actions with the names of the tools called.
+- `git`: one entry per worktree, whose `ref` is the top of the worktree (or the `cwd`
+  of a session outside git): the branch of each session working there and, for each
+  set of masks, the latest git snapshot (`git_snapshot` fact of the run): the masks,
+  the commit, whether the tree is clean under those masks, changed paths and error.
+
+Only sessions of the run are read, and a session of a vendor other than `backend` is
+skipped unless `crossVendor` is set; when the root session is skipped, or the run is
+unknown, there is no context. Skills and agent definitions are resolved in the
+directory of each session, so files of the same name in different projects stay
+separate entries. The `cwd` of each session that is read and the working directories
+of its facts are resolved to the top of their git worktree with
+`git rev-parse --show-toplevel`, as the snapshot writer of E.7b does. A git snapshot
+is included only when its worktree is one of these tops or exactly one of these
+directories, which is where a failed snapshot is recorded. A worktree or repository
+nested in another tree is a separate worktree, so a snapshot of the enclosing tree
+used only by a skipped session stays out, while a worktree shared with a skipped
+session stays in. A directory that no longer resolves to a worktree admits no
+snapshot of a worktree. Relative paths are ignored.
+Each text is cut to `limits.textLength` characters (4000 by default) and reports its
+original length; files are read up to 1 MiB, and a larger file reports its size in
+bytes.
+
+Names of the solver's hooks, definitions of plugin agents, of agents given by the
+`--agents` flag and of Codex roles, and descriptions of plugin skills are allowed
+sources that need facts or formats the adapters do not provide yet; plan item F.7d
+adds them.
+
+Entries are ordered by kind and `ref`, and `content_hash` is the SHA-256 of their
+canonical JSON. A nonempty context is stored as a raw record of the `context` channel
+(position `daemon`, no runtime or stream). Its `context` facts list the sources and
+record where they come from: one fact is keyed by the run of the root session, and
+each other session that was read gets a fact keyed by that session. The scope of
+the observer input (F.7c) admits the record only when it admits every one of these
+sessions, so a context that includes another vendor reaches the observer only with
+`crossVendor`. The dedupe key is the run, the hash and the sessions that were read. An
+unchanged context assembled from the same sessions, including one that returns to an
+earlier state, reuses the existing record, so it is written once and its `seq` can
+be cited; the same text assembled from other sessions, for example with
+`crossVendor`, is a separate record with its own facts.
+`storedRunContext(rawRecords, seq)` reproduces the `RunContext` of a record.
+Records of the `context` and `snapshot` channels are not events of a session: they do
+not change its projection, freshness or `last_event_at`. The `context` facts are not
+queued for interpretation.
