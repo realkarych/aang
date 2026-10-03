@@ -859,16 +859,14 @@ and the session facts; `source` is the store or a transaction:
   of its sessions and each of its agents is the sum of its records, so the
   sessions of a run add up to the run. `cost_usd` is `null`: money comes only
   from `cost-state`, shown per session.
-- The `cost-state` of a session is final while no launch runs after the one
-  that wrote it. Each launch ends with a `cost-state` line. Lines of the same
-  content in several files of the stream, such as a superseded copy, are copies
-  of one line. A line has no time. It was written after the latest time of the
-  records before any of its copies in their files, and before the first of its
-  copies was read. A record read in several files is stored once, in the file
-  read first, so a line number of a file that holds no stored record takes the
-  records of the other files of the stream at that number. Which file holds a
-  line read in several copies depends on the order of reading too, so a copy in
-  each file counts. A later launch shows:
+- The `cost-state` of a session is final only when the data show that no launch
+  runs after the one that wrote it; when they cannot show it, it is not final.
+  Each launch ends with a `cost-state` line. Lines of the same content in several
+  files of the stream, such as a superseded copy, are copies of one line. A line
+  has no time. It was written after the latest time of the records stored before
+  any of its copies in their own files, and before the first of its copies was
+  read. A later launch shows:
+  - as a record with a time after the first of its copies was read;
   - as a record with a time after a copy of the line in the same file, of any
     parse state and with or without facts;
   - as a record with a time after that moment in a file of the stream that holds
@@ -879,12 +877,19 @@ and the session facts; `source` is the store or a transaction:
     that moment, each next one a launch that started after it and wrote no
     record with a time, such as a run that made no API call. Hooks are matched
     to these launches in the order of time, each to a launch whose line was read
-    after the hook. A hook of another registration within 2 s of the first hook
-    of a launch, before its line was read, is its redelivery; two hooks of one
-    registration are two launches. A hook left without a launch starts a launch
-    that still runs, such as a resumed session before its first new line, or
-    one that started after the lines of the earlier launches were read.
-    `SessionEnd` does not count.
+    after the hook. Each `SessionStart` is a launch of its own: a possible
+    redelivery from another registration does not prove one launch. A hook left
+    without a launch starts a launch that still runs, such as a resumed session
+    before its first new line, or one that started after the lines of the
+    earlier launches were read. `SessionEnd` does not count.
+
+  Two limits follow from what the data can show. A record read in several files
+  is stored once, in the file read first, so the file of a copy may keep no
+  dated record before it; the records of the other files are not taken in its
+  place, and such a line is not final. A launch that writes no record with a time
+  is told from a launch still running only by the time its line was read, so a
+  hook that fired before the line was read is taken as the start of the launch
+  that wrote it.
 
   While a later launch runs, an interactive session has not written its line
   yet, so the money and compaction usage it shows are of an earlier launch.

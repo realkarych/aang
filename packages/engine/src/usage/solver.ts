@@ -19,7 +19,6 @@ import {
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { FactReader, ModelReader, Observation, ObservationReader, RawRecordReader } from '@aang/store'
 import { byTime, compareText, type Evidence, grouped, type KindEvidence, ofKind } from '../observations/evidence.js'
-import { redeliveryWindowNs, registrationOf } from '../observations/redelivery.js'
 import { byAccumulation, lastCostState } from '../observations/usage.js'
 import { assignedStages, readSession, type SessionReading, stageAttribution, type StageOf } from './attribution.js'
 import { activeMs, isActivity, runTime, type RunTime } from './time.js'
@@ -76,12 +75,6 @@ interface CostState {
   readonly copies: readonly [CostLine, ...CostLine[]]
   readonly writtenAfter: EpochNs | null
   readonly readBy: EpochNs
-}
-
-interface Launch {
-  readonly started: EpochNs
-  readonly readBy: EpochNs
-  readonly registrations: Set<string | null>
 }
 
 const defaultPauseAfterMs = 300_000
@@ -184,21 +177,20 @@ const linesBelow = (numbers: readonly number[], line: number): number => {
 }
 
 const latestBefore = (lines: readonly StreamLine[]): ((copy: CostLine) => EpochNs | null) => {
-  const atLines = [...grouped(lines, ({ line }) => String(line)).values()].sort(
-    (left, right) => left[0].line - right[0].line,
-  )
-  const numbers = atLines.map(([{ line }]) => line)
-  const latest = new Map(
-    [...grouped(lines, ({ path }) => path).keys()].map((path) => {
+  const files = new Map(
+    [...grouped(lines, ({ path }) => path)].map(([path, held]) => {
+      const ordered = held.toSorted((left, right) => left.line - right.line)
       const prefix: (EpochNs | null)[] = []
-      for (const atLine of atLines) {
-        const held = atLine.filter((member) => member.path === path)
-        prefix.push(latestOf([prefix.at(-1) ?? null, ...(held.length > 0 ? held : atLine).map(({ at }) => at)]))
+      for (const { at } of ordered) {
+        prefix.push(latestOf([prefix.at(-1) ?? null, at]))
       }
-      return [path, prefix]
+      return [path, { numbers: ordered.map(({ line }) => line), prefix }]
     }),
   )
-  return ({ path, line }) => latest.get(path)?.[linesBelow(numbers, line) - 1] ?? null
+  return ({ path, line }) => {
+    const file = files.get(path)
+    return file === undefined ? null : (file.prefix[linesBelow(file.numbers, line) - 1] ?? null)
+  }
 }
 
 const costStates = (lines: readonly StreamLine[], costs: readonly CostLine[]): CostState[] => {
@@ -216,25 +208,11 @@ const costStates = (lines: readonly StreamLine[], costs: readonly CostLine[]): C
 
 const launchedBy = (starts: readonly Evidence[], ends: readonly CostState[]): boolean => {
   let next = 0
-  let launch: Launch | null = null
-  for (const start of starts.toSorted(byTime)) {
-    const { at } = start.fact
-    const registration = registrationOf(start)
-    if (
-      launch !== null &&
-      !launch.registrations.has(registration) &&
-      at - launch.started <= redeliveryWindowNs &&
-      at < launch.readBy
-    ) {
-      launch.registrations.add(registration)
-      continue
-    }
-    const index = ends.findIndex(({ readBy }, position) => position >= next && at < readBy)
-    const end = ends[index]
-    if (end === undefined) {
+  for (const { fact } of starts.toSorted(byTime)) {
+    const index = ends.findIndex(({ readBy }, position) => position >= next && fact.at < readBy)
+    if (index < 0) {
       return false
     }
-    launch = { started: at, readBy: end.readBy, registrations: new Set([registration]) }
     next = index + 1
   }
   return true
@@ -252,10 +230,12 @@ const costStateFinal = (rawRecords: RawRecordReader, own: readonly Evidence[]): 
   if (total === undefined) {
     return false
   }
-  const { copies, writtenAfter } = total
+  const { copies, writtenAfter, readBy } = total
   const holders = new Set(copies.map(({ path }) => path))
-  const continued = lines.some(({ path, line, at }) =>
-    holders.has(path) ? at !== null && copies.some((copy) => copy.path === path && line > copy.line) : later(at, writtenAfter),
+  const continued = lines.some(
+    ({ path, line, at }) =>
+      later(at, readBy) ||
+      (holders.has(path) ? at !== null && copies.some((copy) => copy.path === path && line > copy.line) : later(at, writtenAfter)),
   )
   const ended = states.filter((state) => !later(writtenAfter, state.writtenAfter))
   const starts = ofKind(own, 'session_start').filter(({ fact }) => later(fact.at, writtenAfter))
