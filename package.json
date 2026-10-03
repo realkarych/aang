@@ -11,10 +11,12 @@
     "lint": "go vet -C packages/hook ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exitCode=1}\" && pnpm lint:comments && pnpm lint:eslint",
     "lint:comments": "node tools/check-comments/dist/main.js",
     "lint:eslint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0",
-    "test": "vitest run --tags-filter=!benchmark --tags-filter=!runtime",
-    "coverage": "c8 vitest run --tags-filter=!benchmark --tags-filter=!runtime && go tool covdata percent -i=coverage/hook",
+    "test": "vitest run --tags-filter=!benchmark --tags-filter=!runtime --tags-filter=!package",
+    "coverage": "c8 vitest run --tags-filter=!benchmark --tags-filter=!runtime --tags-filter=!package && go tool covdata percent -i=coverage/hook",
     "benchmark": "vitest run --tags-filter=benchmark",
     "scenarios": "vitest run --project tools/record --tags-filter=runtime",
+    "package": "node tools/npm-package/dist/main.js --out dist/npm",
+    "test:package": "vitest run --project tools/npm-package --tags-filter=package",
     "e2e": "playwright test --pass-with-no-tests"
   },
   "devDependencies": {
