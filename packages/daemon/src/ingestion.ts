@@ -1,7 +1,16 @@
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import { createCollector } from '@aang/collector'
-import type { Adapter, AdapterRegistry, CollectedGap, Config, Gap, Listener, Runtime } from '@aang/contract'
+import type {
+  Adapter,
+  AdapterRegistry,
+  CollectedGap,
+  Config,
+  Gap,
+  Listener,
+  ReparseResponse,
+  Runtime,
+} from '@aang/contract'
 import { createEngine } from '@aang/engine'
 import type { Store } from '@aang/store'
 
@@ -15,6 +24,7 @@ export interface IngestionOptions {
 
 export interface Ingestion {
   readonly otel: Listener
+  readonly reparse: () => Promise<ReparseResponse | null>
   readonly failure: Promise<unknown>
   readonly stop: () => Promise<void>
 }
@@ -25,6 +35,13 @@ const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
 ])
 
 const freshnessRefreshCeilingMs = 5_000
+
+const tallyOf = ({ records, facts_added, facts_kept, facts_missing }: ReparseResponse): ReparseResponse => ({
+  records,
+  facts_added,
+  facts_kept,
+  facts_missing,
+})
 
 const collectedGap = ({ key, stream, details, detected_at, closed_at }: Gap): CollectedGap => ({
   key,
@@ -73,11 +90,25 @@ export const startIngestion = async ({
     refreshing = engine.refreshFreshness().catch(failure.resolve)
   }, Math.min(config.freshness.quietAfterMs, freshnessRefreshCeilingMs))
 
+  let stopping = false
+  let reparsing: Promise<unknown> = Promise.resolve()
+  const reparse = async (): Promise<ReparseResponse | null> => {
+    if (stopping) {
+      return null
+    }
+    const result = engine.reparse()
+    reparsing = result.catch(() => undefined)
+    return tallyOf(await result)
+  }
+
   return {
     otel,
+    reparse,
     failure: failure.promise,
     stop: async () => {
       clearInterval(refresh)
+      stopping = true
+      await reparsing
       await collector.close()
       await pumping
       await refreshing

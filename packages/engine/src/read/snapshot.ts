@@ -22,6 +22,7 @@ import {
 } from '@aang/contract'
 import type { Observation, StoredObservationRemoval } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
+import { reparseBoundary } from '../reparse/boundary.js'
 import { byId, InvalidPositionError, origin, partsOf, planKinds, type ReadContext, runOf } from './context.js'
 import { type RunState, summaryOf } from './summary.js'
 
@@ -170,6 +171,10 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
   const position = store.changes.head()
   if (after > position) {
     throw new InvalidPositionError(`position ${String(after)} is ahead of the change feed at ${String(position)}`)
+  }
+  const reparsed = reparseBoundary(store.settings)
+  if (reparsed !== null && after < reparsed) {
+    throw new InvalidPositionError(`position ${String(after)} precedes the reparse at ${String(reparsed)}`, 'reparsed')
   }
   const run = runOf(store, id)
   if (run === null) {

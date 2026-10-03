@@ -6,9 +6,11 @@ import {
   type ApiErrorCode,
   endpoints,
   type Listener,
+  type ReparseResponse,
   type ShutdownResponse,
   streamPath,
 } from '@aang/contract'
+import type { z } from 'zod'
 import type { Authenticator } from './auth.js'
 import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
@@ -20,6 +22,7 @@ export interface ServerOptions {
   readonly staticRoot: string | null
   readonly routes: (address: Listener) => readonly ApiRoute[]
   readonly streams: Streams
+  readonly reparse: () => Promise<ReparseResponse | null>
   readonly onShutdown: () => void
 }
 
@@ -89,23 +92,48 @@ export const startServer = async ({
   staticRoot,
   routes,
   streams,
+  reparse,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
-  const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+  const acceptsBody = async (
+    request: IncomingMessage,
+    response: ServerResponse,
+    schema: z.ZodType,
+    refusal: string,
+  ): Promise<boolean> => {
     let body: unknown
     try {
       body = await readJson(request)
     } catch (error) {
       sendError(response, 'invalid_request', error instanceof Error ? error.message : String(error))
-      return
+      return false
     }
-    if (!endpoints.shutdown.body.safeParse(body).success) {
-      sendError(response, 'invalid_request', 'shutdown takes an empty JSON object')
+    if (!schema.safeParse(body).success) {
+      sendError(response, 'invalid_request', refusal)
+      return false
+    }
+    return true
+  }
+
+  const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    if (!(await acceptsBody(request, response, endpoints.shutdown.body, 'shutdown takes an empty JSON object'))) {
       return
     }
     response.on('finish', onShutdown)
     const accepted: ShutdownResponse = { stopping: true }
     sendJson(response, 200, accepted)
+  }
+
+  const reparseRecords = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    if (!(await acceptsBody(request, response, endpoints.reparse.body, 'reparse takes an empty JSON object'))) {
+      return
+    }
+    const result = await reparse()
+    if (result === null) {
+      sendError(response, 'unavailable', 'the daemon is stopping')
+      return
+    }
+    sendJson(response, 200, endpoints.reparse.response.encode(result))
   }
 
   const routeApi = async (
@@ -118,6 +146,10 @@ export const startServer = async ({
     const method = request.method ?? 'GET'
     if (method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
       await shutdown(request, response)
+      return
+    }
+    if (method === endpoints.reparse.method && pathname === endpoints.reparse.path) {
+      await reparseRecords(request, response)
       return
     }
     if (method === 'GET' && pathname === streamPath) {

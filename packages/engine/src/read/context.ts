@@ -8,6 +8,7 @@ import {
   type Link,
   type ModelEntity,
   type ObserverState,
+  type ResetReason,
   type Run,
   type RunId,
   type Stage,
@@ -37,6 +38,13 @@ export interface ModelParts {
 
 export class InvalidPositionError extends Error {
   override readonly name = 'InvalidPositionError'
+
+  constructor(
+    message: string,
+    readonly reason: ResetReason = 'stale_position',
+  ) {
+    super(message)
+  }
 }
 
 export const origin: ChangeSeq = ChangeSeq.parse(0)

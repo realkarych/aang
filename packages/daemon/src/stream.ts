@@ -56,7 +56,10 @@ const positionOf = (header: string | string[] | undefined): Position => {
   return parsed.success ? { kind: 'at', seq: parsed.data } : { kind: 'invalid' }
 }
 
-type Reading = { readonly kind: 'feed'; readonly feed: RunFeed } | { readonly kind: 'gone' } | { readonly kind: 'stale' }
+type Reading =
+  | { readonly kind: 'feed'; readonly feed: RunFeed }
+  | { readonly kind: 'gone' }
+  | { readonly kind: 'stale'; readonly reason: ResetReason }
 
 export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams => {
   const subscribers = new Set<Subscriber>()
@@ -68,7 +71,7 @@ export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams
       return feed === null ? { kind: 'gone' } : { kind: 'feed', feed }
     } catch (error) {
       if (error instanceof InvalidPositionError) {
-        return { kind: 'stale' }
+        return { kind: 'stale', reason: error.reason }
       }
       throw error
     }
@@ -102,7 +105,7 @@ export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams
         send(subscriber, reading.feed)
       } else {
         subscribers.delete(subscriber)
-        reset(subscriber.response, 'stale_position')
+        reset(subscriber.response, reading.kind === 'stale' ? reading.reason : 'stale_position')
       }
     } catch (error) {
       onError(error)
@@ -141,7 +144,7 @@ export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams
       }
       begin(response)
       if (reading.kind === 'stale') {
-        reset(response, 'stale_position')
+        reset(response, reading.reason)
         return null
       }
       const subscriber: Subscriber = { run, response, position: reading.feed.position, delta: null, blocked: false }
