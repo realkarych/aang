@@ -60,19 +60,15 @@ export const attentionZone = (
       : []
   }
   const dependentStages = (item: AttentionItem): StageId[] => {
-    const found = new Set<StageId>()
-    const pending = ownStages(item).filter((stage) => active.has(stage))
+    const reached = new Set<StageId>()
+    const pending = ownStages(item)
     for (let stage = pending.pop(); stage !== undefined; stage = pending.pop()) {
-      if (!found.has(stage)) {
-        found.add(stage)
-        pending.push(
-          ...(dependentsOf.get(stage) ?? []).flatMap((link) =>
-            active.has(link.stage) && !found.has(link.stage) ? [link.stage] : [],
-          ),
-        )
+      if (!reached.has(stage)) {
+        reached.add(stage)
+        pending.push(...(dependentsOf.get(stage) ?? []).map((link) => link.stage))
       }
     }
-    return [...found].sort(compareText)
+    return [...reached].filter((stage) => active.has(stage)).sort(compareText)
   }
   return attention
     .filter((item) => inZone(item, dismissed))

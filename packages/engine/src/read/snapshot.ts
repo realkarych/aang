@@ -33,6 +33,7 @@ import { byId, InvalidPositionError, origin, partsOf, planKinds, precedesPrune, 
 import { type RunState, summaryOf } from './summary.js'
 
 export type RunFeedEvent =
+  | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
   | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
@@ -146,6 +147,7 @@ type FeedItem =
   | FactsItem
   | { readonly kind: 'model'; readonly seq: ChangeSeq; readonly version: ModelVersionRecord }
   | { readonly kind: 'view'; readonly seq: ChangeSeq; readonly view: AttentionView }
+  | { readonly kind: 'mark'; readonly seq: ChangeSeq }
 
 const removalOf = ({ kind, id, replaced_by: replacedBy }: StoredObservationRemoval): ObservationRemoval => ({
   kind,
@@ -208,6 +210,7 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
     throw new InvalidPositionError(`position ${String(after)} precedes the latest prune`)
   }
   const versions = store.model.versions(id, after)
+  const marked = store.views.markChangeSeq(id)
   const first = versions[0]
   const changes =
     first === undefined
@@ -226,7 +229,9 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
       .map((removal): FeedItem => ({ kind: 'removal', seq: removal.change_seq, removal })),
     ...versions.map((version): FeedItem => ({ kind: 'model', seq: version.change_seq, version })),
     ...store.views.attention(id, after).map((view): FeedItem => ({ kind: 'view', seq: view.change_seq, view })),
+    ...(marked !== null && marked > after ? [{ kind: 'mark', seq: marked } as const] : []),
   ].sort((left, right) => left.seq - right.seq)
+  const delta = runDelta(context, summaryStateOf(context, run))
   const events: RunFeedEvent[] = []
   let group: FactsItem[] = []
   let viewed: AttentionView[] = []
@@ -259,6 +264,11 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
         flushFacts()
         viewed.push(item.view)
         break
+      case 'mark':
+        flushFacts()
+        flushViews()
+        events.push({ event: 'run', id: item.seq, data: delta })
+        break
       default:
         flushViews()
         group.push(item)
@@ -266,5 +276,5 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
   }
   flushFacts()
   flushViews()
-  return { position, events, run: runDelta(context, summaryStateOf(context, run)) }
+  return { position, events, run: delta }
 }
