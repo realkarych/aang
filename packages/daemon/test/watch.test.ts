@@ -1,9 +1,9 @@
 import { appendFile, mkdir, readFile, rm, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import type { Runtime, SessionKey } from '@aang/contract'
+import { endpoints, type Runtime, type SessionKey } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import { describe, test } from 'vitest'
-import { type Home, spawnDaemon } from './daemon.js'
+import { bearer, type Home, spawnDaemon } from './daemon.js'
 import {
   admin,
   claudeHook,
@@ -268,6 +268,8 @@ describe.concurrent('aang watch and unwatch change which sessions the daemon tak
       const root = await admin(home, daemon.base, 'unwatch', { scope: 'path', path: workspace })
       const allOff = await admin(home, daemon.base, 'unwatch', { scope: 'all' })
       const kept = await admin(home, daemon.base, 'watch', { scope: 'path', path: elsewhere, lookback_days: null })
+      const status = await fetch(`${daemon.base}${endpoints.status.path}`, { headers: bearer(home.token) })
+      const reported = endpoints.status.response.parse(await status.json())
       await appendFile(insidePath, `${lines(inside, workspace).slice(22).join('\n')}\n`)
       await appendFile(outsidePath, `${lines(outside, elsewhere).slice(22).join('\n')}\n`)
       await appendFile(witnessPath, `${lines(witness, elsewhere).slice(22).join('\n')}\n`)
@@ -279,6 +281,7 @@ describe.concurrent('aang watch and unwatch change which sessions the daemon tak
       expect(root).toEqual({ status: 200, body: { watch: { all: true, lookback_days: 7, roots: [] } } })
       expect(allOff).toEqual({ status: 200, body: { watch: { all: false, lookback_days: 7, roots: [] } } })
       expect(kept).toMatchObject({ status: 200, body: { watch: { all: false, roots: [elsewhere] } } })
+      expect(reported.watch).toEqual({ all: false, lookback_days: 7, roots: [elsewhere] })
       const store = openFinished(home, onTestFinished)
       const counts = Object.fromEntries(
         [inside, outside, witness].map((session) => [
