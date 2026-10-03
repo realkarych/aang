@@ -17,6 +17,14 @@ const identityKind = (key: string): Identity | undefined => {
 
 const isCredential = (key: string): boolean => /(?:token|apikey|secret|password|authorization)$/.test(normalize(key))
 
+const protocolWords = new Set(['type', 'subtype', 'kind', 'role', 'source', 'origin', 'originator', 'entrypoint', 'mode', 'status', 'operation', 'trigger', 'decision'])
+
+const isProtocol = (key: string): boolean => {
+  const words = key.split(/[^A-Za-z]+|(?<=[a-z])(?=[A-Z])/).filter(Boolean).map((word) => word.toLowerCase())
+  const [last = '', previous = ''] = words.toReversed()
+  return protocolWords.has(last) || (last === 'name' && (previous === 'event' || previous === 'tool'))
+}
+
 const processDomain = /^[a-z\d]+:([^:\s]+)/i
 
 const hostLabel = /^([^.]+)\./
@@ -53,7 +61,12 @@ const bearer = /\bBearer\s+([\w.~+/-]+=*)/g
 
 const isRecord = (value: Json | undefined): value is { [key: string]: Json } => value !== null && typeof value === 'object' && !Array.isArray(value)
 
-const isAttribute = (value: { [key: string]: Json }): boolean => typeof value['key'] === 'string' && identityKind(value['key']) !== undefined
+const anyValue = /^(?:string|bool|int|double|bytes|array|kvlist)Value$/
+
+const attributeKey = (value: { [key: string]: Json }): string | undefined => {
+  const content = value['value']
+  return typeof value['key'] === 'string' && isRecord(content) && Object.keys(content).some((kind) => anyValue.test(kind)) ? value['key'] : undefined
+}
 
 const parse = (text: string): Json | undefined => {
   try { return JSON.parse(text) as Json } catch { return undefined }
@@ -199,21 +212,25 @@ export const createAnonymizer = (
     if (match === undefined || segment === undefined) return replaceText(value)
     return match.slice(0, -segment.length) + (lookup(segment) ?? replaceText(segment)) + replaceText(value.slice(match.length))
   }
-  const attributeValue = (value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([field, content]) => {
-    const masked = identity(content)
-    return [field === 'intValue' && masked !== content ? 'stringValue' : field, masked]
+  const field = (key: string, value: Json): Json =>
+    identityKind(key) ? identity(value)
+      : normalize(key) === 'piddomain' && typeof value === 'string' ? processDomainOf(value)
+      : isProtocol(key) && typeof value === 'string' ? replaceText(value, false)
+        : mapValue(value)
+  const attributeValue = (key: string, value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([kind, content]) => {
+    const masked = field(key, content)
+    return [kind === 'intValue' && masked !== content ? 'stringValue' : kind, masked]
   }))
   const mapValue = (value: Json): Json => {
     if (typeof value === 'string') return lookup(value) ?? structured(value, mapValue, replaceText)
     if (Array.isArray(value)) return value.map(mapValue)
     if (isRecord(value)) {
-      const attribute = isAttribute(value)
+      const attribute = attributeKey(value)
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [
         replaceText(key, false),
-        identityKind(key) ? identity(nested)
-          : normalize(key) === 'piddomain' && typeof nested === 'string' ? processDomainOf(nested)
-          : attribute && key === 'value' && isRecord(nested) ? attributeValue(nested)
-            : mapValue(nested),
+        attribute !== undefined && key === 'key' ? replaceText(attribute, false)
+          : attribute !== undefined && key === 'value' && isRecord(nested) ? attributeValue(attribute, nested)
+            : field(key, nested),
       ]))
     }
     return value

@@ -419,6 +419,13 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@aang/adapter-claude':
+        specifier: workspace:*
+        version: link:../../packages/adapter-claude
+      '@aang/adapter-codex':
+        specifier: workspace:*
+        version: link:../../packages/adapter-codex
 
   tools/runtime-check:
     dependencies:

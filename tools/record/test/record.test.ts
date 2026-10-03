@@ -2,12 +2,16 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { claudeAdapter } from '@aang/adapter-claude'
+import { codexAdapter } from '@aang/adapter-codex'
+import { CollectedRecord, type ParseResult } from '@aang/contract'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
 import { afterEach, expect, test, vi } from 'vitest'
 import { recordSession, verifyRecording, type RecordContext, type RecordOptions } from '../dist/index.js'
 
 const temporary: string[] = []
 const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
+const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
 
@@ -465,6 +469,82 @@ test.each(['1', '3', '10', 'os', 'id', 'home', 'user', 'project', 'data'])('a ho
     cwd: `cwd is ${os === 'windows' ? 'C:\\fixture\\project' : '/fixture/project'}`,
   })
   await verifyRecording(directory)
+})
+
+const recordedSource = (playback: Awaited<ReturnType<typeof loadManifest>>, root: string, path: string): string => {
+  const step = playback.steps.find((item) => 'target' in item && item.target.root === root && item.target.path === path)
+  return playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
+}
+
+test.each(['user', 'external', 'default', 'sdk'])('a host name %s equal to a protocol value keeps a Claude transcript readable by the adapter', async (name) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const line = JSON.stringify(JSON.parse(await readFile(new URL('claude-code-transcripts/rec-user-prompt.json', samples), 'utf8')))
+  const directory = await recordSession(await options('claude'), async (session) => {
+    await mkdir(join(session.claude, 'projects', 'sample'), { recursive: true })
+    await writeFile(join(session.claude, 'projects', 'sample', 'session.jsonl'), `${line}\n`)
+    await writeFile(join(session.project, 'host.json'), JSON.stringify({ hostname: name, text: `Connected to ${name}` }))
+  })
+  await verifyRecording(directory)
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const host = JSON.parse(recordedSource(playback, 'home', 'project/host.json')) as { hostname: string; text: string }
+  expect(host.hostname).toMatch(/^HOST_\d+$/)
+  expect(host.text).toBe(`Connected to ${host.hostname}`)
+  const transcript = recordedSource(playback, 'claude', 'projects/sample/session.jsonl').trim()
+  expect(JSON.parse(transcript)).toEqual(JSON.parse(line))
+  const parse = (payload: string): ParseResult => claudeAdapter.parse(CollectedRecord.parse({
+    channel: 'transcript', runtime: 'claude', stream: null, hook: null, observed_at: 1_790_856_592_228_739_000n, payload,
+    position: { kind: 'line', path: '/fixture/.claude/projects/sample/session.jsonl', offset: 0, line: 1 },
+  }))
+  expect(parse(transcript)).toMatchObject({ parse_state: 'parsed', facts: [{ kind: 'prompt' }] })
+  expect(parse(transcript)).toEqual(parse(line))
+})
+
+interface OtlpAttribute { readonly key: string; readonly value: { readonly stringValue: string } }
+interface OtlpLogs {
+  readonly resourceLogs: readonly {
+    readonly resource: { readonly attributes: readonly OtlpAttribute[] }
+    readonly scopeLogs: readonly { readonly logRecords: readonly { readonly attributes: readonly OtlpAttribute[] }[] }[]
+  }[]
+}
+
+const identified = (logs: OtlpLogs, host: string, account: string): OtlpLogs => ({
+  resourceLogs: logs.resourceLogs.map((resourceLogs) => ({
+    ...resourceLogs,
+    resource: {
+      ...resourceLogs.resource,
+      attributes: [
+        ...resourceLogs.resource.attributes.filter(({ key }) => key !== 'host.name'),
+        { key: 'host.name', value: { stringValue: host } },
+        { key: 'user.account_id', value: { stringValue: account } },
+      ],
+    },
+  })),
+})
+
+test.each(['user', 'host'])('a host name %s keeps OTLP attribute names and protocol values readable by the Codex adapter', async (name) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const { resourceLogs } = JSON.parse(await readFile(new URL('codex-otel/logs.envelope.tool_decision.approved-user.app-server.json', samples), 'utf8')) as OtlpLogs
+  const sent = identified({ resourceLogs }, name, 'acct-private-4477')
+  const directory = await recordSession(await options('codex'), async (session) => {
+    const response = await fetch(session.otlp, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(sent) })
+    await response.arrayBuffer()
+  })
+  await verifyRecording(directory)
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const step = playback.steps.find((item) => item.kind === 'otlp')
+  const recorded = playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
+  const received = JSON.parse(recorded) as OtlpLogs
+  const resource = Object.fromEntries(received.resourceLogs[0]?.resource.attributes.map(({ key, value }) => [key, value.stringValue]) ?? [])
+  expect(resource['host.name']).toMatch(/^HOST_\d+$/)
+  expect(resource['user.account_id']).toMatch(/^ACCOUNT_\d+$/)
+  expect(received).toEqual(identified({ resourceLogs }, String(resource['host.name']), String(resource['user.account_id'])))
+  const conversation = resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.attributes.find(({ key }) => key === 'conversation.id')?.value.stringValue
+  const stream = codexAdapter.streamKey([JSON.stringify({ hook_event_name: 'SessionStart', session_id: conversation })])
+  const parse = (payload: string): ParseResult => codexAdapter.parse(CollectedRecord.parse({
+    channel: 'otel', runtime: 'codex', stream, hook: null, observed_at: 1_790_856_592_228_739_000n, payload, position: { kind: 'otel' },
+  }))
+  expect(parse(recorded)).toMatchObject({ parse_state: 'parsed', facts: [{ kind: 'permission_decision', payload: { decision: 'approved', source: 'user' } }] })
+  expect(parse(recorded)).toEqual(parse(JSON.stringify(sent)))
 })
 
 test('a host name equal to a spool header value keeps the raw spool header', async () => {
