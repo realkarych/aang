@@ -49,6 +49,8 @@ export const ruleOperations = [
   'attention.wait',
   'attention.close',
   'link.add',
+  'link.retarget',
+  'link.remove',
   'session.move',
 ] as const
 

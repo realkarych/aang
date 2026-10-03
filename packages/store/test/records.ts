@@ -1,4 +1,8 @@
 import {
+  type Agent,
+  AgentKey,
+  type AgentRef,
+  type AgentRole,
   EpochNs,
   FactDraft,
   FileCursor,
@@ -7,8 +11,10 @@ import {
   RawRecordDraft,
   type RuntimeEnv,
   type RuntimeIds,
+  SessionKey,
   StreamKey,
 } from '@aang/contract'
+import { objectId, runId } from '@aang/contract/ids'
 import type { GapDraft } from '@aang/store'
 
 export const mainStream = StreamKey.parse('claude:s1:main')
@@ -170,3 +176,30 @@ export const sourceLostGap = (overrides: Partial<GapDraft> = {}): GapDraft => ({
   closed_at: null,
   ...overrides,
 })
+
+export type AgentDraft = Omit<Agent, 'change_seq'>
+
+const sessionKey = SessionKey.parse({ kind: 'session', runtime: 'claude', session: 's1' })
+
+export const agentDraft = (role: AgentRole, agent: AgentRef, overrides: Partial<AgentDraft> = {}): AgentDraft => {
+  const key = AgentKey.parse({ kind: 'agent', runtime: 'claude', session: 's1', agent })
+  return {
+    id: objectId(key),
+    key,
+    session: objectId(sessionKey),
+    run: runId(sessionKey),
+    role,
+    service: null,
+    agent_type: null,
+    agent_role: null,
+    name: agent.kind === 'teammate' ? agent.name : null,
+    description: null,
+    parent: null,
+    spawned_by: null,
+    execution: { state: 'running' },
+    thread_total: null,
+    started_at: instant(100n),
+    ended_at: null,
+    ...overrides,
+  }
+}

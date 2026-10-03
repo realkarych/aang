@@ -3,11 +3,21 @@ import { ChangeSeq, type Fact, type Gap, type RawRecord } from '@aang/contract'
 import { prepareStatement } from './context.js'
 import { factColumns, type FactRow, toFact } from './facts.js'
 import { gapColumns, type GapRow, toGap } from './gaps.js'
-import { type Observation, type ObservationRow, observationKinds, toObservation } from './observations.js'
+import {
+  type Observation,
+  type ObservationRow,
+  observationKinds,
+  removalColumns,
+  type RemovalRow,
+  type StoredObservationRemoval,
+  toObservation,
+  toRemoval,
+} from './observations.js'
 import { rawRecordColumns, type RawRecordRow, toRawRecord } from './raw-records.js'
 
 export type Change =
   | { readonly layer: 'object'; readonly change_seq: ChangeSeq; readonly object: Observation }
+  | { readonly layer: 'removal'; readonly change_seq: ChangeSeq; readonly removal: StoredObservationRemoval }
   | { readonly layer: 'raw_record'; readonly change_seq: ChangeSeq; readonly record: RawRecord }
   | { readonly layer: 'fact'; readonly change_seq: ChangeSeq; readonly fact: Fact }
   | { readonly layer: 'gap'; readonly change_seq: ChangeSeq; readonly gap: Gap }
@@ -35,9 +45,13 @@ export const createChangeFeed = (database: DatabaseSync): ChangeFeed => {
     database,
     `SELECT ${gapColumns} FROM gaps WHERE change_seq > ? ORDER BY change_seq LIMIT ?`,
   )
-
-  const selectObjects = prepareStatement(database,
+  const selectObjects = prepareStatement(
+    database,
     `SELECT kind, data, change_seq FROM objects WHERE kind IN (${observationKinds}) AND change_seq > ? ORDER BY change_seq LIMIT ?`,
+  )
+  const selectRemovals = prepareStatement(
+    database,
+    `SELECT ${removalColumns} FROM object_removals WHERE change_seq > ? ORDER BY change_seq LIMIT ?`,
   )
   return {
     head: () => ChangeSeq.parse(Number((selectHead.get() as { readonly value: bigint }).value)),
@@ -57,7 +71,10 @@ export const createChangeFeed = (database: DatabaseSync): ChangeFeed => {
       const objects = (selectObjects.all(position, limit) as ObservationRow[]).map(
         (row): Change => ({ layer: 'object', change_seq: changeSeqOf(row), object: toObservation(row) }),
       )
-      return [...records, ...facts, ...gaps, ...objects].sort(byChangeSeq).slice(0, limit)
+      const removals = (selectRemovals.all(position, limit) as RemovalRow[]).map(
+        (row): Change => ({ layer: 'removal', change_seq: changeSeqOf(row), removal: toRemoval(row) }),
+      )
+      return [...records, ...facts, ...gaps, ...objects, ...removals].sort(byChangeSeq).slice(0, limit)
     },
   }
 }
