@@ -41,7 +41,8 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
   let launcher = makeLauncher()
   let record: AdmissionStatus = { runtime, version: null, profile, platform: process.platform, admitted: false, checkedAt: null, reason: 'version_not_admitted', warning: null }
   let errorClass: LaunchErrorClass = 'version_not_admitted'
-  let busy = false
+  let admitting = false
+  let executing = 0
   const listeners = new Set<(snapshot: LaunchStatus) => void>()
   const status = (): LaunchStatus => {
     const launch = launcher.status()
@@ -94,8 +95,9 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     return { ok: false, error: { class: problem.kind, message: problem.message }, usage: problem.usage }
   }
   const admit = async (signal?: AbortSignal): Promise<AdmissionStatus> => {
+    const busy = admitting || executing > 0
     if (busy || status().state.state === 'unavailable') return { ...record, admitted: false, reason: busy ? 'admission_busy' : 'process_stuck' }
-    busy = true
+    admitting = true
     record = { ...record, admitted: false, reason: 'admission_pending', checkedAt: new Date().toISOString(), warning: null }
     errorClass = 'version_not_admitted'
     notify()
@@ -132,16 +134,16 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         if (status().state.state === 'unavailable') void cleanup.catch(() => undefined)
         else await cleanup
       }
-      busy = false
+      admitting = false
       notify()
     }
     return { ...record }
   }
   const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
-    if (busy) return { ok: false, error: { class: 'admission_busy', message: 'Backend is checking admission or executing a call' }, usage: null }
+    if (admitting) return { ok: false, error: { class: 'admission_busy', message: 'Backend is checking admission' }, usage: null }
     if (!record.admitted) return { ok: false, error: { class: errorClass, message: record.reason ?? 'version_not_admitted' }, usage: null }
     if (status().state.state === 'unavailable') return { ok: false, error: { class: 'process_stuck', message: 'Backend process tree has not stopped' }, usage: null }
-    busy = true
+    executing += 1
     try {
       const probe = context(request.signal)
       const version = versionOf(await probe.run(['--version']))
@@ -159,7 +161,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       const result = fail(error)
       try { await save() } catch (failure) { return fail(failure) }
       return result
-    } finally { busy = false }
+    } finally { executing -= 1 }
   }
   return {
     admit, execute, status,

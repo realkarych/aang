@@ -229,6 +229,44 @@ batch returns to `pending`, and the cycle starts again with a new first call. Th
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
 between calls of a run.
 
+## Observer queue
+
+The ingest transaction queues every new fact as `pending` in the run of its session
+after the observation projection, including the facts of OTel records normalized in
+that transaction (ADR-0005). A redelivered record adds no facts and queues nothing.
+
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
+starts the next call of a run from its pending facts in the order of their records:
+
+- a fact that the input scope excludes, from a session of another vendor without
+  `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
+  an open gap `cross_vendor_excluded` or `not_interpreted`;
+- the batch is the first facts up to `limits.facts` whose payload length stays
+  within `limits.bytes`; the first fact always goes;
+- the input carries the run description with the sessions and agents in scope, the
+  snapshot of the current version (active stages, criteria, open attention items),
+  the batch facts with their session, agent and action and payload strings cut at
+  `limits.textLength`, and the reasons of the latest rejected call of these facts as
+  `previous_attempt`. The context, collapsed facts, backlog and artifact versions
+  stay empty until F.7a, F.7b and E.7b fill them;
+- the call is recorded by `beginObserverCall`. Without a run entity or an eligible
+  fact nothing starts and the result is `null`.
+
+`failObserverCall` ends a call without an applicable response. `rejected`, an output
+the backend could not read against the schema, returns the batch to `pending` as a
+schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
+`pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
+store the usage of the call.
+
+When the store opens, facts left `in_call` by a stopped process return to `pending`
+and get the attempt of the interrupted call back: a stop is not a content failure.
+
+`exhaustObserverCall` turns the facts of a rejected call that reached the attempt
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+`boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
+rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
+defers any, and returns the active queue.
+
 ## Questions, decisions and rule attention
 
 The ingestion transaction projects every question of a session and reconciles

@@ -1,4 +1,5 @@
 import {
+  type CallUsage,
   type EpochNs,
   ModelVersion,
   type ObserverCallId,
@@ -22,7 +23,18 @@ export interface ObserverResponse {
   readonly at: EpochNs
   readonly limits?: ValidationLimits
   readonly observations?: StageObservations
+  readonly usage?: CallUsage | null
 }
+
+interface ObserverCallEnd {
+  readonly call: ObserverCallId
+  readonly at: EpochNs
+  readonly usage?: CallUsage | null
+}
+
+export type ObserverCallFailure =
+  | (ObserverCallEnd & { readonly outcome: 'rejected'; readonly message: string })
+  | (ObserverCallEnd & { readonly outcome: 'failed' })
 
 export type ObserverResponseResult =
   | { readonly status: 'accepted'; readonly version: ModelVersion }
@@ -111,6 +123,26 @@ const textsOf = (op: ObserverOp): string[] =>
 
 const creation = (op: ObserverOp): boolean => 'temp_id' in op
 
+export const failObserverCall = (transaction: Transaction, failure: ObserverCallFailure): void => {
+  const call = transaction.observerCalls.get(failure.call)
+  if (call === null || call.finished_at !== null) {
+    throw new Error(`observer call ${failure.call} is missing or already finished`)
+  }
+  if (failure.outcome === 'rejected') {
+    transaction.interpretations.settle(call.id, 'pending')
+  } else {
+    transaction.interpretations.release(call.id)
+  }
+  transaction.observerCalls.finish({
+    id: call.id,
+    output: null,
+    verdict: failure.outcome,
+    reasons: failure.outcome === 'rejected' ? [{ op_index: null, cause: 'schema', message: failure.message }] : [],
+    usage: failure.usage ?? null,
+    at: failure.at,
+  })
+}
+
 export const applyObserverResponse = (
   transaction: Transaction,
   response: ObserverResponse,
@@ -143,6 +175,7 @@ export const applyObserverResponse = (
       output: response.output,
       verdict: 'needs_requested',
       reasons: [],
+      usage: response.usage ?? null,
       at: response.at,
     })
     return { status: 'needs_requested' }
@@ -237,6 +270,7 @@ export const applyObserverResponse = (
     output: response.output ?? null,
     verdict: rejected ? 'rejected' : 'accepted',
     reasons: context.rejections,
+    usage: response.usage ?? null,
     at: response.at,
   })
   return rejected ? { status: 'rejected', rejections: context.rejections } : { status: 'accepted', version }

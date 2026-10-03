@@ -5,6 +5,7 @@ import type {
   CollectedGap,
   CollectedRecord,
   CollectorBatch,
+  Fact,
   FileCursor,
   EpochNs as EpochNsType,
   RecordOwner,
@@ -23,6 +24,7 @@ import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
 import { normalizeOtel } from './otel.js'
+import { queueFacts } from './queue.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
   advanceFile,
@@ -308,6 +310,7 @@ export const createEngine = ({
       const hooks: HeldHook[] = []
       const rescan = new Set<StreamKey>()
       const streamScopes = new Map<StreamKey, ScopeDecision>()
+      const inserted: Fact[] = []
 
       const insert = (parsed: Parsed, fallback: RecordOwner | null = null): void => {
         const { status, seq } = transaction.rawRecords.insert(draftOf(parsed))
@@ -316,6 +319,7 @@ export const createEngine = ({
           return
         }
         const facts = transaction.facts.insert(seq, parsed.normalizerVersion, factsOf(parsed))
+        inserted.push(...facts)
         const owner = adapters[parsed.record.runtime].owner(parsed.record) ?? fallback
         if (owner !== null && parsed.record.channel !== 'otel') {
           const name = sessionName(owner.session)
@@ -488,7 +492,12 @@ export const createEngine = ({
         }
       }
       batch.gaps.forEach(resolveGap)
-      for (const key of normalizeOtel(transaction, adapters)) { changedSessions.set(sessionName(key), key) }
+      const otelFacts = normalizeOtel(transaction, adapters)
+      inserted.push(...otelFacts)
+      for (const { entity_key } of otelFacts) {
+        const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
+        changedSessions.set(sessionName(key), key)
+      }
       const instant = now()
       const watch = new Map(quiet)
       const lost = changedSessions.size === 0 ? new Set<SessionId>() : lostSessions(transaction)
@@ -496,6 +505,7 @@ export const createEngine = ({
         const session = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
         if (session !== null) { watchQuiet(watch, session) }
       }
+      queueFacts(transaction, inserted)
       refreshChecks(transaction, changedSessions.values(), contracts)
       settleQuiet(transaction, watch, instant, quietAfterMs)
       return { tally, files, hooks, rescan: [...rescan], quiet: watch }

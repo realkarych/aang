@@ -339,7 +339,10 @@ const followUp = (store: Store, previous = callId, id = followUpId, crossVendor 
   )
 
 const queue = (store: Store) =>
-  store.interpretations.ofRun(runA).map(({ status, attempts, observer_call }) => [status, attempts, observer_call])
+  store.interpretations
+    .ofRun(runA)
+    .filter(({ attempts }) => attempts > 0)
+    .map(({ status, attempts, observer_call }) => [status, attempts, observer_call])
 
 const outcomes = (materials: readonly ObserverMaterial[]) =>
   materials.map((material) => (material.kind === 'unavailable' ? material.reason : material.kind))
@@ -499,7 +502,12 @@ test('a restart between the request and the follow-up returns the batch to the q
   )
   store.close()
   const restarted = home.open()
-  expect(queue(restarted)).toEqual([['pending', 1, null]])
+  expect(
+    restarted.interpretations
+      .ofRun(runA)
+      .filter(({ fact }) => fact === solver.id)
+      .map(({ status, attempts, observer_call }) => [status, attempts, observer_call]),
+  ).toEqual([['pending', 0, null]])
   expect(() => followUp(restarted)).toThrow('no longer owns its batch')
   expect(restarted.observerCalls.get(followUpId)).toBeNull()
 })
@@ -914,7 +922,7 @@ test('every part of the observer input passes the same scope before the call is 
     }).toThrow(message)
   }
   expect(store.observerCalls.get(callId)).toBeNull()
-  expect(store.interpretations.ofRun(runA)).toEqual([])
+  expect(store.interpretations.ofRun(runA).filter(({ status }) => status !== 'pending')).toEqual([])
 
   const crossVendor = {
     ...withRun({
