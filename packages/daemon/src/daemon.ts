@@ -165,6 +165,7 @@ const serve = async ({
         return readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
       },
       streams,
+      reparse: ingestion.reparse,
       onShutdown: () => {
         requestStop('shutdown')
       },
