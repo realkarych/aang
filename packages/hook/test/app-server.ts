@@ -12,6 +12,7 @@ export interface AppServerScenario {
   readonly replaceHooks?: string
   readonly fragmented?: boolean
   readonly descendant?: boolean
+  readonly exitAfterListing?: boolean
 }
 
 export interface AppServerCall {

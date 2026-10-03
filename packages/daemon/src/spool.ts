@@ -58,6 +58,16 @@ export const prepareSpool = async (paths: AangHomePaths): Promise<void> => {
   await mkdir(paths.spoolTemporary, { recursive: true, mode: 0o700 })
 }
 
+const recordedEpisode = (store: Store): Episode | null => {
+  const recorded = store.settings.get(activeEpisodeSetting)
+  return recorded === undefined ? null : Episode.parse(recorded)
+}
+
+const overThresholdOf = (episode: Episode | null): OverThreshold | null =>
+  episode === null ? null : { detected_at: episode.detected_at, bytes: episode.bytes }
+
+export const recordedOverThreshold = (store: Store): OverThreshold | null => overThresholdOf(recordedEpisode(store))
+
 const leaseIsValid = (state: SpoolState): boolean =>
   state.leaseExpiresAt !== null && state.leaseExpiresAt > epochNow()
 
@@ -67,11 +77,9 @@ export const createSpoolSupervisor = ({
   store,
   onThresholdChange,
 }: SpoolSupervisorOptions): SpoolSupervisor => {
-  const recorded = store.settings.get(activeEpisodeSetting)
-  let episode: Episode | null = recorded === undefined ? null : Episode.parse(recorded)
+  let episode = recordedEpisode(store)
 
-  const overThreshold = (): OverThreshold | null =>
-    episode === null ? null : { detected_at: episode.detected_at, bytes: episode.bytes }
+  const overThreshold = (): OverThreshold | null => overThresholdOf(episode)
 
   const thresholdGap = (active: Episode, closedAt: EpochNs | null): GapDraft => ({
     key: { kind: 'gap', gap: 'spool_over_threshold', subject: `spool@${String(active.detected_at)}` },
