@@ -8,8 +8,10 @@ import { createAuthenticator } from './auth.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
 import { otelToken } from './otel-token.js'
+import { readRoutes } from './reads.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
+import { createStatus } from './status.js'
 import { createStreams } from './stream.js'
 
 export interface DaemonReady {
@@ -21,6 +23,7 @@ export interface DaemonReady {
 export type DaemonStopReason = 'shutdown' | 'stop_marker' | 'signal'
 
 export interface DaemonOptions {
+  readonly version: string
   readonly environment: ConfigEnvironment
   readonly bind: string | null
   readonly staticRoot: string | null
@@ -151,18 +154,22 @@ const serve = async ({
   const worker = createWorker()
   const timers: NodeJS.Timeout[] = []
   const running: { server: RunningServer | null; spool: SpoolSupervisor | null } = { server: null, spool: null }
+  const startedAt = epochNow()
   try {
     const server = await startServer({
       listener,
       auth,
       staticRoot: options.staticRoot,
+      routes: (api) => {
+        const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
+        return readRoutes({ store, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
+      },
       streams,
       onShutdown: () => {
         requestStop('shutdown')
       },
     })
     running.server = server
-    const startedAt = epochNow()
     const publishState = (over: OverThreshold | null): Promise<void> =>
       writeDaemonState(paths.daemonState, {
         pid: process.pid,

@@ -26,7 +26,7 @@ export type {
 } from './observer-calls.js'
 export type { InterpretationQueue, InterpretationReader, InterpretationWriter } from './interpretations.js'
 export type { AttentionViewDraft, ViewReader, ViewWriter } from './views.js'
-export { openStore, type Store, type StoreOptions, type Transaction } from './store.js'
+export { openStore, type Store, type StoreFile, type StoreOptions, type Transaction } from './store.js'
 export type {
   Observation,
   ObservationDraft,

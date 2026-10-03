@@ -49,7 +49,13 @@ export interface Transaction {
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
 
+export interface StoreFile {
+  readonly path: string
+  readonly schemaVersion: number
+}
+
 export interface Store {
+  readonly file: StoreFile
   readonly transaction: <T>(work: (transaction: Transaction) => Synchronous<T>) => T
   readonly read: <T>(work: () => Synchronous<T>) => T
   readonly observations: ObservationReader
@@ -69,7 +75,7 @@ export interface Store {
   readonly close: () => void
 }
 
-const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
+const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile): Store => {
   const issueChangeSeq = prepareStatement(database, 'UPDATE change_counter SET value = value + 1 RETURNING value')
   const observations = createObservations(database)
   const artifacts = createArtifacts(database)
@@ -127,6 +133,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
 
   let open = true
   return {
+    file,
     transaction: (work) => {
       const { transaction, finish } = beginTransaction()
       try {
@@ -175,8 +182,8 @@ export const openStore = ({ home }: StoreOptions): Store => {
   try {
     const databaseFile = join(home, 'aang.db')
     database = new DatabaseSync(databaseFile)
-    prepareSchema(database, databaseFile)
-    return createStore(database, lock)
+    const schemaVersion = prepareSchema(database, databaseFile)
+    return createStore(database, lock, { path: databaseFile, schemaVersion })
   } catch (error) {
     database?.close()
     lock.release()
