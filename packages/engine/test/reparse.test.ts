@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { codexAdapter } from '@aang/adapter-codex'
 import {
   type AgentKey,
+  type AttentionItem,
   ChangeSeq,
   CheckContract,
   type CollectedRecord,
@@ -374,55 +375,19 @@ test('refuses a reparse that would delete the replacement of removed agents when
   expect(stateOf(store)).toEqual(before)
 })
 
-test('applies the failed check rule to a failure and its successful repeat that one reparse recovers', async () => {
-  const home = await createHome(onTestFinished)
+interface CheckSource {
+  readonly session: string
+  readonly cwd: string
+}
+
+const checkProject = async (home: { readonly path: string }): Promise<string> => {
   const project = join(home.path, '..', 'project')
   await mkdir(project, { recursive: true })
-  const failing = { session: 'reparse-failing', cwd: project }
-  const repaired = { session: 'reparse-repaired', cwd: project }
-  const runOf = (source: typeof failing) => runId(sessionKey('claude', source.session))
-  const actionOf = (source: typeof failing, call: string) =>
-    objectId({ kind: 'action', runtime: 'claude', session: source.session, call })
-  const check = (source: typeof failing, call: string, passed: boolean, arrival: number) => {
-    const tool = { tool_use_id: call, tool_input: { command: 'pnpm test', description: 'Run the check' } }
-    return [
-      { file: `${source.session}-${call}-pre.evt`, payload: claudeHook('PreToolUse.Bash.json', source, tool), arrival },
-      {
-        file: `${source.session}-${call}-post.evt`,
-        arrival: arrival + 1,
-        payload: passed
-          ? claudeHook('PostToolUse.Bash.json', source, tool)
-          : claudeHook('PostToolUseFailure.Bash.json', source, {
-              ...tool,
-              error: 'Exit code 1\nchecks failed',
-              is_interrupt: false,
-            }),
-      },
-    ]
-  }
-  const failedChecks = (state: Store, owner: RunId) =>
-    state.model
-      .entities(owner)
-      .flatMap(({ kind, value }) => (kind === 'attention_item' && value.kind === 'failed_check' ? [value] : []))
-  let store = home.open()
-  await startEngine(store, { all: true }).ingest(
-    hookBatch(
-      { file: 'failing-start.evt', payload: claudeHook('SessionStart.startup.json', failing) },
-      ...check(failing, 'call-fail', false, 10),
-      { file: 'repaired-start.evt', payload: claudeHook('SessionStart.startup.json', repaired) },
-      ...check(repaired, 'call-fail', false, 20),
-      ...check(repaired, 'call-pass', true, 30),
-    ),
-  )
-  const ends = factsOf(store).filter(({ kind }) => kind === 'action_end')
-  expect(ends).toHaveLength(3)
-  storeAnotherNormalizer(store, (drafts) => (drafts.some(({ kind }) => kind === 'action_end') ? 'invalid' : drafts))
-  expect(failedChecks(store, runOf(failing))).toEqual([])
-  expect(failedChecks(store, runOf(repaired))).toEqual([])
-  store.close()
+  return project
+}
 
-  store = home.open()
-  const engine = createEngine({
+const checkEngine = (store: Store, project: string) =>
+  createEngine({
     store,
     adapters,
     watch: {
@@ -430,39 +395,208 @@ test('applies the failed check rule to a failure and its successful repeat that 
       roots: [{ path: project, contracts: [CheckContract.parse({ name: 'test', command: '^pnpm test' })] }],
     },
   })
+
+const checkRun = (source: CheckSource): RunId => runId(sessionKey('claude', source.session))
+
+const checkAction = (source: CheckSource, call: string) =>
+  objectId({ kind: 'action', runtime: 'claude', session: source.session, call })
+
+const checkStart = (source: CheckSource) => ({
+  file: `${source.session}-start.evt`,
+  payload: claudeHook('SessionStart.startup.json', source),
+})
+
+const check = (source: CheckSource, call: string, passed: boolean, arrival: number) => {
+  const tool = { tool_use_id: call, tool_input: { command: 'pnpm test', description: 'Run the check' } }
+  return [
+    { file: `${source.session}-${call}-pre.evt`, payload: claudeHook('PreToolUse.Bash.json', source, tool), arrival },
+    {
+      file: `${source.session}-${call}-post.evt`,
+      arrival: arrival + 1,
+      payload: passed
+        ? claudeHook('PostToolUse.Bash.json', source, tool)
+        : claudeHook('PostToolUseFailure.Bash.json', source, {
+            ...tool,
+            error: 'Exit code 1\nchecks failed',
+            is_interrupt: false,
+          }),
+    },
+  ]
+}
+
+const failedChecks = (state: Store, owner: RunId) =>
+  state.model
+    .entities(owner)
+    .flatMap(({ kind, value }) => (kind === 'attention_item' && value.kind === 'failed_check' ? [value] : []))
+
+const endOf = (ends: readonly Fact[], source: CheckSource, call: string) =>
+  ends.find(
+    ({ entity_key: entity }) => entity.kind === 'action' && entity.session === source.session && entity.call === call,
+  )
+
+test('applies the failed check rule to a failure and its successful repeat that one reparse recovers', async () => {
+  const home = await createHome(onTestFinished)
+  const project = await checkProject(home)
+  const failing = { session: 'reparse-failing', cwd: project }
+  const repaired = { session: 'reparse-repaired', cwd: project }
+  let store = home.open()
+  await startEngine(store, { all: true }).ingest(
+    hookBatch(
+      checkStart(failing),
+      ...check(failing, 'call-fail', false, 10),
+      checkStart(repaired),
+      ...check(repaired, 'call-fail', false, 20),
+      ...check(repaired, 'call-pass', true, 30),
+    ),
+  )
+  const ends = factsOf(store).filter(({ kind }) => kind === 'action_end')
+  expect(ends).toHaveLength(3)
+  storeAnotherNormalizer(store, (drafts) => (drafts.some(({ kind }) => kind === 'action_end') ? 'invalid' : drafts))
+  expect(failedChecks(store, checkRun(failing))).toEqual([])
+  expect(failedChecks(store, checkRun(repaired))).toEqual([])
+  store.close()
+
+  store = home.open()
+  const engine = checkEngine(store, project)
   const result = await engine.reparse()
   expect(result).toMatchObject({ facts_added: ends.length, facts_missing: 0 })
-  const endOf = (source: typeof failing, call: string) =>
-    ends.find(
-      ({ entity_key: entity }) => entity.kind === 'action' && entity.session === source.session && entity.call === call,
-    )?.at
-  expect(store.observations.getAction(actionOf(failing, 'call-fail'))?.execution.state).toBe('failed')
-  expect(failedChecks(store, runOf(failing))).toMatchObject([
+  expect(store.observations.getAction(checkAction(failing, 'call-fail'))?.execution.state).toBe('failed')
+  expect(failedChecks(store, checkRun(failing))).toMatchObject([
     {
-      action: actionOf(failing, 'call-fail'),
+      action: checkAction(failing, 'call-fail'),
       text: 'Check "test" failed with exit code 1',
       resolution: 'open',
-      opened_at: endOf(failing, 'call-fail'),
+      opened_at: endOf(ends, failing, 'call-fail')?.at,
       closed_at: null,
     },
   ])
-  const [closed] = failedChecks(store, runOf(repaired))
+  const [closed] = failedChecks(store, checkRun(repaired))
   expect(closed).toMatchObject({
-    action: actionOf(repaired, 'call-fail'),
+    action: checkAction(repaired, 'call-fail'),
     resolution: 'answered',
-    opened_at: endOf(repaired, 'call-fail'),
-    closed_at: endOf(repaired, 'call-pass'),
+    opened_at: endOf(ends, repaired, 'call-fail')?.at,
+    closed_at: endOf(ends, repaired, 'call-pass')?.at,
   })
   assert(closed !== undefined)
   expect(
     store.model
-      .entityChanges(runOf(repaired), { kind: 'attention_item', id: closed.id }, ModelVersion.parse(0))
+      .entityChanges(checkRun(repaired), { kind: 'attention_item', id: closed.id }, ModelVersion.parse(0))
       .map(({ op, author }) => [op, author]),
   ).toEqual([
     ['attention.open', 'rule'],
     ['attention.close', 'rule'],
   ])
   expect((await engine.reparse()).head).toBe(result.head)
+})
+
+test('closes the open failed checks of actions that one reparse finds successful under the same fact ids', async () => {
+  const home = await createHome(onTestFinished)
+  const project = await checkProject(home)
+  const misread = { session: 'reparse-misread', cwd: project }
+  const shifted = { session: 'reparse-shifted', cwd: project }
+  let store = home.open()
+  await startEngine(store, { all: true }).ingest(
+    hookBatch(
+      checkStart(misread),
+      ...check(misread, 'call-pass', true, 10),
+      checkStart(shifted),
+      ...check(shifted, 'call-pass', true, 20),
+      ...check(shifted, 'call-fail', false, 30),
+    ),
+  )
+  const ends = factsOf(store).filter(({ kind }) => kind === 'action_end')
+  const passOf = (source: CheckSource) => {
+    const end = endOf(ends, source, 'call-pass')
+    assert(end !== undefined)
+    return end
+  }
+  const evidenceOf = (state: Store, source: CheckSource) =>
+    factsOf(state)
+      .filter(
+        ({ kind, entity_key: entity }) =>
+          (kind === 'action_start' || kind === 'action_end') &&
+          entity.kind === 'action' &&
+          entity.session === source.session &&
+          entity.call === 'call-pass',
+      )
+      .map(({ id }) => id)
+      .sort()
+  storeAnotherNormalizer(store, (drafts) =>
+    drafts.map((draft) =>
+      draft.kind === 'action_end' && draft.entity_key.kind === 'action' && draft.entity_key.call === 'call-pass'
+        ? FactDraft.parse({ ...draft, payload: { ...draft.payload, outcome: 'error', exit_code: 1 } })
+        : draft,
+    ),
+  )
+  await checkEngine(store, project).ingest(
+    hookBatch(
+      { file: 'misread-stop.evt', payload: claudeHook('Stop.json', misread), arrival: 40 },
+      { file: 'shifted-stop.evt', payload: claudeHook('Stop.json', shifted), arrival: 41 },
+    ),
+  )
+  expect(store.observations.getAction(checkAction(misread, 'call-pass'))?.execution.state).toBe('failed')
+  const [falseFailure] = failedChecks(store, checkRun(misread))
+  expect(falseFailure).toMatchObject({
+    action: checkAction(misread, 'call-pass'),
+    text: 'Check "test" failed with exit code 1',
+    resolution: 'open',
+    opened_at: passOf(misread).at,
+  })
+  const [shiftedFailure] = failedChecks(store, checkRun(shifted))
+  expect(failedChecks(store, checkRun(shifted))).toMatchObject([
+    { action: checkAction(shifted, 'call-fail'), resolution: 'open', opened_at: passOf(shifted).at },
+  ])
+  assert(falseFailure !== undefined && shiftedFailure !== undefined)
+  store.close()
+
+  store = home.open()
+  const engine = checkEngine(store, project)
+  const result = await engine.reparse()
+  expect(result).toMatchObject({ facts_added: 0, facts_missing: 0 })
+  expect(store.observations.getAction(checkAction(misread, 'call-pass'))?.execution.state).toBe('done')
+  const corrected = (state: Store) => ({
+    misread: failedChecks(state, checkRun(misread)),
+    shifted: failedChecks(state, checkRun(shifted)).toSorted((left, right) =>
+      left.opened_at < right.opened_at ? -1 : 1,
+    ),
+  })
+  const closedBy = (item: AttentionItem, source: CheckSource) => ({
+    ...item,
+    resolution: 'answered',
+    closed_at: passOf(source).at,
+    change_seq: expect.any(Number) as unknown,
+  })
+  expect(corrected(store)).toEqual({
+    misread: [closedBy(falseFailure, misread)],
+    shifted: [
+      closedBy(shiftedFailure, shifted),
+      expect.objectContaining({
+        action: checkAction(shifted, 'call-fail'),
+        resolution: 'open',
+        opened_at: endOf(ends, shifted, 'call-fail')?.at,
+        closed_at: null,
+      }),
+    ],
+  })
+  for (const [source, item] of [
+    [misread, falseFailure],
+    [shifted, shiftedFailure],
+  ] as const) {
+    expect(
+      store.model
+        .entityChanges(checkRun(source), { kind: 'attention_item', id: item.id }, ModelVersion.parse(0))
+        .map(({ op, author, evidence }) => [op, author, evidence]),
+    ).toEqual([
+      ['attention.open', 'rule', item.evidence],
+      ['attention.close', 'rule', evidenceOf(store, source)],
+    ])
+  }
+  const after = corrected(store)
+  expect((await engine.reparse()).head).toBe(result.head)
+  store.close()
+
+  store = home.open()
+  expect(corrected(store)).toEqual(after)
 })
 
 test('recounts the records the current normalizer recognises and closes their gap', async () => {

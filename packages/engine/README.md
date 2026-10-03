@@ -169,9 +169,12 @@ facts, after the observation projection (ADR-0006):
   open item, which the success after the merged failures closes; the other items
   of the merged streaks stay closed in history. Without an open item it keeps an
   item that already describes it, otherwise the item of its earliest failure.
-  Observer fields of an item (likely resolution, priority) are kept. An item whose
-  failures no longer match a contract after the configuration changes keeps its
-  last state.
+  Observer fields of an item (likely resolution, priority) are kept. An open item
+  whose id derives from an action that now succeeds, for example after its facts
+  are read again, is closed with the resolution `answered` and the time of that
+  success; the closing journal change cites the success, and the remaining
+  failures of its former streak form their own item. An item whose failures no
+  longer match a contract after the configuration changes keeps its last state.
 
 The run of a session is the run of its `session_membership`, or the run of its own
 root key when there is none, the rule that run linking (E.4) uses for projections.
@@ -344,7 +347,9 @@ such as its run.
 The deterministic rules of `ingest` run on the rebuilt sessions in the same
 transaction: run linking (E.4) and the failed check rule (E.7a) with the current
 contracts, so a check result that only the current normalizer recognises opens
-or closes its item without another `ingest`. Their changes are appended to the
-journal; earlier journal changes are never rewritten. `resolveEvidence(facts,
-evidence)` returns each referenced fact, or `unavailable` for a fact the current
-normalizer no longer produces. Reparse does not write `fact_interpretation`.
+or closes its item without another `ingest`, and an open item of a failure that
+the current normalizer reads as a success of the same action is closed. Their
+changes are appended to the journal; earlier journal changes are never rewritten.
+`resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
+for a fact the current normalizer no longer produces. Reparse does not write
+`fact_interpretation`.
