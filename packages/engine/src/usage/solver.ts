@@ -123,21 +123,39 @@ const sessionUsage = (session: Session, records: readonly UsageRecord[], reading
   cost_state_final: session.cost_state !== null && costStateFinal(reading?.own ?? []),
 })
 
-const agentUsage = (agent: Agent, records: readonly UsageRecord[], reading: SessionReading | undefined): AgentUsage => {
-  const own = reading === undefined ? [] : reading.own.filter(({ fact }) => objectId(reading.identity.of(fact)) === agent.id)
-  return {
-    agent: agent.id,
-    session: agent.session,
-    totals: usageTotals(records.filter((record) => record.agent === agent.id)),
-    active_ms: activeMs(own),
+const agentFacts = (readings: ReadonlyMap<string, SessionReading>): Map<string, Evidence[]> => {
+  const facts = new Map<string, Evidence[]>()
+  for (const { own, identity } of readings.values()) {
+    for (const item of own) {
+      const agent = objectId(identity.of(item.fact))
+      const items = facts.get(agent)
+      if (items === undefined) {
+        facts.set(agent, [item])
+      } else {
+        items.push(item)
+      }
+    }
   }
+  return facts
 }
+
+const agentUsage = (agent: Agent, records: readonly UsageRecord[], own: readonly Evidence[]): AgentUsage => ({
+  agent: agent.id,
+  session: agent.session,
+  totals: usageTotals(records.filter((record) => record.agent === agent.id)),
+  active_ms: activeMs(own),
+})
 
 const byStage = (records: readonly UsageRecord[], stageOf: StageOf): Map<StageId | null, UsageRecord[]> => {
   const stages = new Map<StageId | null, UsageRecord[]>()
   for (const record of records) {
     const stage = stageOf(record)
-    stages.set(stage, [...(stages.get(stage) ?? []), record])
+    const members = stages.get(stage)
+    if (members === undefined) {
+      stages.set(stage, [record])
+    } else {
+      members.push(record)
+    }
   }
   return stages
 }
@@ -149,6 +167,7 @@ export const solverUsage = (
 ): SolverUsage => {
   const { sessions, agents, records, readings, stageOf } = observationsOf(source, run)
   const stages = byStage(records, stageOf)
+  const facts = agentFacts(readings)
   return {
     run,
     journal: {
@@ -159,7 +178,7 @@ export const solverUsage = (
       unassigned: usageTotals(stages.get(null) ?? []),
       sessions: sessions.map((session) => sessionUsage(session, records, readings.get(session.id))),
     },
-    agents: agents.map((agent) => agentUsage(agent, records, readings.get(agent.session))),
+    agents: agents.map((agent) => agentUsage(agent, records, facts.get(agent.id) ?? [])),
     time: runTime(
       sessions,
       [...readings.values()].flatMap(({ own }) => own.map(({ fact }) => fact.at)),
