@@ -7,6 +7,7 @@ import {
   type EpochNs,
   type Fact,
   type FactDraftOf,
+  type FactEntityKey,
   type FactOf,
   type GitSnapshotPayload,
   type JsonValue,
@@ -349,13 +350,13 @@ const byKindAndRef = (left: RunContextEntry, right: RunContextEntry): number =>
   kindOrder.indexOf(left.kind) - kindOrder.indexOf(right.kind) || compareText(left.ref, right.ref)
 
 const contextFact = (
-  root: SessionKey,
+  subject: FactEntityKey,
   at: EpochNs,
   hash: ContentHash,
   entries: readonly RunContextEntry[],
 ): FactDraftOf<'context'> => ({
   kind: 'context',
-  entity_key: { kind: 'run', runtime: root.runtime, session: root.session },
+  entity_key: subject,
   speaker: 'runtime',
   urgent: false,
   at,
@@ -384,9 +385,15 @@ export const recordRunContext = async (store: Store, options: RunContextOptions)
     return null
   }
   const hash = contentHash(canonicalJson(entries))
+  const readSessions = sessions.map(({ session }) => session.id).sort(compareText)
+  const { key } = root.session
+  const subjects: FactEntityKey[] = [
+    { kind: 'run', runtime: key.runtime, session: key.session },
+    ...sessions.flatMap(({ session }) => (session.id === root.session.id ? [] : [session.key])),
+  ]
   return store.transaction((transaction) => {
     const { status, seq } = transaction.rawRecords.insert({
-      dedupe_key: DedupeKey.parse(`context:${run}:${hash}`),
+      dedupe_key: DedupeKey.parse(`context:${run}:${contentHash(canonicalJson([hash, readSessions]))}`),
       channel: 'context',
       runtime: null,
       stream: null,
@@ -398,7 +405,11 @@ export const recordRunContext = async (store: Store, options: RunContextOptions)
       parse_state: 'parsed',
     })
     if (status === 'inserted') {
-      transaction.facts.insert(seq, daemonNormalizer, [contextFact(root.session.key, at, hash, entries)])
+      transaction.facts.insert(
+        seq,
+        daemonNormalizer,
+        subjects.map((subject) => contextFact(subject, at, hash, entries)),
+      )
     }
     return { seq, content_hash: hash, entries }
   })

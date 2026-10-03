@@ -3,9 +3,13 @@ import { dirname, join, resolve } from 'node:path'
 import {
   DedupeKey,
   EpochNs,
+  type Fact,
   type GitSnapshotPayload,
   type JsonValue,
   NormalizerVersion,
+  ObserverCallId,
+  type ObserverInput,
+  type ObserverNeed,
   type RawRecord,
   type RunContext,
   type RunContextEntry,
@@ -16,6 +20,9 @@ import {
 import { objectId, runId } from '@aang/contract/ids'
 import {
   applyChangeSet,
+  applyObserverResponse,
+  beginObserverCall,
+  beginObserverFollowUp,
   createEngine,
   type Engine,
   recordRunContext,
@@ -27,6 +34,7 @@ import { expect, test } from 'vitest'
 import { type HookDelivery, hookBatch, jsonlFile } from './batches.js'
 import { adapters, factsOf, recordsOf, sessionKey } from './harness.js'
 import { createHome } from './home.js'
+import { inputFor } from './observer-fixtures.js'
 import { claudeHook, claudeTranscript, codexRollout } from './samples.js'
 import { createRepository, git } from './workspace.js'
 
@@ -610,6 +618,142 @@ test('sessions of another vendor enter the context only with crossVendor', async
     ].sort(byRef),
   ])
   expect(await recordRunContext(store, optionsOf(workspace, run, { backend: 'codex' }))).toBeNull()
+})
+
+interface ObserverCalls {
+  readonly input: (fact: Fact, context: RunContext) => ObserverInput
+  readonly begin: (id: string, input: ObserverInput, crossVendor: boolean) => void
+  readonly respond: (id: string, input: ObserverInput, needs: ObserverNeed[]) => string
+  readonly followUp: (previous: string, id: string, crossVendor: boolean) => ObserverInput
+}
+
+const observerCalls = (store: Store, run: RunId): ObserverCalls => ({
+  input: (fact, context) => ({ ...inputFor(store, [fact], run), context }),
+  begin: (id, input, crossVendor) => {
+    store.transaction((transaction) => {
+      beginObserverCall(transaction, {
+        id: ObserverCallId.parse(id),
+        backend: 'claude',
+        crossVendor,
+        input,
+        at: recordedAt,
+      })
+    })
+  },
+  respond: (id, input, needs) =>
+    store.transaction(
+      (transaction) =>
+        applyObserverResponse(transaction, {
+          call: ObserverCallId.parse(id),
+          output: { base_version: input.model.version, ops: [], needs },
+          at: recordedAt,
+        }).status,
+    ),
+  followUp: (previous, id, crossVendor) =>
+    store.transaction((transaction) =>
+      beginObserverFollowUp(transaction, {
+        previous: ObserverCallId.parse(previous),
+        id: ObserverCallId.parse(id),
+        at: recordedAt,
+        crossVendor,
+      }),
+    ),
+})
+
+const materialsOf = ({ materials }: ObserverInput): string[] =>
+  materials.map((material) => (material.kind === 'unavailable' ? material.reason : material.kind))
+
+const sessionFacts = (store: Store, session: string): Fact[] =>
+  factsOf(store).filter(({ kind, entity_key }) => kind !== 'context' && entity_key.session === session)
+
+test('a context assembled across vendors reaches only an observer with crossVendor', async ({ onTestFinished }) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, root, project, cwd } = workspace
+  const codexCwd = join(root, 'codex-project')
+  const restricted = 'CODEX-ONLY-RESTRICTED-INSTRUCTIONS'
+  await write(join(project, 'CLAUDE.md'), 'Claude rules\n')
+  await write(join(codexCwd, 'AGENTS.md'), `${restricted}\n`)
+  const source = { session: 'guarded-session', cwd }
+  const run = runOf('claude', source.session)
+  attach(store, run, sessionKey('claude', source.session), sessionKey('codex', codexThread))
+  const start = claudeTranscript(source).slice(0, 12)
+  await engine.ingest(claudeFile(workspace, 'guarded', start, 27n).batch(1, start.length))
+  const lines = codexLines(codexCwd)
+  await engine.ingest(codexFile(project, 'guarded', lines, 29n).batch(1, lines.length))
+  const shared = await recorded(store, optionsOf(workspace, run, { crossVendor: true }))
+  const own = await recorded(store, optionsOf(workspace, run))
+  expect(JSON.stringify(shared.entries)).toContain(restricted)
+  expect(JSON.stringify(own.entries)).not.toContain(restricted)
+  const subjectsOf = (context: RunContext) => store.facts.ofRecord(context.seq).map(({ entity_key }) => entity_key)
+  const runSubject = { kind: 'run', runtime: 'claude', session: source.session }
+  expect(subjectsOf(shared)).toEqual([runSubject, sessionKey('codex', codexThread)])
+  expect(subjectsOf(own)).toEqual([runSubject])
+  const [guardedFact, directFact, openFact] = sessionFacts(store, source.session)
+  if (guardedFact === undefined || directFact === undefined || openFact === undefined) {
+    throw new Error('the transcript must produce facts of the root session')
+  }
+  const { input, begin, respond, followUp } = observerCalls(store, run)
+  const needs: ObserverNeed[] = [
+    { kind: 'raw_record', seq: shared.seq },
+    { kind: 'raw_record', seq: own.seq },
+  ]
+  const blocked = `context record ${String(shared.seq)} comes from a vendor other than backend claude`
+
+  const guarded = input(guardedFact, own)
+  begin('guarded', guarded, false)
+  expect(respond('guarded', guarded, needs)).toBe('needs_requested')
+  const guardedMaterials = followUp('guarded', 'guarded-follow-up', false)
+  expect(materialsOf(guardedMaterials)).toEqual(['cross_vendor', 'raw_record'])
+  expect(JSON.stringify(guardedMaterials)).not.toContain(restricted)
+  expect(respond('guarded-follow-up', guarded, [])).toBe('accepted')
+
+  expect(() => {
+    begin('direct', input(directFact, shared), false)
+  }).toThrow(blocked)
+
+  const open = input(openFact, shared)
+  begin('open', open, true)
+  expect(respond('open', open, needs)).toBe('needs_requested')
+  expect(() => followUp('open', 'open-follow-up', false)).toThrow(blocked)
+  const openMaterials = followUp('open', 'open-follow-up', true)
+  expect(materialsOf(openMaterials)).toEqual(['raw_record', 'raw_record'])
+  expect(JSON.stringify(openMaterials.materials[0])).toContain(restricted)
+})
+
+test('a context of the same text assembled with another vendor stays apart from the own one', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, project, cwd } = workspace
+  await write(join(project, 'CLAUDE.md'), 'Claude rules\n')
+  const source = { session: 'twin-session', cwd }
+  const run = runOf('claude', source.session)
+  attach(store, run, sessionKey('claude', source.session), sessionKey('codex', codexThread))
+  const start = claudeTranscript(source).slice(0, 12)
+  await engine.ingest(claudeFile(workspace, 'twin', start, 31n).batch(1, start.length))
+  const lines = codexRollout({ thread: codexThread, cwd: join('relative', 'codex') }).slice(0, 20)
+  await engine.ingest(codexFile(project, 'twin', lines, 33n).batch(1, lines.length))
+  expect(store.observations.getSession(objectId(sessionKey('codex', codexThread)))?.run).toBe(run)
+
+  const shared = await recorded(store, optionsOf(workspace, run, { crossVendor: true }))
+  const own = await recorded(store, optionsOf(workspace, run))
+  expect(own.entries).toEqual(shared.entries)
+  expect(own.seq).not.toBe(shared.seq)
+  expect(await recordRunContext(store, optionsOf(workspace, run))).toEqual(own)
+  expect(await recordRunContext(store, optionsOf(workspace, run, { crossVendor: true }))).toEqual(shared)
+  expect(contextRecords(store)).toHaveLength(2)
+
+  const [ownFact, sharedFact] = sessionFacts(store, source.session)
+  if (ownFact === undefined || sharedFact === undefined) {
+    throw new Error('the transcript must produce facts of the root session')
+  }
+  const { input, begin, respond } = observerCalls(store, run)
+  const guarded = input(ownFact, own)
+  begin('guarded', guarded, false)
+  expect(respond('guarded', guarded, [])).toBe('accepted')
+  expect(() => {
+    begin('shared', input(sharedFact, shared), false)
+  }).toThrow(`context record ${String(shared.seq)} comes from a vendor other than backend claude`)
 })
 
 test('a nested worktree does not admit the snapshot of an enclosing worktree of a skipped session', async ({

@@ -199,8 +199,13 @@ criteria and attention items of the snapshot, the facts of the batch with their
 sessions, agents and actions, the agents of collapsed facts and of the backlog, and
 the artifact versions with the actions that produced them. Snapshot entities must
 belong to the run. The context record follows the raw record rule through its
-`context` fact keyed by the run of the root session (F.7a). An artifact version must
-be bound to the run, so it is refused until E.7b provides its storage.
+`context` facts, one keyed by the run of the root session and one for every other
+session whose data the context was assembled from (F.7a). A context that read a
+session of another vendor is therefore refused without `crossVendor`, whether it is
+the context of the input, the input checked again before a follow-up or a requested
+raw record. An
+artifact version must be bound to the run, so it is refused until E.7b provides its
+storage.
 `beginObserverCall` refuses an input with any violation and a first call that already
 carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started
@@ -409,11 +414,17 @@ adds them.
 
 Entries are ordered by kind and `ref`, and `content_hash` is the SHA-256 of their
 canonical JSON. A nonempty context is stored as a raw record of the `context` channel
-(position `daemon`, no runtime or stream) whose dedupe key is the run and the hash,
-with one `context` fact keyed by the run of the root session that lists the sources.
-An unchanged context, including one that returns to an earlier state, reuses the
-existing record, so it is written once and its `seq` can be cited.
+(position `daemon`, no runtime or stream). Its `context` facts list the sources and
+record where they come from: one fact is keyed by the run of the root session, and
+each other session that was read gets a fact keyed by that session. The scope of
+the observer input (F.7c) admits the record only when it admits every one of these
+sessions, so a context that includes another vendor reaches the observer only with
+`crossVendor`. The dedupe key is the run, the hash and the sessions that were read. An
+unchanged context assembled from the same sessions, including one that returns to an
+earlier state, reuses the existing record, so it is written once and its `seq` can
+be cited; the same text assembled from other sessions, for example with
+`crossVendor`, is a separate record with its own facts.
 `storedRunContext(rawRecords, seq)` reproduces the `RunContext` of a record.
 Records of the `context` and `snapshot` channels are not events of a session: they do
-not change its projection, freshness or `last_event_at`. The `context` fact is not
+not change its projection, freshness or `last_event_at`. The `context` facts are not
 queued for interpretation.
