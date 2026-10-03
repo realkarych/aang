@@ -43,6 +43,7 @@ interface SnapshotFile {
   readonly path: string
   readonly source: SnapshotRoot
   seen: string | null
+  recheckAt: EpochNs | null
   emitted: ContentHash | null
   unsettled: Unsettled | null
   failure: Failure | null
@@ -66,8 +67,10 @@ const mtimeGranularityNs = millisecondsToNs(2_000)
 
 const fingerprint = (stats: BigIntStats): string => [stats.dev, stats.ino, stats.size, stats.mtimeNs].join(':')
 
-const settledFingerprint = (stats: BigIntStats, startedAt: EpochNs): string | null =>
-  stats.mtimeNs + mtimeGranularityNs <= startedAt ? fingerprint(stats) : null
+const recheckAfter = (stats: BigIntStats, startedAt: EpochNs): EpochNs | null => {
+  const trustedFrom = epochNs(stats.mtimeNs + mtimeGranularityNs)
+  return trustedFrom > startedAt ? trustedFrom : null
+}
 
 const isJson = (text: string): boolean => {
   try {
@@ -105,7 +108,7 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     if (existing !== undefined) {
       return existing
     }
-    const file: SnapshotFile = { path, source, seen: null, emitted: null, unsettled: null, failure: null }
+    const file: SnapshotFile = { path, source, seen: null, recheckAt: null, emitted: null, unsettled: null, failure: null }
     files.set(path, file)
     return file
   }
@@ -139,6 +142,7 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     const emitted = file.emitted
     file.emitted = null
     file.seen = null
+    file.recheckAt = null
     if (dirty.get(file.path) !== file) {
       files.delete(file.path)
     }
@@ -166,7 +170,8 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
   }
 
   const loaded = (file: SnapshotFile, { stats, content, startedAt }: Loaded): CollectedRecord[] => {
-    file.seen = settledFingerprint(stats, startedAt)
+    file.seen = fingerprint(stats)
+    file.recheckAt = recheckAfter(stats, startedAt)
     const hash = contentHash(content)
     const payload = content.toString('utf8')
     if (hash !== file.emitted && !complete(file, hash, payload)) {
@@ -213,6 +218,9 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     }
   }
 
+  const unchanged = (file: SnapshotFile, stats: BigIntStats | null): boolean =>
+    stats !== null && fingerprint(stats) === file.seen && (file.recheckAt === null || file.recheckAt > nowNs())
+
   const listed = async (root: TreeRoot, paths: readonly string[]): Promise<void> => {
     const source = sources.get(root)
     if (source === undefined) {
@@ -222,7 +230,7 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     for (const path of present) {
       const stats = await stat(path, { bigint: true }).catch(absent)
       const file = track(source, path)
-      if (stats === null || fingerprint(stats) !== file.seen) {
+      if (!unchanged(file, stats)) {
         mark(file)
       }
     }

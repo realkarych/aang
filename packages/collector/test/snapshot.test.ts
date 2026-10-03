@@ -278,7 +278,7 @@ test('with fsWatch off registry files that appear, change and disappear are foun
   ])
 })
 
-test('a rewrite that keeps the size and the modification time of the issued content is found by the next scan', async ({
+test('a rewrite that keeps the size and the modification time of the issued content is found by a later scan', async ({
   onTestFinished,
 }) => {
   const sandbox = await createSandbox(onTestFinished)
@@ -299,10 +299,13 @@ test('a rewrite that keeps the size and the modification time of the issued cont
 
   const secondAt = await writeWithinTick(second)
   expect(secondAt).toBe(firstAt)
-  running.collector.rescan([])
-  await vi.waitFor(() => {
-    expect(running.records()).toHaveLength(2)
-  })
+  await vi.waitFor(
+    () => {
+      running.collector.rescan([])
+      expect(running.records()).toHaveLength(2)
+    },
+    { timeout: 10_000, interval: 100 },
+  )
   running.collector.rescan([])
   await sleep(200)
 
