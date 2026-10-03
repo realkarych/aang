@@ -622,6 +622,11 @@ describe('view rules', () => {
     expect(store.views.rules(run)).toEqual([revoked])
     expect(review.revoke(ViewRuleId.parse('999'), 70)).toBeNull()
     expect(review.revoke(ViewRuleId.parse('not-a-rule'), 70)).toBeNull()
+    for (const unknown of ['9223372036854775807', '9223372036854775808', '1'.repeat(40)]) {
+      expect(review.revoke(ViewRuleId.parse(unknown), 70)).toBeNull()
+      expect(store.views.rule(run, ViewRuleId.parse(unknown))).toBeNull()
+    }
+    expect(store.views.rules(run)).toEqual([revoked])
     expect(
       store.transaction((transaction) =>
         revokeViewRule(transaction, { run: runId(sessionKey('claude', 'other')), id, at: at(70) }),

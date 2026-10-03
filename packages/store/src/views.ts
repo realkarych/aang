@@ -73,7 +73,17 @@ const markColumns = ['run_id', 'model_version', 'change_seq', 'viewed_at', 'mark
 
 const ruleColumns = 'id, run_id, action, selector, params, source, created_at, revoked_at'
 
-const ruleNumber = /^[1-9][0-9]*$/
+const ruleNumber = /^[1-9][0-9]{0,18}$/
+
+const largestRuleNumber = 9_223_372_036_854_775_807n
+
+const ruleKey = (id: ViewRuleId): bigint | null => {
+  if (!ruleNumber.test(id)) {
+    return null
+  }
+  const key = BigInt(id)
+  return key <= largestRuleNumber ? key : null
+}
 
 const attentionColumns = ['item_id', 'viewed_at', 'dismissed_at', 'change_seq']
 
@@ -151,10 +161,11 @@ export const createViews = (database: DatabaseSync): ViewRepository => {
   const markRow = (run: RunId): MarkRow | undefined => selectMark.get(run) as MarkRow | undefined
 
   const rule = (run: RunId, id: ViewRuleId): ViewRule | null => {
-    if (!ruleNumber.test(id)) {
+    const key = ruleKey(id)
+    if (key === null) {
       return null
     }
-    const row = selectRule.get(run, BigInt(id)) as RuleRow | undefined
+    const row = selectRule.get(run, key) as RuleRow | undefined
     return row === undefined ? null : toRule(row)
   }
 
