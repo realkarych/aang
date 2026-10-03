@@ -84,6 +84,13 @@ const admitInput = (transaction: Transaction, scope: InputScope, input: Observer
   }
 }
 
+const callInProgress = (transaction: Transaction, run: RunId): boolean => {
+  const unfinished = new Set(transaction.observerCalls.unfinished())
+  return transaction.interpretations
+    .ofRun(run)
+    .some(({ status, observer_call: call }) => status === 'in_call' || (status === 'deferred' && call !== null && unfinished.has(call)))
+}
+
 export const beginObserverCall = (transaction: Transaction, call: ObserverCallBegin): void => {
   const { input, id, backend, crossVendor } = call
   const { run } = input
@@ -93,15 +100,15 @@ export const beginObserverCall = (transaction: Transaction, call: ObserverCallBe
   ) {
     throw new Error('observer call must start from the current run version')
   }
-  if (transaction.interpretations.ofRun(run.id).some(({ status }) => status === 'in_call')) {
+  if (callInProgress(transaction, run.id)) {
     throw new Error(`run ${run.id} already has an observer call`)
   }
   if (input.materials.length > 0) {
     throw new Error('materials are sent only in a follow-up call')
   }
   const facts = batchFacts(input)
-  if (facts.length === 0) {
-    throw new Error('observer calls require a nonempty batch')
+  if (facts.length === 0 && input.batch.backlog === null) {
+    throw new Error('observer calls require a nonempty batch or a backlog summary')
   }
   admitInput(transaction, inputScope(transaction, { run: run.id, backend, crossVendor }), input)
   transaction.observerCalls.start({ id, backend, input, at: call.at })
@@ -394,7 +401,7 @@ export const applyObserverResponse = (
     verdict: rejected ? 'rejected' : 'accepted',
     reasons: context.rejections,
     usage: response.usage ?? null,
-    delay_ms: rejected ? null : batchDelay(transaction, call.input, response.at),
+    delay_ms: rejected || batch.length === 0 ? null : batchDelay(transaction, call.input, response.at),
     at: response.at,
   })
   return rejected ? { status: 'rejected', rejections: context.rejections } : { status: 'accepted', version }

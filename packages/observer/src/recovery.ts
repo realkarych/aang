@@ -1,5 +1,6 @@
 import { EpochNs, ModelVersion, type ObserverErrorClass, type ObserverInput, type ObserverState, RunId, type Runtime } from '@aang/contract'
 import type { ObserverCallError } from '@aang/store'
+import { z } from 'zod'
 import type { LaunchErrorClass, LaunchFailure } from './backend.js'
 
 export interface RecoveryLimits {
@@ -20,6 +21,16 @@ export type Health =
 export type Unavailable = Extract<Health, { readonly retryAt: number }>
 
 export const healthy: Health = { kind: 'ok' }
+
+const StoredHealth = z.discriminatedUnion('kind', [
+  z.strictObject({ kind: z.literal('backoff'), attempt: z.int().positive(), until: z.int() }),
+  z.strictObject({ kind: z.literal('auth'), retryAt: z.int() }),
+  z.strictObject({ kind: z.enum(['limit', 'transient']), retryAt: z.int(), intervalMs: z.int().positive() }),
+])
+
+export const recoverySetting = (runtime: Runtime): string => `observer_recovery_${runtime}`
+
+export const storedHealth = (value: unknown): Health => (value === undefined ? healthy : StoredHealth.parse(value))
 
 const unavailable = (
   health: Health,

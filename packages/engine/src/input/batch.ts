@@ -345,6 +345,12 @@ const previousAttempt = (transaction: Transaction, batch: readonly Queued[]): Ob
   return latest ?? null
 }
 
+const summaryAttempt = (transaction: Transaction, run: RunId): ObserverInput['previous_attempt'] => {
+  const latest = transaction.observerCalls.latest(run)
+  const call = latest === null ? null : transaction.observerCalls.get(latest.id)
+  return call === null || call.verdict === 'accepted' || call.input.batch.backlog === null ? null : attemptOf(call)
+}
+
 const positive = (values: readonly number[]): boolean => values.every((value) => Number.isSafeInteger(value) && value > 0)
 
 const catchUp = (
@@ -396,11 +402,13 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
   })
   transaction.interpretations.withdraw(run, queued.flatMap(({ fact }) => (interpretable(fact) ? [] : [fact.id])))
   const batch = catchUp(transaction, start, exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at))
-  if (batch.length === 0) {
+  const summarized = summaryOf(transaction, scope, at)
+  if (batch.length === 0 && summarized.length === 0) {
     return null
   }
-  const summarized = summaryOf(transaction, scope, at)
   const backlog = backlogOf(transaction, scope, summarized)
+  const attempt = (queued: readonly Queued[]): ObserverInput['previous_attempt'] =>
+    batch.length > 0 ? previousAttempt(transaction, queued) : summaryAttempt(transaction, run)
   const description = describeRun(transaction, scope, entity.value)
   const model = snapshotOf(transaction, scope)
   const context = admittedContext(transaction, scope, start.context ?? null)
@@ -418,10 +426,10 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
         model: clipSnapshot(model, stateText),
         batch: { facts: facts.map(({ input }) => input), collapsed, backlog, artifact_versions: [] },
         materials: [],
-        previous_attempt: clipAttempt(previousAttempt(transaction, chosen.map(({ queued }) => queued)), stateText),
+        previous_attempt: clipAttempt(attempt(chosen.map(({ queued }) => queued)), stateText),
       }
     }
-  const longest = longestStateText({ run: description, model, previous_attempt: previousAttempt(transaction, batch) })
+  const longest = longestStateText({ run: description, model, previous_attempt: attempt(batch) })
   const pack = (count: number, omitted: boolean): ObserverInput | null =>
     packObserverInput(
       { count, minimumCount: 1, batchText: limits.textLength, stateText: longest },
