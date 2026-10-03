@@ -296,6 +296,12 @@ const previousAttempt = (transaction: Transaction, batch: readonly Queued[]): Ob
   return latest ?? null
 }
 
+const summaryAttempt = (transaction: Transaction, run: RunId): ObserverInput['previous_attempt'] => {
+  const latest = transaction.observerCalls.latest(run)
+  const call = latest === null ? null : transaction.observerCalls.get(latest.id)
+  return call === null || call.verdict === 'accepted' || call.input.batch.backlog === null ? null : attemptOf(call)
+}
+
 const positive = (values: readonly number[]): boolean => values.every((value) => Number.isSafeInteger(value) && value > 0)
 
 const catchUp = (
@@ -346,10 +352,10 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     return fact === null ? [] : [{ pending, fact }]
   })
   const batch = catchUp(transaction, start, exclude(transaction, scope, queued, at))
-  if (batch.length === 0) {
+  const summarized = summaryOf(transaction, scope, at)
+  if (batch.length === 0 && summarized.length === 0) {
     return null
   }
-  const summarized = summaryOf(transaction, scope, at)
   const input: ObserverInput = {
     run: describeRun(transaction, scope, entity.value),
     context: null,
@@ -361,7 +367,7 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
       artifact_versions: [],
     },
     materials: [],
-    previous_attempt: previousAttempt(transaction, batch),
+    previous_attempt: batch.length > 0 ? previousAttempt(transaction, batch) : summaryAttempt(transaction, run),
   }
   beginObserverCall(transaction, { id, backend, crossVendor, input, at })
   transaction.interpretations.summarize(

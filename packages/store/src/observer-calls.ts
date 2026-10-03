@@ -70,6 +70,11 @@ export interface ObserverCheck {
   readonly finished_at: EpochNs
 }
 
+export interface LatestObserverCall {
+  readonly id: ObserverCallId
+  readonly started_at: EpochNs
+}
+
 export interface ObserverSpending {
   readonly tokens: number
   readonly earliest: EpochNs | null
@@ -78,7 +83,7 @@ export interface ObserverSpending {
 export interface ObserverCallReader {
   readonly get: (id: ObserverCallId) => StoredObserverCall | null
   readonly unfinished: () => ObserverCallId[]
-  readonly latestStart: (run: RunId) => EpochNs | null
+  readonly latest: (run: RunId) => LatestObserverCall | null
   readonly checks: () => ObserverCheck[]
   readonly spending: (since: EpochNs) => ObserverSpending
 }
@@ -139,9 +144,9 @@ export const createObserverCalls = (database: DatabaseSync) => {
     database,
     "SELECT id FROM observer_calls WHERE kind = 'batch' AND finished_at IS NULL ORDER BY started_at, id",
   )
-  const selectLatestStart = prepareStatement(
+  const selectLatest = prepareStatement(
     database,
-    "SELECT started_at FROM observer_calls WHERE run_id = ? AND kind = 'batch' ORDER BY started_at DESC LIMIT 1",
+    "SELECT id, started_at FROM observer_calls WHERE run_id = ? AND kind = 'batch' ORDER BY started_at DESC, rowid DESC LIMIT 1",
   )
   const selectChecks = prepareStatement(
     database,
@@ -171,9 +176,9 @@ export const createObserverCalls = (database: DatabaseSync) => {
   )
   const reader: ObserverCallReader = {
     unfinished: () => (selectUnfinished.all() as { id: string }[]).map(({ id }) => ObserverCallId.parse(id)),
-    latestStart: (run) => {
-      const row = selectLatestStart.get(run) as { started_at: bigint } | undefined
-      return row === undefined ? null : EpochNs.parse(row.started_at)
+    latest: (run) => {
+      const row = selectLatest.get(run) as { id: string; started_at: bigint } | undefined
+      return row === undefined ? null : { id: ObserverCallId.parse(row.id), started_at: EpochNs.parse(row.started_at) }
     },
     get: (id) => {
       const row = select.get(id) as CallRow | undefined

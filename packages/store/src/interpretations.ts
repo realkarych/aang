@@ -26,6 +26,7 @@ export interface InterpretationReader {
   readonly ofRun: (run: RunId) => FactInterpretation[]
   readonly ofCall: (call: ObserverCallId) => FactInterpretation[]
   readonly pendingRuns: () => RunId[]
+  readonly backlogRuns: () => RunId[]
   readonly pending: (run: RunId) => PendingFact[]
   readonly unsummarized: (run: RunId) => FactId[]
 }
@@ -84,7 +85,7 @@ const fromPendingRow = (row: PendingRow): PendingFact => ({
 export const recoverInterpretations = (database: DatabaseSync): void => {
   database.exec(
     `UPDATE fact_interpretation SET status = 'pending', attempts = MAX(attempts - 1, 0) WHERE status = 'in_call';
-     UPDATE fact_interpretation SET observer_call_id = NULL
+     UPDATE fact_interpretation SET observer_call_id = NULL, attempts = MAX(attempts - 1, 0)
      WHERE status = 'deferred' AND observer_call_id IN (
        SELECT id FROM observer_calls WHERE verdict IS NULL OR verdict <> 'accepted'
      )`,
@@ -119,6 +120,10 @@ export const createInterpretations = (database: DatabaseSync) => {
      WHERE i.run_id = ? AND i.status = 'pending'
      ORDER BY f.seq, f.record_index`,
   )
+  const backlogRuns = prepareStatement(
+    database,
+    "SELECT DISTINCT run_id FROM fact_interpretation WHERE observer_call_id IS NULL AND status = 'deferred' ORDER BY run_id",
+  )
   const unsummarized = prepareStatement(
     database,
     `SELECT i.fact_id FROM fact_interpretation i JOIN facts f ON f.id = i.fact_id
@@ -127,12 +132,17 @@ export const createInterpretations = (database: DatabaseSync) => {
   )
   const summarize = prepareStatement(
     database,
-    `UPDATE fact_interpretation SET observer_call_id = ?
+    `UPDATE fact_interpretation SET observer_call_id = ?, attempts = attempts + 1
      WHERE run_id = ? AND fact_id = ? AND status = 'deferred' AND observer_call_id IS NULL`,
   )
   const unlink = prepareStatement(
     database,
     "UPDATE fact_interpretation SET observer_call_id = NULL WHERE observer_call_id = ? AND status = 'deferred'",
+  )
+  const unlinkReleased = prepareStatement(
+    database,
+    `UPDATE fact_interpretation SET observer_call_id = NULL, attempts = MAX(attempts - 1, 0)
+     WHERE observer_call_id = ? AND status = 'deferred'`,
   )
   const begin = prepareStatement(
     database,
@@ -165,7 +175,8 @@ export const createInterpretations = (database: DatabaseSync) => {
   )
   const close = prepareStatement(
     database,
-    `UPDATE fact_interpretation SET status = :status, observer_call_id = IIF(:status = 'deferred', NULL, observer_call_id)
+    `UPDATE fact_interpretation SET status = :status, observer_call_id = IIF(:status = 'deferred', NULL, observer_call_id),
+       attempts = IIF(:status = 'deferred', 0, attempts)
      WHERE run_id = :run AND fact_id = :fact AND (
        status = 'pending' OR (:status = 'not_interpreted' AND status = 'deferred' AND observer_call_id IS NULL)
      )`,
@@ -178,13 +189,19 @@ export const createInterpretations = (database: DatabaseSync) => {
   const exhaust = prepareStatement(
     database,
     `UPDATE fact_interpretation SET status = 'not_interpreted'
-     WHERE observer_call_id = ? AND status = 'pending' AND attempts >= ?
+     WHERE attempts >= :attempts AND (
+       (observer_call_id = :call AND status = 'pending') OR (
+         status = 'deferred' AND observer_call_id IS NULL
+         AND run_id = (SELECT run_id FROM observer_calls WHERE id = :call)
+       )
+     )
      RETURNING fact_id`,
   )
   const reader: InterpretationReader = {
     ofRun: (run) => (byRun.all(run) as InterpretationRow[]).map(fromRow),
     ofCall: (call) => (byCall.all(call) as InterpretationRow[]).map(fromRow),
     pendingRuns: () => (pendingRuns.all() as { id: string }[]).map(({ id }) => RunId.parse(id)),
+    backlogRuns: () => (backlogRuns.all() as { run_id: string }[]).map(({ run_id: run }) => RunId.parse(run)),
     pending: (run) => (pending.all(run) as PendingRow[]).map(fromPendingRow),
     unsummarized: (run) => (unsummarized.all(run) as { fact_id: string }[]).map(({ fact_id }) => FactId.parse(fact_id)),
   }
@@ -236,12 +253,12 @@ export const createInterpretations = (database: DatabaseSync) => {
     },
     release: (call) => {
       context.assertActive()
-      unlink.run(call)
+      unlinkReleased.run(call)
       return Number(release.run(call).changes)
     },
     exhaust: (call, attempts) => {
       context.assertActive()
-      return (exhaust.all(call, attempts) as { fact_id: string }[]).map(({ fact_id }) => FactId.parse(fact_id))
+      return (exhaust.all({ call, attempts }) as { fact_id: string }[]).map(({ fact_id }) => FactId.parse(fact_id))
     },
   })
   return { reader, writer }

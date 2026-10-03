@@ -284,7 +284,8 @@ starts the next call of a run from its pending facts in the order of their recor
   `batch.backlog`: the time range, the number of facts and, per agent in scope, the
   facts by tool (the fact kind when the fact has no action). A deferred fact outside
   the input scope becomes `not_interpreted` like a pending one. The summary rides with
-  a batch and never starts a call on its own;
+  a batch; when no pending fact is eligible, the call carries the summary alone with
+  an empty batch, so a run whose whole queue was deferred still reaches the observer;
 - the input carries the run description with the sessions and agents in scope, the
   snapshot of the current version (active stages, criteria, open attention items),
   the batch facts with their session, agent and action and payload strings cut at
@@ -292,11 +293,17 @@ starts the next call of a run from its pending facts in the order of their recor
   `previous_attempt`. The run goal and brief, stages, criteria and attention items
   enter only when their grounds are in scope; a reference to a stage left out becomes
   `null`. The reasons carry over calls that ended without a response, so a backend
-  failure or a restart after a rejection does not drop them. The context, collapsed
+  failure or a restart after a rejection does not drop them. A call with the summary
+  alone takes them from the latest call of the run when that call carried a summary
+  and was not accepted. The context, collapsed
   facts and artifact versions stay empty: the batch does not pack them yet;
 - the call is recorded by `beginObserverCall`, and the summarized deferred facts refer
-  to it. Without a run entity or an eligible fact nothing starts and the result is
-  `null`.
+  to it. Without a run entity or an eligible fact or deferred fact nothing starts and
+  the result is `null`.
+
+`beginObserverCall` refuses a second call of a run while facts of the run are
+`in_call` or summarized by an unfinished call, and refuses a call with neither a fact
+nor a summary.
 
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a
@@ -305,24 +312,29 @@ schema rejection and keeps the attempt; `failed`, a backend failure, returns it 
 when the caller passes them. `applyObserverResponse` and `failObserverCall` store the
 usage of the call. An accepted response stores the delay of its batch: from the
 earliest `observed_at` of the batch records to the acceptance, so a `needs` follow-up
-counts the time of the first call.
+counts the time of the first call. A call with the summary alone has no batch records
+and no delay.
 
 The summarized deferred facts stay with an accepted call. A rejected or failed call
 releases them, and the next batch summarizes them again; a `needs` follow-up takes
-them over with the batch.
+them over with the batch. Attempts of a deferred fact count its summaries: deferral
+resets them, each summary spends one, a failed call gives it back, and a rejection
+keeps it.
 
 When the store opens, facts left `in_call` by a stopped process return to `pending`
 and get the attempt of the interrupted call back: a stop is not a content failure.
 They keep the reference to the interrupted call, which carries the reasons of the
 previous rejection. Deferred facts summarized by a call without an accepted response
-are released for the next summary.
+are released for the next summary and get the attempt back.
 
 `exhaustObserverCall` turns the facts of a rejected call that reached the attempt
-limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call. The
+released deferred facts of its run that reached the limit become `not_interpreted`
+with them, so a summary rejected `attempts` times stops being sent.
 `boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
 defers any, and returns the active queue. Deferred facts reach the observer only in
-the backlog summary of a later batch.
+the backlog summary of a later call.
 
 ## Forks, bindings and session transfer
 

@@ -9,7 +9,7 @@ import {
   type ObserverResponseResult,
   startObserverBatch,
 } from '@aang/engine'
-import type { PendingFact, Store } from '@aang/store'
+import type { PendingFact, Store, Transaction } from '@aang/store'
 import type { AuthResult, LaunchFailure, ObserverRequest, ObserverResult } from './backend.js'
 import type { LaunchStatus } from './process.js'
 import {
@@ -20,7 +20,9 @@ import {
   healthy,
   probeInput,
   type RecoveryLimits,
+  recoverySetting,
   storedError,
+  storedHealth,
   waiting,
 } from './recovery.js'
 
@@ -82,6 +84,12 @@ interface Backend {
   readonly runtime: Runtime
   readonly executor: ObserverExecutor
   readonly recovery: Recovery
+}
+
+interface Queue {
+  readonly run: RunId
+  readonly queued: readonly PendingFact[]
+  readonly backlog: boolean
 }
 
 interface Candidate extends Backend {
@@ -164,7 +172,12 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
           {
             runtime,
             executor,
-            recovery: { health: healthy, generation: 0, inflight: 0, disabled: executor.status().state.state === 'disabled' },
+            recovery: {
+              health: storedHealth(store.settings.get(recoverySetting(runtime))),
+              generation: 0,
+              inflight: 0,
+              disabled: executor.status().state.state === 'disabled',
+            },
           },
         ]
   })
@@ -183,17 +196,25 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
   let published = ''
   let closed = false
 
-  const observe = (recovery: Recovery, started: number, next: Health): void => {
-    if (next === recovery.health || (next.kind !== 'ok' && started !== recovery.generation)) {
-      return
+  const after = (health: Health, failed: LaunchFailure | null, now: number): Health =>
+    failed === null ? healthy : afterFailure(health, failed, now, limits)
+
+  const transit = (transaction: Transaction, { runtime, recovery }: Backend, started: number, next: Health, now: number): Health | null => {
+    if (next === recovery.health || started !== recovery.generation) {
+      return null
     }
-    recovery.health = next
-    recovery.generation += 1
+    if (next.kind === 'ok') {
+      transaction.settings.remove(recoverySetting(runtime))
+    } else {
+      transaction.settings.save(recoverySetting(runtime), next, epoch(now))
+    }
+    return next
   }
 
-  const recover = (recovery: Recovery, started: number, failed: LaunchFailure | null): void => {
-    if (failed?.class !== 'cancelled') {
-      observe(recovery, started, failed === null ? healthy : afterFailure(recovery.health, failed, clock.now(), limits))
+  const adopt = (recovery: Recovery, next: Health | null): void => {
+    if (next !== null) {
+      recovery.health = next
+      recovery.generation += 1
     }
   }
 
@@ -229,13 +250,13 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     return healthState(entry.recovery.health) ?? (over ? { state: 'lagging', reason: 'budget' } : own)
   }
 
-  const runStateOf = (run: RunId, queued: readonly PendingFact[], now: number, over: boolean): ObserverState => {
+  const runStateOf = ({ run, queued, backlog }: Queue, now: number, over: boolean): ObserverState => {
     const runtime = override ?? runtimeOf(run)
     if (runtime === null) {
       return { state: 'ok' }
     }
     const current = backendStateOf(runtime, over)
-    return (current.state === 'ok' || current.state === 'lagging') && behind(queued, now)
+    return (current.state === 'ok' || current.state === 'lagging') && (backlog || behind(queued, now))
       ? { state: 'lagging', reason: 'backlog' }
       : current
   }
@@ -265,7 +286,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
   const expiryOf = (queued: readonly PendingFact[]): number =>
     Math.min(...queued.map(({ at }) => millisecondsOf(at))) + limits.queueAgeMs + 1
 
-  const candidateOf = (run: RunId, queued: readonly PendingFact[], now: number, over: boolean): Candidate | null => {
+  const candidateOf = ({ run, queued }: Queue, now: number, over: boolean): Candidate | null => {
     const runtime = override ?? runtimeOf(run)
     const entry = runtime === null ? undefined : backendOf(runtime)
     if (entry === undefined || !available(entry.executor)) {
@@ -278,47 +299,53 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     const bytes = queued.reduce((total, pending) => total + pending.bytes, 0)
     const full = queued.length >= limits.batchFacts || bytes >= limits.batchBytes
     const oldest = Math.min(...queued.map(({ observed_at: observed }) => millisecondsOf(observed)))
-    const ready = full || queued.some(({ urgent }) => urgent) ? now : oldest + (over ? limits.budgetDelayMs : limits.delayMs)
-    const latest = store.observerCalls.latestStart(run)
+    const ready =
+      queued.length === 0 || full || queued.some(({ urgent }) => urgent) ? now : oldest + (over ? limits.budgetDelayMs : limits.delayMs)
+    const latest = store.observerCalls.latest(run)
     const due = Math.max(
       ready,
-      latest === null ? -Infinity : millisecondsOf(latest) + limits.intervalMs,
+      latest === null ? -Infinity : millisecondsOf(latest.started_at) + limits.intervalMs,
       health.kind === 'backoff' ? health.until : -Infinity,
     )
-    return { ...entry, run, due, order: Math.min(...queued.map(({ seq }) => seq)) }
+    return { ...entry, run, due, order: Math.min(...queued.map(({ seq }) => seq), Number.MAX_SAFE_INTEGER) }
   }
 
-  const settle = (call: ObserverCallId, result: ObserverResult): ObserverResponseResult | null =>
-    store.transaction((transaction) => {
-      const at = epoch(clock.now())
-      if (!result.ok) {
-        const error = storedError(result.error)
-        if (result.error.class === 'invalid_output') {
-          failObserverCall(transaction, { call, outcome: 'rejected', message: result.error.message, error, at, usage: result.usage })
-          exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
-        } else {
-          failObserverCall(transaction, { call, outcome: 'failed', error, at, usage: result.usage })
-        }
-        return null
-      }
-      const response = applyObserverResponse(transaction, { call, output: result.output, at, usage: result.usage })
-      if (response.status === 'rejected') {
+  const record = (transaction: Transaction, call: ObserverCallId, result: ObserverResult, at: EpochNs): ObserverResponseResult | null => {
+    if (!result.ok) {
+      const error = storedError(result.error)
+      if (result.error.class === 'invalid_output') {
+        failObserverCall(transaction, { call, outcome: 'rejected', message: result.error.message, error, at, usage: result.usage })
         exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
+      } else {
+        failObserverCall(transaction, { call, outcome: 'failed', error, at, usage: result.usage })
       }
-      return response
-    })
+      return null
+    }
+    const response = applyObserverResponse(transaction, { call, output: result.output, at, usage: result.usage })
+    if (response.status === 'rejected') {
+      exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
+    }
+    return response
+  }
 
   const invoke = async (
-    { executor, recovery }: Candidate,
+    candidate: Candidate,
     call: ObserverCallId,
     input: ObserverInput,
     stopped: Promise<void>[],
   ): Promise<ObserverResponseResult | null> => {
+    const { executor, recovery } = candidate
     const started = recovery.generation
     const result = await executor.execute({ input, signal: controller.signal })
     stopped.push(result.stopped)
-    const response = settle(call, result)
-    recover(recovery, started, result.ok ? null : result.error)
+    const { response, next } = store.transaction((transaction) => {
+      const now = clock.now()
+      return {
+        response: record(transaction, call, result, epoch(now)),
+        next: transit(transaction, candidate, started, after(recovery.health, result.ok ? null : result.error, now), now),
+      }
+    })
+    adopt(recovery, next)
     return response
   }
 
@@ -376,14 +403,16 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
       })
   }
 
-  const check = async ({ runtime, executor, recovery }: Backend): Promise<Stopping> => {
+  const check = async (backend: Backend): Promise<Stopping> => {
+    const { runtime, executor, recovery } = backend
     const started = recovery.generation
     const startedAt = epoch(clock.now())
     const id = ObserverCallId.parse(randomUUID())
     if (recovery.health.kind === 'auth') {
       const result = await executor.authStatus(controller.signal)
       const failed = result.ok ? null : result.error
-      store.transaction((transaction) => {
+      const next = store.transaction((transaction) => {
+        const now = clock.now()
         transaction.observerCalls.check({
           id,
           kind: 'auth_status',
@@ -394,17 +423,17 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
           error: failed === null ? null : storedError(failed),
           usage: null,
           started_at: startedAt,
-          finished_at: epoch(clock.now()),
+          finished_at: epoch(now),
         })
+        return failed?.class === 'cancelled' ? null : transit(transaction, backend, started, afterAuthCheck(failed, now, limits), now)
       })
-      if (failed?.class !== 'cancelled') {
-        observe(recovery, started, afterAuthCheck(failed, clock.now(), limits))
-      }
+      adopt(recovery, next)
       return { stopped: result.stopped }
     }
     const input = probeInput(runtime)
     const result = await executor.execute({ input, signal: controller.signal })
-    store.transaction((transaction) => {
+    const next = store.transaction((transaction) => {
+      const now = clock.now()
       transaction.observerCalls.check({
         id,
         kind: 'probe',
@@ -415,10 +444,11 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
         error: result.ok ? null : storedError(result.error),
         usage: result.usage,
         started_at: startedAt,
-        finished_at: epoch(clock.now()),
+        finished_at: epoch(now),
       })
+      return transit(transaction, backend, started, after(recovery.health, result.ok ? null : result.error, now), now)
     })
-    recover(recovery, started, result.ok ? null : result.error)
+    adopt(recovery, next)
     return { stopped: result.stopped }
   }
 
@@ -452,12 +482,16 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     try {
       const now = clock.now()
       const { over, freesAt } = budgetOf(now)
-      const queues = store.interpretations
-        .pendingRuns()
-        .map((run) => ({ run, queued: queueOf(run, now) }))
-        .filter(({ queued }) => queued.length > 0)
+      const pending = store.interpretations.pendingRuns().map((run) => ({ run, queued: queueOf(run, now) }))
+      const backlogged = new Set(store.interpretations.backlogRuns())
+      const queues: Queue[] = [
+        ...pending.map((queue) => ({ ...queue, backlog: backlogged.has(queue.run) })),
+        ...[...backlogged].filter((run) => !pending.some((queue) => queue.run === run)).map((run) => ({ run, queued: [], backlog: true })),
+      ].filter(({ queued, backlog }) => queued.length > 0 || backlog)
       const wakeups = [
-        ...queues.flatMap(({ queued }) => [expiryOf(queued), ...(behind(queued, now) ? [] : [lagFrom(queued)])]),
+        ...queues.flatMap(({ queued }) =>
+          queued.length === 0 ? [] : [expiryOf(queued), ...(behind(queued, now) ? [] : [lagFrom(queued)])],
+        ),
         ...(freesAt === null ? [] : [freesAt]),
       ]
       for (const backend of configured) {
@@ -472,8 +506,8 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
         }
       }
       const candidates = queues
-        .flatMap(({ run, queued }) => {
-          const candidate = running.has(run) ? null : candidateOf(run, queued, now, over)
+        .flatMap((queue) => {
+          const candidate = running.has(queue.run) ? null : candidateOf(queue, now, over)
           return candidate === null ? [] : [candidate]
         })
         .sort((left, right) => left.due - right.due || left.order - right.order)
@@ -496,7 +530,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
       }
       publish(
         over,
-        queues.flatMap(({ run, queued }) => (runStateOf(run, queued, now, over).state === 'lagging' ? [run] : [])),
+        queues.flatMap((queue) => (runStateOf(queue, now, over).state === 'lagging' ? [queue.run] : [])),
       )
     } catch (error) {
       failure.resolve(error)
@@ -513,11 +547,23 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     }
   }
 
-  const unsubscribes = configured.map(({ executor, recovery }) =>
-    executor.subscribe((status) => {
+  const readmit = (backend: Backend): void => {
+    try {
+      adopt(
+        backend.recovery,
+        store.transaction((transaction) => transit(transaction, backend, backend.recovery.generation, healthy, clock.now())),
+      )
+    } catch (error) {
+      failure.resolve(error)
+    }
+  }
+
+  const unsubscribes = configured.map((backend) =>
+    backend.executor.subscribe((status) => {
+      const { recovery } = backend
       const disabled = status.state.state === 'disabled'
       if (recovery.disabled && !disabled) {
-        observe(recovery, recovery.generation, healthy)
+        readmit(backend)
       }
       recovery.disabled = disabled
       requestPlan()
@@ -546,7 +592,8 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     },
     state: (run) => {
       const now = clock.now()
-      return runStateOf(run, store.interpretations.pending(run), now, budgetOf(now).over)
+      const queue = { run, queued: store.interpretations.pending(run), backlog: store.interpretations.backlogRuns().includes(run) }
+      return runStateOf(queue, now, budgetOf(now).over)
     },
     backendState: (runtime) => backendStateOf(runtime, budgetOf(clock.now()).over),
     subscribe: (listener) => {

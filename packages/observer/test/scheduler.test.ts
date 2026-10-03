@@ -275,7 +275,7 @@ test('an overridden backend gets facts of another vendor with crossVendor', asyn
 })
 
 test('facts beyond the active queue are deferred from the oldest with a visible gap', async (context) => {
-  const scene = await createScene(context, { claude: [accepted], limits: { queueFacts: 3 } })
+  const scene = await createScene(context, { claude: [accepted, accepted], limits: { queueFacts: 3 } })
   const session = scene.claudeSession('session-backlog')
   await session.start(-25 * 60 * 60 * 1_000)
   await session.tools(5)
@@ -296,8 +296,13 @@ test('facts beyond the active queue are deferred from the oldest with a visible 
   await stale.permission(-25 * 60 * 60 * 1_000)
   scene.scheduler.wake()
   await scene.scheduler.idle()
-  expect(scene.tally(stale.run)).toEqual({ deferred: 2 })
-  expect(scene.calls(stale.run)).toEqual([])
+  const [summary] = scene.calls(stale.run)
+  expect(summary?.verdict).toBe('accepted')
+  expect(summary?.input.batch).toMatchObject({ facts: [], backlog: { facts: 2 } })
+  expect(scene.statuses(stale.run).map(({ status, observer_call: call }) => [status, call])).toEqual([
+    ['deferred', summary?.id],
+    ['deferred', summary?.id],
+  ])
 })
 
 test('the system clock drives the batch timer', async (context) => {

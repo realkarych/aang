@@ -1,8 +1,11 @@
+import { type ChildProcessByStdio, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import type { Readable } from 'node:stream'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { claudeAdapter } from '@aang/adapter-claude'
@@ -89,6 +92,26 @@ export const wrapped = (wrapper: string, ...args: string[]): CliCommand => ({
 export const gated = (gate: string, cli: CliCommand): CliCommand => wrapped('gate-wrapper.ts', gate, cli.command, ...(cli.args ?? []))
 
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
+
+const daemonScript = fileURLToPath(new URL('daemon-process.ts', import.meta.url))
+
+const ready = (child: ChildProcessByStdio<null, Readable, Readable>): Promise<void> =>
+  new Promise((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+      if (stdout.includes('ready\n')) {
+        resolve()
+      }
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.on('exit', (code, signal) => {
+      reject(new Error(`the daemon exited (${String(code ?? signal)}) before it was ready: ${stderr}`))
+    })
+  })
 
 const sampleObject = (path: string): JsonObject => JSON.parse(readFileSync(new URL(path, samples), 'utf8')) as JsonObject
 
@@ -322,6 +345,23 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
       await daemon.scheduler.close()
       daemon.store.close()
       daemon = boot(changes.crossVendor)
+    },
+    kill: async (): Promise<void> => {
+      await daemon.scheduler.close()
+      daemon.store.close()
+      const child = spawn(
+        process.execPath,
+        [daemonScript, join(root, 'aang'), root, String(now()), fakeClaude.command, ...fakeClaude.args],
+        { stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+      const exited = once(child, 'exit')
+      try {
+        await ready(child)
+      } finally {
+        child.kill('SIGKILL')
+        await exited
+      }
+      daemon = boot()
     },
     attach: (runtime: Runtime, session: string, run: RunId): void => {
       daemon.store.transaction((transaction) => {
