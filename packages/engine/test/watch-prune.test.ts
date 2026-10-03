@@ -1,9 +1,17 @@
-import { type CollectedGap, CollectedRecord, type CollectorBatch, EpochNs, type RunId, type SessionKey } from '@aang/contract'
-import { contentHash, objectId } from '@aang/contract/ids'
+import {
+  type CollectedGap,
+  CollectedRecord,
+  type CollectorBatch,
+  EpochNs,
+  type RunId,
+  type Runtime,
+  type SessionKey,
+} from '@aang/contract'
+import { contentHash, objectId, runId } from '@aang/contract/ids'
 import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, test } from 'vitest'
-import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
+import { batchOf, type HookDelivery, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import { adapters, factsOf, gapsOf, recordsOf, sessionKey, streamOf } from './harness.js'
 import { createHome } from './home.js'
 import { decisionRecord, otelRoot } from './otel-records.js'
@@ -21,6 +29,11 @@ const startPruned = (store: Store, run: RunId): boolean | null => {
   const entity = store.model.entity(run, { kind: 'run', id: run })
   return entity?.kind === 'run' ? entity.value.start_pruned : null
 }
+
+const runtimeHook = (runtime: Runtime, name: string, session: string, cwd: string, file: string, arrival: number): HookDelivery =>
+  runtime === 'claude'
+    ? { file, payload: claudeHook(name, { session, cwd }), arrival }
+    : { file, runtime, registration: 'user', payload: codexHook(name, { session, cwd }), arrival }
 
 const hookAt = (file: string, payload: string, observedAt: bigint): CollectorBatch =>
   batchOf({
@@ -219,4 +232,52 @@ describe('watch and prune through the engine', () => {
     expect(recordsOf(store)).toEqual([])
     expect(store.observations.sessions()).toEqual([])
   })
+
+  test.for(['claude', 'codex'] as const)(
+    'a repeated prune of a %s run keeps its session that was resumed and moved to another run, also after a restart',
+    async (runtime, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const engine = engineAt(store, [workspace.repository])
+      const hook = (name: string, session: string, file: string, arrival: number): HookDelivery =>
+        runtimeHook(runtime, name, session, workspace.repository, file, arrival)
+      const moved = sessionKey(runtime, 'g10-moved')
+      const host = sessionKey(runtime, 'g10-host')
+      const [run, hostRun] = [runId(moved), runId(host)]
+      await engine.ingest(
+        hookBatch(
+          hook('SessionStart.startup.json', moved.session, 'a-000001.evt', 0),
+          hook('SessionStart.startup.json', host.session, 'a-000002.evt', 1),
+        ),
+      )
+      const first = await engine.prune({ scope: 'run', run }, () => Promise.resolve(null))
+      await engine.ingest(hookBatch(hook('UserPromptSubmit.json', moved.session, 'b-000001.evt', 2_000)))
+      expect(runOf(store, moved)).toBe(run)
+      await engine.bind({ kind: 'attach', session: objectId(moved), run: hostRun })
+      store.close()
+      const reopened = home.open()
+      const kept = () => ({
+        run: runOf(reopened, moved),
+        member: reopened.model.entity(hostRun, { kind: 'session_membership', id: objectId(moved) }) !== null,
+        facts: reopened.facts.ofSession(moved),
+        records: recordsOf(reopened).filter(({ payload }) => payload.includes(moved.session)),
+        boundaries: reopened.pruned.ofSession(moved),
+      })
+      const before = kept()
+
+      const again = await engineAt(reopened, [workspace.repository]).prune({ scope: 'run', run }, () =>
+        Promise.resolve(null),
+      )
+
+      expect(first.runs).toEqual([run])
+      expect(before).toMatchObject({ run: hostRun, member: true, boundaries: first.boundaries })
+      expect(before.facts.length).toBeGreaterThan(0)
+      expect(before.records.map(({ position }) => position)).toEqual([{ kind: 'spool', file: 'b-000001.evt' }])
+      expect(again).toEqual({ runs: [run], boundaries: [] })
+      expect(kept()).toEqual(before)
+      expect(reopened.model.entity(run, { kind: 'run', id: run })).toBeNull()
+      expect(reopened.observations.getSession(objectId(host))?.run).toBe(hostRun)
+    },
+  )
 })

@@ -69,14 +69,17 @@ const hooksOf = (store: Store, adapters: Adapters, sessions: ReadonlySet<string>
 const sessionsOf = (store: Store, runs: readonly RunId[]): Map<string, SessionKey> => {
   const targets = new Set<string>(runs)
   const sessions = new Map<string, SessionKey>()
+  const elsewhere = new Set<string>()
   for (const { run, key } of store.observations.sessions()) {
     if (run !== null && targets.has(run)) {
       sessions.set(sessionName(key), key)
+    } else if (run !== null) {
+      elsewhere.add(sessionName(key))
     }
   }
   for (const boundary of store.pruned.list()) {
     const session = prunedSession(boundary)
-    if (targets.has(runId(session))) {
+    if (targets.has(runId(session)) && !elsewhere.has(sessionName(session))) {
       sessions.set(sessionName(session), session)
     }
   }

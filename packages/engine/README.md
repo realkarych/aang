@@ -970,6 +970,11 @@ calls, view state, chat and bindings, and saves a boundary per stream in
   hooks, belong to one of its sessions, and the streams pruned with those
   sessions before. Since a hook record keeps the stream its adapter names, a
   session known only from hooks is bounded too.
+- A context record and a git snapshot belong to the run they were recorded for,
+  named by their fact about the run, and go only with that run, even when its
+  root session has moved to the pruned run. A context record also names the other
+  sessions it read; pruning one of them removes only that reference, so the
+  context of a run that keeps it stays whole for its observer calls (ADR-0007).
 - A Claude boundary is the offset of the furthest cursor of the stream with the
   hash of the file prefix up to it, from `prefixHash`. Without a cursor the
   boundary is the empty prefix. When the file can no longer be read, the boundary
@@ -981,7 +986,9 @@ calls, view state, chat and bindings, and saves a boundary per stream in
   session are discarded, and so are pending OTel records of a pruned stream.
 - A run created again for a session with boundaries has `start_pruned`.
 - A pruned run can be pruned again: its sessions are found by the root sessions
-  saved with the boundaries. This is how a stream stopped with
+  saved with the boundaries, except a session observed in another run since,
+  such as one resumed after the prune and then attached elsewhere, which stays
+  with that run. This is how a stream stopped with
   `stream_changed_after_prune` is taken again whole (ADR-0005): a Claude stream
   with that gap open gets the empty prefix as its new boundary, the gap goes with
   the other layers of the run, and the collector rereads the stopped files from
