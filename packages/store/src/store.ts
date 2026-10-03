@@ -19,6 +19,7 @@ import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createObservations, type ObservationReader, type ObservationWriter } from './observations.js'
 import { createObserverCalls, type ObserverCallReader, type ObserverCallWriter } from './observer-calls.js'
 import { createPrunedStreams, type PrunedStreamReader, type PrunedStreamWriter } from './pruned.js'
+import { createPruning, type PruningWriter } from './pruning.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
@@ -39,6 +40,7 @@ export interface Transaction {
   readonly scopes: ScopeWriter
   readonly cursors: CursorWriter
   readonly pruned: PrunedStreamWriter
+  readonly pruning: PruningWriter
   readonly gaps: GapWriter
   readonly model: ModelWriter
   readonly settings: SettingWriter
@@ -72,6 +74,7 @@ export interface Store {
   readonly interpretations: InterpretationReader
   readonly views: ViewReader
   readonly changes: ChangeFeed
+  readonly vacuum: () => void
   readonly close: () => void
 }
 
@@ -84,6 +87,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
   const scopes = createScopes(database)
   const cursors = createCursors(database)
   const pruned = createPrunedStreams(database)
+  const pruning = createPruning(database)
   const gaps = createGaps(database)
   const model = createModel(database)
   const settings = createSettings(database)
@@ -118,6 +122,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
         scopes: scopes.writer(context),
         cursors: cursors.writer(context),
         pruned: pruned.writer(context),
+        pruning: pruning.writer(context),
         gaps: gaps.writer(context),
         model: model.writer(context),
         settings: settings.writer(context),
@@ -157,6 +162,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
     interpretations: interpretations.reader,
     views: views.reader,
     changes: createChangeFeed(database),
+    vacuum: pruning.vacuum,
     close: () => {
       if (!open) {
         return

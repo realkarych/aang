@@ -1,0 +1,178 @@
+import { CollectedRecord, type CollectorBatch, EpochNs, type RunId, type SessionKey } from '@aang/contract'
+import { contentHash, objectId } from '@aang/contract/ids'
+import { createEngine, type Engine } from '@aang/engine'
+import type { Store } from '@aang/store'
+import { describe, expect, test } from 'vitest'
+import { batchOf, hookBatch, jsonlFile } from './batches.js'
+import { adapters, recordsOf, sessionKey, streamOf } from './harness.js'
+import { createHome } from './home.js'
+import { claudeHook, claudeTranscript, codexHook, codexRollout } from './samples.js'
+import { createWorkspace } from './workspace.js'
+
+const prunedAt = EpochNs.parse(1_790_856_592_228_740_000n)
+
+const engineAt = (store: Store, roots: readonly string[]): Engine =>
+  createEngine({ store, adapters, watch: { all: false, roots: roots.map((path) => ({ path })) }, now: () => prunedAt })
+
+const runOf = (store: Store, key: SessionKey): RunId | null => store.observations.getSession(objectId(key))?.run ?? null
+
+const startPruned = (store: Store, run: RunId): boolean | null => {
+  const entity = store.model.entity(run, { kind: 'run', id: run })
+  return entity?.kind === 'run' ? entity.value.start_pruned : null
+}
+
+const hookAt = (file: string, payload: string, observedAt: bigint): CollectorBatch =>
+  batchOf({
+    records: [
+      CollectedRecord.parse({
+        channel: 'hook',
+        runtime: 'claude',
+        stream: null,
+        position: { kind: 'spool', file },
+        hook: { registration: 'plugin', env: {} },
+        observed_at: observedAt,
+        payload,
+      }),
+    ],
+  })
+
+describe('watch and prune through the engine', () => {
+  test('rewatch admits sessions that enter the roots on reread and stops taking records of sessions that leave them', async ({
+    onTestFinished,
+  }) => {
+    const workspace = await createWorkspace(onTestFinished)
+    const store = (await createHome(onTestFinished)).open()
+    const engine = engineAt(store, [workspace.repository])
+    const inside = claudeTranscript({ session: 's-inside', cwd: workspace.repository })
+    const outside = claudeTranscript({ session: 's-outside', cwd: workspace.otherRepository })
+    const insideFile = jsonlFile({ runtime: 'claude', path: '/p/s-inside.jsonl', lines: inside, ino: 1n })
+    const outsideFile = jsonlFile({ runtime: 'claude', path: '/p/s-outside.jsonl', lines: outside, ino: 2n })
+    const insideStream = streamOf('claude', inside)
+    const outsideStream = streamOf('claude', outside)
+    await engine.ingest(insideFile.batch(1, inside.length - 2))
+    await engine.ingest(outsideFile.batch(1, outside.length - 2))
+    const stored = (): Record<string, number> => ({
+      inside: recordsOf(store).filter(({ stream }) => stream === insideStream).length,
+      outside: recordsOf(store).filter(({ stream }) => stream === outsideStream).length,
+    })
+    expect(stored()).toEqual({ inside: inside.length - 2, outside: 0 })
+
+    const widened = await engine.rewatch(
+      { all: false, roots: [{ path: workspace.repository }, { path: workspace.otherRepository }] },
+      (transaction) => {
+        transaction.settings.save('watch-probe', 'widened', prunedAt)
+      },
+    )
+    const admitted = {
+      session: store.scopes.ofSession(sessionKey('claude', 's-outside'))?.scope,
+      stream: store.scopes.get(outsideStream)?.scope,
+    }
+    await engine.ingest(outsideFile.batch(1, outside.length - 2, outsideStream))
+    const reread = stored()
+    const narrowed = await engine.rewatch({ all: false, roots: [{ path: workspace.otherRepository }] }, () => undefined)
+    await engine.ingest(insideFile.batch(inside.length - 1, inside.length, insideStream))
+    await engine.ingest(outsideFile.batch(outside.length - 1, outside.length, outsideStream))
+
+    expect(widened).toEqual({ rescan: [outsideStream] })
+    expect(admitted).toEqual({ session: 'watched', stream: 'external' })
+    expect(reread).toEqual({ inside: inside.length - 2, outside: outside.length - 2 })
+    expect(store.scopes.get(outsideStream)?.scope).toBe('watched')
+    expect(narrowed).toEqual({ rescan: [insideStream] })
+    expect(store.scopes.ofSession(sessionKey('claude', 's-inside'))?.scope).toBe('external')
+    expect(store.scopes.get(insideStream)?.scope).toBe('external')
+    expect(stored()).toEqual({ inside: inside.length - 2, outside: outside.length })
+    expect(store.observations.getSession(objectId(sessionKey('claude', 's-inside')))).not.toBeNull()
+    expect(store.settings.get('watch-probe')).toBe('widened')
+  })
+
+  test('prune removes every layer of a run, bounds its streams, drops earlier hooks and marks the run formed again', async ({
+    onTestFinished,
+  }) => {
+    const workspace = await createWorkspace(onTestFinished)
+    const store = (await createHome(onTestFinished)).open()
+    const engine = engineAt(store, [workspace.repository])
+    const claude = { session: 's-pruned', cwd: workspace.repository }
+    const lines = claudeTranscript(claude)
+    const file = jsonlFile({ runtime: 'claude', path: '/p/s-pruned.jsonl', lines, ino: 1n })
+    const rollout = codexRollout({ thread: 't-kept', cwd: workspace.repository })
+    const rolloutFile = jsonlFile({ runtime: 'codex', path: '/r/t-kept.jsonl', lines: rollout, ino: 2n })
+    await engine.ingest(file.batch(1, lines.length))
+    await engine.ingest(
+      hookBatch(
+        { file: 'a-000001.evt', payload: claudeHook('UserPromptSubmit.json', claude) },
+        { file: 'a-000002.evt', payload: JSON.stringify({ hook_event_name: 'FutureEvent', session_id: 's-pruned' }) },
+        {
+          file: 'a-000003.evt',
+          runtime: 'codex',
+          registration: 'user',
+          payload: codexHook('SessionStart.startup.json', { session: 't-hooks', cwd: workspace.repository }),
+        },
+      ),
+    )
+    await engine.ingest(rolloutFile.batch(1, rollout.length))
+    const claudeKey = sessionKey('claude', 's-pruned')
+    const run = runOf(store, claudeKey)
+    const hooksRun = runOf(store, sessionKey('codex', 't-hooks'))
+    const keptRun = runOf(store, sessionKey('codex', 't-kept'))
+    expect([run, hooksRun, keptRun].every((value) => value !== null)).toBe(true)
+    const kept = recordsOf(store).filter(({ stream }) => stream === streamOf('codex', rollout))
+    const hashed: [string, number][] = []
+
+    const outcome = await engine.prune({ scope: 'run', run: run ?? ('' as RunId) }, (path, offset) => {
+      hashed.push([path, offset])
+      return Promise.resolve(contentHash('the prefix'))
+    })
+
+    const stream = streamOf('claude', lines)
+    expect(outcome).toEqual({
+      runs: [run],
+      boundaries: [
+        {
+          runtime: 'claude',
+          stream,
+          session: 's-pruned',
+          offset: file.cursor(lines.length).offset,
+          prefix_hash: contentHash('the prefix'),
+          pruned_at: prunedAt,
+        },
+      ],
+    })
+    expect(hashed).toEqual([[file.path, file.cursor(lines.length).offset]])
+    const remaining = recordsOf(store)
+    expect(remaining.filter(({ stream: owner }) => owner === stream)).toEqual([])
+    expect(remaining.filter(({ payload }) => payload.includes('s-pruned'))).toEqual([])
+    expect(remaining.filter(({ stream: owner }) => owner === streamOf('codex', rollout))).toEqual(kept)
+    expect(store.observations.getSession(objectId(claudeKey))).toBeNull()
+    expect(store.facts.ofSession(claudeKey)).toEqual([])
+    expect(run === null ? null : store.model.entity(run, { kind: 'run', id: run })).toBeNull()
+    expect(store.pruned.ofSession(claudeKey)).toEqual(outcome.boundaries)
+    expect(store.cursors.list().find(({ path }) => path === file.path)).toEqual(file.cursor(lines.length, stream))
+
+    await engine.ingest(hookAt('b-000001.evt', claudeHook('UserPromptSubmit.json', claude), prunedAt - 1n))
+    expect(store.observations.getSession(objectId(claudeKey))).toBeNull()
+    await engine.ingest(hookAt('b-000002.evt', claudeHook('UserPromptSubmit.json', claude), prunedAt + 1n))
+    expect(runOf(store, claudeKey)).toBe(run)
+    expect(run === null ? null : startPruned(store, run)).toBe(true)
+    expect(recordsOf(store).flatMap(({ position }) => (position.kind === 'spool' ? [position.file] : []))).toEqual([
+      'a-000003.evt',
+      'b-000002.evt',
+    ])
+
+    const before = await engine.prune({ scope: 'before', before: EpochNs.parse(prunedAt * 2n) }, () =>
+      Promise.resolve(null),
+    )
+    expect([...before.runs].sort()).toEqual([run, hooksRun, keptRun].sort())
+    expect(before.boundaries.map((boundary) => [boundary.stream, boundary.runtime === 'codex' ? boundary.last_ordinal : boundary.offset]).sort()).toEqual(
+      [
+        [stream, file.cursor(lines.length).offset],
+        [streamOf('codex', rollout), rolloutFile.cursor(rollout.length).last_ordinal],
+        [streamOf('codex', [codexHook('SessionStart.startup.json', { session: 't-hooks', cwd: workspace.repository })]), 0],
+      ].sort(),
+    )
+    expect(before.boundaries.find(({ stream: bounded }) => bounded === stream)).toMatchObject({
+      prefix_hash: contentHash(''),
+    })
+    expect(recordsOf(store)).toEqual([])
+    expect(store.observations.sessions()).toEqual([])
+  })
+})

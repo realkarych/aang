@@ -1,6 +1,6 @@
 import { CollectedRecord, type EpochNs, type RawRecord, type RawSeq, type RecordOwner, type Session, type StreamKey } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import type { Transaction } from '@aang/store'
+import type { RawRecordReader, Transaction } from '@aang/store'
 import type { Adapters } from '../ingest/records.js'
 
 export interface SourceRecord {
@@ -8,18 +8,25 @@ export interface SourceRecord {
   readonly owner: RecordOwner
 }
 
-export const streamOwner = (transaction: Transaction, adapters: Adapters, stream: StreamKey): RecordOwner | null => {
+export const collectedOf = (raw: RawRecord): CollectedRecord | null =>
+  CollectedRecord.safeParse({
+    channel: raw.channel, runtime: raw.runtime, stream: raw.stream, position: raw.position,
+    hook: raw.hook, observed_at: raw.observed_at, payload: raw.payload,
+  }).data ?? null
+
+export const streamOwner = (
+  { rawRecords }: { readonly rawRecords: RawRecordReader },
+  adapters: Adapters,
+  stream: StreamKey,
+): RecordOwner | null => {
   let after: RawSeq | null = null
   for (;;) {
-    const records = transaction.rawRecords.ofStream(stream, after, 64)
+    const records = rawRecords.ofStream(stream, after, 64)
     if (records.length === 0) { return null }
     for (const raw of records) {
       after = raw.seq
-      const record = CollectedRecord.safeParse({
-        channel: raw.channel, runtime: raw.runtime, stream: raw.stream, position: raw.position,
-        hook: raw.hook, observed_at: raw.observed_at, payload: raw.payload,
-      }).data
-      if (record === undefined) { continue }
+      const record = collectedOf(raw)
+      if (record === null) { continue }
       const owner = adapters[record.runtime].owner(record)
       if (owner !== null) { return owner }
     }
