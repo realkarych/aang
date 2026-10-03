@@ -70,15 +70,13 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
   const admit = (session: SessionId, runtime: Runtime): ScopeExclusion | null =>
     sessionInRun(reader.model, run, session) ? vendor(runtime) : 'out_of_scope'
   const fact = (value: Fact): ScopeExclusion | null => admit(factSession(value), value.entity_key.runtime)
-  const grounds = (evidence: readonly FactId[]): ScopeExclusion | null => {
-    const exclusions = new Set(
-      evidence.map((id) => {
-        const stored = reader.facts.get(id)
-        return stored === null ? 'out_of_scope' : vendor(stored.entity_key.runtime)
-      }),
-    )
-    return exclusions.has('out_of_scope') ? 'out_of_scope' : exclusions.has('cross_vendor') ? 'cross_vendor' : null
-  }
+  const grounds = (evidence: readonly FactId[]): ScopeExclusion | null =>
+    evidence.some((id) => {
+      const runtime = reader.facts.get(id)?.entity_key.runtime
+      return runtime !== undefined && vendor(runtime) !== null
+    })
+      ? 'cross_vendor'
+      : null
   return {
     run,
     backend,

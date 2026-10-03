@@ -194,8 +194,9 @@ vendor that receives the input, is excluded unless `crossVendor` is set. A raw r
 is attributed through its facts, so a record without facts is out of scope. A model
 entity of the run is attributed through its grounds, the evidence of every change in
 its journal: it is excluded when a ground comes from a vendor other than `backend`
-without `crossVendor`, or when a ground fact is missing. A ground from a session that
-has since left the run does not exclude the entity.
+without `crossVendor`. A ground from a session that has since left the run does not
+exclude the entity. A ground fact that a reparse no longer produces has no stored
+vendor and does not exclude it either.
 
 `inputViolations(reader, scope, input)` applies the scope to the whole input: the
 sessions and agents of the run description, the context record, the stages,

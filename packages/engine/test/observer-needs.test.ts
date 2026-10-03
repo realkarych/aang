@@ -830,7 +830,7 @@ test('every part of the observer input passes the same scope before the call is 
     return { ...snapshotAttention(), id: item.id }
   }
   const codexGrounded = grounded('attention-codex', setup.codexFacts.slice(0, 1).map(({ id }) => id))
-  const lostGrounds = grounded('attention-lost', [fact(999)])
+  const replaced = grounded('attention-replaced', [fact(999)])
   const ownAgent = agentOf(store, sessionA)
   const foreignAgent = agentOf(store, sessionB)
   const codexAgent = agentOf(store, codexSession)
@@ -843,7 +843,7 @@ test('every part of the observer input passes the same scope before the call is 
       ...base.model,
       stages: [stage, snapshotStage(store, runA, stages.test)],
       criteria: [snapshotCriterion()],
-      attention: [snapshotAttention()],
+      attention: [snapshotAttention(), replaced],
     },
     batch: {
       ...base.batch,
@@ -898,7 +898,6 @@ test('every part of the observer input passes the same scope before the call is 
     [withModel({ criteria: [{ ...snapshotCriterion(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
     [withModel({ attention: [{ ...snapshotAttention(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
     [withModel({ attention: [codexGrounded] }), foreignVendor('attention_item attention-codex')],
-    [withModel({ attention: [lostGrounds] }), outside('attention_item attention-lost')],
     [withFact({ session: sessionB }), outside(`session ${sessionB}`)],
     [withFact({ id: unknownFact }), outside(`fact ${unknownFact}`)],
     [withFact({ agent: foreignAgent.id }), outside(`agent ${foreignAgent.id}`)],
