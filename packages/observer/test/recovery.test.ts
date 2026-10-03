@@ -264,6 +264,115 @@ test.for([
   },
 )
 
+test.for([
+  ['limit', { kind: 'limit', resetsAt: (start + 60 * minute) / 1_000 }, 60 * minute, 'probe'],
+  ['auth', { kind: 'auth' }, 10 * minute, 'auth_status'],
+] as const)(
+  'a late needs response of a call that started before a %s failure gets no follow-up and returns its batch and summary without an attempt',
+  async ([reason, failure, retry, check], context) => {
+    let held = ''
+    const scene = await createScene(context, {
+      claude: [needing, failure, accepted],
+      limits: { queueFacts: 1 },
+      executors: ({ root, claude, launcher }) => {
+        held = join(root, 'held')
+        mkdirSync(held)
+        return { claude: launcher(wrapped('hold-wrapper.ts', held, claude.command, ...(claude.args ?? []))) }
+      },
+    })
+    const sessions = [scene.claudeSession('session-late-needs'), scene.claudeSession('session-failing')]
+    for (const session of sessions) {
+      await session.start()
+      await session.permission()
+    }
+    scene.scheduler.wake()
+    await until(() => sessions.some(({ run }) => scene.calls(run).some(({ finished_at: finished }) => finished !== null)))
+    const [failing, late] = sessions.toSorted(
+      (left, right) => scene.calls(right.run).filter(({ finished_at: finished }) => finished !== null).length -
+        scene.calls(left.run).filter(({ finished_at: finished }) => finished !== null).length,
+    ) as [(typeof sessions)[number], (typeof sessions)[number]]
+    const unavailable = { state: 'unavailable', reason, retry_at: epochOf(start + retry) }
+    const queue = (): [string, number, string | null][] =>
+      scene.statuses(late.run).map(({ status, attempts, observer_call: call }): [string, number, string | null] => [status, attempts, call]).toSorted()
+    expect(scene.calls(late.run).map(({ input }) => [input.batch.facts.length, input.batch.backlog?.facts])).toEqual([[1, 1]])
+
+    await writeFile(join(held, 'release'), '')
+    await scene.scheduler.idle()
+    const [needs] = scene.calls(late.run)
+    expect(scene.calls(late.run).map(({ verdict }) => verdict)).toEqual(['needs_requested'])
+    expect(queue()).toEqual([
+      ['deferred', 0, null],
+      ['pending', 0, needs?.id],
+    ])
+    expect(scene.scheduler.backendState('claude')).toEqual(unavailable)
+    expect(scene.scheduler.state(late.run)).toEqual(unavailable)
+    scene.advance(retry - 1)
+    await scene.scheduler.idle()
+    expect(scene.store.observerCalls.checks()).toEqual([])
+    expect(scene.calls(late.run)).toHaveLength(1)
+    scene.advance(1)
+    await scene.scheduler.idle()
+
+    expect(scene.store.observerCalls.checks().map(({ kind, verdict, started_at: started }) => [kind, verdict, started])).toEqual([
+      [check, 'accepted', epochOf(start + retry)],
+    ])
+    const calls = scene.calls(late.run)
+    expect(calls.map(({ verdict, started_at: started }) => [verdict, started])).toEqual([
+      ['needs_requested', epochOf(start)],
+      ['accepted', epochOf(start + retry)],
+    ])
+    expect(queue()).toEqual([
+      ['deferred', 1, calls[1]?.id],
+      ['interpreted', 1, calls[1]?.id],
+    ])
+    expect(scene.calls(failing.run).map(({ verdict }) => verdict)).toEqual(['failed', 'accepted'])
+    expect(scene.scheduler.backendState('claude')).toEqual({ state: 'ok' })
+  },
+)
+
+test('a late needs response during a pause gets no follow-up, and its batch goes again after the pause', async (context) => {
+  let held = ''
+  const scene = await createScene(context, {
+    claude: [needing, network, accepted],
+    executors: ({ root, claude, launcher }) => {
+      held = join(root, 'held')
+      mkdirSync(held)
+      return { claude: launcher(wrapped('hold-wrapper.ts', held, claude.command, ...(claude.args ?? []))) }
+    },
+  })
+  const sessions = [scene.claudeSession('session-paused-needs'), scene.claudeSession('session-timed-out')]
+  for (const session of sessions) {
+    await session.start()
+    await session.permission()
+  }
+  scene.scheduler.wake()
+  await until(() => sessions.some(({ run }) => scene.calls(run).some(({ finished_at: finished }) => finished !== null)))
+  const [failing, late] = sessions.toSorted(
+    (left, right) => scene.calls(right.run).filter(({ finished_at: finished }) => finished !== null).length -
+      scene.calls(left.run).filter(({ finished_at: finished }) => finished !== null).length,
+  ) as [(typeof sessions)[number], (typeof sessions)[number]]
+  const paused = { state: 'backoff', attempt: 1, until: epochOf(start + 10_000) }
+  expect(scene.scheduler.backendState('claude')).toEqual(paused)
+
+  await writeFile(join(held, 'release'), '')
+  await scene.scheduler.idle()
+  expect(scene.calls(late.run).map(({ verdict }) => verdict)).toEqual(['needs_requested'])
+  expect(scene.statuses(late.run).map(({ status, attempts }) => [status, attempts])).toEqual([
+    ['pending', 0],
+    ['pending', 0],
+  ])
+  expect(scene.scheduler.backendState('claude')).toEqual(paused)
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  expect(scene.calls(late.run).map(({ verdict, started_at: started }) => [verdict, started])).toEqual([
+    ['needs_requested', epochOf(start)],
+    ['accepted', epochOf(start + 10_000)],
+  ])
+  expect(scene.calls(failing.run).map(({ verdict }) => verdict)).toEqual(['failed', 'accepted'])
+  expect(scene.scheduler.backendState('claude')).toEqual({ state: 'ok' })
+})
+
 test('a reported limit outlives a SIGKILL of the daemon, and the restarted scheduler probes at the reset before any batch', async (context) => {
   const resets = start + 60 * minute
   const scene = await createScene(context, { claude: [{ kind: 'limit', resetsAt: resets / 1_000 }, accepted, accepted] })
@@ -429,6 +538,64 @@ test('a queue that expired during an outage goes as a summary call without anoth
   scene.advance(60 * minute)
   await scene.scheduler.idle()
   expect(scene.calls(session.run)).toHaveLength(3)
+})
+
+test('a rejected summary passes its reasons to the next attempt that also carries a fresh fact', async (context) => {
+  const scene = await createScene(context, { claude: [limited, accepted, outdated, accepted], limits: { queueAgeMs: minute } })
+  const session = scene.claudeSession('session-expired-fresh')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  scene.advance(30 * minute)
+  await scene.scheduler.idle()
+  expect(scene.calls(session.run).map(({ verdict }) => verdict)).toEqual(['failed', 'rejected'])
+
+  await session.tools(1)
+  scene.scheduler.wake()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  expect(scene.calls(session.run).map(({ verdict }) => verdict)).toEqual(['failed', 'rejected', 'accepted'])
+  const [, summary, fresh] = scene.prompts('claude').filter(({ run }) => run.id === session.run)
+  expect([summary, fresh].map((input) => [input?.batch.facts.length, input?.batch.backlog?.facts, input?.previous_attempt])).toEqual([
+    [0, 2, null],
+    [1, 2, { reasons: ['version: base_version does not match the saved observer call'] }],
+  ])
+  expect(scene.tally(session.run)).toEqual({ deferred: 2, interpreted: 1 })
+})
+
+test('a run lags while its summary is in a call and catches up once the summary is accepted', async (context) => {
+  let gate = ''
+  const scene = await createScene(context, {
+    claude: [accepted],
+    limits: { queueAgeMs: minute },
+    executors: ({ root, claude, launcher }) => {
+      gate = join(root, 'gate')
+      return { claude: launcher(gated(gate, claude)) }
+    },
+  })
+  const session = scene.claudeSession('session-summary-running')
+  const states: ObserverState[] = []
+  scene.scheduler.subscribe(() => {
+    states.push(scene.scheduler.state(session.run))
+  })
+  await session.start(-2 * minute)
+  await session.permission(-2 * minute)
+  scene.scheduler.wake()
+
+  expect(scene.calls(session.run).map(({ verdict, input }) => [verdict, input.batch.facts.length, input.batch.backlog?.facts])).toEqual([
+    [null, 0, 2],
+  ])
+  expect(scene.store.interpretations.pending(session.run)).toEqual([])
+  expect(scene.scheduler.state(session.run)).toEqual({ state: 'lagging', reason: 'backlog' })
+  expect(states.at(-1)).toEqual({ state: 'lagging', reason: 'backlog' })
+  await writeFile(gate, '')
+  await scene.scheduler.idle()
+
+  expect(scene.calls(session.run).map(({ verdict }) => verdict)).toEqual(['accepted'])
+  expect(scene.scheduler.state(session.run)).toEqual({ state: 'ok' })
+  expect(states.at(-1)).toEqual({ state: 'ok' })
 })
 
 test('a summary call rejected three times leaves its deferred facts not interpreted, and a backend failure spends no attempt', async (context) => {

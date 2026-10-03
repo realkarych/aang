@@ -258,7 +258,10 @@ the batch over to the follow-up without spending an attempt. The follow-up respo
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
-between calls of a run.
+between calls of a run. `skipObserverFollowUp` gives the follow-up up the same way
+at run time: the batch returns to `pending` and the summarized deferred facts are
+released, both with the attempt given back. The scheduler (F.9) does so when the
+backend is no longer `ok` by the time of the follow-up.
 
 ## Observer queue
 
@@ -293,9 +296,10 @@ starts the next call of a run from its pending facts in the order of their recor
   `previous_attempt`. The run goal and brief, stages, criteria and attention items
   enter only when their grounds are in scope; a reference to a stage left out becomes
   `null`. The reasons carry over calls that ended without a response, so a backend
-  failure or a restart after a rejection does not drop them. A call with the summary
-  alone takes them from the latest call of the run when that call carried a summary
-  and was not accepted. The context, collapsed
+  failure or a restart after a rejection does not drop them. A summary takes them from
+  the latest call of the run when that call carried a summary and was not accepted,
+  with or without batch facts; the reasons of the batch and of the summary are joined
+  without repeats. The context, collapsed
   facts and artifact versions stay empty: the batch does not pack them yet;
 - the call is recorded by `beginObserverCall`, and the summarized deferred facts refer
   to it. Without a run entity or an eligible fact or deferred fact nothing starts and

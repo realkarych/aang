@@ -7,6 +7,7 @@ import {
   exhaustObserverCall,
   failObserverCall,
   type ObserverResponseResult,
+  skipObserverFollowUp,
   startObserverBatch,
 } from '@aang/engine'
 import type { PendingFact, Store, Transaction } from '@aang/store'
@@ -183,6 +184,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
   })
   const backendOf = (runtime: Runtime): Backend | undefined => configured.find((entry) => entry.runtime === runtime)
   const running = new Map<RunId, Promise<undefined>>()
+  const summarizing = new Set<RunId>()
   const checks = new Map<Runtime, Promise<undefined>>()
   const settling = new Set<Promise<unknown>>()
   const listeners = new Set<() => void>()
@@ -350,11 +352,17 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
   }
 
   const perform = async (candidate: Candidate, call: ObserverCallId, input: ObserverInput, stopped: Promise<void>[]): Promise<void> => {
-    const { recovery } = candidate
+    const { executor, recovery } = candidate
     recovery.inflight += 1
     try {
       const first = await invoke(candidate, call, input, stopped)
       if (first?.status !== 'needs_requested') {
+        return
+      }
+      if (!available(executor) || recovery.health.kind !== 'ok') {
+        store.transaction((transaction) => {
+          skipObserverFollowUp(transaction, call)
+        })
         return
       }
       const followUp = ObserverCallId.parse(randomUUID())
@@ -389,11 +397,15 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     const finished = Promise.withResolvers<undefined>()
     const stopped: Promise<void>[] = []
     running.set(run, finished.promise)
+    if (input.batch.backlog !== null) {
+      summarizing.add(run)
+    }
     const results = perform(candidate, call, input, stopped).catch(failure.resolve)
     settling.add(results)
     void results
       .then(() => {
         settling.delete(results)
+        summarizing.delete(run)
         return Promise.all(stopped)
       })
       .finally(() => {
@@ -483,7 +495,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
       const now = clock.now()
       const { over, freesAt } = budgetOf(now)
       const pending = store.interpretations.pendingRuns().map((run) => ({ run, queued: queueOf(run, now) }))
-      const backlogged = new Set(store.interpretations.backlogRuns())
+      const backlogged = new Set([...store.interpretations.backlogRuns(), ...summarizing])
       const queues: Queue[] = [
         ...pending.map((queue) => ({ ...queue, backlog: backlogged.has(queue.run) })),
         ...[...backlogged].filter((run) => !pending.some((queue) => queue.run === run)).map((run) => ({ run, queued: [], backlog: true })),
@@ -592,7 +604,8 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     },
     state: (run) => {
       const now = clock.now()
-      const queue = { run, queued: store.interpretations.pending(run), backlog: store.interpretations.backlogRuns().includes(run) }
+      const backlog = summarizing.has(run) || store.interpretations.backlogRuns().includes(run)
+      const queue = { run, queued: store.interpretations.pending(run), backlog }
       return runStateOf(queue, now, budgetOf(now).over)
     },
     backendState: (runtime) => backendStateOf(runtime, budgetOf(clock.now()).over),
