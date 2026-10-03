@@ -1,8 +1,7 @@
-import { execFile } from 'node:child_process'
 import { realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
-import { promisify } from 'node:util'
 import type { CheckContract, ScopeDecision } from '@aang/contract'
+import { readGit } from './git.js'
 
 export interface WatchedRoot {
   readonly path: string
@@ -16,9 +15,6 @@ export interface WatchedRoots {
 
 export type ScopeJudge = (cwd: string) => Promise<ScopeDecision>
 
-const run = promisify(execFile)
-const gitTimeoutMs = 10_000
-
 const canonicalPath = async (path: string): Promise<string> => {
   const absolute = resolve(path)
   return realpath(absolute).catch(() => absolute)
@@ -29,19 +25,9 @@ export const contains = (root: string, path: string): boolean => {
   return relation === '' || (!isAbsolute(relation) && relation !== '..' && !relation.startsWith(`..${sep}`))
 }
 
-const gitEnvironment = (): NodeJS.ProcessEnv => ({
-  ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
-  GIT_OPTIONAL_LOCKS: '0',
-})
-
 const commonGitDirectory = async (directory: string): Promise<string | null> => {
   try {
-    const { stdout } = await run('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
-      cwd: directory,
-      env: gitEnvironment(),
-      timeout: gitTimeoutMs,
-      windowsHide: true,
-    })
+    const stdout = await readGit(directory, ['rev-parse', '--path-format=absolute', '--git-common-dir'])
     return await canonicalPath(stdout.trim())
   } catch {
     return null

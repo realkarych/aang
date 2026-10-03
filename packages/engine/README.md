@@ -9,7 +9,7 @@ journal restores the same stage and relationship ids.
 Assignments, participation, artifact links and dependencies are upserts by their
 endpoints. Repeating a relationship keeps its id and updates its grounds. Artifact
 input and output links are distinct; the same action, agent or version can belong
-to several stages. Artifact retention belongs to E.7b.
+to several stages. Linking a version makes it a basis; see Artifact versions.
 
 ## Runtime execution
 
@@ -193,8 +193,169 @@ The root session of a run comes from its `run` entity; without one, a session th
 is its own root uses its `cwd`.
 
 Checks do not produce criterion statuses: a check alone never gives `confirmed`.
-Snapshots around checks, `passed_unversioned`, `confirmed` and `stale` belong to
-E.7b and E.7c.
+`passed_unversioned`, `confirmed` and `stale` belong to E.7c.
+
+## Working tree snapshots
+
+When the ingest transaction stores the start or the end of a check (a command
+action of a run that matches a contract), the engine takes a snapshot of the
+working tree after the commit and before `ingest` resolves (ADR-0006). A batch
+that holds both the start and the end of a check takes one snapshot; a start and
+an end read in separate batches give snapshots around the check. Checks read by
+backfill are snapshotted when they are read, so `taken_at` tells later readers
+whether a snapshot can precede the check.
+
+The snapshot runs in the directory of the check, finds the top of the working tree
+and runs read-only commands with `GIT_OPTIONAL_LOCKS=0` and `core.fsmonitor=false`:
+
+- `git rev-parse --verify --quiet HEAD^{commit}`;
+- `git status --porcelain=v1 -z --ignored=traditional --untracked-files=normal
+  --ignore-submodules=none -- <pathspecs>`.
+
+User settings that hide untracked files or submodule changes do not apply, and
+git neither refreshes the index nor takes `index.lock`. `inputMasks` of a contract
+are paths relative to the watched root that declares the contract, interpreted as
+git pathspecs. A mask that covers the whole working tree becomes `.`, and masks
+outside the working tree are dropped; when no mask remains, no snapshot is taken.
+
+A snapshot is clean only when `HEAD` resolves to a commit and the status under the
+masks is empty: an uncommitted, staged, renamed, untracked or ignored path under a
+mask makes it unclean. A failed git command (no repository, a missing directory)
+gives an unclean snapshot without a head and with the error.
+
+Each snapshot is a raw record of the `snapshot` channel (position `daemon`, no
+runtime or stream), one `git_snapshot` fact keyed by the run of the root session
+with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
+records are not session evidence: they do not move `last_event_at`, freshness or
+the turn state.
+
+The directory of an action comes from all of its starts. An explicit directory of
+the tool wins: `workdir` of a Codex `exec_command` or `cwd` of a Codex
+`CommandExecution`, given as a path or a `file://` URL. A relative explicit
+directory resolves against the ambient one. The ambient directory is the `cwd` of
+a start, otherwise of the session. A check without any directory runs in the
+`cwd` of its root session.
+
+## Artifact versions
+
+The ingest transaction projects artifact versions from the actions whose start or
+end it stores. A version belongs to the run of the action's session, its artifact
+is the absolute path, and it records the action in `produced_by`. Inherited
+actions give no versions. Paths come from:
+
+- Claude `Write` (`file_path` with `content`), `Edit` and `MultiEdit`
+  (`file_path` with the replacements as a patch), `NotebookEdit`
+  (`notebook_path`);
+- Codex `apply_patch` (`*** Add File` with its content, `*** Update File` with
+  its hunks as a patch and its `*** Move to`) and `FileChange` items (`add`,
+  `update` with `move_path`); deletions give no version;
+- shell scripts of command actions (a `command` or `cmd` string, or the script of
+  a shell argument vector): redirection targets and the file arguments of `tee`.
+  Comments, quoted text, expansions and globs are not targets; duplications such
+  as `2>&1`, devices, and targets with expansions, globs or a leading `~` are
+  skipped, and relative targets are skipped when the script changes directory.
+
+Relative paths resolve against the directory of the action (see Working tree
+snapshots). A script is read with the rules of its shell:
+
+- POSIX (`sh`, `bash`, `zsh`): `>`, `>>`, `>|`, `&>`, `&>>`, `N>`; heredoc bodies,
+  `[[ ]]`, `(( ))` and process substitutions are skipped; a backslash escapes any
+  character outside quotes and only `$`, `` ` ``, `"`, `\` and a newline inside
+  double quotes; `/dev/*` are devices; `cd`, `pushd` and `popd` change directory;
+- PowerShell: `>`, `>>`, `N>`, `*>`, `*>>`; the backtick is the escape character,
+  quotes are doubled inside quotes, `$` expands in double quotes, block comments
+  and here-strings are skipped; `nul`, `con` and other reserved names are devices;
+  `cd`, `Set-Location`, `Push-Location`, `Pop-Location` and their aliases change
+  directory; `tee` and `Tee-Object` write files;
+- `cmd`: `>`, `>>`, `N>`; `^` escapes, quotes are literal, `%` and `!` expand, `rem`
+  and `::` lines are remarks; reserved names are devices; `cd`, `chdir`,
+  `pushd`, `popd` and a bare drive change directory.
+
+The shell of an argument vector is its program (`pwsh`, `powershell`, `cmd`,
+otherwise POSIX). A command string uses the `shell` of the input when it is given;
+otherwise Claude `PowerShell` is PowerShell, Claude `Bash` is POSIX (Git Bash on
+Windows), and a Codex command runs in the host shell: PowerShell on Windows, POSIX
+elsewhere.
+
+A file tool gives a version after an end with outcome `ok`; an end with an unknown
+outcome, such as a Codex `PostToolUse` or tool output, is not enough. A command
+gives a version after any end except `denied`, because a failing command still
+writes its redirections.
+Full content in the payload (Claude `Write`, an added file of a Codex patch) makes
+the identity the content hash. Otherwise the version is known only by reference:
+its identity is the earliest stored start that names the path. The projection is
+repeatable, keeps the stored retention, and dates a version by its earliest
+qualifying end.
+
+Actions that write the same content to the same path share one content version.
+Its `produced_by` and `observed_at` are those of the earliest qualifying end, ties
+broken by the smaller action id, so the result does not depend on the order in
+which the evidence arrives, and a late hook of a known action changes nothing. An
+`action_payload` retention names the same action: the payload of every producer
+holds the same bytes.
+
+## Retention of bases
+
+`engine.retainBases(runs?)` retains every version of the given runs (all runs by
+default) that is still known only by reference and is a basis: the version of an
+`artifact` link or the `via` of a `dependency` link. Callers run it after applying
+an observer response and after a restart; the engine queue orders it with ingest.
+
+- A content version whose payload still holds that content is retained from the
+  payload as `action_payload`: the version the action produced.
+- A version written by a patch (Claude `Edit`/`MultiEdit`, a Codex `*** Update
+  File`) is rebuilt from the patch and its base and retained as `action_payload`
+  of the patching action. See Patch bases below.
+- Otherwise a regular file at the path is read as `file_read` with `read_at`, the
+  state of the file at the moment of reading, not proven to be the output of the
+  action.
+- Content larger than `maxBlobBytes` (5 MiB by default) keeps only `hash_only`
+  with its SHA-256 and size; no blob is stored.
+- A missing path, a directory or an unreadable file keeps the version known only
+  by reference; a later call reads it again.
+
+### Patch bases
+
+The base of a patch is the content of the patched path that the action changed. It
+is established only when it is proven:
+
+- a Claude `Edit` or `MultiEdit` that reports `originalFile` in its result has that
+  content as its base: the tool read it right before applying the change. When the
+  result says `userModified`, the change differs from the input and the version is
+  not rebuilt. Only an edit without a reported original looks for a base in the run;
+- otherwise the base is the latest known state of the source path (the path before a
+  `*** Move to`) before the patch started: the end of a write of the run (all its
+  sessions), that is a successful file tool or a command that redirects to the path,
+  or a stored `file_read` of the path with its `read_at`. Two states at the same time
+  make it ambiguous;
+- the content of a write is known from payloads: full content of the action, or a
+  patch to its own established base. A command write has no known content. The
+  content of a stored read is its blob, decoded as strict UTF-8 with its byte order
+  mark kept;
+- nothing may have changed the path between that state and the end of the patch: no
+  other action that could write it ran in that window. Every command, MCP tool, code
+  cell and unknown tool could write any path, a file tool could write the paths it
+  names; reads, searches, web, questions, plans and agent calls, whose own actions
+  are observed in their sessions, do not write. Denied actions did not run; an
+  action without an end and a Claude command `run_in_background` are still running.
+  A Codex command whose call returned `Process running with session ID N` runs until
+  its own result settles with an exit code or an outcome, or a `write_stdin` poll of
+  session `N` reports `Process exited with code`; a return of the call is not the
+  end of the process;
+- every replacement applies exactly: Claude `old_string` occurs once (or at least
+  once with `replace_all`), and an empty `new_string` does not touch a following
+  newline; Codex hunks match their context and lines exactly, with the matching
+  and end-of-file rules of `apply_patch`.
+
+When any condition fails the version is read from the file as before. Writes the
+daemon does not observe at all, such as an editor outside the sessions, are out of
+reach of these rules; a reported original covers them for Claude edits. Codex
+`FileChange` diffs are not used as patches; the `apply_patch` input of the same
+action is.
+
+Blobs are stored once per hash with a reference per version and its source; the
+last reference removes the blob. Retention changes the version, so it reaches the
+change feed. Versions of URLs, commits and pull requests are not retained here.
 
 ## Input scope and needs
 
@@ -214,9 +375,7 @@ belong to the run. The context record follows the raw record rule through its
 session whose data the context was assembled from (F.7a). A context that read a
 session of another vendor is therefore refused without `crossVendor`, whether it is
 the context of the input, the input checked again before a follow-up or a requested
-raw record. An
-artifact version must be bound to the run, so it is refused until E.7b provides its
-storage.
+raw record. An artifact version must be bound to the run, as E.7b stores it.
 `beginObserverCall` refuses an input with any violation and a first call that already
 carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started
