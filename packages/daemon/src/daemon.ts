@@ -2,6 +2,7 @@ import { rm } from 'node:fs/promises'
 import type { Config, Listener, Runtime } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
+import { createReadQueries, type ObserverRunStatus } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
 import { startIngestion } from './ingestion.js'
@@ -9,6 +10,7 @@ import { resolveListener } from './listener.js'
 import { otelToken } from './otel-token.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
+import { createStreams } from './stream.js'
 
 export interface DaemonReady {
   readonly pid: number
@@ -41,6 +43,17 @@ const openExclusive = (home: string): Store => {
     throw error instanceof StoreLockedError ? new DaemonAlreadyRunningError(home) : error
   }
 }
+
+const observerOfRun = (): ObserverRunStatus => ({ state: { state: 'ok' }, isolation_unverified: false })
+
+const notifying = (store: Store, changed: () => void): Store => ({
+  ...store,
+  transaction: (work) => {
+    const result = store.transaction(work)
+    changed()
+    return result
+  },
+})
 
 const report = (error: unknown): void => {
   process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
@@ -96,8 +109,21 @@ interface Session {
   readonly store: Store
 }
 
-const serve = async ({ options, config, runtimeRoots, paths, listener, store }: Session): Promise<DaemonStopReason> => {
+const serve = async ({
+  options,
+  config,
+  runtimeRoots,
+  paths,
+  listener,
+  store: opened,
+}: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
+  const streams = createStreams({
+    reads: createReadQueries({ store: opened, observer: observerOfRun }),
+    head: opened.changes.head,
+    onError: report,
+  })
+  const store = notifying(opened, streams.changed)
   const stop = Promise.withResolvers<StopCause>()
   const stopRequest = { made: false }
   const settle = (cause: StopCause): void => {
@@ -130,6 +156,7 @@ const serve = async ({ options, config, runtimeRoots, paths, listener, store }: 
       listener,
       auth,
       staticRoot: options.staticRoot,
+      streams,
       onShutdown: () => {
         requestStop('shutdown')
       },

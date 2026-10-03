@@ -1,14 +1,23 @@
 import { once } from 'node:events'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type ApiError, type ApiErrorCode, endpoints, type Listener, type ShutdownResponse } from '@aang/contract'
+import {
+  type ApiError,
+  type ApiErrorCode,
+  endpoints,
+  type Listener,
+  type ShutdownResponse,
+  streamPath,
+} from '@aang/contract'
 import type { Authenticator } from './auth.js'
 import { serveStatic } from './static.js'
+import type { Streams } from './stream.js'
 
 export interface ServerOptions {
   readonly listener: Listener
   readonly auth: Authenticator
   readonly staticRoot: string | null
+  readonly streams: Streams
   readonly onShutdown: () => void
 }
 
@@ -72,7 +81,13 @@ const readJson = async (request: IncomingMessage): Promise<unknown> => {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
-export const startServer = async ({ listener, auth, staticRoot, onShutdown }: ServerOptions): Promise<RunningServer> => {
+export const startServer = async ({
+  listener,
+  auth,
+  staticRoot,
+  streams,
+  onShutdown,
+}: ServerOptions): Promise<RunningServer> => {
   const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
     let body: unknown
     try {
@@ -90,9 +105,17 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
     sendJson(response, 200, accepted)
   }
 
-  const routeApi = async (request: IncomingMessage, response: ServerResponse, pathname: string): Promise<void> => {
+  const routeApi = async (request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> => {
+    const { pathname } = url
     if (request.method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
       await shutdown(request, response)
+      return
+    }
+    if (request.method === 'GET' && pathname === streamPath) {
+      const refusal = streams.open(request, response, url.searchParams)
+      if (refusal !== null) {
+        sendError(response, refusal.code, refusal.message)
+      }
       return
     }
     sendError(response, 'not_found', `no route for ${request.method ?? 'GET'} ${pathname}`)
@@ -115,7 +138,8 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
   }
 
   const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
-    const { pathname } = new URL(request.url ?? '/', 'http://daemon.invalid')
+    const url = new URL(request.url ?? '/', 'http://daemon.invalid')
+    const { pathname } = url
     if (pathname.startsWith(authPrefix) && request.method === 'GET') {
       await redeemLink(response, pathname.slice(authPrefix.length))
       return
@@ -130,7 +154,7 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
       return
     }
     if (api) {
-      await routeApi(request, response, pathname)
+      await routeApi(request, response, url)
       return
     }
     await serveStatic(staticRoot, pathname, request, response)
@@ -154,6 +178,7 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
     address: { host: listener.host, port },
     close: async () => {
       const closed = once(server, 'close')
+      streams.close()
       server.close()
       server.closeIdleConnections()
       const force = setTimeout(() => {
