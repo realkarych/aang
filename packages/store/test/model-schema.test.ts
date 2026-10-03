@@ -66,12 +66,14 @@ const viewMark: Row = {
   model_version: '1',
   change_seq: '2',
   viewed_at: '1759370000000000000',
+  mark_change_seq: '3',
 }
 
 const attentionView: Row = {
   run_id: "'r1'",
   item_id: "'a1'",
   viewed_at: '1759370000000000000',
+  dismissed_at: 'NULL',
   change_seq: '3',
 }
 
@@ -348,7 +350,7 @@ const cases: readonly SchemaCase[] = [
   {
     name: 'a run has a single view mark',
     setup: [insert('view_marks', viewMark)],
-    statement: insert('view_marks', viewMark, { model_version: '2', change_seq: '5' }),
+    statement: insert('view_marks', viewMark, { model_version: '2', change_seq: '5', mark_change_seq: '6' }),
     error: /UNIQUE constraint failed: view_marks\.run_id/,
   },
   {
@@ -357,10 +359,24 @@ const cases: readonly SchemaCase[] = [
     error: /NOT NULL constraint failed: view_marks\.change_seq/,
   },
   {
+    name: 'a view mark is changed after the state it marks',
+    statement: insert('view_marks', viewMark, { mark_change_seq: '2' }),
+    error: /CHECK constraint failed: view_marks_after_viewed/,
+  },
+  {
     name: 'an attention item is marked viewed once per run',
     setup: [insert('attention_views', attentionView)],
     statement: insert('attention_views', attentionView, { change_seq: '4' }),
     error: /UNIQUE constraint failed: attention_views\.run_id, attention_views\.item_id/,
+  },
+  {
+    name: 'an attention item can be dismissed without being viewed',
+    statement: insert('attention_views', attentionView, { viewed_at: 'NULL', dismissed_at: '1759370001000000000' }),
+  },
+  {
+    name: 'an attention view records a view or a dismissal',
+    statement: insert('attention_views', attentionView, { viewed_at: 'NULL' }),
+    error: /CHECK constraint failed: attention_views_marked/,
   },
   {
     name: 'a collapse rule from the interface has no parameters',

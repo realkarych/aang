@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import {
   type Basis,
+  type ChangeSeq,
   type Evidence,
   ModelChange,
   ModelEntity,
@@ -33,6 +34,7 @@ export interface ModelReader {
     id: string,
   ) => RunId | null | undefined
   readonly head: (run: RunId) => ModelVersion
+  readonly versionAt: (run: RunId, position: ChangeSeq) => ModelVersion
   readonly version: (run: RunId, version: ModelVersion) => ModelVersionRecord | null
   readonly entity: (run: RunId, target: ModelEntityRef) => ModelEntity | null
   readonly entities: (run: RunId) => ModelEntity[]
@@ -172,6 +174,10 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     database,
     'SELECT COALESCE(MAX(version), 0) AS head FROM model_versions WHERE run_id = ?',
   )
+  const selectVersionAt = prepareStatement(
+    database,
+    'SELECT COALESCE(MAX(version), 0) AS version FROM model_versions WHERE run_id = ? AND change_seq <= ?',
+  )
   const selectVersion = prepareStatement(
     database,
     `SELECT ${versionColumns.join(', ')} FROM model_versions WHERE run_id = ? AND version = ?`,
@@ -241,6 +247,8 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
       return row === undefined ? undefined : row.run_id === null ? null : RunId.parse(row.run_id)
     },
     head: (run) => ModelVersion.parse(Number((selectHead.get(run) as { readonly head: bigint }).head)),
+    versionAt: (run, position) =>
+      ModelVersion.parse(Number((selectVersionAt.get(run, position) as { readonly version: bigint }).version)),
     version: (run, version) => {
       const row = selectVersion.get(run, version) as VersionRow | undefined
       return row === undefined ? null : toVersion(row)
