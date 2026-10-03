@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { Execution } from './axes.js'
 import { ChatMessage } from './chat.js'
-import { CostStatePayload, Fact, TokenUsage } from './facts.js'
+import { ActionOutcome, CostStatePayload, Fact, TokenUsage } from './facts.js'
 import { ModelChange } from './journal.js'
 import { AttentionItem, AttentionKind, Binding, Card, Criterion, Link, Run, Stage } from './model.js'
 import {
@@ -35,7 +35,16 @@ import {
 } from './primitives.js'
 import { RawRecord } from './raw.js'
 import { SupportKey, SupportStatus } from './support.js'
-import { AppliedViewRule, AttentionPlace, AttentionView, ViewMark, ViewRule, ViewRuleSpec } from './view.js'
+import {
+  AppliedViewRule,
+  AttentionPlace,
+  AttentionView,
+  DetailLevel,
+  ViewElement,
+  ViewMark,
+  ViewRule,
+  ViewRuleSpec,
+} from './view.js'
 
 const text = z.string()
 const name = z.string().min(1)
@@ -225,8 +234,42 @@ export const AttentionState = z.strictObject({
 })
 export type AttentionState = z.infer<typeof AttentionState>
 
+export const UsageTotals = z.strictObject({
+  tokens: TokenUsage,
+  records: count,
+  output_lower_bound: z.boolean(),
+  cost_usd: z.number().nonnegative().nullable(),
+})
+export type UsageTotals = z.infer<typeof UsageTotals>
+
+export const ViewTotals = z.strictObject({
+  agents: count,
+  actions: count,
+  running_actions: count,
+  outcomes: z.record(ActionOutcome, count),
+  usage: UsageTotals.nullable(),
+  outputs: z.array(ArtifactVersionId),
+})
+export type ViewTotals = z.infer<typeof ViewTotals>
+
+export const ViewVisibility = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('collapsed'), rule: ViewRuleId.nullable(), totals: ViewTotals }),
+  z.strictObject({ state: z.literal('hidden'), rule: ViewRuleId.nullable() }),
+])
+export type ViewVisibility = z.infer<typeof ViewVisibility>
+
+export const ViewPlacement = z.strictObject({
+  element: ViewElement,
+  visibility: ViewVisibility.nullable(),
+  group: z.strictObject({ name, rule: ViewRuleId }).nullable(),
+  detail: z.strictObject({ level: DetailLevel, rule: ViewRuleId }).nullable(),
+  attention: z.array(AttentionItemId),
+})
+export type ViewPlacement = z.infer<typeof ViewPlacement>
+
 export const RunView = z.strictObject({
   rules: z.array(AppliedViewRule),
+  placements: z.array(ViewPlacement),
   mark: ViewMark.nullable(),
   zone: z.array(AttentionPlace),
 })
@@ -244,14 +287,6 @@ export const RunSnapshot = z.strictObject({
   change_seq: ChangeSeq,
 })
 export type RunSnapshot = z.infer<typeof RunSnapshot>
-
-export const UsageTotals = z.strictObject({
-  tokens: TokenUsage,
-  records: count,
-  output_lower_bound: z.boolean(),
-  cost_usd: z.number().nonnegative().nullable(),
-})
-export type UsageTotals = z.infer<typeof UsageTotals>
 
 export const StageArtifact = z.strictObject({
   link: Link,
