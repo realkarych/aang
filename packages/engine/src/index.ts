@@ -56,3 +56,6 @@ export {
 } from './model/journal.js'
 export { BindingError, type BindingErrorCode } from './observations/bindings.js'
 export { hookRedeliveries, type HookRedelivery } from './observations/redelivery.js'
+export { InvalidPositionError, type ObserverRunStatus } from './read/context.js'
+export { createReadQueries, type ReadQueries, type ReadQueriesOptions } from './read/queries.js'
+export type { RunFeed, RunFeedEvent } from './read/snapshot.js'

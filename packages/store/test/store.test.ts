@@ -143,6 +143,24 @@ test('asynchronous transaction work is refused and rolled back without leaving i
   expect(store.transaction((transaction) => transaction.nextChangeSeq())).toBe(1)
 })
 
+test('a read keeps one consistent state while another connection commits a change', async ({ onTestFinished }) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  store.transaction((transaction) => transaction.nextChangeSeq())
+  const other = home.database()
+
+  const seen = store.read(() => {
+    const before = store.changes.head()
+    other.exec('UPDATE change_counter SET value = value + 1')
+    return [before, store.changes.head()]
+  })
+  other.close()
+
+  expect(seen).toEqual([1, 1])
+  expect(store.changes.head()).toBe(2)
+  expect(store.transaction((transaction) => transaction.nextChangeSeq())).toBe(3)
+})
+
 test('a transaction cannot issue change sequence numbers after it has finished', async ({ onTestFinished }) => {
   const home = await createHome(onTestFinished)
   const store = home.open()

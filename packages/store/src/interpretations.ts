@@ -1,10 +1,18 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { FactInterpretation, type FactId, type ObserverCallId, type RunId } from '@aang/contract'
+import { EpochNs, FactInterpretation, type FactId, type ObserverCallId, type RunId } from '@aang/contract'
 import { prepareStatement, type WriteContext } from './context.js'
+
+export interface InterpretationQueue {
+  readonly pending: number
+  readonly deferred: number
+  readonly not_interpreted: number
+  readonly oldest_pending_at: EpochNs | null
+}
 
 export interface InterpretationReader {
   readonly ofRun: (run: RunId) => FactInterpretation[]
   readonly ofCall: (call: ObserverCallId) => FactInterpretation[]
+  readonly queueOf: (run: RunId) => InterpretationQueue
 }
 
 export interface InterpretationWriter extends InterpretationReader {
@@ -13,6 +21,13 @@ export interface InterpretationWriter extends InterpretationReader {
   readonly handover: (from: ObserverCallId, to: ObserverCallId) => number
   readonly queue: (run: RunId, facts: readonly FactId[]) => void
   readonly withdraw: (run: RunId, facts: readonly FactId[]) => void
+}
+
+type QueueRow = {
+  readonly pending: bigint
+  readonly deferred: bigint
+  readonly not_interpreted: bigint
+  readonly oldest_pending_at: bigint | null
 }
 
 type InterpretationRow = {
@@ -47,6 +62,16 @@ export const createInterpretations = (database: DatabaseSync) => {
     database,
     'SELECT * FROM fact_interpretation WHERE observer_call_id = ? ORDER BY fact_id',
   )
+  const selectQueue = prepareStatement(
+    database,
+    `SELECT
+       COUNT(*) FILTER (WHERE i.status IN ('pending', 'in_call')) AS pending,
+       COUNT(*) FILTER (WHERE i.status = 'deferred') AS deferred,
+       COUNT(*) FILTER (WHERE i.status = 'not_interpreted') AS not_interpreted,
+       MIN(f.occurred_at) FILTER (WHERE i.status IN ('pending', 'in_call')) AS oldest_pending_at
+     FROM fact_interpretation i LEFT JOIN facts f ON f.id = i.fact_id
+     WHERE i.run_id = ?`,
+  )
   const begin = prepareStatement(
     database,
     `INSERT INTO fact_interpretation (run_id, fact_id, status, attempts, observer_call_id) VALUES (?, ?, 'in_call', 1, ?)
@@ -79,6 +104,15 @@ export const createInterpretations = (database: DatabaseSync) => {
   const reader: InterpretationReader = {
     ofRun: (run) => (byRun.all(run) as InterpretationRow[]).map(fromRow),
     ofCall: (call) => (byCall.all(call) as InterpretationRow[]).map(fromRow),
+    queueOf: (run) => {
+      const row = selectQueue.get(run) as QueueRow
+      return {
+        pending: Number(row.pending),
+        deferred: Number(row.deferred),
+        not_interpreted: Number(row.not_interpreted),
+        oldest_pending_at: row.oldest_pending_at === null ? null : EpochNs.parse(row.oldest_pending_at),
+      }
+    },
   }
   const writer = (context: WriteContext): InterpretationWriter => ({
     ...reader,

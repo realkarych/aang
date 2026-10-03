@@ -512,3 +512,72 @@ be cited; the same text assembled from other sessions, for example with
 Records of the `context` and `snapshot` channels are not events of a session: they do
 not change its projection, freshness or `last_event_at`. The `context` facts are not
 queued for interpretation.
+
+## Read queries
+
+`createReadQueries({ store, observer })` answers the reads of the API (ADR-0011).
+Each query runs in one read transaction of the store, so its data and its
+`change_seq`, the head of the change feed, describe the same state. `observer(run)`
+supplies the scheduler state of a run (`state`, `isolation_unverified`); the queue
+counts come from the interpretation statuses.
+
+- `runs()` lists run summaries, the latest activity first.
+- `snapshot(run)` returns the run, its summary, the semantic model, the observation
+  objects and gaps of its sessions, its plan facts, attention items and bindings.
+- `feed(run, after)` returns the changes of that snapshot after a position as the
+  contract deltas. Applying them to the snapshot taken at `after` gives the snapshot
+  taken at `position`:
+  - consecutive changes of facts, observation objects, gaps and retractions form one
+    `facts` event, and every model version forms one `model` event. An event id is
+    the last `change_seq` it contains, so ids grow and never repeat;
+  - objects and gaps arrive in their current state, `removed` names retracted agents
+    and their replacements, and `facts` carries plan facts, the only facts of the
+    snapshot;
+  - a model event replaces the changed entities of the run; a removed
+    `session_membership` takes the objects of that session out of the run;
+  - `run` is the current summary, view and bindings, which the transport delivers
+    after the events;
+  - a position ahead of the change feed is an `InvalidPositionError`.
+- `inspector(run, stage)`, `changes(run, { version, change_seq })` and
+  `observerCalls(run)` serve the inspector, the changes since a view mark and the
+  observer calls.
+
+The run summary:
+
+- `execution` is the most active execution among the sessions: running, waiting for
+  a human, for background work, for an unknown reason, idle after an answer, then
+  failed, cancelled, unknown, planned and done;
+- `freshness` takes the sessions in the order of a single session: lost, hooks
+  inactive, quiet, ok;
+- open attention items are those with resolution `open`; an item waits for a human
+  while its runtime wait is active;
+- `pending_facts` counts pending facts and facts in a call, `oldest_pending_at` is
+  the time of the oldest of them, `last_success_at` the end of the last accepted
+  call;
+- `change_seq` is the last change of these inputs: the model version, the sessions,
+  the agents and the observer calls.
+
+The stage inspector shows the assigned actions that still belong to the run, the
+participating agents together with the agents of those actions, the items of the
+stage and the action-level items of its actions, and the facts of the current
+grounds of the stage. Its time runs from the first start to the last end once every
+action has ended; the active time is the union of the action intervals, so parallel
+work is not added up (ADR-0009). Its observer calls changed the stage or were
+rejected while naming it.
+
+The changes since a model version and a change position list stage and criterion
+transitions from their state at the version to the current state with the journal
+entries in between, cards added after the version, plan facts and new actions after
+the position, and attention items opened after the version and still open or closed
+after it. An action is new when every fact of it came after the position; inherited
+actions are not new.
+
+The attempt of an observer call is one more than the number of earlier rejected
+calls that contained a fact of its batch. A call without a verdict is running.
+
+Some parts of the contract have no source yet and stay empty: view rules, the view
+mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
+and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
+(E.8, U.1); the CLI version, model, usage, error and `needs` latency of observer
+calls (F.8, F.9). The ingest transaction does not record `pending` interpretation
+rows yet (ADR-0005), so the queue counts only facts that have been in a call.

@@ -17,6 +17,7 @@ import { decodeJson, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, upsertInto, type WriteContext } from './context.js'
 
 export type Observation = Session | Agent | Action | Question
+export type ObservationKind = Observation['key']['kind']
 export type ObservationDraft =
   | Omit<Session, 'change_seq'>
   | Omit<Agent, 'change_seq'>
@@ -40,6 +41,8 @@ export interface ObservationReader {
   readonly agents: (session: SessionId) => Agent[]
   readonly actions: (session: SessionId) => Action[]
   readonly questions: (session: SessionId) => Question[]
+  readonly ofRun: (run: RunId, after: ChangeSeq, kinds?: readonly ObservationKind[]) => Observation[]
+  readonly removalsOfRun: (run: RunId, after: ChangeSeq) => StoredObservationRemoval[]
 }
 
 export interface ObservationWriter extends ObservationReader {
@@ -72,6 +75,8 @@ export const toObservation = (row: ObservationRow): Observation => {
 }
 
 export const observationKinds = "'session', 'agent', 'action', 'question'"
+
+const everyObservationKind: readonly ObservationKind[] = ['session', 'agent', 'action', 'question']
 
 export type RemovalRow = {
   readonly id: string
@@ -124,6 +129,16 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
     'UPDATE object_removals SET replaced_by = ?, change_seq = ? WHERE id = ?',
   )
   const deleteRemoval = prepareStatement(database, 'DELETE FROM object_removals WHERE id = ?')
+  const selectOfRun = prepareStatement(
+    database,
+    `SELECT kind, data, change_seq FROM objects
+     WHERE run_id = ? AND kind IN (SELECT value FROM json_each(?)) AND change_seq > ?
+     ORDER BY change_seq, id`,
+  )
+  const selectRemovalsOfRun = prepareStatement(
+    database,
+    `SELECT ${removalColumns} FROM object_removals WHERE run_id = ? AND change_seq > ? ORDER BY change_seq, id`,
+  )
   const get = (id: string, kind: string): unknown => {
     const row = selectById.get(id, kind) as ObservationRow | undefined
     return row === undefined ? null : decodeJson(row.data)
@@ -147,6 +162,9 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
     agents: (session) => members('agent', session).map((value) => Agent.parse(value)),
     actions: (session) => members('action', session).map((value) => Action.parse(value)),
     questions: (session) => members('question', session).map((value) => Question.parse(value)),
+    ofRun: (run, after, kinds = everyObservationKind) =>
+      (selectOfRun.all(run, JSON.stringify(kinds), after) as ObservationRow[]).map(toObservation),
+    removalsOfRun: (run, after) => (selectRemovalsOfRun.all(run, after) as RemovalRow[]).map(toRemoval),
   }
   return {
     reader,

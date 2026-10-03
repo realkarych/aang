@@ -1,71 +1,16 @@
-import { mkdir } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
 import type { ActionId, AgentId, Fact, Gap, Runtime, Session } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
-import {
-  createPlayer,
-  type LoadedManifest,
-  loadManifest,
-  type PlayedStep,
-  type PlayOptions,
-  type SampleScenario,
-  sampleScenarioManifest,
-} from '@aang/testkit'
-import { describe, expect, onTestFinished, test, vi } from 'vitest'
-import { factsOf, gapsOf, recordsOf, sessionKey, startEngine } from './harness.js'
-import { createHome } from './home.js'
-import { createLiveRoots, type Live, runLive } from './live.js'
-
-const settle = { timeout: 15_000, interval: 25 }
+import { createPlayer } from '@aang/testkit'
+import { describe, expect, test, vi } from 'vitest'
+import { factsOf, gapsOf, recordsOf, sessionKey } from './harness.js'
+import { filesReplay, settle, startScenario } from './scenarios.js'
 
 const original = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const forked = 'cdfb3544-67c1-4590-a4d9-280593b6ed55'
 const thread = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
 const agentCall = 'toolu_01D254DDPoZEYPvJBjampKox'
 const bashCall = 'toolu_017B7FeHZ4yDzFdvKQMwDJB8'
-
-interface Scenario {
-  readonly store: Store
-  readonly live: Live
-  readonly roots: Readonly<Record<'home' | 'claude' | 'codex', string>>
-  readonly manifest: LoadedManifest
-}
-
-interface Replay {
-  readonly play: (options?: PlayOptions) => Promise<void>
-}
-
-const startScenario = async (scenario: SampleScenario): Promise<Scenario> => {
-  const store = (await createHome(onTestFinished)).open()
-  const live = await createLiveRoots(onTestFinished)
-  const roots = { home: join(dirname(live.spool), 'home'), claude: live.claude, codex: live.codex }
-  await mkdir(roots.home, { recursive: true })
-  return {
-    store,
-    live: runLive(onTestFinished, live, store, startEngine(store, { all: true })),
-    roots,
-    manifest: await loadManifest(sampleScenarioManifest(scenario)),
-  }
-}
-
-const filesReplay = ({ store, roots, manifest }: Scenario): Replay => {
-  const player = createPlayer(manifest, { roots, timeScale: 0 })
-  let written = 0
-  const writesOf = (played: readonly PlayedStep[]): number =>
-    played.reduce((sum, { index }) => {
-      const step = manifest.steps[index]
-      return sum + (step?.kind === 'append' ? (step.lines ?? 0) : step?.kind === 'write' ? 1 : 0)
-    }, 0)
-  return {
-    play: async (options) => {
-      written += writesOf(await player.play(options))
-      await vi.waitFor(() => {
-        expect(recordsOf(store)).toHaveLength(written)
-      }, settle)
-    },
-  }
-}
 
 const sessionsOf = (store: Store): Session['key'][] => store.observations.sessions().map(({ key }) => key)
 

@@ -9,6 +9,7 @@ import {
   type ModelOperation,
   ModelVersion,
   ModelVersionRecord,
+  Run,
   RunId,
 } from '@aang/contract'
 import { decodeJson, encodeJson } from './codec.js'
@@ -36,6 +37,8 @@ export interface ModelReader {
   readonly head: (run: RunId) => ModelVersion
   readonly versionAt: (run: RunId, position: ChangeSeq) => ModelVersion
   readonly version: (run: RunId, version: ModelVersion) => ModelVersionRecord | null
+  readonly versions: (run: RunId, after: ChangeSeq) => ModelVersionRecord[]
+  readonly runs: () => Run[]
   readonly entity: (run: RunId, target: ModelEntityRef) => ModelEntity | null
   readonly entities: (run: RunId) => ModelEntity[]
   readonly forksOf: (parent: RunId) => RunId[]
@@ -182,6 +185,11 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     database,
     `SELECT ${versionColumns.join(', ')} FROM model_versions WHERE run_id = ? AND version = ?`,
   )
+  const selectVersions = prepareStatement(
+    database,
+    `SELECT ${versionColumns.join(', ')} FROM model_versions WHERE run_id = ? AND change_seq > ? ORDER BY version`,
+  )
+  const selectRuns = prepareStatement(database, "SELECT data FROM model_entities WHERE kind = 'run' ORDER BY id")
   const selectEntity = prepareStatement(
     database,
     'SELECT kind, data FROM model_entities WHERE run_id = ? AND kind = ? AND id = ?',
@@ -253,6 +261,8 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
       const row = selectVersion.get(run, version) as VersionRow | undefined
       return row === undefined ? null : toVersion(row)
     },
+    versions: (run, after) => (selectVersions.all(run, after) as VersionRow[]).map(toVersion),
+    runs: () => (selectRuns.all() as { readonly data: string }[]).map(({ data }) => Run.parse(decodeJson(data))),
     entity: (run, target) => {
       const row = selectEntity.get(run, target.kind, target.id) as EntityRow | undefined
       return row === undefined ? null : toEntity(row)

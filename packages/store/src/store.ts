@@ -22,7 +22,7 @@ import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
 import { createSettings, type SettingReader, type SettingWriter } from './settings.js'
-import { inTransaction } from './transaction.js'
+import { inReadTransaction, inTransaction } from './transaction.js'
 import { createViews, type ViewReader, type ViewWriter } from './views.js'
 
 export interface StoreOptions {
@@ -49,6 +49,7 @@ type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
 
 export interface Store {
   readonly transaction: <T>(work: (transaction: Transaction) => Synchronous<T>) => T
+  readonly read: <T>(work: () => Synchronous<T>) => T
   readonly observations: ObservationReader
   readonly rawRecords: RawRecordReader
   readonly facts: FactReader
@@ -129,6 +130,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         finish()
       }
     },
+    read: (work) => inReadTransaction(database, work),
     observations: observations.reader,
     rawRecords: rawRecords.reader,
     facts: facts.reader,
