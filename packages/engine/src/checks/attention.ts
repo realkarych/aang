@@ -5,6 +5,8 @@ import {
   AttentionItemId,
   type Basis,
   type EpochNs,
+  type FactId,
+  type ModelChange,
   type ModelEntity,
   ModelVersion,
   type RunId,
@@ -121,11 +123,14 @@ const failedCheckItems = (entities: readonly ModelEntity[]): AttentionItem[] =>
     entity.kind === 'attention_item' && entity.value.kind === 'failed_check' ? [entity.value] : [],
   )
 
+const itemChanges = (transaction: Transaction, run: RunId, { id }: AttentionItem): ModelChange[] =>
+  transaction.model.entityChanges(run, { kind: 'attention_item', id }, ModelVersion.parse(0))
+
 const citedActions = (transaction: Transaction, run: RunId, item: AttentionItem): ActionId[] => {
   const facts = new Set(
-    transaction.model
-      .entityChanges(run, { kind: 'attention_item', id: item.id }, ModelVersion.parse(0))
-      .flatMap(({ after }) => (after?.kind === 'attention_item' ? after.value.evidence : [])),
+    itemChanges(transaction, run, item).flatMap(({ after }) =>
+      after?.kind === 'attention_item' ? after.value.evidence : [],
+    ),
   )
   return [...facts].flatMap((id) => {
     const key = transaction.facts.get(id)?.entity_key
@@ -153,26 +158,25 @@ const matchedItems = (
   items: readonly AttentionItem[],
 ): MatchedStreak[] => {
   const free = new Map(items.map((item) => [item.id, item]))
-  const claim = (entry: ContractStreak, candidates: readonly AttentionItem[]): AttentionItem | null => {
-    const item = preferred(run, entry, candidates)
-    if (item !== null) {
-      free.delete(item.id)
-    }
-    return item
-  }
-  const byId = streaks.map((entry) =>
-    claim(
-      entry,
-      entry.streak.failures.flatMap(({ action }) => free.get(itemId(run, entry.contract, action.id)) ?? []),
-    ),
+  const named = streaks.map(({ contract, streak }) =>
+    streak.failures.flatMap(({ action }) => free.get(itemId(run, contract, action.id)) ?? []),
   )
+  for (const { id } of named.flat()) {
+    free.delete(id)
+  }
   const sharing = ({ contract, streak }: ContractStreak): AttentionItem[] => {
     const cited = new Set(streak.failures.flatMap(({ evidence }) => evidence))
     return [...free.values()].filter(
       (candidate) => candidate.evidence.some((id) => cited.has(id)) && openedFor(transaction, run, contract, candidate),
     )
   }
-  return streaks.map((entry, index) => ({ ...entry, existing: byId[index] ?? claim(entry, sharing(entry)) }))
+  return streaks.map((entry, index) => {
+    const existing = preferred(run, entry, [...(named[index] ?? []), ...sharing(entry)])
+    if (existing !== null) {
+      free.delete(existing.id)
+    }
+    return { ...entry, existing }
+  })
 }
 
 const streakChanges = (
@@ -280,6 +284,11 @@ const leaving = ({ id }: AttentionItem): ModelChangeDraft => ({
   evidence: [],
 })
 
+const closingFacts = (transaction: Transaction, run: RunId, item: AttentionItem): readonly FactId[] =>
+  item.resolution === 'answered'
+    ? (itemChanges(transaction, run, item).findLast(({ op }) => op === 'attention.close')?.evidence ?? [])
+    : []
+
 const latestOf = (times: readonly EpochNs[]): EpochNs | null =>
   times.reduce<EpochNs | null>((latest, time) => (latest === null || time > latest ? time : latest), null)
 
@@ -312,7 +321,12 @@ const refreshRun = (
   ]
   const claimed = new Set([...settled, ...matched.flatMap(({ existing }) => (existing === null ? [] : [existing.id]))])
   const present = new Set(actions.flatMap(({ facts }) => facts.map(({ id }) => id)))
-  const left = items.filter(({ id, evidence }) => !claimed.has(id) && !evidence.some((fact) => present.has(fact)))
+  const left = items.filter(
+    (item) =>
+      !claimed.has(item.id) &&
+      (!item.evidence.some((fact) => present.has(fact)) ||
+        closingFacts(transaction, run, item).some((fact) => !present.has(fact))),
+  )
   const time = latestOf([...updates.map((update) => update.at), ...(left.length === 0 ? [] : [at])])
   if (time !== null) {
     applyChangeSet(transaction, {

@@ -647,6 +647,109 @@ test.for(['detach', 'revoke'] as const)(
   },
 )
 
+test.for(['detach', 'revoke'] as const)(
+  'a session moved out by %s takes the success between two streaks along and the open item goes on alone',
+  async (move, { onTestFinished }) => {
+    const { home, store, engine, project } = await setup(onTestFinished, watchingTests)
+    const root = { session: 'root-session', cwd: project }
+    const moved = { session: 'moved-session', cwd: project }
+    const run = runOf('claude', root.session)
+    const session = objectId(sessionKey('claude', moved.session))
+    await engine.ingest(hookBatch(started(root), started(moved)))
+    const attached = await engine.bind({ kind: 'attach', session, run })
+    await engine.ingest(hookBatch(...check(root, 'root-first', 'pnpm test', { exit: 1 }, 10)))
+    await engine.ingest(hookBatch(...check(moved, 'moved-pass', 'pnpm test', 'pass', 20)))
+    await engine.ingest(hookBatch(...check(moved, 'moved-fail', 'pnpm test', { exit: 1 }, 30)))
+    await engine.ingest(hookBatch(...check(root, 'root-second', 'pnpm test', { exit: 2 }, 40)))
+    const [closed, open, ...others] = failedChecks(store, run)
+    if (closed === undefined || open === undefined) {
+      throw new Error('both streaks must have an attention item')
+    }
+    expect(others).toEqual([])
+    expect([closed, open]).toMatchObject([
+      { action: actionOf(root, 'root-first'), resolution: 'answered', closed_at: endedAt(store, 'moved-pass') },
+      { action: actionOf(root, 'root-second'), evidence: factIdsOf(store, 'moved-fail', 'root-second') },
+    ])
+
+    await (move === 'detach' ? engine.bind({ kind: 'detach', session }) : engine.revokeBinding(attached.binding.id))
+    const merged = {
+      id: open.id,
+      text: 'Check "test" failed with exit code 2',
+      action: actionOf(root, 'root-second'),
+      evidence: factIdsOf(store, 'root-first', 'root-second'),
+      opened_at: endedAt(store, 'root-first'),
+    }
+    expect(failedChecks(store, run)).toMatchObject([{ ...merged, resolution: 'open', closed_at: null }])
+    expect(journalOf(store, run, closed).at(-1)).toEqual({
+      op: 'session.move',
+      author: 'rule',
+      basis: observed,
+      evidence: [],
+    })
+    expect(failedChecks(store, runOf('claude', moved.session))).toMatchObject([
+      { action: actionOf(moved, 'moved-fail'), evidence: factIdsOf(store, 'moved-fail'), resolution: 'open' },
+    ])
+    await engine.ingest(hookBatch(...check(root, 'root-pass', 'pnpm test', 'pass', 50)))
+    expect(failedChecks(store, run)).toMatchObject([
+      { ...merged, resolution: 'answered', closed_at: endedAt(store, 'root-pass') },
+    ])
+    const after = failedChecks(store, run)
+    store.close()
+    const reopened = home.open()
+    reopened.transaction((transaction) => {
+      transaction.model.replay()
+    })
+    expect(failedChecks(reopened, run)).toEqual(after)
+  },
+)
+
+test.for([
+  ['passing', 'failing'],
+  ['failing', 'passing'],
+] as const)(
+  'sessions moved out one by one, the %s one first, leave the open item alone for the merged streak',
+  async (order, { onTestFinished }) => {
+    const { store, engine, project } = await setup(onTestFinished, watchingTests)
+    const root = { session: 'root-session', cwd: project }
+    const sources = {
+      passing: { session: 'passing-session', cwd: project },
+      failing: { session: 'failing-session', cwd: project },
+    }
+    const run = runOf('claude', root.session)
+    const sessionOf = (name: keyof typeof sources) => objectId(sessionKey('claude', sources[name].session))
+    await engine.ingest(hookBatch(started(root), started(sources.passing), started(sources.failing)))
+    await engine.bind({ kind: 'attach', session: sessionOf('passing'), run })
+    await engine.bind({ kind: 'attach', session: sessionOf('failing'), run })
+    await engine.ingest(hookBatch(...check(root, 'root-first', 'pnpm test', { exit: 1 }, 10)))
+    await engine.ingest(hookBatch(...check(sources.passing, 'passing-pass', 'pnpm test', 'pass', 20)))
+    await engine.ingest(hookBatch(...check(sources.failing, 'failing-fail', 'pnpm test', { exit: 1 }, 30)))
+    await engine.ingest(hookBatch(...check(root, 'root-second', 'pnpm test', { exit: 2 }, 40)))
+    const open = failedChecks(store, run).find(({ resolution }) => resolution === 'open')
+    if (open === undefined) {
+      throw new Error('the second streak must have an open item')
+    }
+
+    for (const name of order) {
+      await engine.bind({ kind: 'detach', session: sessionOf(name) })
+      expect(failedChecks(store, run).filter(({ resolution }) => resolution === 'open')).toMatchObject([
+        { id: open.id },
+      ])
+    }
+    expect(failedChecks(store, run)).toMatchObject([
+      {
+        id: open.id,
+        evidence: factIdsOf(store, 'root-first', 'root-second'),
+        opened_at: endedAt(store, 'root-first'),
+        resolution: 'open',
+      },
+    ])
+    await engine.ingest(hookBatch(...check(root, 'root-pass', 'pnpm test', 'pass', 50)))
+    expect(failedChecks(store, run)).toMatchObject([
+      { id: open.id, resolution: 'answered', closed_at: endedAt(store, 'root-pass') },
+    ])
+  },
+)
+
 test('an item whose failures all leave the run leaves with them and comes back with the same id', async ({
   onTestFinished,
 }) => {
