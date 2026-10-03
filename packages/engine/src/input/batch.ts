@@ -2,6 +2,7 @@ import {
   type Action,
   type Agent,
   type AgentId,
+  type BacklogSummary,
   type EpochNs,
   type Fact,
   type GapKey,
@@ -25,6 +26,8 @@ import { objectId } from '@aang/contract/ids'
 import type { PendingFact, StoredObserverCall, Transaction } from '@aang/store'
 import { interpretable } from '../ingest/queue.js'
 import { beginObserverCall } from '../model/observer.js'
+import { deferFacts } from '../model/observer-queue.js'
+import { compareText } from '../observations/evidence.js'
 import { collapseRoutine } from './collapse.js'
 import {
   clipAttempt,
@@ -53,6 +56,7 @@ export interface ObserverBatchStart {
   readonly at: EpochNs
   readonly limits: BatchLimits
   readonly context?: RunContext | null
+  readonly catchUpMs?: number
 }
 
 interface Queued {
@@ -66,6 +70,12 @@ interface Prepared {
   readonly agent: AgentId | null
   readonly payload: JsonValue
 }
+
+interface Excluded {
+  readonly fact: Fact
+}
+
+const nanosecondsPerMillisecond = 1_000_000n
 
 const jsonOf = (value: unknown): JsonValue =>
   JsonValue.parse(
@@ -181,15 +191,19 @@ const actionOf = (transaction: Transaction, scope: InputScope, fact: Fact): Acti
   return action !== null && scope.action(action) === null ? action : null
 }
 
+const agentOf = (scope: InputScope, fact: Fact, action: Action | null): AgentId | null => {
+  const key = fact.entity_key
+  const agent = key.kind === 'agent' ? objectId(key) : (action?.agent ?? null)
+  return agent !== null && scope.agent(agent) === null ? agent : null
+}
+
 const prepare = (transaction: Transaction, scope: InputScope, queued: Queued): Prepared => {
   const { fact } = queued
   const action = actionOf(transaction, scope, fact)
-  const key = fact.entity_key
-  const agent = key.kind === 'agent' ? objectId(key) : (action?.agent ?? null)
   return {
     queued,
     action,
-    agent: agent !== null && scope.agent(agent) === null ? agent : null,
+    agent: agentOf(scope, fact, action),
     payload: jsonOf(fact.payload),
   }
 }
@@ -235,7 +249,7 @@ const openGap = (
   }
 }
 
-const exclude = (transaction: Transaction, scope: InputScope, queued: readonly Queued[], at: EpochNs): Queued[] => {
+const exclude = <T extends Excluded>(transaction: Transaction, scope: InputScope, queued: readonly T[], at: EpochNs): T[] => {
   const excluded = new Map<SessionId, ScopeExclusion>()
   const dropped: Fact['id'][] = []
   const kept = queued.filter(({ fact }) => {
@@ -268,6 +282,40 @@ const admittedContext = (transaction: Transaction, scope: InputScope, context: R
   return record !== null && scope.record(record) === null ? context : null
 }
 
+const backlogOf = (transaction: Transaction, scope: InputScope, facts: readonly Fact[]): BacklogSummary | null => {
+  const [first] = facts
+  if (first === undefined) {
+    return null
+  }
+  const agents = new Map<AgentId | null, Map<string, number>>()
+  let from = first.at
+  let to = first.at
+  for (const fact of facts) {
+    const action = actionOf(transaction, scope, fact)
+    const agent = agentOf(scope, fact, action)
+    const tools = agents.get(agent) ?? new Map<string, number>()
+    const tool = action?.tool ?? fact.kind
+    tools.set(tool, (tools.get(tool) ?? 0) + 1)
+    agents.set(agent, tools)
+    from = fact.at < from ? fact.at : from
+    to = fact.at > to ? fact.at : to
+  }
+  return {
+    from: isoTime(from),
+    to: isoTime(to),
+    facts: facts.length,
+    agents: [...agents]
+      .toSorted(([left], [right]) => compareText(left ?? '', right ?? ''))
+      .map(([agent, tools]) => ({
+        agent,
+        facts: [...tools.values()].reduce((total, count) => total + count, 0),
+        tools: [...tools]
+          .toSorted(([left], [right]) => compareText(left, right))
+          .map(([tool, count]) => ({ tool, count })),
+      })),
+  }
+}
+
 const select = (queued: readonly Queued[], limits: BatchLimits): Queued[] => {
   const batch: Queued[] = []
   let bytes = 0
@@ -297,14 +345,44 @@ const previousAttempt = (transaction: Transaction, batch: readonly Queued[]): Ob
   return latest ?? null
 }
 
-const positive = (limits: BatchLimits): boolean =>
-  [limits.facts, limits.bytes, limits.textLength, limits.inputTokens].every(
-    (value) => Number.isSafeInteger(value) && value > 0,
-  )
+const positive = (values: readonly number[]): boolean => values.every((value) => Number.isSafeInteger(value) && value > 0)
+
+const catchUp = (
+  transaction: Transaction,
+  { run, at, limits, catchUpMs }: ObserverBatchStart,
+  queued: readonly Queued[],
+): Queued[] => {
+  const oldest = queued.reduce((earliest, { pending }) => (pending.observed_at < earliest ? pending.observed_at : earliest), at)
+  if (catchUpMs === undefined || at - oldest <= BigInt(catchUpMs) * nanosecondsPerMillisecond) {
+    return select(queued, limits)
+  }
+  const batch = select(queued.toReversed(), limits).toReversed()
+  const earlier = queued.slice(0, queued.length - batch.length).map(({ fact }) => fact.id)
+  if (earlier.length > 0) {
+    deferFacts(transaction, {
+      run,
+      facts: earlier,
+      at,
+      details: `facts that waited longer than ${String(catchUpMs)} ms for the observer are summarized`,
+    })
+  }
+  return batch
+}
+
+const summaryOf = (transaction: Transaction, scope: InputScope, at: EpochNs): Fact[] =>
+  exclude(
+    transaction,
+    scope,
+    transaction.interpretations.unsummarized(scope.run).flatMap((id) => {
+      const fact = transaction.facts.get(id)
+      return fact === null ? [] : [{ fact }]
+    }),
+    at,
+  ).map(({ fact }) => fact)
 
 export const startObserverBatch = (transaction: Transaction, start: ObserverBatchStart): ObserverInput | null => {
-  const { run, backend, crossVendor, id, at, limits } = start
-  if (!positive(limits)) {
+  const { run, backend, crossVendor, id, at, limits, catchUpMs } = start
+  if (!positive([limits.facts, limits.bytes, limits.textLength, limits.inputTokens, ...(catchUpMs === undefined ? [] : [catchUpMs])])) {
     throw new RangeError('batch limits must be positive integers')
   }
   const entity = transaction.model.entity(run, { kind: 'run', id: run })
@@ -317,10 +395,12 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     return fact === null ? [] : [{ pending, fact }]
   })
   transaction.interpretations.withdraw(run, queued.flatMap(({ fact }) => (interpretable(fact) ? [] : [fact.id])))
-  const batch = select(exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at), limits)
+  const batch = catchUp(transaction, start, exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at))
   if (batch.length === 0) {
     return null
   }
+  const summarized = summaryOf(transaction, scope, at)
+  const backlog = backlogOf(transaction, scope, summarized)
   const description = describeRun(transaction, scope, entity.value)
   const model = snapshotOf(transaction, scope)
   const context = admittedContext(transaction, scope, start.context ?? null)
@@ -336,7 +416,7 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
         run: clipRun(description, stateText),
         context: clipContext(context, batchText),
         model: clipSnapshot(model, stateText),
-        batch: { facts: facts.map(({ input }) => input), collapsed, backlog: null, artifact_versions: [] },
+        batch: { facts: facts.map(({ input }) => input), collapsed, backlog, artifact_versions: [] },
         materials: [],
         previous_attempt: clipAttempt(previousAttempt(transaction, chosen.map(({ queued }) => queued)), stateText),
       }
@@ -353,5 +433,10 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     return null
   }
   beginObserverCall(transaction, { id, backend, crossVendor, input, at })
+  transaction.interpretations.summarize(
+    run,
+    id,
+    summarized.map(({ id: fact }) => fact),
+  )
   return input
 }

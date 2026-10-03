@@ -475,6 +475,20 @@ describe('fake claude injects observer failures (F.1)', () => {
     expect(withoutReset.events[1]?.rate_limit_info).not.toHaveProperty('resetsAt')
   })
 
+  test('a network failure ends the call with a connection error result', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [{ kind: 'network' }] })
+
+    const exit = await observer.call()
+
+    expect(exit.code).toBe(1)
+    expect(exit.events.map((event) => event.type)).toEqual(['system', 'result'])
+    expect(resultOf(exit.events)).toMatchObject({
+      is_error: true,
+      api_error_status: null,
+      result: 'API Error: Connection error.',
+    })
+  })
+
   test('invalid JSON output comes as a successful result without structured output', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, {
       replies: [{ kind: 'invalid_json', text: '{"base_version": 7, "ops": [' }],

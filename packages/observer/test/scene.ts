@@ -3,6 +3,8 @@ import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { fileURLToPath } from 'node:url'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import {
@@ -68,6 +70,23 @@ export const manualClock = (start: number): ManualClock => {
     },
   }
 }
+
+export const until = async (condition: () => boolean): Promise<void> => {
+  const deadline = Date.now() + 15_000
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error('the condition did not hold in time')
+    }
+    await sleep(20)
+  }
+}
+
+export const wrapped = (wrapper: string, ...args: string[]): CliCommand => ({
+  command: process.execPath,
+  args: [fileURLToPath(new URL(wrapper, import.meta.url)), ...args],
+})
+
+export const gated = (gate: string, cli: CliCommand): CliCommand => wrapped('gate-wrapper.ts', gate, cli.command, ...(cli.args ?? []))
 
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
 
@@ -170,6 +189,7 @@ export interface SceneOptions {
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
   readonly limits?: Partial<SchedulerLimits>
+  readonly budgetTokensPerHour?: number
   readonly timeoutMs?: number
   readonly systemClock?: boolean
   readonly executors?: (launch: SceneLaunch) => Partial<Record<Runtime, ObserverExecutor>>
@@ -219,6 +239,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
       ...(crossVendor === undefined ? {} : { crossVendor }),
       ...(manual === null ? {} : { clock: manual }),
       ...(options.limits === undefined ? {} : { limits: options.limits }),
+      ...(options.budgetTokensPerHour === undefined ? {} : { budgetTokensPerHour: options.budgetTokensPerHour }),
     })
     void scheduler.failure.then((error: unknown) => {
       failure = error
