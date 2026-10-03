@@ -1,5 +1,5 @@
 import { mkdir, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import {
   DedupeKey,
   EpochNs,
@@ -28,6 +28,7 @@ import { type HookDelivery, hookBatch, jsonlFile } from './batches.js'
 import { adapters, factsOf, recordsOf, sessionKey } from './harness.js'
 import { createHome } from './home.js'
 import { claudeHook, claudeTranscript, codexRollout } from './samples.js'
+import { createRepository, git } from './workspace.js'
 
 type Register = Parameters<typeof createHome>[0]
 
@@ -99,6 +100,12 @@ const entry = (kind: RunContextEntry['kind'], ref: string, text: string): RunCon
   text,
   truncated: null,
 })
+
+const byRef = (left: RunContextEntry, right: RunContextEntry): number =>
+  left.ref < right.ref ? -1 : left.ref > right.ref ? 1 : 0
+
+const toplevel = async (directory: string): Promise<string> =>
+  resolve(await git(directory, 'rev-parse', '--show-toplevel'))
 
 const firstPrompt = [
   'Step 1: run `echo hi` with the Bash tool.',
@@ -517,7 +524,7 @@ test('a Codex run takes AGENTS.md along the working directory and its MCP calls'
   expect(contextRecords(store)).toHaveLength(1)
 })
 
-const attach = (store: Store, run: RunId, root: SessionKey, attached: SessionKey): void => {
+const attach = (store: Store, run: RunId, root: SessionKey, ...attached: readonly SessionKey[]): void => {
   const grounds = { basis: { kind: 'observed' } as const, evidence: [] }
   const member = (key: SessionKey) => ({ kind: 'session_membership', value: { session: objectId(key), run } }) as const
   store.transaction((transaction) => {
@@ -543,7 +550,7 @@ const attach = (store: Store, run: RunId, root: SessionKey, attached: SessionKey
           },
         },
         { ...grounds, op: 'run.create', put: member(root) },
-        { ...grounds, op: 'session.move', put: member(attached) },
+        ...attached.map((key) => ({ ...grounds, op: 'session.move' as const, put: member(key) })),
       ],
     })
   })
@@ -555,6 +562,10 @@ test('sessions of another vendor enter the context only with crossVendor', async
   const codexCwd = join(root, 'codex-project')
   await write(join(project, 'CLAUDE.md'), 'Claude rules\n')
   await write(join(codexCwd, 'AGENTS.md'), 'Codex rules\n')
+  await createRepository(project)
+  await createRepository(codexCwd)
+  const claudeTree = await toplevel(cwd)
+  const codexTree = await toplevel(codexCwd)
   const source = { session: 'mixed-session', cwd }
   const run = runOf('claude', source.session)
   const rootKey = sessionKey('claude', source.session)
@@ -564,20 +575,24 @@ test('sessions of another vendor enter the context only with crossVendor', async
   const lines = codexLines(codexCwd)
   await engine.ingest(codexFile(project, 'mixed', lines, 15n).batch(1, lines.length))
   expect(store.observations.getSession(objectId(sessionKey('codex', codexThread)))?.run).toBe(run)
-  recordSnapshot(store, rootKey, 'snapshot:claude', taken(project, ['src'], 'claude-commit', []))
+  recordSnapshot(store, rootKey, 'snapshot:claude', taken(claudeTree, ['src'], 'claude-commit', []))
   recordSnapshot(
     store,
     rootKey,
     'snapshot:codex',
-    taken(codexCwd, ['src'], 'codex-only-commit', [{ status: '??', path: 'codex-only.txt' }]),
+    taken(codexTree, ['src'], 'codex-only-commit', [{ status: '??', path: 'codex-only.txt' }]),
+  )
+  const claudeGit = entry(
+    'git',
+    claudeTree,
+    'branch: HEAD\nmasks: ["src"]\ncommit: claude-commit\nclean under masks: true',
   )
 
   const own = await recorded(store, optionsOf(workspace, run))
   expect(local(workspace, own)).toEqual([
     entry('task', expect.any(String) as string, firstPrompt),
     entry('instructions', join(project, 'CLAUDE.md'), 'Claude rules\n'),
-    entry('git', project, 'masks: ["src"]\ncommit: claude-commit\nclean under masks: true'),
-    entry('git', cwd, 'branch: HEAD'),
+    claudeGit,
   ])
   const shared = await recorded(store, optionsOf(workspace, run, { crossVendor: true }))
   expect(local(workspace, shared)).toEqual([
@@ -585,15 +600,65 @@ test('sessions of another vendor enter the context only with crossVendor', async
     entry('instructions', join(codexCwd, 'AGENTS.md'), 'Codex rules\n'),
     entry('instructions', join(project, 'CLAUDE.md'), 'Claude rules\n'),
     entry('mcp_server', 'browser', 'navigate'),
-    entry(
-      'git',
-      codexCwd,
-      'branch: main\nmasks: ["src"]\ncommit: codex-only-commit\nclean under masks: false\n?? codex-only.txt',
-    ),
-    entry('git', project, 'masks: ["src"]\ncommit: claude-commit\nclean under masks: true'),
-    entry('git', cwd, 'branch: HEAD'),
+    ...[
+      entry(
+        'git',
+        codexTree,
+        'branch: main\nmasks: ["src"]\ncommit: codex-only-commit\nclean under masks: false\n?? codex-only.txt',
+      ),
+      claudeGit,
+    ].sort(byRef),
   ])
   expect(await recordRunContext(store, optionsOf(workspace, run, { backend: 'codex' }))).toBeNull()
+})
+
+test('a nested worktree does not admit the snapshot of an enclosing worktree of a skipped session', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, root, project } = workspace
+  const parent = join(root, 'repository')
+  const nested = join(parent, '.worktrees', 'claude')
+  const helper = { session: 'parent-helper-session', cwd: join(parent, 'src') }
+  await createRepository(parent)
+  await mkdir(helper.cwd, { recursive: true })
+  await git(parent, 'worktree', 'add', '--quiet', '-b', 'claude', nested)
+  const parentTree = await toplevel(parent)
+  const nestedTree = await toplevel(nested)
+  expect(nestedTree).not.toBe(parentTree)
+  const source = { session: 'nested-session', cwd: nested }
+  const run = runOf('claude', source.session)
+  const rootKey = sessionKey('claude', source.session)
+  attach(store, run, rootKey, sessionKey('codex', codexThread), sessionKey('claude', helper.session))
+  const start = claudeTranscript(source).slice(0, 12)
+  await engine.ingest(claudeFile(workspace, 'nested-claude', start, 23n).batch(1, start.length))
+  const lines = codexLines(parent)
+  await engine.ingest(codexFile(project, 'nested-codex', lines, 25n).batch(1, lines.length))
+  expect(store.observations.getSession(objectId(sessionKey('codex', codexThread)))?.run).toBe(run)
+  recordSnapshot(
+    store,
+    rootKey,
+    'snapshot:parent',
+    taken(parentTree, ['src'], 'parent-commit', [{ status: ' M', path: 'src/codex-only.txt' }]),
+  )
+  recordSnapshot(store, rootKey, 'snapshot:nested', taken(nestedTree, ['src'], 'nested-commit', []))
+  const parentState = 'masks: ["src"]\ncommit: parent-commit\nclean under masks: false\n M src/codex-only.txt'
+  const nestedGit = entry(
+    'git',
+    nestedTree,
+    'branch: HEAD\nmasks: ["src"]\ncommit: nested-commit\nclean under masks: true',
+  )
+
+  expect(ofKind(await recorded(store, optionsOf(workspace, run)), 'git')).toEqual([nestedGit])
+  expect(ofKind(await recorded(store, optionsOf(workspace, run, { crossVendor: true })), 'git')).toEqual(
+    [entry('git', parentTree, `branch: main\n${parentState}`), nestedGit].sort(byRef),
+  )
+
+  await engine.ingest(hookBatch(hook(helper, 'SessionStart.startup.json', 'start', 0, {})))
+  expect(store.observations.getSession(objectId(sessionKey('claude', helper.session)))?.run).toBe(run)
+  expect(ofKind(await recorded(store, optionsOf(workspace, run)), 'git')).toEqual(
+    [entry('git', parentTree, parentState), nestedGit].sort(byRef),
+  )
 })
 
 test('skills and subagent definitions of the same name stay apart across projects', async ({ onTestFinished }) => {
@@ -657,47 +722,75 @@ test('git snapshots give the latest state of each worktree under each set of mas
   const workspace = await setup(onTestFinished)
   const { store, engine, root, project, cwd } = workspace
   const tools = join(root, 'tools')
+  const host = join(root, 'host')
+  const library = join(host, 'library')
   const elsewhere = join(root, 'elsewhere')
+  const scratch = join(root, 'scratch')
+  for (const repository of [project, tools, host, library, elsewhere]) {
+    await createRepository(repository)
+  }
+  await mkdir(join(tools, 'bin'), { recursive: true })
+  await mkdir(scratch, { recursive: true })
+  const [projectTree, toolsTree, hostTree, libraryTree, elsewhereTree] = await Promise.all([
+    toplevel(project),
+    toplevel(tools),
+    toplevel(host),
+    toplevel(library),
+    toplevel(elsewhere),
+  ])
   const source = { session: 'git-session', cwd }
   const start = claudeTranscript(source).slice(0, 12)
-  const later = [toolCall({ session: source.session, cwd: join(tools, 'bin') }, 'bash-tools', 40, 'Bash', { command: 'make' })]
+  const commandIn = (directory: string, call: string, second: number): string =>
+    toolCall({ session: source.session, cwd: directory }, call, second, 'Bash', { command: 'make' })
+  const later = [
+    commandIn(join(tools, 'bin'), 'bash-tools', 40),
+    commandIn(library, 'bash-library', 41),
+    commandIn(scratch, 'bash-scratch', 42),
+  ]
   await engine.ingest(claudeFile(workspace, 'git', [...start, ...later], 17n).batch(1, start.length + later.length))
   const key = sessionKey('claude', source.session)
   const run = runOf('claude', source.session)
-  recordSnapshot(store, key, 'snapshot:old', taken(project, ['src'], 'aaa111', []))
-  recordSnapshot(store, key, 'snapshot:new', taken(project, ['src'], 'bbb222', [{ status: ' M', path: 'src/index.ts' }]))
-  recordSnapshot(store, key, 'snapshot:docs', taken(project, ['docs'], 'bbb222', []))
-  recordSnapshot(store, key, 'snapshot:pair', taken(project, ['test', 'lib'], 'bbb222', []))
-  recordSnapshot(store, key, 'snapshot:broken', taken(cwd, ['src'], null, [], 'not a git repository'))
-  recordSnapshot(store, key, 'snapshot:tools', taken(tools, ['.'], 'ccc333', []))
-  recordSnapshot(store, key, 'snapshot:elsewhere', taken(elsewhere, ['.'], 'ddd444', []))
-  recordSnapshot(store, key, 'snapshot:relative', taken(join('relative', 'tree'), ['.'], 'eee555', []))
+  recordSnapshot(store, key, 'snapshot:old', taken(projectTree, ['src'], 'aaa111', []))
+  recordSnapshot(
+    store,
+    key,
+    'snapshot:new',
+    taken(projectTree, ['src'], 'bbb222', [{ status: ' M', path: 'src/index.ts' }]),
+  )
+  recordSnapshot(store, key, 'snapshot:docs', taken(projectTree, ['docs'], 'bbb222', []))
+  recordSnapshot(store, key, 'snapshot:pair', taken(projectTree, ['test', 'lib'], 'bbb222', []))
+  recordSnapshot(store, key, 'snapshot:broken', taken(scratch, ['src'], null, [], 'not a git repository'))
+  recordSnapshot(store, key, 'snapshot:tools', taken(toolsTree, ['.'], 'ccc333', []))
+  recordSnapshot(store, key, 'snapshot:host', taken(hostTree, ['.'], 'ddd444', [{ status: '??', path: 'host.txt' }]))
+  recordSnapshot(store, key, 'snapshot:library', taken(libraryTree, ['.'], 'eee555', []))
+  recordSnapshot(store, key, 'snapshot:elsewhere', taken(elsewhereTree, ['.'], 'fff666', []))
+  recordSnapshot(store, key, 'snapshot:relative', taken(join('relative', 'tree'), ['.'], 'aaa777', []))
 
   const context = await recorded(store, optionsOf(workspace, run))
-  expect(ofKind(context, 'git')).toEqual([
-    entry(
-      'git',
-      project,
-      [
-        'masks: ["docs"]',
-        'commit: bbb222',
-        'clean under masks: true',
-        'masks: ["lib","test"]',
-        'commit: bbb222',
-        'clean under masks: true',
-        'masks: ["src"]',
-        'commit: bbb222',
-        'clean under masks: false',
-        ' M src/index.ts',
-      ].join('\n'),
-    ),
-    entry(
-      'git',
-      cwd,
-      'branch: HEAD\nmasks: ["src"]\ncommit: unknown\nclean under masks: false\nerror: not a git repository',
-    ),
-    entry('git', tools, 'masks: ["."]\ncommit: ccc333\nclean under masks: true'),
-  ])
+  expect(ofKind(context, 'git')).toEqual(
+    [
+      entry(
+        'git',
+        projectTree,
+        [
+          'branch: HEAD',
+          'masks: ["docs"]',
+          'commit: bbb222',
+          'clean under masks: true',
+          'masks: ["lib","test"]',
+          'commit: bbb222',
+          'clean under masks: true',
+          'masks: ["src"]',
+          'commit: bbb222',
+          'clean under masks: false',
+          ' M src/index.ts',
+        ].join('\n'),
+      ),
+      entry('git', scratch, 'masks: ["src"]\ncommit: unknown\nclean under masks: false\nerror: not a git repository'),
+      entry('git', toolsTree, 'masks: ["."]\ncommit: ccc333\nclean under masks: true'),
+      entry('git', libraryTree, 'masks: ["."]\ncommit: eee555\nclean under masks: true'),
+    ].sort(byRef),
+  )
   expect(store.observations.getSession(objectId(key))?.last_event_at).toBeLessThan(recordedAt)
 })
 

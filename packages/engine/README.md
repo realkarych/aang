@@ -380,17 +380,24 @@ sources only:
   When there is no such file, `ref` is the name of the skill and the text is empty.
   Codex has no skill tool, so a Codex run has no skill entries.
 - `mcp_server`: the servers of MCP actions with the names of the tools called.
-- `git`: the branch of each session and, for each worktree and each set of masks, the
-  latest git snapshot (`git_snapshot` fact of the run): the masks, the commit,
-  whether the tree is clean under those masks, changed paths and error.
+- `git`: one entry per worktree, whose `ref` is the top of the worktree (or the `cwd`
+  of a session outside git): the branch of each session working there and, for each
+  set of masks, the latest git snapshot (`git_snapshot` fact of the run): the masks,
+  the commit, whether the tree is clean under those masks, changed paths and error.
 
 Only sessions of the run are read, and a session of a vendor other than `backend` is
 skipped unless `crossVendor` is set; when the root session is skipped, or the run is
 unknown, there is no context. Skills and agent definitions are resolved in the
 directory of each session, so files of the same name in different projects stay
-separate entries. A git snapshot is included only when its worktree contains the
-`cwd` of a session that is read or a working directory of its facts, so a snapshot of
-a worktree used only by a skipped session stays out. Relative paths are ignored.
+separate entries. The `cwd` of each session that is read and the working directories
+of its facts are resolved to the top of their git worktree with
+`git rev-parse --show-toplevel`, as the snapshot writer of E.7b does. A git snapshot
+is included only when its worktree is one of these tops or exactly one of these
+directories, which is where a failed snapshot is recorded. A worktree or repository
+nested in another tree is a separate worktree, so a snapshot of the enclosing tree
+used only by a skipped session stays out, while a worktree shared with a skipped
+session stays in. A directory that no longer resolves to a worktree admits no
+snapshot of a worktree. Relative paths are ignored.
 Each text is cut to `limits.textLength` characters (4000 by default) and reports its
 original length; files are read up to 1 MiB, and a larger file reports its size in
 bytes.

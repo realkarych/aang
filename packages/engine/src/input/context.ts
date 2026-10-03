@@ -1,4 +1,4 @@
-import { isAbsolute, join } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import {
   type Action,
   type ContentHash,
@@ -21,7 +21,6 @@ import {
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import type { RawRecordReader, Store } from '@aang/store'
-import { contains } from '../ingest/scope.js'
 import { agentKey, compareText } from '../observations/evidence.js'
 import {
   ancestors,
@@ -32,6 +31,7 @@ import {
   readText,
   safeName,
 } from './context-files.js'
+import { worktreeOf } from './worktree.js'
 
 export interface ContextLimits {
   readonly textLength: number
@@ -266,7 +266,21 @@ interface WorktreeState {
   readonly snapshots: Map<string, GitSnapshotPayload>
 }
 
-const gitSources = (reader: ContextReader, root: SessionKey, sessions: readonly SessionFacts[]): Source[] => {
+const gitSources = async (
+  reader: ContextReader,
+  root: SessionKey,
+  sessions: readonly SessionFacts[],
+): Promise<Source[]> => {
+  const worktreeByDirectory = new Map(
+    await Promise.all(
+      workDirectories(sessions).map(async (directory) => [directory, await worktreeOf(directory)] as const),
+    ),
+  )
+  const reachable = new Set(
+    [...worktreeByDirectory].flatMap(([directory, worktree]) =>
+      worktree === null ? [resolve(directory)] : [resolve(directory), worktree],
+    ),
+  )
   const worktrees = new Map<string, WorktreeState>()
   const stateOf = (ref: string): WorktreeState => {
     const state = worktrees.get(ref) ?? { branches: new Set<string>(), snapshots: new Map<string, GitSnapshotPayload>() }
@@ -274,18 +288,20 @@ const gitSources = (reader: ContextReader, root: SessionKey, sessions: readonly 
     return state
   }
   for (const { session } of sessions) {
+    const cwd = directoryOf(session.cwd)
+    const ref = cwd === null ? session.id : (worktreeByDirectory.get(cwd) ?? cwd)
     if (session.git_branch !== null) {
-      stateOf(directoryOf(session.cwd) ?? session.id).branches.add(`branch: ${session.git_branch}`)
+      stateOf(ref).branches.add(`branch: ${session.git_branch}`)
     }
   }
-  const directories = workDirectories(sessions)
   const runSnapshots = reader.facts
     .ofEntity({ kind: 'run', runtime: root.runtime, session: root.session })
     .flatMap((fact) => (fact.kind === 'git_snapshot' ? [fact.payload] : []))
   for (const snapshot of runSnapshots) {
     const worktree = directoryOf(snapshot.worktree)
-    if (worktree !== null && directories.some((cwd) => contains(worktree, cwd))) {
-      stateOf(worktree).snapshots.set(masksOf(snapshot), snapshot)
+    const ref = worktree === null ? null : resolve(worktree)
+    if (ref !== null && reachable.has(ref)) {
+      stateOf(ref).snapshots.set(masksOf(snapshot), snapshot)
     }
   }
   return [...worktrees].map(([ref, { branches, snapshots }]) =>
@@ -308,10 +324,11 @@ const collectSources = async (
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const [instructions, definitions, skills] = await Promise.all([
+  const [instructions, definitions, skills, git] = await Promise.all([
     instructionSources(sessions),
     agentDefinitionSources(reader, sessions, home),
     skillSources(reader, sessions, home),
+    gitSources(reader, root.session.key, sessions),
   ])
   return [
     ...taskSources(root),
@@ -319,7 +336,7 @@ const collectSources = async (
     ...definitions,
     ...skills,
     ...mcpSources(reader, sessions),
-    ...gitSources(reader, root.session.key, sessions),
+    ...git,
   ]
 }
 
