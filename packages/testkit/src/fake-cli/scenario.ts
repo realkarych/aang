@@ -53,6 +53,10 @@ export const ClaudeScenario = z.strictObject({
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
+  builtinPlugins: z.array(z.string()).default(() => ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring']),
+  pluginHooks: z.array(z.string()).default(() => []),
+  pluginMcpServers: z.array(z.string()).default(() => []),
+  userPlugins: z.array(z.string()).default(() => []),
   replies: z.array(ClaudeReply).default(() => []),
   pluginFailures: z.array(ClaudePluginCommand).default(() => []),
 })

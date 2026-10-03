@@ -447,7 +447,9 @@ test('after an isolation violation the backend is disabled without probes until 
   expect(scene.calls(session.run)).toHaveLength(1)
   expect(scene.store.observerCalls.checks()).toEqual([])
 
-  await scene.codex.admit()
+  expect(await scene.codex.admit()).toMatchObject({ admitted: false, isolationViolated: true })
+  expect(scene.scheduler.state(session.run)).toEqual({ state: 'disabled', reason: 'isolation' })
+  await scene.codex.admit(undefined, { manual: true })
   await until(() => scene.tally(session.run)['interpreted'] === 2)
   await scene.scheduler.idle()
   expect(scene.calls(session.run).map(({ verdict }) => verdict)).toEqual(['failed', 'accepted'])

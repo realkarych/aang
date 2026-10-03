@@ -8,6 +8,7 @@ import {
   answerEvents,
   defaultClaudeUsage,
   errorResultEvent,
+  hookEvents,
   initEvent,
   rateLimitEvent,
   textResultEvent,
@@ -63,6 +64,7 @@ const limitMessage = (resetsAt: number | undefined): string =>
     : `You've hit your limit · resets ${new Date(resetsAt * 1000).toISOString()}`
 
 const respond = (session: ClaudeSession, reply: Reply, prompt: string): void => {
+  hookEvents(session).forEach(emit)
   switch (reply.kind) {
     case 'answer': {
       const output = renderTemplate(reply.output, extractInput(prompt))
@@ -135,6 +137,10 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     version: scenario.version,
     cwd: process.cwd(),
     tools: ['StructuredOutput', ...scenario.leakedTools],
+    plugins: scenario.builtinPlugins,
+    userPlugins: scenario.userPlugins,
+    mcpServers: scenario.pluginMcpServers,
+    hooks: options.flags.has('include-hook-events') ? scenario.pluginHooks.map(() => 'SessionStart:startup') : [],
     permissionMode: lastValue(options, 'permission-mode') ?? 'default',
     startedAt,
   }
@@ -149,8 +155,8 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
   if (admission) {
     const cleanup = await claudeAdmissionArtifacts(session.sessionId, scenario.admissionFault)
     try {
-      runAdmissionHook('claude', options, scenario.admissionFault)
-      respond(session, reply, prompt)
+      const controlled = runAdmissionHook('claude', options, scenario.admissionFault) && options.flags.has('include-hook-events')
+      respond(controlled ? { ...session, hooks: [...session.hooks, 'SessionStart:startup'] } : session, reply, prompt)
     } finally { cleanup() }
     return
   }
