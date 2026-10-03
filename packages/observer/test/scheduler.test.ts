@@ -301,7 +301,7 @@ test('facts beyond the active queue are deferred from the oldest with a visible 
 })
 
 test('the system clock drives the batch timer', async (context) => {
-  const scene = await createScene(context, { claude: [accepted], systemClock: true, limits: { delayMs: 100 } })
+  const scene = await createScene(context, { claude: [accepted], systemClock: true, limits: { delayMs: 2_000 } })
   expect(() => createObserverScheduler({ store: scene.store, backends: {}, limits: { concurrency: 0 } })).toThrow(RangeError)
   const session = scene.claudeSession('session-clock')
   await session.start()
