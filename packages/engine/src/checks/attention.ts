@@ -1,10 +1,12 @@
 import { isDeepStrictEqual } from 'node:util'
 import {
-  type Action,
+  type ActionId,
   type AttentionItem,
   AttentionItemId,
   type Basis,
   type EpochNs,
+  type ModelEntity,
+  ModelVersion,
   type RunId,
   type Session,
   type SessionId,
@@ -19,6 +21,25 @@ import { type ActionFacts, type CheckResult, checkResult } from './results.js'
 interface Streak {
   readonly failures: readonly [CheckResult, ...CheckResult[]]
   readonly success: CheckResult | null
+}
+
+interface ContractStreak {
+  readonly contract: Contract
+  readonly streak: Streak
+}
+
+interface MatchedStreak extends ContractStreak {
+  readonly existing: AttentionItem | null
+}
+
+interface ContractResults {
+  readonly contract: Contract
+  readonly results: readonly CheckResult[]
+}
+
+interface SucceededItem {
+  readonly item: AttentionItem
+  readonly success: CheckResult
 }
 
 interface StreakChanges {
@@ -53,21 +74,13 @@ const streaksOf = (results: readonly CheckResult[]): Streak[] => {
   return first === undefined ? streaks : [...streaks, { failures: [first, ...rest], success: null }]
 }
 
-const itemId = (run: RunId, contract: Contract, action: Action): AttentionItemId =>
-  AttentionItemId.parse(
-    contentHash(canonicalJson(['failed_check', run, contract.name, action.id])).slice(0, itemIdLength),
-  )
+const itemId = (run: RunId, contract: Contract, action: ActionId): AttentionItemId =>
+  AttentionItemId.parse(contentHash(canonicalJson(['failed_check', run, contract.name, action])).slice(0, itemIdLength))
 
 const failureText = (contract: Contract, { exitCode }: CheckResult): string =>
   exitCode === null
     ? `Check "${contract.name}" failed`
     : `Check "${contract.name}" failed with exit code ${String(exitCode)}`
-
-const existingItems = (transaction: Transaction, run: RunId, ids: readonly AttentionItemId[]): AttentionItem[] =>
-  ids.flatMap((id) => {
-    const entity = transaction.model.entity(run, { kind: 'attention_item', id })
-    return entity?.kind === 'attention_item' ? [entity.value] : []
-  })
 
 const latestFailure = ({ failures }: Streak): CheckResult => failures.at(-1) ?? failures[0]
 
@@ -81,7 +94,7 @@ const streakItem = (
   const [first] = failures
   const latest = latestFailure(streak)
   return {
-    id: existing?.id ?? itemId(run, contract, first.action),
+    id: existing?.id ?? itemId(run, contract, first.action.id),
     run,
     kind: 'failed_check',
     author: 'rule',
@@ -103,22 +116,71 @@ const streakItem = (
 const represents = (existing: AttentionItem, item: AttentionItemDraft): boolean =>
   isDeepStrictEqual(existing, { ...item, change_seq: existing.change_seq })
 
-const streakChanges = (
+const failedCheckItems = (entities: readonly ModelEntity[]): AttentionItem[] =>
+  entities.flatMap((entity) =>
+    entity.kind === 'attention_item' && entity.value.kind === 'failed_check' ? [entity.value] : [],
+  )
+
+const citedActions = (transaction: Transaction, run: RunId, item: AttentionItem): ActionId[] => {
+  const facts = new Set(
+    transaction.model
+      .entityChanges(run, { kind: 'attention_item', id: item.id }, ModelVersion.parse(0))
+      .flatMap(({ after }) => (after?.kind === 'attention_item' ? after.value.evidence : [])),
+  )
+  return [...facts].flatMap((id) => {
+    const key = transaction.facts.get(id)?.entity_key
+    return key?.kind === 'action' ? [objectId(key)] : []
+  })
+}
+
+const openedFor = (transaction: Transaction, run: RunId, contract: Contract, item: AttentionItem): boolean =>
+  citedActions(transaction, run, item).some((action) => itemId(run, contract, action) === item.id)
+
+const preferred = (
+  run: RunId,
+  { contract, streak }: ContractStreak,
+  candidates: readonly AttentionItem[],
+): AttentionItem | null =>
+  candidates.find(({ resolution }) => resolution === 'open') ??
+  candidates.find((candidate) => represents(candidate, streakItem(run, contract, streak, candidate))) ??
+  candidates[0] ??
+  null
+
+const matchedItems = (
   transaction: Transaction,
+  run: RunId,
+  streaks: readonly ContractStreak[],
+  items: readonly AttentionItem[],
+): MatchedStreak[] => {
+  const free = new Map(items.map((item) => [item.id, item]))
+  const claim = (entry: ContractStreak, candidates: readonly AttentionItem[]): AttentionItem | null => {
+    const item = preferred(run, entry, candidates)
+    if (item !== null) {
+      free.delete(item.id)
+    }
+    return item
+  }
+  const byId = streaks.map((entry) =>
+    claim(
+      entry,
+      entry.streak.failures.flatMap(({ action }) => free.get(itemId(run, entry.contract, action.id)) ?? []),
+    ),
+  )
+  const sharing = ({ contract, streak }: ContractStreak): AttentionItem[] => {
+    const cited = new Set(streak.failures.flatMap(({ evidence }) => evidence))
+    return [...free.values()].filter(
+      (candidate) => candidate.evidence.some((id) => cited.has(id)) && openedFor(transaction, run, contract, candidate),
+    )
+  }
+  return streaks.map((entry, index) => ({ ...entry, existing: byId[index] ?? claim(entry, sharing(entry)) }))
+}
+
+const streakChanges = (
   run: RunId,
   contract: Contract,
   streak: Streak,
+  existing: AttentionItem | null,
 ): StreakChanges | null => {
-  const candidates = existingItems(
-    transaction,
-    run,
-    streak.failures.map(({ action }) => itemId(run, contract, action)),
-  )
-  const existing =
-    candidates.find(({ resolution }) => resolution === 'open') ??
-    candidates.find((candidate) => represents(candidate, streakItem(run, contract, streak, candidate))) ??
-    candidates[0] ??
-    null
   const item = streakItem(run, contract, streak, existing)
   const { success } = streak
   const opening: ModelChangeDraft = {
@@ -146,38 +208,36 @@ const streakChanges = (
   return { changes: [closing ?? opening], at }
 }
 
-const successChanges = (
-  transaction: Transaction,
+const succeededItems = (
   run: RunId,
-  contract: Contract,
-  success: CheckResult,
-): StreakChanges[] =>
-  existingItems(transaction, run, [itemId(run, contract, success.action)])
-    .filter(({ resolution }) => resolution === 'open')
-    .map((item) => ({
-      changes: [
-        {
-          op: 'attention.close',
-          put: { kind: 'attention_item', value: { ...item, resolution: 'answered', closed_at: success.at } },
-          basis: observed,
-          evidence: success.evidence,
-        },
-      ],
-      at: success.at,
-    }))
-
-const contractChanges = (
-  transaction: Transaction,
-  run: RunId,
-  contract: Contract,
-  actions: readonly ActionFacts[],
-): StreakChanges[] => {
-  const results = actions.flatMap((entry) => checkResult(entry, contract) ?? []).sort(byResultTime)
-  return [
-    ...streaksOf(results).flatMap((streak) => streakChanges(transaction, run, contract, streak) ?? []),
-    ...results.filter(({ passed }) => passed).flatMap((success) => successChanges(transaction, run, contract, success)),
-  ]
+  checks: readonly ContractResults[],
+  items: readonly AttentionItem[],
+): SucceededItem[] => {
+  const byId = new Map(items.map((item) => [item.id, item]))
+  return checks.flatMap(({ contract, results }) =>
+    results.flatMap((success) => {
+      const item = success.passed ? byId.get(itemId(run, contract, success.action.id)) : undefined
+      return item === undefined ? [] : [{ item, success }]
+    }),
+  )
 }
+
+const successChanges = ({ item, success }: SucceededItem): StreakChanges[] =>
+  item.resolution === 'open'
+    ? [
+        {
+          changes: [
+            {
+              op: 'attention.close',
+              put: { kind: 'attention_item', value: { ...item, resolution: 'answered', closed_at: success.at } },
+              basis: observed,
+              evidence: success.evidence,
+            },
+          ],
+          at: success.at,
+        },
+      ]
+    : []
 
 const rootCwd = (transaction: Transaction, run: RunId, session: Session | null): string | null => {
   const entity = transaction.model.entity(run, { kind: 'run', id: run })
@@ -191,9 +251,14 @@ const runOf = (transaction: Transaction, key: SessionKey): RunId =>
   transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
   runId(key)
 
-const runActions = (transaction: Transaction, run: RunId, session: Session | null): ActionFacts[] => {
+const runActions = (
+  transaction: Transaction,
+  run: RunId,
+  session: Session | null,
+  entities: readonly ModelEntity[],
+): ActionFacts[] => {
   const members = new Set<SessionId>(session === null ? [] : [session.id])
-  for (const entity of transaction.model.entities(run)) {
+  for (const entity of entities) {
     if (entity.kind !== 'session_membership') {
       continue
     }
@@ -208,26 +273,54 @@ const runActions = (transaction: Transaction, run: RunId, session: Session | nul
     .map((action) => ({ action, facts: transaction.facts.ofEntity(action.key) }))
 }
 
+const leaving = ({ id }: AttentionItem): ModelChangeDraft => ({
+  op: 'session.move',
+  remove: { kind: 'attention_item', id },
+  basis: observed,
+  evidence: [],
+})
+
+const latestOf = (times: readonly EpochNs[]): EpochNs | null =>
+  times.reduce<EpochNs | null>((latest, time) => (latest === null || time > latest ? time : latest), null)
+
 const refreshRun = (
   transaction: Transaction,
   run: RunId,
   session: Session | null,
   catalog: ContractCatalog,
+  at: EpochNs,
 ): void => {
   const cwd = rootCwd(transaction, run, session)
   const contracts = cwd === null ? [] : catalog.contractsFor(cwd)
   if (contracts.length === 0) {
     return
   }
-  const actions = runActions(transaction, run, session)
-  const updates = contracts.flatMap((contract) => contractChanges(transaction, run, contract, actions))
-  const changes = updates.flatMap((update) => update.changes)
-  const at = updates.map((update) => update.at).reduce<EpochNs | null>(
-    (latest, time) => (latest === null || time > latest ? time : latest),
-    null,
-  )
-  if (at !== null) {
-    applyChangeSet(transaction, { run, author: 'rule', at, changes })
+  const entities = transaction.model.entities(run)
+  const actions = runActions(transaction, run, session, entities)
+  const checks = contracts.map((contract) => ({
+    contract,
+    results: actions.flatMap((entry) => checkResult(entry, contract) ?? []).sort(byResultTime),
+  }))
+  const streaks = checks.flatMap(({ contract, results }) => streaksOf(results).map((streak) => ({ contract, streak })))
+  const items = failedCheckItems(entities)
+  const succeeded = succeededItems(run, checks, items)
+  const settled = new Set(succeeded.map(({ item }) => item.id))
+  const matched = matchedItems(transaction, run, streaks, items.filter(({ id }) => !settled.has(id)))
+  const updates = [
+    ...matched.flatMap(({ contract, streak, existing }) => streakChanges(run, contract, streak, existing) ?? []),
+    ...succeeded.flatMap(successChanges),
+  ]
+  const claimed = new Set([...settled, ...matched.flatMap(({ existing }) => (existing === null ? [] : [existing.id]))])
+  const present = new Set(actions.flatMap(({ facts }) => facts.map(({ id }) => id)))
+  const left = items.filter(({ id, evidence }) => !claimed.has(id) && !evidence.some((fact) => present.has(fact)))
+  const time = latestOf([...updates.map((update) => update.at), ...(left.length === 0 ? [] : [at])])
+  if (time !== null) {
+    applyChangeSet(transaction, {
+      run,
+      author: 'rule',
+      at: time,
+      changes: [...updates.flatMap((update) => update.changes), ...left.map(leaving)],
+    })
   }
 }
 
@@ -235,6 +328,7 @@ export const refreshChecks = (
   transaction: Transaction,
   sessions: Iterable<SessionKey>,
   catalog: ContractCatalog,
+  at: EpochNs,
 ): void => {
   if (catalog.empty) {
     return
@@ -247,15 +341,20 @@ export const refreshChecks = (
       continue
     }
     runs.add(run)
-    refreshRun(transaction, run, session, catalog)
+    refreshRun(transaction, run, session, catalog, at)
   }
 }
 
-export const refreshRunChecks = (transaction: Transaction, runs: Iterable<RunId>, catalog: ContractCatalog): void => {
+export const refreshRunChecks = (
+  transaction: Transaction,
+  runs: Iterable<RunId>,
+  catalog: ContractCatalog,
+  at: EpochNs,
+): void => {
   if (catalog.empty) {
     return
   }
   for (const run of new Set(runs)) {
-    refreshRun(transaction, run, null, catalog)
+    refreshRun(transaction, run, null, catalog, at)
   }
 }

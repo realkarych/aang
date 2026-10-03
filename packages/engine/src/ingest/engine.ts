@@ -514,7 +514,7 @@ export const createEngine = ({
         const projection = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
         if (projection !== null) { watchQuiet(watch, projection.session) }
       }
-      refreshChecks(transaction, changedSessions.values(), contracts)
+      refreshChecks(transaction, changedSessions.values(), contracts, instant)
       settleQuiet(transaction, watch, instant, quietAfterMs)
       return { tally, files, hooks, rescan: [...rescan], quiet: watch }
     })
@@ -602,8 +602,8 @@ export const createEngine = ({
         const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
         if (projection !== null) { watchQuiet(watch, projection.session) }
       }
-      refreshChecks(transaction, moved, contracts)
-      refreshRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts)
+      refreshChecks(transaction, moved, contracts, instant)
+      refreshRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts, instant)
       return { binding: outcome.binding, watch }
     })
     quiet = watch

@@ -175,6 +175,15 @@ facts, after the observation projection (ADR-0006):
   success; the closing journal change cites the success, and the remaining
   failures of its former streak form their own item. An item whose failures no
   longer match a contract after the configuration changes keeps its last state.
+- A session moved out of the run takes its failures and successes along. A streak
+  that keeps no item by id, because the failure its item id derives from left,
+  keeps an item that cites any of its failures and whose id derives from the same
+  contract and a failure in the item's journal, so one item goes on with the rest
+  of the streak and closes on its next success. An item none of whose cited facts
+  remain in the run leaves the current state with a rule `session.move` removal at
+  the time of the transfer, its history stays in the journal, and a streak that
+  moves back gets its item id again. A transfer is never recorded as a success or
+  a removal by the user.
 
 The run of a session is the run of its `session_membership`, or the run of its own
 root key when there is none, the rule that run linking (E.4) uses for projections.
@@ -302,7 +311,8 @@ binding's transaction:
   session moved back gets its facts `pending` again;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
-  with its remaining sessions; view marks and view rules stay with their runs;
+  with its remaining sessions, as described in Check contracts; view marks and
+  view rules stay with their runs;
 - the `forked_from` links that point at the source run are recomputed.
 
 ## Questions, decisions and rule attention
