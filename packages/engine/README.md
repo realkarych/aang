@@ -192,8 +192,61 @@ root key when there is none, the rule that run linking (E.4) uses for projection
 The root session of a run comes from its `run` entity; without one, a session that
 is its own root uses its `cwd`.
 
-Checks do not produce criterion statuses: a check alone never gives `confirmed`.
-`passed_unversioned`, `confirmed` and `stale` belong to E.7c.
+## Contract criteria
+
+Each contract with a check result in a run has one criterion of the rule (ADR-0006):
+source `contract`, the contract name, the text `Check "<name>" passes`, no stage,
+and an id derived from the run and the contract name. The latest result of the
+contract decides its status with observed basis, and every change is a
+`criterion.status` rule change in the journal:
+
+- a failed check gives `failed` with the evidence of the check;
+- a passing check gives `confirmed` only when the contract has a `commitPattern`,
+  the outputs of the check report exactly one object name through it, and that
+  name is a commit of the repository of the check directory. The name is the
+  named group `commit`, otherwise the first group, otherwise the whole match; it
+  must be 7 to 64 hexadecimal digits, a shorter name that prefixes a longer one
+  counts as the same name, and the commit is resolved with `git rev-parse --verify
+  --quiet <name>^{commit}` and must start with the name, so a tag or a tree is not
+  a commit. `checked_commit` is the full name. The contract is responsible for the
+  check reading that commit, for example by checking out the commit in an isolated
+  `git worktree` and printing its `HEAD`; the output alone links them, so a check
+  read by backfill is confirmed as well;
+- every other passing check gives `passed_unversioned`: no commit pattern, no
+  reported name, several names, a name that is not a commit, a directory outside a
+  git repository. When the snapshot taken after the start of the check was ingested
+  and before its end, and the first snapshot after its end, are both clean on the
+  same `HEAD`, `clean_tree_commit` notes that commit and the evidence cites both
+  snapshots. The note never confirms: the input could change and return between
+  them;
+- snapshots of the working tree of the check directory under the masks of the
+  contract taken after the end of a confirming check decide `stale`: when the latest
+  of them is not clean on `checked_commit` (another `HEAD`, a change under the
+  masks or a failed git command), the criterion is `stale` and cites the first
+  snapshot since the tree last showed the commit. A later snapshot clean on the
+  commit confirms it again, since the current state is the checked version.
+
+The order of snapshots and check facts is the order of their raw records, so it
+does not depend on the clocks of the runtime and the daemon.
+
+A criterion with `checked_commit` is watched:
+
+- at the end of every turn of its run (`turn_end` facts), the ingest takes a
+  `turn_end` snapshot of its check directory;
+- `engine.refreshCriteria()` takes a `restart` snapshot for every such criterion
+  of the store; the daemon calls it once after start;
+- with `fsWatch` (on by default, `collector.fsWatch` in the daemon), the engine
+  watches the paths of the masks inside the working tree: a directory recursively,
+  a file through its parent directory, ignoring `.git`. A change takes a
+  `fs_watch` snapshot after 100 ms of quiet. A notification is only a signal: a
+  missed one is caught by the next snapshot at a turn end or a restart.
+
+The ingest evaluates the criteria of every run whose sessions received facts after
+it records the snapshots of the batch, so an evaluation interrupted by a crash is
+repeated by the next batch of the run. Git object names and working trees that
+were found are cached for the life of the engine. `engine.close()` stops watching
+and waits for queued work; a failure of work started by a notification is raised by
+the next call of the engine.
 
 ## Working tree snapshots
 
@@ -225,7 +278,9 @@ gives an unclean snapshot without a head and with the error.
 
 Each snapshot is a raw record of the `snapshot` channel (position `daemon`, no
 runtime or stream), one `git_snapshot` fact keyed by the run of the root session
-with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
+with speaker `runtime`, and a `GitSnapshot` object with its trigger: `check` for
+checks, `turn_end`, `restart` and `fs_watch` for confirmed criteria (see Contract
+criteria). Daemon
 records are not session evidence: they do not move `last_event_at`, freshness or
 the turn state.
 

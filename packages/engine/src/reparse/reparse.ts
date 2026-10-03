@@ -14,6 +14,7 @@ import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Observation, Store, Transaction } from '@aang/store'
 import { refreshChecks } from '../checks/attention.js'
 import type { ContractCatalog } from '../checks/catalog.js'
+import { changedRunChecks } from '../checks/history.js'
 import { normalizeOtel } from '../ingest/otel.js'
 import { queueFacts } from '../ingest/queue.js'
 import { type Adapters, collectedFields, sessionName } from '../ingest/records.js'
@@ -179,9 +180,9 @@ export const reparse = (
   const tally = store.transaction((transaction) => {
     const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map(), added: [] }
     const counted = reparseRecords(transaction, adapters, reparsed)
-    const rebuilt = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
+    const sessions = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
     queueFacts(transaction, reparsed.added)
-    refreshChecks(transaction, rebuilt, contracts, now)
+    refreshChecks(transaction, changedRunChecks(transaction, sessions, contracts), now)
     settleQuiet(transaction, quiet, now, quietAfterMs)
     return counted
   })

@@ -41,7 +41,13 @@ export const startIngestion = async ({
   runtimeRoots,
   otelToken,
 }: IngestionOptions): Promise<Ingestion> => {
-  const engine = createEngine({ store, adapters, watch: config.watch, quietAfterMs: config.freshness.quietAfterMs })
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: config.watch,
+    quietAfterMs: config.freshness.quietAfterMs,
+    fsWatch: config.collector.fsWatch,
+  })
   const collector = createCollector({
     spool,
     runtimeRoots,
@@ -51,9 +57,11 @@ export const startIngestion = async ({
   })
   const otel = await collector.listenOtel({ port: config.otel.port, token: otelToken }).catch(async (error: unknown) => {
     await collector.close()
+    await engine.close()
     throw error
   })
   const failure = Promise.withResolvers<unknown>()
+  const restoring = engine.refreshCriteria().catch(failure.resolve)
 
   const pump = async (): Promise<void> => {
     for await (const batch of collector.start(store.cursors.list())) {
@@ -81,6 +89,8 @@ export const startIngestion = async ({
       await collector.close()
       await pumping
       await refreshing
+      await restoring
+      await engine.close()
     },
   }
 }
