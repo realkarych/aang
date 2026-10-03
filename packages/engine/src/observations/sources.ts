@@ -1,7 +1,7 @@
 import { CollectedRecord, type EpochNs, type RawRecord, type RawSeq, type RecordOwner, type Session, type StreamKey } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { RawRecordReader, Transaction } from '@aang/store'
-import type { Adapters } from '../ingest/records.js'
+import { type Adapters, collectedFields } from '../ingest/records.js'
 
 export interface SourceRecord {
   readonly raw: RawRecord
@@ -9,10 +9,7 @@ export interface SourceRecord {
 }
 
 export const collectedOf = (raw: RawRecord): CollectedRecord | null =>
-  CollectedRecord.safeParse({
-    channel: raw.channel, runtime: raw.runtime, stream: raw.stream, position: raw.position,
-    hook: raw.hook, observed_at: raw.observed_at, payload: raw.payload,
-  }).data ?? null
+  CollectedRecord.safeParse(collectedFields(raw)).data ?? null
 
 export const streamOwner = (
   { rawRecords }: { readonly rawRecords: RawRecordReader },
