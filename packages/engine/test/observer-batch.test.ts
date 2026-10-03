@@ -192,6 +192,12 @@ const missingIds = (store: Store, run: RunId, input: ObserverInput): string[] =>
 
 const pending = (store: Store, run: RunId): FactId[] => store.interpretations.pending(run).map(({ fact }) => fact)
 
+const attemptsOf = (store: Store, run: RunId, facts: readonly FactId[]): [string, number][] =>
+  facts.map((id) => {
+    const interpretation = store.interpretations.ofRun(run).find(({ fact }) => fact === id)
+    return [interpretation?.status ?? 'missing', interpretation?.attempts ?? -1]
+  })
+
 test('series of routine reads and searches of one agent fold into counters that the observer can cite', async () => {
   const { store, session } = await setup()
   const solver = session('collapse')
@@ -302,7 +308,7 @@ test('the input stays within its token limit: texts are cut first, and later fac
   expect(second.batch.facts[0]?.id).toBe(queue[sent.length])
 })
 
-test('a snapshot over the limit is shortened after the batch texts, and an input that cannot fit leaves its facts not interpreted', async () => {
+test('a snapshot over the limit is shortened after the batch texts, and a run whose input cannot fit at all keeps its facts pending', async () => {
   const { store, session } = await setup()
   const solver = session('snapshot')
   await solver.start()
@@ -348,16 +354,71 @@ test('a snapshot over the limit is shortened after the batch texts, and an input
   const unfit = pending(store, solver.run)
   expect(begin(store, solver.run, 'snapshot-third', { ...generous, inputTokens: 100 })).toBeNull()
   expect(store.observerCalls.get(ObserverCallId.parse('snapshot-third'))).toBeNull()
-  expect(
-    store.interpretations
-      .ofRun(solver.run)
-      .filter(({ fact }) => unfit.includes(fact))
-      .map(({ status }) => status),
-  ).toEqual(unfit.map(() => 'not_interpreted'))
-  const gaps = gapsOf(store).filter(({ run, key }) => run === solver.run && key.gap === 'not_interpreted')
-  expect(gaps).toHaveLength(1)
-  expect(gaps[0]?.details).toContain('exceeds 100 tokens')
-  expect(gaps[0]?.closed_at).toBeNull()
+  expect(attemptsOf(store, solver.run, unfit)).toEqual(unfit.map(() => ['pending', 0]))
+  expect(gapsOf(store).filter(({ run, key }) => run === solver.run && key.gap === 'not_interpreted')).toEqual([])
+})
+
+test('a string a little over the cut length stays whole when cutting would lengthen the input, and a cut never splits a character', async () => {
+  const { store, session } = await setup()
+  const solver = session('cut-gain')
+  await solver.start()
+  const opening = begin(store, solver.run, 'cut-gain-first')
+  assert(opening !== null)
+  expect(answer(store, 'cut-gain-first', opening)).toMatchObject({ status: 'accepted' })
+  const many = Array.from({ length: 300 }, () => 'x'.repeat(257))
+  await solver.deliver([solver.hook('PreToolUse.Bash.json', { tool_input: { command: 'ls', many }, tool_use_id: 'cut-gain' })])
+
+  const input = begin(store, solver.run, 'cut-gain-call', { facts: 30, bytes: 96_000, textLength: 4_000, inputTokens: 24_000 })
+  assert(input !== null)
+  expect(observerInputTokens(input)).toBeLessThanOrEqual(24_000)
+  expect(input.batch.facts).toMatchObject([{ id: factsOfCall(store, 'cut-gain')[0], payload: { input: { command: 'ls', many } }, truncated: [] }])
+  expect(answer(store, 'cut-gain-call', input)).toMatchObject({ status: 'accepted' })
+
+  const command = `${'x'.repeat(299)}${'😀'.repeat(100)}`
+  await solver.deliver([solver.hook('PreToolUse.Bash.json', { tool_input: { command }, tool_use_id: 'cut-character' })])
+  const cut = begin(store, solver.run, 'cut-character-call', { ...generous, textLength: 300 })
+  assert(cut !== null)
+  expect(cut.batch.facts).toMatchObject([
+    {
+      payload: { input: { command: 'x'.repeat(299) } },
+      truncated: [{ path: 'payload.input.command', length: command.length }],
+    },
+  ])
+})
+
+test('a fact too large to send even alone goes without its payload, and the facts after it wait for the next batch', async () => {
+  const { store, session } = await setup()
+  const solver = session('oversized')
+  await solver.start()
+  const opening = begin(store, solver.run, 'oversized-first')
+  assert(opening !== null)
+  expect(answer(store, 'oversized-first', opening)).toMatchObject({ status: 'accepted' })
+  await solver.deliver([
+    solver.hook('PreToolUse.Bash.json', { tool_input: { command: 'ls', many: Array(22_000).fill('x') }, tool_use_id: 'oversized' }),
+    solver.hook('PreToolUse.Bash.json', { tool_input: { command: 'ls' }, tool_use_id: 'small' }),
+  ])
+  const [large, small] = [...factsOfCall(store, 'oversized'), ...factsOfCall(store, 'small')]
+  assert(large !== undefined && small !== undefined)
+  const limits = { facts: 30, bytes: 96_000, textLength: 4_000, inputTokens: 24_000 }
+
+  const first = begin(store, solver.run, 'oversized-call', limits)
+  assert(first !== null)
+  expect(observerInputTokens(first)).toBeLessThanOrEqual(24_000)
+  expect(first.batch.facts).toMatchObject([{ id: large, payload: null, truncated: [{ path: 'payload' }] }])
+  expect(first.batch.facts[0]?.truncated[0]?.length).toBeGreaterThan(22_000 * 4)
+  expect(missingIds(store, solver.run, first)).toEqual([])
+  expect(pending(store, solver.run)).toEqual([small])
+  expect(answer(store, 'oversized-call', first)).toMatchObject({ status: 'accepted' })
+
+  const second = begin(store, solver.run, 'small-call', limits)
+  assert(second !== null)
+  expect(second.batch.facts).toMatchObject([{ id: small, payload: { input: { command: 'ls' } }, truncated: [] }])
+  expect(answer(store, 'small-call', second)).toMatchObject({ status: 'accepted' })
+  expect(attemptsOf(store, solver.run, [large, small])).toEqual([
+    ['interpreted', 1],
+    ['interpreted', 1],
+  ])
+  expect(gapsOf(store).filter(({ run, key }) => run === solver.run && key.gap === 'not_interpreted')).toEqual([])
 })
 
 test('the run context enters the input in scope and is cut with the batch texts', async () => {
@@ -452,6 +513,40 @@ test('materials of a follow-up fit the limit of the first call and are dropped f
   const requested = (material: ObserverInput['materials'][number] | ObserverNeed) =>
     material.kind === 'action' ? material.action : null
   expect(tight.materials.map(requested)).toEqual(actions(tight.materials.length).map(requested))
+})
+
+test('needs whose materials cannot fit even alone reject the response, spend its attempt and tell the next call why', async () => {
+  const { store, session } = await setup()
+  const solver = session('needs-unfit')
+  await solver.start()
+  const opening = begin(store, solver.run, 'needs-unfit-first')
+  assert(opening !== null)
+  expect(answer(store, 'needs-unfit-first', opening)).toMatchObject({ status: 'accepted' })
+  await solver.deliver([
+    solver.hook('PreToolUse.Bash.json', { tool_input: { command: 'ls', many: Array(6_000).fill('x') }, tool_use_id: 'needs-unfit' }),
+  ])
+  const limits = { ...generous, inputTokens: 2_000 }
+  const input = begin(store, solver.run, 'needs-unfit-call', limits)
+  assert(input !== null)
+  const queued = input.batch.facts.map(({ id }) => id)
+  const action = objectId({ kind: 'action', runtime: 'claude', session: 'needs-unfit', call: 'needs-unfit' })
+  const reason = 'needs: none of the requested materials fits the input limit of 2000 tokens'
+
+  expect(
+    store.transaction((transaction) =>
+      applyObserverResponse(transaction, {
+        call: ObserverCallId.parse('needs-unfit-call'),
+        output: { base_version: input.model.version, ops: [], needs: [{ kind: 'action', action }] },
+        at: at(11),
+        followUp: { crossVendor: false, inputTokens: 2_000 },
+      }),
+    ),
+  ).toEqual({ status: 'rejected', rejections: [{ op_index: null, cause: 'limit', message: reason }] })
+  expect(store.observerCalls.get(ObserverCallId.parse('needs-unfit-call'))?.verdict).toBe('rejected')
+  expect(attemptsOf(store, solver.run, queued)).toEqual(queued.map(() => ['pending', 1]))
+  const next = begin(store, solver.run, 'needs-unfit-next', limits)
+  expect(next?.batch.facts.map(({ id }) => id)).toEqual(queued)
+  expect(next?.previous_attempt).toEqual({ reasons: [`limit: ${reason}`] })
 })
 
 test('a follow-up refuses an input limit that is not a positive integer', async () => {

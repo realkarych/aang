@@ -35,7 +35,7 @@ import {
   type Packing,
   packObserverInput,
 } from './fit.js'
-import { clipContext, clipJson, isoTime } from './materials.js'
+import { type Clipped, clipContext, clipJson, isoTime } from './materials.js'
 import { factSession, type InputScope, inputScope, type ScopeExclusion } from './scope.js'
 
 export interface BatchLimits {
@@ -194,8 +194,17 @@ const prepare = (transaction: Transaction, scope: InputScope, queued: Queued): P
   }
 }
 
-const inputFact = ({ queued: { fact }, action, agent, payload }: Prepared, textLength: number): InputFact => {
-  const clipped = clipJson(payload, 'payload', textLength)
+const omittedPayload = (payload: JsonValue): Clipped<JsonValue> => ({
+  value: null,
+  truncated: [{ path: 'payload', length: JSON.stringify(payload).length }],
+})
+
+const inputFact = (
+  { queued: { fact }, action, agent, payload }: Prepared,
+  textLength: number,
+  omitted: boolean,
+): InputFact => {
+  const clipped = omitted ? omittedPayload(payload) : clipJson(payload, 'payload', textLength)
   return {
     id: fact.id,
     seq: fact.seq,
@@ -252,20 +261,6 @@ const exclude = (transaction: Transaction, scope: InputScope, queued: readonly Q
     )
   }
   return kept
-}
-
-const oversized = (transaction: Transaction, scope: InputScope, batch: readonly Queued[], tokens: number, at: EpochNs): void => {
-  transaction.interpretations.close(scope.run, batch.map(({ fact }) => fact.id), 'not_interpreted')
-  for (const session of new Set(batch.map(({ fact }) => factSession(fact)))) {
-    openGap(
-      transaction,
-      scope,
-      session,
-      'not_interpreted',
-      `the observer input of this run exceeds ${String(tokens)} tokens even with one fact and the shortest texts`,
-      at,
-    )
-  }
 }
 
 const admittedContext = (transaction: Transaction, scope: InputScope, context: RunContext | null): RunContext | null => {
@@ -330,29 +325,31 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
   const model = snapshotOf(transaction, scope)
   const context = admittedContext(transaction, scope, start.context ?? null)
   const prepared = batch.map((queued) => prepare(transaction, scope, queued))
-  const render = ({ count, batchText, stateText }: Packing): ObserverInput => {
-    const chosen = prepared.slice(0, count)
-    const { facts, collapsed } = collapseRoutine(
-      chosen.map((entry) => ({ fact: entry.queued.fact, input: inputFact(entry, batchText), action: entry.action })),
-    )
-    return {
-      run: clipRun(description, stateText),
-      context: clipContext(context, batchText),
-      model: clipSnapshot(model, stateText),
-      batch: { facts: facts.map(({ input }) => input), collapsed, backlog: null, artifact_versions: [] },
-      materials: [],
-      previous_attempt: clipAttempt(previousAttempt(transaction, chosen.map(({ queued }) => queued)), stateText),
+  const render =
+    (omitted: boolean) =>
+    ({ count, batchText, stateText }: Packing): ObserverInput => {
+      const chosen = prepared.slice(0, count)
+      const { facts, collapsed } = collapseRoutine(
+        chosen.map((entry) => ({ fact: entry.queued.fact, input: inputFact(entry, batchText, omitted), action: entry.action })),
+      )
+      return {
+        run: clipRun(description, stateText),
+        context: clipContext(context, batchText),
+        model: clipSnapshot(model, stateText),
+        batch: { facts: facts.map(({ input }) => input), collapsed, backlog: null, artifact_versions: [] },
+        materials: [],
+        previous_attempt: clipAttempt(previousAttempt(transaction, chosen.map(({ queued }) => queued)), stateText),
+      }
     }
-  }
-  const range = {
-    count: prepared.length,
-    minimumCount: 1,
-    batchText: limits.textLength,
-    stateText: longestStateText({ run: description, model, previous_attempt: previousAttempt(transaction, batch) }),
-  }
-  const input = packObserverInput(range, firstCallTokens(limits.inputTokens), render)
+  const longest = longestStateText({ run: description, model, previous_attempt: previousAttempt(transaction, batch) })
+  const pack = (count: number, omitted: boolean): ObserverInput | null =>
+    packObserverInput(
+      { count, minimumCount: 1, batchText: limits.textLength, stateText: longest },
+      firstCallTokens(limits.inputTokens),
+      render(omitted),
+    )
+  const input = pack(prepared.length, false) ?? pack(1, true)
   if (input === null) {
-    oversized(transaction, scope, batch, limits.inputTokens, at)
     return null
   }
   beginObserverCall(transaction, { id, backend, crossVendor, input, at })

@@ -407,14 +407,24 @@ output of `action_end` or `PostToolBatch`. When the action has a structured resu
 such as an edit patch or an MCP result, the output is the JSON text
 `{"output": <text>, "result": <result>}`. Texts longer than
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
-and report their path and original length. Artifact versions answer `not_found`
+and report their path and original length. A string is cut only when the cut text
+and its truncation entry together are shorter in JSON than the whole string, so a
+cut never lengthens a material, and a cut never splits a surrogate pair. Artifact
+versions answer `not_found`
 until E.7b provides their storage. A context request returns the stored run context
 of F.7a with its entries cut at `MaterialLimits.textLength`; a record of another
 channel answers `not_found`, a context out of scope its exclusion.
 
-A response with nonempty `needs` to a call without materials is not applied.
+A response with nonempty `needs` to a call without materials is not applied. When
+at least one requested material fits a follow-up within its input limit,
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch
-`in_call`. `beginObserverFollowUp` starts the only follow-up with the same snapshot
+`in_call`; the response option `followUp` (`crossVendor`, material limits,
+`inputTokens`) must match the options later given to `beginObserverFollowUp`.
+Otherwise the response is rejected with the cause `limit`: the batch returns to
+`pending`, spends the attempt like any rejected response, and the next call gets the
+reason in `previous_attempt`. A follow-up therefore always carries materials, and a
+call with materials is a follow-up whose `needs` are ignored.
+`beginObserverFollowUp` starts the only follow-up with the same snapshot
 and batch plus the resolved materials, with the backend of the first call. It hands
 the batch over to the follow-up without spending an attempt. The follow-up response
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
@@ -451,11 +461,11 @@ starts the next call of a run from its pending facts in the order of their recor
   are in scope; a reference to a stage left out becomes `null`. The reasons carry
   over calls that ended without a response, so a backend failure or a restart after
   a rejection does not drop them. The backlog and artifact versions stay empty;
-- the input is packed within the limit (see "Observer input" below). When even one
-  fact with the shortest texts does not fit, the candidates become `not_interpreted`
-  and their sessions get an open gap `not_interpreted` that names the limit;
+- the input is packed within the limit (see "Observer input" below);
 - the call is recorded by `beginObserverCall`. Without a run entity or an eligible
-  fact nothing starts and the result is `null`.
+  fact, or when the run description, the snapshot and the context leave no room
+  even for one fact without its payload, nothing starts, the facts stay `pending`
+  and the result is `null`.
 
 ### Observer input
 
@@ -485,13 +495,22 @@ stops at the first input that fits:
 3. the batch keeps the longest prefix of the candidates that fits with full model
    texts, and the strings of that prefix get the longest length that still fits; the
    other candidates stay `pending` for the next batch;
-4. one fact with 256-character strings and model texts cut from 64 characters.
+4. one fact with 256-character strings and model texts cut from 64 characters;
+5. the first candidate alone with its payload omitted: `payload` is `null` and its
+   only truncation entry has the path `payload` and the length of the payload JSON.
+   The observer can request the raw record by the `seq` of the fact. The other
+   candidates stay `pending` for the next batch.
+
+A string or a model text is cut only when the cut, together with its truncation
+entry or the `…` mark, is shorter in JSON than the whole text. The input size
+therefore never grows when the length goes down, and each length above is found by
+trying the longest one first and then by bisection.
 
 `beginObserverFollowUp` packs the stored input with the resolved materials within
-`inputTokens` (24 000 by default) in the same order. The materials are resolved with
-the same string length as the batch facts and the context, which can be cut further
-than in the first call; step 3 drops materials from the end instead of facts. The
-batch, the snapshot version and the ids stay those of the first call.
+`inputTokens` (24 000 by default) by steps 1–4. The materials are resolved with the
+same string length as the batch facts and the context, which can be cut further than
+in the first call; step 3 drops materials from the end instead of facts and keeps at
+least one. The batch, the snapshot version and the ids stay those of the first call.
 
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a

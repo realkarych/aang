@@ -775,6 +775,74 @@ test('the observer gets the protocol prompt and inputs within the token limit un
   }
 })
 
+test('a fact too large for the input goes without its payload, and the fact after it follows on the timer without another wake', async (context) => {
+  const scene = await createScene(context, { claude: [accepted, accepted, accepted] })
+  const session = scene.claudeSession('session-large')
+  await session.start()
+  scene.scheduler.wake()
+  scene.advance(5_000)
+  await scene.scheduler.idle()
+  await session.actions([{ command: 'ls', many: Array<string>(22_000).fill('x') }, { command: 'ls' }])
+  scene.scheduler.wake()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+  expect(scene.tally(session.run)).toEqual({ interpreted: 2, pending: 1 })
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  expect(scene.tally(session.run)).toEqual({ interpreted: 3 })
+  const inputs = scene.prompts('claude')
+  expect(inputs.map(({ batch }) => batch.facts.map(({ kind, payload, truncated }) => [kind, payload === null, truncated.map(({ path }) => path)]))).toEqual([
+    [['session_start', false, []]],
+    [['action_start', true, ['payload']]],
+    [['action_start', false, []]],
+  ])
+  expect(inputs.every((input) => observerInputTokens(input) <= batchLimits.inputTokens)).toBe(true)
+  expect(scene.store.gaps.open('not_interpreted')).toEqual([])
+})
+
+const unfitNeeds: ClaudeReply = {
+  kind: 'answer',
+  output: {
+    base_version: { $input: '/model/version' },
+    ops: [],
+    needs: [{ kind: 'action', action: { $input: '/batch/facts/0/action' } }],
+  },
+}
+
+test('needs whose materials cannot fit get no follow-up: each answer spends an attempt of the batch and says why', async (context) => {
+  const scene = await createScene(context, {
+    claude: [accepted, unfitNeeds, unfitNeeds, unfitNeeds],
+    limits: { inputTokens: 2_000 },
+  })
+  const session = scene.claudeSession('session-unfit-needs')
+  await session.start()
+  scene.scheduler.wake()
+  scene.advance(5_000)
+  await scene.scheduler.idle()
+  await session.actions([{ command: 'ls', many: Array<string>(6_000).fill('x') }])
+  scene.scheduler.wake()
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    scene.advance(10_000)
+    await scene.scheduler.idle()
+  }
+
+  expect(scene.calls(session.run).map(({ verdict, reasons }) => [verdict, reasons.map(({ cause }) => cause)])).toEqual([
+    ['accepted', []],
+    ['rejected', ['limit']],
+    ['rejected', ['limit']],
+    ['rejected', ['limit']],
+  ])
+  const inputs = scene.prompts('claude')
+  expect(inputs.map(({ materials }) => materials.length)).toEqual([0, 0, 0, 0])
+  const reason = 'limit: needs: none of the requested materials fits the input limit of 2000 tokens'
+  expect(inputs.map(({ previous_attempt: previous }) => previous?.reasons ?? null)).toEqual([null, null, [reason], [reason]])
+  expect(scene.statuses(session.run).map(({ status, attempts }) => [status, attempts])).toEqual([
+    ['interpreted', 1],
+    ['not_interpreted', 3],
+  ])
+})
+
 test('the context of a run reaches its calls and is recorded again after each call', async (context) => {
   const scene = await createScene(context, { claude: [accepted, accepted] })
   const instructions = join(scene.workspace, 'CLAUDE.md')

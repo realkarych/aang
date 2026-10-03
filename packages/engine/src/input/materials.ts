@@ -33,10 +33,23 @@ export interface Clipped<T> {
   readonly truncated: Truncation[]
 }
 
-const clipText = (text: string, path: string, limit: number): Clipped<string> =>
-  text.length > limit
-    ? { value: text.slice(0, limit), truncated: [{ path, length: text.length }] }
+export const jsonBytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(value))
+
+const highSurrogate = (code: number): boolean => code >= 0xd8_00 && code <= 0xdb_ff
+
+export const prefixOf = (text: string, limit: number): string =>
+  text.slice(0, limit > 0 && highSurrogate(text.charCodeAt(limit - 1)) ? limit - 1 : limit)
+
+const clipText = (text: string, path: string, limit: number): Clipped<string> => {
+  if (text.length <= limit) {
+    return { value: text, truncated: [] }
+  }
+  const value = prefixOf(text, limit)
+  const truncation = { path, length: text.length }
+  return jsonBytes(value) + jsonBytes(truncation) < jsonBytes(text)
+    ? { value, truncated: [truncation] }
     : { value: text, truncated: [] }
+}
 
 export const clipJson = (value: JsonValue, path: string, limit: number): Clipped<JsonValue> => {
   if (typeof value === 'string') {
@@ -56,15 +69,11 @@ export const clipJson = (value: JsonValue, path: string, limit: number): Clipped
 
 const clipEntries = (context: RunContext, limit: number): RunContext => ({
   ...context,
-  entries: context.entries.map((entry) =>
-    entry.text.length > limit
-      ? {
-          ...entry,
-          text: entry.text.slice(0, limit),
-          truncated: entry.truncated ?? { path: 'text', length: entry.text.length },
-        }
-      : entry,
-  ),
+  entries: context.entries.map((entry) => {
+    const { value, truncated } = clipText(entry.text, 'text', limit)
+    const [truncation] = truncated
+    return truncation === undefined ? entry : { ...entry, text: value, truncated: entry.truncated ?? truncation }
+  }),
 })
 
 export const clipContext = (context: RunContext | null, limit: number): RunContext | null =>

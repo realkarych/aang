@@ -22,6 +22,7 @@ export {
   chargeEndedObserverCall,
   type EndedCallUsage,
   failObserverCall,
+  type FollowUpOptions,
   type ObserverCallBegin,
   type ObserverCallFailure,
   type ObserverFollowUp,

@@ -1,5 +1,5 @@
 import type { InputFact, ModelSnapshot, ObserverInput, RunDescription, Truncation } from '@aang/contract'
-import { clipJson } from './materials.js'
+import { clipJson, jsonBytes, prefixOf } from './materials.js'
 
 export interface Packing {
   readonly count: number
@@ -32,11 +32,14 @@ export const observerInputTokens = (input: ObserverInput): number =>
 export const firstCallTokens = (tokens: number): number => tokens - Math.floor(tokens / materialShare)
 
 const largest = (low: number, high: number, fits: (value: number) => boolean): number | null => {
-  if (!fits(low)) {
+  if (fits(high)) {
+    return high
+  }
+  if (low >= high || !fits(low)) {
     return null
   }
   let found = low
-  let upper = Math.max(low, high)
+  let upper = high - 1
   while (found < upper) {
     const middle = Math.ceil((found + upper) / 2)
     if (fits(middle)) {
@@ -77,6 +80,9 @@ export const packObserverInput = (
       return attempt({ count, batchText: text, stateText: Infinity })
     }
   }
+  if (range.minimumCount >= range.count) {
+    return null
+  }
   const last = stateText(range.minimumCount)
   return last === null ? null : attempt({ count: range.minimumCount, batchText: batchFloor, stateText: last })
 }
@@ -95,8 +101,13 @@ export const clipInputFact = (fact: InputFact, limit: number): InputFact => {
   return { ...fact, payload: payload.value, truncated: mergedTruncation(fact.truncated, payload.truncated) }
 }
 
-const clipNote = (text: string, limit: number): string =>
-  text.length > limit ? `${text.slice(0, limit)}${clipMark}` : text
+const clipNote = (text: string, limit: number): string => {
+  if (text.length <= limit) {
+    return text
+  }
+  const clipped = `${prefixOf(text, limit)}${clipMark}`
+  return jsonBytes(clipped) < jsonBytes(text) ? clipped : text
+}
 
 const clipOptional = (text: string | null, limit: number): string | null =>
   text === null ? null : clipNote(text, limit)

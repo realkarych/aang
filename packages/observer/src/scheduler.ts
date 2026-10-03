@@ -177,6 +177,8 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     settling.add(recorded)
   }
 
+  const followUp = { crossVendor, inputTokens: limits.inputTokens }
+
   const settle = (call: ObserverCallId, result: ObserverResult): Exchange | null =>
     store.transaction((transaction) => {
       const at = epoch(clock.now())
@@ -192,24 +194,15 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
         }
         return null
       }
-      const response = applyObserverResponse(transaction, { call, output: result.output, at, usage: result.usage })
+      const response = applyObserverResponse(transaction, { call, output: result.output, at, usage: result.usage, followUp })
       if (response.status === 'rejected') {
         exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
       }
       if (response.status !== 'needs_requested') {
         return null
       }
-      const followUp = ObserverCallId.parse(randomUUID())
-      return {
-        call: followUp,
-        input: beginObserverFollowUp(transaction, {
-          previous: call,
-          id: followUp,
-          at,
-          crossVendor,
-          inputTokens: limits.inputTokens,
-        }),
-      }
+      const next = ObserverCallId.parse(randomUUID())
+      return { call: next, input: beginObserverFollowUp(transaction, { previous: call, id: next, at, ...followUp }) }
     })
 
   const perform = async ({ executor }: Candidate, first: Exchange, stopped: Promise<void>[]): Promise<void> => {

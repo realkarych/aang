@@ -268,6 +268,16 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
           tool_input: { command, description: 'Run a command' },
         }),
       ]),
+    actions: (inputs: readonly JsonObject[]) =>
+      deliver(
+        'claude',
+        inputs.map((input, index) =>
+          claudeHook('PreToolUse.Bash.json', session, workspace, {
+            tool_use_id: `${session}-action-${String(index)}`,
+            tool_input: input,
+          }),
+        ),
+      ),
     commands: (count: number, command: string) =>
       deliver(
         'claude',
