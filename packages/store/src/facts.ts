@@ -7,7 +7,7 @@ import {
   type FactId,
   type NormalizerVersion,
   type RawSeq,
-  type SessionKey,
+  SessionKey,
 } from '@aang/contract'
 import { canonicalJson, factIds } from '@aang/contract/ids'
 import { decodeJson, encodeFlag, encodeJson } from './codec.js'
@@ -19,10 +19,18 @@ export interface FactReader {
   readonly ofRecord: (seq: RawSeq) => Fact[]
   readonly ofSession: (key: SessionKey) => Fact[]
   readonly ofEntity: (key: FactEntityKey) => Fact[]
+  readonly sessions: () => SessionKey[]
+}
+
+export interface FactRevision {
+  readonly kept: readonly Fact[]
+  readonly added: readonly Fact[]
+  readonly removed: readonly Fact[]
 }
 
 export interface FactWriter extends FactReader {
   readonly insert: (seq: RawSeq, normalizerVersion: NormalizerVersion, drafts: readonly FactDraft[]) => Fact[]
+  readonly replace: (seq: RawSeq, normalizerVersion: NormalizerVersion, drafts: readonly FactDraft[]) => FactRevision
 }
 
 export interface FactRepository {
@@ -63,9 +71,42 @@ const columns = [
   'payload',
   'normalizer_version',
   'change_seq',
-]
+] as const
 
 export const factColumns = columns.join(', ')
+
+type FactColumn = (typeof columns)[number]
+
+type FactColumns = Readonly<Record<FactColumn, string | number | bigint | null>>
+
+type StoredFactRow = FactRow & FactColumns
+
+const identityColumns: ReadonlySet<FactColumn> = new Set(['id', 'seq', 'record_index', 'change_seq'])
+
+const contentColumns = columns.filter((column) => !identityColumns.has(column))
+
+const columnText = (value: string | number | bigint | null): string | null => (value === null ? null : String(value))
+
+const sameContent = (stored: FactColumns, row: FactColumns): boolean =>
+  contentColumns.every((column) => columnText(stored[column]) === columnText(row[column]))
+
+const columnsOf = (fact: Fact, index: number, changeSeq: number): FactColumns => ({
+  id: fact.id,
+  seq: fact.seq,
+  record_index: index,
+  kind: fact.kind,
+  entity_key: canonicalJson(fact.entity_key),
+  speaker: fact.speaker,
+  urgent: encodeFlag(fact.urgent),
+  occurred_at: fact.at,
+  runtime_ids: encodeJson(fact.runtime_ids),
+  runtime_env: encodeJson(fact.runtime_env),
+  format_verified: encodeFlag(fact.format_verified),
+  redelivery_key: fact.redelivery_key,
+  payload: encodeJson(fact.payload),
+  normalizer_version: fact.normalizer_version,
+  change_seq: changeSeq,
+})
 
 export const toFact = (row: FactRow): Fact =>
   Fact.parse({
@@ -97,8 +138,12 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
   const selectBySession = prepareStatement(database,
     `SELECT ${factColumns} FROM facts WHERE json_extract(entity_key, '$.runtime') = ? AND json_extract(entity_key, '$.session') = ? ORDER BY seq, record_index`,
   )
+  const selectSessions = prepareStatement(database,
+    "SELECT DISTINCT json_extract(entity_key, '$.runtime') AS runtime, json_extract(entity_key, '$.session') AS session FROM facts ORDER BY runtime, session",
+  )
   const selectDedupeKey = prepareStatement(database, 'SELECT dedupe_key FROM raw_records WHERE seq = ?')
   const insertFact = prepareStatement(database, insertInto('facts', columns))
+  const deleteByRecord = prepareStatement(database, 'DELETE FROM facts WHERE seq = ?')
 
   const reader: FactReader = {
     get: (id) => {
@@ -108,38 +153,65 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
     ofRecord: (seq) => (selectByRecord.all(seq) as FactRow[]).map(toFact),
     ofSession: (key) => (selectBySession.all(key.runtime, key.session) as FactRow[]).map(toFact),
     ofEntity: (key) => (selectByEntity.all(canonicalJson(key)) as FactRow[]).map(toFact),
+    sessions: () =>
+      (selectSessions.all() as { readonly runtime: string; readonly session: string }[]).map(({ runtime, session }) =>
+        SessionKey.parse({ kind: 'session', runtime, session }),
+      ),
+  }
+
+  const factsOf = (seq: RawSeq, normalizerVersion: NormalizerVersion, drafts: readonly FactDraft[]): Fact[] => {
+    const record = selectDedupeKey.get(seq) as { readonly dedupe_key: DedupeKey } | undefined
+    if (record === undefined) {
+      throw new MissingRawRecordError(seq)
+    }
+    const ids = factIds(record.dedupe_key, drafts)
+    return drafts.map((draft, index): Fact => ({
+      ...draft,
+      id: ids[index] as FactId,
+      seq,
+      normalizer_version: normalizerVersion,
+    }))
   }
 
   const writer = (context: WriteContext): FactWriter => ({
     ...reader,
     insert: (seq, normalizerVersion, drafts) => {
       context.assertActive()
-      const record = selectDedupeKey.get(seq) as { readonly dedupe_key: DedupeKey } | undefined
-      if (record === undefined) {
-        throw new MissingRawRecordError(seq)
-      }
-      const ids = factIds(record.dedupe_key, drafts)
-      return drafts.map((draft, index): Fact => {
-        const fact = { ...draft, id: ids[index] as FactId, seq, normalizer_version: normalizerVersion }
-        insertFact.run({
-          id: fact.id,
-          seq,
-          record_index: index,
-          kind: fact.kind,
-          entity_key: canonicalJson(fact.entity_key),
-          speaker: fact.speaker,
-          urgent: encodeFlag(fact.urgent),
-          occurred_at: fact.at,
-          runtime_ids: encodeJson(fact.runtime_ids),
-          runtime_env: encodeJson(fact.runtime_env),
-          format_verified: encodeFlag(fact.format_verified),
-          redelivery_key: fact.redelivery_key,
-          payload: encodeJson(fact.payload),
-          normalizer_version: normalizerVersion,
-          change_seq: context.nextChangeSeq(),
-        })
-        return fact
+      const facts = factsOf(seq, normalizerVersion, drafts)
+      facts.forEach((fact, index) => {
+        insertFact.run(columnsOf(fact, index, context.nextChangeSeq()))
       })
+      return facts
+    },
+    replace: (seq, normalizerVersion, drafts) => {
+      context.assertActive()
+      const facts = factsOf(seq, normalizerVersion, drafts)
+      const stored = selectByRecord.all(seq) as StoredFactRow[]
+      const previous = new Map(stored.map((row) => [row.id, row]))
+      const rows = facts.map((fact, index) => columnsOf(fact, index, 0))
+      const unchanged =
+        rows.length === stored.length &&
+        rows.every((row) => {
+          const before = previous.get(String(row.id))
+          return before !== undefined && Number(before.record_index) === row.record_index && sameContent(before, row)
+        })
+      if (unchanged) {
+        return { kept: stored.map(toFact), added: [], removed: [] }
+      }
+      deleteByRecord.run(seq)
+      for (const row of rows) {
+        insertFact.run({ ...row, change_seq: context.nextChangeSeq() })
+      }
+      const current = new Set(facts.map(({ id }) => id))
+      const removed = stored.filter(({ id }) => !current.has(id as FactId)).map(toFact)
+      if (removed.length > 0) {
+        context.nextChangeSeq()
+      }
+      return {
+        kept: facts.filter(({ id }) => previous.has(id)),
+        added: facts.filter(({ id }) => !previous.has(id)),
+        removed,
+      }
     },
   })
 

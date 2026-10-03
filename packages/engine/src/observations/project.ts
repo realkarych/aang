@@ -11,7 +11,14 @@ import type {
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
-import { type AgentIdentity, agentIdentity, compactionStop, retireRefined } from './agents.js'
+import {
+  type AgentIdentity,
+  agentIdentity,
+  type AgentMoves,
+  compactionStop,
+  movedAgents,
+  retireRefined,
+} from './agents.js'
 import {
   byContent,
   byTime,
@@ -164,6 +171,16 @@ const projectQuestion = (
   return { question, outcome }
 }
 
+export interface SessionProjection {
+  readonly session: Omit<Session, 'change_seq'>
+  readonly objects: readonly string[]
+}
+
+export interface SessionRebuild {
+  readonly unknownRecords: number
+  readonly moves: AgentMoves
+}
+
 export const projectSession = (
   transaction: Transaction,
   key: SessionKey,
@@ -171,7 +188,8 @@ export const projectSession = (
   lost: ReadonlySet<SessionId>,
   now: EpochNs,
   quietAfterMs: number,
-): Omit<Session, 'change_seq'> | null => {
+  rebuild: SessionRebuild | null = null,
+): SessionProjection | null => {
   const items = sessionEvidence(transaction, key)
   const id = objectId(key)
   const previous = transaction.observations.getSession(id)
@@ -225,20 +243,24 @@ export const projectSession = (
     freshness: 'ok',
     support_mode: hooks && files ? 'full' : hooks ? 'hooks_only' : 'files_only',
     double_registration: registrations.size > 1 || previous?.double_registration === true,
-    unknown_records: (previous?.unknown_records ?? 0) + records.filter(({ raw }) => raw.parse_state !== 'parsed').length,
+    unknown_records:
+      rebuild?.unknownRecords ??
+      (previous?.unknown_records ?? 0) + records.filter(({ raw }) => raw.parse_state !== 'parsed').length,
     cost_state: previous?.cost_state ?? null,
     started_at: startedAt,
     last_event_at: lastEventAt,
   }
   sourceGaps(transaction, draft, lastEventAt)
   const session = { ...draft, freshness: freshnessOf(draft, lost.has(id), now, quietAfterMs) }
-  transaction.observations.save(session)
+  const projected: string[] = [transaction.observations.save(session).id]
   const spawns: Spawn[] = []
   for (const agentItems of grouped(items, ({ fact }) => canonicalJson(identity.of(fact))).values()) {
     const agent = identity.of(agentItems[0].fact)
-    const spawn = compactionStop(agent, agentItems)
-      ? null
-      : projectAgent(transaction, agent, agentItems, context, status.execution)
+    if (compactionStop(agent, agentItems)) {
+      continue
+    }
+    projected.push(objectId(agent))
+    const spawn = projectAgent(transaction, agent, agentItems, context, status.execution)
     if (spawn !== null) {
       spawns.push(spawn)
     }
@@ -258,7 +280,7 @@ export const projectSession = (
       }
     }
   }
-  projectActions(transaction, key, items, context)
+  projected.push(...projectActions(transaction, key, items, context))
   const facts = sessionFacts(items)
   const questions: QuestionAttention[] = []
   for (const [name, entityItems] of entityEvidence(items)) {
@@ -267,15 +289,27 @@ export const projectSession = (
       const question = projectQuestion(transaction, entity, entityItems, facts, questionGroups.get(name) ?? null, context)
       if (question !== null) {
         questions.push(question)
+        projected.push(question.question.id)
       }
     }
   }
-  const replacements = retireRefined(transaction, identity)
+  const replacements = retireRefined(transaction, identity.refinements)
+  const moved =
+    rebuild === null
+      ? []
+      : retireRefined(transaction, movedAgents(transaction, key, identity, new Set(projected), rebuild.moves))
   const first = items[0]
   const last = items.at(-1)
   if (first !== undefined && last !== undefined) {
-    linkSession(transaction, { key, run: context.run, root: first.fact, at: last.fact.at, spawns, replacements })
+    linkSession(transaction, {
+      key,
+      run: context.run,
+      root: first.fact,
+      at: last.fact.at,
+      spawns,
+      replacements: [...replacements, ...moved],
+    })
   }
   reconcileRuleAttention(transaction, key, items.at(-1)?.fact.at ?? lastEventAt, questions)
-  return session
+  return { session, objects: projected }
 }

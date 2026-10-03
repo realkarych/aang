@@ -37,13 +37,19 @@ export const sourceGaps = (transaction: Transaction, session: Omit<Session, 'cha
       closed_at: session.support_mode === 'files_only' ? null : previous?.closed_at ?? at,
     })
   }
+  const unknown = { kind: 'gap', gap: 'unknown_records', subject: session.id } as const
+  const unrecognised = transaction.gaps.get(objectId(unknown))
   if (session.unknown_records > 0) {
-    const unknown = { kind: 'gap', gap: 'unknown_records', subject: session.id } as const
     transaction.gaps.save({
       key: unknown, session: session.id, run: session.run, stream: null,
       details: `${String(session.unknown_records)} unrecognised session records`,
-      detected_at: transaction.gaps.get(objectId(unknown))?.detected_at ?? at,
+      detected_at: unrecognised?.detected_at ?? at,
       closed_at: null,
+    })
+  } else if (unrecognised?.closed_at === null) {
+    transaction.gaps.save({
+      key: unknown, session: session.id, run: session.run, stream: null,
+      details: unrecognised.details, detected_at: unrecognised.detected_at, closed_at: at,
     })
   }
 }

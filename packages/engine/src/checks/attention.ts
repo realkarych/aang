@@ -146,6 +146,39 @@ const streakChanges = (
   return { changes: [closing ?? opening], at }
 }
 
+const successChanges = (
+  transaction: Transaction,
+  run: RunId,
+  contract: Contract,
+  success: CheckResult,
+): StreakChanges[] =>
+  existingItems(transaction, run, [itemId(run, contract, success.action)])
+    .filter(({ resolution }) => resolution === 'open')
+    .map((item) => ({
+      changes: [
+        {
+          op: 'attention.close',
+          put: { kind: 'attention_item', value: { ...item, resolution: 'answered', closed_at: success.at } },
+          basis: observed,
+          evidence: success.evidence,
+        },
+      ],
+      at: success.at,
+    }))
+
+const contractChanges = (
+  transaction: Transaction,
+  run: RunId,
+  contract: Contract,
+  actions: readonly ActionFacts[],
+): StreakChanges[] => {
+  const results = actions.flatMap((entry) => checkResult(entry, contract) ?? []).sort(byResultTime)
+  return [
+    ...streaksOf(results).flatMap((streak) => streakChanges(transaction, run, contract, streak) ?? []),
+    ...results.filter(({ passed }) => passed).flatMap((success) => successChanges(transaction, run, contract, success)),
+  ]
+}
+
 const rootCwd = (transaction: Transaction, run: RunId, session: Session): string | null => {
   const entity = transaction.model.entity(run, { kind: 'run', id: run })
   if (entity?.kind === 'run') {
@@ -182,12 +215,7 @@ const refreshRun = (transaction: Transaction, run: RunId, session: Session, cata
     return
   }
   const actions = runActions(transaction, run, session)
-  const updates = contracts.flatMap((contract) => {
-    const results = actions
-      .flatMap((entry) => checkResult(entry, contract) ?? [])
-      .sort(byResultTime)
-    return streaksOf(results).flatMap((streak) => streakChanges(transaction, run, contract, streak) ?? [])
-  })
+  const updates = contracts.flatMap((contract) => contractChanges(transaction, run, contract, actions))
   const changes = updates.flatMap((update) => update.changes)
   const at = updates.map((update) => update.at).reduce<EpochNs | null>(
     (latest, time) => (latest === null || time > latest ? time : latest),
