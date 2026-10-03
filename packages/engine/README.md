@@ -369,25 +369,36 @@ sources only:
   when a session has none, `CLAUDE.md` (Claude) or `AGENTS.md` (Codex) in its `cwd`
   and every ancestor directory; `ref` is the path.
 - `agent_definition`: for each subagent or teammate type of a Claude session, the
-  file `.claude/agents/<type>.md` in the nearest directory of its `cwd` hierarchy, or
-  `agents/<type>.md` in `claudeConfigDir`. Types without such a file, such as built-in
-  and plugin agents, have no entry.
+  file `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
+  hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
+  file. Types without such a file, such as built-in and plugin agents, have no entry.
 - `skill`: only skills invoked through the `Skill` tool of a Claude session, except
   calls that ended with an error or were denied. A skill listed in the catalog but
   not invoked is never included. The text is the `description` of `SKILL.md` in
-  `.claude/skills/<name>/` of the nearest directory of the `cwd` hierarchy or in
-  `skills/<name>/` of `claudeConfigDir`, and is empty when there is none. Codex has no
-  skill tool, so a Codex run has no skill entries.
+  `.claude/skills/<name>/` of the nearest directory of the session's `cwd` hierarchy
+  or in `skills/<name>/` of `claudeConfigDir`, and `ref` is the path of that file.
+  When there is no such file, `ref` is the name of the skill and the text is empty.
+  Codex has no skill tool, so a Codex run has no skill entries.
 - `mcp_server`: the servers of MCP actions with the names of the tools called.
-- `git`: the branch of each session and the latest git snapshot (`git_snapshot` fact
-  of the run) of each worktree: commit, cleanliness, changed paths and error.
+- `git`: the branch of each session and, for each worktree and each set of masks, the
+  latest git snapshot (`git_snapshot` fact of the run): the masks, the commit,
+  whether the tree is clean under those masks, changed paths and error.
 
 Only sessions of the run are read, and a session of a vendor other than `backend` is
 skipped unless `crossVendor` is set; when the root session is skipped, or the run is
-unknown, there is no context. Relative paths are ignored. Each text is cut to
-`limits.textLength` characters (4000 by default) and reports its original length;
-files are read up to 1 MiB, and a larger file reports its size in bytes. Hooks of
-the solver are an allowed source, but no adapter produces facts naming them yet.
+unknown, there is no context. Skills and agent definitions are resolved in the
+directory of each session, so files of the same name in different projects stay
+separate entries. A git snapshot is included only when its worktree contains the
+`cwd` of a session that is read or a working directory of its facts, so a snapshot of
+a worktree used only by a skipped session stays out. Relative paths are ignored.
+Each text is cut to `limits.textLength` characters (4000 by default) and reports its
+original length; files are read up to 1 MiB, and a larger file reports its size in
+bytes.
+
+Names of the solver's hooks, definitions of plugin agents, of agents given by the
+`--agents` flag and of Codex roles, and descriptions of plugin skills are allowed
+sources that need facts or formats the adapters do not provide yet; plan item F.7d
+adds them.
 
 Entries are ordered by kind and `ref`, and `content_hash` is the SHA-256 of their
 canonical JSON. A nonempty context is stored as a raw record of the `context` channel

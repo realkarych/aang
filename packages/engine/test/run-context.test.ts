@@ -157,6 +157,66 @@ const hook = (
   arrival,
 })
 
+const noRuntimeIds = {
+  session_id: null,
+  agent_id: null,
+  thread_id: null,
+  turn_id: null,
+  prompt_id: null,
+  record_uuid: null,
+  parent_uuid: null,
+  message_id: null,
+  call_id: null,
+  ordinal: null,
+}
+
+const recordSnapshot = (store: Store, root: SessionKey, dedupe: string, payload: GitSnapshotPayload): void => {
+  store.transaction((transaction) => {
+    const { seq } = transaction.rawRecords.insert({
+      dedupe_key: DedupeKey.parse(dedupe),
+      channel: 'snapshot',
+      runtime: null,
+      stream: null,
+      position: { kind: 'daemon' },
+      hook: null,
+      observed_at: recordedAt,
+      source_ts: recordedAt,
+      payload: JSON.stringify(payload),
+      parse_state: 'parsed',
+    })
+    transaction.facts.insert(seq, NormalizerVersion.parse(1), [
+      {
+        kind: 'git_snapshot',
+        entity_key: { kind: 'run', runtime: root.runtime, session: root.session },
+        speaker: 'runtime',
+        urgent: false,
+        at: recordedAt,
+        runtime_ids: noRuntimeIds,
+        runtime_env: { cwd: payload.worktree, version: null, entrypoint: null, originator: null, git_branch: null },
+        format_verified: true,
+        redelivery_key: null,
+        payload,
+      },
+    ])
+  })
+}
+
+const taken = (
+  worktree: string,
+  masks: readonly string[],
+  head: string | null,
+  entries: GitSnapshotPayload['entries'],
+  error: string | null = null,
+): GitSnapshotPayload => ({
+  worktree,
+  trigger: 'check',
+  masks: [...masks],
+  head,
+  entries,
+  clean: head !== null && entries.length === 0,
+  error,
+})
+
 test('a skill enters the run context only when the session invokes it', async ({ onTestFinished }) => {
   const workspace = await setup(onTestFinished)
   const { store, engine, project, cwd, claudeHome } = workspace
@@ -203,12 +263,13 @@ test('a skill enters the run context only when the session invokes it', async ({
 
   await engine.ingest(file.batch(start.length + 1, file.lines.length))
   const invoked = await recorded(store, optionsOf(workspace, run))
+  const userSkill = (name: string): string => join(claudeHome, 'skills', name, 'SKILL.md')
   expect(ofKind(invoked, 'skill')).toEqual([
-    entry('skill', 'bare', ''),
-    entry('skill', 'notes', 'First line\n\nSecond line'),
-    entry('skill', 'plain', 'Spans two lines'),
-    entry('skill', 'release', 'Cut a release and tag it'),
-    entry('skill', 'review', 'Nearest review of the package'),
+    entry('skill', userSkill('bare'), ''),
+    entry('skill', userSkill('notes'), 'First line\n\nSecond line'),
+    entry('skill', userSkill('plain'), 'Spans two lines'),
+    entry('skill', userSkill('release'), 'Cut a release and tag it'),
+    entry('skill', join(cwd, '.claude', 'skills', 'review', 'SKILL.md'), 'Nearest review of the package'),
     entry('skill', 'tools:formatter', ''),
   ])
   expect(invoked.seq).not.toBe(listed.seq)
@@ -387,8 +448,8 @@ test('instructions, subagent definitions and MCP servers come from the facts of 
     },
     entry('instructions', join(project, 'CLAUDE.md'), 'Project rules\n'),
     { kind: 'instructions', ref: rules, text: 'x'.repeat(40), truncated: { path: 'text', length: 1024 ** 2 + 10 } },
-    entry('agent_definition', 'reviewer', '---\nname: reviewer\n---\nReview.\n'),
-    entry('agent_definition', 'tester', '---\nname: tester\n---\nTest.\n'),
+    entry('agent_definition', join(claudeHome, 'agents', 'tester.md'), '---\nname: tester\n---\nTest.\n'),
+    entry('agent_definition', join(project, '.claude', 'agents', 'reviewer.md'), '---\nname: reviewer\n---\nReview.\n'),
     entry('mcp_server', 'docs', 'fetch, search'),
     entry('mcp_server', 'tracker', ''),
   ])
@@ -496,17 +557,26 @@ test('sessions of another vendor enter the context only with crossVendor', async
   await write(join(codexCwd, 'AGENTS.md'), 'Codex rules\n')
   const source = { session: 'mixed-session', cwd }
   const run = runOf('claude', source.session)
-  attach(store, run, sessionKey('claude', source.session), sessionKey('codex', codexThread))
+  const rootKey = sessionKey('claude', source.session)
+  attach(store, run, rootKey, sessionKey('codex', codexThread))
   const start = claudeTranscript(source).slice(0, 12)
   await engine.ingest(claudeFile(workspace, 'mixed', start, 13n).batch(1, start.length))
   const lines = codexLines(codexCwd)
   await engine.ingest(codexFile(project, 'mixed', lines, 15n).batch(1, lines.length))
   expect(store.observations.getSession(objectId(sessionKey('codex', codexThread)))?.run).toBe(run)
+  recordSnapshot(store, rootKey, 'snapshot:claude', taken(project, ['src'], 'claude-commit', []))
+  recordSnapshot(
+    store,
+    rootKey,
+    'snapshot:codex',
+    taken(codexCwd, ['src'], 'codex-only-commit', [{ status: '??', path: 'codex-only.txt' }]),
+  )
 
   const own = await recorded(store, optionsOf(workspace, run))
   expect(local(workspace, own)).toEqual([
     entry('task', expect.any(String) as string, firstPrompt),
     entry('instructions', join(project, 'CLAUDE.md'), 'Claude rules\n'),
+    entry('git', project, 'masks: ["src"]\ncommit: claude-commit\nclean under masks: true'),
     entry('git', cwd, 'branch: HEAD'),
   ])
   const shared = await recorded(store, optionsOf(workspace, run, { crossVendor: true }))
@@ -515,86 +585,120 @@ test('sessions of another vendor enter the context only with crossVendor', async
     entry('instructions', join(codexCwd, 'AGENTS.md'), 'Codex rules\n'),
     entry('instructions', join(project, 'CLAUDE.md'), 'Claude rules\n'),
     entry('mcp_server', 'browser', 'navigate'),
-    entry('git', codexCwd, 'branch: main'),
+    entry(
+      'git',
+      codexCwd,
+      'branch: main\nmasks: ["src"]\ncommit: codex-only-commit\nclean under masks: false\n?? codex-only.txt',
+    ),
+    entry('git', project, 'masks: ["src"]\ncommit: claude-commit\nclean under masks: true'),
     entry('git', cwd, 'branch: HEAD'),
   ])
   expect(await recordRunContext(store, optionsOf(workspace, run, { backend: 'codex' }))).toBeNull()
 })
 
-test('git snapshots of the run add the commit and the state of the worktree', async ({ onTestFinished }) => {
+test('skills and subagent definitions of the same name stay apart across projects', async ({ onTestFinished }) => {
   const workspace = await setup(onTestFinished)
-  const { store, engine, project, cwd } = workspace
+  const { store, engine, root, cwd } = workspace
+  const other = join(root, 'other-project')
+  const skillFile = (directory: string, name: string): string => join(directory, '.claude', 'skills', name, 'SKILL.md')
+  const reviewerFile = join(other, '.claude', 'agents', 'reviewer.md')
+  await write(skillFile(cwd, 'review'), '---\ndescription: Review project A\n---\n')
+  await write(skillFile(other, 'review'), '---\ndescription: Review project B\n---\n')
+  await write(skillFile(other, 'lint'), '---\ndescription: Lint project B\n---\n')
+  await write(reviewerFile, 'Reviewer of project B\n')
+  const first = { session: 'project-a-session', cwd }
+  const second = { session: 'project-b-session', cwd: other }
+  const run = runOf('claude', first.session)
+  attach(store, run, sessionKey('claude', first.session), sessionKey('claude', second.session))
+  const lines = (source: Source, offset: number): string[] => [
+    transcriptLine(
+      source,
+      `${source.session}-prompt`,
+      offset,
+      'user',
+      { role: 'user', content: `Work in ${source.cwd}` },
+      { promptSource: 'typed' },
+    ),
+    ...skillCall(source, `${source.session}-review`, offset + 1, 'review'),
+    ...skillCall(source, `${source.session}-lint`, offset + 3, 'lint'),
+  ]
+  const subagent = (source: Source, arrival: number) =>
+    hook(source, 'SubagentStart.json', 'subagent', arrival, {
+      agent_id: `${source.session}-agent`,
+      agent_type: 'reviewer',
+    })
+  await engine.ingest(
+    hookBatch(
+      hook(first, 'SessionStart.startup.json', 'start', 0, {}),
+      hook(second, 'SessionStart.startup.json', 'start', 1, {}),
+      subagent(first, 2),
+      subagent(second, 3),
+    ),
+  )
+  const firstLines = lines(first, 10)
+  const secondLines = lines(second, 20)
+  await engine.ingest(claudeFile(workspace, 'project-a', firstLines, 19n).batch(1, firstLines.length))
+  await engine.ingest(claudeFile(workspace, 'project-b', secondLines, 21n).batch(1, secondLines.length))
+  expect(store.observations.getSession(objectId(sessionKey('claude', second.session)))?.run).toBe(run)
+
+  const context = await recorded(store, optionsOf(workspace, run))
+  expect(ofKind(context, 'skill')).toEqual([
+    entry('skill', skillFile(other, 'lint'), 'Lint project B'),
+    entry('skill', skillFile(other, 'review'), 'Review project B'),
+    entry('skill', skillFile(cwd, 'review'), 'Review project A'),
+    entry('skill', 'lint', ''),
+  ])
+  expect(ofKind(context, 'agent_definition')).toEqual([
+    entry('agent_definition', reviewerFile, 'Reviewer of project B\n'),
+  ])
+})
+
+test('git snapshots give the latest state of each worktree under each set of masks', async ({ onTestFinished }) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, root, project, cwd } = workspace
+  const tools = join(root, 'tools')
+  const elsewhere = join(root, 'elsewhere')
   const source = { session: 'git-session', cwd }
   const start = claudeTranscript(source).slice(0, 12)
-  await engine.ingest(claudeFile(workspace, 'git', start, 17n).batch(1, start.length))
+  const later = [toolCall({ session: source.session, cwd: join(tools, 'bin') }, 'bash-tools', 40, 'Bash', { command: 'make' })]
+  await engine.ingest(claudeFile(workspace, 'git', [...start, ...later], 17n).batch(1, start.length + later.length))
+  const key = sessionKey('claude', source.session)
   const run = runOf('claude', source.session)
-  const snapshot = (dedupe: string, payload: GitSnapshotPayload): void => {
-    store.transaction((transaction) => {
-      const { seq } = transaction.rawRecords.insert({
-        dedupe_key: DedupeKey.parse(dedupe),
-        channel: 'snapshot',
-        runtime: null,
-        stream: null,
-        position: { kind: 'daemon' },
-        hook: null,
-        observed_at: recordedAt,
-        source_ts: recordedAt,
-        payload: JSON.stringify(payload),
-        parse_state: 'parsed',
-      })
-      transaction.facts.insert(seq, NormalizerVersion.parse(1), [
-        {
-          kind: 'git_snapshot',
-          entity_key: { kind: 'run', runtime: 'claude', session: source.session },
-          speaker: 'runtime',
-          urgent: false,
-          at: recordedAt,
-          runtime_ids: {
-            session_id: null,
-            agent_id: null,
-            thread_id: null,
-            turn_id: null,
-            prompt_id: null,
-            record_uuid: null,
-            parent_uuid: null,
-            message_id: null,
-            call_id: null,
-            ordinal: null,
-          },
-          runtime_env: { cwd: payload.worktree, version: null, entrypoint: null, originator: null, git_branch: null },
-          format_verified: true,
-          redelivery_key: null,
-          payload,
-        },
-      ])
-    })
-  }
-  const taken = (
-    worktree: string,
-    head: string | null,
-    entries: GitSnapshotPayload['entries'],
-    error: string | null,
-  ): GitSnapshotPayload => ({
-    worktree,
-    trigger: 'check',
-    masks: ['.'],
-    head,
-    entries,
-    clean: head !== null && entries.length === 0,
-    error,
-  })
-  snapshot('snapshot:old', taken(project, 'aaa111', [], null))
-  snapshot('snapshot:new', taken(project, 'bbb222', [{ status: ' M', path: 'src/index.ts' }], null))
-  snapshot('snapshot:broken', taken(cwd, null, [], 'not a git repository'))
+  recordSnapshot(store, key, 'snapshot:old', taken(project, ['src'], 'aaa111', []))
+  recordSnapshot(store, key, 'snapshot:new', taken(project, ['src'], 'bbb222', [{ status: ' M', path: 'src/index.ts' }]))
+  recordSnapshot(store, key, 'snapshot:docs', taken(project, ['docs'], 'bbb222', []))
+  recordSnapshot(store, key, 'snapshot:pair', taken(project, ['test', 'lib'], 'bbb222', []))
+  recordSnapshot(store, key, 'snapshot:broken', taken(cwd, ['src'], null, [], 'not a git repository'))
+  recordSnapshot(store, key, 'snapshot:tools', taken(tools, ['.'], 'ccc333', []))
+  recordSnapshot(store, key, 'snapshot:elsewhere', taken(elsewhere, ['.'], 'ddd444', []))
+  recordSnapshot(store, key, 'snapshot:relative', taken(join('relative', 'tree'), ['.'], 'eee555', []))
 
   const context = await recorded(store, optionsOf(workspace, run))
   expect(ofKind(context, 'git')).toEqual([
-    entry('git', project, 'commit: bbb222\nclean: false\n M src/index.ts'),
-    entry('git', cwd, 'branch: HEAD\ncommit: unknown\nclean: false\nerror: not a git repository'),
+    entry(
+      'git',
+      project,
+      [
+        'masks: ["docs"]',
+        'commit: bbb222',
+        'clean under masks: true',
+        'masks: ["lib","test"]',
+        'commit: bbb222',
+        'clean under masks: true',
+        'masks: ["src"]',
+        'commit: bbb222',
+        'clean under masks: false',
+        ' M src/index.ts',
+      ].join('\n'),
+    ),
+    entry(
+      'git',
+      cwd,
+      'branch: HEAD\nmasks: ["src"]\ncommit: unknown\nclean under masks: false\nerror: not a git repository',
+    ),
+    entry('git', tools, 'masks: ["."]\ncommit: ccc333\nclean under masks: true'),
   ])
-  expect(store.observations.getSession(objectId(sessionKey('claude', source.session)))?.last_event_at).toBeLessThan(
-    recordedAt,
-  )
+  expect(store.observations.getSession(objectId(key))?.last_event_at).toBeLessThan(recordedAt)
 })
 
 test('a run without sources or without its root session has no context', async ({ onTestFinished }) => {

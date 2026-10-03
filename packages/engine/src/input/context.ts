@@ -21,6 +21,7 @@ import {
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import type { RawRecordReader, Store } from '@aang/store'
+import { contains } from '../ingest/scope.js'
 import { agentKey, compareText } from '../observations/evidence.js'
 import {
   ancestors,
@@ -158,8 +159,12 @@ interface Named {
   readonly cwd: string | null
 }
 
-const firstByName = (named: readonly Named[]): Named[] => [
-  ...new Map(named.toReversed().map((entry) => [entry.name, entry])).values(),
+const distinctNamed = (named: readonly Named[]): Named[] => [
+  ...new Map(named.map((entry) => [canonicalJson([entry.name, entry.cwd]), entry])).values(),
+]
+
+const distinctSources = (sources: readonly Source[]): Source[] => [
+  ...new Map(sources.map((source) => [canonicalJson([source.kind, source.ref]), source])).values(),
 ]
 
 const agentDefinitionSources = async (
@@ -167,7 +172,7 @@ const agentDefinitionSources = async (
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const types = firstByName(
+  const types = distinctNamed(
     claudeSessions(sessions).flatMap((session) =>
       reader.observations.agents(session.id).flatMap((agent) =>
         (agent.role === 'subagent' || agent.role === 'teammate') &&
@@ -181,10 +186,10 @@ const agentDefinitionSources = async (
   const definitions = await Promise.all(
     types.map(async ({ name, cwd }) => {
       const file = await firstText(definitionPaths(cwd, home, ['agents', `${name}.md`]))
-      return file === null ? null : fromFile('agent_definition', name, file)
+      return file === null ? [] : [fromFile('agent_definition', file.path, file)]
     }),
   )
-  return definitions.flatMap((definition) => (definition === null ? [] : [definition]))
+  return distinctSources(definitions.flat())
 }
 
 const invokedSkill = (reader: ContextReader, action: Action): string | null => {
@@ -201,7 +206,7 @@ const skillSources = async (
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const skills = firstByName(
+  const skills = distinctNamed(
     claudeSessions(sessions).flatMap((session) =>
       reader.observations.actions(session.id).flatMap((action) => {
         const name = invokedSkill(reader, action)
@@ -209,12 +214,13 @@ const skillSources = async (
       }),
     ),
   )
-  return Promise.all(
+  const resolved = await Promise.all(
     skills.map(async ({ name, cwd }) => {
       const file = safeName(name) ? await firstText(definitionPaths(cwd, home, ['skills', name, 'SKILL.md'])) : null
-      return plain('skill', name, (file === null ? null : frontmatterDescription(file.text)) ?? '')
+      return file === null ? plain('skill', name, '') : plain('skill', file.path, frontmatterDescription(file.text) ?? '')
     }),
   )
+  return distinctSources(resolved)
 }
 
 const mcpCall = (tool: string): readonly [string, string] => {
@@ -236,33 +242,64 @@ const mcpSources = (reader: ContextReader, sessions: readonly SessionFacts[]): S
   return [...servers].map(([server, tools]) => plain('mcp_server', server, [...tools].sort(compareText).join(', ')))
 }
 
-const snapshotLines = (snapshot: GitSnapshotPayload): string[] => [
+const masksOf = (snapshot: GitSnapshotPayload): string => canonicalJson([...snapshot.masks].sort(compareText))
+
+const snapshotLines = (masks: string, snapshot: GitSnapshotPayload): string[] => [
+  `masks: ${masks}`,
   `commit: ${snapshot.head ?? 'unknown'}`,
-  `clean: ${String(snapshot.clean)}`,
+  `clean under masks: ${String(snapshot.clean)}`,
   ...snapshot.entries.map(({ status, path }) => `${status} ${path}`),
   ...(snapshot.error === null ? [] : [`error: ${snapshot.error}`]),
 ]
 
+const workDirectories = (sessions: readonly SessionFacts[]): string[] =>
+  unique(
+    sessions.flatMap(({ session, facts }) =>
+      [session.cwd, ...facts.flatMap((fact) => (fact.entity_key.kind === 'run' ? [] : [fact.runtime_env.cwd]))].flatMap(
+        (cwd) => directoryOf(cwd) ?? [],
+      ),
+    ),
+  )
+
+interface WorktreeState {
+  readonly branches: Set<string>
+  readonly snapshots: Map<string, GitSnapshotPayload>
+}
+
 const gitSources = (reader: ContextReader, root: SessionKey, sessions: readonly SessionFacts[]): Source[] => {
-  const lines = new Map<string, Set<string>>()
-  const add = (ref: string, added: readonly string[]): void => {
-    lines.set(ref, new Set([...(lines.get(ref) ?? []), ...added]))
+  const worktrees = new Map<string, WorktreeState>()
+  const stateOf = (ref: string): WorktreeState => {
+    const state = worktrees.get(ref) ?? { branches: new Set<string>(), snapshots: new Map<string, GitSnapshotPayload>() }
+    worktrees.set(ref, state)
+    return state
   }
   for (const { session } of sessions) {
     if (session.git_branch !== null) {
-      add(directoryOf(session.cwd) ?? session.id, [`branch: ${session.git_branch}`])
+      stateOf(directoryOf(session.cwd) ?? session.id).branches.add(`branch: ${session.git_branch}`)
     }
   }
-  const snapshots = new Map<string, GitSnapshotPayload>()
-  for (const fact of reader.facts.ofEntity({ kind: 'run', runtime: root.runtime, session: root.session })) {
-    if (fact.kind === 'git_snapshot') {
-      snapshots.set(fact.payload.worktree, fact.payload)
+  const directories = workDirectories(sessions)
+  const runSnapshots = reader.facts
+    .ofEntity({ kind: 'run', runtime: root.runtime, session: root.session })
+    .flatMap((fact) => (fact.kind === 'git_snapshot' ? [fact.payload] : []))
+  for (const snapshot of runSnapshots) {
+    const worktree = directoryOf(snapshot.worktree)
+    if (worktree !== null && directories.some((cwd) => contains(worktree, cwd))) {
+      stateOf(worktree).snapshots.set(masksOf(snapshot), snapshot)
     }
   }
-  for (const [worktree, snapshot] of snapshots) {
-    add(worktree, snapshotLines(snapshot))
-  }
-  return [...lines].map(([ref, added]) => plain('git', ref, [...added].join('\n')))
+  return [...worktrees].map(([ref, { branches, snapshots }]) =>
+    plain(
+      'git',
+      ref,
+      [
+        ...branches,
+        ...[...snapshots]
+          .sort(([left], [right]) => compareText(left, right))
+          .flatMap(([masks, snapshot]) => snapshotLines(masks, snapshot)),
+      ].join('\n'),
+    ),
+  )
 }
 
 const collectSources = async (
