@@ -824,3 +824,58 @@ and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
 (E.8, U.1); the CLI version, model, usage and error of observer calls (F.8, F.9).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
+
+## Solver usage
+
+The solver journal follows ADR-0009. The ingestion transaction projects a usage
+record for every `usage` entity of a session, next to its actions:
+
+- A Claude record is keyed by `message.id` and groups every transcript record of
+  the message. Input and cache tokens come from any of them, output and reasoning
+  output are the largest. When no record of the group has a `stop_reason`, the
+  output is marked as a lower bound (`output_lower_bound`), which is how the
+  understated output of subagents shows. A `<synthetic>` message is stored with
+  `synthetic: true`. The agent is the one of the file: the main thread or the
+  subagent.
+- A Codex record is keyed by `(thread_id, response_id)` of `token_usage_record`;
+  its output is never a lower bound. `turn.completed`, `thread_token_usage` and
+  `token_count` are not summed.
+- Records copied by a Claude fork are stored with `inherited: true`, by the same
+  rule as inherited actions (Forks, bindings and session transfer).
+- The session keeps the last `cost-state` line of its transcript as
+  `cost_state`; it is never added to the records.
+- An agent of a Codex thread that has no `token_usage_record` keeps the last
+  total of the thread as `thread_total`. A thread with records, and the root
+  thread of a fork, whose counter includes its parent, have none.
+
+`solverUsage(source, run)` reads the journal of a run from the projected objects
+and the session facts; `source` is the store or a transaction:
+
+- Totals count records that are neither inherited nor synthetic: the run, each
+  of its sessions and each of its agents is the sum of its records, so the
+  sessions of a run add up to the run. `cost_usd` is `null`: money comes only
+  from `cost-state`, shown per session.
+- The `cost-state` of a session is final when no record with a time follows its
+  line in the same transcript. While a later launch runs, an interactive session
+  has not written its line yet, so the money and compaction usage it shows are
+  of an earlier launch.
+- A record belongs to a stage when the actions of its response are known, not
+  empty, and each of them is assigned to that stage and to no other one. The
+  actions of a Claude response are the tool calls of its `message.id`. A Codex
+  item names no response, so the actions of a Codex record are all actions of
+  its turn: the record belongs to a stage only when every action of the turn
+  does. The other records are `unassigned`. `stageUsage(source, run, stage)`
+  gives the stage's records and the unassigned records of the sessions whose
+  actions or agents are linked to the stage. There is no proportional estimate.
+- The duration of a run runs from the earliest start to the latest event of its
+  sessions. A silence of at least `pauseAfterMs` (5 minutes by default) between
+  two facts of the run is a pause; pauses stay inside the duration.
+- The active time of an agent is the sum of its turns, from its own facts
+  without the inherited ones. A turn opens with a turn start, an agent start or
+  a prompt that is not a slash command or a synthetic line, or with the first
+  message, action or usage after a closed turn. It closes with a final message,
+  a turn end, an agent end or the session end. A turn still open lasts until the
+  last fact of the agent. The active times of parallel agents overlap, so their
+  sum is not the duration of the run.
+- A transfer projects the session again with its new run, so both runs read the
+  moved usage on the next query.
