@@ -91,6 +91,24 @@ const violations: readonly DirectionCase[] = [
     ],
   },
   {
+    name: 'an overlapping subpath pattern with a longer key wins when it is listed after the shorter one',
+    path: 'packages/aang/src/overlapping.ts',
+    code: [
+      "export const data = import.meta.resolve('#target-data.js')",
+      "export const cli = import.meta.resolve('#target-data')",
+    ],
+    errors: [[1, '@aang/aang product code may not import @aang/store; allowed: @aang/cli, @aang/daemon']],
+  },
+  {
+    name: 'an overlapping subpath pattern with a longer key wins when it is listed before the shorter one',
+    path: 'packages/cli/src/overlapping.ts',
+    code: [
+      "export const data = import.meta.resolve('#target-data.js')",
+      "export const contract = import.meta.resolve('#target-data')",
+    ],
+    errors: [[1, '@aang/cli product code may not import @aang/store; allowed: @aang/contract, @aang/hook']],
+  },
+  {
     name: 'cli product code may not import the aang entry that composes it',
     path: 'packages/cli/src/start.ts',
     code: ["import '@aang/aang'"],
@@ -415,6 +433,13 @@ const aangImports = {
   '#engine-*': '@aang/engine/*',
   '#aang-hook-win32-*': '@aang/hook/bin/aang-hook.exe',
   '#aang-hook-*': '@aang/hook/bin/aang-hook',
+  '#target-*': '@aang/cli/*',
+  '#target-*.js': '@aang/store/*.js',
+}
+
+const cliImports = {
+  '#target-*.js': '@aang/store/*.js',
+  '#target-*': '@aang/contract/*',
 }
 
 describe('the repository ESLint configuration enforces the ADR-0011 dependency direction', () => {
@@ -426,6 +451,7 @@ describe('the repository ESLint configuration enforces the ADR-0011 dependency d
     workspace = await createLintWorkspace({
       ...Object.fromEntries(cases.map((row) => [row.path, `${row.code.join('\n')}\n`])),
       'packages/aang/package.json': JSON.stringify({ name: '@aang/aang', private: true, type: 'module', imports: aangImports }),
+      'packages/cli/package.json': JSON.stringify({ name: '@aang/cli', private: true, type: 'module', imports: cliImports }),
     })
     findings = await workspace.lint()
   }, 120_000)

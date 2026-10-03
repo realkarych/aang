@@ -27,6 +27,9 @@ const leaves = (target: unknown): string[] => {
 
 const keyHead = (key: string): string => key.split('*')[0] ?? key
 
+const bySpecificity = (left: string, right: string): number =>
+  keyHead(right).length - keyHead(left).length || right.length - left.length
+
 const exactTargets = (imports: ImportsField, specifier: string): string[] => {
   if (Object.hasOwn(imports, specifier)) {
     return leaves(imports[specifier])
@@ -42,7 +45,7 @@ const exactTargets = (imports: ImportsField, specifier: string): string[] => {
         specifier.endsWith(key.slice(star + 1))
       )
     })
-    .sort((left, right) => keyHead(right).length - keyHead(left).length)
+    .sort(bySpecificity)
   if (pattern === undefined) {
     return []
   }
