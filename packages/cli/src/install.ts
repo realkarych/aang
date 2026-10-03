@@ -1,5 +1,5 @@
 import { readlink, realpath } from 'node:fs/promises'
-import { basename, dirname, join, resolve } from 'node:path'
+import { basename, dirname, resolve } from 'node:path'
 import { defaultConfig, type Runtime } from '@aang/contract'
 import { loadConfig, processEnvironment, resolveRuntimeRoots } from '@aang/contract/config-file'
 import {
@@ -56,9 +56,14 @@ const connect = async (): Promise<Connection> => {
 
 const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
 
-const canonicalPath = async (path: string): Promise<string> => {
+interface ResolvedPath {
+  readonly existing: string
+  readonly missing: readonly string[]
+}
+
+const resolveExisting = async (path: string): Promise<ResolvedPath> => {
   try {
-    return await realpath(path)
+    return { existing: await realpath(path), missing: [] }
   } catch (error) {
     if (!isMissing(error)) {
       throw error
@@ -66,14 +71,25 @@ const canonicalPath = async (path: string): Promise<string> => {
   }
   const link = await readlink(path).catch(() => null)
   if (link !== null) {
-    return canonicalPath(resolve(dirname(path), link))
+    return resolveExisting(resolve(dirname(path), link))
   }
   const parent = dirname(path)
-  return parent === path ? path : join(await canonicalPath(parent), basename(path))
+  if (parent === path) {
+    return { existing: path, missing: [] }
+  }
+  const { existing, missing } = await resolveExisting(parent)
+  return { existing, missing: [...missing, basename(path)] }
 }
 
-const isSameDirectory = async (left: string, right: string): Promise<boolean> =>
-  (await canonicalPath(resolve(left))) === (await canonicalPath(resolve(right)))
+const foldCase = (name: string): string => name.normalize('NFC').toLowerCase()
+
+const mayNameSameEntries = (left: readonly string[], right: readonly string[]): boolean =>
+  left.length === right.length && left.every((name, index) => foldCase(name) === foldCase(right[index] ?? ''))
+
+const mayBeSameDirectory = async (left: string, right: string): Promise<boolean> => {
+  const [one, other] = await Promise.all([resolveExisting(resolve(left)), resolveExisting(resolve(right))])
+  return one.existing === other.existing && mayNameSameEntries(one.missing, other.missing)
+}
 
 const runSteps = async (
   command: string,
@@ -108,7 +124,7 @@ const installClaude =
 const installCodex =
   (hookBinarySource: string): Step =>
   async ({ aangHome, codex, codexHome, defaultCodexHome }, output) => {
-    if (await isSameDirectory(codexHome, defaultCodexHome)) {
+    if (await mayBeSameDirectory(codexHome, defaultCodexHome)) {
       throw new Error(
         `installing hooks into the default Codex profile ${codexHome} is not enabled yet: the effects of codex app-server on it are not verified`,
       )

@@ -2,7 +2,7 @@ import { spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@aang/testkit'
 import type { TestContext } from 'vitest'
 import { describe, test } from 'vitest'
@@ -247,6 +247,39 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
       expect(pluginCalls(claude)).toHaveLength(3)
       expect(codex.calls()).toEqual([])
       expect(await profileFiles(defaultCodexHome)).toEqual(before)
+    },
+  )
+
+  test.for([
+    { via: 'CODEX_HOME', variable: true },
+    { via: 'the aang config', variable: false },
+  ])(
+    'install refuses a profile not created yet that differs from the default Codex profile only in case, reached through $via',
+    async ({ variable }, { expect, onTestFinished }) => {
+      const { sandbox, claude, codex, defaultCodexHome } = await connect(onTestFinished, {
+        runtimes: { codex: { home: null } },
+      })
+      const differentCase = join(dirname(defaultCodexHome), '.CODEX')
+      if (variable) {
+        sandbox.env.CODEX_HOME = differentCase
+      } else {
+        delete sandbox.env.CODEX_HOME
+        const configFile = join(sandbox.aangHome, 'config.json')
+        const config = JSON.parse(await readFile(configFile, 'utf8')) as Record<string, unknown>
+        await writeFile(configFile, JSON.stringify({ ...config, runtimes: { codex: { home: differentCase } } }))
+      }
+
+      const installed = await sandbox.aang('install')
+
+      expect(installed.code).toBe(1)
+      expect(installed.stderr).toBe(
+        `aang install: codex: installing hooks into the default Codex profile ${differentCase} is not enabled yet: the effects of codex app-server on it are not verified\n`,
+      )
+      expect(installed.stdout).toContain('claude: plugin aang@aang is enabled\n')
+      expect(pluginCalls(claude)).toHaveLength(3)
+      expect(codex.calls()).toEqual([])
+      expect(await profileFiles(defaultCodexHome)).toBeNull()
+      expect(await profileFiles(differentCase)).toBeNull()
     },
   )
 
