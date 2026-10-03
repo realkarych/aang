@@ -37,7 +37,7 @@ export type {
   InterpretationWriter,
   PendingFact,
 } from './interpretations.js'
-export type { AttentionViewDraft, ViewReader, ViewWriter } from './views.js'
+export type { AttentionViewDraft, ViewReader, ViewRuleDraft, ViewWriter } from './views.js'
 export { openStore, type Store, type StoreFile, type StoreOptions, type Transaction } from './store.js'
 export type {
   Observation,

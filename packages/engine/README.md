@@ -1052,3 +1052,69 @@ calls, view state, chat and bindings, and saves a boundary per stream in
   with that gap open gets the empty prefix as its new boundary, the gap goes with
   the other layers of the run, and the collector rereads the stopped files from
   the start.
+
+## View rules
+
+View rules change what the map shows and nothing else: the model, the journal, the
+usage and the attention zone stay as they are (ADR-0008). A rule belongs to one run.
+
+- `addViewRule(transaction, { run, rule, source, at })` checks a `ViewRuleSpec`
+  from the chat or the UI, stores it and returns it with the elements its selector
+  selects now, which is the count shown to the user. Text in a selector and the
+  group name are trimmed. A rule the run cannot hold is a `ViewRuleError` that
+  explains it and stores nothing: `invalid_rule` when it does not match the schema,
+  `invalid_selector` for an empty text, an empty stage list or a stage the run does
+  not have, `invalid_params` for an empty group name. An unknown run gives `null`.
+  The caller's transaction lets a chat answer and its rule commit together.
+- `revokeViewRule(transaction, { run, id, at })` records the revocation once, with
+  a new `change_seq`, and returns the rule; a revocation is never before the
+  creation of its rule. A revoked rule stays in the store. An unknown rule or a rule
+  of another run gives `null`.
+
+Rules apply when a view is read, never when it is written, so a rule selects
+elements that appear after it and a revocation restores the view. The snapshot and
+every `run` delta of the feed carry `view.rules`, the active rules in creation
+order with the elements they select, and `view.placements`. Rules survive a
+restart with the store.
+
+Selectors are deterministic. Agent type, name and role and a tool name match a
+whole value without regard to case or surrounding spaces; the role is the runtime
+role (`agent_role`) or the role in aang (`main`, `subagent`, `teammate`,
+`service`). Service agents are the agents with the service role. A stage title
+matches a fragment, and stage ids and action kinds match exactly. Stage selectors
+see every stage of the run, replaced ones included.
+
+The tree of an element is what a rule on it covers:
+
+- a stage covers its substages, the actions assigned to any of them that still
+  belong to the run, the participating agents and the agents of those actions;
+- an agent covers the agents spawned under it and the actions of all of them;
+- an action covers the actions of its code cell.
+
+A placement is the effect of the rules on one selected element. On each aspect of
+it the latest rule wins:
+
+- visibility: `collapse` shows the element as one node with the totals of its tree,
+  `hide` leaves it out together with its tree;
+- `group` names the node the element is shown under;
+- `detail` sets the level of its tree: only stages, stages and agents, or every
+  action. The element itself stays shown.
+
+The default rule collapses service agents (ADR-0006); its placements name the rule
+`null`. It comes before every stored rule, so a later rule overrides it until that
+rule is revoked.
+
+The totals of a collapsed element count the agents and actions of its tree, the
+running actions and the finished ones by outcome, the versions its actions produced
+and, for a stage, the outputs linked to its tree. Usage is that of the solver
+journal: the records of the agents of the tree, or for a stage the records that
+belong to its tree, as `solverUsage` attributes them. An action has no usage of its
+own. A hidden or collapsed element keeps its share in every total outside the view:
+the run, its sessions, stages and agents and the inspector count it as before.
+
+No rule removes an open attention item from the zone. A placement lists, in
+`attention`, the open items its element takes off the map: those of its whole tree
+when it is hidden or collapsed, and those of the agents and actions below the level
+of a detail rule. An item belongs to the action it names or its question names, to
+the agent of the question or of that action, and to its stage. The UI marks these
+items as coming from a hidden element.
