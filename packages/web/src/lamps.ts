@@ -71,6 +71,7 @@ export interface LampInput {
   readonly status: StatusResponse | null
   readonly statusFailing: boolean
   readonly runs: readonly RunSummary[] | null
+  readonly runsFailing: boolean
   readonly focus: RunFocus | null
   readonly now: bigint
 }
@@ -107,10 +108,15 @@ const spoolGapKinds: ReadonlySet<GapKind> = new Set(['spool_over_threshold', 'sp
 const observerLevel = ({ state }: ObserverState): Level =>
   state === 'ok' ? 'normal' : state === 'unavailable' ? 'warning' : 'caution'
 
-const linkLamp = ({ statusFailing, focus }: LampInput): Lamp => {
+const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
   if (statusFailing) {
     return lamp('link', 'Связь', 'нет связи с демоном', 'warning', [
       detail('Демон не отвечает. Проверьте его командой aang status; данные на экране могут устареть.', 'warning'),
+    ])
+  }
+  if (runsFailing) {
+    return lamp('link', 'Связь', 'список не обновляется', 'warning', [
+      detail('Демон не отдал список прогонов. aang повторяет запрос; список на экране может устареть.', 'warning'),
     ])
   }
   switch (focus?.connection) {

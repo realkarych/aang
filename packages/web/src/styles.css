@@ -23,9 +23,10 @@
   --panel-ink: #dbe2e8;
   --panel-faint: #92a1af;
   --panel-focus: #9cc0ff;
+  --panel-warning: #f0644f;
   --lamp-caution: #f0b445;
   --lamp-caution-ink: #261a00;
-  --lamp-warning: #d8432f;
+  --lamp-warning: #b42318;
   --lamp-warning-ink: #ffffff;
   --glyph-cut: var(--sheet);
   --sans: 'Golos Text Variable', 'Golos Text', system-ui, sans-serif;
@@ -257,12 +258,14 @@ button.lamp[aria-expanded='true'] {
 
 .lamp[data-level='caution'] {
   --glyph-cut: var(--lamp-caution);
+  --focus: currentcolor;
   background: var(--lamp-caution);
   color: var(--lamp-caution-ink);
 }
 
 .lamp[data-level='warning'] {
   --glyph-cut: var(--lamp-warning);
+  --focus: currentcolor;
   background: var(--lamp-warning);
   color: var(--lamp-warning-ink);
 }
@@ -270,7 +273,6 @@ button.lamp[aria-expanded='true'] {
 .lamp[data-level='caution'] .lamp-label,
 .lamp[data-level='warning'] .lamp-label {
   color: inherit;
-  opacity: 0.8;
 }
 
 button.lamp[data-level='caution']:hover {
@@ -312,7 +314,7 @@ button.lamp[data-level='warning']:hover {
 }
 
 .lamp-details li[data-level='warning'] .glyph {
-  color: var(--lamp-warning);
+  color: var(--panel-warning);
 }
 
 .page {
@@ -322,6 +324,24 @@ button.lamp[data-level='warning']:hover {
 .loading {
   margin: 0;
   color: var(--ink-soft);
+}
+
+.list-trouble {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  max-width: 100ch;
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+  border-left: 3px solid var(--tone-fail);
+}
+
+.list-trouble .glyph {
+  position: relative;
+  top: 1px;
+  color: var(--tone-fail);
 }
 
 .quiet,
