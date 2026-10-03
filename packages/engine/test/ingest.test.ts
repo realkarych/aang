@@ -62,11 +62,11 @@ describe('a batch of a watched session', () => {
     expect(result.rescan).toEqual([])
     expect(result.head).toBe(store.changes.head())
     const changes = store.changes.after(ChangeSeq.parse(0), 1000)
-    expect(changes.filter(({ layer }) => layer === 'object')).toHaveLength(6)
+    expect(changes.filter(({ layer }) => layer === 'object')).toHaveLength(13)
     expect(changes.filter(({ layer }) => layer === 'gap')).toHaveLength(1)
     const run = runId(sessionKey('claude', 's-main'))
     expect(store.model.version(run, ModelVersion.parse(1))?.change_seq).toBe(store.changes.head())
-    expect(store.changes.head()).toBe(lines.length + draftFacts(expected).length + 7 + 1)
+    expect(store.changes.head()).toBe(lines.length + draftFacts(expected).length + 14 + 1)
   })
 
   test('of Codex resolves the thread stream from session_meta and keeps the last ordinal', async ({

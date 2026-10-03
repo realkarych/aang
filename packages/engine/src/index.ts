@@ -68,6 +68,16 @@ export {
   type StageDraft,
 } from './model/journal.js'
 export { BindingError, type BindingErrorCode } from './observations/bindings.js'
+export {
+  type AgentUsage,
+  solverUsage,
+  type SolverUsage,
+  type SolverUsageOptions,
+  stageUsage,
+  type StageUsage,
+  type UsageSource,
+} from './usage/solver.js'
+export type { RunPause, RunTime } from './usage/time.js'
 export { hookRedeliveries, type HookRedelivery } from './observations/redelivery.js'
 export { InvalidPositionError, type ObserverRunStatus } from './read/context.js'
 export { createReadQueries, type ReadQueries, type ReadQueriesOptions } from './read/queries.js'
