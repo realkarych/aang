@@ -9,6 +9,7 @@ import {
   type ModelOperation,
   ModelVersion,
   ModelVersionRecord,
+  Run,
   RunId,
 } from '@aang/contract'
 import { decodeJson, encodeJson } from './codec.js'
@@ -36,11 +37,14 @@ export interface ModelReader {
   readonly head: (run: RunId) => ModelVersion
   readonly versionAt: (run: RunId, position: ChangeSeq) => ModelVersion
   readonly version: (run: RunId, version: ModelVersion) => ModelVersionRecord | null
+  readonly versions: (run: RunId, after: ChangeSeq) => ModelVersionRecord[]
+  readonly runs: () => Run[]
   readonly entity: (run: RunId, target: ModelEntityRef) => ModelEntity | null
   readonly entities: (run: RunId) => ModelEntity[]
   readonly forksOf: (parent: RunId) => RunId[]
   readonly changes: (run: RunId, after: ModelVersion) => ModelChange[]
   readonly entityChanges: (run: RunId, target: ModelEntityRef, after: ModelVersion) => ModelChange[]
+  readonly kindChanges: (run: RunId, kind: ModelEntityRef['kind'], after: ModelVersion) => ModelChange[]
 }
 
 export interface ModelWriter extends ModelReader {
@@ -182,6 +186,11 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     database,
     `SELECT ${versionColumns.join(', ')} FROM model_versions WHERE run_id = ? AND version = ?`,
   )
+  const selectVersions = prepareStatement(
+    database,
+    `SELECT ${versionColumns.join(', ')} FROM model_versions WHERE run_id = ? AND change_seq > ? ORDER BY version`,
+  )
+  const selectRuns = prepareStatement(database, "SELECT data FROM model_entities WHERE kind = 'run' ORDER BY id")
   const selectEntity = prepareStatement(
     database,
     'SELECT kind, data FROM model_entities WHERE run_id = ? AND kind = ? AND id = ?',
@@ -203,6 +212,12 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     database,
     `SELECT ${selectChangeColumns} FROM ${journal}
      WHERE c.run_id = ? AND c.entity_kind = ? AND c.entity_id = ? AND c.version > ?
+     ORDER BY c.version, c.change_index`,
+  )
+  const selectKindChanges = prepareStatement(
+    database,
+    `SELECT ${selectChangeColumns} FROM ${journal}
+     WHERE c.run_id = ? AND c.entity_kind = ? AND c.version > ?
      ORDER BY c.version, c.change_index`,
   )
   const selectJournal = prepareStatement(
@@ -253,6 +268,8 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
       const row = selectVersion.get(run, version) as VersionRow | undefined
       return row === undefined ? null : toVersion(row)
     },
+    versions: (run, after) => (selectVersions.all(run, after) as VersionRow[]).map(toVersion),
+    runs: () => (selectRuns.all() as { readonly data: string }[]).map(({ data }) => Run.parse(decodeJson(data))),
     entity: (run, target) => {
       const row = selectEntity.get(run, target.kind, target.id) as EntityRow | undefined
       return row === undefined ? null : toEntity(row)
@@ -263,6 +280,7 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     changes: (run, after) => (selectChanges.all(run, after) as ChangeRow[]).map(toChange),
     entityChanges: (run, target, after) =>
       (selectEntityChanges.all(run, target.kind, target.id, after) as ChangeRow[]).map(toChange),
+    kindChanges: (run, kind, after) => (selectKindChanges.all(run, kind, after) as ChangeRow[]).map(toChange),
   }
 
   const writer = (context: WriteContext): ModelWriter => ({

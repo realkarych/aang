@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { Gap, type GapId, type GapKind } from '@aang/contract'
+import { type ChangeSeq, Gap, type GapId, type GapKind, type RunId } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import { decodeJson } from './codec.js'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
@@ -9,6 +9,7 @@ export type GapDraft = Omit<Gap, 'id' | 'kind' | 'change_seq'>
 export interface GapReader {
   readonly get: (id: GapId) => Gap | null
   readonly open: (kind: GapKind) => Gap[]
+  readonly ofRun: (run: RunId, after: ChangeSeq) => Gap[]
 }
 
 export interface GapWriter extends GapReader {
@@ -74,9 +75,18 @@ export const createGaps = (database: DatabaseSync): GapRepository => {
   const selectOpen = prepareStatement(database, `SELECT ${gapColumns} FROM gaps WHERE kind = ? AND closed_at IS NULL ORDER BY detected_at, id`)
   const selectById = prepareStatement(database, `SELECT ${gapColumns} FROM gaps WHERE id = ?`)
   const upsertGap = prepareStatement(database, upsertInto('gaps', 'id', columns))
+  const selectOfRun = prepareStatement(
+    database,
+    `SELECT ${gapColumns} FROM gaps
+     WHERE change_seq > :after AND (run_id = :run OR (run_id IS NULL AND session_id IN (
+       SELECT id FROM objects WHERE kind = 'session' AND run_id = :run
+     )))
+     ORDER BY change_seq, id`,
+  )
 
   const reader: GapReader = {
     open: (kind) => (selectOpen.all(kind) as GapRow[]).map(toGap),
+    ofRun: (run, after) => (selectOfRun.all({ run, after }) as GapRow[]).map(toGap),
     get: (id) => {
       const row = selectById.get(id) as GapRow | undefined
       return row === undefined ? null : toGap(row)

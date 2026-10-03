@@ -1,12 +1,15 @@
 import type { DatabaseSync } from 'node:sqlite'
 import {
+  ChangeSeq,
   type DedupeKey,
   Fact,
+  type FactKind,
   type FactDraft,
   type FactEntityKey,
   type FactId,
   type NormalizerVersion,
   type RawSeq,
+  type RunId,
   type Runtime,
   SessionKey,
 } from '@aang/contract'
@@ -15,12 +18,18 @@ import { decodeJson, encodeFlag, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, type WriteContext } from './context.js'
 import { MissingRawRecordError } from './errors.js'
 
+export interface RunFact {
+  readonly change_seq: ChangeSeq
+  readonly fact: Fact
+}
+
 export interface FactReader {
   readonly get: (id: FactId) => Fact | null
   readonly ofRecord: (seq: RawSeq) => Fact[]
   readonly ofSession: (key: SessionKey) => Fact[]
   readonly ofEntity: (key: FactEntityKey) => Fact[]
   readonly withRecordUuids: (runtime: Runtime, uuids: readonly string[]) => Fact[]
+  readonly ofRun: (run: RunId, after: ChangeSeq, kinds?: readonly FactKind[]) => RunFact[]
   readonly sessions: () => SessionKey[]
 }
 
@@ -144,6 +153,19 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
     `SELECT ${factColumns} FROM facts WHERE json_extract(entity_key, '$.runtime') = ?
      AND json_extract(runtime_ids, '$.record_uuid') IN (SELECT value FROM json_each(?)) ORDER BY seq, record_index`,
   )
+  const selectByRun = prepareStatement(
+    database,
+    `SELECT ${factColumns} FROM facts f
+     WHERE f.change_seq > :after
+       AND (:kinds IS NULL OR f.kind IN (SELECT value FROM json_each(:kinds)))
+       AND EXISTS (
+         SELECT 1 FROM objects s
+         WHERE s.kind = 'session' AND s.run_id = :run
+           AND json_extract(s.entity_key, '$.runtime') = json_extract(f.entity_key, '$.runtime')
+           AND json_extract(s.entity_key, '$.session') = json_extract(f.entity_key, '$.session')
+       )
+     ORDER BY f.change_seq`,
+  )
   const selectSessions = prepareStatement(database,
     "SELECT DISTINCT json_extract(entity_key, '$.runtime') AS runtime, json_extract(entity_key, '$.session') AS session FROM facts ORDER BY runtime, session",
   )
@@ -163,6 +185,10 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
       uuids.length === 0
         ? []
         : (selectByRecordUuids.all(runtime, JSON.stringify(uuids)) as FactRow[]).map(toFact),
+    ofRun: (run, after, kinds) =>
+      (selectByRun.all({ run, after, kinds: kinds === undefined ? null : JSON.stringify(kinds) }) as FactRow[]).map(
+        (row) => ({ change_seq: ChangeSeq.parse(Number(row.change_seq)), fact: toFact(row) }),
+      ),
     sessions: () =>
       (selectSessions.all() as { readonly runtime: string; readonly session: string }[]).map(({ runtime, session }) =>
         SessionKey.parse({ kind: 'session', runtime, session }),

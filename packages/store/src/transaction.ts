@@ -7,8 +7,8 @@ const ignoreSettlement = (thenable: PromiseLike<unknown>): void => {
   void thenable.then(undefined, () => undefined)
 }
 
-export const inTransaction = <T>(database: DatabaseSync, work: () => T): T => {
-  database.exec('BEGIN IMMEDIATE')
+const runIn = <T>(database: DatabaseSync, begin: string, work: () => T): T => {
+  database.exec(begin)
   try {
     const result = work()
     if (isThenable(result)) {
@@ -24,3 +24,7 @@ export const inTransaction = <T>(database: DatabaseSync, work: () => T): T => {
     throw error
   }
 }
+
+export const inTransaction = <T>(database: DatabaseSync, work: () => T): T => runIn(database, 'BEGIN IMMEDIATE', work)
+
+export const inReadTransaction = <T>(database: DatabaseSync, work: () => T): T => runIn(database, 'BEGIN', work)
