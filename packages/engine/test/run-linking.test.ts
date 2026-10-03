@@ -1,11 +1,25 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { type AgentRef, type CollectorBatch, type Link, ModelVersion, type RunId, type Runtime } from '@aang/contract'
+import {
+  type AgentId,
+  type AgentRef,
+  type Basis,
+  type CollectorBatch,
+  EpochNs,
+  type Link,
+  LinkId,
+  ModelVersion,
+  type RunId,
+  type Runtime,
+  type StageId,
+} from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
+import { applyChangeSet } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, onTestFinished, test } from 'vitest'
 import { hookBatch, jsonlFile, snapshotBatch } from './batches.js'
-import { factsOf, sessionKey, startEngine } from './harness.js'
+import { factsOf, removalsOf, sessionKey, startEngine } from './harness.js'
 import { createHome } from './home.js'
+import { drafts, put, stages } from './model.js'
 import {
   claudeAgentMeta,
   claudeAgentTranscript,
@@ -45,12 +59,16 @@ const runRows = (database: DatabaseSync): string[] =>
 const withoutCounters = (value: object): object =>
   Object.fromEntries(Object.entries(value).filter(([field]) => field !== 'change_seq' && field !== 'version'))
 
+const questionsOf = (store: Store, runtime: Runtime, session: string) =>
+  store.observations.questions(sessionOf(runtime, session))
+
 const stateOf = (store: Store, runtime: Runtime, session: string) => {
   const id = sessionOf(runtime, session)
   return {
     session: withoutCounters(store.observations.getSession(id) ?? {}),
     agents: store.observations.agents(id).map(withoutCounters),
     actions: store.observations.actions(id).map(withoutCounters),
+    questions: questionsOf(store, runtime, session).map(withoutCounters),
     model: store.model.entities(runOf(runtime, session)).map(({ kind, value }) => [kind, withoutCounters(value)]),
   }
 }
@@ -60,6 +78,45 @@ const startFacts = (store: Store, agent: string): string[] =>
     .filter(({ kind, entity_key: key }) => kind === 'agent_start' && key.kind === 'agent' && objectId(key) === agent)
     .map(({ id }) => id)
     .sort()
+
+const recordLine = (session: string, record: object): string => JSON.stringify({ sessionId: session, cwd, ...record })
+
+interface ToolCall {
+  readonly agent: string | null
+  readonly call: string
+  readonly at: string
+}
+
+const sidechainOf = (agent: string | null) => (agent === null ? {} : { isSidechain: true, agentId: agent })
+
+const toolUse = ({ agent, call, at }: ToolCall, tool: string, input: object) => ({
+  type: 'assistant',
+  ...sidechainOf(agent),
+  uuid: `${call}-use`,
+  timestamp: at,
+  message: { id: `${call}-message`, role: 'assistant', content: [{ type: 'tool_use', id: call, name: tool, input }] },
+})
+
+const toolResult = ({ agent, call, at }: ToolCall, content: string, result?: object) => ({
+  type: 'user',
+  ...sidechainOf(agent),
+  uuid: `${call}-result`,
+  timestamp: at,
+  message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: call, content }] },
+  ...(result === undefined ? {} : { toolUseResult: result }),
+})
+
+const expectOwnedObjects = (store: Store, runtime: Runtime, session: string): void => {
+  const id = sessionOf(runtime, session)
+  const owners = [...store.observations.actions(id), ...questionsOf(store, runtime, session)].map(({ agent }) => agent)
+  expect(owners.length).toBeGreaterThan(0)
+  for (const owner of owners) {
+    expect(owner === null ? null : store.observations.getAgent(owner)?.session).toBe(id)
+  }
+  for (const { parent } of store.observations.agents(id)) {
+    expect(parent === null ? id : store.observations.getAgent(parent)?.session).toBe(id)
+  }
+}
 
 const ingestEach = async (store: Store, batches: readonly CollectorBatch[]): Promise<void> => {
   const engine = startEngine(store, { all: true })
@@ -225,8 +282,15 @@ test.each(['in delivery order', 'with the stop ahead of PreCompact'])(
       )
     } else {
       await engine.ingest(hookBatch(startup, falseStop))
-      await engine.ingest(hookBatch(subagentStop))
       expect(store.observations.agents(id).map(({ role }) => role)).toEqual(['main'])
+      await engine.ingest(hookBatch(subagentStop))
+      expect(store.observations.agents(id)).toHaveLength(2)
+      expect(store.observations.getAgent(subagent)).toMatchObject({
+        role: 'subagent',
+        agent_type: 'echoer',
+        started_at: null,
+        execution: { state: 'done' },
+      })
       await engine.ingest(hookBatch(preCompact, compactStart, postCompact, subagentStart))
     }
     expect(store.observations.agents(id).map(({ id: agent, role, agent_type }) => [agent, role, agent_type])).toEqual(
@@ -236,6 +300,7 @@ test.each(['in delivery order', 'with the stop ahead of PreCompact'])(
       ]),
     )
     expect(store.observations.agents(id)).toHaveLength(2)
+    expect(store.observations.getAgent(subagent)?.started_at).not.toBeNull()
     expect(store.observations.getAgent(compaction)).toBeNull()
     const facts = factsOf(store)
     expect(
@@ -386,7 +451,7 @@ test('joins the transcript of an in-process teammate to its name@team agent in a
   const run = runOf('claude', session)
   const main = mainOf('claude', session)
   const teammate = agentOf('claude', session, { kind: 'teammate', name: 'worker', team: 'crew' })
-  const line = (record: object) => JSON.stringify({ sessionId: session, cwd, ...record })
+  const line = (record: object) => recordLine(session, record)
   const mainLines = [
     ...claudeTranscript(source).slice(0, 5),
     line({
@@ -496,4 +561,357 @@ test('joins the transcript of an in-process teammate to its name@team agent in a
   }
   expect(states[1]).toEqual(states[0])
   expect(states[2]).toEqual(states[0])
+})
+
+test('projects a subagent known only from its transcript, actions, question and stop, and completes it once its start arrives', async () => {
+  const session = 'unannounced'
+  const source = { session, cwd }
+  const subagentId = 'aad616394e806288d'
+  const spawnCall = 'toolu_01D254DDPoZEYPvJBjampKox'
+  const bash: ToolCall = { agent: subagentId, call: 'subagent-bash', at: '2026-10-01T11:49:36.500Z' }
+  const run = runOf('claude', session)
+  const id = sessionOf('claude', session)
+  const main = mainOf('claude', session)
+  const subagent = agentOf('claude', session, { kind: 'subagent', agent_id: subagentId })
+  const ownPath = `${projects}/${session}/subagents/agent-${subagentId}.jsonl`
+  const ownLines = [
+    ...claudeSubagentTranscript(source),
+    recordLine(session, toolUse(bash, 'Bash', { command: 'pnpm test' })),
+    recordLine(session, toolResult({ ...bash, at: '2026-10-01T11:49:36.900Z' }, 'ok')),
+  ]
+  const own = jsonlFile({ runtime: 'claude', path: ownPath, lines: ownLines, ino: 2n }).batch(1, ownLines.length)
+  const hook = (file: string, name: string, arrival: number, changes: Record<string, string>) =>
+    hookBatch({ file, arrival, payload: claudeHook(name, source, { agent_id: subagentId, ...changes }) })
+  const startup = hookBatch({ file: '0-startup.evt', payload: claudeHook('SessionStart.startup.json', source) })
+  const permission = hook('2-permission.evt', 'PermissionRequest.Bash.json', 2, {})
+  const stop = hook('3-stop.evt', 'SubagentStop.json', 3, { agent_type: 'pinger', agent_transcript_path: ownPath })
+  const start = hook('1-start.evt', 'SubagentStart.json', 1, { agent_type: 'pinger' })
+  const mainLines = claudeTranscript(source)
+  const lead = jsonlFile({ runtime: 'claude', path: `${projects}/${session}.jsonl`, lines: mainLines, ino: 1n }).batch(
+    1,
+    mainLines.length,
+  )
+  const meta = snapshotBatch({ path: `${projects}/${session}/subagents/agent-${subagentId}.meta.json`, content: JSON.parse(claudeAgentMeta()) })
+  const states = []
+  const deliveries: [CollectorBatch[], CollectorBatch[]][] = [
+    [[startup, own, permission, stop], [lead, meta, start]],
+    [[startup, lead, meta, start, own, permission, stop], []],
+  ]
+  for (const [early, late] of deliveries) {
+    const store = (await createHome(onTestFinished)).open()
+    await ingestEach(store, early)
+    if (late.length > 0) {
+      expect(store.observations.agents(id).map(({ id: agent }) => agent).sort()).toEqual([main, subagent].sort())
+      expect(store.observations.getAgent(subagent)).toMatchObject({
+        run,
+        role: 'subagent',
+        agent_type: 'pinger',
+        parent: null,
+        spawned_by: null,
+        started_at: null,
+        execution: { state: 'done' },
+      })
+      expect(store.observations.getAction(actionOf('claude', session, bash.call))).toMatchObject({ run, agent: subagent })
+      expect(questionsOf(store, 'claude', session)).toMatchObject([{ run, agent: subagent, kind: 'permission' }])
+      expectOwnedObjects(store, 'claude', session)
+      expect(linksOf(store, run)).toEqual([])
+      await ingestEach(store, late)
+    }
+    expect(store.observations.getAgent(subagent)).toMatchObject({
+      run,
+      role: 'subagent',
+      agent_type: 'pinger',
+      parent: main,
+      spawned_by: actionOf('claude', session, spawnCall),
+      execution: { state: 'done' },
+    })
+    expect(store.observations.getAgent(subagent)?.started_at).toBe(
+      factsOf(store)
+        .filter(({ kind, entity_key: key }) => kind === 'agent_start' && key.kind === 'agent' && objectId(key) === subagent)
+        .map(({ at }) => at)
+        .reduce((left, right) => (right < left ? right : left)),
+    )
+    expectOwnedObjects(store, 'claude', session)
+    expect(linksOf(store, run)).toMatchObject([{ kind: 'spawn', parent: main, child: subagent }])
+    expect(removalsOf(store)).toEqual([])
+    states.push(stateOf(store, 'claude', session))
+  }
+  expect(states[1]).toEqual(states[0])
+})
+
+test('replaces the subagent known by its file id with its name@team teammate in one transaction, regardless of order and restarts', async () => {
+  const session = 'crew-lead'
+  const source = { session, cwd }
+  const fileAgent = 'aworker-0123456789abcdef'
+  const run = runOf('claude', session)
+  const id = sessionOf('claude', session)
+  const main = mainOf('claude', session)
+  const subagent = agentOf('claude', session, { kind: 'subagent', agent_id: fileAgent })
+  const teammate = agentOf('claude', session, { kind: 'teammate', name: 'worker', team: 'crew' })
+  const hook = (file: string, name: string, arrival: number, changes: Record<string, string> = {}) =>
+    hookBatch({ file, arrival, payload: claudeHook(name, source, changes) })
+  const startup = hook('0-startup.evt', 'SessionStart.startup.json', 0)
+  const start = hook('1-start.evt', 'SubagentStart.json', 1, { agent_id: fileAgent, agent_type: 'researcher' })
+  const stop = hook('3-stop.evt', 'SubagentStop.json', 3, { agent_id: fileAgent, agent_type: 'researcher' })
+  const meta = snapshotBatch({
+    path: `${projects}/${session}/subagents/agent-${fileAgent}.meta.json`,
+    arrival: 2,
+    content: { agentType: 'researcher', name: 'worker', teamName: 'crew', taskKind: 'in_process_teammate' },
+  })
+  const states = []
+  for (const order of [
+    [startup, start, meta, stop],
+    [startup, meta, start, stop],
+  ]) {
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const engine = startEngine(store, { all: true })
+    for (const batch of order) {
+      const before = store.changes.head()
+      await engine.ingest(batch)
+      if (batch === start && order[2] === meta) {
+        expect(store.observations.getAgent(subagent)).toMatchObject({ role: 'subagent', execution: { state: 'running' } })
+      }
+      if (batch === meta && order[1] === start) {
+        const removal = store.observations.getRemoval({ kind: 'agent', id: subagent })
+        const replacement = store.observations.getAgent(teammate)
+        expect(removal).toMatchObject({ kind: 'agent', id: subagent, replaced_by: teammate, run })
+        expect(replacement).toMatchObject({ role: 'teammate', name: 'worker', run })
+        expect(replacement?.change_seq).toBeGreaterThan(before)
+        expect(removal?.change_seq).toBeGreaterThan(before)
+        expect(removalsOf(store)).toEqual([removal])
+      }
+    }
+    expect(store.observations.getAgent(subagent)).toBeNull()
+    expect(store.observations.agents(id).map(({ id: agent }) => agent).sort()).toEqual([main, teammate].sort())
+    expect(store.observations.getAgent(teammate)).toMatchObject({
+      run,
+      role: 'teammate',
+      name: 'worker',
+      agent_type: 'researcher',
+      execution: { state: 'done' },
+    })
+    store.close()
+    const reopened = home.open()
+    await ingestEach(reopened, [hook('4-resume.evt', 'SessionStart.resume.json', 4)])
+    expect(reopened.observations.getAgent(subagent)).toBeNull()
+    expect(reopened.observations.agents(id).map(({ id: agent }) => agent).sort()).toEqual([main, teammate].sort())
+    expect(reopened.observations.getAgent(teammate)?.execution).toEqual({ state: 'done' })
+    expect(removalsOf(reopened).map(({ id: removed, replaced_by: replacement }) => [removed, replacement])).toEqual(
+      order[1] === start ? [[subagent, teammate]] : [],
+    )
+    states.push(stateOf(reopened, 'claude', session))
+  }
+  expect(states[1]).toEqual(states[0])
+})
+
+test('retargets the model links of a replaced subagent to its teammate through the journal', async () => {
+  const session = 'crew-links'
+  const source = { session, cwd }
+  const fileAgent = 'aworker-fedcba9876543210'
+  const childAgent = 'achild-0123456789abcdef'
+  const spawnTeammate: ToolCall = { agent: null, call: 'spawn-teammate', at: '2026-10-01T11:50:00.000Z' }
+  const work: ToolCall = { agent: fileAgent, call: 'teammate-bash', at: '2026-10-01T11:51:00.000Z' }
+  const spawnChild: ToolCall = { agent: fileAgent, call: 'teammate-spawn', at: '2026-10-01T11:52:00.000Z' }
+  const run = runOf('claude', session)
+  const main = mainOf('claude', session)
+  const subagent = agentOf('claude', session, { kind: 'subagent', agent_id: fileAgent })
+  const teammate = agentOf('claude', session, { kind: 'teammate', name: 'worker', team: 'crew' })
+  const child = agentOf('claude', session, { kind: 'subagent', agent_id: childAgent })
+  const line = (record: object) => recordLine(session, record)
+  const leadLines = [
+    ...claudeTranscript(source).slice(0, 5),
+    line(toolUse(spawnTeammate, 'Agent', { name: 'worker', team_name: 'crew' })),
+    line(
+      toolResult({ ...spawnTeammate, at: '2026-10-01T11:50:01.000Z' }, 'Spawned worker', {
+        status: 'teammate_spawned',
+        name: 'worker',
+        team_name: 'crew',
+        agent_id: 'worker@crew',
+        agent_type: 'researcher',
+      }),
+    ),
+  ]
+  const ownLines = [
+    ...claudeAgentTranscript(source, fileAgent),
+    line(toolUse(work, 'Bash', { command: 'pnpm test' })),
+    line(toolResult({ ...work, at: '2026-10-01T11:51:01.000Z' }, 'ok')),
+    line(toolUse(spawnChild, 'Agent', { description: 'Check the parser', prompt: 'Run the parser checks' })),
+    line(
+      toolResult({ ...spawnChild, at: '2026-10-01T11:52:01.000Z' }, 'Checked', {
+        agentId: childAgent,
+        agentType: 'pinger',
+        status: 'completed',
+      }),
+    ),
+  ]
+  const lead = jsonlFile({ runtime: 'claude', path: `${projects}/${session}.jsonl`, lines: leadLines, ino: 1n }).batch(
+    1,
+    leadLines.length,
+  )
+  const own = jsonlFile({
+    runtime: 'claude',
+    path: `${projects}/${session}/subagents/agent-${fileAgent}.jsonl`,
+    lines: ownLines,
+    ino: 2n,
+  }).batch(1, ownLines.length)
+  const meta = snapshotBatch({
+    path: `${projects}/${session}/subagents/agent-${fileAgent}.meta.json`,
+    content: { agentType: 'researcher', name: 'worker', teamName: 'crew', taskKind: 'in_process_teammate' },
+  })
+  const stageRule: Basis = { kind: 'interpreted', interpreter: { kind: 'rule', rule: 'stage-execution' } }
+  const participation = (link: string, agent: AgentId, stage: StageId): Link => ({
+    id: LinkId.parse(link),
+    run,
+    kind: 'participation',
+    agent,
+    stage,
+    basis: stageRule,
+    evidence: [],
+  })
+  const assign = (store: Store, participants: readonly Link[]): void => {
+    store.transaction((transaction) => {
+      applyChangeSet(transaction, {
+        run,
+        author: 'rule',
+        at: EpochNs.parse(1n),
+        changes: [
+          put('stage.create', { kind: 'stage', value: { ...drafts.build, run } }, stageRule, []),
+          put('stage.create', { kind: 'stage', value: { ...drafts.testing, run } }, stageRule, []),
+          ...participants.map((link) => put('link.add', { kind: 'link', value: link }, stageRule, [])),
+        ],
+      })
+    })
+  }
+  const stageLinks = (store: Store) =>
+    linksOf(store, run)
+      .flatMap((link) => (link.kind === 'participation' ? [[link.stage, link.agent]] : []))
+      .sort()
+  const spawnLinks = (store: Store) => linksOf(store, run).filter((link) => link.kind === 'spawn').map(withoutCounters)
+  const replaced = (await createHome(onTestFinished)).open()
+  const engine = startEngine(replaced, { all: true })
+  await engine.ingest(lead)
+  await engine.ingest(own)
+  expect(replaced.observations.getAgent(subagent)).toMatchObject({ role: 'subagent', run })
+  expect(replaced.observations.getAgent(child)).toMatchObject({ parent: subagent })
+  expect(replaced.observations.getAction(actionOf('claude', session, work.call))?.agent).toBe(subagent)
+  const childLink = linksOf(replaced, run).find((link) => link.kind === 'spawn' && link.child === child)
+  expect(childLink).toMatchObject({ parent: subagent, via: actionOf('claude', session, spawnChild.call) })
+  assign(replaced, [
+    participation('build-subagent', subagent, stages.build),
+    participation('build-teammate', teammate, stages.build),
+    participation('test-subagent', subagent, stages.test),
+  ])
+  const version = replaced.model.head(run)
+  await engine.ingest(meta)
+  const evidence = factsOf(replaced)
+    .filter((fact) => fact.kind === 'json_snapshot' && fact.payload.file === 'agent_meta')
+    .map(({ id }) => id)
+  expect(evidence).toHaveLength(1)
+  expect(replaced.observations.getRemoval({ kind: 'agent', id: subagent })?.replaced_by).toBe(teammate)
+  expect(replaced.observations.getAgent(teammate)).toMatchObject({ role: 'teammate', parent: main })
+  expect(replaced.observations.getAgent(child)).toMatchObject({ parent: teammate })
+  expect(replaced.observations.getAction(actionOf('claude', session, work.call))?.agent).toBe(teammate)
+  expectOwnedObjects(replaced, 'claude', session)
+  expect(
+    replaced.model
+      .changes(run, version)
+      .filter(({ op }) => op === 'link.retarget' || op === 'link.remove')
+      .map(({ op, target, after, evidence: grounds }) => [op, target.id, after?.kind === 'link' ? after.value : null, grounds]),
+  ).toEqual(
+    expect.arrayContaining([
+      ['link.remove', 'build-subagent', null, evidence],
+      ['link.retarget', 'test-subagent', participation('test-subagent', teammate, stages.test), evidence],
+      ['link.retarget', childLink?.id, { ...childLink, parent: teammate }, evidence],
+    ]),
+  )
+  expect(
+    replaced.model.changes(run, version).filter(({ op }) => op === 'link.retarget' || op === 'link.remove'),
+  ).toHaveLength(3)
+  expect(linksOf(replaced, run).find(({ id }) => id === 'test-subagent')).toEqual(
+    participation('test-subagent', teammate, stages.test),
+  )
+  expect(stageLinks(replaced)).toEqual([
+    [stages.build, teammate],
+    [stages.test, teammate],
+  ])
+  const direct = (await createHome(onTestFinished)).open()
+  await ingestEach(direct, [meta, lead, own])
+  assign(direct, [participation('build', teammate, stages.build), participation('test', teammate, stages.test)])
+  expect(direct.observations.getAgent(subagent)).toBeNull()
+  expect(removalsOf(direct)).toEqual([])
+  expect(stageLinks(direct)).toEqual(stageLinks(replaced))
+  expect(spawnLinks(direct)).toEqual(spawnLinks(replaced))
+  const objectsOf = (store: Store) => {
+    const { session: observed, agents, actions, questions } = stateOf(store, 'claude', session)
+    return { observed, agents, actions, questions }
+  }
+  expect(objectsOf(direct)).toEqual(objectsOf(replaced))
+})
+
+test('withdraws the spawn link derived from a replaced subagent and links its teammate in its place', async () => {
+  const session = 'crew-spawn'
+  const source = { session, cwd }
+  const fileAgent = 'aworker-00112233445566ff'
+  const spawn: ToolCall = { agent: null, call: 'spawn-background', at: '2026-10-01T11:50:00.000Z' }
+  const run = runOf('claude', session)
+  const main = mainOf('claude', session)
+  const subagent = agentOf('claude', session, { kind: 'subagent', agent_id: fileAgent })
+  const teammate = agentOf('claude', session, { kind: 'teammate', name: 'worker', team: 'crew' })
+  const leadLines = [
+    ...claudeTranscript(source).slice(0, 5),
+    recordLine(session, toolUse(spawn, 'Agent', { description: 'Research', prompt: 'Research the parser' })),
+    recordLine(
+      session,
+      toolResult({ ...spawn, at: '2026-10-01T11:50:01.000Z' }, 'Launched', {
+        agentId: fileAgent,
+        agentType: 'researcher',
+        status: 'async_launched',
+      }),
+    ),
+  ]
+  const lead = jsonlFile({ runtime: 'claude', path: `${projects}/${session}.jsonl`, lines: leadLines, ino: 1n }).batch(
+    1,
+    leadLines.length,
+  )
+  const meta = snapshotBatch({
+    path: `${projects}/${session}/subagents/agent-${fileAgent}.meta.json`,
+    content: { agentType: 'researcher', name: 'worker', teamName: 'crew', taskKind: 'in_process_teammate' },
+  })
+  const results = []
+  for (const order of [
+    [lead, meta],
+    [meta, lead],
+  ]) {
+    const store = (await createHome(onTestFinished)).open()
+    const engine = startEngine(store, { all: true })
+    await engine.ingest(order[0] ?? lead)
+    const withdrawn = linksOf(store, run).find((link) => link.kind === 'spawn' && link.child === subagent)
+    const version = store.model.head(run)
+    await engine.ingest(order[1] ?? meta)
+    if (order[0] === lead) {
+      expect(withdrawn).toMatchObject({ parent: main, via: actionOf('claude', session, spawn.call) })
+      expect(store.observations.getRemoval({ kind: 'agent', id: subagent })?.replaced_by).toBe(teammate)
+      expect(
+        store.model.changes(run, version).map(({ op, target, after }) => [op, target.id, after?.kind === 'link' ? after.value.kind : null]),
+      ).toEqual(
+        expect.arrayContaining([
+          ['link.remove', withdrawn?.id, null],
+          ['link.add', expect.any(String), 'spawn'],
+        ]),
+      )
+    } else {
+      expect(withdrawn).toBeUndefined()
+      expect(removalsOf(store)).toEqual([])
+    }
+    expect(store.observations.getAgent(subagent)).toBeNull()
+    expect(store.observations.getAgent(teammate)).toMatchObject({
+      role: 'teammate',
+      parent: main,
+      spawned_by: actionOf('claude', session, spawn.call),
+    })
+    expect(linksOf(store, run)).toMatchObject([{ kind: 'spawn', parent: main, child: teammate }])
+    results.push(stateOf(store, 'claude', session))
+  }
+  expect(results[1]).toEqual(results[0])
 })

@@ -15,6 +15,8 @@ import {
 import { canonicalJson, contentHash, objectId, runId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type ModelChangeDraft, type RunDraft } from '../model/journal.js'
+import { stageLinkKey } from '../model/stage-links.js'
+import type { Replacement } from './agents.js'
 import { compareText } from './evidence.js'
 
 export interface Spawn {
@@ -30,6 +32,7 @@ export interface SessionLinks {
   readonly root: Fact
   readonly at: EpochNs
   readonly spawns: readonly Spawn[]
+  readonly replacements: readonly Replacement[]
 }
 
 const observed: Basis = { kind: 'observed' }
@@ -40,7 +43,7 @@ export const sessionRun = (transaction: Transaction, key: SessionKey): RunId =>
   transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
   runId(key)
 
-const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Link => ({
+const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract<Link, { kind: 'spawn' }> => ({
   id: LinkId.parse(contentHash(canonicalJson(['spawn', child])).slice(0, linkIdLength)),
   run,
   kind: 'spawn',
@@ -83,14 +86,52 @@ const rootChanges = (transaction: Transaction, links: SessionLinks): ModelChange
   ]
 }
 
+const retargeted = (
+  links: Map<LinkId, Link>,
+  replacements: readonly Replacement[],
+): ModelChangeDraft[] => {
+  const changes: ModelChangeDraft[] = []
+  for (const { retired, replaced_by: replacedBy, evidence } of replacements) {
+    const grounds = { basis: observed, evidence: [...evidence] }
+    for (const link of [...links.values()].toSorted((left, right) => compareText(left.id, right.id))) {
+      if (link.kind === 'spawn' && link.child === retired) {
+        links.delete(link.id)
+        changes.push({ ...grounds, op: 'link.remove', remove: { kind: 'link', id: link.id } })
+      } else if (link.kind === 'participation' && link.agent === retired) {
+        const moved = { ...link, agent: replacedBy }
+        const same = [...links.values()].some(
+          (other) => other.kind === 'participation' && other.id !== link.id && stageLinkKey(other) === stageLinkKey(moved),
+        )
+        if (same) {
+          links.delete(link.id)
+          changes.push({ ...grounds, op: 'link.remove', remove: { kind: 'link', id: link.id } })
+        } else {
+          links.set(link.id, moved)
+          changes.push({ ...grounds, op: 'link.retarget', put: { kind: 'link', value: moved } })
+        }
+      }
+    }
+  }
+  return changes
+}
+
 export const linkSession = (transaction: Transaction, links: SessionLinks): void => {
-  const { run, at, spawns } = links
-  const changes = rootChanges(transaction, links)
+  const { run, at, spawns, replacements } = links
+  const stored = new Map(
+    transaction.model.entities(run).flatMap((entity) => (entity.kind === 'link' ? [[entity.value.id, entity.value] as const] : [])),
+  )
+  const replaced = new Map(replacements.map((replacement) => [replacement.retired, replacement]))
+  const changes = [...rootChanges(transaction, links), ...retargeted(stored, replacements)]
   for (const spawn of spawns) {
     const link = spawnLink(run, spawn)
-    const current = transaction.model.entity(run, { kind: 'link', id: link.id })
-    if (current?.kind !== 'link' || !isDeepStrictEqual(current.value, link)) {
-      changes.push({ op: 'link.add', put: { kind: 'link', value: link }, basis: observed, evidence: link.evidence })
+    const current = stored.get(link.id)
+    if (current === undefined || !isDeepStrictEqual(current, link)) {
+      const moved = current?.kind === 'spawn' ? replaced.get(current.parent) : undefined
+      changes.push(
+        moved?.replaced_by === link.parent
+          ? { op: 'link.retarget', put: { kind: 'link', value: link }, basis: observed, evidence: [...moved.evidence] }
+          : { op: 'link.add', put: { kind: 'link', value: link }, basis: observed, evidence: link.evidence },
+      )
     }
   }
   if (changes.length > 0) {

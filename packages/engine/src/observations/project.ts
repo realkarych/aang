@@ -11,7 +11,7 @@ import type {
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
-import { type AgentIdentity, agentIdentity, announced } from './agents.js'
+import { type AgentIdentity, agentIdentity, compactionStop, retireRefined } from './agents.js'
 import {
   byContent,
   byTime,
@@ -73,8 +73,9 @@ const projectAgent = (
   const main = key.agent.kind === 'main'
   const service = key.agent.kind === 'service' ? key.agent.service : null
   const role =
-    start?.payload.role ??
-    (main ? 'main' : service !== null ? 'service' : key.agent.kind === 'teammate' ? 'teammate' : 'subagent')
+    key.agent.kind === 'teammate'
+      ? 'teammate'
+      : (start?.payload.role ?? (main ? 'main' : service !== null ? 'service' : 'subagent'))
   const status = turnState(items)
   const spawnedByAction =
     spawnedBy === null ? null : objectId({ kind: 'action', runtime: key.runtime, session: key.session, call: spawnedBy })
@@ -179,7 +180,7 @@ export const projectSession = (
   if (items.length === 0 && records.length === 0 && previous === null) {
     return null
   }
-  const identity = agentIdentity(items)
+  const identity = agentIdentity(key, items)
   const context: SessionContext = { run: sessionRun(transaction, key), identity, spawners: spawnersOf(items) }
   const root = items.filter(({ fact }) => identity.of(fact).agent.kind === 'main')
   const starts = ofKind(root, 'session_start')
@@ -237,9 +238,9 @@ export const projectSession = (
   const spawns: Spawn[] = []
   for (const agentItems of grouped(items, ({ fact }) => canonicalJson(identity.of(fact))).values()) {
     const agent = identity.of(agentItems[0].fact)
-    const spawn = announced(agent, agentItems)
-      ? projectAgent(transaction, agent, agentItems, context, status.execution)
-      : null
+    const spawn = compactionStop(agent, agentItems)
+      ? null
+      : projectAgent(transaction, agent, agentItems, context, status.execution)
     if (spawn !== null) {
       spawns.push(spawn)
     }
@@ -266,10 +267,11 @@ export const projectSession = (
       projectQuestion(transaction, entity, entityItems, questionGroups.get(name) ?? null, context)
     }
   }
+  const replacements = retireRefined(transaction, identity)
   const first = items[0]
   const last = items.at(-1)
   if (first !== undefined && last !== undefined) {
-    linkSession(transaction, { key, run: context.run, root: first.fact, at: last.fact.at, spawns })
+    linkSession(transaction, { key, run: context.run, root: first.fact, at: last.fact.at, spawns, replacements })
   }
   return session
 }
