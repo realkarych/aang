@@ -547,7 +547,7 @@ describe('read queries of the model', () => {
     }
     const mark = { version: marked.summary.version, change_seq: marked.change_seq }
     const [build] = marked.model.stages
-    const [criterion] = marked.model.criteria
+    const criterion = marked.model.criteria.find(({ source }) => source !== 'contract')
     const final = scene
       .factsOf(source, 'message')
       .find((fact) => fact.kind === 'message' && fact.speaker === 'solver' && fact.payload.final)
@@ -625,9 +625,9 @@ describe('read queries of the model', () => {
         ({ changes: refs }) => refs.length > 0 && refs.every(({ version }) => version > mark.version),
       ),
     ).toBe(true)
-    expect(changes.criteria.map(({ before, after }) => [before?.status.value, after.status.value])).toEqual([
-      ['not_checked', 'partial'],
-    ])
+    expect(
+      Object.fromEntries(changes.criteria.map(({ before, after }) => [after.source, [before?.status.value, after.status.value]])),
+    ).toEqual({ task: ['not_checked', 'partial'], contract: ['failed', 'passed_unversioned'] })
     expect(changes.cards.map(({ text }) => text)).toEqual([fragment])
     expect(changes.plan_facts).toHaveLength(1)
     expect(changes.plan_facts[0]?.payload).toMatchObject({ items: [{ text: 'Release the parser' }] })
