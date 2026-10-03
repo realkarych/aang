@@ -566,12 +566,22 @@ test('Codex commands and patches without a workdir resolve relative paths where 
     codexExec(4, 'call_session', { cmd: 'echo session > session.txt' }),
     codexLine(5, 'response_item', { type: 'function_call_output', call_id: 'call_session', output: 'done' }),
     ...codexPatchCall(6, 'call_relative', '*** Begin Patch\n*** Add File: notes/relative.txt\n+relative\n*** End Patch\n'),
+    codexItem(8, {
+      type: 'CommandExecution',
+      id: 'exec-malformed',
+      command: ['/bin/zsh', '-lc', 'echo malformed > malformed.txt'],
+      cwd: 'file:///elsewhere%2Fdir',
+      status: 'completed',
+      aggregated_output: '',
+      exit_code: 0,
+    }),
   ])
   const run = runId(codexKey)
   const versions = store.artifacts.versions(run)
   expect(versions.map(({ ref, key }) => [ref.kind === 'file' ? ref.path : null, key.identity.kind]).sort()).toEqual(
     [
       [join(project, 'default.txt'), 'reference'],
+      [join(project, 'malformed.txt'), 'reference'],
       [join(project, 'nested', 'nested.txt'), 'reference'],
       [join(project, 'notes', 'relative.txt'), 'content'],
       [join(project, 'session.txt'), 'reference'],
@@ -630,8 +640,8 @@ test.for<{ name: string; shell: Shell; command: (project: string) => string; fil
     shell: 'PowerShell',
     command: () =>
       'echo 1 > tick`$name.txt; echo 2 > "$env:TEMP\\x.txt"; echo 3 > $null; echo 4 > nul 2>&1 # > c.txt\n' +
-      "<# > d.txt #>\n$s = @'\n> e.txt\n'@\necho 5 > \"say \"\"hi\"\".txt\"",
-    files: [['tick$name.txt'], ['say "hi".txt']],
+      "<# > d.txt #>\n$s = @'\n> e.txt\n'@\necho 5 > \"say \"\"hi\"\".txt\"; echo 6 > \"q`\"uote.txt\"; echo 7 > $(Get-Date).txt",
+    files: [['tick$name.txt'], ['say "hi".txt'], ['q"uote.txt']],
   },
   { name: 'PowerShell changing location', shell: 'PowerShell', command: () => 'Set-Location sub; echo 1 > moved.txt', files: [] },
   {
@@ -740,14 +750,18 @@ test('an edit of a retained version is rebuilt from its patch and retained as th
     return found
   }
   const multi = editedBy('toolu_multi')
-  linkOutputs(store, keyOf(source), [multi.id], startOf(store, 'toolu_multi'), 'multi-call')
+  const single = editedBy('toolu_edit')
+  linkOutputs(store, keyOf(source), [multi.id, single.id], startOf(store, 'toolu_multi'), 'multi-call')
   await rm(plan, { force: true })
-  const action = objectId({ kind: 'action', runtime: 'claude', session: source.session, call: 'toolu_multi' })
-  expect(await engine.retainBases()).toEqual([
-    expect.objectContaining({ id: multi.id, retention: { kind: 'action_payload', blob: contentHash('one\ntwo\n'), action } }),
-  ])
+  const action = (call: string) => objectId({ kind: 'action', runtime: 'claude', session: source.session, call })
+  expect(await engine.retainBases()).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ id: multi.id, retention: { kind: 'action_payload', blob: contentHash('one\ntwo\n'), action: action('toolu_multi') } }),
+      expect.objectContaining({ id: single.id, retention: { kind: 'action_payload', blob: contentHash('alpha\ngamma\n'), action: action('toolu_edit') } }),
+    ]),
+  )
   expect(retainedAs(store, multi.id)).toEqual({ kind: 'action_payload', text: 'one\ntwo\n' })
-  expect(store.artifacts.getVersion(editedBy('toolu_edit').id)?.retention).toEqual({ kind: 'reference' })
+  expect(retainedAs(store, single.id)).toEqual({ kind: 'action_payload', text: 'alpha\ngamma\n' })
 })
 
 test('an edit without an unambiguous known base is read from the file', async ({ onTestFinished }) => {
@@ -803,4 +817,100 @@ test('a Codex patch to an added file is rebuilt from the patch, including a move
   linkOutputs(store, codexKey, [moved.id], startOf(store, 'call_update'), 'patch-call')
   await engine.retainBases()
   expect(retainedAs(store, moved.id)).toEqual({ kind: 'action_payload', text: 'one\nzwei\nthree\n' })
+})
+
+const versionOfCall = (store: Store, run: RunId, call: string): ArtifactVersion => {
+  const start = startOf(store, call)
+  const found = store.artifacts.versions(run).find(({ key }) => key.identity.kind === 'reference' && key.identity.fact === start.id)
+  if (found === undefined) {
+    throw new Error(`no version of ${call}`)
+  }
+  return found
+}
+
+test.for<{ name: string; base: string; patch: JsonValue; text: string | null }>([
+  { name: 'replace_all replaces every occurrence', base: 'a b a\n', patch: { old_string: 'a', new_string: 'c', replace_all: true }, text: 'c b c\n' },
+  { name: 'a deletion that includes its newline', base: 'keep\ndrop\n', patch: { old_string: 'drop\n', new_string: '' }, text: 'keep\n' },
+  { name: 'a deletion that may take the following newline', base: 'keep\ndrop\n', patch: { old_string: 'drop', new_string: '' }, text: null },
+  { name: 'an empty old_string', base: 'keep\n', patch: { old_string: '', new_string: 'x' }, text: null },
+  {
+    name: 'a MultiEdit whose second edit misses',
+    base: 'one\ntwo\n',
+    patch: { edits: [{ old_string: 'one', new_string: '1' }, { old_string: 'three', new_string: '3' }] },
+    text: null,
+  },
+])('a Claude edit: $name', async ({ base, patch, text }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  const source = { session: 'claude-patch-session', cwd: project }
+  const path = join(project, 'file.txt')
+  const tool = 'edits' in (patch as Record<string, JsonValue>) ? 'MultiEdit' : 'Edit'
+  await ingestCalls(engine, source, [
+    write('toolu_base', path, base),
+    ['toolu_read', 'Read', { file_path: path }, 'ok'],
+    ['toolu_patch', tool, { file_path: path, ...(patch as Record<string, JsonValue>) }, 'ok'],
+  ])
+  await writeFiles(project, { 'file.txt': 'on disk\n' })
+  const version = versionOfCall(store, runOf(source), 'toolu_patch')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [version.id], startOf(store, 'toolu_patch'), 'claude-patch-call')
+  await engine.retainBases()
+  expect(retainedAs(store, version.id)).toEqual(text === null ? { kind: 'file_read', text: 'on disk\n' } : { kind: 'action_payload', text })
+})
+
+test('an edit sent in the same message as the write of its base is read from the file', async ({ onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  const source = { session: 'parallel-session', cwd: project }
+  const path = join(project, 'file.txt')
+  const uses = [
+    { type: 'tool_use', id: 'toolu_base', name: 'Write', input: { file_path: path, content: 'one\n' } },
+    { type: 'tool_use', id: 'toolu_patch', name: 'Edit', input: { file_path: path, old_string: 'one', new_string: 'two' } },
+  ]
+  const results = ['toolu_base', 'toolu_patch'].map((id) => ({ type: 'tool_result', tool_use_id: id, content: 'done', is_error: false }))
+  const lines = [
+    line(source, 'use-parallel', 0, 'assistant', { id: 'message-parallel', role: 'assistant', content: uses }),
+    line(source, 'result-parallel', 1, 'user', { role: 'user', content: results }),
+  ]
+  await engine.ingest(jsonlFile({ runtime: 'claude', path: join(project, 'parallel.jsonl'), lines, ino: 9n }).batch(1, 2))
+  await writeFiles(project, { 'file.txt': 'two\n' })
+  const version = versionOfCall(store, runOf(source), 'toolu_patch')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [version.id], startOf(store, 'toolu_patch'), 'parallel-call')
+  await engine.retainBases()
+  expect(retainedAs(store, version.id)).toEqual({ kind: 'file_read', text: 'two\n' })
+})
+
+test.for<{ name: string; added: string; update: string; text: string | null }>([
+  { name: 'a pure addition appends to the end', added: '+one\n+two\n', update: '@@\n+four\n', text: 'one\ntwo\nfour\n' },
+  { name: 'a first hunk without a header', added: '+one\n+two\n', update: '-two\n+zwei\n', text: 'one\nzwei\n' },
+  {
+    name: 'a trailing empty context line that the file lacks',
+    added: '+one\n+two\n',
+    update: '@@\n-two\n+zwei\n\n',
+    text: 'one\nzwei\n',
+  },
+  {
+    name: 'hunks anchored at the end of the file',
+    added: '+one\n+two\n+one\n',
+    update: '@@\n-one\n+uno\n@@\n-one\n+eins\n*** End of File\n',
+    text: 'uno\ntwo\neins\n',
+  },
+  { name: 'an empty context line matches at the cursor', added: '+one\n', update: '@@\n \n+x\n', text: '\nx\none\n' },
+  { name: 'a missing context line', added: '+one\n+two\n', update: '@@ missing\n-two\n+zwei\n', text: null },
+  { name: 'lines that are not in the file', added: '+one\n+two\n', update: '@@\n-three\n+drei\n', text: null },
+  { name: 'more lines than the file has', added: '+one\n', update: '@@\n-one\n-two\n+x\n', text: null },
+  { name: 'a line that is not a diff line', added: '+one\n', update: '@@\n-one\ngarbage\n', text: null },
+  { name: 'an added file with a line that is not an addition', added: '+one\nplain\n', update: '@@\n-one\n+uno\n', text: null },
+])('a Codex patch: $name', async ({ added, update, text }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  await ingestCodex(engine, project, [
+    ...codexPatchCall(1, 'call_add', `*** Begin Patch\n*** Add File: patched.txt\n${added}*** End Patch\n`),
+    ...codexPatchCall(3, 'call_update', `*** Begin Patch\n*** Update File: patched.txt\n${update}*** End Patch\n`),
+  ])
+  await writeFiles(project, { 'patched.txt': 'on disk\n' })
+  const run = runId(codexKey)
+  const version = versionOfCall(store, run, 'call_update')
+  openRun(store, codexKey)
+  linkOutputs(store, codexKey, [version.id], startOf(store, 'call_update'), 'codex-patch-call')
+  await engine.retainBases()
+  expect(retainedAs(store, version.id)).toEqual(text === null ? { kind: 'file_read', text: 'on disk\n' } : { kind: 'action_payload', text })
 })
