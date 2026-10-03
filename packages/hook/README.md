@@ -21,6 +21,6 @@
 
 Побочные эффекты app-server в штатном `~/.codex` проверил D.6 (`docs/research/d6-app-server-live.md`). Процесс при старте сам обращается к сервисам OpenAI от имени пользователя и пишет логи и кэши в `CODEX_HOME`. Поэтому по ADR-0004 эти функции вызываются только по событию: установка и удаление, `status`, `doctor`, старт демона, изменение `hooks.json` или `config.toml`. Периодического опроса нет.
 
-`aang install` для Codex (G.12) вызывает `installCodexHooks` и `codexHooksState` для профиля из конфига aang или `CODEX_HOME`. `aang uninstall` app-server не запускает.
+`aang install` для Codex (G.12) пока отказывает для штатного `~/.codex`, в том числе заданного через конфиг aang, `CODEX_HOME` или симлинк: отказ происходит до запуска app-server и до изменения `hooks.json`, установка Claude при этом продолжается. Для других профилей он вызывает `installCodexHooks` и `codexHooksState`. `aang uninstall` app-server не запускает.
 
 Устаревшие записи `aang hook` прежних установок `codexHooksState` пока считает записями aang. Если в профиле есть только они, функция возвращает их состояние, а не `not_installed` (D.6, раздел 2). Интеграционные тесты используют временные профили и поддельный app-server. Установка на Windows по-прежнему закрыта до D.8.

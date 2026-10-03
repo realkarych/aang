@@ -1,5 +1,7 @@
-import type { Runtime } from '@aang/contract'
-import { loadConfig, processEnvironment } from '@aang/contract/config-file'
+import { readlink, realpath } from 'node:fs/promises'
+import { basename, dirname, join, resolve } from 'node:path'
+import { defaultConfig, type Runtime } from '@aang/contract'
+import { loadConfig, processEnvironment, resolveRuntimeRoots } from '@aang/contract/config-file'
 import {
   type ClaudeCli,
   claudePluginId,
@@ -22,6 +24,7 @@ interface Connection {
   readonly claude: ClaudeCli
   readonly codex: CodexCli
   readonly codexHome: string
+  readonly defaultCodexHome: string
 }
 
 type Step = (connection: Connection, output: Output) => Promise<boolean>
@@ -40,14 +43,37 @@ const codexHooksNotes: Readonly<Record<CodexHooksState['status'], string>> = {
 }
 
 const connect = async (): Promise<Connection> => {
-  const { aangHome, config, runtimeRoots } = await loadConfig(processEnvironment())
+  const environment = processEnvironment()
+  const { aangHome, config, runtimeRoots } = await loadConfig(environment)
   return {
     aangHome,
     claude: { command: config.cli.claude ?? 'claude', configDir: config.runtimes.claude.configDir },
     codex: { command: config.cli.codex ?? 'codex' },
     codexHome: runtimeRoots.codex,
+    defaultCodexHome: resolveRuntimeRoots(defaultConfig(), { env: {}, homedir: environment.homedir }).codex,
   }
 }
+
+const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
+
+const canonicalPath = async (path: string): Promise<string> => {
+  try {
+    return await realpath(path)
+  } catch (error) {
+    if (!isMissing(error)) {
+      throw error
+    }
+  }
+  const link = await readlink(path).catch(() => null)
+  if (link !== null) {
+    return canonicalPath(resolve(dirname(path), link))
+  }
+  const parent = dirname(path)
+  return parent === path ? path : join(await canonicalPath(parent), basename(path))
+}
+
+const isSameDirectory = async (left: string, right: string): Promise<boolean> =>
+  (await canonicalPath(resolve(left))) === (await canonicalPath(resolve(right)))
 
 const runSteps = async (
   command: string,
@@ -81,7 +107,12 @@ const installClaude =
 
 const installCodex =
   (hookBinarySource: string): Step =>
-  async ({ aangHome, codex, codexHome }, output) => {
+  async ({ aangHome, codex, codexHome, defaultCodexHome }, output) => {
+    if (await isSameDirectory(codexHome, defaultCodexHome)) {
+      throw new Error(
+        `installing hooks into the default Codex profile ${codexHome} is not enabled yet: the effects of codex app-server on it are not verified`,
+      )
+    }
     const { hooksFile, backup } = await installCodexHooks({ aangHome, hookBinarySource, codexHome, codex })
     output.out(`codex: aang hooks registered in ${hooksFile}${backup === null ? '' : `; the previous file is kept in ${backup}`}`)
     const { status } = await codexHooksState({ codexHome, codex })
