@@ -13,6 +13,7 @@ import {
   type CollectorBatch,
   Config,
   type FileCursor,
+  type PruneBoundary,
   type RegistrationTag,
   type Runtime,
 } from '@aang/contract'
@@ -37,6 +38,8 @@ export interface Settings {
   readonly readRetry?: ReadRetry
   readonly cursors?: readonly FileCursor[]
   readonly lookbackDays?: number
+  readonly prunedStreams?: readonly PruneBoundary[]
+  readonly openGaps?: readonly CollectedGap[]
 }
 
 export interface Arrival {
@@ -99,6 +102,8 @@ export const prepareCollector = (sandbox: Sandbox, settings: Settings = {}): Col
     config,
     adapters: new Map([['claude', claudeAdapter], ['codex', codexAdapter]]),
     ...(settings.readRetry === undefined ? {} : { readRetry: settings.readRetry }),
+    ...(settings.prunedStreams === undefined ? {} : { prunedStreams: settings.prunedStreams }),
+    ...(settings.openGaps === undefined ? {} : { openGaps: settings.openGaps }),
   })
   sandbox.cleanup(() => collector.close())
   return collector

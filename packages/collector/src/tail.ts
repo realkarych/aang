@@ -1,8 +1,18 @@
 import type { BigIntStats } from 'node:fs'
 import { open as openFile, readdir, stat } from 'node:fs/promises'
 import { isAbsolute, join, relative, sep } from 'node:path'
-import type { AdapterRegistry, CollectedGap, CollectedRecord, CollectorBatch, FileCursor, Runtime, StreamKey } from '@aang/contract'
+import type {
+  AdapterRegistry,
+  CollectedGap,
+  CollectedRecord,
+  CollectorBatch,
+  FileCursor,
+  PruneBoundary,
+  Runtime,
+  StreamKey,
+} from '@aang/contract'
 import { absent, isMissing } from './errors.js'
+import { readPrefix } from './prefix.js'
 import type { Failure, FailureState, Retrier } from './retry.js'
 import { epochNs, nowNs } from './time.js'
 import { segmentsOf, type TreeRoot } from './tree.js'
@@ -19,6 +29,7 @@ export interface TailOptions {
   readonly retrier: Retrier
   readonly adapters: AdapterRegistry
   readonly lookbackDays: number
+  readonly prunedStreams: readonly PruneBoundary[]
 }
 
 export interface TailSource {
@@ -27,7 +38,15 @@ export interface TailSource {
   readonly listed: (root: TreeRoot, paths: readonly string[]) => Promise<void>
   readonly take: () => Promise<CollectorBatch | null>
   readonly close: () => Promise<void>
-  readonly rescan: (streams: readonly StreamKey[]) => void
+  readonly rescan: (streams: readonly StreamKey[], lookbackDays?: number) => void
+  readonly backfill: (lookbackDays: number) => void
+  readonly prune: (boundaries: readonly PruneBoundary[]) => void
+}
+
+interface FileState {
+  readonly dev: bigint
+  readonly ino: bigint
+  readonly size: bigint
 }
 
 interface TrackedFile extends FailureState {
@@ -36,6 +55,7 @@ interface TrackedFile extends FailureState {
   cursor: FileCursor | null
   replay: boolean
   examined: number | null
+  stopped: FileState | null
 }
 
 interface Recovery extends FailureState {
@@ -59,6 +79,8 @@ interface Chunk {
   readonly available: number
 }
 
+type ClaudeBoundary = Extract<PruneBoundary, { readonly runtime: 'claude' }>
+
 const fileExtension = '.jsonl'
 const lineFeed = 0x0a
 const carriageReturn = 0x0d
@@ -80,6 +102,15 @@ const freshCursor = (path: string, stats: BigIntStats): FileCursor => ({
 })
 
 const sameFile = (cursor: FileCursor, stats: BigIntStats): boolean => cursor.dev === stats.dev && cursor.ino === stats.ino
+
+const unchanged = (state: FileState, stats: BigIntStats): boolean =>
+  state.dev === stats.dev && state.ino === stats.ino && state.size === stats.size
+
+const modifiedWithin = (stats: BigIntStats, days: number): boolean =>
+  stats.mtimeMs >= BigInt(Date.now() - days * 86_400_000)
+
+const widest = (current: number | null | undefined, requested: number | null): number | null =>
+  current === undefined ? requested : current === null || requested === null ? null : Math.max(current, requested)
 
 const invalidated = (cursor: FileCursor, stats: BigIntStats): boolean =>
   !sameFile(cursor, stats) || stats.size < BigInt(cursor.size)
@@ -157,7 +188,10 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
   const files = new Map<string, TrackedFile>()
   const dirty = new Map<string, TrackedFile>()
   const recoveries = new Map<StreamKey, Recovery>()
-  const rescans = new Set<StreamKey>()
+  const rescans = new Map<StreamKey, number | null>()
+  const backfills = new Map<TailRoot, number>()
+  const boundaries = new Map(options.prunedStreams.map((boundary) => [boundary.stream, boundary]))
+  const pruneGaps = new Map<StreamKey, CollectedGap>()
   let taking: Promise<CollectorBatch | null> | null = null
   let closed = false
 
@@ -166,9 +200,23 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     if (existing !== undefined) {
       return existing
     }
-    const file: TrackedFile = { path, root, cursor: null, failure: null, replay: false, examined: null }
+    const file: TrackedFile = { path, root, cursor: null, failure: null, replay: false, examined: null, stopped: null }
     files.set(path, file)
     return file
+  }
+
+  const requestReplay = (file: TrackedFile): void => {
+    file.replay = true
+    file.examined = null
+    dirty.set(file.path, file)
+  }
+
+  const boundaryOf = (stream: StreamKey | null): PruneBoundary | undefined =>
+    stream === null ? undefined : boundaries.get(stream)
+
+  const ordinalFloor = (stream: StreamKey | null): number | null => {
+    const boundary = boundaryOf(stream)
+    return boundary?.runtime === 'codex' ? boundary.last_ordinal : null
   }
 
   const listed = async (root: TreeRoot, paths: readonly string[]): Promise<void> => {
@@ -176,11 +224,15 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     if (source === undefined) {
       return
     }
+    const backfillDays = backfills.get(source)
+    backfills.delete(source)
     const seen = new Set(paths.filter((path) => accepts(source, path)))
     for (const path of seen) {
       const file = track(source, path)
       const stats = await stat(path, { bigint: true }).catch(absent)
-      if (stats === null || hasNewData(file, stats)) {
+      if (stats !== null && backfillDays !== undefined && file.cursor === null && modifiedWithin(stats, backfillDays)) {
+        requestReplay(file)
+      } else if (stats === null || hasNewData(file, stats)) {
         dirty.set(path, file)
       }
     }
@@ -208,12 +260,6 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
   }
 
   const recovered = options.retrier.recovered
-
-  const requestReplay = (file: TrackedFile): void => {
-    file.replay = true
-    file.examined = null
-    dirty.set(file.path, file)
-  }
 
   const invalidate = (file: TrackedFile): void => {
     const stream = file.cursor?.stream
@@ -315,10 +361,32 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     return gaps
   }
 
+  const stop = (file: TrackedFile, stats: BigIntStats, boundary: ClaudeBoundary): ReadOutcome => {
+    const cursor: FileCursor = { ...freshCursor(file.path, stats), stream: boundary.stream, size: Number(stats.size) }
+    file.cursor = cursor
+    file.replay = false
+    file.examined = cursor.size
+    file.stopped = { dev: stats.dev, ino: stats.ino, size: stats.size }
+    const gaps = recovered(file)
+    if (!pruneGaps.has(boundary.stream)) {
+      const gap: CollectedGap = {
+        key: { kind: 'gap', gap: 'stream_changed_after_prune', subject: boundary.stream },
+        stream: boundary.stream,
+        details: `${file.path} no longer starts with the ${String(boundary.offset)} bytes kept by the prune`,
+        detected_at: nowNs(),
+        closed_at: null,
+      }
+      pruneGaps.set(boundary.stream, gap)
+      gaps.push(gap)
+    }
+    return { ...nothing, cursor, gaps }
+  }
+
   const read = async (file: TrackedFile, budget: number): Promise<ReadOutcome> => {
     let stats: BigIntStats
     let start: FileCursor
     let chunk: Chunk
+    let skipped = false
     try {
       stats = await stat(file.path, { bigint: true })
       if (!stats.isFile()) {
@@ -329,12 +397,27 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
         wakeup.notify()
         return nothing
       }
-      if (file.cursor === null && !file.replay && stats.mtimeMs < BigInt(Date.now() - options.lookbackDays * 86_400_000)) {
+      if (file.stopped !== null && unchanged(file.stopped, stats)) {
+        file.replay = false
+        file.examined = Number(stats.size)
+        return nothing
+      }
+      if (file.cursor === null && !file.replay && !modifiedWithin(stats, options.lookbackDays)) {
         return nothing
       }
       start = file.replay ? freshCursor(file.path, stats) : file.cursor ?? freshCursor(file.path, stats)
       if (start.stream === null) {
         start = { ...start, stream: await identify(file, stats) }
+      }
+      const boundary = boundaryOf(start.stream)
+      if (start.offset === 0 && boundary?.runtime === 'claude') {
+        const prefix = stats.size < BigInt(boundary.offset) ? null : await readPrefix(file.path, boundary.offset)
+        if (prefix?.hash !== boundary.prefix_hash) {
+          return stop(file, stats, boundary)
+        }
+        file.stopped = null
+        start = { ...start, offset: boundary.offset, line: prefix.lines }
+        skipped = boundary.offset > 0
       }
       chunk = await readChunk(file.path, start.offset, Number(stats.size))
     } catch (error) {
@@ -350,6 +433,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     const gaps = recovered(file)
     const records: CollectedRecord[] = []
     const observedAt = epochNs(stats.mtimeNs)
+    const floor = ordinalFloor(start.stream)
     let lineStart = 0
     let line = start.line
     let lastOrdinal = start.last_ordinal
@@ -365,15 +449,17 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
         if (file.root.channel === 'rollout') {
           lastOrdinal = rolloutOrdinal(payload) ?? lastOrdinal
         }
-        records.push({
-          channel: file.root.channel,
-          runtime: file.root.runtime,
-          stream: start.stream,
-          position: { kind: 'line', path: file.path, offset: start.offset + lineStart, line },
-          hook: null,
-          observed_at: observedAt,
-          payload,
-        })
+        if (floor === null || (lastOrdinal !== null && lastOrdinal > floor)) {
+          records.push({
+            channel: file.root.channel,
+            runtime: file.root.runtime,
+            stream: start.stream,
+            position: { kind: 'line', path: file.path, offset: start.offset + lineStart, line },
+            hook: null,
+            observed_at: observedAt,
+            payload,
+          })
+        }
       }
       lineStart = lineEnd + 1
     }
@@ -390,21 +476,31 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     file.examined = start.offset + examined
     return {
       records,
-      cursor: lineStart > 0 ? cursor : null,
+      cursor: lineStart > 0 || skipped ? cursor : null,
       gaps,
       bytes: lineStart,
       more: examined < chunk.available,
     }
   }
 
+  const rereadable = async (file: TrackedFile, lookbackDays: number | null): Promise<boolean> => {
+    if (lookbackDays === null) {
+      return true
+    }
+    const stats = await stat(file.path, { bigint: true }).catch(absent)
+    return stats === null || modifiedWithin(stats, lookbackDays)
+  }
+
   const take = async (): Promise<CollectorBatch | null> => {
-    const requested = new Set(rescans)
+    const requested = new Map(rescans)
     rescans.clear()
     for (const file of [...dirty.values()]) {
       await prepare(file)
     }
-    for (const file of files.values()) {
-      if (file.cursor?.stream !== null && file.cursor?.stream !== undefined && requested.has(file.cursor.stream)) {
+    for (const file of [...files.values()]) {
+      const stream = file.cursor?.stream
+      const lookbackDays = stream === undefined || stream === null ? undefined : requested.get(stream)
+      if (lookbackDays !== undefined && await rereadable(file, lookbackDays)) {
         requestReplay(file)
       }
     }
@@ -458,18 +554,23 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       }
     }
     for (const gap of gaps) {
-      if (gap.key.gap !== 'source_lost' || gap.closed_at !== null || gap.stream === null) {
+      if (gap.closed_at !== null || gap.stream === null) {
         continue
       }
-      const file = [...files.values()].find(({ cursor }) => cursor?.stream === gap.stream)
-      recoveries.set(gap.stream, {
-        path: file?.path ?? gap.stream,
-        runtime: file?.root.runtime ?? null,
-        readFailures: [],
-        gap,
-        failure: null,
-        pending: true,
-      })
+      if (gap.key.gap === 'stream_changed_after_prune') {
+        pruneGaps.set(gap.stream, gap)
+      } else if (gap.key.gap === 'source_lost') {
+        const { stream } = gap
+        const file = [...files.values()].find(({ cursor }) => cursor?.stream === stream)
+        recoveries.set(stream, {
+          path: file?.path ?? stream,
+          runtime: file?.root.runtime ?? null,
+          readFailures: [],
+          gap,
+          failure: null,
+          pending: true,
+        })
+      }
     }
   }
 
@@ -493,11 +594,23 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
       return taking
     },
     close,
-    rescan: (streams) => {
-      if (!closed && streams.length > 0) {
+    rescan: (streams, lookbackDays) => {
+      if (!closed) {
         for (const stream of streams) {
-          rescans.add(stream)
+          rescans.set(stream, widest(rescans.get(stream), lookbackDays ?? null))
         }
+      }
+    },
+    backfill: (lookbackDays) => {
+      if (!closed) {
+        for (const root of options.roots) {
+          backfills.set(root, Math.max(backfills.get(root) ?? lookbackDays, lookbackDays))
+        }
+      }
+    },
+    prune: (pruned) => {
+      for (const boundary of pruned) {
+        boundaries.set(boundary.stream, boundary)
       }
     },
   }

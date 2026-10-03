@@ -1,5 +1,16 @@
 import { join } from 'node:path'
-import type { AdapterRegistry, CollectedGap, Collector, CollectorBatch, Config, FileCursor, Listener, Runtime, StreamKey } from '@aang/contract'
+import type {
+  AdapterRegistry,
+  CollectedGap,
+  Collector,
+  CollectorBatch,
+  Config,
+  FileCursor,
+  Listener,
+  PruneBoundary,
+  Runtime,
+  StreamKey,
+} from '@aang/contract'
 import { createAttachmentSource } from './attachments.js'
 import { createOtelReceiver, type OtelReceiverOptions } from './otel.js'
 import { createRetrier, type ReadRetry } from './retry.js'
@@ -17,10 +28,13 @@ export interface CollectorOptions {
   readonly adapters: AdapterRegistry
   readonly readRetry?: ReadRetry
   readonly openGaps?: readonly CollectedGap[]
+  readonly prunedStreams?: readonly PruneBoundary[]
 }
 
 export interface CollectorService extends Collector {
   requestAttachment(path: string, stream: StreamKey): void
+  backfill(lookbackDays: number): void
+  prune(boundaries: readonly PruneBoundary[]): void
   listenOtel(options: OtelReceiverOptions): Promise<Listener>
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
@@ -52,6 +66,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
     retrier,
     adapters: options.adapters,
     lookbackDays: options.config.watch.lookbackDays,
+    prunedStreams: options.prunedStreams ?? [],
   }, wakeup)
   const tree = createTree(
     { roots: roots.tree, fsWatch: collector.fsWatch, scanIntervalMs: collector.rootsScanIntervalMs },
@@ -117,10 +132,15 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       state = 'running'
       return batches(cursors)
     },
-    rescan: (streams) => {
-      tail.rescan(streams)
+    rescan: (streams, lookbackDays) => {
+      tail.rescan(streams, lookbackDays)
       tree.requestScan()
     },
+    backfill: (lookbackDays) => {
+      tail.backfill(lookbackDays)
+      tree.requestScan()
+    },
+    prune: tail.prune,
     ack: async (batch) => {
       await spool.ack(batch)
       await otel.ack(batch)
