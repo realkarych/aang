@@ -86,7 +86,7 @@ test.skipIf(!singlePathClaude)(
   'each run goes to the observer of its root session vendor, and Claude runs with the unverified isolation mark',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { builtinPlugins: [], replies: [briefed] })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
     await configure(home, workspace, { cli: { claude: claude.command, codex: codex.command } })
     const claudeRun = runId(claudeKey('session-g6-claude'))
@@ -106,7 +106,12 @@ test.skipIf(!singlePathClaude)(
     expect([observerInputs(codex, codexRun), observerInputs(codex, claudeRun)].map((inputs) => inputs.length)).toEqual([1, 0])
     const [work] = claude.calls().filter(({ prompt }) => prompt?.includes(claudeRun) === true)
     expect(work?.argv).toEqual(expect.arrayContaining(['--model', 'claude-opus-5-5']))
-    expect(await admissionOf(home, 'claude')).toMatchObject({ admitted: true, version: '2.1.286', warning: unverifiedIsolation })
+    expect(await admissionOf(home, 'claude')).toMatchObject({
+      admitted: true,
+      version: '2.1.286',
+      warning: unverifiedIsolation,
+      builtinPlugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'],
+    })
   },
 )
 
@@ -117,7 +122,7 @@ const adapters = new Map<Runtime, Adapter>([
 
 const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: TestContext) => {
   const { home, workspace } = await watchedHome(onTestFinished)
-  const claude = installFakeClaude(join(home.root, 'fake-cli'), { builtinPlugins: [], replies: [briefed] })
+  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
   const root = claudeKey('session-g6-root')
   const attached = codexKey('thread-g6-attached')
   const observed = runId(root)
