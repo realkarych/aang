@@ -24,6 +24,7 @@ import {
   supportModeLabel,
   surfaceLabel,
 } from './labels.js'
+import { LongText } from './long-text.js'
 import { Moment } from './moment.js'
 import { agentTitle, sessionTitle, shortSession } from './objects.js'
 
@@ -109,8 +110,8 @@ const agentTrees = (
   return agents.filter(({ parent }) => parent === null || !known.has(parent)).map(grow)
 }
 
-const InputText = ({ fact }: { readonly fact: FactId }): ReactElement | null => {
-  const input = use(actionInput(fact))
+const InputText = ({ fact, now }: { readonly fact: FactId; readonly now: bigint }): ReactElement | null => {
+  const input = use(actionInput(fact, now))
   if (input === null || (input.detail === null && input.description === null)) {
     return null
   }
@@ -154,7 +155,7 @@ const ActionStep = ({ action, now }: { readonly action: Action; readonly now: bi
       <span className="step-body">
         {action.input_fact === null ? null : (
           <Suspense fallback={null}>
-            <InputText fact={action.input_fact} />
+            <InputText fact={action.input_fact} now={now} />
           </Suspense>
         )}
         {action.inherited ? <span className="step-note">унаследовано из исходной сессии</span> : null}
@@ -175,10 +176,10 @@ const QuestionStep = ({
 }): ReactElement => (
   <li className="step" data-kind="question">
     <span className="step-state">
-      <DecisionBadge decision={question.decision.value} />
+      <DecisionBadge decision={question.decision} />
     </span>
     <span className="step-tool">{questionKindLabel[question.kind]}</span>
-    <span className="step-body">{text === null ? null : <span className="step-question">{text}</span>}</span>
+    <span className="step-body">{text === null ? null : <LongText text={text} className="step-question" />}</span>
     <StepTime at={question.asked_at} active={isActive({ kind: 'question', question })} now={now} />
   </li>
 )

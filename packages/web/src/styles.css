@@ -682,10 +682,13 @@ button.lamp[data-level='warning']:hover {
   color: var(--tone-ask);
 }
 
-.zone-text {
-  display: -webkit-box;
+.zone-question {
   max-width: 72ch;
   margin: 4px 0 6px;
+}
+
+.zone-text {
+  display: -webkit-box;
   overflow: hidden;
   font-size: 15px;
   font-weight: 500;
@@ -695,6 +698,11 @@ button.lamp[data-level='warning']:hover {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 4;
   line-clamp: 4;
+}
+
+.zone-question .text-toggle {
+  margin-top: 2px;
+  font-size: 12.5px;
 }
 
 .zone-meta,
@@ -855,6 +863,8 @@ button.lamp[data-level='warning']:hover {
 }
 
 .step-state .badge {
+  flex-wrap: wrap;
+  row-gap: 0;
   font-size: 12.5px;
 }
 
@@ -903,10 +913,27 @@ button.lamp[data-level='warning']:hover {
 }
 
 .step-question {
+  display: -webkit-box;
   min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+
+.zone-text[data-expanded='true'],
+.step-question[data-expanded='true'] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
+.step-body .text-toggle {
+  flex: none;
+  font-size: 12px;
 }
 
 .step-time {

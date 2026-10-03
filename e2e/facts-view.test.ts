@@ -3,13 +3,41 @@ import { dirname, join } from 'node:path'
 import { sampleScenarioManifest } from '@aang/testkit'
 import { expect, type HookFields, test } from './fixtures.js'
 import { claudeFork, claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { agentsOf, fact, lamp, plan, runRowOf, sessionOf, step, stepsOf, trace, zone, zoneItem } from './screens.js'
+import {
+  agentsOf,
+  fact,
+  lamp,
+  plan,
+  runRowOf,
+  sessionOf,
+  step,
+  stepsOf,
+  textShown,
+  trace,
+  zone,
+  zoneItem,
+} from './screens.js'
 
 const watchAll = { watch: { all: true } }
 
 const attentionWithinMs = process.env.CI === undefined ? 1_000 : 3_000
 
 const calmZone = 'Открытых пунктов нет.'
+
+const factRetryMs = 5_000
+
+const probe = { command: 'touch probe-perm.txt', description: 'Create empty probe file' }
+
+interface AskedQuestion {
+  readonly question: string
+  readonly header: string
+  readonly options: readonly { readonly label: string }[]
+  readonly multiSelect: boolean
+}
+
+const askUser = (question: string): { readonly questions: readonly AskedQuestion[] } => ({
+  questions: [{ question, header: 'Выбор', options: [{ label: 'Первый' }, { label: 'Второй' }], multiSelect: false }],
+})
 
 const subagentTranscript = (fields: HookFields, agent: string): string =>
   join(dirname(String(fields.transcript_path)), claudeOriginal.session, 'subagents', `agent-${agent}.jsonl`)
@@ -260,22 +288,117 @@ test.describe('with a fast spool scan', () => {
   })
 })
 
-test('a step shows its input once the input can be read again after a failed read', async ({ page, player }) => {
+test('a failed input read is retried after a pause while the step stays on screen, not in a loop', async ({
+  page,
+  player,
+}) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   const facts = '**/api/facts/**'
-  await page.route(facts, (route) => route.abort('connectionfailed'))
-  const failed = page.waitForEvent('requestfailed', (request) => request.url().includes('/api/facts/'))
+  const reads: string[] = []
+  await page.route(facts, (route) => {
+    reads.push(route.request().url())
+    return route.abort('connectionfailed')
+  })
   await page.goto(`/?run=${runOf(claudeOriginal)}`)
-  await failed
   const bash = stepsOf(page, 'Основной агент')
     .getByRole('listitem')
     .filter({ has: page.getByText('Bash', { exact: true }) })
   await expect(bash).toBeVisible()
+  await expect.poll(() => reads.length).toBeGreaterThan(0)
+
+  await page.waitForTimeout(factRetryMs - 2_000)
+  const inputs = new Set(reads).size
+  expect(reads).toHaveLength(inputs)
   await expect(bash).not.toContainText('echo hi')
+  await expect.poll(() => reads.length, { timeout: factRetryMs + 2_000 }).toBeGreaterThan(inputs)
+  expect(reads.length).toBeLessThanOrEqual(2 * inputs)
 
   await page.unroute(facts)
-  await page.getByRole('navigation').getByRole('link', { name: 'Прогоны' }).click()
-  await runRowOf(page, runOf(claudeOriginal)).getByRole('link').click()
-  await expect(bash).toContainText('echo hi')
+  await expect(bash).toContainText('echo hi', { timeout: factRetryMs + 3_000 })
   await expect(bash).toContainText('Print hi')
+})
+
+test.describe('with a fast spool scan for decisions and long questions', () => {
+  test.use({ config: { ...watchAll, collector: { spoolScanIntervalMs: 250 } } })
+
+  test('a human decision inferred from later events is marked as aang interpretation, an observed answer is not', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(fact(page, 'Агенты')).toHaveText('2')
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('UserPromptSubmit.json', fields)
+    await hook.claude('PreToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h2_probe', tool_input: probe })
+    await hook.claude('PermissionRequest.Bash.json', fields)
+
+    const approval = step(page, 'Основной агент', 'Bash: touch probe-perm.txt')
+    await expect(approval).toContainText('ждёт решения')
+    await expect(approval).not.toContainText('интерпретация aang')
+
+    await hook.claude('PostToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h2_probe', tool_input: probe })
+    await expect(approval).toContainText('одобрено')
+    await expect(approval).toContainText('интерпретация aang')
+
+    const asked = askUser('Какой вариант выбрать?')
+    const ask = { ...fields, tool_name: 'AskUserQuestion', tool_use_id: 'toolu_h2_ask', tool_input: asked }
+    await hook.claude('PreToolUse.Bash.json', ask)
+    const question = step(page, 'Основной агент', 'Какой вариант выбрать?')
+    await expect(question).toContainText('ждёт решения')
+
+    await hook.claude('PostToolUse.Bash.json', {
+      ...ask,
+      tool_response: { questions: asked.questions, answers: { 'Какой вариант выбрать?': 'Первый' } },
+    })
+    await expect(question).toContainText('отвечен')
+    await expect(question).not.toContainText('интерпретация aang')
+    await expect(approval).toContainText('интерпретация aang')
+  })
+
+  test('a long question opens in full in the attention zone and in the trace', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(fact(page, 'Агенты')).toHaveText('2')
+    const fields = hookFields(profile, claudeOriginal)
+    const last = 'Какой из вариантов выбрать в итоге?'
+    const text = [
+      ...Array.from({ length: 10 }, (_, index) => `Пояснение ${String(index + 1)}: подробности о шаге и его ограничениях.`),
+      last,
+    ].join('\n')
+    const asked = askUser(text)
+    const ask = { ...fields, tool_name: 'AskUserQuestion', tool_use_id: 'toolu_h2_long', tool_input: asked }
+    await hook.claude('UserPromptSubmit.json', fields)
+    await hook.claude('PermissionRequest.Bash.json', fields)
+    await hook.claude('PreToolUse.Bash.json', ask)
+
+    const item = zoneItem(page, 'Пояснение 1:')
+    await expect(item).toContainText(last)
+    await expect.poll(() => textShown(item, last)).toBe(false)
+    await expect(zoneItem(page, 'Bash: touch probe-perm.txt').getByRole('button')).toHaveCount(0)
+    await item.getByRole('button', { name: 'Показать полностью' }).click()
+    await expect(item.getByRole('button', { name: 'Свернуть' })).toHaveAttribute('aria-expanded', 'true')
+    await expect.poll(() => textShown(item, last)).toBe(true)
+    await item.getByRole('button', { name: 'Свернуть' }).click()
+    await expect.poll(() => textShown(item, last)).toBe(false)
+
+    await hook.claude('PostToolUse.Bash.json', {
+      ...ask,
+      tool_response: { questions: asked.questions, answers: { [text]: 'Второй' } },
+    })
+    await expect(item).toHaveCount(0)
+    const question = step(page, 'Основной агент', 'Пояснение 1:')
+    await expect(question).toContainText('отвечен')
+    await expect.poll(() => textShown(question, last)).toBe(false)
+    await expect.poll(() => textShown(question, 'Пояснение 1:')).toBe(true)
+    await question.getByRole('button', { name: 'Показать полностью' }).click()
+    await expect.poll(() => textShown(question, last)).toBe(true)
+  })
 })

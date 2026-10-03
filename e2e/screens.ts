@@ -38,3 +38,40 @@ export const step = (page: Page, agent: string, text: string): Locator =>
   stepsOf(page, agent).getByRole('listitem').filter({ hasText: text })
 
 export const plan = (page: Page): Locator => page.getByRole('region', { name: 'План решателя', exact: true })
+
+export const textShown = async (scope: Locator, text: string): Promise<boolean> => {
+  await scope.scrollIntoViewIfNeeded()
+  return scope.evaluate((root, wanted) => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      const start = node.textContent?.indexOf(wanted) ?? -1
+      if (start < 0) {
+        continue
+      }
+      const range = document.createRange()
+      range.setStart(node, start)
+      range.setEnd(node, start + wanted.length)
+      const shown = range.getBoundingClientRect()
+      if (shown.height === 0) {
+        return false
+      }
+      for (let box = node.parentElement; box !== null; box = box.parentElement) {
+        const style = getComputedStyle(box)
+        if (style.overflowX === 'visible' && style.overflowY === 'visible') {
+          continue
+        }
+        const frame = box.getBoundingClientRect()
+        if (
+          shown.top < frame.top - 0.5 ||
+          shown.bottom > frame.bottom + 0.5 ||
+          shown.left < frame.left - 0.5 ||
+          shown.right > frame.right + 0.5
+        ) {
+          return false
+        }
+      }
+      return true
+    }
+    return false
+  }, text)
+}

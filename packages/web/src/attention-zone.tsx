@@ -2,6 +2,7 @@ import type { AttentionItem, ObservationObjects, RunSnapshot } from '@aang/contr
 import { type ReactElement, useId } from 'react'
 import { AttentionGlyph, LevelGlyph } from './glyphs.js'
 import { attentionAuthorLabel, attentionKindLabel } from './labels.js'
+import { LongText } from './long-text.js'
 import { Moment } from './moment.js'
 import { placeOf } from './objects.js'
 
@@ -41,7 +42,9 @@ const ZoneItem = ({
           </span>
         ) : null}
       </p>
-      <p className="zone-text">{item.text}</p>
+      <div className="zone-question">
+        <LongText text={item.text} className="zone-text" />
+      </div>
       <p className="zone-meta">
         {place === null ? null : <span>{place}</span>}
         <span>

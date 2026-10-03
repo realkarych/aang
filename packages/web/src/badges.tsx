@@ -1,4 +1,13 @@
-import type { Action, ActionOutcome, Execution, Freshness, HumanDecision, RunSummary } from '@aang/contract'
+import type {
+  Action,
+  ActionOutcome,
+  Assessed,
+  Basis,
+  Execution,
+  Freshness,
+  HumanDecision,
+  RunSummary,
+} from '@aang/contract'
 import type { ReactElement } from 'react'
 import { DecisionGlyph, ExecutionGlyph, FreshnessGlyph, LevelGlyph, OutcomeGlyph } from './glyphs.js'
 import { basisLabel, decisionLabel, executionLabel, freshnessLabel, outcomeLabel } from './labels.js'
@@ -63,6 +72,9 @@ export const AttentionBadge = ({ attention }: { readonly attention: RunSummary['
   return <span className="quiet">нет</span>
 }
 
+const BasisNote = ({ basis }: { readonly basis: Basis }): ReactElement | null =>
+  basis.kind === 'observed' ? null : <span className="badge-basis">{basisLabel[basis.kind]}</span>
+
 const outcomeTone: Readonly<Record<ActionOutcome, Tone>> = {
   ok: 'done',
   error: 'fail',
@@ -80,7 +92,7 @@ export const ActionBadge = ({ action }: { readonly action: Pick<Action, 'executi
     <span className="badge" data-tone={outcomeTone[outcome.value]}>
       <OutcomeGlyph outcome={outcome.value} />
       <span className={outcome.value === 'ok' ? 'visually-hidden' : undefined}>{outcomeLabel[outcome.value]}</span>
-      {outcome.basis.kind === 'observed' ? null : <span className="badge-basis">{basisLabel[outcome.basis.kind]}</span>}
+      <BasisNote basis={outcome.basis} />
     </span>
   )
 }
@@ -94,9 +106,10 @@ const decisionTone: Readonly<Record<HumanDecision, Tone>> = {
   unknown: 'idle',
 }
 
-export const DecisionBadge = ({ decision }: { readonly decision: HumanDecision }): ReactElement => (
-  <span className="badge" data-tone={decisionTone[decision]}>
-    <DecisionGlyph decision={decision} />
-    {decisionLabel[decision]}
+export const DecisionBadge = ({ decision }: { readonly decision: Assessed<HumanDecision> }): ReactElement => (
+  <span className="badge" data-tone={decisionTone[decision.value]}>
+    <DecisionGlyph decision={decision.value} />
+    {decisionLabel[decision.value]}
+    <BasisNote basis={decision.basis} />
   </span>
 )
