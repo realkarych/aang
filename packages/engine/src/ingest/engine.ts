@@ -445,7 +445,8 @@ export const createEngine = ({
       const commitStep = (step: FileStep): void => {
         switch (step.kind) {
           case 'append': {
-            const scope = streamScope(step.stream)
+            const owner = step.lines.map((record) => adapters[record.runtime].owner(record)).find((found) => found !== null)
+            const scope = settleStream(step.stream, owner?.session ?? null)
             if (scope === null) {
               throw new Error(`the stream ${step.stream} of ${step.file.path} has no scope decision`)
             }
