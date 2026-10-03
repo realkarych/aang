@@ -44,7 +44,14 @@ export const createRepository = async (
 ): Promise<Repository> => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-repository-')))
   register(() => rm(root, { recursive: true, force: true, maxRetries: 5 }))
-  const path = join(root, 'project')
+  return initRepository(join(root, 'project'), files, commit)
+}
+
+export const initRepository = async (
+  path: string,
+  files: Readonly<Record<string, string>>,
+  commit = true,
+): Promise<Repository> => {
   await mkdir(path, { recursive: true })
   await git(path, 'init', '--quiet', '--initial-branch=main')
   await writeFiles(path, files)

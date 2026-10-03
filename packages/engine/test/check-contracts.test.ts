@@ -1,5 +1,6 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import {
   type AttentionItem,
   CheckContract,
@@ -160,7 +161,7 @@ const commandItem = (
       type: 'CommandExecution',
       id: call,
       command: [...command],
-      cwd: `file://${project}`,
+      cwd: pathToFileURL(project).href,
       status: exit === 0 ? 'completed' : 'failed',
       aggregated_output: 'tests\n',
       exit_code: exit,

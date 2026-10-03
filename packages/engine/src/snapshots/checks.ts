@@ -1,12 +1,15 @@
-import type { ActionKey } from '@aang/contract'
+import type { ActionKey, Fact, FactOf } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import type { ContractCatalog } from '../checks/catalog.js'
 import { matchedStarts } from '../checks/results.js'
+import { actionDirectory } from '../observations/directories.js'
 import { rootSessionOf, sessionRun } from '../observations/runs.js'
 import type { SnapshotRequest } from './take.js'
 
 const directory = (path: string | null): string | null => (path === '' ? null : path)
+
+const isStart = (fact: Fact): fact is FactOf<'action_start'> => fact.kind === 'action_start'
 
 const checkRequests = (transaction: Transaction, key: ActionKey, catalog: ContractCatalog): SnapshotRequest[] => {
   const action = transaction.observations.getAction(objectId(key))
@@ -21,21 +24,21 @@ const checkRequests = (transaction: Transaction, key: ActionKey, catalog: Contra
     return []
   }
   const facts = transaction.facts.ofEntity(key)
-  return catalog.contractsFor(rootCwd).flatMap((contract) => {
-    const [start] = matchedStarts(facts, contract)
-    return start === undefined
+  const cwd = actionDirectory(facts.filter(isStart), session.cwd) ?? rootCwd
+  return catalog.contractsFor(rootCwd).flatMap((contract) =>
+    matchedStarts(facts, contract).length === 0
       ? []
       : [
           {
             run,
             root: root.key,
-            cwd: directory(start.runtime_env.cwd) ?? directory(session.cwd) ?? rootCwd,
+            cwd,
             maskRoot: contract.root,
             masks: contract.inputMasks,
             trigger: 'check',
           } satisfies SnapshotRequest,
-        ]
-  })
+        ],
+  )
 }
 
 export const checkSnapshots = (

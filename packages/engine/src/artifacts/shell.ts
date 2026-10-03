@@ -1,3 +1,5 @@
+import type { ShellDialect, ShellScript } from '../checks/commands.js'
+
 export interface ShellWrites {
   readonly targets: readonly string[]
   readonly changesDirectory: boolean
@@ -16,18 +18,42 @@ type Token =
   | { readonly kind: 'write'; readonly adjacent: boolean }
   | { readonly kind: 'other'; readonly adjacent: boolean }
 
+type OperatorKind = 'write' | 'other' | 'separator'
+
 interface Heredoc {
   readonly delimiter: string
   readonly stripTabs: boolean
+}
+
+interface Scanned {
+  readonly word: Word
+  readonly end: number
+}
+
+interface Position {
+  readonly adjacent: boolean
+  readonly commandStart: boolean
+}
+
+interface Grammar {
+  readonly escape: string
+  readonly operators: readonly (readonly [string, OperatorKind])[]
+  readonly heredocs: boolean
+  readonly skip: (script: string, index: number, position: Position) => number | null
+  readonly word: (script: string, from: number) => Scanned
+  readonly program: (text: string) => string
+  readonly directoryCommands: ReadonlySet<string>
+  readonly teeCommands: ReadonlySet<string>
+  readonly device: (text: string) => boolean
 }
 
 const blank = /[ \t\r]/
 
 const wordEnd = /[ \t\r\n|&;()<>]/
 
-const directoryCommands: ReadonlySet<string> = new Set(['cd', 'pushd', 'popd'])
-
 const assignment = /^[A-Za-z_][A-Za-z0-9_]*=/
+
+const windowsDevice = /^(nul|con|prn|aux|com\d|lpt\d)(\..*)?$/i
 
 const closing = (script: string, from: number, open: string, close: string): number => {
   let depth = 0
@@ -51,6 +77,11 @@ const lineEnd = (script: string, from: number): number => {
   return end < 0 ? script.length : end
 }
 
+const after = (script: string, from: number, token: string): number => {
+  const end = script.indexOf(token, from)
+  return end < 0 ? script.length : end + token.length
+}
+
 const skipHeredocs = (script: string, from: number, heredocs: readonly Heredoc[]): number => {
   let index = from
   for (const { delimiter, stripTabs } of heredocs) {
@@ -66,14 +97,26 @@ const skipHeredocs = (script: string, from: number, heredocs: readonly Heredoc[]
   return Math.min(index, script.length)
 }
 
-const readWord = (script: string, from: number): { readonly word: Word; readonly end: number } => {
+const scanned = (text: string, dynamic: boolean, end: number): Scanned => ({
+  word: { kind: 'word', text, dynamic, digits: /^\d+$/.test(text) },
+  end,
+})
+
+const escaped = (script: string, index: number): string => {
+  const next = script[index + 1] ?? ''
+  return next === '\n' ? '' : next
+}
+
+const posixQuotedEscapes: ReadonlySet<string> = new Set(['$', '`', '"', '\\', '\n'])
+
+const posixWord = (script: string, from: number): Scanned => {
   let text = ''
   let dynamic = false
   let index = from
   while (index < script.length && !wordEnd.test(script[index] ?? '')) {
     const char = script[index] ?? ''
     if (char === '\\') {
-      text += script[index + 1] ?? ''
+      text += escaped(script, index)
       index += 2
     } else if (char === "'") {
       const end = script.indexOf("'", index + 1)
@@ -84,14 +127,14 @@ const readWord = (script: string, from: number): { readonly word: Word; readonly
       index += 1
       while (index < script.length && script[index] !== '"') {
         const inner = script[index] ?? ''
-        if (inner === '$' || inner === '`') {
-          dynamic = true
-        }
-        if (inner === '\\' && index + 1 < script.length) {
+        if (inner === '\\' && posixQuotedEscapes.has(script[index + 1] ?? '')) {
+          text += escaped(script, index)
+          index += 2
+        } else {
+          dynamic ||= inner === '$' || inner === '`'
+          text += inner
           index += 1
         }
-        text += script[index] ?? ''
-        index += 1
       }
       index += 1
     } else if (char === '$' && script[index + 1] === '(') {
@@ -99,41 +142,201 @@ const readWord = (script: string, from: number): { readonly word: Word; readonly
       index = closing(script, index + 1, '(', ')')
     } else if (char === '`') {
       dynamic = true
-      const end = script.indexOf('`', index + 1)
-      index = end < 0 ? script.length : end + 1
+      index = after(script, index + 1, '`')
     } else {
-      if ('$*?[{~'.includes(char) && !(char === '~' && index > from)) {
-        dynamic = true
-      }
+      dynamic ||= '$*?[{'.includes(char) || (char === '~' && index === from)
       text += char
       index += 1
     }
   }
-  return { word: { kind: 'word', text, dynamic, digits: /^\d+$/.test(text) }, end: index }
+  return scanned(text, dynamic, index)
 }
 
-const operators: readonly (readonly [string, 'write' | 'other' | 'separator'])[] = [
-  ['&>>', 'write'],
-  ['&>', 'write'],
-  ['>>', 'write'],
-  ['>|', 'write'],
-  ['>&', 'other'],
-  ['<&', 'other'],
-  ['<<<', 'other'],
-  ['<>', 'other'],
-  ['>', 'write'],
-  ['<', 'other'],
-  ['||', 'separator'],
-  ['|&', 'separator'],
-  ['&&', 'separator'],
-  ['|', 'separator'],
-  [';', 'separator'],
-  ['&', 'separator'],
-  ['(', 'separator'],
-  [')', 'separator'],
-]
+const doubledQuote = (script: string, index: number, quote: string): boolean =>
+  script[index] === quote && script[index + 1] === quote
 
-const tokenize = (script: string): Token[] => {
+const powerShellWord = (script: string, from: number): Scanned => {
+  let text = ''
+  let dynamic = false
+  let index = from
+  while (index < script.length && !wordEnd.test(script[index] ?? '')) {
+    const char = script[index] ?? ''
+    const next = script[index + 1] ?? ''
+    if (char === '`') {
+      text += escaped(script, index)
+      index += 2
+    } else if (char === '@' && (next === "'" || next === '"')) {
+      dynamic = true
+      index = after(script, index + 2, `\n${next}@`)
+    } else if (char === "'" || char === '"') {
+      index += 1
+      while (index < script.length && (script[index] !== char || doubledQuote(script, index, char))) {
+        const inner = script[index] ?? ''
+        if (doubledQuote(script, index, char)) {
+          text += char
+          index += 2
+        } else if (char === '"' && inner === '`') {
+          text += escaped(script, index)
+          index += 2
+        } else {
+          dynamic ||= char === '"' && inner === '$'
+          text += inner
+          index += 1
+        }
+      }
+      index += 1
+    } else if ((char === '$' || char === '@') && next === '(') {
+      dynamic = true
+      index = closing(script, index + 1, '(', ')')
+    } else {
+      dynamic ||= '$*?[{@'.includes(char) || (char === '~' && index === from)
+      text += char
+      index += 1
+    }
+  }
+  return scanned(text, dynamic, index)
+}
+
+const cmdWord = (script: string, from: number): Scanned => {
+  let text = ''
+  let dynamic = false
+  let index = from
+  while (index < script.length && !wordEnd.test(script[index] ?? '')) {
+    const char = script[index] ?? ''
+    if (char === '^') {
+      text += escaped(script, index)
+      index += 2
+    } else if (char === '"') {
+      const end = script.indexOf('"', index + 1)
+      const stop = end < 0 ? script.length : end
+      const quoted = script.slice(index + 1, stop)
+      dynamic ||= /[%!]/.test(quoted)
+      text += quoted
+      index = stop + 1
+    } else {
+      dynamic ||= '%!*?'.includes(char)
+      text += char
+      index += 1
+    }
+  }
+  return scanned(text, dynamic, index)
+}
+
+const posixSkip = (script: string, index: number, { adjacent }: Position): number | null => {
+  const char = script[index] ?? ''
+  if (char === '#' && !adjacent) {
+    return lineEnd(script, index)
+  }
+  if (script.startsWith('[[', index) && !adjacent) {
+    return after(script, index + 2, ']]')
+  }
+  if (script.startsWith('((', index) || script.startsWith('$((', index)) {
+    return closing(script, script.indexOf('((', index), '((', '))')
+  }
+  return (char === '>' || char === '<') && script[index + 1] === '(' ? closing(script, index + 1, '(', ')') : null
+}
+
+const powerShellSkip = (script: string, index: number, { adjacent }: Position): number | null => {
+  if (script.startsWith('<#', index)) {
+    return after(script, index + 2, '#>')
+  }
+  return script[index] === '#' && !adjacent ? lineEnd(script, index) : null
+}
+
+const cmdComment = /^(rem(?=[\s.:]|$)|::)/i
+
+const cmdSkip = (script: string, index: number, { commandStart }: Position): number | null =>
+  commandStart && cmdComment.test(script.slice(index, lineEnd(script, index))) ? lineEnd(script, index) : null
+
+const unixProgram = (text: string): string => text.split('/').at(-1) ?? ''
+
+const windowsProgram = (text: string): string =>
+  (text.split(/[\\/]/).at(-1) ?? '').toLowerCase().replace(/\.exe$/, '')
+
+const grammars: Readonly<Record<ShellDialect, Grammar>> = {
+  posix: {
+    escape: '\\',
+    operators: [
+      ['&>>', 'write'],
+      ['&>', 'write'],
+      ['>>', 'write'],
+      ['>|', 'write'],
+      ['>&', 'other'],
+      ['<&', 'other'],
+      ['<<<', 'other'],
+      ['<>', 'other'],
+      ['>', 'write'],
+      ['<', 'other'],
+      ['||', 'separator'],
+      ['|&', 'separator'],
+      ['&&', 'separator'],
+      ['|', 'separator'],
+      [';', 'separator'],
+      ['&', 'separator'],
+      ['(', 'separator'],
+      [')', 'separator'],
+    ],
+    heredocs: true,
+    skip: posixSkip,
+    word: posixWord,
+    program: unixProgram,
+    directoryCommands: new Set(['cd', 'pushd', 'popd']),
+    teeCommands: new Set(['tee']),
+    device: (text) => text.startsWith('/dev/'),
+  },
+  powershell: {
+    escape: '`',
+    operators: [
+      ['*>&', 'other'],
+      ['*>>', 'write'],
+      ['*>', 'write'],
+      ['>>', 'write'],
+      ['>&', 'other'],
+      ['>', 'write'],
+      ['<', 'other'],
+      ['||', 'separator'],
+      ['&&', 'separator'],
+      ['|', 'separator'],
+      [';', 'separator'],
+      ['&', 'separator'],
+      ['(', 'separator'],
+      [')', 'separator'],
+    ],
+    heredocs: false,
+    skip: powerShellSkip,
+    word: powerShellWord,
+    program: windowsProgram,
+    directoryCommands: new Set(['cd', 'chdir', 'sl', 'set-location', 'pushd', 'push-location', 'popd', 'pop-location']),
+    teeCommands: new Set(['tee', 'tee-object']),
+    device: (text) => windowsDevice.test(text),
+  },
+  cmd: {
+    escape: '^',
+    operators: [
+      ['>>', 'write'],
+      ['>&', 'other'],
+      ['<&', 'other'],
+      ['>', 'write'],
+      ['<', 'other'],
+      ['||', 'separator'],
+      ['&&', 'separator'],
+      ['|', 'separator'],
+      [';', 'separator'],
+      ['&', 'separator'],
+      ['(', 'separator'],
+      [')', 'separator'],
+    ],
+    heredocs: false,
+    skip: cmdSkip,
+    word: cmdWord,
+    program: windowsProgram,
+    directoryCommands: new Set(['cd', 'chdir', 'pushd', 'popd']),
+    teeCommands: new Set(['tee']),
+    device: (text) => windowsDevice.test(text),
+  },
+}
+
+const tokenize = (script: string, grammar: Grammar): Token[] => {
   const tokens: Token[] = []
   let heredocs: Heredoc[] = []
   let index = 0
@@ -152,43 +355,30 @@ const tokenize = (script: string): Token[] => {
       adjacent = false
       continue
     }
-    if (char === '\\' && script[index + 1] === '\n') {
+    if (char === grammar.escape && script[index + 1] === '\n') {
       index += 2
       continue
     }
-    if (char === '#' && !adjacent) {
-      index = lineEnd(script, index)
-      continue
-    }
-    if (script.startsWith('[[', index) && !adjacent) {
-      const end = script.indexOf(']]', index + 2)
-      index = end < 0 ? script.length : end + 2
+    const commandStart = !adjacent && (tokens.length === 0 || tokens.at(-1)?.kind === 'separator')
+    const skipped = grammar.skip(script, index, { adjacent, commandStart })
+    if (skipped !== null) {
+      index = skipped
       adjacent = true
       continue
     }
-    if (script.startsWith('((', index) || script.startsWith('$((', index)) {
-      index = closing(script, script.indexOf('((', index), '((', '))')
-      adjacent = true
-      continue
-    }
-    if ((char === '>' || char === '<') && script[index + 1] === '(') {
-      index = closing(script, index + 1, '(', ')')
-      adjacent = true
-      continue
-    }
-    if (script.startsWith('<<', index) && script[index + 2] !== '<') {
+    if (grammar.heredocs && script.startsWith('<<', index) && script[index + 2] !== '<') {
       const stripTabs = script[index + 2] === '-'
       let start = index + (stripTabs ? 3 : 2)
       while (blank.test(script[start] ?? '')) {
         start += 1
       }
-      const { word, end } = readWord(script, start)
+      const { word, end } = grammar.word(script, start)
       heredocs.push({ delimiter: word.text, stripTabs })
       index = end
       adjacent = true
       continue
     }
-    const operator = operators.find(([symbol]) => script.startsWith(symbol, index))
+    const operator = grammar.operators.find(([symbol]) => script.startsWith(symbol, index))
     if (operator !== undefined) {
       const [symbol, kind] = operator
       tokens.push(kind === 'separator' ? { kind } : { kind, adjacent })
@@ -196,7 +386,7 @@ const tokenize = (script: string): Token[] => {
       adjacent = false
       continue
     }
-    const { word, end } = readWord(script, index)
+    const { word, end } = grammar.word(script, index)
     tokens.push(word)
     index = end
     adjacent = true
@@ -204,25 +394,28 @@ const tokenize = (script: string): Token[] => {
   return tokens
 }
 
-const isFile = (word: Word): boolean => !word.dynamic && word.text !== '' && word.text !== '-' && !word.text.startsWith('/dev/')
+const commandDrive = /^[a-z]:$/i
 
-export const shellWrites = (script: string): ShellWrites => {
+export const shellWrites = ({ script, dialect }: ShellScript): ShellWrites => {
+  const grammar = grammars[dialect]
+  const isFile = (word: Word): boolean =>
+    !word.dynamic && word.text !== '' && word.text !== '-' && !grammar.device(word.text)
   const targets: string[] = []
   let changesDirectory = false
   let words: Word[] = []
   const finishCommand = (): void => {
     const command = words.findIndex(({ text }) => !assignment.test(text))
     const [name, ...rest] = command < 0 ? [] : words.slice(command)
-    const program = name?.text.split('/').at(-1) ?? ''
-    if (directoryCommands.has(program)) {
+    const program = grammar.program(name?.text ?? '')
+    if (grammar.directoryCommands.has(program) || (dialect === 'cmd' && commandDrive.test(program))) {
       changesDirectory = true
     }
-    if (program === 'tee') {
+    if (grammar.teeCommands.has(program)) {
       targets.push(...rest.filter((word) => !word.text.startsWith('-') && isFile(word)).map(({ text }) => text))
     }
     words = []
   }
-  const tokens = tokenize(script)
+  const tokens = tokenize(script, grammar)
   let operand = false
   for (const [index, token] of tokens.entries()) {
     if (operand) {

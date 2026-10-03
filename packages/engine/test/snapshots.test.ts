@@ -1,15 +1,16 @@
 import { readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { CheckContract, EpochNs, type GitSnapshot, type RunId } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test } from 'vitest'
-import { type HookDelivery, hookBatch } from './batches.js'
+import { type HookDelivery, hookBatch, jsonlFile } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'
 import { createHome } from './home.js'
-import { createRepository, git, type Register, writeFiles } from './repository.js'
-import { claudeHook } from './samples.js'
+import { createRepository, git, initRepository, type Register, writeFiles } from './repository.js'
+import { claudeHook, codexRollout } from './samples.js'
 
 interface Source {
   readonly session: string
@@ -257,4 +258,55 @@ test('snapshots read a stale index without rewriting it or touching a held index
   await rm(lock)
   await git(repository.path, 'status', '--porcelain')
   expect(await readFile(index)).not.toEqual(before)
+})
+
+test('a check snapshot is taken in the repository the check ran in, not where its session started', async ({ onTestFinished }) => {
+  const home = await createHome(onTestFinished)
+  const origin = await createRepository(onTestFinished, committed)
+  const workspace = dirname(origin.path)
+  const other = await initRepository(join(workspace, 'other'), committed)
+  await writeFiles(other.path, { 'src/app.ts': 'export const app = 6\n' })
+  const store = home.open()
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: { all: true, roots: [{ path: workspace, contracts: [CheckContract.parse({ name: 'test', command: '^pnpm test' })] }] },
+  })
+  const thread = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
+  const startMs = 1_790_855_800_000
+  const line = (ordinal: number, type: string, payload: Record<string, unknown>): string =>
+    JSON.stringify({ timestamp: new Date(startMs + ordinal * 1000).toISOString(), ordinal, type, payload })
+  const exec = (ordinal: number, call: string, input: Record<string, string>): string =>
+    line(ordinal, 'response_item', { type: 'function_call', id: `fc_${call}`, name: 'exec_command', arguments: JSON.stringify(input), call_id: call })
+  const lines = [
+    codexRollout({ thread, cwd: origin.path })[0] ?? '',
+    exec(1, 'call_other', { cmd: 'pnpm test', workdir: other.path }),
+    line(2, 'event_msg', {
+      type: 'item_completed',
+      thread_id: thread,
+      item: {
+        type: 'CommandExecution',
+        id: 'call_other',
+        command: ['/bin/zsh', '-lc', 'pnpm test'],
+        cwd: pathToFileURL(other.path).href,
+        status: 'failed',
+        aggregated_output: 'failed\n',
+        exit_code: 1,
+      },
+      started_at_ms: startMs + 1500,
+      completed_at_ms: startMs + 2000,
+    }),
+    exec(3, 'call_started', { cmd: 'pnpm test' }),
+    line(4, 'response_item', { type: 'function_call_output', call_id: 'call_started', output: 'passed' }),
+  ]
+  const rollout = jsonlFile({ runtime: 'codex', path: join(workspace, 'rollout.jsonl'), lines, ino: 31n })
+  await engine.ingest(rollout.batch(1, 3))
+  await engine.ingest(rollout.batch(4, 5))
+  const snapshots = store.artifacts.snapshots(runId(sessionKey('codex', thread)))
+  expect(snapshots.map(({ worktree, head, clean, masks }) => ({ worktree, head, clean, masks }))).toEqual([
+    { worktree: other.path, head: other.head, clean: false, masks: ['.'] },
+    { worktree: origin.path, head: origin.head, clean: true, masks: ['.'] },
+  ])
+  const facts = factsOf(store).filter(({ kind }) => kind === 'git_snapshot')
+  expect(facts[0]?.payload).toMatchObject({ entries: [{ status: ' M', path: 'src/app.ts' }] })
 })

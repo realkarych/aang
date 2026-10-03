@@ -1,9 +1,11 @@
 import { createHash } from 'node:crypto'
 import { readFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { join, sep } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import {
   type ArtifactVersion,
   type ArtifactVersionId,
+  EpochNs,
   type Fact,
   type JsonValue,
   ObserverCallId,
@@ -128,9 +130,9 @@ const startOf = (store: Store, call: string): Fact => {
   return start
 }
 
-const openRun = (store: Store, source: Source): void => {
-  const run = runOf(source)
-  const root = objectId(keyOf(source))
+const openRun = (store: Store, key: SessionKey): void => {
+  const run = runId(key)
+  const root = objectId(key)
   store.transaction((transaction) => {
     applyChangeSet(transaction, {
       run,
@@ -143,7 +145,7 @@ const openRun = (store: Store, source: Source): void => {
           evidence: [],
           put: {
             kind: 'run',
-            value: { id: run, runtime: 'claude', root_session: root, goal: null, brief: null, start_pruned: false, created_at: at(1) },
+            value: { id: run, runtime: key.runtime, root_session: root, goal: null, brief: null, start_pruned: false, created_at: at(1) },
           },
         },
         { op: 'run.create', basis: observed, evidence: [], put: { kind: 'session_membership', value: { session: root, run } } },
@@ -157,12 +159,12 @@ const openRun = (store: Store, source: Source): void => {
   })
 }
 
-const linkOutputs = (store: Store, source: Source, versions: readonly ArtifactVersionId[], evidence: Fact, call: string): void => {
-  const run = runOf(source)
+const linkOutputs = (store: Store, key: SessionKey, versions: readonly ArtifactVersionId[], evidence: Fact, call: string): void => {
+  const run = runId(key)
   const id = ObserverCallId.parse(call)
   const input = inputFor(store, [evidence], run)
   store.transaction((transaction) => {
-    beginObserverCall(transaction, { id, backend: keyOf(source).runtime, crossVendor: false, input, at: at(10) })
+    beginObserverCall(transaction, { id, backend: key.runtime, crossVendor: false, input, at: at(10) })
   })
   const stage = temporary(`${call}-stage`)
   const result = store.transaction((transaction) =>
@@ -227,8 +229,8 @@ test('a report created through Bash and linked as a stage output is read from th
   await engine.ingest(hookBatch({ file: 'report-post.evt', payload: hook, arrival: 1_000_000_000_000 }))
   expect(store.artifacts.versions(runOf(source))).toEqual([version])
 
-  openRun(store, source)
-  linkOutputs(store, source, [version.id], start, 'report-call')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [version.id], start, 'report-call')
   const [retained, ...others] = await engine.retainBases()
   expect(others).toEqual([])
   expect(retained).toMatchObject({
@@ -263,8 +265,8 @@ test('a version from a Write payload is retained from the payload as the version
     produced_by: action,
     retention: { kind: 'reference' },
   })
-  openRun(store, source)
-  linkOutputs(store, source, [version.id], startOf(store, 'toolu_write'), 'write-call')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [version.id], startOf(store, 'toolu_write'), 'write-call')
   const [retained] = await engine.retainBases()
   expect(retained).toMatchObject({ retention: { kind: 'action_payload', blob: contentHash(payload), action } })
   expect(retained === undefined ? null : blobText(store, retained)).toBe(payload)
@@ -279,8 +281,8 @@ test('only bases are retained, and a basis without a readable file stays known o
   const kept = versionAt(store, source, join(project, 'kept.txt'))
   const missing = versionAt(store, source, join(project, 'missing.txt'))
   const directory = versionAt(store, source, join(project, 'dist'))
-  openRun(store, source)
-  linkOutputs(store, source, [missing.id, directory.id], startOf(store, 'toolu_two'), 'missing-call')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [missing.id, directory.id], startOf(store, 'toolu_two'), 'missing-call')
   expect(await engine.retainBases()).toEqual([])
   expect(store.artifacts.getVersion(missing.id)?.retention).toEqual({ kind: 'reference' })
   expect(store.artifacts.getVersion(directory.id)?.retention).toEqual({ kind: 'reference' })
@@ -306,8 +308,8 @@ test('contents larger than the blob limit keep only their hash and size', async 
     write('toolu_payload', join(project, 'payload.md'), payload),
   ])
   const versions = ['large.log', 'small.txt', 'payload.md'].map((name) => versionAt(store, source, join(project, name)))
-  openRun(store, source)
-  linkOutputs(store, source, versions.map(({ id }) => id), startOf(store, 'toolu_large'), 'large-call')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), versions.map(({ id }) => id), startOf(store, 'toolu_large'), 'large-call')
   await engine.retainBases()
   const sha256 = (text: string): string => createHash('sha256').update(text).digest('hex')
   expect(versions.map(({ id }) => store.artifacts.getVersion(id)?.retention)).toEqual([
@@ -360,14 +362,73 @@ test.for([
   expect(pathsOf(store, source)).toEqual(files.map((file) => join(project, file)).sort())
 })
 
+const codexThread = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
+
+const codexTurn = '01a0f752-4102-7740-9432-0533263c2dc1'
+
+const codexStartMs = 1_790_855_800_000
+
+const passthrough = { turn_id: codexTurn }
+
+const codexKey = sessionKey('codex', codexThread)
+
+const codexLine = (ordinal: number, type: string, payload: Record<string, JsonValue>): string =>
+  JSON.stringify({ timestamp: new Date(codexStartMs + ordinal * 1000).toISOString(), ordinal, type, payload })
+
+const codexItem = (ordinal: number, item: Record<string, JsonValue>): string =>
+  codexLine(ordinal, 'event_msg', {
+    type: 'item_completed',
+    thread_id: codexThread,
+    turn_id: codexTurn,
+    item,
+    started_at_ms: codexStartMs + ordinal * 1000 - 500,
+    completed_at_ms: codexStartMs + ordinal * 1000,
+  })
+
+const codexPatchCall = (ordinal: number, call: string, patch: string): string[] => [
+  codexLine(ordinal, 'response_item', {
+    type: 'custom_tool_call',
+    id: `ctc_${call}`,
+    status: 'completed',
+    call_id: call,
+    name: 'apply_patch',
+    input: patch,
+    internal_chat_message_metadata_passthrough: passthrough,
+  }),
+  codexItem(ordinal + 1, { type: 'FileChange', id: call, changes: {}, status: 'completed', stdout: 'Success.\n', stderr: '' }),
+]
+
+const codexExec = (ordinal: number, call: string, input: Record<string, JsonValue>): string =>
+  codexLine(ordinal, 'response_item', {
+    type: 'function_call',
+    id: `fc_${call}`,
+    name: 'exec_command',
+    arguments: JSON.stringify(input),
+    call_id: call,
+    internal_chat_message_metadata_passthrough: passthrough,
+  })
+
+const codexCommand = (ordinal: number, id: string, command: readonly string[], cwd: string): string =>
+  codexItem(ordinal, {
+    type: 'CommandExecution',
+    id,
+    command: [...command],
+    cwd: pathToFileURL(cwd).href,
+    status: 'completed',
+    aggregated_output: '',
+    exit_code: 0,
+  })
+
+const ingestCodex = async (engine: Engine, project: string, lines: readonly string[], ino = 21n): Promise<void> => {
+  const all = [codexRollout({ thread: codexThread, cwd: project })[0] ?? '', ...lines]
+  await engine.ingest(jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines: all, ino }).batch(1, all.length))
+}
+
 test('Codex patches, file changes and redirected commands produce versions', async ({ onTestFinished }) => {
   const { store, engine, project } = await setup(onTestFinished)
-  const thread = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
-  const turn = '01a0f752-4102-7740-9432-0533263c2dc1'
-  const startMs = 1_790_855_800_000
-  const codexLine = (ordinal: number, type: string, payload: Record<string, JsonValue>): string =>
-    JSON.stringify({ timestamp: new Date(startMs + ordinal * 1000).toISOString(), ordinal, type, payload })
-  const passthrough = { turn_id: turn }
+  const thread = codexThread
+  const turn = codexTurn
+  const startMs = codexStartMs
   const patch = '*** Begin Patch\n*** Add File: added.txt\n+hello\n*** Update File: old.txt\n*** Move to: moved.txt\n@@\n-a\n+b\n*** Delete File: gone.txt\n*** End Patch\n'
   const lines = [
     codexRollout({ thread, cwd: project })[0] ?? '',
@@ -415,7 +476,7 @@ test('Codex patches, file changes and redirected commands produce versions', asy
         type: 'CommandExecution',
         id: 'call_exec',
         command: ['/bin/zsh', '-lc', 'pytest > results.txt'],
-        cwd: `file://${join(project, 'service')}`,
+        cwd: pathToFileURL(join(project, 'service')).href,
         status: 'failed',
         aggregated_output: 'failed\n',
         exit_code: 1,
@@ -476,4 +537,270 @@ test('a Codex patch from hooks alone has no known outcome and gives a version on
       key: expect.objectContaining({ identity: { kind: 'content', hash: contentHash('first\nsecond\n') } }) as unknown,
     }),
   ])
+})
+
+const transcriptOf = (source: Source, calls: readonly Call[]) => {
+  const lines = calls.flatMap((call, index) => callLines(source, call, index * 2))
+  return jsonlFile({ runtime: 'claude', path: join(source.cwd, `${source.session}.jsonl`), lines, ino: 7n })
+}
+
+const edit = (id: string, file_path: string, old_string: string, new_string: string): Call => [
+  id,
+  'Edit',
+  { file_path, old_string, new_string },
+  'ok',
+]
+
+const retainedAs = (store: Store, id: ArtifactVersionId) => {
+  const version = store.artifacts.getVersion(id)
+  return version === null ? null : { kind: version.retention.kind, text: blobText(store, version) }
+}
+
+test('Codex commands and patches without a workdir resolve relative paths where they ran, also when retained', async ({ onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  await writeFiles(project, { 'default.txt': 'hello\n' })
+  await ingestCodex(engine, project, [
+    codexExec(1, 'call_plain', { cmd: 'echo hello > default.txt' }),
+    codexCommand(2, 'call_plain', ['/bin/zsh', '-lc', 'echo hello > default.txt'], project),
+    codexCommand(3, 'exec-nested', ['/bin/zsh', '-lc', 'echo nested > nested.txt'], join(project, 'nested')),
+    codexExec(4, 'call_session', { cmd: 'echo session > session.txt' }),
+    codexLine(5, 'response_item', { type: 'function_call_output', call_id: 'call_session', output: 'done' }),
+    ...codexPatchCall(6, 'call_relative', '*** Begin Patch\n*** Add File: notes/relative.txt\n+relative\n*** End Patch\n'),
+  ])
+  const run = runId(codexKey)
+  const versions = store.artifacts.versions(run)
+  expect(versions.map(({ ref, key }) => [ref.kind === 'file' ? ref.path : null, key.identity.kind]).sort()).toEqual(
+    [
+      [join(project, 'default.txt'), 'reference'],
+      [join(project, 'nested', 'nested.txt'), 'reference'],
+      [join(project, 'notes', 'relative.txt'), 'content'],
+      [join(project, 'session.txt'), 'reference'],
+    ].sort(),
+  )
+  const report = versions.find(({ ref }) => ref.kind === 'file' && ref.path === join(project, 'default.txt'))
+  const notes = versions.find(({ ref }) => ref.kind === 'file' && ref.path === join(project, 'notes', 'relative.txt'))
+  if (report === undefined || notes === undefined) {
+    throw new Error('the Codex versions must exist')
+  }
+  openRun(store, codexKey)
+  linkOutputs(store, codexKey, [report.id, notes.id], startOf(store, 'call_plain'), 'codex-call')
+  await engine.retainBases()
+  expect(retainedAs(store, report.id)).toEqual({ kind: 'file_read', text: 'hello\n' })
+  expect(retainedAs(store, notes.id)).toEqual({ kind: 'action_payload', text: 'relative\n' })
+})
+
+type Shell = 'Bash' | 'PowerShell' | 'cmd' | 'exec_command'
+
+const runShell = async (engine: Engine, project: string, shell: Shell, command: string): Promise<RunId> => {
+  if (shell === 'Bash' || shell === 'PowerShell') {
+    const source = { session: 'dialect-session', cwd: project }
+    await ingestCalls(engine, source, [['toolu_dialect', shell, { command, description: 'Run' }, 'ok']])
+    return runOf(source)
+  }
+  await ingestCodex(
+    engine,
+    project,
+    shell === 'cmd'
+      ? [codexCommand(1, 'exec-dialect', ['C:\\Windows\\System32\\cmd.exe', '/c', command], project)]
+      : [
+          codexExec(1, 'call_dialect', { cmd: command, shell: 'pwsh.exe' }),
+          codexLine(2, 'response_item', { type: 'function_call_output', call_id: 'call_dialect', output: 'done' }),
+        ],
+  )
+  return runId(codexKey)
+}
+
+test.for<{ name: string; shell: Shell; command: (project: string) => string; files: readonly (readonly string[])[] }>([
+  {
+    name: 'Bash keeps a backslash in double quotes before an ordinary letter',
+    shell: 'Bash',
+    command: () => 'printf result > "a\\b.txt"; echo x > "cost\\$5.txt"; echo y > back\\slash.txt',
+    files: [['a\\b.txt'], ['cost$5.txt'], ['backslash.txt']],
+  },
+  {
+    name: 'PowerShell keeps native paths and backslashes',
+    shell: 'PowerShell',
+    command: (project) =>
+      `Get-Date > '${join(project, 'ps', 'single.txt')}'; Get-Date >> ${join(project, 'ps', 'bare.txt')}; ` +
+      `Get-Date *> .${sep}ps${sep}relative.txt; echo 1 > win\\path.txt`,
+    files: [['ps', 'single.txt'], ['ps', 'bare.txt'], ['ps', 'relative.txt'], ['win\\path.txt']],
+  },
+  {
+    name: 'PowerShell escapes, expansions, devices, comments and here-strings',
+    shell: 'PowerShell',
+    command: () =>
+      'echo 1 > tick`$name.txt; echo 2 > "$env:TEMP\\x.txt"; echo 3 > $null; echo 4 > nul 2>&1 # > c.txt\n' +
+      "<# > d.txt #>\n$s = @'\n> e.txt\n'@\necho 5 > \"say \"\"hi\"\".txt\"",
+    files: [['tick$name.txt'], ['say "hi".txt']],
+  },
+  { name: 'PowerShell changing location', shell: 'PowerShell', command: () => 'Set-Location sub; echo 1 > moved.txt', files: [] },
+  {
+    name: 'cmd keeps native paths and backslashes and skips devices, variables and remarks',
+    shell: 'cmd',
+    command: (project) =>
+      `dir > ${join(project, 'cmd', 'out.txt')} 2>&1 & echo ^> not.txt & echo x > "quoted name.txt" & echo y > nul & ` +
+      'echo z > %TEMP%\\z.txt & echo w > cmd\\rel.txt\nrem > skipped.txt\n:: > label.txt',
+    files: [['cmd', 'out.txt'], ['quoted name.txt'], ['cmd\\rel.txt']],
+  },
+  { name: 'cmd changing directory', shell: 'cmd', command: () => 'cd /d sub && echo 1 > moved.txt', files: [] },
+  { name: 'cmd changing drive', shell: 'cmd', command: () => 'D: & echo 1 > drive.txt', files: [] },
+  {
+    name: 'a Codex command string run by the shell it names',
+    shell: 'exec_command',
+    command: () => 'echo 1 > codex\\shell.txt',
+    files: [['codex\\shell.txt']],
+  },
+])('$name', async ({ shell, command, files }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  const run = await runShell(engine, project, shell, command(project))
+  const paths = store.artifacts.versions(run).flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : []))
+  expect(paths.sort()).toEqual(files.map((parts) => join(project, ...parts)).sort())
+})
+
+test('identical writes keep the earliest producer and their retention whatever order the evidence arrives in', async ({ onTestFinished }) => {
+  const content = '# Same\n'
+  type Step = 'transcript' | 'hooks-a' | 'hooks-b' | 'retain'
+  const play = async (steps: readonly Step[]) => {
+    const { store, engine, project } = await setup(onTestFinished)
+    const source = { session: 'same-session', cwd: project }
+    const path = join(project, 'docs', 'same.md')
+    const transcript = transcriptOf(source, [write('toolu_a', path, content), write('toolu_b', path, content)])
+    const tool = (id: string) => ({ tool_name: 'Write', tool_use_id: id, tool_input: { file_path: path, content } })
+    const hooks = (id: string, arrival: number) =>
+      hookBatch(
+        { file: 'same-start.evt', payload: claudeHook('SessionStart.startup.json', source) },
+        { file: `${id}-pre.evt`, payload: claudeHook('PreToolUse.Bash.json', source, tool(id)), arrival },
+        {
+          file: `${id}-post.evt`,
+          payload: claudeHook('PostToolUse.Bash.json', source, { ...tool(id), tool_response: { type: 'create', filePath: path, content } }),
+          arrival: arrival + 1,
+        },
+      )
+    const batches = { transcript: transcript.batch(1, 4), 'hooks-a': hooks('toolu_a', 10), 'hooks-b': hooks('toolu_b', 20) }
+    const states: (ArtifactVersion | undefined)[] = []
+    for (const step of steps) {
+      if (step === 'retain') {
+        const [version] = store.artifacts.versions(runOf(source))
+        const evidence = factsOf(store).find(({ kind }) => kind === 'action_start')
+        if (version === undefined || evidence === undefined) {
+          throw new Error('a version must exist before it is retained')
+        }
+        openRun(store, keyOf(source))
+        linkOutputs(store, keyOf(source), [version.id], evidence, 'same-call')
+        await engine.retainBases()
+      } else {
+        await engine.ingest(batches[step])
+      }
+      states.push(store.artifacts.versions(runOf(source))[0])
+    }
+    return states
+  }
+  const action = (call: string) => objectId({ kind: 'action', runtime: 'claude', session: 'same-session', call })
+  const settled = {
+    produced_by: action('toolu_a'),
+    observed_at: EpochNs.parse(BigInt(Date.UTC(2026, 9, 1, 10, 0, 1)) * 1_000_000n),
+    retention: { kind: 'action_payload', blob: contentHash(content), action: action('toolu_a') },
+  }
+  const transcriptFirst = await play(['transcript', 'retain', 'hooks-b', 'hooks-a'])
+  expect(transcriptFirst.slice(1)).toEqual([transcriptFirst[1], transcriptFirst[1], transcriptFirst[1]])
+  expect(transcriptFirst.at(-1)).toMatchObject(settled)
+  const hooksFirst = await play(['hooks-b', 'retain', 'hooks-a', 'transcript'])
+  expect(hooksFirst.map((state) => state?.produced_by)).toEqual([action('toolu_b'), action('toolu_b'), action('toolu_a'), action('toolu_a')])
+  expect(hooksFirst[1]?.retention).toMatchObject({ kind: 'action_payload', action: action('toolu_b') })
+  expect(hooksFirst.at(-1)).toMatchObject(settled)
+})
+
+test('an edit of a retained version is rebuilt from its patch and retained as the version of the edit', async ({ onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  const source = { session: 'edit-session', cwd: project }
+  const plan = join(project, 'plan.md')
+  const transcript = transcriptOf(source, [
+    write('toolu_base', plan, 'alpha\nbeta\n'),
+    edit('toolu_edit', plan, 'beta', 'gamma'),
+    [
+      'toolu_multi',
+      'MultiEdit',
+      { file_path: plan, edits: [{ old_string: 'alpha', new_string: 'one' }, { old_string: 'gamma', new_string: 'two' }] },
+      'ok',
+    ],
+  ])
+  await engine.ingest(transcript.batch(1, 2))
+  const base = versionAt(store, source, plan)
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [base.id], startOf(store, 'toolu_base'), 'base-call')
+  await engine.retainBases()
+  expect(retainedAs(store, base.id)).toEqual({ kind: 'action_payload', text: 'alpha\nbeta\n' })
+
+  await engine.ingest(transcript.batch(3, 6))
+  const editedBy = (call: string): ArtifactVersion => {
+    const found = store.artifacts.versions(runOf(source)).find(({ key }) => key.identity.kind === 'reference' && key.identity.fact === startOf(store, call).id)
+    if (found === undefined) {
+      throw new Error(`no version of ${call}`)
+    }
+    return found
+  }
+  const multi = editedBy('toolu_multi')
+  linkOutputs(store, keyOf(source), [multi.id], startOf(store, 'toolu_multi'), 'multi-call')
+  await rm(plan, { force: true })
+  const action = objectId({ kind: 'action', runtime: 'claude', session: source.session, call: 'toolu_multi' })
+  expect(await engine.retainBases()).toEqual([
+    expect.objectContaining({ id: multi.id, retention: { kind: 'action_payload', blob: contentHash('one\ntwo\n'), action } }),
+  ])
+  expect(retainedAs(store, multi.id)).toEqual({ kind: 'action_payload', text: 'one\ntwo\n' })
+  expect(store.artifacts.getVersion(editedBy('toolu_edit').id)?.retention).toEqual({ kind: 'reference' })
+})
+
+test('an edit without an unambiguous known base is read from the file', async ({ onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  const source = { session: 'ambiguous-session', cwd: project }
+  const file = (name: string) => join(project, name)
+  await ingestCalls(engine, source, [
+    write('toolu_x', file('x.md'), 'one\n'),
+    bash('toolu_x_shell', 'echo other > x.md'),
+    edit('toolu_x_edit', file('x.md'), 'other', 'changed'),
+    edit('toolu_y_edit', file('y.md'), 'old', 'new'),
+    write('toolu_z', file('z.md'), 'a\n'),
+    edit('toolu_z_edit', file('z.md'), 'missing', 'b'),
+    write('toolu_w', file('w.md'), 'x x\n'),
+    edit('toolu_w_edit', file('w.md'), 'x', 'y'),
+  ])
+  await writeFiles(project, { 'x.md': 'changed\n', 'y.md': 'new\n', 'z.md': 'on disk\n', 'w.md': 'y x\n' })
+  const edits = ['toolu_x_edit', 'toolu_y_edit', 'toolu_z_edit', 'toolu_w_edit'].map((call) => {
+    const found = store.artifacts.versions(runOf(source)).find(({ key }) => key.identity.kind === 'reference' && key.identity.fact === startOf(store, call).id)
+    if (found === undefined) {
+      throw new Error(`no version of ${call}`)
+    }
+    return found.id
+  })
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), edits, startOf(store, 'toolu_x_edit'), 'ambiguous-call')
+  await engine.retainBases()
+  expect(edits.map((id) => retainedAs(store, id))).toEqual([
+    { kind: 'file_read', text: 'changed\n' },
+    { kind: 'file_read', text: 'new\n' },
+    { kind: 'file_read', text: 'on disk\n' },
+    { kind: 'file_read', text: 'y x\n' },
+  ])
+})
+
+test('a Codex patch to an added file is rebuilt from the patch, including a move', async ({ onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  await ingestCodex(engine, project, [
+    ...codexPatchCall(1, 'call_add', '*** Begin Patch\n*** Add File: src/a.txt\n+one\n+two\n+three\n*** End Patch\n'),
+    ...codexPatchCall(
+      3,
+      'call_update',
+      '*** Begin Patch\n*** Update File: src/a.txt\n*** Move to: src/b.txt\n@@ one\n-two\n+zwei\n three\n*** End of File\n*** End Patch\n',
+    ),
+  ])
+  const run = runId(codexKey)
+  const moved = store.artifacts.versions(run).find(({ ref }) => ref.kind === 'file' && ref.path === join(project, 'src', 'b.txt'))
+  if (moved === undefined) {
+    throw new Error('the moved file must have a version')
+  }
+  expect(moved.key.identity.kind).toBe('reference')
+  openRun(store, codexKey)
+  linkOutputs(store, codexKey, [moved.id], startOf(store, 'call_update'), 'patch-call')
+  await engine.retainBases()
+  expect(retainedAs(store, moved.id)).toEqual({ kind: 'action_payload', text: 'one\nzwei\nthree\n' })
 })

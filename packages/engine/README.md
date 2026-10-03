@@ -205,9 +205,8 @@ an end read in separate batches give snapshots around the check. Checks read by
 backfill are snapshotted when they are read, so `taken_at` tells later readers
 whether a snapshot can precede the check.
 
-The snapshot runs in the directory of the check (`cwd` of its start, otherwise of
-its session), finds the top of the working tree and runs read-only commands with
-`GIT_OPTIONAL_LOCKS=0` and `core.fsmonitor=false`:
+The snapshot runs in the directory of the check, finds the top of the working tree
+and runs read-only commands with `GIT_OPTIONAL_LOCKS=0` and `core.fsmonitor=false`:
 
 - `git rev-parse --verify --quiet HEAD^{commit}`;
 - `git status --porcelain=v1 -z --ignored=traditional --untracked-files=normal
@@ -230,6 +229,13 @@ with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
 records are not session evidence: they do not move `last_event_at`, freshness or
 the turn state.
 
+The directory of an action comes from all of its starts. An explicit directory of
+the tool wins: `workdir` of a Codex `exec_command` or `cwd` of a Codex
+`CommandExecution`, given as a path or a `file://` URL. A relative explicit
+directory resolves against the ambient one. The ambient directory is the `cwd` of
+a start, otherwise of the session. A check without any directory runs in the
+`cwd` of its root session.
+
 ## Artifact versions
 
 The ingest transaction projects artifact versions from the actions whose start or
@@ -238,18 +244,38 @@ is the absolute path, and it records the action in `produced_by`. Inherited
 actions give no versions. Paths come from:
 
 - Claude `Write` (`file_path` with `content`), `Edit` and `MultiEdit`
-  (`file_path`), `NotebookEdit` (`notebook_path`), resolved against the `cwd` of
-  the start;
-- Codex `apply_patch` (`*** Add File`, `*** Update File` and its `*** Move to`)
-  and `FileChange` items (`add`, `update` with `move_path`); deletions give no
-  version;
+  (`file_path` with the replacements as a patch), `NotebookEdit`
+  (`notebook_path`);
+- Codex `apply_patch` (`*** Add File` with its content, `*** Update File` with
+  its hunks as a patch and its `*** Move to`) and `FileChange` items (`add`,
+  `update` with `move_path`); deletions give no version;
 - shell scripts of command actions (a `command` or `cmd` string, or the script of
-  a shell argument vector): targets of `>`, `>>`, `>|`, `&>`, `&>>` and `N>`, and
-  the file arguments of `tee`. Heredoc bodies, comments, quoted text, `[[ ]]`,
-  `(( ))` and process substitutions are not redirections; duplications such as
-  `2>&1`, `/dev/*`, and targets with expansions, globs or `~` are skipped. Relative
-  targets resolve against `workdir` of the input or the `cwd` of the start, and
-  are skipped when the script changes directory (`cd`, `pushd`, `popd`).
+  a shell argument vector): redirection targets and the file arguments of `tee`.
+  Comments, quoted text, expansions and globs are not targets; duplications such
+  as `2>&1`, devices, and targets with expansions, globs or a leading `~` are
+  skipped, and relative targets are skipped when the script changes directory.
+
+Relative paths resolve against the directory of the action (see Working tree
+snapshots). A script is read with the rules of its shell:
+
+- POSIX (`sh`, `bash`, `zsh`): `>`, `>>`, `>|`, `&>`, `&>>`, `N>`; heredoc bodies,
+  `[[ ]]`, `(( ))` and process substitutions are skipped; a backslash escapes any
+  character outside quotes and only `$`, `` ` ``, `"`, `\` and a newline inside
+  double quotes; `/dev/*` are devices; `cd`, `pushd` and `popd` change directory;
+- PowerShell: `>`, `>>`, `N>`, `*>`, `*>>`; the backtick is the escape character,
+  quotes are doubled inside quotes, `$` expands in double quotes, block comments
+  and here-strings are skipped; `nul`, `con` and other reserved names are devices;
+  `cd`, `Set-Location`, `Push-Location`, `Pop-Location` and their aliases change
+  directory; `tee` and `Tee-Object` write files;
+- `cmd`: `>`, `>>`, `N>`; `^` escapes, quotes are literal, `%` and `!` expand, `rem`
+  and `::` lines are remarks; reserved names are devices; `cd`, `chdir`,
+  `pushd`, `popd` and a bare drive change directory.
+
+The shell of an argument vector is its program (`pwsh`, `powershell`, `cmd`,
+otherwise POSIX). A command string uses the `shell` of the input when it is given;
+otherwise Claude `PowerShell` is PowerShell, Claude `Bash` is POSIX (Git Bash on
+Windows), and a Codex command runs in the host shell: PowerShell on Windows, POSIX
+elsewhere.
 
 A file tool gives a version after an end with outcome `ok`; an end with an unknown
 outcome, such as a Codex `PostToolUse` or tool output, is not enough. A command
@@ -261,6 +287,13 @@ its identity is the earliest stored start that names the path. The projection is
 repeatable, keeps the stored retention, and dates a version by its earliest
 qualifying end.
 
+Actions that write the same content to the same path share one content version.
+Its `produced_by` and `observed_at` are those of the earliest qualifying end, ties
+broken by the smaller action id, so the result does not depend on the order in
+which the evidence arrives, and a late hook of a known action changes nothing. An
+`action_payload` retention names the same action: the payload of every producer
+holds the same bytes.
+
 ## Retention of bases
 
 `engine.retainBases(runs?)` retains every version of the given runs (all runs by
@@ -270,6 +303,9 @@ an observer response and after a restart; the engine queue orders it with ingest
 
 - A content version whose payload still holds that content is retained from the
   payload as `action_payload`: the version the action produced.
+- A version written by a patch (Claude `Edit`/`MultiEdit`, a Codex `*** Update
+  File`) is rebuilt from the patch and its base and retained as `action_payload`
+  of the patching action. See Patch bases below.
 - Otherwise a regular file at the path is read as `file_read` with `read_at`, the
   state of the file at the moment of reading, not proven to be the output of the
   action.
@@ -277,6 +313,30 @@ an observer response and after a restart; the engine queue orders it with ingest
   with its SHA-256 and size; no blob is stored.
 - A missing path, a directory or an unreadable file keeps the version known only
   by reference; a later call reads it again.
+
+### Patch bases
+
+The base of a patch is the version of the patched path that the action changed. It
+is established only when it is unambiguous:
+
+- the writes of the run (all its sessions) are the actions that would give a
+  version of the path: a successful file tool or a command that redirects to it,
+  with the time of the first start and of the first qualifying end;
+- the base is the latest write of the source path (the path before a `*** Move
+  to`) that ended before the patch started, and no other write ended at the same
+  time or overlapped the patching action;
+- the content of the base is known from payloads: full content of the base action,
+  or a patch to its own established base. A command write has no known content;
+- every replacement applies exactly: Claude `old_string` occurs once (or at least
+  once with `replace_all`), and an empty `new_string` does not touch a following
+  newline; Codex hunks match their context and lines exactly, with the matching
+  and end-of-file rules of `apply_patch`.
+
+When any condition fails the version is read from the file as before. Writes the
+daemon does not observe (an editor, a formatter, a command without a redirection)
+are not in the history: exact matching rejects those that touch the patched text,
+but not a change elsewhere in the file. Codex `FileChange` diffs are not used as
+patches; the `apply_patch` input of the same action is.
 
 Blobs are stored once per hash with a reference per version and its source; the
 last reference removes the blob. Retention changes the version, so it reaches the
