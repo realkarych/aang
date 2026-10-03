@@ -763,16 +763,16 @@ counts come from the interpretation statuses.
   taken at `position`:
   - consecutive changes of facts, observation objects, gaps and retractions form one
     `facts` event, consecutive views and dismissals of attention items one
-    `attention` event with their views, and every model version forms one `model`
-    event. An event id is the last `change_seq` it contains, so ids grow and never
-    repeat;
+    `attention` event with their views, every model version forms one `model`
+    event, and a new view mark forms one `run` event at the `change_seq` of the mark.
+    An event id is the last `change_seq` it contains, so ids grow and never repeat;
   - objects and gaps arrive in their current state, `removed` names retracted agents
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
   - a model event replaces the changed entities of the run; a removed
     `session_membership` takes the objects of that session out of the run;
   - `run` is the current summary, view and bindings, which the transport delivers
-    after the events;
+    after the events; a `run` event carries the same current state;
   - a position ahead of the change feed is an `InvalidPositionError` with reason
     `stale_position`; a position before the reparse boundary is one with reason
     `reparsed`.
@@ -846,8 +846,11 @@ send nothing to the solver, and "viewed" never means "approved".
   snapshot it shows together with the events it applied; any other pair is an
   `InvalidPositionError`, and the previous mark stays. A later mark replaces the
   mark, even with an earlier position. Only this call sets the mark: ingestion, the
-  observer and reads never move it. The mark takes no `change_seq`; the snapshot and
-  the `run` delta carry it.
+  observer and reads never move it. A new mark is a visible change with its own
+  `change_seq`, after the position it marks; the marked pair stays as sent. The
+  snapshot and the `run` delta carry the mark, and the feed delivers it as a `run`
+  event at its `change_seq`. Repeating the same mark at the same time changes
+  nothing.
 - `viewItem(run, item)` and `dismissItem(run, item)` record that the user viewed or
   dismissed an attention item of the run, with a new `change_seq`. The first time
   of each is kept, so repeating either changes nothing. A dismissed item leaves the
@@ -872,8 +875,9 @@ order of ADR-0008. Each place explains itself:
    runtime wait of the item is active;
 3. `dependent_stages`: the active stages that depend on the item, more first. They
    are the stage of the item, or for an action-level item the stages its action is
-   assigned to while the action belongs to the run, together with every active stage
-   that depends on them through dependency links. Replaced, merged and split stages
+   assigned to while the action belongs to the run, together with every stage that
+   depends on them through dependency links, directly or through other stages.
+   Dependency links pass through replaced, merged and split stages, but such stages
    do not count;
 4. age: the older `opened_at` first; then the item id.
 

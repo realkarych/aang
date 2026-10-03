@@ -10,6 +10,7 @@ import type {
 } from '@aang/contract'
 
 export type FeedEvent =
+  | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
   | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
@@ -144,6 +145,8 @@ const applyAttention = (snapshot: RunSnapshot, { items, views }: AttentionDelta)
 export const applyFeed = (snapshot: RunSnapshot, feed: FeedSegment): RunSnapshot => {
   const replayed = feed.events.reduce((view, event) => {
     switch (event.event) {
+      case 'run':
+        return { ...view, summary: event.data.summary, view: event.data.view, bindings: event.data.bindings }
       case 'facts':
         return applyFacts(view, event.data)
       case 'model':

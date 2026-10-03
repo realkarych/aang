@@ -134,8 +134,12 @@ describe('since the last view and the order of attention', () => {
     const mark = views.markViewed(run, positionOf(seen))
 
     expect(mark).toEqual({ run, ...positionOf(seen), marked_at: at(100) })
-    expect(scene.store.changes.head()).toBe(seen.change_seq)
-    expect(snapshotOf(scene, run).view.mark).toEqual(mark)
+    const delivered = scene.reads.feed(run, seen.change_seq)
+    expect(delivered?.position).toBe(seen.change_seq + 1)
+    expect(delivered?.events).toEqual([{ event: 'run', id: seen.change_seq + 1, data: delivered?.run }])
+    const marked = expectFeedReproduces(scene.reads, run, seen)
+    expect(marked.view.mark).toEqual(mark)
+    expect(marked.summary.version).toBe(seen.summary.version)
 
     await scene.transcript(source, testRun(source, 'check-1', time(10), time(11), false))
     scene.observe(
@@ -167,7 +171,11 @@ describe('since the last view and the order of attention', () => {
 
     expect(next).toEqual({ run, ...positionOf(current), marked_at: at(200) })
     expect(snapshotOf(scene, run).view.mark).toEqual(next)
-    expect(views.markViewed(run, positionOf(seen))).toEqual({ run, ...positionOf(seen), marked_at: at(200) })
+    const back = views.markViewed(run, positionOf(seen))
+    expect(back).toEqual({ run, ...positionOf(seen), marked_at: at(200) })
+    const head = scene.store.changes.head()
+    expect(views.markViewed(run, positionOf(seen))).toEqual(back)
+    expect(scene.store.changes.head()).toBe(head)
   })
 
   test('a rule question that appears while the observer is unavailable is in the changes since the mark and is not announced again after the observer recovers', async ({
@@ -222,7 +230,7 @@ describe('since the last view and the order of attention', () => {
     expect(itemWith(snapshotOf(scene, run), ({ id }) => id === asked.id).priority?.value).toBe('high')
   })
 
-  test('the zone puts a waiting request first, then items more stages depend on, then older items; a recommendation keeps the order and a viewed item goes down', async ({
+  test('the zone puts a waiting request first, then items more active stages depend on through any stages, then older items; a recommendation keeps the order and a viewed item goes down', async ({
     onTestFinished,
   }) => {
     const scene = await openScene(onTestFinished)
@@ -325,13 +333,27 @@ describe('since the last view and the order of attention', () => {
         'call-replan',
         factsOfCall(scene, source, 'read-4'),
         [
+          stageOp(replan.evidence, 'generate', 'Generate the parser'),
           stageOp(replan.evidence, 'ship', 'Ship the parser'),
           stageOp(replan.evidence, 'manual', 'Write the manual'),
           {
             ...replan,
             op: 'stage.replace',
+            stage: existing(stageTitled(planned, 'Write the parser').id),
+            by: [temporary('generate')],
+          },
+          {
+            ...replan,
+            op: 'stage.replace',
             stage: existing(stageTitled(planned, 'Release the parser').id),
             by: [temporary('ship')],
+          },
+          {
+            ...replan,
+            op: 'stage.depends',
+            stage: temporary('ship'),
+            depends_on: existing(stageTitled(planned, 'Release the parser').id),
+            via: null,
           },
           {
             ...replan,
@@ -350,15 +372,16 @@ describe('since the last view and the order of attention', () => {
       ).status,
     ).toBe('accepted')
     const replanned = expectFeedReproduces(scene.reads, run, recommended)
+    const shipping = [stageTitled(replanned, 'Ship the parser').id, stageTitled(replanned, 'Test the parser').id].sort()
     const sameAge = [titled('Review the documentation'), titled('Which license?')].sort()
-    const narrowed = [
+    const reordered = [
       place(permission, [], true),
-      place(titled('The grammar is missing'), stages('Write the parser', 'Test the parser')),
-      place(failed, stages('Test the parser')),
+      place(titled('The grammar is missing'), shipping),
+      place(failed, shipping),
       place(titled('Which output format?')),
       ...sameAge.map((item) => place(item)),
     ]
-    expect(replanned.view.zone).toEqual(narrowed)
+    expect(replanned.view.zone).toEqual(reordered)
 
     const viewed = views.viewItem(run, permission)
 
@@ -369,7 +392,7 @@ describe('since the last view and the order of attention', () => {
       change_seq: scene.store.changes.head(),
     })
     const lowered = expectFeedReproduces(scene.reads, run, replanned)
-    expect(lowered.view.zone).toEqual([...narrowed.slice(1), place(permission, [], true, true)])
+    expect(lowered.view.zone).toEqual([...reordered.slice(1), place(permission, [], true, true)])
     expect(lowered.attention.views).toEqual([viewed])
     now = 600
     expect(views.viewItem(run, permission)).toEqual(viewed)
