@@ -378,7 +378,8 @@ binding's transaction:
   context assembled from several sessions and are never interpreted as facts;
 - an observer call of the source run whose batch holds any of these facts or
   whose input describes the session is ended as `rejected` with a `scope` reason:
-  the rest of its batch returns to `pending` in the source run, and a late
+  the rest of its batch returns to `pending` in the source run and gets its
+  attempt back, since a transfer is not a content failure, and a late
   response to it is not applied, so neither a rejection nor a restart returns the
   moved facts to the source run, and a session moved back gets its facts
   `pending` again. A call that already ended as `needs_requested` keeps its

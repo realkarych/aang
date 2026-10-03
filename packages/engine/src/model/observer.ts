@@ -138,7 +138,7 @@ export const endObserverCalls = (transaction: Transaction, { run, session, facts
     transaction.observerCalls.get(call)?.input.run.sessions.some(({ id }) => id === session) === true
   const calls = [...new Set(active.map(({ call }) => call))].filter((call) => owning.has(call) || describes(call))
   for (const call of calls) {
-    transaction.interpretations.settle(call, 'pending')
+    transaction.interpretations.release(call)
     if (transaction.observerCalls.get(call)?.finished_at !== null) {
       continue
     }

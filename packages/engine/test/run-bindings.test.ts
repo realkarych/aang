@@ -136,12 +136,8 @@ const factsOfSession = (store: Store, ...sessions: readonly string[]): string[] 
     .map(({ id }) => id)
     .sort()
 
-const queuedOf = (store: Store, sessions: readonly string[], attempted: Fact | null = null) =>
-  factsOfSession(store, ...sessions).map((fact) => ({
-    fact,
-    status: 'pending',
-    attempts: fact === attempted?.id ? 1 : 0,
-  }))
+const queuedOf = (store: Store, sessions: readonly string[]) =>
+  factsOfSession(store, ...sessions).map((fact) => ({ fact, status: 'pending', attempts: 0 }))
 
 const bindingsOf = (store: Store, run: RunId): ModelEntity[] =>
   store.model.entities(run).filter((entity) => entity.kind === 'binding')
@@ -461,7 +457,7 @@ describe('moving a session during an observer call', () => {
       finished_at: expect.any(BigInt) as unknown,
     })
     expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
-    const queues = [queuedOf(store, ['first'], own), queuedOf(store, ['second', 'third'])]
+    const queues = [queuedOf(store, ['first']), queuedOf(store, ['second', 'third'])]
     expect([queueOf(store, firstRun), queueOf(store, secondRun)]).toEqual(queues)
     store.close()
 
@@ -499,7 +495,7 @@ describe('moving a session during an observer call', () => {
     ).toThrow(`fact ${moving.id} is not in run ${firstRun}`)
     expect(store.observerCalls.get(followUp)).toBeNull()
     expect([queueOf(store, firstRun), queueOf(store, secondRun)]).toEqual([
-      queuedOf(store, ['first'], own),
+      queuedOf(store, ['first']),
       queuedOf(store, ['second', 'third']),
     ])
   })
@@ -533,7 +529,7 @@ describe('moving a session during an observer call', () => {
       reasons: [{ op_index: null, cause: 'scope', message: expect.stringContaining(sessionOf('third')) as unknown }],
     })
     expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
-    expect(pending(store, firstRun)).toEqual(factsOfSession(store, 'first'))
+    expect(queueOf(store, firstRun)).toEqual(queuedOf(store, ['first']))
   })
 
   test('returns the facts of a session moved back to the source run to its queue without the ended call', async () => {
