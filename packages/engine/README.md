@@ -9,7 +9,7 @@ journal restores the same stage and relationship ids.
 Assignments, participation, artifact links and dependencies are upserts by their
 endpoints. Repeating a relationship keeps its id and updates its grounds. Artifact
 input and output links are distinct; the same action, agent or version can belong
-to several stages. Artifact retention belongs to E.7b.
+to several stages. Linking a version makes it a basis; see Artifact versions.
 
 ## Runtime execution
 
@@ -193,8 +193,94 @@ The root session of a run comes from its `run` entity; without one, a session th
 is its own root uses its `cwd`.
 
 Checks do not produce criterion statuses: a check alone never gives `confirmed`.
-Snapshots around checks, `passed_unversioned`, `confirmed` and `stale` belong to
-E.7b and E.7c.
+`passed_unversioned`, `confirmed` and `stale` belong to E.7c.
+
+## Working tree snapshots
+
+When the ingest transaction stores the start or the end of a check (a command
+action of a run that matches a contract), the engine takes a snapshot of the
+working tree after the commit and before `ingest` resolves (ADR-0006). A batch
+that holds both the start and the end of a check takes one snapshot; a start and
+an end read in separate batches give snapshots around the check. Checks read by
+backfill are snapshotted when they are read, so `taken_at` tells later readers
+whether a snapshot can precede the check.
+
+The snapshot runs in the directory of the check (`cwd` of its start, otherwise of
+its session), finds the top of the working tree and runs read-only commands with
+`GIT_OPTIONAL_LOCKS=0` and `core.fsmonitor=false`:
+
+- `git rev-parse --verify --quiet HEAD^{commit}`;
+- `git status --porcelain=v1 -z --ignored=traditional --untracked-files=normal
+  --ignore-submodules=none -- <pathspecs>`.
+
+User settings that hide untracked files or submodule changes do not apply, and
+git neither refreshes the index nor takes `index.lock`. `inputMasks` of a contract
+are paths relative to the watched root that declares the contract, interpreted as
+git pathspecs. A mask that covers the whole working tree becomes `.`, and masks
+outside the working tree are dropped; when no mask remains, no snapshot is taken.
+
+A snapshot is clean only when `HEAD` resolves to a commit and the status under the
+masks is empty: an uncommitted, staged, renamed, untracked or ignored path under a
+mask makes it unclean. A failed git command (no repository, a missing directory)
+gives an unclean snapshot without a head and with the error.
+
+Each snapshot is a raw record of the `snapshot` channel (position `daemon`, no
+runtime or stream), one `git_snapshot` fact keyed by the run of the root session
+with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
+records are not session evidence: they do not move `last_event_at`, freshness or
+the turn state.
+
+## Artifact versions
+
+The ingest transaction projects artifact versions from the actions whose start or
+end it stores. A version belongs to the run of the action's session, its artifact
+is the absolute path, and it records the action in `produced_by`. Inherited
+actions give no versions. Paths come from:
+
+- Claude `Write` (`file_path` with `content`), `Edit` and `MultiEdit`
+  (`file_path`), `NotebookEdit` (`notebook_path`), resolved against the `cwd` of
+  the start;
+- Codex `apply_patch` (`*** Add File`, `*** Update File` and its `*** Move to`)
+  and `FileChange` items (`add`, `update` with `move_path`); deletions give no
+  version;
+- shell scripts of command actions (a `command` or `cmd` string, or the script of
+  a shell argument vector): targets of `>`, `>>`, `>|`, `&>`, `&>>` and `N>`, and
+  the file arguments of `tee`. Heredoc bodies, comments, quoted text, `[[ ]]`,
+  `(( ))` and process substitutions are not redirections; duplications such as
+  `2>&1`, `/dev/*`, and targets with expansions, globs or `~` are skipped. Relative
+  targets resolve against `workdir` of the input or the `cwd` of the start, and
+  are skipped when the script changes directory (`cd`, `pushd`, `popd`).
+
+A file tool gives a version after an end with outcome `ok`; an end with an unknown
+outcome, such as a Codex `PostToolUse` or tool output, is not enough. A command
+gives a version after any end except `denied`, because a failing command still
+writes its redirections.
+Full content in the payload (Claude `Write`, an added file of a Codex patch) makes
+the identity the content hash. Otherwise the version is known only by reference:
+its identity is the earliest stored start that names the path. The projection is
+repeatable, keeps the stored retention, and dates a version by its earliest
+qualifying end.
+
+## Retention of bases
+
+`engine.retainBases(runs?)` retains every version of the given runs (all runs by
+default) that is still known only by reference and is a basis: the version of an
+`artifact` link or the `via` of a `dependency` link. Callers run it after applying
+an observer response and after a restart; the engine queue orders it with ingest.
+
+- A content version whose payload still holds that content is retained from the
+  payload as `action_payload`: the version the action produced.
+- Otherwise a regular file at the path is read as `file_read` with `read_at`, the
+  state of the file at the moment of reading, not proven to be the output of the
+  action.
+- Content larger than `maxBlobBytes` (5 MiB by default) keeps only `hash_only`
+  with its SHA-256 and size; no blob is stored.
+- A missing path, a directory or an unreadable file keeps the version known only
+  by reference; a later call reads it again.
+
+Blobs are stored once per hash with a reference per version and its source; the
+last reference removes the blob. Retention changes the version, so it reaches the
+change feed. Versions of URLs, commits and pull requests are not retained here.
 
 ## Input scope and needs
 
@@ -214,9 +300,7 @@ belong to the run. The context record follows the raw record rule through its
 session whose data the context was assembled from (F.7a). A context that read a
 session of another vendor is therefore refused without `crossVendor`, whether it is
 the context of the input, the input checked again before a follow-up or a requested
-raw record. An
-artifact version must be bound to the run, so it is refused until E.7b provides its
-storage.
+raw record. An artifact version must be bound to the run, as E.7b stores it.
 `beginObserverCall` refuses an input with any violation and a first call that already
 carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started

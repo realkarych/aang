@@ -1,3 +1,11 @@
+export type {
+  ArtifactObject,
+  ArtifactReader,
+  ArtifactVersionDraft,
+  ArtifactWriter,
+  GitSnapshotDraft,
+  RetainedContent,
+} from './artifacts.js'
 export type { Change, ChangeFeed } from './changes.js'
 export type { CursorReader, CursorWriter } from './cursors.js'
 export { MissingRawRecordError, StoreLockedError, StoreVersionError } from './errors.js'
