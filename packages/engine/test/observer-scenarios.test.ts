@@ -41,6 +41,7 @@ import { playSample } from './scenarios.js'
 import {
   claudeAgentMeta,
   claudeHook,
+  claudeSubagentTranscript,
   claudeTranscript,
   codexChildRollout,
   codexRollout,
@@ -76,6 +77,12 @@ const assignedTo = (store: Store, run: RunId, stage: Stage): string[] =>
 
 const participantsOf = (store: Store, run: RunId, stage: Stage): string[] =>
   linksOf(store, run).flatMap((link) => (link.kind === 'participation' && link.stage === stage.id ? [link.agent] : []))
+
+const stagesUnder = (store: Store, run: RunId, parent: Stage): Stage[] =>
+  valuesOf(store, run, 'stage').filter((stage) => stage.parent === parent.id)
+
+const participations = (store: Store, run: RunId): string[][] =>
+  linksOf(store, run).flatMap((link) => (link.kind === 'participation' ? [[link.stage, link.agent]] : []))
 
 const agentWhere = (store: Store, run: RunId, matches: (agent: RunDescription['agents'][number]) => boolean) => {
   const agent = runDescription(store, run).agents.find(matches)
@@ -136,6 +143,42 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     ])
     expect(runDescription(store, run).brief).toMatch(/^Working towards: Step 1: run `echo hi`/)
     expect(pendingFacts(store, run)).toEqual([])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the subagent stage and its participation stay single when the agent type arrives after a map', async () => {
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const engine = startEngine(store, { all: true })
+    const session = 'late-type-session'
+    const source = { session, cwd: home.path }
+    const projects = join(home.path, 'projects', '-work-project')
+    const lead = claudeTranscript(source)
+    const own = claudeSubagentTranscript(source)
+    const spawn = lead.findIndex((line) => line.includes('"id":"toolu_01D254DDPoZEYPvJBjampKox"'))
+    const leadFile = jsonlFile({ runtime: 'claude', path: join(projects, `${session}.jsonl`), lines: lead, ino: 1n })
+    const ownPath = join(projects, session, 'subagents', `agent-${sampleSubagent}.jsonl`)
+    const run = runId(sessionKey('claude', session))
+    const [reply] = observerScenarios['live-map'].live.replies
+    await engine.ingest(leadFile.batch(1, spawn))
+    await engine.ingest(jsonlFile({ runtime: 'claude', path: ownPath, lines: own, ino: 2n }).batch(1, own.length))
+    const early = observeBatch(store, run, 'claude', reply, at(10))
+    const untyped = agentWhere(store, run, ({ role }) => role === 'subagent')
+    await engine.ingest(
+      snapshotBatch({
+        path: join(projects, session, 'subagents', `agent-${sampleSubagent}.meta.json`),
+        content: JSON.parse(claudeAgentMeta()) as JsonValue,
+      }),
+    )
+    await engine.ingest(leadFile.batch(spawn + 1, lead.length))
+    const late = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(early, late)
+    const pinger = agentTyped(store, run, 'pinger')
+    expect([spawn > 0, untyped.id, untyped.agent_type]).toEqual([true, pinger.id, null])
+    const delegated = stageTitled(store, run, agentStageTitle(pinger))
+    expect(stagesUnder(store, run, stageTitled(store, run, mainStageTitle))).toEqual([delegated])
+    expect(participations(store, run)).toEqual([[delegated.id, pinger.id]])
     expectGroundedInRecords(store, run)
   })
 
@@ -364,22 +407,23 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     const file = (name: string, lines: readonly string[], ino: bigint) =>
       jsonlFile({ runtime: 'codex', path: join(home.path, 'sessions', `${name}.jsonl`), lines, ino }).batch(1, lines.length)
     const hooks = codexHooks(root)
+    const rootRun = runId(sessionKey('codex', root))
+    const forkRun = runId(sessionKey('codex', fork))
+    const [reply] = observerScenarios['live-map'].live.replies
     await engine.ingest(
       file('root', [...codexRollout({ thread: root, cwd }), ...codexSpawnLines({ root, child, call: 'spawn-call', ordinal: 41 })], 1n),
     )
+    const spawned = observeBatch(store, rootRun, 'codex', reply, at(10))
     await engine.ingest(file('child', codexChildRollout({ root, thread: child, cwd }), 2n))
     await engine.ingest(hookBatch(hooks.start(), hooks.pre('pre.evt', 'call', ms(1)), hooks.request('request.evt', ms(2))))
     await engine.ingest(otelDecision(root, 'call', 'User', 'approved', ms(3)))
     await engine.ingest(hookBatch(hooks.post('post.evt', 'call', ms(4))))
     await engine.ingest(file('fork', codexRollout({ thread: fork, cwd, sessionMeta: { forked_from_id: root } }), 3n))
-    const rootRun = runId(sessionKey('codex', root))
-    const forkRun = runId(sessionKey('codex', fork))
-    const [reply] = observerScenarios['live-map'].live.replies
 
-    const rootCall = observeBatch(store, rootRun, 'codex', reply, at(10))
-    const forkCall = observeBatch(store, forkRun, 'codex', reply, at(11))
+    const rootCall = observeBatch(store, rootRun, 'codex', reply, at(20))
+    const forkCall = observeBatch(store, forkRun, 'codex', reply, at(21))
 
-    accepted(rootCall, forkCall)
+    accepted(spawned, rootCall, forkCall)
     expect(forkRun).not.toBe(rootRun)
     const main = stageTitled(store, rootRun, mainStageTitle)
     const subagent = agentWhere(store, rootRun, ({ role }) => role === 'subagent')
@@ -390,9 +434,10 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       agent: { kind: 'thread', thread_id: child },
     })
     expect(subagent.id).toBe(childAgent)
+    expect(subagent.name).not.toBeNull()
     const delegated = stageTitled(store, rootRun, agentStageTitle(subagent))
-    expect(delegated.parent).toBe(main.id)
-    expect(participantsOf(store, rootRun, delegated)).toEqual([childAgent])
+    expect(stagesUnder(store, rootRun, main)).toEqual([delegated])
+    expect(participations(store, rootRun)).toEqual([[delegated.id, childAgent]])
     expect(assignedTo(store, rootRun, main)).toEqual(
       expect.arrayContaining([codexAction(root, 'call'), codexAction(root, 'spawn-call')]),
     )

@@ -61,7 +61,33 @@ const delegated = (agent: RunAgentBrief): boolean =>
   (agent.role === 'subagent' || agent.role === 'teammate') && agent.service === null
 
 export const agentStageTitle = (agent: RunAgentBrief): string =>
-  `${agent.agent_type ?? agent.name ?? agent.role} (${agent.id.slice(0, 6)})`
+  `${agent.agent_type ?? agent.name ?? agent.role} (${agent.id})`
+
+const stageOfAgent = (input: ObserverInput, agent: RunAgentBrief): SnapshotStage | undefined =>
+  input.model.stages.find((stage) => stage.title.endsWith(` (${agent.id})`))
+
+const agentStageUpdate = (
+  known: SnapshotStage,
+  agent: RunAgentBrief,
+  evidence: FactId[],
+): ObserverOpOf<'stage.update'>[] => {
+  const title = agentStageTitle(agent)
+  const retitled = known.title === title ? null : title
+  const expected = known.expected_result === agent.description ? null : agent.description
+  return retitled === null && expected === null
+    ? []
+    : [
+        {
+          op: 'stage.update',
+          stage: { kind: 'existing', id: known.id },
+          title: retitled,
+          expected_result: expected,
+          summary: null,
+          evidence,
+          rationale: 'The metadata of the delegated agent became known',
+        },
+      ]
+}
 
 const factsOfAgent = (input: ObserverInput, agent: AgentId): FactId[] =>
   input.batch.facts.filter((fact) => fact.agent === agent).map(({ id }) => id)
@@ -168,20 +194,21 @@ const planMap = (input: ObserverInput, rootTitle: string): MapPlan => {
   )
   const agentStages = new Map<AgentId, StageRef>()
   input.run.agents.filter(delegated).forEach((agent, index) => {
-    const title = agentStageTitle(agent)
-    const known = stageTitled(input, title)
+    const grounds = factsOfAgent(input, agent.id)
+    const agentEvidence = grounds.length === 0 ? evidence : grounds
+    const known = stageOfAgent(input, agent)
     if (known !== undefined) {
+      ops.push(...agentStageUpdate(known, agent, agentEvidence))
       agentStages.set(agent.id, { kind: 'existing', id: known.id })
       return
     }
     const id = `agent-${String(index)}`
     const stage: StageRef = { kind: 'new', temp_id: temp(id) }
-    const grounds = factsOfAgent(input, agent.id)
-    ops.push(createStage(id, title, agent.description, root, evidence), {
+    ops.push(createStage(id, agentStageTitle(agent), agent.description, root, evidence), {
       op: 'agents.participate',
       agents: [agent.id],
       stage,
-      evidence: grounds.length === 0 ? evidence : grounds,
+      evidence: agentEvidence,
       rationale: 'The delegated agent does the work of this stage',
     })
     agentStages.set(agent.id, stage)
