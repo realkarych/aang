@@ -190,6 +190,25 @@ export const sleep = (milliseconds: number): Promise<void> =>
     setTimeout(resolve, milliseconds)
   })
 
+const busyCodes: readonly string[] = ['EBUSY', 'EPERM', 'EACCES']
+
+const isBusy = (error: unknown): boolean =>
+  process.platform === 'win32' && error instanceof Error && 'code' in error && busyCodes.includes(String(error.code))
+
+export const replaceFile = async (from: string, to: string): Promise<void> => {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await rename(from, to)
+      return
+    } catch (error) {
+      if (!isBusy(error) || attempt === 50) {
+        throw error
+      }
+      await sleep(20)
+    }
+  }
+}
+
 export const preventListing = async (sandbox: Sandbox, path: string): Promise<() => Promise<void>> => {
   const run = promisify(execFile)
   const username = userInfo().username

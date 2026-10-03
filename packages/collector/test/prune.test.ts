@@ -4,7 +4,7 @@ import { prefixHash } from '@aang/collector'
 import { type CollectorBatch, type FileCursor, PruneBoundary } from '@aang/contract'
 import { contentHash } from '@aang/contract/ids'
 import { expect, test, vi } from 'vitest'
-import { createSandbox, prepareCollector, runCollector, type Sandbox, sleep } from './sandbox.js'
+import { createSandbox, prepareCollector, replaceFile, runCollector, type Sandbox, sleep } from './sandbox.js'
 import { sessions, writeSession } from './sessions.js'
 
 const [claude, codex] = sessions
@@ -141,7 +141,7 @@ test.for(['replaced', 'shrunk'] as const)('a pruned Claude stream %s in place st
   running.collector.prune([boundary])
   if (change === 'replaced') {
     await writeSession(`${path}.next`, claude.lines.map((line) => line.replaceAll('Hello', 'Howdy')))
-    await rename(`${path}.next`, path)
+    await replaceFile(`${path}.next`, path)
   } else {
     await writeSession(path, claude.lines.slice(0, 1))
   }
