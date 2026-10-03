@@ -25,6 +25,19 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
 
     await expect(waitUntil(() => !isAlive(descendant))).resolves.toBeUndefined()
   })
+  test('a server that exits right after answering still yields its listing', async ({ expect, onTestFinished }) => {
+    const home = await createInstallHome(onTestFinished)
+    const entry = await sampleHook({ command: 'aang hook', trustStatus: 'trusted' })
+    const cli = await fakeAppServer(home, { exitAfterListing: true, listings: [hooksListing([entry])] })
+
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      expect(await hook.codexHooksState({ codexHome: home.codexHome, codex: cli })).toMatchObject({ status: 'active' })
+    }
+    for (const pid of new Set((await cli.calls()).map((call) => call.pid))) {
+      expect(() => process.kill(pid, 0)).toThrow()
+    }
+  })
+
   test.for([
     { trustStatus: 'untrusted', expected: 'untrusted' },
     { trustStatus: 'modified', expected: 'untrusted' },

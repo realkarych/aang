@@ -29,6 +29,8 @@ export interface DaemonSettings {
   readonly staticRoot?: string | null
 }
 
+export const testVersion = '0.0.0-test'
+
 export const createHome = async (
   onTestFinished: TestContext['onTestFinished'],
   config: Record<string, unknown> = {},
@@ -51,6 +53,7 @@ export const startDaemon = async (
   const controller = new AbortController()
   const ready = Promise.withResolvers<DaemonReady>()
   const stopped = runDaemon({
+    version: testVersion,
     environment: { env: { AANG_HOME: home.paths.home }, homedir: home.root },
     bind,
     staticRoot,

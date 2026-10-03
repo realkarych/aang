@@ -10,6 +10,7 @@ import {
   streamPath,
 } from '@aang/contract'
 import type { Authenticator } from './auth.js'
+import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
 import type { Streams } from './stream.js'
 
@@ -17,6 +18,7 @@ export interface ServerOptions {
   readonly listener: Listener
   readonly auth: Authenticator
   readonly staticRoot: string | null
+  readonly routes: (address: Listener) => readonly ApiRoute[]
   readonly streams: Streams
   readonly onShutdown: () => void
 }
@@ -85,6 +87,7 @@ export const startServer = async ({
   listener,
   auth,
   staticRoot,
+  routes,
   streams,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
@@ -105,20 +108,39 @@ export const startServer = async ({
     sendJson(response, 200, accepted)
   }
 
-  const routeApi = async (request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> => {
-    const { pathname } = url
-    if (request.method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
+  const routeApi = async (
+    table: readonly ApiRoute[],
+    request: IncomingMessage,
+    response: ServerResponse,
+    url: URL,
+  ): Promise<void> => {
+    const { pathname, searchParams: search } = url
+    const method = request.method ?? 'GET'
+    if (method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
       await shutdown(request, response)
       return
     }
-    if (request.method === 'GET' && pathname === streamPath) {
-      const refusal = streams.open(request, response, url.searchParams)
+    if (method === 'GET' && pathname === streamPath) {
+      const refusal = streams.open(request, response, search)
       if (refusal !== null) {
         sendError(response, refusal.code, refusal.message)
       }
       return
     }
-    sendError(response, 'not_found', `no route for ${request.method ?? 'GET'} ${pathname}`)
+    const match = matchRoute(table, method, pathname)
+    if (match === null) {
+      sendError(response, 'not_found', `no route for ${method} ${pathname}`)
+      return
+    }
+    try {
+      sendJson(response, 200, await match.route.serve({ pathname, params: match.params, search }))
+    } catch (error) {
+      if (error instanceof ApiFailure) {
+        sendError(response, error.code, error.message)
+        return
+      }
+      throw error
+    }
   }
 
   const redeemLink = async (response: ServerResponse, code: string): Promise<void> => {
@@ -137,7 +159,11 @@ export const startServer = async ({
     response.end(signedInPage)
   }
 
-  const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+  const handle = async (
+    table: readonly ApiRoute[],
+    request: IncomingMessage,
+    response: ServerResponse,
+  ): Promise<void> => {
     const url = new URL(request.url ?? '/', 'http://daemon.invalid')
     const { pathname } = url
     if (pathname.startsWith(authPrefix) && request.method === 'GET') {
@@ -154,15 +180,21 @@ export const startServer = async ({
       return
     }
     if (api) {
-      await routeApi(request, response, url)
+      await routeApi(table, request, response, url)
       return
     }
     await serveStatic(staticRoot, pathname, request, response)
   }
 
-  const server = createServer((request, response) => {
+  const server = createServer()
+  server.listen(listener.port, listener.host)
+  await once(server, 'listening')
+  const { port } = server.address() as AddressInfo
+  const address: Listener = { host: listener.host, port }
+  const table = routes(address)
+  server.on('request', (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader('x-content-type-options', 'nosniff')
-    handle(request, response).catch((error: unknown) => {
+    handle(table, request, response).catch((error: unknown) => {
       process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
       if (response.headersSent) {
         response.destroy()
@@ -171,11 +203,8 @@ export const startServer = async ({
       }
     })
   })
-  server.listen(listener.port, listener.host)
-  await once(server, 'listening')
-  const { port } = server.address() as AddressInfo
   return {
-    address: { host: listener.host, port },
+    address,
     close: async () => {
       const closed = once(server, 'close')
       streams.close()

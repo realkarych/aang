@@ -6,6 +6,7 @@ if (aangHome === undefined || homedir === undefined) {
 }
 
 await runDaemon({
+  version: '0.0.0-test',
   environment: { env: { AANG_HOME: aangHome }, homedir },
   bind: null,
   staticRoot: null,

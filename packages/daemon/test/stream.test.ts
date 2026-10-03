@@ -1,11 +1,19 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type Action, ApiError, type ApiErrorCode, ChangeSeq, type RunId, type RunSnapshot, type SseEvent } from '@aang/contract'
+import {
+  type Action,
+  ApiError,
+  type ApiErrorCode,
+  ChangeSeq,
+  endpoints,
+  type RunId,
+  type RunSnapshot,
+  type SseEvent,
+} from '@aang/contract'
 import { runId } from '@aang/contract/ids'
-import { createReadQueries } from '@aang/engine'
-import { openStore } from '@aang/store'
 import { applyFeed } from '@aang/testkit'
 import { describe, type TestContext, test } from 'vitest'
+import type { z } from 'zod'
 import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 import { endsWithRun, lastId, openKnownRun, openStream, requestStream, segmentsOf } from './stream-client.js'
 
@@ -97,19 +105,28 @@ const emptyOf = (snapshot: RunSnapshot): RunSnapshot => ({
   change_seq: ChangeSeq.parse(0),
 })
 
-const stopped = async (daemon: RunningDaemon): Promise<void> => {
-  daemon.abort()
-  await daemon.stopped
+const read = async <S extends z.ZodType>(
+  { home, daemon }: Pick<Scene, 'home' | 'daemon'>,
+  path: string,
+  schema: S,
+): Promise<z.output<S>> => {
+  const response = await fetch(new URL(path, daemon.base), { headers: bearer(home.token) })
+  const body: unknown = await response.json()
+  if (response.status !== 200) {
+    throw new Error(`GET ${path} answered ${String(response.status)}: ${JSON.stringify(body)}`)
+  }
+  return schema.parse(body)
 }
 
-const ok = () => ({ state: { state: 'ok' }, isolation_unverified: false }) as const
+const runPath = (run: RunId): string => `/api/runs/${run}`
 
 describe.concurrent('the run stream delivers the change feed over SSE', () => {
   test('a reconnection with Last-Event-ID after the last received event neither loses nor repeats events', async ({
     expect,
     onTestFinished,
   }) => {
-    const { home, daemon, transcript } = await openScene(onTestFinished)
+    const scene = await openScene(onTestFinished)
+    const { home, daemon, transcript } = scene
     const session = await transcript('g5-reconnect')
     await session.append(session.call('toolu_g5_first'))
 
@@ -128,17 +145,8 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
     const second = await openStream(daemon.base, home.token, { run: session.run, lastEventId: String(resumedAt) })
     await second.until(ended('toolu_g5_back'))
     await second.close()
-    await stopped(daemon)
 
-    const store = openStore({ home: home.paths.home })
-    onTestFinished(() => {
-      store.close()
-    })
-    const reads = createReadQueries({ store, observer: ok })
-    const final = reads.snapshot(session.run)
-    if (final === null) {
-      throw new Error('the run must exist')
-    }
+    const final = await read(scene, runPath(session.run), endpoints.run.response)
     const delivered = [...first.events, ...second.events]
     const dataIds = delivered.flatMap(({ event, id }) => (event === 'run' || id === null ? [] : [id]))
     expect(dataIds).toEqual([...new Set(dataIds)].sort((left, right) => left - right))
@@ -150,7 +158,13 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
     expect(actionsOf(second.events).map(({ key }) => key.call)).toContain('toolu_g5_away')
 
     const replayed = segmentsOf(delivered).reduce(applyFeed, emptyOf(final))
-    expect(reads.feed(session.run, replayed.change_seq)?.events).toEqual([])
+    const caughtUp = await openStream(daemon.base, home.token, {
+      run: session.run,
+      lastEventId: String(replayed.change_seq),
+    })
+    await caughtUp.until(endsWithRun)
+    await caughtUp.close()
+    expect(caughtUp.events.map(({ event }) => event)).toEqual(['run'])
     expect({ ...replayed, change_seq: final.change_seq }).toEqual(final)
     expect(replayed.plan_facts).toHaveLength(2)
     expect(replayed.objects.actions).toHaveLength(6)
@@ -176,11 +190,12 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
     expect(stale.events).toEqual([{ event: 'reset', id: null, data: { reason: 'stale_position' } }])
   })
 
-  test('without Last-Event-ID the stream starts at the current position and then follows new changes', async ({
+  test('without Last-Event-ID the stream starts at the current position, agrees with the reads over GET and then follows new changes', async ({
     expect,
     onTestFinished,
   }) => {
-    const { home, daemon, transcript } = await openScene(onTestFinished)
+    const scene = await openScene(onTestFinished)
+    const { home, daemon, transcript } = scene
     const session = await transcript('g5-from-now')
     await session.append(session.call('toolu_g5_before'))
     const known = await openKnownRun(daemon.base, home.token, { run: session.run, lastEventId: '0' })
@@ -194,6 +209,10 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
       throw new Error(`the stream started with ${String(current?.event)} instead of the run delta`)
     }
     expect(current.id).toBeGreaterThanOrEqual(lastId(known.events))
+    const listed = await read(scene, '/api/runs', endpoints.runs.response)
+    const snapshot = await read(scene, runPath(session.run), endpoints.run.response)
+    expect(listed.runs).toEqual([current.data.summary])
+    expect({ summary: snapshot.summary, view: snapshot.view, bindings: snapshot.bindings }).toEqual(current.data)
     await session.append(session.call('toolu_g5_after'))
     await live.until(ended('toolu_g5_after'))
     await live.close()

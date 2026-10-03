@@ -3,6 +3,7 @@ import { readdir, rm, stat, unlink } from 'node:fs/promises'
 import type { IncomingMessage } from 'node:http'
 import { join } from 'node:path'
 import { type AangHomePaths, AuthCode, readUiToken } from '@aang/contract/home'
+import { ignoreMissing } from './missing.js'
 
 export const sessionCookie = 'aang_token'
 
@@ -13,15 +14,6 @@ export interface Authenticator {
   readonly authorized: (request: IncomingMessage) => Promise<boolean>
   readonly redeem: (code: string) => Promise<string | null>
   readonly pruneExpiredCodes: () => Promise<void>
-}
-
-const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
-
-const ignoreMissing = <T>(error: unknown, fallback: T): T => {
-  if (isMissing(error)) {
-    return fallback
-  }
-  throw error
 }
 
 const digest = (value: string): Buffer => createHash('sha256').update(value).digest()
