@@ -1,6 +1,8 @@
 import type {
+  ActionKey,
   Adapter,
   AdapterRegistry,
+  ArtifactVersion,
   ChangeSeq,
   CollectedGap,
   CollectedRecord,
@@ -8,6 +10,7 @@ import type {
   FileCursor,
   EpochNs as EpochNsType,
   RecordOwner,
+  RunId,
   Runtime,
   ScopeDecision,
   SessionId,
@@ -15,13 +18,18 @@ import type {
   StreamKey,
 } from '@aang/contract'
 import { EpochNs } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
+import { retainBases } from '../artifacts/retention.js'
+import { projectVersions } from '../artifacts/versions.js'
 import { refreshChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
+import { checkSnapshots } from '../snapshots/checks.js'
+import { recordSnapshot } from '../snapshots/record.js'
+import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { normalizeOtel } from './otel.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
@@ -58,6 +66,7 @@ export interface EngineOptions {
   readonly holding?: Partial<HoldingLimits>
   readonly now?: () => EpochNsType
   readonly quietAfterMs?: number
+  readonly maxBlobBytes?: number
 }
 
 export interface IngestResult {
@@ -74,6 +83,7 @@ export interface IngestResult {
 export interface Engine {
   readonly ingest: (batch: CollectorBatch) => Promise<IngestResult>
   readonly refreshFreshness: () => Promise<ChangeSeq>
+  readonly retainBases: (runs?: Iterable<RunId>) => Promise<readonly ArtifactVersion[]>
 }
 
 interface HeldHook {
@@ -114,6 +124,7 @@ interface Committed {
   readonly hooks: readonly HeldHook[]
   readonly rescan: readonly StreamKey[]
   readonly quiet: QuietWatch
+  readonly snapshots: readonly SnapshotRequest[]
 }
 
 const mebibyte = 1024 ** 2
@@ -177,10 +188,13 @@ const heldLines = (files: ReadonlyMap<string, TrackedFile>): number =>
 
 export const createEngine = ({
   store, adapters: registry, watch, holding = {},
-  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000,
+  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000, maxBlobBytes = 5 * mebibyte,
 }: EngineOptions): Engine => {
   if (!Number.isSafeInteger(quietAfterMs) || quietAfterMs < 1) {
     throw new RangeError('quiet interval must be a positive safe integer in milliseconds')
+  }
+  if (!Number.isSafeInteger(maxBlobBytes) || maxBlobBytes < 1) {
+    throw new RangeError('blob size limit must be a positive safe integer in bytes')
   }
   const adapters = adaptersOf(registry)
   const contracts = createContractCatalog(watch)
@@ -302,6 +316,7 @@ export const createEngine = ({
   ): Committed =>
     store.transaction((transaction: Transaction) => {
       const changedSessions = new Map<string, SessionKey>()
+      const changedActions = new Map<string, ActionKey>()
       const sourceRecords = new Map<string, SourceRecord[]>()
       const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0, deferred: 0 }
       const files = new Map(state.files)
@@ -324,9 +339,12 @@ export const createEngine = ({
           records.push({ raw: { ...draftOf(parsed), seq }, owner })
           sourceRecords.set(name, records)
         }
-        for (const { entity_key } of facts) {
+        for (const { kind, entity_key } of facts) {
           const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
           changedSessions.set(sessionName(key), key)
+          if (entity_key.kind === 'action' && (kind === 'action_start' || kind === 'action_end')) {
+            changedActions.set(canonicalJson(entity_key), entity_key)
+          }
         }
         tally.inserted += 1
       }
@@ -497,8 +515,10 @@ export const createEngine = ({
         if (session !== null) { watchQuiet(watch, session) }
       }
       refreshChecks(transaction, changedSessions.values(), contracts)
+      projectVersions(transaction, changedActions.values())
+      const snapshots = checkSnapshots(transaction, changedActions.values(), contracts)
       settleQuiet(transaction, watch, instant, quietAfterMs)
-      return { tally, files, hooks, rescan: [...rescan], quiet: watch }
+      return { tally, files, hooks, rescan: [...rescan], quiet: watch, snapshots }
     })
 
   const withinLimits = (committed: Committed) => {
@@ -539,6 +559,29 @@ export const createEngine = ({
     return { files, hooks, abandoned, deferred }
   }
 
+  const recordSnapshots = async (requests: readonly SnapshotRequest[]): Promise<void> => {
+    const taken: TakenSnapshot[] = []
+    for (const request of requests) {
+      const snapshot = await takeSnapshot(request, now)
+      if (snapshot !== null) {
+        taken.push(snapshot)
+      }
+    }
+    if (taken.length > 0) {
+      store.transaction((transaction) => {
+        for (const snapshot of taken) {
+          recordSnapshot(transaction, snapshot)
+        }
+      })
+    }
+  }
+
+  const enqueue = <T>(work: () => T | Promise<T>): Promise<T> => {
+    const result = queue.then(work)
+    queue = result.then(() => undefined, () => undefined)
+    return result
+  }
+
   const ingestBatch = async (batch: CollectorBatch): Promise<IngestResult> => {
     const now = Date.now()
     const steps = fileSteps(batch, now)
@@ -557,6 +600,7 @@ export const createEngine = ({
       evidence,
       open: candidates.filter((open) => holdingBatches.has(open) && !kept.abandoned.has(open)),
     }
+    await recordSnapshots(committed.snapshots)
     return {
       head: store.changes.head(),
       ...committed.tally,
@@ -568,20 +612,15 @@ export const createEngine = ({
   }
 
   return {
-    refreshFreshness: () => {
-      const result = queue.then(() => {
+    refreshFreshness: () =>
+      enqueue(() => {
         const watch = new Map(quiet)
         store.transaction((transaction) => { settleQuiet(transaction, watch, now(), quietAfterMs) })
         quiet = watch
         return store.changes.head()
-      })
-      queue = result.then(() => undefined, () => undefined)
-      return result
-    },
-    ingest: (batch) => {
-      const result = queue.then(() => ingestBatch(batch))
-      queue = result.then(() => undefined, () => undefined)
-      return result
-    },
+      }),
+    ingest: (batch) => enqueue(() => ingestBatch(batch)),
+    retainBases: (runs) =>
+      enqueue(() => retainBases(store, { maxBlobBytes, now }, runs === undefined ? null : new Set(runs))),
   }
 }

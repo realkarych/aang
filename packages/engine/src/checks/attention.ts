@@ -10,9 +10,10 @@ import {
   type SessionId,
   type SessionKey,
 } from '@aang/contract'
-import { canonicalJson, contentHash, objectId, runId } from '@aang/contract/ids'
+import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type AttentionItemDraft, type ModelChangeDraft } from '../model/journal.js'
+import { rootSessionOf, runOf } from '../observations/runs.js'
 import type { Contract, ContractCatalog } from './catalog.js'
 import { type ActionFacts, type CheckResult, checkResult } from './results.js'
 
@@ -146,18 +147,6 @@ const streakChanges = (
   return { changes: [closing ?? opening], at }
 }
 
-const rootCwd = (transaction: Transaction, run: RunId, session: Session): string | null => {
-  const entity = transaction.model.entity(run, { kind: 'run', id: run })
-  if (entity?.kind === 'run') {
-    return transaction.observations.getSession(entity.value.root_session)?.cwd ?? null
-  }
-  return runId(session.key) === run ? session.cwd : null
-}
-
-const runOf = (transaction: Transaction, key: SessionKey): RunId =>
-  transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
-  runId(key)
-
 const runActions = (transaction: Transaction, run: RunId, session: Session): ActionFacts[] => {
   const members = new Set<SessionId>([session.id])
   for (const entity of transaction.model.entities(run)) {
@@ -176,7 +165,7 @@ const runActions = (transaction: Transaction, run: RunId, session: Session): Act
 }
 
 const refreshRun = (transaction: Transaction, run: RunId, session: Session, catalog: ContractCatalog): void => {
-  const cwd = rootCwd(transaction, run, session)
+  const cwd = rootSessionOf(transaction, run, session)?.cwd ?? null
   const contracts = cwd === null ? [] : catalog.contractsFor(cwd)
   if (contracts.length === 0) {
     return

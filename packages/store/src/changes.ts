@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import { ChangeSeq, type Fact, type Gap, type RawRecord } from '@aang/contract'
+import { type ArtifactObject, artifactKinds, isArtifactKind, toArtifactObject } from './artifacts.js'
 import { prepareStatement } from './context.js'
 import { factColumns, type FactRow, toFact } from './facts.js'
 import { gapColumns, type GapRow, toGap } from './gaps.js'
@@ -16,7 +17,7 @@ import {
 import { rawRecordColumns, type RawRecordRow, toRawRecord } from './raw-records.js'
 
 export type Change =
-  | { readonly layer: 'object'; readonly change_seq: ChangeSeq; readonly object: Observation }
+  | { readonly layer: 'object'; readonly change_seq: ChangeSeq; readonly object: Observation | ArtifactObject }
   | { readonly layer: 'removal'; readonly change_seq: ChangeSeq; readonly removal: StoredObservationRemoval }
   | { readonly layer: 'raw_record'; readonly change_seq: ChangeSeq; readonly record: RawRecord }
   | { readonly layer: 'fact'; readonly change_seq: ChangeSeq; readonly fact: Fact }
@@ -47,7 +48,7 @@ export const createChangeFeed = (database: DatabaseSync): ChangeFeed => {
   )
   const selectObjects = prepareStatement(
     database,
-    `SELECT kind, data, change_seq FROM objects WHERE kind IN (${observationKinds}) AND change_seq > ? ORDER BY change_seq LIMIT ?`,
+    `SELECT kind, data, change_seq FROM objects WHERE kind IN (${observationKinds}, ${artifactKinds}) AND change_seq > ? ORDER BY change_seq LIMIT ?`,
   )
   const selectRemovals = prepareStatement(
     database,
@@ -69,7 +70,11 @@ export const createChangeFeed = (database: DatabaseSync): ChangeFeed => {
         (row): Change => ({ layer: 'gap', change_seq: changeSeqOf(row), gap: toGap(row) }),
       )
       const objects = (selectObjects.all(position, limit) as ObservationRow[]).map(
-        (row): Change => ({ layer: 'object', change_seq: changeSeqOf(row), object: toObservation(row) }),
+        (row): Change => ({
+          layer: 'object',
+          change_seq: changeSeqOf(row),
+          object: isArtifactKind(row.kind) ? toArtifactObject(row.kind, row.data) : toObservation(row),
+        }),
       )
       const removals = (selectRemovals.all(position, limit) as RemovalRow[]).map(
         (row): Change => ({ layer: 'removal', change_seq: changeSeqOf(row), removal: toRemoval(row) }),
