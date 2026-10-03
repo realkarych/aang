@@ -1,9 +1,9 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
-import { hostname, tmpdir } from 'node:os'
+import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { recordSession, verifyRecording, type RecordContext, type RecordOptions } from '../dist/index.js'
 
 const temporary: string[] = []
@@ -26,6 +26,7 @@ const options = async (runtime: 'claude' | 'codex' = 'claude'): Promise<RecordOp
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs()
   await Promise.all(temporary.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
 })
 
@@ -267,6 +268,7 @@ test('verification detects every private input class independently of the record
     { machine_id: '0123456789abcdef0123456789abcdef' },
     { pidDomain: 'linux:0123456789abcdef0123456789abcdef:pid:[4026531836]' },
     { pidDomain: 'win32:PRIVATE-DESKTOP' },
+    { pidDomain: 'win32:bob' },
   ]
   for (const vector of vectors) {
     await writeFile(join(directory, 'unchecked.json'), JSON.stringify(vector))
@@ -377,37 +379,43 @@ test('masks credentials, short identities and escaped home paths while keeping e
   expect(agent.payload.source.subagent.thread_spawn.agent_path).toBe('/root/pong')
 })
 
-test('masks the host name and machine id of the recording machine wherever they appear', async () => {
+test.each([
+  { name: 'Private-Laptop.local', spellings: ['PRIVATE-Laptop.local', 'pRiVaTe-LaPtOp.local', 'private-LAPTOP'] },
+  { name: 'bob.local', spellings: ['bob', 'BOB.local', 'Bob'] },
+  { name: '7-private.local', spellings: ['7-private', '7-PRIVATE.local'] },
+  { name: 'bob', spellings: ['bob', 'BOB'] },
+])('masks the host name $name and the machine id of the recording machine in any letter case', async ({ name, spellings }) => {
+  vi.stubEnv('COMPUTERNAME', name)
   const config = await options('codex')
-  const host = hostname()
-  const label = /^([a-z][\w-]{3,})\./i.exec(host)?.[1] ?? host
   const machine = await readFile('/etc/machine-id', 'utf8').then((text) => text.trim(), () => '')
   const directory = await recordSession(config, async (session) => {
     await writeFile(join(session.project, 'host.json'), JSON.stringify({
-      resource: { attributes: [{ key: 'host.name', value: { stringValue: host } }] },
-      params: { serverName: host, status: 'disabled' },
-      pidDomain: `win32:${host.toUpperCase()}`,
-      text: `Connected to ${label.toLowerCase()} on ${machine || 'no machine id'}`,
+      resource: { attributes: [{ key: 'host.name', value: { stringValue: name } }] },
+      params: { serverName: spellings[0], status: 'disabled' },
+      pidDomain: `win32:${String(spellings.at(-1)).toUpperCase()}`,
+      text: `${spellings.map((spelling) => `Connected to ${spelling}`).join('; ')} on ${machine || 'no machine id'}`,
+      word: 'Bobsled',
       local: 'http://localhost:4318/v1/logs',
     }))
   })
   const playback = await loadManifest(join(directory, 'playback.json'))
   const step = playback.steps.find((item) => 'target' in item && item.target.path === 'project/host.json')
   const content = playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
-  expect(content.toLowerCase()).not.toContain(label.toLowerCase())
   if (machine) expect(content).not.toContain(machine)
   const value = JSON.parse(content) as {
     resource: { attributes: { value: { stringValue: string } }[] }
     params: { serverName: string }
     pidDomain: string
     text: string
+    word: string
     local: string
   }
-  const masked = value.resource.attributes[0]?.value.stringValue
+  const masked = String(value.resource.attributes[0]?.value.stringValue)
   expect(masked).toMatch(/^HOST_\d+$/)
   expect(value.params.serverName).toBe(masked)
-  expect(value.pidDomain).toBe(`win32:${String(masked)}`)
-  expect(value.text).toBe(`Connected to ${String(masked)} on ${machine ? 'MACHINE_1' : 'no machine id'}`)
+  expect(value.pidDomain).toBe(`win32:${masked}`)
+  expect(value.text).toBe(`${spellings.map(() => `Connected to ${masked}`).join('; ')} on ${machine ? 'MACHINE_1' : 'no machine id'}`)
+  expect(value.word).toBe('Bobsled')
   expect(value.local).toBe('http://localhost:4318/v1/logs')
   await verifyRecording(directory)
 })

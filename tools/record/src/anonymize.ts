@@ -19,13 +19,15 @@ const isCredential = (key: string): boolean => /(?:token|apikey|secret|password|
 
 const processDomain = /^[a-z\d]+:([^:\s]+)/i
 
-const hostLabel = /^([a-z][\w-]{3,})\./i
+const hostLabel = /^([^.]+)\./
 
-const aliases = (value: string, kind: string): string[] => {
-  if (kind !== 'HOST') return [value]
-  const label = hostLabel.exec(value)?.[1]
-  return [value, ...label === undefined ? [] : [label]].flatMap((name) => [name, name.toLowerCase(), name.toUpperCase()])
-}
+const isMachine = (kind: string): boolean => kind === 'HOST' || kind === 'MACHINE'
+
+const isAmbiguous = (value: string): boolean => value.length < 4 || /^\d+$/.test(value)
+
+const machineName = (name: string): RegExp => new RegExp(isAmbiguous(name)
+  ? String.raw`(?:(?<![\p{L}\p{N}_-])|(?<=\\[bfnrt]))${RegExp.escape(name)}(?![\p{L}\p{N}_-])`
+  : RegExp.escape(name), 'giu')
 
 const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|HOST|MACHINE|EMAIL|SECRET)_\d+$/
 const email = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[a-z]{2,}/giu
@@ -99,17 +101,22 @@ export const createAnonymizer = (
   identities: Iterable<readonly [Identity, string]> = [],
 ): Anonymizer => {
   const replacements = new Map(paths)
+  const machines = new Map<string, string>()
   const secrets = new Set<string>()
   const counts = new Map<string, number>()
-  let ordered: (readonly [string, string])[] | undefined
-  const register = (value: string, kind: string): void => {
-    if (!value || placeholder.test(value) || replacements.has(value) || (kind === 'HOST' && /^localhost$/i.test(value))) return
+  let ordered: (readonly [string, string, string | RegExp])[] | undefined
+  const lookup = (value: string): string | undefined => replacements.get(value) ?? machines.get(value.toLowerCase())
+  const register = (value: string, kind: string, aliases: readonly string[] = []): void => {
+    const names = [value, ...aliases]
+    if (!value || placeholder.test(value) || lookup(value) !== undefined || (kind === 'HOST' && names.some((name) => /^localhost$/i.test(name)))) return
     const next = (counts.get(kind) ?? 0) + 1
     counts.set(kind, next)
-    for (const alias of aliases(value, kind)) if (!replacements.has(alias)) replacements.set(alias, `${kind}_${String(next)}`)
+    const after = `${kind}_${String(next)}`
+    if (isMachine(kind)) for (const name of names) machines.set(name.toLowerCase(), machines.get(name.toLowerCase()) ?? after)
+    else replacements.set(value, after)
     ordered = undefined
   }
-  for (const [kind, value] of identities) register(value, kind)
+  for (const [kind, value] of identities) register(value, kind, kind === 'HOST' ? hostLabel.exec(value)?.slice(1) : undefined)
   const registerSecret = (value: string): void => {
     const secret = value.replace(/^(?:bearer|basic|token)\s+/i, '')
     if (secret.length < 24 && (secret.length < 8 || !/\d/.test(secret))) return
@@ -150,31 +157,35 @@ export const createAnonymizer = (
     return value
   }
   const replaceText = (input: string): string => {
-    ordered ??= [...replacements].sort(([left], [right]) => right.length - left.length)
+    ordered ??= [
+      ...[...replacements].filter(([before]) => paths.has(before) || secrets.has(before) || !isAmbiguous(before))
+        .map(([before, after]) => [before, after, before] as const),
+      ...[...machines].map(([name, after]) => [name, after, machineName(name)] as const),
+    ].sort(([left], [right]) => right.length - left.length)
     let text = input
-    for (const [before, after] of ordered) {
-      if (!paths.has(before) && !secrets.has(before) && (before.length < 4 || /^\d+$/.test(before))) continue
-      text = text.replaceAll(before, after)
-    }
+    for (const [, after, matcher] of ordered) text = text.replaceAll(matcher, after)
     text = text.replaceAll(assignments, (match: string, _key: string, value: string) =>
-      match.slice(0, match.length - value.length) + (replacements.get(value) ?? value))
+      match.slice(0, match.length - value.length) + (lookup(value) ?? value))
     return text.replaceAll(homes, (_home, prefix: string) => `${prefix}USER`)
       .replaceAll(rootHome, (_root, separator: string) => `${separator}home${separator}USER`)
       .replaceAll(profile, 'REDACTED_HOME')
   }
-  const identity = (value: Json): Json => typeof value === 'number' ? replacements.get(String(value)) ?? value : mapValue(value)
+  const identity = (value: Json): Json => typeof value === 'number' ? lookup(String(value)) ?? value : mapValue(value)
+  const processDomainOf = (value: string): string => replaceText(value.replace(processDomain, (match: string, segment: string) =>
+    match.slice(0, match.length - segment.length) + (lookup(segment) ?? segment)))
   const attributeValue = (value: { [key: string]: Json }): Json => Object.fromEntries(Object.entries(value).map(([field, content]) => {
     const masked = identity(content)
     return [field === 'intValue' && masked !== content ? 'stringValue' : field, masked]
   }))
   const mapValue = (value: Json): Json => {
-    if (typeof value === 'string') return replacements.get(value) ?? structured(value, mapValue, replaceText)
+    if (typeof value === 'string') return lookup(value) ?? structured(value, mapValue, replaceText)
     if (Array.isArray(value)) return value.map(mapValue)
     if (isRecord(value)) {
       const attribute = isAttribute(value)
       return Object.fromEntries(Object.entries(value).map(([key, nested]) => [
         replaceText(key),
         identityKind(key) ? identity(nested)
+          : normalize(key) === 'piddomain' && typeof nested === 'string' ? processDomainOf(nested)
           : attribute && key === 'value' && isRecord(nested) ? attributeValue(nested)
             : mapValue(nested),
       ]))
