@@ -74,6 +74,23 @@ const violations: readonly DirectionCase[] = [
     ],
   },
   {
+    name: 'subpath imports are checked against the packages they map to',
+    path: 'packages/aang/src/subpath.ts',
+    code: [
+      "import '#web'",
+      "export const store = import.meta.resolve('#store')",
+      'export const engine = import.meta.resolve(`#engine-${process.arch}`)',
+      'export const load = () => import(`#store-${process.arch}`)',
+    ],
+    errors: [
+      [1, '@aang/aang product code may only locate @aang/web with import.meta.resolve; it may not import its code'],
+      [2, '@aang/aang product code may not import @aang/store; allowed: @aang/cli, @aang/daemon'],
+      [3, '@aang/aang product code may not import @aang/engine; allowed: @aang/cli, @aang/daemon'],
+      [4, '@aang/aang product code may not import @aang/store; allowed: @aang/cli, @aang/daemon'],
+      [4, '@aang/aang product code may not import @aang/observer; allowed: @aang/cli, @aang/daemon'],
+    ],
+  },
+  {
     name: 'cli product code may not import the aang entry that composes it',
     path: 'packages/cli/src/start.ts',
     code: ["import '@aang/aang'"],
@@ -323,6 +340,18 @@ const allowed: readonly DirectionCase[] = [
     errors: [],
   },
   {
+    name: 'aang product code may locate web and the hook binary through its subpath imports',
+    path: 'packages/aang/src/layout.ts',
+    code: [
+      "export const web = import.meta.resolve('#web')",
+      'export const hook = import.meta.resolve(`#aang-hook-${process.platform}-${process.arch}`)',
+      "export const windowsHook = import.meta.resolve('#aang-hook-win32-arm64')",
+      "export const own = import.meta.resolve('#own')",
+      "export const unmapped = import.meta.resolve('#unmapped')",
+    ],
+    errors: [],
+  },
+  {
     name: 'daemon tests may import testkit',
     path: 'packages/daemon/test/start.test.ts',
     code: ["import '@aang/testkit'"],
@@ -378,15 +407,26 @@ const allowed: readonly DirectionCase[] = [
   },
 ]
 
+const aangImports = {
+  '#web': '@aang/web',
+  '#own': './dist/own.js',
+  '#store': '@aang/store',
+  '#store-*': { node: '@aang/store/*', default: ['@aang/observer/fallback'] },
+  '#engine-*': '@aang/engine/*',
+  '#aang-hook-win32-*': '@aang/hook/bin/aang-hook.exe',
+  '#aang-hook-*': '@aang/hook/bin/aang-hook',
+}
+
 describe('the repository ESLint configuration enforces the ADR-0011 dependency direction', () => {
   const cases = [...violations, ...allowed]
   let workspace: LintWorkspace | undefined
   let findings: Findings | undefined
 
   beforeAll(async () => {
-    workspace = await createLintWorkspace(
-      Object.fromEntries(cases.map((row) => [row.path, `${row.code.join('\n')}\n`])),
-    )
+    workspace = await createLintWorkspace({
+      ...Object.fromEntries(cases.map((row) => [row.path, `${row.code.join('\n')}\n`])),
+      'packages/aang/package.json': JSON.stringify({ name: '@aang/aang', private: true, type: 'module', imports: aangImports }),
+    })
     findings = await workspace.lint()
   }, 120_000)
 

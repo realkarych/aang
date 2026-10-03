@@ -1,17 +1,16 @@
 {
-  "name": "@aang/hook",
+  "name": "@aang/npm-package",
   "private": true,
   "type": "module",
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
-    },
-    "./bin/*": "./bin/*"
+    }
   },
   "dependencies": {
-    "@aang/contract": "workspace:*",
-    "zod": "^4.6.5"
+    "@aang/web": "workspace:*",
+    "esbuild": "^0.28.2"
   },
   "devDependencies": {
     "@aang/testkit": "workspace:*"

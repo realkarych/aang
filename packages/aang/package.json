@@ -1,13 +1,21 @@
 {
   "name": "@aang/aang",
+  "version": "0.0.0",
   "private": true,
   "type": "module",
   "bin": {
-    "aang": "./dist/main.js"
+    "aang": "./dist/main.js",
+    "aang-hook": "./dist/hook.js"
+  },
+  "imports": {
+    "#web": "@aang/web",
+    "#aang-hook-win32-*": "@aang/hook/bin/aang-hook.exe",
+    "#aang-hook-*": "@aang/hook/bin/aang-hook"
   },
   "dependencies": {
     "@aang/cli": "workspace:*",
     "@aang/daemon": "workspace:*",
+    "@aang/hook": "workspace:*",
     "@aang/web": "workspace:*"
   },
   "devDependencies": {

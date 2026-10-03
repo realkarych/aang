@@ -27,6 +27,7 @@ export default defineConfig({
     tags: [
       { name: 'benchmark', description: 'strict local benchmarks, excluded from the default run' },
       { name: 'runtime', description: 'scenarios on installed runtime CLIs and SDKs, run by the Scenarios workflow' },
+      { name: 'package', description: 'the packed npm package installed into a temporary prefix, run by the package CI job' },
     ],
     passWithNoTests: testFilesOnDisk.length === 0,
     testTimeout: 30_000,

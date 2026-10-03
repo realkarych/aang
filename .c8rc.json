@@ -1,7 +1,7 @@
 {
   "all": true,
   "include": ["packages/*/dist/**/*.js", "tools/*/dist/**/*.js"],
-  "exclude": ["packages/testkit/**", "tools/runtime-check/**", "tools/record/dist/claude/**", "tools/record/dist/codex/**"],
+  "exclude": ["packages/testkit/**", "tools/runtime-check/**", "tools/npm-package/**", "tools/record/dist/claude/**", "tools/record/dist/codex/**"],
   "reporter": ["text"],
   "reportsDirectory": "coverage"
 }
