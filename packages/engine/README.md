@@ -408,8 +408,9 @@ such as an edit patch or an MCP result, the output is the JSON text
 `{"output": <text>, "result": <result>}`. Texts longer than
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
 and report their path and original length. Artifact versions answer `not_found`
-until E.7b provides their storage. Context records answer `not_found`: the resolver
-does not read the stored context of F.7a yet.
+until E.7b provides their storage. A context request returns the stored run context
+of F.7a with its entries cut at `MaterialLimits.textLength`; a record of another
+channel answers `not_found`, a context out of scope its exclusion.
 
 A response with nonempty `needs` to a call without materials is not applied.
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch
@@ -432,26 +433,65 @@ A reparse queues the facts it adds the same way after it rebuilds the projection
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
 
-`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context })`
 starts the next call of a run from its pending facts in the order of their records:
 
 - a queued `context` or `git_snapshot` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
-- the batch is the first facts up to `limits.facts` whose payload size in UTF-8 bytes
-  stays within `limits.bytes`; the first fact always goes;
+- the candidates are the first facts up to `limits.facts` whose payload size in UTF-8
+  bytes stays within `limits.bytes`; the first fact always goes;
 - the input carries the run description with the sessions and agents in scope, the
-  snapshot of the current version (active stages, criteria, open attention items),
-  the batch facts with their session, agent and action and payload strings cut at
-  `limits.textLength`, and the reasons of the latest rejected call of these facts as
-  `previous_attempt`. The run goal and brief, stages, criteria and attention items
-  enter only when their grounds are in scope; a reference to a stage left out becomes
-  `null`. The reasons carry over calls that ended without a response, so a backend
-  failure or a restart after a rejection does not drop them. The context, collapsed
-  facts, backlog and artifact versions stay empty: the batch does not pack them yet;
+  given run context when its record is in scope (otherwise `null`), the snapshot of
+  the current version (active stages, criteria, open attention items), the batch
+  facts with their session, agent and action, the collapsed routine facts and the
+  reasons of the latest rejected call of these facts as `previous_attempt`. The run
+  goal and brief, stages, criteria and attention items enter only when their grounds
+  are in scope; a reference to a stage left out becomes `null`. The reasons carry
+  over calls that ended without a response, so a backend failure or a restart after
+  a rejection does not drop them. The backlog and artifact versions stay empty;
+- the input is packed within the limit (see "Observer input" below). When even one
+  fact with the shortest texts does not fit, the candidates become `not_interpreted`
+  and their sessions get an open gap `not_interpreted` that names the limit;
 - the call is recorded by `beginObserverCall`. Without a run entity or an eligible
   fact nothing starts and the result is `null`.
+
+### Observer input
+
+The size of an input is its JSON in UTF-8 bytes divided by four, rounded up, in
+tokens (`observerInputTokens`); `limits.inputTokens` bounds it (ADR-0007, 24 000 by
+default in the scheduler). A first call is packed within seven eighths of the limit,
+so that the follow-up for `needs` has room for its materials under the full limit.
+
+Routine facts are folded into counters (`batch.collapsed`) before the size is
+measured. A fact is routine when it starts an action that reads files or searches
+(`file_read`, `search`), or ends one with the outcome `ok`, and is not urgent. The
+facts of each session and agent are taken in batch order; a series of routine facts
+of the same tool that covers at least three actions becomes one counter with the
+tool, the action kind, the agent, the fact ids and the time span. Any other fact of
+the same agent ends the series; facts of other agents do not. Collapsed facts belong
+to the batch: they may be cited as evidence and are interpreted with it.
+
+When the input exceeds the limit, the packing gives up detail in this order and
+stops at the first input that fits:
+
+1. the strings of the batch fact payloads and the context entries are cut to the
+   longest common length between 256 characters and `limits.textLength`; every cut
+   reports its path and original length;
+2. with those strings at 256 characters, the texts of the run description, the
+   snapshot and `previous_attempt` are cut to the longest length from 64 characters
+   and end with `…`;
+3. the batch keeps the longest prefix of the candidates that fits with full model
+   texts, and the strings of that prefix get the longest length that still fits; the
+   other candidates stay `pending` for the next batch;
+4. one fact with 256-character strings and model texts cut from 64 characters.
+
+`beginObserverFollowUp` packs the stored input with the resolved materials within
+`inputTokens` (24 000 by default) in the same order. The materials are resolved with
+the same string length as the batch facts and the context, which can be cut further
+than in the first call; step 3 drops materials from the end instead of facts. The
+batch, the snapshot version and the ids stay those of the first call.
 
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a

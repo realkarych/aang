@@ -7,9 +7,11 @@ import type {
   MaterialUnavailableReason,
   ObserverMaterial,
   ObserverNeed,
+  RunContext,
   Truncation,
 } from '@aang/contract'
 import { canonicalJson } from '@aang/contract/ids'
+import { storedRunContext } from './context.js'
 import type { InputScope, ScopeReader } from './scope.js'
 import { withoutThinking } from './thinking.js'
 
@@ -18,7 +20,7 @@ export interface MaterialLimits {
   readonly textLength: number
 }
 
-const defaultLimits: MaterialLimits = { needs: 8, textLength: 4_000 }
+export const defaultMaterialLimits: MaterialLimits = { needs: 8, textLength: 4_000 }
 
 const nanosecondsPerMillisecond = 1_000_000n
 
@@ -51,6 +53,22 @@ export const clipJson = (value: JsonValue, path: string, limit: number): Clipped
     ? { value: members.map(([, member]) => member.value), truncated }
     : { value: Object.fromEntries(members.map(([key, member]) => [key, member.value])), truncated }
 }
+
+const clipEntries = (context: RunContext, limit: number): RunContext => ({
+  ...context,
+  entries: context.entries.map((entry) =>
+    entry.text.length > limit
+      ? {
+          ...entry,
+          text: entry.text.slice(0, limit),
+          truncated: entry.truncated ?? { path: 'text', length: entry.text.length },
+        }
+      : entry,
+  ),
+})
+
+export const clipContext = (context: RunContext | null, limit: number): RunContext | null =>
+  context === null ? null : clipEntries(context, limit)
 
 const unavailable = (request: ObserverNeed, reason: MaterialUnavailableReason): ObserverMaterial => ({
   kind: 'unavailable',
@@ -144,8 +162,19 @@ const resolveNeed = (
       const exclusion = scope.action(action)
       return exclusion === null ? actionMaterial(reader, action, limit) : unavailable(need, exclusion)
     }
+    case 'context': {
+      const record = reader.rawRecords.get(need.seq)
+      if (record?.channel !== 'context') {
+        return unavailable(need, 'not_found')
+      }
+      const exclusion = scope.record(record)
+      const context = storedRunContext(reader.rawRecords, need.seq)
+      if (exclusion !== null || context === null) {
+        return unavailable(need, exclusion ?? 'not_found')
+      }
+      return { kind: 'context', context: clipEntries(context, limit) }
+    }
     case 'artifact_version':
-    case 'context':
       return unavailable(need, 'not_found')
   }
 }
@@ -154,7 +183,7 @@ export const resolveObserverNeeds = (
   reader: ScopeReader,
   scope: InputScope,
   needs: readonly ObserverNeed[],
-  limits: MaterialLimits = defaultLimits,
+  limits: MaterialLimits = defaultMaterialLimits,
 ): ObserverMaterial[] => {
   if (![limits.needs, limits.textLength].every((value) => Number.isSafeInteger(value) && value > 0)) {
     throw new RangeError('material limits must be positive integers')

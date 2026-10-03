@@ -12,7 +12,17 @@ import {
   type SessionId,
 } from '@aang/contract'
 import type { ObserverCallStart, Transaction } from '@aang/store'
-import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
+import {
+  clipAttempt,
+  clipInputFact,
+  clipRun,
+  clipSnapshot,
+  defaultInputTokens,
+  longestStateText,
+  type Packing,
+  packObserverInput,
+} from '../input/fit.js'
+import { clipContext, defaultMaterialLimits, type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
 import { type InputScope, inputScope, inputViolations } from '../input/scope.js'
 import { applyChangeSet } from './journal.js'
 import { batchFacts, ObserverContext, OperationRejection, type ValidationLimits } from './observer-context.js'
@@ -54,6 +64,7 @@ export interface ObserverFollowUp {
   readonly at: EpochNs
   readonly crossVendor: boolean
   readonly limits?: MaterialLimits
+  readonly inputTokens?: number
 }
 
 const admitInput = (transaction: Transaction, scope: InputScope, input: ObserverInput): void => {
@@ -104,10 +115,29 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
   })
   admitInput(transaction, scope, previous.input)
   const { needs } = ObserverOutput.parse(previous.output)
-  const input: ObserverInput = {
-    ...previous.input,
-    materials: resolveObserverNeeds(transaction, scope, needs, followUp.limits),
+  const limits = followUp.limits ?? defaultMaterialLimits
+  const tokens = followUp.inputTokens ?? defaultInputTokens
+  if (!Number.isSafeInteger(tokens) || tokens <= 0) {
+    throw new RangeError('the input limit must be a positive integer')
   }
+  const base = previous.input
+  const materials = (textLength: number) => resolveObserverNeeds(transaction, scope, needs, { ...limits, textLength })
+  const render = ({ count, batchText, stateText }: Packing): ObserverInput => ({
+    ...base,
+    run: clipRun(base.run, stateText),
+    context: clipContext(base.context, batchText),
+    model: clipSnapshot(base.model, stateText),
+    batch: { ...base.batch, facts: base.batch.facts.map((fact) => clipInputFact(fact, batchText)) },
+    materials: materials(batchText).slice(0, count),
+    previous_attempt: clipAttempt(base.previous_attempt, stateText),
+  })
+  const range = {
+    count: materials(limits.textLength).length,
+    minimumCount: 0,
+    batchText: limits.textLength,
+    stateText: longestStateText(base),
+  }
+  const input = packObserverInput(range, tokens, render) ?? base
   transaction.observerCalls.start({ id: followUp.id, backend: previous.backend, input, at: followUp.at })
   if (transaction.interpretations.handover(previous.id, followUp.id) !== batch.length) {
     throw new Error(`observer call ${previous.id} no longer owns its batch`)

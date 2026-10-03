@@ -5,9 +5,9 @@ import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
-import { type FactId, ObserverCallId, type RunId } from '@aang/contract'
-import { applyChangeSet, startObserverBatch } from '@aang/engine'
-import { type CliCommand, createObserverScheduler } from '@aang/observer'
+import { type FactId, ObserverCallId, ObserverOperation, type RunId } from '@aang/contract'
+import { applyChangeSet, observerInputTokens, startObserverBatch } from '@aang/engine'
+import { type CliCommand, createObserverScheduler, observerSystemPrompt } from '@aang/observer'
 import type { ClaudeReply } from '@aang/testkit'
 import { expect, test } from 'vitest'
 import { accepted, briefed, createScene, epochOf, needing, outdated, start, structured } from './scene.js'
@@ -26,7 +26,7 @@ const zombieTree = (directory: string, helper: string, cli: CliCommand): CliComm
 
 const rejection = 'version: base_version does not match the saved observer call'
 
-const batchLimits = { facts: 30, bytes: 96_000, textLength: 4_000 }
+const batchLimits = { facts: 30, bytes: 96_000, textLength: 4_000, inputTokens: 24_000 }
 
 const until = async (condition: () => boolean): Promise<void> => {
   const deadline = Date.now() + 15_000
@@ -744,4 +744,61 @@ test('without crossVendor no text grounded on facts of another vendor reaches th
   expect(separated?.model.criteria).toMatchObject([{ text: 'The attached session ran its check', stage: null }])
   expect(separated?.model.attention.map(({ id }) => id)).toEqual([claudeAttention?.id])
   expect(scene.tally(root.run)).toEqual({ interpreted: 5 })
+})
+
+test('the observer gets the protocol prompt and inputs within the token limit until the whole queue is interpreted', async (context) => {
+  const scene = await createScene(context, { claude: [accepted, accepted, accepted, accepted], limits: { inputTokens: 2_000 } })
+  const session = scene.claudeSession('session-limit')
+  await session.start()
+  await session.commands(16, `echo ${'x'.repeat(6_000)}`)
+  scene.scheduler.wake()
+  scene.advance(5_000)
+  await scene.scheduler.idle()
+  for (let call = 0; call < 3 && scene.tally(session.run)['pending'] !== undefined; call += 1) {
+    scene.advance(10_000)
+    await scene.scheduler.idle()
+  }
+
+  expect(scene.tally(session.run)).toEqual({ interpreted: 17 })
+  const inputs = scene.prompts('claude')
+  expect(inputs.length).toBeGreaterThan(1)
+  expect(inputs.every((input) => observerInputTokens(input) <= 2_000)).toBe(true)
+  expect(inputs.flatMap(({ batch }) => batch.facts.map(({ id }) => id))).toEqual(
+    scene.store.interpretations.ofRun(session.run).map(({ fact }) => fact).toSorted((left, right) =>
+      (scene.store.facts.get(left)?.seq ?? 0) - (scene.store.facts.get(right)?.seq ?? 0),
+    ),
+  )
+  const calls = scene.fakeClaude.calls().filter(({ command }) => command === 'print')
+  expect(calls.map(({ systemPrompt }) => systemPrompt)).toEqual(calls.map(() => observerSystemPrompt))
+  for (const name of [...ObserverOperation.options, 'base_version', 'needs', 'evidence', 'temp_id']) {
+    expect(observerSystemPrompt).toContain(name)
+  }
+})
+
+test('the context of a run reaches its calls and is recorded again after each call', async (context) => {
+  const scene = await createScene(context, { claude: [accepted, accepted] })
+  const instructions = join(scene.workspace, 'CLAUDE.md')
+  await writeFile(instructions, 'Run the checks before every commit')
+  const session = scene.claudeSession('session-context')
+  const contexts = (): number =>
+    scene.store.facts.ofEntity({ kind: 'run', runtime: 'claude', session: 'session-context' }).filter(({ kind }) => kind === 'context')
+      .length
+  await session.start()
+  scene.scheduler.wake()
+  await until(() => contexts() === 1)
+  scene.advance(5_000)
+  await scene.scheduler.idle()
+
+  await writeFile(instructions, 'Ask before every commit')
+  await session.tools(1)
+  scene.scheduler.wake()
+  await until(() => contexts() === 2)
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  const texts = scene
+    .prompts('claude')
+    .map((input) => input.context?.entries.find(({ kind }) => kind === 'instructions')?.text)
+  expect(texts).toEqual(['Run the checks before every commit', 'Ask before every commit'])
+  expect(scene.tally(session.run)).toEqual({ interpreted: 2 })
 })

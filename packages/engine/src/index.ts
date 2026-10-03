@@ -30,6 +30,7 @@ export {
 } from './model/observer.js'
 export { type MaterialLimits, resolveObserverNeeds } from './input/materials.js'
 export { type BatchLimits, type ObserverBatchStart, startObserverBatch } from './input/batch.js'
+export { defaultInputTokens, observerInputTokens } from './input/fit.js'
 export {
   boundObserverQueue,
   type CallExhaustion,

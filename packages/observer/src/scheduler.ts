@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import { EpochNs, ObserverCallId, type ObserverInput, type RunId, type Runtime } from '@aang/contract'
+import { EpochNs, ObserverCallId, type ObserverInput, type RunContext, type RunId, type Runtime } from '@aang/contract'
 import {
   applyObserverResponse,
   beginObserverFollowUp,
@@ -7,6 +7,7 @@ import {
   chargeEndedObserverCall,
   exhaustObserverCall,
   failObserverCall,
+  recordRunContext,
   startObserverBatch,
 } from '@aang/engine'
 import type { PendingFact, Store } from '@aang/store'
@@ -28,6 +29,7 @@ export interface SchedulerLimits {
   readonly batchFacts: number
   readonly batchBytes: number
   readonly textLength: number
+  readonly inputTokens: number
   readonly delayMs: number
   readonly intervalMs: number
   readonly concurrency: number
@@ -41,6 +43,7 @@ export interface SchedulerOptions {
   readonly backends: Partial<Record<Runtime, ObserverExecutor>>
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
+  readonly claudeConfigDir?: string | null
   readonly clock?: SchedulerClock
   readonly limits?: Partial<SchedulerLimits>
 }
@@ -70,6 +73,7 @@ const defaultLimits: SchedulerLimits = {
   batchFacts: 30,
   batchBytes: 96_000,
   textLength: 4_000,
+  inputTokens: 24_000,
   delayMs: 5_000,
   intervalMs: 10_000,
   concurrency: 2,
@@ -100,7 +104,7 @@ const available = (executor: ObserverExecutor): boolean => {
 }
 
 export const createObserverScheduler = (options: SchedulerOptions): ObserverScheduler => {
-  const { store, backends, backend: override = null, crossVendor = false, clock = systemClock } = options
+  const { store, backends, backend: override = null, crossVendor = false, claudeConfigDir = null, clock = systemClock } = options
   const limits: SchedulerLimits = { ...defaultLimits, ...options.limits }
   if (!Object.values(limits).every((value) => Number.isSafeInteger(value) && value > 0)) {
     throw new RangeError('scheduler limits must be positive integers')
@@ -112,6 +116,10 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
   })
   const running = new Map<RunId, Promise<undefined>>()
   const settling = new Set<Promise<unknown>>()
+  const contexts = new Map<RunId, RunContext | null>()
+  const refreshing = new Set<RunId>()
+  const refreshed = new Set<RunId>()
+  const launches = new Map<RunId, number>()
   const controller = new AbortController()
   const closing = Promise.withResolvers<undefined>()
   const failure = Promise.withResolvers<unknown>()
@@ -149,6 +157,26 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     return { run, backend, executor, due, order: Math.min(...queued.map(({ seq }) => seq)) }
   }
 
+  const refresh = (run: RunId, backend: Runtime): void => {
+    if (refreshing.has(run) || refreshed.has(run)) {
+      return
+    }
+    refreshing.add(run)
+    const launched = launches.get(run)
+    const recorded = recordRunContext(store, { run, backend, crossVendor, at: epoch(clock.now()), claudeConfigDir })
+      .then((context) => {
+        contexts.set(run, context)
+        if (launches.get(run) === launched) {
+          refreshed.add(run)
+        }
+      }, failure.resolve)
+      .finally(() => {
+        refreshing.delete(run)
+        settling.delete(recorded)
+      })
+    settling.add(recorded)
+  }
+
   const settle = (call: ObserverCallId, result: ObserverResult): Exchange | null =>
     store.transaction((transaction) => {
       const at = epoch(clock.now())
@@ -172,7 +200,16 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
         return null
       }
       const followUp = ObserverCallId.parse(randomUUID())
-      return { call: followUp, input: beginObserverFollowUp(transaction, { previous: call, id: followUp, at, crossVendor }) }
+      return {
+        call: followUp,
+        input: beginObserverFollowUp(transaction, {
+          previous: call,
+          id: followUp,
+          at,
+          crossVendor,
+          inputTokens: limits.inputTokens,
+        }),
+      }
     })
 
   const perform = async ({ executor }: Candidate, first: Exchange, stopped: Promise<void>[]): Promise<void> => {
@@ -194,9 +231,17 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
         crossVendor,
         id: call,
         at: epoch(clock.now()),
-        limits: { facts: limits.batchFacts, bytes: limits.batchBytes, textLength: limits.textLength },
+        limits: {
+          facts: limits.batchFacts,
+          bytes: limits.batchBytes,
+          textLength: limits.textLength,
+          inputTokens: limits.inputTokens,
+        },
+        context: contexts.get(run) ?? null,
       }),
     )
+    launches.set(run, (launches.get(run) ?? 0) + 1)
+    refreshed.delete(run)
     if (input === null) {
       return
     }
@@ -236,6 +281,9 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
           return candidate === null ? [] : [candidate]
         })
         .sort((left, right) => left.due - right.due || left.order - right.order)
+      for (const { run, backend } of candidates) {
+        refresh(run, backend)
+      }
       for (const candidate of candidates) {
         if (candidate.due > now) {
           wakeups.push(candidate.due)

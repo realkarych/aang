@@ -268,6 +268,16 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
           tool_input: { command, description: 'Run a command' },
         }),
       ]),
+    commands: (count: number, command: string) =>
+      deliver(
+        'claude',
+        Array.from({ length: count }, (_, index) =>
+          claudeHook('PreToolUse.Bash.json', session, workspace, {
+            tool_use_id: `${session}-command-${String(index)}`,
+            tool_input: { command, description: 'Run a command' },
+          }),
+        ),
+      ),
   })
   const codexSession = (session: string) => ({
     run: runId({ kind: 'session', runtime: 'codex', session }),
@@ -291,6 +301,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
     })
   return {
     root,
+    workspace,
     get store() {
       return daemon.store
     },
