@@ -126,6 +126,33 @@ test('the registry sequence restored from the observed lifecycle is issued in or
   expect(running.arrivals.flatMap(({ batch }) => batch.cursors)).toEqual([])
 })
 
+test('a file rewritten while it is being read is issued with the modification time of the content it carries', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = registryPath(sandbox, '901.json')
+  const scanIntervalMs = 250
+  await mkdir(dirname(path), { recursive: true })
+  const running = runCollector(sandbox, { rootsScanIntervalMs: scanIntervalMs })
+  await sleep(scanIntervalMs)
+
+  const written = new Map<string, CollectedRecord>()
+  let last = ''
+  for (let round = 0; round < 2_000; round += 1) {
+    last = JSON.stringify({ pid: 901, sessionId: 's-901', round, padding: 'x'.repeat(round % 7) })
+    await writeFile(path, last)
+    written.set(sha256(last), snapshot('registry', path, last, (await stat(path, { bigint: true })).mtimeNs))
+  }
+  await vi.waitFor(() => {
+    expect(running.records().at(-1)).toEqual(written.get(sha256(last)))
+  })
+
+  expect(running.records()).toEqual(
+    running.records().map(({ position }) => written.get(position.kind === 'file' ? position.content_hash : '')),
+  )
+  expect(running.gaps()).toEqual([])
+})
+
 test('subagent meta, workflow and team files are snapshots of the transcript channel, other JSON files are not collected', async ({
   onTestFinished,
 }) => {

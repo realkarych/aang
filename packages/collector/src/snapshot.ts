@@ -1,5 +1,5 @@
 import type { BigIntStats } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
+import { open, stat } from 'node:fs/promises'
 import type {
   CollectedGap,
   CollectedPosition,
@@ -51,6 +51,7 @@ interface SnapshotFile {
 interface Loaded {
   readonly stats: BigIntStats
   readonly content: Buffer
+  readonly changing: boolean
 }
 
 interface ReadOutcome {
@@ -73,8 +74,18 @@ const isJson = (text: string): boolean => {
 }
 
 const load = async (path: string): Promise<Loaded | null> => {
-  const stats = await stat(path, { bigint: true })
-  return stats.isFile() ? { stats, content: await readFile(path) } : null
+  if (!(await stat(path)).isFile()) {
+    return null
+  }
+  const file = await open(path, 'r')
+  try {
+    const stats = await file.stat({ bigint: true })
+    const content = await file.readFile()
+    const after = await file.stat({ bigint: true })
+    return { stats, content, changing: fingerprint(after) !== fingerprint(stats) }
+  } finally {
+    await file.close()
+  }
 }
 
 export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): SnapshotSource => {
@@ -182,6 +193,10 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
       return { records: [], gaps: [] }
     }
     const gaps = retrier.recovered(file)
+    if (content?.changing === true) {
+      mark(file)
+      return { records: [], gaps }
+    }
     return { records: content === null ? vanished(file) : loaded(file, content), gaps }
   }
 
