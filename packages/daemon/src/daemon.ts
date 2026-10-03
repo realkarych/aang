@@ -47,7 +47,10 @@ const openExclusive = (home: string): Store => {
   }
 }
 
-const observerOfRun = (): ObserverRunStatus => ({ state: { state: 'ok' }, isolation_unverified: false })
+const observerOfRun = (): ObserverRunStatus => ({
+  state: { state: 'disabled', reason: 'version_not_admitted' },
+  isolation_unverified: false,
+})
 
 const notifying = (store: Store, changed: () => void): Store => ({
   ...store,
@@ -121,11 +124,8 @@ const serve = async ({
   store: opened,
 }: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
-  const streams = createStreams({
-    reads: createReadQueries({ store: opened, observer: observerOfRun }),
-    head: opened.changes.head,
-    onError: report,
-  })
+  const reads = createReadQueries({ store: opened, observer: observerOfRun })
+  const streams = createStreams({ reads, head: opened.changes.head, onError: report })
   const store = notifying(opened, streams.changed)
   const stop = Promise.withResolvers<StopCause>()
   const stopRequest = { made: false }
@@ -162,7 +162,7 @@ const serve = async ({
       staticRoot: options.staticRoot,
       routes: (api) => {
         const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
-        return readRoutes({ store, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
+        return readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
       },
       streams,
       onShutdown: () => {
