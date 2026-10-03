@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { observerOutputJsonSchema, ObserverOutput } from '@aang/contract'
+import { ChatOutput, observerOutputJsonSchema, ObserverOutput } from '@aang/contract'
 import { fakeCliExitCodes, installFakeClaude, type ClaudeScenario, type FakeCli } from '@aang/testkit'
 import { describe, expect, test } from 'vitest'
 import {
@@ -13,7 +13,16 @@ import {
   type Event,
   type Workspace,
 } from './fake-process.js'
-import { briefTemplate, factIds, modelVersion, observerPrompt, systemPrompt } from './observer-batch.js'
+import {
+  briefTemplate,
+  chatInput,
+  factIds,
+  modelVersion,
+  observerPrompt,
+  scenarioIds,
+  scenarioInput,
+  systemPrompt,
+} from './observer-batch.js'
 import { keysOf, readSample, readSampleLines } from './samples.js'
 
 interface ProfilePart {
@@ -198,6 +207,7 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
         prompt,
         systemPrompt,
         schema: JSON.parse(schema) as unknown,
+        purpose: 'observer',
         reply: 0,
         violations: [],
       },
@@ -339,6 +349,72 @@ describe('fake claude answers like claude -p in the observer profile (F.1)', () 
         .map((call) => call.reply)
         .sort(),
     ).toEqual([0, 1])
+  })
+})
+
+describe('fake claude answers observer and chat calls from scenario scripts (T.6)', () => {
+  test('a script builds the answer from the observer input', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [{ kind: 'script', script: 'revision' }] })
+
+    const exit = await observer.call(observer.profile, observerPrompt(scenarioInput))
+
+    expect(exit.code).toBe(0)
+    const output = ObserverOutput.parse(resultOf(exit.events)?.structured_output)
+    expect(output.base_version).toBe(modelVersion)
+    expect(output.ops).toContainEqual(
+      expect.objectContaining({ op: 'actions.assign', actions: [scenarioIds.action], evidence: [scenarioIds.call] }),
+    )
+    expect(output.ops).toContainEqual(
+      expect.objectContaining({
+        op: 'card.add',
+        text: 'All done',
+        source: { fact: scenarioIds.claim, start: 0, end: 'All done'.length },
+      }),
+    )
+  })
+
+  test('chat calls take chat replies in their own order while observer calls keep theirs', async ({
+    onTestFinished,
+  }) => {
+    const observer = await setUp(onTestFinished, {
+      replies: [{ kind: 'script', script: 'map' }],
+      chatReplies: [
+        { kind: 'script', script: 'chat-answer' },
+        { kind: 'script', script: 'chat-collapse-reviewers' },
+      ],
+    })
+
+    const answered = await observer.call(observer.profile, observerPrompt(chatInput))
+    const observed = await observer.call(observer.profile, observerPrompt(scenarioInput))
+    const collapsed = await observer.call(observer.profile, observerPrompt(chatInput))
+
+    expect([answered.code, observed.code, collapsed.code]).toEqual([0, 0, 0])
+    expect(ChatOutput.parse(resultOf(answered.events)?.structured_output)).toMatchObject({
+      citations: [{ kind: 'stage', id: 'stage-main' }],
+      insufficient_data: false,
+      view_rule: null,
+    })
+    expect(ObserverOutput.parse(resultOf(observed.events)?.structured_output).ops.length).toBeGreaterThan(0)
+    expect(ChatOutput.parse(resultOf(collapsed.events)?.structured_output).view_rule).toEqual({
+      action: 'collapse',
+      selector: { kind: 'agent_type', agent_type: 'code-reviewer' },
+      params: null,
+    })
+    expect(observer.fake.calls().map((call) => [call.purpose, call.reply])).toEqual([
+      ['chat', 0],
+      ['observer', 0],
+      ['chat', 1],
+    ])
+  })
+
+  test('a script given an input of the wrong protocol is a scenario error', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [{ kind: 'script', script: 'map' }] })
+
+    const exit = await observer.call()
+
+    expect(exit.code).toBe(fakeCliExitCodes.scenario)
+    expect(exit.stdout).toBe('')
+    expect(exit.stderr).toContain('the prompt carries no observer input')
   })
 })
 

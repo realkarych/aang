@@ -20,13 +20,13 @@ import {
   type ReadQueries,
 } from '@aang/engine'
 import type { Store } from '@aang/store'
+import { applyFeed } from '@aang/testkit'
 import { expect, type TestContext } from 'vitest'
 import { type HookDelivery, hookBatch, jsonlFile, snapshotBatch } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'
 import { createHome, type Home } from './home.js'
 import { at } from './model.js'
 import { inputFor, response } from './observer-fixtures.js'
-import { applyFeed } from './run-view.js'
 import { claudeHook } from './samples.js'
 
 export interface Source {

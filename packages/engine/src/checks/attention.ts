@@ -14,9 +14,10 @@ import {
   type SessionId,
   type SessionKey,
 } from '@aang/contract'
-import { canonicalJson, contentHash, objectId, runId } from '@aang/contract/ids'
+import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type AttentionItemDraft, type ModelChangeDraft } from '../model/journal.js'
+import { rootSessionOf, sessionRun } from '../observations/runs.js'
 import type { Contract, ContractCatalog } from './catalog.js'
 import { type ActionFacts, type CheckResult, checkResult } from './results.js'
 
@@ -243,18 +244,6 @@ const successChanges = ({ item, success }: SucceededItem): StreakChanges[] =>
       ]
     : []
 
-const rootCwd = (transaction: Transaction, run: RunId, session: Session | null): string | null => {
-  const entity = transaction.model.entity(run, { kind: 'run', id: run })
-  if (entity?.kind === 'run') {
-    return transaction.observations.getSession(entity.value.root_session)?.cwd ?? null
-  }
-  return session !== null && runId(session.key) === run ? session.cwd : null
-}
-
-const runOf = (transaction: Transaction, key: SessionKey): RunId =>
-  transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
-  runId(key)
-
 const runActions = (
   transaction: Transaction,
   run: RunId,
@@ -267,7 +256,7 @@ const runActions = (
       continue
     }
     const member = transaction.observations.getSession(entity.value.session)
-    if (member !== null && runOf(transaction, member.key) === run) {
+    if (member !== null && sessionRun(transaction, member.key) === run) {
       members.add(member.id)
     }
   }
@@ -299,7 +288,7 @@ const refreshRun = (
   catalog: ContractCatalog,
   at: EpochNs,
 ): void => {
-  const cwd = rootCwd(transaction, run, session)
+  const cwd = rootSessionOf(transaction, run, session)?.cwd ?? null
   const contracts = cwd === null ? [] : catalog.contractsFor(cwd)
   if (contracts.length === 0) {
     return
@@ -350,7 +339,7 @@ export const refreshChecks = (
   const runs = new Set<RunId>()
   for (const key of sessions) {
     const session = transaction.observations.getSession(objectId(key))
-    const run = runOf(transaction, key)
+    const run = sessionRun(transaction, key)
     if (session === null || runs.has(run)) {
       continue
     }

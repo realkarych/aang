@@ -10,6 +10,7 @@ import {
   LinkId,
   type ModelEntity,
   type RunId,
+  type Session,
   type SessionKey,
 } from '@aang/contract'
 import { canonicalJson, contentHash, objectId, runId } from '@aang/contract/ids'
@@ -45,6 +46,14 @@ export const derivedLinkId = (...parts: readonly string[]): LinkId =>
 export const sessionRun = (transaction: Transaction, key: SessionKey): RunId =>
   transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
   runId(key)
+
+export const rootSessionOf = (transaction: Transaction, run: RunId, session: Session | null): Session | null => {
+  const entity = transaction.model.entity(run, { kind: 'run', id: run })
+  if (entity?.kind === 'run') {
+    return transaction.observations.getSession(entity.value.root_session)
+  }
+  return session !== null && runId(session.key) === run ? session : null
+}
 
 const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract<Link, { kind: 'spawn' }> => ({
   id: derivedLinkId('spawn', child),

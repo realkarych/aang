@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { ChangeSeq } from '@aang/contract'
+import { type ArtifactReader, type ArtifactWriter, createArtifacts } from './artifacts.js'
 import { type ChangeFeed, createChangeFeed } from './changes.js'
 import { prepareStatement, type WriteContext } from './context.js'
 import { createCursors, type CursorReader, type CursorWriter } from './cursors.js'
@@ -32,6 +33,7 @@ export interface StoreOptions {
 export interface Transaction {
   readonly nextChangeSeq: () => ChangeSeq
   readonly observations: ObservationWriter
+  readonly artifacts: ArtifactWriter
   readonly rawRecords: RawRecordWriter
   readonly facts: FactWriter
   readonly scopes: ScopeWriter
@@ -51,6 +53,7 @@ export interface Store {
   readonly transaction: <T>(work: (transaction: Transaction) => Synchronous<T>) => T
   readonly read: <T>(work: () => Synchronous<T>) => T
   readonly observations: ObservationReader
+  readonly artifacts: ArtifactReader
   readonly rawRecords: RawRecordReader
   readonly facts: FactReader
   readonly scopes: ScopeReader
@@ -69,6 +72,7 @@ export interface Store {
 const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const issueChangeSeq = prepareStatement(database, 'UPDATE change_counter SET value = value + 1 RETURNING value')
   const observations = createObservations(database)
+  const artifacts = createArtifacts(database)
   const rawRecords = createRawRecords(database)
   const facts = createFacts(database)
   const scopes = createScopes(database)
@@ -102,6 +106,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
       transaction: {
         nextChangeSeq: context.nextChangeSeq,
         observations: observations.writer(context),
+        artifacts: artifacts.writer(context),
         rawRecords: rawRecords.writer(context),
         facts: facts.writer(context),
         scopes: scopes.writer(context),
@@ -132,6 +137,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     },
     read: (work) => inReadTransaction(database, work),
     observations: observations.reader,
+    artifacts: artifacts.reader,
     rawRecords: rawRecords.reader,
     facts: facts.reader,
     scopes: scopes.reader,

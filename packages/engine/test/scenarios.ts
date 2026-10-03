@@ -58,3 +58,8 @@ export const filesReplay = ({ store, roots, manifest }: Scenario): Replay => {
     },
   }
 }
+
+export const playSample = async (scenario: SampleScenario): Promise<Scenario & Replay> => {
+  const started = await startScenario(scenario)
+  return { ...started, ...filesReplay(started) }
+}

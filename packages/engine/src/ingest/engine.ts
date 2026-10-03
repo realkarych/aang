@@ -1,7 +1,9 @@
 import { randomUUID } from 'node:crypto'
 import type {
+  ActionKey,
   Adapter,
   AdapterRegistry,
+  ArtifactVersion,
   Binding,
   ChangeSeq,
   CollectedGap,
@@ -12,6 +14,7 @@ import type {
   FileCursor,
   EpochNs as EpochNsType,
   RecordOwner,
+  RunId,
   Runtime,
   ScopeDecision,
   SessionId,
@@ -19,8 +22,10 @@ import type {
   StreamKey,
 } from '@aang/contract'
 import { BindingId, EpochNs } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
+import { retainBases } from '../artifacts/retention.js'
+import { projectVersions } from '../artifacts/versions.js'
 import { refreshChecks, refreshRunChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
@@ -28,6 +33,9 @@ import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
 import { reparse, type ReparseResult } from '../reparse/reparse.js'
+import { checkSnapshots } from '../snapshots/checks.js'
+import { recordSnapshot } from '../snapshots/record.js'
+import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { normalizeOtel } from './otel.js'
 import { queueFacts } from './queue.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
@@ -65,6 +73,7 @@ export interface EngineOptions {
   readonly holding?: Partial<HoldingLimits>
   readonly now?: () => EpochNsType
   readonly quietAfterMs?: number
+  readonly maxBlobBytes?: number
 }
 
 export interface IngestResult {
@@ -89,6 +98,7 @@ export interface Engine {
   readonly bind: (request: CreateBindingRequest) => Promise<BindingResult>
   readonly revokeBinding: (id: BindingId) => Promise<BindingResult>
   readonly reparse: () => Promise<ReparseResult>
+  readonly retainBases: (runs?: Iterable<RunId>) => Promise<readonly ArtifactVersion[]>
 }
 
 interface HeldHook {
@@ -129,6 +139,7 @@ interface Committed {
   readonly hooks: readonly HeldHook[]
   readonly rescan: readonly StreamKey[]
   readonly quiet: QuietWatch
+  readonly snapshots: readonly SnapshotRequest[]
 }
 
 const mebibyte = 1024 ** 2
@@ -192,10 +203,13 @@ const heldLines = (files: ReadonlyMap<string, TrackedFile>): number =>
 
 export const createEngine = ({
   store, adapters: registry, watch, holding = {},
-  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000,
+  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000, maxBlobBytes = 5 * mebibyte,
 }: EngineOptions): Engine => {
   if (!Number.isSafeInteger(quietAfterMs) || quietAfterMs < 1) {
     throw new RangeError('quiet interval must be a positive safe integer in milliseconds')
+  }
+  if (!Number.isSafeInteger(maxBlobBytes) || maxBlobBytes < 1) {
+    throw new RangeError('blob size limit must be a positive safe integer in bytes')
   }
   const adapters = adaptersOf(registry)
   const contracts = createContractCatalog(watch)
@@ -317,6 +331,7 @@ export const createEngine = ({
   ): Committed =>
     store.transaction((transaction: Transaction) => {
       const changedSessions = new Map<string, SessionKey>()
+      const changedActions = new Map<string, ActionKey>()
       const sourceRecords = new Map<string, SourceRecord[]>()
       const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0, deferred: 0 }
       const files = new Map(state.files)
@@ -326,9 +341,12 @@ export const createEngine = ({
       const inserted: Fact[] = []
 
       const changed = (facts: readonly Fact[]): void => {
-        for (const { entity_key } of facts) {
+        for (const { kind, entity_key } of facts) {
           const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
           changedSessions.set(sessionName(key), key)
+          if (entity_key.kind === 'action' && (kind === 'action_start' || kind === 'action_end')) {
+            changedActions.set(canonicalJson(entity_key), entity_key)
+          }
         }
       }
 
@@ -521,8 +539,10 @@ export const createEngine = ({
       }
       queueFacts(transaction, inserted)
       refreshChecks(transaction, changedSessions.values(), contracts, instant)
+      projectVersions(transaction, changedActions.values())
+      const snapshots = checkSnapshots(transaction, changedActions.values(), contracts)
       settleQuiet(transaction, watch, instant, quietAfterMs)
-      return { tally, files, hooks, rescan: [...rescan], quiet: watch }
+      return { tally, files, hooks, rescan: [...rescan], quiet: watch, snapshots }
     })
 
   const withinLimits = (committed: Committed) => {
@@ -563,6 +583,23 @@ export const createEngine = ({
     return { files, hooks, abandoned, deferred }
   }
 
+  const recordSnapshots = async (requests: readonly SnapshotRequest[]): Promise<void> => {
+    const taken: TakenSnapshot[] = []
+    for (const request of requests) {
+      const snapshot = await takeSnapshot(request, now)
+      if (snapshot !== null) {
+        taken.push(snapshot)
+      }
+    }
+    if (taken.length > 0) {
+      store.transaction((transaction) => {
+        for (const snapshot of taken) {
+          recordSnapshot(transaction, snapshot)
+        }
+      })
+    }
+  }
+
   const ingestBatch = async (batch: CollectorBatch): Promise<IngestResult> => {
     const now = Date.now()
     const steps = fileSteps(batch, now)
@@ -581,6 +618,7 @@ export const createEngine = ({
       evidence,
       open: candidates.filter((open) => holdingBatches.has(open) && !kept.abandoned.has(open)),
     }
+    await recordSnapshots(committed.snapshots)
     return {
       head: store.changes.head(),
       ...committed.tally,
@@ -637,5 +675,7 @@ export const createEngine = ({
         settleBinding((transaction, at) => addBinding(transaction, request, BindingId.parse(randomUUID()), at)),
       ),
     revokeBinding: (id) => enqueue(() => settleBinding((transaction, at) => revokeBinding(transaction, id, at))),
+    retainBases: (runs) =>
+      enqueue(() => retainBases(store, { maxBlobBytes, now }, runs === undefined ? null : new Set(runs))),
   }
 }
