@@ -2,10 +2,12 @@ import type { Fact, FactId, RunId, SessionId } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import { factSession } from '../input/scope.js'
 
+export const interpretable = (fact: Fact): boolean => fact.kind !== 'context'
+
 export const queueFacts = (transaction: Transaction, facts: readonly Fact[]): void => {
   const runs = new Map<SessionId, RunId | null>()
   const queued = new Map<RunId, FactId[]>()
-  for (const fact of facts) {
+  for (const fact of facts.filter(interpretable)) {
     const session = factSession(fact)
     if (!runs.has(session)) {
       runs.set(session, transaction.observations.getSession(session)?.run ?? null)

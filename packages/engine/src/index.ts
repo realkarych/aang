@@ -19,6 +19,8 @@ export {
   applyObserverResponse,
   beginObserverCall,
   beginObserverFollowUp,
+  chargeEndedObserverCall,
+  type EndedCallUsage,
   failObserverCall,
   type ObserverCallBegin,
   type ObserverCallFailure,

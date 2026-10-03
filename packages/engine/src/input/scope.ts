@@ -73,7 +73,15 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
     runtime === backend || crossVendor ? null : 'cross_vendor'
   const admit = (session: SessionId, runtime: Runtime): ScopeExclusion | null =>
     sessionInRun(reader.model, run, session) ? vendor(runtime) : 'out_of_scope'
-  const fact = (value: Fact): ScopeExclusion | null => admit(factSession(value), value.entity_key.runtime)
+  const own = (value: Fact): ScopeExclusion | null => admit(factSession(value), value.entity_key.runtime)
+  const recordOf = (seq: RawSeq): ScopeExclusion | null => {
+    const exclusions = reader.facts.ofRecord(seq).map(own)
+    if (exclusions.length === 0 || exclusions.includes('out_of_scope')) {
+      return 'out_of_scope'
+    }
+    return exclusions.includes('cross_vendor') ? 'cross_vendor' : null
+  }
+  const fact = (value: Fact): ScopeExclusion | null => (value.kind === 'context' ? recordOf(value.seq) : own(value))
   const sent = new Map<ObserverCallId, ReadonlyMap<FactId, RawSeq>>()
   const sentFacts = (call: ObserverCallId): ReadonlyMap<FactId, RawSeq> => {
     const known = sent.get(call)
@@ -125,13 +133,7 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
     },
     grounds,
     entity,
-    record: (record) => {
-      const exclusions = reader.facts.ofRecord(record.seq).map(fact)
-      if (exclusions.length === 0 || exclusions.includes('out_of_scope')) {
-        return 'out_of_scope'
-      }
-      return exclusions.includes('cross_vendor') ? 'cross_vendor' : null
-    },
+    record: (record) => recordOf(record.seq),
   }
 }
 

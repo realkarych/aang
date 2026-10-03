@@ -4,9 +4,9 @@ import {
   applyObserverResponse,
   beginObserverFollowUp,
   boundObserverQueue,
+  chargeEndedObserverCall,
   exhaustObserverCall,
   failObserverCall,
-  type ObserverResponseResult,
   startObserverBatch,
 } from '@aang/engine'
 import type { PendingFact, Store } from '@aang/store'
@@ -51,6 +51,11 @@ export interface ObserverScheduler {
   readonly idle: () => Promise<void>
   readonly close: () => Promise<void>
   readonly failure: Promise<unknown>
+}
+
+interface Exchange {
+  readonly call: ObserverCallId
+  readonly input: ObserverInput
 }
 
 interface Candidate {
@@ -144,9 +149,12 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     return { run, backend, executor, due, order: Math.min(...queued.map(({ seq }) => seq)) }
   }
 
-  const settle = (call: ObserverCallId, result: ObserverResult): ObserverResponseResult | null =>
+  const settle = (call: ObserverCallId, result: ObserverResult): Exchange | null =>
     store.transaction((transaction) => {
       const at = epoch(clock.now())
+      if (chargeEndedObserverCall(transaction, { call, usage: result.usage })) {
+        return null
+      }
       if (!result.ok) {
         if (result.error.class === 'invalid_output') {
           failObserverCall(transaction, { call, outcome: 'rejected', message: result.error.message, at, usage: result.usage })
@@ -160,35 +168,20 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
       if (response.status === 'rejected') {
         exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
       }
-      return response
+      if (response.status !== 'needs_requested') {
+        return null
+      }
+      const followUp = ObserverCallId.parse(randomUUID())
+      return { call: followUp, input: beginObserverFollowUp(transaction, { previous: call, id: followUp, at, crossVendor }) }
     })
 
-  const invoke = async (
-    executor: ObserverExecutor,
-    call: ObserverCallId,
-    input: ObserverInput,
-    stopped: Promise<void>[],
-  ): Promise<ObserverResponseResult | null> => {
-    const result = await executor.execute({ input, signal: controller.signal })
-    stopped.push(result.stopped)
-    return settle(call, result)
-  }
-
-  const perform = async (
-    { executor }: Candidate,
-    call: ObserverCallId,
-    input: ObserverInput,
-    stopped: Promise<void>[],
-  ): Promise<void> => {
-    const first = await invoke(executor, call, input, stopped)
-    if (first?.status !== 'needs_requested') {
-      return
+  const perform = async ({ executor }: Candidate, first: Exchange, stopped: Promise<void>[]): Promise<void> => {
+    let exchange: Exchange | null = first
+    while (exchange !== null) {
+      const result = await executor.execute({ input: exchange.input, signal: controller.signal })
+      stopped.push(result.stopped)
+      exchange = settle(exchange.call, result)
     }
-    const followUp = ObserverCallId.parse(randomUUID())
-    const materials = store.transaction((transaction) =>
-      beginObserverFollowUp(transaction, { previous: call, id: followUp, at: epoch(clock.now()), crossVendor }),
-    )
-    await invoke(executor, followUp, materials, stopped)
   }
 
   const launch = (candidate: Candidate): void => {
@@ -210,7 +203,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     const finished = Promise.withResolvers<undefined>()
     const stopped: Promise<void>[] = []
     running.set(run, finished.promise)
-    const results = perform(candidate, call, input, stopped).catch(failure.resolve)
+    const results = perform(candidate, { call, input }, stopped).catch(failure.resolve)
     settling.add(results)
     void results
       .then(() => {

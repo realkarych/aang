@@ -202,7 +202,9 @@ E.7b and E.7c.
 observer input; chat materials (K.1) use the same filter. An object is in scope only
 when its session belongs to the run. A session of a vendor other than `backend`, the
 vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
-is attributed through its facts, so a record without facts is out of scope. A model
+is attributed through its facts, so a record without facts is out of scope. A
+`context` fact follows the rule of its record: it is in scope only when every
+session the context was assembled from is, whichever session keys it. A model
 entity of the run is attributed through its grounds, the evidence of every change in
 its journal: it is excluded when a ground comes from a vendor other than `backend`
 without `crossVendor`. A ground from a session that has since left the run does not
@@ -264,7 +266,7 @@ between calls of a run.
 
 The ingest transaction queues every new fact as `pending` in the run of its session
 after the observation projection, including the facts of OTel records normalized in
-that transaction (ADR-0005). A redelivered record adds no facts and queues nothing.
+that transaction (ADR-0005). `context` facts are never queued. A redelivered record adds no facts and queues nothing.
 A reparse queues the facts it adds the same way after it rebuilds the projections,
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
@@ -272,6 +274,7 @@ attempts.
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
 starts the next call of a run from its pending facts in the order of their records:
 
+- a queued `context` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
@@ -293,7 +296,10 @@ starts the next call of a run from its pending facts in the order of their recor
 the backend could not read against the schema, returns the batch to `pending` as a
 schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
 `pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
-store the usage of the call.
+store the usage of the call. A response that arrives after a session transfer ended
+its call is not applied: `chargeEndedObserverCall` stores its usage on the ended
+call, leaves its verdict, reasons and facts as they are, and returns `true`; for a
+call that is still running it returns `false`.
 
 When the store opens, facts left `in_call` by a stopped process return to `pending`
 and get the attempt of the interrupted call back: a stop is not a content failure.
@@ -361,18 +367,23 @@ binding's transaction:
 - the rule attention items of the session's questions leave the source run and
   enter the target run with their state, without a stage and without the marks
   of the source run's observer (likely resolution, priority), so a question is
-  in the attention zone of one run only and its later answer closes it there;
+  in the attention zone of one run only and its later answer closes it there.
+  The change that brings an item in cites the item's evidence, so the input scope
+  attributes its text to the vendor of the question's session in the target run
+  too;
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run;
-- an observer call of the source run whose batch holds any of these facts is
-  ended as `rejected` with a `scope` reason: the rest of its batch returns to
-  `pending` in the source run, and a late response to it is refused, so neither
-  a rejection nor a restart returns the moved facts to the source run, and a
-  session moved back gets its facts `pending` again. A call that already ended
-  as `needs_requested` keeps its verdict: its batch returns to `pending` the same
-  way, and its follow-up is refused;
+  queue of the source run. Its `context` facts are not queued: they describe a
+  context assembled from several sessions and are never interpreted as facts;
+- an observer call of the source run whose batch holds any of these facts or
+  whose input describes the session is ended as `rejected` with a `scope` reason:
+  the rest of its batch returns to `pending` in the source run, and a late
+  response to it is not applied, so neither a rejection nor a restart returns the
+  moved facts to the source run, and a session moved back gets its facts
+  `pending` again. A call that already ended as `needs_requested` keeps its
+  verdict: its batch returns to `pending` the same way, and its follow-up is
+  refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and

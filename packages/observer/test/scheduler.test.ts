@@ -84,6 +84,56 @@ test('an urgent fact starts a call at once and the next batch sees the model the
   expect(scene.failure()).toBeNull()
 })
 
+const unreadable: ClaudeReply = { kind: 'answer', output: { base_version: 0, ops: 'none' } }
+
+test.for([
+  ['an accepted', briefed],
+  ['an unreadable', unreadable],
+] as const)('%s response to a call that a session transfer ended keeps its usage and changes nothing else', async ([, reply], context) => {
+  let gate = ''
+  const scene = await createScene(context, {
+    claude: [reply, accepted],
+    limits: { concurrency: 1 },
+    executors: ({ root, claude, launcher }) => {
+      gate = join(root, 'gate')
+      return { claude: launcher(gated(gate, claude)) }
+    },
+  })
+  const [moving, target] = [scene.claudeSession('session-moving'), scene.claudeSession('session-target')]
+  await target.start()
+  await moving.start()
+  await moving.permission()
+  scene.scheduler.wake()
+  expect(scene.tally(moving.run)).toEqual({ in_call: 2 })
+  const [call] = scene.calls(moving.run)
+  const session = scene.store.observations.sessions().find(({ key }) => key.session === 'session-moving')
+  if (call === undefined || session === undefined) {
+    throw new Error('the moving session must be in a call')
+  }
+  await scene.engine.bind({ kind: 'attach', session: session.id, run: target.run })
+  const version = scene.store.model.head(moving.run)
+  expect(scene.store.observerCalls.get(call.id)).toMatchObject({ verdict: 'rejected', reasons: [{ cause: 'scope' }], usage: null })
+  expect(scene.tally(moving.run)).toEqual({})
+  scene.scheduler.wake()
+  expect(scene.tally(target.run)).toEqual({ pending: 3 })
+
+  await writeFile(gate, '')
+  await until(() => scene.prompts('claude').length === 2)
+  await scene.scheduler.idle()
+  expect(scene.failure()).toBeNull()
+  expect(scene.store.observerCalls.get(call.id)).toMatchObject({
+    verdict: 'rejected',
+    output: null,
+    reasons: [{ op_index: null, cause: 'scope', message: expect.stringContaining(target.run) as unknown }],
+    usage: { model: 'claude-opus-5-5' },
+  })
+  expect(scene.store.model.head(moving.run)).toBe(version)
+  expect(scene.store.model.entity(moving.run, { kind: 'run', id: moving.run })).toMatchObject({ value: { brief: null } })
+  expect(scene.tally(moving.run)).toEqual({})
+  expect(scene.calls(target.run).map(({ verdict }) => verdict)).toEqual(['accepted'])
+  expect(scene.tally(target.run)).toEqual({ interpreted: 3 })
+})
+
 test('a rare fact is sent when the batch timer expires', async (context) => {
   const scene = await createScene(context, { claude: [accepted] })
   const session = scene.claudeSession('session-rare')

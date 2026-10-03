@@ -9,6 +9,7 @@ import {
   ObserverOutput,
   type ObserverRejection,
   type RunId,
+  type SessionId,
 } from '@aang/contract'
 import type { ObserverCallStart, Transaction } from '@aang/store'
 import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
@@ -114,21 +115,28 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
   return input
 }
 
-export const endObserverCalls = (
-  transaction: Transaction,
-  run: RunId,
-  facts: readonly FactId[],
-  at: EpochNs,
-  message: string,
-): void => {
+export interface CallEnding {
+  readonly run: RunId
+  readonly session: SessionId
+  readonly facts: readonly FactId[]
+  readonly at: EpochNs
+  readonly message: string
+}
+
+export interface EndedCallUsage {
+  readonly call: ObserverCallId
+  readonly usage: CallUsage | null
+}
+
+export const endObserverCalls = (transaction: Transaction, { run, session, facts, at, message }: CallEnding): void => {
   const leaving = new Set(facts)
-  const calls = new Set(
-    transaction.interpretations
-      .ofRun(run)
-      .flatMap(({ fact, status, observer_call: call }) =>
-        status === 'in_call' && call !== null && leaving.has(fact) ? [call] : [],
-      ),
-  )
+  const active = transaction.interpretations
+    .ofRun(run)
+    .flatMap(({ fact, status, observer_call: call }) => (status === 'in_call' && call !== null ? [{ fact, call }] : []))
+  const owning = new Set(active.flatMap(({ fact, call }) => (leaving.has(fact) ? [call] : [])))
+  const describes = (call: ObserverCallId): boolean =>
+    transaction.observerCalls.get(call)?.input.run.sessions.some(({ id }) => id === session) === true
+  const calls = [...new Set(active.map(({ call }) => call))].filter((call) => owning.has(call) || describes(call))
   for (const call of calls) {
     transaction.interpretations.settle(call, 'pending')
     if (transaction.observerCalls.get(call)?.finished_at !== null) {
@@ -142,6 +150,17 @@ export const endObserverCalls = (
       at,
     })
   }
+}
+
+export const chargeEndedObserverCall = (transaction: Transaction, { call, usage }: EndedCallUsage): boolean => {
+  const stored = transaction.observerCalls.get(call)
+  if (stored === null || stored.finished_at === null) {
+    return false
+  }
+  if (usage !== null) {
+    transaction.observerCalls.charge(call, usage)
+  }
+  return true
 }
 
 const textsOf = (op: ObserverOp): string[] =>

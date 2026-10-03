@@ -297,6 +297,9 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
     get scheduler() {
       return daemon.scheduler
     },
+    get engine() {
+      return daemon.engine
+    },
     restart: async (changes: { readonly crossVendor?: boolean } = {}): Promise<void> => {
       await daemon.scheduler.close()
       daemon.store.close()

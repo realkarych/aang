@@ -53,6 +53,7 @@ export interface ObserverCallReader {
 export interface ObserverCallWriter extends ObserverCallReader {
   readonly start: (call: ObserverCallStart) => void
   readonly finish: (result: ObserverCallResult) => void
+  readonly charge: (id: ObserverCallId, usage: CallUsage) => void
 }
 
 type CallRow = {
@@ -88,6 +89,10 @@ export const createObserverCalls = (database: DatabaseSync) => {
     database,
     `UPDATE observer_calls SET output = ?, verdict = ?, reasons = ?, usage = ?, finished_at = ?, change_seq = ?
      WHERE id = ? AND finished_at IS NULL`,
+  )
+  const charge = prepareStatement(
+    database,
+    'UPDATE observer_calls SET usage = ?, change_seq = ? WHERE id = ? AND finished_at IS NOT NULL AND usage IS NULL',
   )
   const reader: ObserverCallReader = {
     unfinished: () => (selectUnfinished.all() as { id: string }[]).map(({ id }) => ObserverCallId.parse(id)),
@@ -141,6 +146,12 @@ export const createObserverCalls = (database: DatabaseSync) => {
       )
       if (result.changes !== 1n) {
         throw new Error(`observer call ${id} is missing or already finished`)
+      }
+    },
+    charge: (id, usage) => {
+      context.assertActive()
+      if (charge.run(encodeJson(usage), context.nextChangeSeq(), id).changes !== 1n) {
+        throw new Error(`observer call ${id} is not finished or already has its usage`)
       }
     },
   })

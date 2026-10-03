@@ -21,6 +21,7 @@ import {
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { PendingFact, StoredObserverCall, Transaction } from '@aang/store'
+import { interpretable } from '../ingest/queue.js'
 import { beginObserverCall } from '../model/observer.js'
 import { clipJson, isoTime } from './materials.js'
 import { factSession, type InputScope, inputScope, type ScopeExclusion } from './scope.js'
@@ -264,7 +265,8 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     const fact = transaction.facts.get(pending.fact)
     return fact === null ? [] : [{ pending, fact }]
   })
-  const batch = select(exclude(transaction, scope, queued, at), limits)
+  transaction.interpretations.withdraw(run, queued.flatMap(({ fact }) => (interpretable(fact) ? [] : [fact.id])))
+  const batch = select(exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at), limits)
   if (batch.length === 0) {
     return null
   }
