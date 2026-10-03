@@ -22,6 +22,7 @@ export interface CollectorOptions {
 export interface CollectorService extends Collector {
   requestAttachment(path: string, stream: StreamKey): void
   listenOtel(options: OtelReceiverOptions): Promise<Listener>
+  setOtelToken(token: string): void
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
 }
@@ -131,6 +132,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       }
       return otel.listen(otelOptions)
     },
+    setOtelToken: otel.setToken,
     spoolStats: () => spool.stats(),
     close: async () => {
       state = 'closed'
