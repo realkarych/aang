@@ -9,7 +9,22 @@ export {
   type CodexUsage,
   type FakeCall,
   type FakeCommand,
+  type FakePurpose,
 } from './fake-cli/scenario.js'
+export {
+  agentStageTitle,
+  continuationQuestionText,
+  continuedStageTitle,
+  goalCriterionText,
+  mainStageTitle,
+} from './observer-scenarios/observer.js'
+export {
+  type ObserverScenarioName,
+  type ObserverScenarioPhase,
+  type ObserverScenarioReply,
+  observerScenarios,
+} from './observer-scenarios/presets.js'
+export { runScenarioScript, ScenarioScript } from './observer-scenarios/scripts.js'
 export { DaemonLaunchError, type DaemonExit, type DaemonLaunch, type RunningDaemon } from './profile/daemon.js'
 export type { Environment, InheritedEnvironment } from './profile/environment.js'
 export {

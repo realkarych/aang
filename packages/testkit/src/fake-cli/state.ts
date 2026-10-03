@@ -1,11 +1,12 @@
 import { closeSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { z } from 'zod'
-import { FakeCall } from './scenario.js'
+import { FakeCall, FakePurpose } from './scenario.js'
 
 const scenarioFile = (state: string): string => join(state, 'scenario.json')
 const callsDirectory = (state: string): string => join(state, 'calls')
-const repliesDirectory = (state: string): string => join(state, 'replies')
+const repliesDirectory = (state: string, purpose: FakePurpose): string =>
+  join(state, purpose === 'observer' ? 'replies' : 'chat-replies')
 
 const recordSuffix = '.json'
 const claimSuffix = '.claim'
@@ -38,7 +39,9 @@ const writeAtomically = (path: string, content: string): void => {
 
 export const writeScenario = (state: string, scenario: unknown): void => {
   mkdirSync(state, { recursive: true })
-  rmSync(repliesDirectory(state), { recursive: true, force: true, maxRetries: 5 })
+  for (const purpose of FakePurpose.options) {
+    rmSync(repliesDirectory(state, purpose), { recursive: true, force: true, maxRetries: 5 })
+  }
   writeAtomically(scenarioFile(state), JSON.stringify(scenario, null, 2))
 }
 
@@ -66,7 +69,7 @@ export const writeStateDocument = (state: string, name: string, document: unknow
 
 export const claimCall = (state: string): number => claim(callsDirectory(state))
 
-export const claimReply = (state: string): number => claim(repliesDirectory(state)) - 1
+export const claimReply = (state: string, purpose: FakePurpose): number => claim(repliesDirectory(state, purpose)) - 1
 
 export const writeCall = (state: string, call: FakeCall): void => {
   writeAtomically(join(callsDirectory(state), `${numbered(call.sequence)}${recordSuffix}`), JSON.stringify(call))

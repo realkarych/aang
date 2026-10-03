@@ -1,8 +1,5 @@
 import type { JsonValue } from '@aang/contract'
-
-export class TemplateError extends Error {
-  override readonly name = 'TemplateError'
-}
+import { ScenarioError } from './scenario-error.js'
 
 const inputKey = '$input'
 const wildcard = '*'
@@ -17,7 +14,7 @@ const segments = (pointer: string): string[] => {
     return []
   }
   if (!pointer.startsWith('/')) {
-    throw new TemplateError(`input pointer ${pointer} must start with /`)
+    throw new ScenarioError(`input pointer ${pointer} must start with /`)
   }
   return pointer
     .slice(1)
@@ -39,13 +36,13 @@ const select = (value: JsonValue, path: readonly string[], pointer: string): Jso
   }
   if (segment === wildcard) {
     if (!Array.isArray(value)) {
-      throw new TemplateError(`input pointer ${pointer} expands ${wildcard} over a non-array`)
+      throw new ScenarioError(`input pointer ${pointer} expands ${wildcard} over a non-array`)
     }
     return value.flatMap((item) => select(item, rest, pointer))
   }
   const next = child(value, segment)
   if (next === undefined) {
-    throw new TemplateError(`input pointer ${pointer} does not resolve in the input`)
+    throw new ScenarioError(`input pointer ${pointer} does not resolve in the input`)
   }
   return select(next, rest, pointer)
 }
@@ -74,7 +71,7 @@ export const renderTemplate = (template: JsonValue, input: JsonValue | undefined
     return Object.fromEntries(Object.entries(template).map(([key, value]) => [key, renderTemplate(value, input)]))
   }
   if (input === undefined) {
-    throw new TemplateError(`the prompt carries no JSON document for input pointer ${pointer}`)
+    throw new ScenarioError(`the prompt carries no JSON document for input pointer ${pointer}`)
   }
   return resolvePointer(input, pointer)
 }
