@@ -392,6 +392,9 @@ const recordedSource = (playback: Awaited<ReturnType<typeof loadManifest>>, root
 
 const machineId = (): Promise<string> => readFile('/etc/machine-id', 'utf8').then((text) => text.trim(), () => '')
 
+const prefixedJson = String.raw`JSON in text: {"text":"Connected to \u0050rivate-Owner-Mac"}`
+const jsonBlock = ['```json', '{', String.raw`  "text": "Connected to \u0050rivate-Owner-Mac"`, '}', '```'].join('\n')
+
 test.each([
   { name: 'Private-Laptop.local', spellings: ['PRIVATE-Laptop.local', 'pRiVaTe-LaPtOp.local', 'private-LAPTOP'] },
   { name: 'bob.local', spellings: ['bob', 'BOB.local', 'Bob'] },
@@ -441,6 +444,9 @@ test('verification rejects a host name or machine id of this machine anywhere in
     String.raw`{"payload":"{\"text\":\"Connected to \\u0050rivate-Owner-Mac\"}"}`,
     String.raw`{"payload":"{\"inner\":\"{\\\"text\\\":\\\"Private-Owner-\\\\u004dac\\\"}\"}"}`,
     String.raw`plain line` + '\n' + String.raw`["ssh \u0070rivate-owner-mac"]`,
+    JSON.stringify({ description: prefixedJson }),
+    JSON.stringify({ text: jsonBlock }),
+    JSON.stringify({ payload: JSON.stringify({ text: jsonBlock }) }),
     ...machine ? [`id ${machine}`, String.raw`{"id":"\u00${machine.charCodeAt(0).toString(16)}${machine.slice(1)}"}`] : [],
   ]
   for (const mention of mentions) {
@@ -553,6 +559,15 @@ test.each([
     name: 'Private-Owner-Mac', runtime: 'claude', source: 'an escaped permission denial reason in the spool',
     write: hookEvent({ hook_event_name: 'PermissionDenied', tool_name: 'Bash', tool_use_id: 'toolu_denied', reason: 'SSH to Private-Owner-Mac was denied by the user' }, ['Private', String.raw`\u0050rivate`]),
   },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'escaped JSON after a text prefix in Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', `"text":${JSON.stringify(prefixedJson)}`]),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'an escaped multiline JSON block in Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', `"text":${JSON.stringify(jsonBlock)}`]),
+  },
+  { name: 'Private-Owner-Mac', runtime: 'codex', source: 'escaped JSON after a text prefix in a project value', write: projectFile({ description: prefixedJson }) },
   { name: 'Private-Owner-Mac', runtime: 'codex', source: 'an escaped project value', write: projectFile(String.raw`{"text":"Connected to \u0050rivate-Owner-Mac"}`) },
   {
     name: 'Private-Owner-Mac', runtime: 'codex', source: 'an escaped value of nested serialized JSON',
