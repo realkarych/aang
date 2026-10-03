@@ -7,6 +7,7 @@ import {
   type FactId,
   type NormalizerVersion,
   type RawSeq,
+  type Runtime,
   SessionKey,
 } from '@aang/contract'
 import { canonicalJson, factIds } from '@aang/contract/ids'
@@ -19,6 +20,7 @@ export interface FactReader {
   readonly ofRecord: (seq: RawSeq) => Fact[]
   readonly ofSession: (key: SessionKey) => Fact[]
   readonly ofEntity: (key: FactEntityKey) => Fact[]
+  readonly withRecordUuids: (runtime: Runtime, uuids: readonly string[]) => Fact[]
   readonly sessions: () => SessionKey[]
 }
 
@@ -138,6 +140,10 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
   const selectBySession = prepareStatement(database,
     `SELECT ${factColumns} FROM facts WHERE json_extract(entity_key, '$.runtime') = ? AND json_extract(entity_key, '$.session') = ? ORDER BY seq, record_index`,
   )
+  const selectByRecordUuids = prepareStatement(database,
+    `SELECT ${factColumns} FROM facts WHERE json_extract(entity_key, '$.runtime') = ?
+     AND json_extract(runtime_ids, '$.record_uuid') IN (SELECT value FROM json_each(?)) ORDER BY seq, record_index`,
+  )
   const selectSessions = prepareStatement(database,
     "SELECT DISTINCT json_extract(entity_key, '$.runtime') AS runtime, json_extract(entity_key, '$.session') AS session FROM facts ORDER BY runtime, session",
   )
@@ -153,6 +159,10 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
     ofRecord: (seq) => (selectByRecord.all(seq) as FactRow[]).map(toFact),
     ofSession: (key) => (selectBySession.all(key.runtime, key.session) as FactRow[]).map(toFact),
     ofEntity: (key) => (selectByEntity.all(canonicalJson(key)) as FactRow[]).map(toFact),
+    withRecordUuids: (runtime, uuids) =>
+      uuids.length === 0
+        ? []
+        : (selectByRecordUuids.all(runtime, JSON.stringify(uuids)) as FactRow[]).map(toFact),
     sessions: () =>
       (selectSessions.all() as { readonly runtime: string; readonly session: string }[]).map(({ runtime, session }) =>
         SessionKey.parse({ kind: 'session', runtime, session }),

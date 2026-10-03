@@ -11,6 +11,8 @@ export interface InterpretationWriter extends InterpretationReader {
   readonly begin: (run: RunId, call: ObserverCallId, facts: readonly FactId[]) => void
   readonly settle: (call: ObserverCallId, status: 'pending' | 'interpreted') => void
   readonly handover: (from: ObserverCallId, to: ObserverCallId) => number
+  readonly queue: (run: RunId, facts: readonly FactId[]) => void
+  readonly withdraw: (run: RunId, facts: readonly FactId[]) => void
 }
 
 type InterpretationRow = {
@@ -64,6 +66,16 @@ export const createInterpretations = (database: DatabaseSync) => {
          AND next.id = :to AND next.finished_at IS NULL AND previous.run_id = fact_interpretation.run_id
      )`,
   )
+  const queue = prepareStatement(
+    database,
+    `INSERT INTO fact_interpretation (run_id, fact_id, status, attempts, observer_call_id) VALUES (?, ?, 'pending', 0, NULL)
+     ON CONFLICT (run_id, fact_id) DO UPDATE SET status = 'pending', attempts = 0, observer_call_id = NULL
+       WHERE status <> 'in_call'`,
+  )
+  const withdraw = prepareStatement(
+    database,
+    "DELETE FROM fact_interpretation WHERE run_id = ? AND fact_id = ? AND status IN ('pending', 'deferred')",
+  )
   const reader: InterpretationReader = {
     ofRun: (run) => (byRun.all(run) as InterpretationRow[]).map(fromRow),
     ofCall: (call) => (byCall.all(call) as InterpretationRow[]).map(fromRow),
@@ -85,6 +97,18 @@ export const createInterpretations = (database: DatabaseSync) => {
     handover: (from, to) => {
       context.assertActive()
       return Number(handover.run({ from, to }).changes)
+    },
+    queue: (run, facts) => {
+      context.assertActive()
+      for (const fact of new Set(facts)) {
+        queue.run(run, fact)
+      }
+    },
+    withdraw: (run, facts) => {
+      context.assertActive()
+      for (const fact of new Set(facts)) {
+        withdraw.run(run, fact)
+      }
     },
   })
   return { reader, writer }
