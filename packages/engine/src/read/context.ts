@@ -7,6 +7,7 @@ import {
   type FactKind,
   type Link,
   type ModelEntity,
+  ModelVersion,
   type ObserverState,
   type Run,
   type RunId,
@@ -43,12 +44,17 @@ export const origin: ChangeSeq = ChangeSeq.parse(0)
 
 export const planKinds: readonly FactKind[] = ['plan_update']
 
+const firstVersion: ModelVersion = ModelVersion.parse(1)
+
 export const byId = <T extends { readonly id: string }>(left: T, right: T): number => compareText(left.id, right.id)
 
 export const runOf = (store: Store, id: RunId): Run | null => {
   const entity = store.model.entity(id, { kind: 'run', id })
   return entity?.kind === 'run' ? entity.value : null
 }
+
+export const precedesPrune = (store: Store, run: Run, position: ChangeSeq): boolean =>
+  run.start_pruned && position < (store.model.version(run.id, firstVersion)?.change_seq ?? origin)
 
 export const partsOf = (entities: readonly ModelEntity[]): ModelParts => {
   const parts: ModelParts = { stages: [], criteria: [], cards: [], links: [], attention: [], bindings: [] }

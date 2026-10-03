@@ -8,7 +8,7 @@ import {
   type SessionKey,
 } from '@aang/contract'
 import { contentHash, objectId, runId } from '@aang/contract/ids'
-import { createEngine, type Engine } from '@aang/engine'
+import { createEngine, createReadQueries, type Engine, InvalidPositionError } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, test } from 'vitest'
 import { batchOf, type HookDelivery, hookBatch, joinBatches, jsonlFile } from './batches.js'
@@ -174,6 +174,7 @@ describe('watch and prune through the engine', () => {
     expect([run, hooksRun, keptRun].every((value) => value !== null)).toBe(true)
     const kept = recordsOf(store).filter(({ stream }) => stream === streamOf('codex', rollout))
     const hashed: [string, number][] = []
+    const held = store.changes.head()
 
     const outcome = await engine.prune({ scope: 'run', run: run ?? ('' as RunId) }, (path, offset) => {
       hashed.push([path, offset])
@@ -210,6 +211,13 @@ describe('watch and prune through the engine', () => {
     await engine.ingest(hookAt('b-000002.evt', claudeHook('UserPromptSubmit.json', claude), prunedAt + 1n))
     expect(runOf(store, claudeKey)).toBe(run)
     expect(run === null ? null : startPruned(store, run)).toBe(true)
+    const reformed = run ?? ('' as RunId)
+    const reads = createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
+    const current = { version: store.model.head(reformed), change_seq: store.changes.head() }
+    expect(() => reads.feed(reformed, held)).toThrow(InvalidPositionError)
+    expect(() => reads.changes(reformed, { ...current, change_seq: held })).toThrow(InvalidPositionError)
+    expect(reads.feed(reformed, current.change_seq)?.events).toEqual([])
+    expect(reads.changes(reformed, current)?.to).toEqual(current)
     expect(recordsOf(store).flatMap(({ position }) => (position.kind === 'spool' ? [position.file] : []))).toEqual([
       'a-000003.evt',
       'b-000002.evt',
