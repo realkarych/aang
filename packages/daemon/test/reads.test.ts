@@ -374,7 +374,10 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
 
     const session = 'g4-status'
     const unrecognized = JSON.stringify({ type: 'g4-future-record', sessionId: session, cwd: workspace })
-    await claudeTranscript(home, '-work', session, [...transcriptLines(session, workspace, 32), unrecognized])
+    const transcript = await claudeTranscript(home, '-work', session, [
+      ...transcriptLines(session, workspace, 32),
+      unrecognized,
+    ])
     const run = runId(claudeSession(session))
     const snapshot = await api.until(
       runPath(run),
@@ -392,6 +395,21 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     expect(status.unknown_records).toBe(snapshot.objects.sessions[0]?.unknown_records)
     expect(status.unknown_records).toBe(1)
     expect(status.database.change_seq).toBeGreaterThanOrEqual(snapshot.change_seq)
+
+    await unlink(transcript)
+    const lost = await api.until(runPath(run), endpoints.run.response, ({ objects }) =>
+      objects.sessions.every(({ freshness }) => freshness === 'lost'),
+    )
+    expect(lost.objects.sessions.map(({ support_mode: mode }) => mode)).toEqual(['files_only'])
+    const whileLost = await api.get('/api/status', endpoints.status.response)
+    expect(whileLost.runtimes[0]?.hooks_inactive_sessions).toEqual([objectId(claudeSession(session))])
+
+    await hookEvent(home, claudeHook('UserPromptSubmit', session, workspace))
+    await api.until(runPath(run), endpoints.run.response, ({ objects }) =>
+      objects.sessions.every(({ support_mode: mode }) => mode === 'full'),
+    )
+    const hooked = await api.get('/api/status', endpoints.status.response)
+    expect(hooked.runtimes[0]?.hooks_inactive_sessions).toEqual([])
   })
 
   test('the status shows the spool over its threshold with the growth since and the gap of the queue', async ({

@@ -49,7 +49,7 @@ const runtimeStatus = async (
     root,
     root_exists: await isDirectory(root),
     hooks: 'unknown',
-    hooks_inactive_sessions: sessionIds(own, ({ freshness }) => freshness === 'hooks_inactive'),
+    hooks_inactive_sessions: sessionIds(own, ({ support_mode: mode }) => mode === 'files_only'),
     double_registration_sessions: sessionIds(own, ({ double_registration: double }) => double),
   }
 }
