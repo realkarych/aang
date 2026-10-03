@@ -345,11 +345,12 @@ is deleted and later projected again starts without fields owned by other rules,
 such as its run.
 
 The deterministic rules of `ingest` run on the rebuilt sessions in the same
-transaction: run linking (E.4) and the failed check rule (E.7a) with the current
-contracts, so a check result that only the current normalizer recognises opens
-or closes its item without another `ingest`, and an open item of a failure that
-the current normalizer reads as a success of the same action is closed. Their
-changes are appended to the journal; earlier journal changes are never rewritten.
+transaction: run linking (E.4), the rule attention of questions (E.6) and the
+failed check rule (E.7a) with the current contracts. A request, answer or check
+result that only the current normalizer recognises therefore opens or closes its
+item without another `ingest`, and an open item of a failure that the current
+normalizer reads as a success of the same action is closed. Their changes are
+appended to the journal; earlier journal changes are never rewritten.
 `resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
 for a fact the current normalizer no longer produces. Reparse does not write
 `fact_interpretation`.

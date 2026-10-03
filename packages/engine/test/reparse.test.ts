@@ -21,6 +21,7 @@ import { applyChangeSet, createEngine, resolveEvidence } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, onTestFinished, test } from 'vitest'
 import { anotherVersion, draftOf, reversedFactGroups, sameFacts, storeAnotherNormalizer } from './another-normalizer.js'
+import { attentionChanges, claudeHooks, itemOf, millisecond, questionOf } from './attention-fixtures.js'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import { adapters, expectedOf, factsOf, recordsOf, removalsOf, sessionKey, startEngine, streamOf } from './harness.js'
 import { createHome } from './home.js'
@@ -597,6 +598,52 @@ test('closes the open failed checks of actions that one reparse finds successful
 
   store = home.open()
   expect(corrected(store)).toEqual(after)
+})
+
+test('reconciles the rule attention of a question whose answer one reparse recovers', async () => {
+  const home = await createHome(onTestFinished)
+  const asking = sessionKey('claude', 'reparse-asking')
+  const hooks = claudeHooks(asking.session)
+  const question = 'Which database should the parser use?'
+  const input = { questions: [{ question, header: 'Database', options: [{ label: 'SQLite' }, { label: 'Postgres' }] }] }
+  const answer = { questions: [{ question }], answers: { [question]: 'SQLite' } }
+  let store = home.open()
+  const engine = startEngine(store, { all: true })
+  await engine.ingest(
+    hookBatch(
+      hooks.start(),
+      hooks.pre('ask.evt', 'ask', millisecond, input, 'AskUserQuestion'),
+      hooks.post('answer.evt', 'ask', 2 * millisecond, 'AskUserQuestion', answer),
+    ),
+  )
+  const answered = factsOf(store).find(({ kind }) => kind === 'question_answered')
+  assert(answered !== undefined)
+  storeAnotherNormalizer(store, (drafts) => (drafts.some(({ kind }) => kind === 'question_answered') ? 'invalid' : drafts))
+  await engine.ingest(hookBatch(hooks.end('end.evt', 3 * millisecond)))
+  expect(itemOf(store, asking, 'ask')).toMatchObject({ resolution: 'open', closed_at: null })
+  expect(questionOf(store, asking, 'ask')).toMatchObject({ decision: { value: 'requested' }, answered_at: null })
+  store.close()
+
+  store = home.open()
+  const reparsing = startEngine(store, { all: true })
+  const result = await reparsing.reparse()
+  expect(result).toMatchObject({ facts_missing: 0 })
+  expect(questionOf(store, asking, 'ask')).toMatchObject({
+    decision: { value: 'answered', evidence: [answered.id] },
+    answered_at: answered.at,
+  })
+  const settled = itemOf(store, asking, 'ask')
+  expect(settled).toMatchObject({ resolution: 'answered', closed_at: answered.at })
+  expect(attentionChanges(store, asking).map(({ op, author, evidence }) => [op, author, evidence]).at(-1)).toEqual([
+    'attention.close',
+    'rule',
+    [answered.id],
+  ])
+  expect((await reparsing.reparse()).head).toBe(result.head)
+  store.close()
+
+  store = home.open()
+  expect(itemOf(store, asking, 'ask')).toEqual(settled)
 })
 
 test('recounts the records the current normalizer recognises and closes their gap', async () => {
