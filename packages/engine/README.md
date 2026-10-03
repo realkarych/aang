@@ -257,17 +257,22 @@ A binding that moves a session to another run moves its checks along: the bindin
 transaction evaluates the criteria of the run the session left and of the run it
 joined, and a run with no check of a contract any more loses the criterion of that
 contract with a `session.move` rule change, as failed check items do. Snapshots stay
-in the run they were taken for, so the evaluation of a check of the moved session
-also reads the snapshots of the run the session left, and the snapshots and the
-established commit cited by the criterion of that run. Every evaluation reads the
-snapshots its stored criterion cites besides the snapshots of its run, and a
-criterion cites every snapshot of another run that its verdict takes into account:
-the snapshots after the end of a check with `checked_commit`, the snapshots before
-and after an unversioned check. A later evaluation without the run the session left
-therefore reads the same snapshots: a moved `stale` criterion keeps the snapshot of
-its staleness, and a moved clean snapshot later than a dirty one of the run it
-joined keeps the criterion `confirmed`. `engine.reparse()` evaluates the criteria of
-the runs it rebuilds in its transaction the same way.
+in the run they were taken for, and an evaluation reads only the snapshots of its own
+run, so a binding never confirms on snapshots of another run:
+
+- a passing check that becomes the latest check of a criterion in a binding
+  transaction gives `passed_unversioned` without `checked_commit` and without the
+  note, with a `session.move` rule change as its reason. It is a check of the moved
+  session in the run it joined, or an earlier check of the run the session left that
+  a later check of the moved session covered;
+- the criterion keeps this status while the same check stays its latest: later
+  evaluations, snapshots at turn ends and `engine.refreshCriteria()` do not confirm
+  it again, and the next check of the contract in the run decides as usual;
+- a check that the moved session runs after the binding is not affected, since every
+  snapshot after it belongs to the run it joined.
+
+`engine.reparse()` evaluates the criteria of the runs it rebuilds in its transaction
+the same way.
 
 The ingest evaluates the criteria of every run whose sessions received facts in the
 transaction of the batch, together with its facts and cursors (ADR-0005). The git
@@ -311,6 +316,10 @@ git neither refreshes the index nor takes `index.lock`. `inputMasks` of a contra
 are paths relative to the watched root that declares the contract, interpreted as
 git pathspecs. A mask that covers the whole working tree becomes `.`, and masks
 outside the working tree are dropped; when no mask remains, no snapshot is taken.
+The snapshot records the masks resolved against that root as absolute paths, so the
+same mask of contracts with different roots names different inputs, and a criterion
+reads only the snapshots of its working tree with the masks of its contract resolved
+the same way.
 
 A snapshot is clean only when `HEAD` resolves to a commit and the status under the
 masks is empty: an uncommitted, staged, renamed, untracked or ignored path under a

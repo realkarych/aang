@@ -8,17 +8,20 @@ import {
   type Fact,
   type FactId,
   type FactOf,
+  type ModelChange,
+  ModelVersion,
   type RunId,
-  type SessionId,
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
+import { resolvedMasks } from '../checks/catalog.js'
 import type { RunChecks } from '../checks/history.js'
 import { applyChangeSet, type ModelChangeDraft } from '../model/journal.js'
 import type { CheckGit, ResolvedCheck } from './git.js'
 import type { CriterionCheck } from './plan.js'
 
 interface Verdict {
+  readonly op: 'criterion.status' | 'session.move'
   readonly status: CriterionStatus
   readonly evidence: readonly FactId[]
   readonly checkedCommit: string | null
@@ -36,11 +39,7 @@ interface Update {
   readonly at: EpochNs
 }
 
-export type Origins = ReadonlyMap<SessionId, RunId>
-
 type Seen = FactOf<'git_snapshot'>
-
-type Foreign = (considered: readonly (Seen | undefined)[]) => FactId[]
 
 const observed: Basis = { kind: 'observed' }
 
@@ -49,13 +48,10 @@ const criterionIdLength = 32
 export const criterionId = (run: RunId, contract: string): CriterionId =>
   CriterionId.parse(contentHash(canonicalJson(['contract_criterion', run, contract])).slice(0, criterionIdLength))
 
-const criterionIn = (transaction: Transaction, run: RunId, { contract }: CriterionCheck): Criterion | null => {
+const storedCriterion = (transaction: Transaction, { run, contract }: CriterionCheck): Criterion | null => {
   const entity = transaction.model.entity(run, { kind: 'criterion', id: criterionId(run, contract.name) })
   return entity?.kind === 'criterion' ? entity.value : null
 }
-
-const storedCriterion = (transaction: Transaction, check: CriterionCheck): Criterion | null =>
-  criterionIn(transaction, check.run, check)
 
 export const isVersioned = (transaction: Transaction, check: CriterionCheck): boolean =>
   (storedCriterion(transaction, check)?.checked_commit ?? null) !== null
@@ -65,32 +61,29 @@ const later = (left: EpochNs, right: EpochNs): EpochNs => (right > left ? right 
 const sameMasks = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((mask, index) => mask === right[index])
 
-const priorRuns = (check: CriterionCheck, origins: Origins): RunId[] => {
-  const origin = origins.get(check.result.action.session)
-  return origin === undefined || origin === check.run ? [check.run] : [check.run, origin]
+const lastRuleChange = (transaction: Transaction, { run, contract }: CriterionCheck): ModelChange | undefined =>
+  transaction.model
+    .entityChanges(run, { kind: 'criterion', id: criterionId(run, contract.name) }, ModelVersion.parse(0))
+    .findLast(({ author }) => author === 'rule')
+
+const unversionedByMove = (transaction: Transaction, check: CriterionCheck, moved: boolean): boolean => {
+  const last = lastRuleChange(transaction, check)
+  const criterion = last?.after?.kind === 'criterion' ? last.after.value : null
+  const follows = criterion !== null && check.result.evidence.some((fact) => criterion.status.evidence.includes(fact))
+  const held = follows && last?.op === 'session.move' && criterion.status.value === 'passed_unversioned'
+  return held || (moved && !follows)
 }
 
 const isSnapshot = (fact: Fact | null): fact is Seen => fact?.kind === 'git_snapshot'
 
-const knownSnapshots = (transaction: Transaction, run: RunId, check: CriterionCheck): FactId[] => [
-  ...transaction.artifacts.snapshots(run).map(({ fact }) => fact),
-  ...(criterionIn(transaction, run, check)?.status.evidence ?? []),
-]
-
-const snapshotsOf = (transaction: Transaction, check: CriterionCheck, { worktree }: CheckGit, runs: readonly RunId[]): Seen[] =>
-  [...new Set(runs.flatMap((run) => knownSnapshots(transaction, run, check)))]
-    .map((id) => transaction.facts.get(id))
+const snapshotsOf = (transaction: Transaction, check: CriterionCheck, { worktree }: CheckGit): Seen[] => {
+  const masks = resolvedMasks(check.contract)
+  return transaction.artifacts
+    .snapshots(check.run)
+    .filter((snapshot) => (snapshot.worktree === worktree || snapshot.worktree === check.directory) && sameMasks(snapshot.masks, masks))
+    .map(({ fact }) => transaction.facts.get(fact))
     .filter(isSnapshot)
-    .filter(
-      ({ payload }) =>
-        (payload.worktree === worktree || payload.worktree === check.directory) &&
-        sameMasks(payload.masks, check.contract.inputMasks),
-    )
     .sort((left, right) => left.seq - right.seq)
-
-const foreignTo = (transaction: Transaction, run: RunId): Foreign => {
-  const native = new Set(transaction.artifacts.snapshots(run).map(({ fact }) => fact))
-  return (considered) => considered.flatMap((seen) => (seen === undefined || native.has(seen.id) ? [] : [seen.id]))
 }
 
 const showsCommit = ({ payload }: Seen, commit: string): boolean => payload.clean && payload.head === commit
@@ -103,12 +96,13 @@ const firstDeparture = (after: readonly Seen[], commit: string): Seen | null => 
   return departure
 }
 
-const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, after: readonly Seen[], foreign: Foreign): Verdict => {
-  const evidence = [...result.evidence, ...commit.evidence, ...foreign(after)]
+const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, after: readonly Seen[]): Verdict => {
+  const evidence = [...result.evidence, ...commit.evidence]
   const departure = firstDeparture(after, commit.name)
   if (departure === null) {
     const latest = after.at(-1)
     return {
+      op: 'criterion.status',
       status: 'confirmed',
       evidence,
       checkedCommit: commit.name,
@@ -117,6 +111,7 @@ const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, af
     }
   }
   return {
+    op: 'criterion.status',
     status: 'stale',
     evidence: [...evidence, departure.id],
     checkedCommit: commit.name,
@@ -125,13 +120,14 @@ const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, af
   }
 }
 
-const unversionedVerdict = ({ result }: CriterionCheck, seen: readonly Seen[], foreign: Foreign): Verdict => {
+const unversionedVerdict = ({ result }: CriterionCheck, seen: readonly Seen[]): Verdict => {
   const { started, ended } = result
   const before = seen.filter(({ seq }) => seq > started && seq < ended).at(-1)
   const after = seen.find(({ seq }) => seq > ended)
   const plain: Verdict = {
+    op: 'criterion.status',
     status: 'passed_unversioned',
-    evidence: [...result.evidence, ...foreign([before, after])],
+    evidence: result.evidence,
     checkedCommit: null,
     cleanTreeCommit: null,
     at: result.at,
@@ -157,25 +153,24 @@ const establishedCommit = (stored: Criterion | null, { result, commit }: Criteri
   return [...result.evidence, ...commit.evidence].every((fact) => cited.has(fact)) ? checked : null
 }
 
-const verifiedCommit = (transaction: Transaction, { check, git }: ResolvedCheck, runs: readonly RunId[]): VerifiedCommit | null => {
-  const established = runs.map((run) => establishedCommit(criterionIn(transaction, run, check), check)).find((name) => name !== null)
-  const name = established ?? git.commit
+const verifiedCommit = (transaction: Transaction, check: CriterionCheck, git: CheckGit): VerifiedCommit | null => {
+  const name = establishedCommit(storedCriterion(transaction, check), check) ?? git.commit
   return name === null || check.commit === null ? null : { name, evidence: check.commit.evidence }
 }
 
-const verdictOf = (transaction: Transaction, resolved: ResolvedCheck, origins: Origins): Verdict => {
-  const { check, git } = resolved
+const verdictOf = (transaction: Transaction, { check, git }: ResolvedCheck, moved: boolean): Verdict => {
   const { result } = check
   if (!result.passed) {
-    return { status: 'failed', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
+    return { op: 'criterion.status', status: 'failed', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
   }
-  const runs = priorRuns(check, origins)
-  const seen = snapshotsOf(transaction, check, git, runs)
-  const commit = verifiedCommit(transaction, resolved, runs)
-  const foreign = foreignTo(transaction, check.run)
+  if (unversionedByMove(transaction, check, moved)) {
+    return { op: 'session.move', status: 'passed_unversioned', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
+  }
+  const seen = snapshotsOf(transaction, check, git)
+  const commit = verifiedCommit(transaction, check, git)
   return commit === null
-    ? unversionedVerdict(check, seen, foreign)
-    : versionedVerdict(check, commit, seen.filter(({ seq }) => seq > result.ended), foreign)
+    ? unversionedVerdict(check, seen)
+    : versionedVerdict(check, commit, seen.filter(({ seq }) => seq > result.ended))
 }
 
 const criterionOf = (check: CriterionCheck, verdict: Verdict, stored: Criterion | null): Criterion => ({
@@ -197,7 +192,7 @@ const updateOf = (transaction: Transaction, resolved: ResolvedCheck, verdict: Ve
     return null
   }
   return {
-    change: { op: 'criterion.status', put: { kind: 'criterion', value: criterion }, basis: observed, evidence: criterion.status.evidence },
+    change: { op: verdict.op, put: { kind: 'criterion', value: criterion }, basis: observed, evidence: criterion.status.evidence },
     at: verdict.at,
   }
 }
@@ -219,13 +214,13 @@ export const releaseCriteria = (transaction: Transaction, runs: readonly RunChec
 export const reconcileCriteria = (
   transaction: Transaction,
   resolved: readonly ResolvedCheck[],
-  origins: Origins,
+  moved: boolean,
 ): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
   const updates = new Map<RunId, Update[]>()
   const versioned = new Map<RunId, ResolvedCheck[]>()
   for (const entry of resolved) {
     const { run } = entry.check
-    const verdict = verdictOf(transaction, entry, origins)
+    const verdict = verdictOf(transaction, entry, moved)
     const update = updateOf(transaction, entry, verdict)
     updates.set(run, [...(updates.get(run) ?? []), ...(update === null ? [] : [update])])
     versioned.set(run, [...(versioned.get(run) ?? []), ...(verdict.checkedCommit === null ? [] : [entry])])

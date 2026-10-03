@@ -1,7 +1,7 @@
 import type { ActionKey, RunId, SessionKey, SnapshotTrigger } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
-import type { Contract, ContractCatalog } from '../checks/catalog.js'
+import { type Contract, type ContractCatalog, resolvedMasks } from '../checks/catalog.js'
 import { checkDirectory } from '../checks/history.js'
 import { matchedStarts } from '../checks/results.js'
 import { rootSessionOf, sessionRun } from '../observations/runs.js'
@@ -13,10 +13,9 @@ export const snapshotRequest = (
   cwd: string,
   contract: Contract,
   trigger: SnapshotTrigger,
-): SnapshotRequest => ({ run, root, cwd, maskRoot: contract.root, masks: contract.inputMasks, trigger })
+): SnapshotRequest => ({ run, root, cwd, masks: resolvedMasks(contract), trigger })
 
-const requestKey = ({ run, cwd, maskRoot, masks }: SnapshotRequest): string =>
-  canonicalJson([run, cwd, maskRoot, [...masks]])
+const requestKey = ({ run, cwd, masks }: SnapshotRequest): string => canonicalJson([run, cwd, [...masks]])
 
 export const distinctRequests = (requests: readonly SnapshotRequest[]): SnapshotRequest[] => [
   ...new Map(requests.map((request) => [requestKey(request), request])).values(),

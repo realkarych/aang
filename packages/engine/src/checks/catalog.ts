@@ -34,6 +34,8 @@ const compiled = (
   commitPattern: commitPattern === null ? null : new RegExp(compilePattern(commitPattern).source, 'gu'),
 })
 
+export const resolvedMasks = ({ root, inputMasks }: Contract): string[] => inputMasks.map((mask) => resolve(root, mask))
+
 const canonicalPath = (path: string): string => {
   const absolute = resolve(path)
   try {

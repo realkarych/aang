@@ -128,8 +128,6 @@ const callFacts = (store: Store, ...calls: readonly string[]): FactId[] =>
 
 const snapshotsOf = (store: Store, source: Source): GitSnapshot[] => store.artifacts.snapshots(runOf(source))
 
-const snapshotFacts = (store: Store, source: Source): FactId[] => snapshotsOf(store, source).map(({ fact }) => fact)
-
 const snapshotFact = (store: Store, source: Source, trigger: SnapshotTrigger): FactId => {
   const snapshot = snapshotsOf(store, source).findLast((candidate) => candidate.trigger === trigger)
   if (snapshot === undefined) {
@@ -545,8 +543,10 @@ test('a confirmation cites the transcript result that reported the commit after 
   expect(confirmation?.evidence).toEqual(criterion.status.evidence)
 })
 
+const statusesOf = (store: Store, source: Source) => journalOf(store, source).map(({ op, status }) => [op, status])
+
 test.for(['detach', 'revoke'] as const)(
-  'a session moved into a run by a binding takes its check along, and %s brings it back',
+  'a binding brings the confirmed check of a moved session as passed_unversioned, and %s takes it home unversioned',
   async (move, { onTestFinished }) => {
     const { store, engine, repository } = await setup(onTestFinished)
     const root = { session: 'root-session', cwd: repository.path }
@@ -559,15 +559,28 @@ test.for(['detach', 'revoke'] as const)(
     const failed = criterionOf(store, root)
     const confirmed = criterionOf(store, moved)
     expect([failed.status.value, confirmed.status.value]).toEqual(['failed', 'confirmed'])
+    const unversioned = {
+      status: { value: 'passed_unversioned', basis: observed, evidence: callFacts(store, 'moved-verify') },
+      checked_commit: null,
+      clean_tree_commit: null,
+    }
 
     const session = objectId(sessionKey('claude', moved.session))
     const attached = await engine.bind({ kind: 'attach', session, run: runOf(root) })
-    expect(criterionOf(store, root)).toMatchObject({
-      id: failed.id,
-      status: { value: 'confirmed', evidence: [...callFacts(store, 'moved-verify'), ...snapshotFacts(store, moved)].sort() },
-      checked_commit: commit,
-    })
+    expect(criterionOf(store, root)).toMatchObject({ id: failed.id, ...unversioned })
     expect(criteriaOf(store, moved)).toEqual([])
+    await engine.ingest(
+      hookBatch(preTool(moved, 'moved-list', 30, 'ls src'), postTool(moved, 'moved-list', 'app.ts\nutil.ts\n', 31, 'ls src')),
+    )
+    expect(criterionOf(store, root)).toMatchObject({ id: failed.id, ...unversioned })
+    expect(statusesOf(store, root)).toEqual([
+      ['criterion.status', 'failed'],
+      ['session.move', 'passed_unversioned'],
+    ])
+
+    await (move === 'detach' ? engine.bind({ kind: 'detach', session }) : engine.revokeBinding(attached.binding.id))
+    expect(criterionOf(store, root)).toMatchObject({ id: failed.id, status: failed.status, checked_commit: null })
+    expect(criterionOf(store, moved)).toMatchObject({ id: confirmed.id, ...unversioned })
     expect(
       store.model
         .entityChanges(runOf(moved), { kind: 'criterion', id: confirmed.id }, ModelVersion.parse(0))
@@ -575,116 +588,224 @@ test.for(['detach', 'revoke'] as const)(
     ).toEqual([
       ['criterion.status', 'confirmed'],
       ['session.move', null],
+      ['session.move', 'passed_unversioned'],
     ])
-
-    await (move === 'detach' ? engine.bind({ kind: 'detach', session }) : engine.revokeBinding(attached.binding.id))
-    expect(criterionOf(store, root)).toMatchObject({ id: failed.id, status: failed.status, checked_commit: null })
-    expect(criterionOf(store, moved)).toEqual(confirmed)
   },
 )
 
-test.for(['attach', 'detach', 'revoke'] as const)(
-  'a stale criterion keeps the snapshot of its staleness when %s moves its session to another run',
-  async (move, { onTestFinished }) => {
-    const { store, engine, repository } = await setup(onTestFinished)
-    const root = { session: 'stale-root-session', cwd: repository.path }
-    const moved = { session: 'stale-moved-session', cwd: repository.path }
-    const session = objectId(sessionKey('claude', moved.session))
-    await engine.ingest(hookBatch(started(root), started(moved)))
-    const attached = move === 'attach' ? null : await engine.bind({ kind: 'attach', session, run: runOf(root) })
-    const before = attached === null ? moved : root
-    const after = attached === null ? root : moved
-    const commit = await isolatedCheckout(repository)
-    await engine.ingest(hookBatch(preTool(moved, 'stale-verify', 20), postTool(moved, 'stale-verify', passed(commit), 21)))
-    expect(criterionOf(store, before)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: commit })
-    await writeFiles(repository.path, { 'src/app.ts': 'export const app = 15\n' })
-    await engine.ingest(hookBatch(stopped(moved, 1, 30)))
-    const stale = {
-      status: { value: 'stale', evidence: [...callFacts(store, 'stale-verify'), snapshotFact(store, before, 'turn_end')].sort() },
-      checked_commit: commit,
-    }
-    expect(criterionOf(store, before)).toMatchObject(stale)
-
-    if (attached === null) {
-      await engine.bind({ kind: 'attach', session, run: runOf(root) })
-    } else if (move === 'detach') {
-      await engine.bind({ kind: 'detach', session })
-    } else {
-      await engine.revokeBinding(attached.binding.id)
-    }
-    expect(criteriaOf(store, before)).toEqual([])
-    expect(criterionOf(store, after)).toMatchObject({
-      ...stale,
-      status: { value: 'stale', evidence: [...callFacts(store, 'stale-verify'), ...snapshotFacts(store, before)].sort() },
-    })
-    expect(journalOf(store, after).map(({ status }) => status)).toEqual(['stale'])
-  },
-)
-
-test('a session detached from a run where a later check saw another HEAD takes its check back as stale', async ({
+test('a stale check moved by attach becomes passed_unversioned, and its snapshots stay in the run it left', async ({
   onTestFinished,
 }) => {
   const { store, engine, repository } = await setup(onTestFinished)
-  const root = { session: 'head-root-session', cwd: repository.path }
-  const moved = { session: 'head-moved-session', cwd: repository.path }
+  const root = { session: 'stale-root-session', cwd: repository.path }
+  const moved = { session: 'stale-moved-session', cwd: repository.path }
+  await engine.ingest(hookBatch(started(root), started(moved)))
+  const commit = await isolatedCheckout(repository)
+  await engine.ingest(hookBatch(preTool(moved, 'stale-verify', 20), postTool(moved, 'stale-verify', passed(commit), 21)))
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 15\n' })
+  await engine.ingest(hookBatch(stopped(moved, 1, 30)))
+  expect(criterionOf(store, moved)).toMatchObject({ status: { value: 'stale' }, checked_commit: commit })
+  const left = snapshotsOf(store, moved)
+
+  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', moved.session)), run: runOf(root) })
+  const unversioned = {
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'stale-verify') },
+    checked_commit: null,
+    clean_tree_commit: null,
+  }
+  expect(criterionOf(store, root)).toMatchObject(unversioned)
+  expect(statusesOf(store, root)).toEqual([['session.move', 'passed_unversioned']])
+  expect(snapshotsOf(store, root)).toEqual([])
+  expect(snapshotsOf(store, moved)).toEqual(left)
+
+  await engine.ingest(hookBatch(stopped(moved, 2, 40)))
+  await engine.refreshCriteria()
+  expect(criterionOf(store, root)).toMatchObject(unversioned)
+  expect(snapshotsOf(store, root)).toEqual([])
+})
+
+test('a check that a session runs after attach confirms in the run it joined, and detach takes it home unversioned', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, repository } = await setup(onTestFinished)
+  const root = { session: 'joined-root-session', cwd: repository.path }
+  const moved = { session: 'joined-moved-session', cwd: repository.path }
   const session = objectId(sessionKey('claude', moved.session))
   await engine.ingest(hookBatch(started(root), started(moved)))
   await engine.bind({ kind: 'attach', session, run: runOf(root) })
   const commit = await isolatedCheckout(repository)
-  await engine.ingest(hookBatch(preTool(moved, 'moved-verify', 20), postTool(moved, 'moved-verify', passed(commit), 21)))
-  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 16\n' })
-  await git(repository.path, 'commit', '--quiet', '--all', '--message=later')
-  const later = await git(repository.path, 'rev-parse', 'HEAD')
-  await engine.ingest(hookBatch(preTool(root, 'root-verify', 30), postTool(root, 'root-verify', passed(later), 31)))
+  await engine.ingest(hookBatch(preTool(moved, 'joined-verify', 20), postTool(moved, 'joined-verify', passed(commit), 21)))
   expect(criterionOf(store, root)).toMatchObject({
-    status: { value: 'confirmed', evidence: callFacts(store, 'root-verify') },
-    checked_commit: later,
-  })
-  expect(snapshotsOf(store, root).map(({ trigger, head, clean }) => ({ trigger, head, clean }))).toEqual([
-    { trigger: 'check', head: commit, clean: true },
-    { trigger: 'check', head: later, clean: true },
-  ])
-
-  await engine.bind({ kind: 'detach', session })
-  expect(criterionOf(store, root)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: later })
-  expect(criterionOf(store, moved)).toMatchObject({
-    status: { value: 'stale', evidence: [...callFacts(store, 'moved-verify'), ...snapshotFacts(store, root)].sort() },
+    status: { value: 'confirmed', evidence: callFacts(store, 'joined-verify') },
     checked_commit: commit,
   })
+  expect(snapshotsOf(store, root).map(({ trigger, clean }) => ({ trigger, clean }))).toEqual([{ trigger: 'check', clean: true }])
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 16\n' })
+  await engine.ingest(hookBatch(stopped(moved, 1, 30)))
+  expect(criterionOf(store, root)).toMatchObject({
+    status: { value: 'stale', evidence: [...callFacts(store, 'joined-verify'), snapshotFact(store, root, 'turn_end')].sort() },
+    checked_commit: commit,
+  })
+
+  await engine.bind({ kind: 'detach', session })
+  expect(criteriaOf(store, root)).toEqual([])
+  expect(criterionOf(store, moved)).toMatchObject({
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'joined-verify') },
+    checked_commit: null,
+  })
+  expect(statusesOf(store, moved)).toEqual([['session.move', 'passed_unversioned']])
 })
 
-test('a session attached to a run whose snapshot went dirty brings a later clean snapshot and keeps that run confirmed', async ({
+test('a moved check stays passed_unversioned when a later moved check of another worktree covers it and leaves again', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const repository = await createRepository(onTestFinished, committed)
+  const second = join(dirname(repository.path), 'second')
+  await git(repository.path, 'worktree', 'add', '--quiet', '--detach', second, 'HEAD')
+  const store = home.open()
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: { all: true, roots: [{ path: dirname(repository.path), contracts: [testContract(['.'])] }] },
+    fsWatch: false,
+  })
+  onTestFinished(() => engine.close())
+  const head = await git(repository.path, 'rev-parse', 'HEAD')
+  const target = { session: 'covered-target-session', cwd: second }
+  const later = { session: 'covered-later-session', cwd: second }
+  const stale = { session: 'covered-stale-session', cwd: repository.path }
+  await engine.ingest(hookBatch(started(target), started(later), started(stale)))
+  await engine.ingest(hookBatch(preTool(stale, 'stale-verify', 10), postTool(stale, 'stale-verify', passed(head), 11)))
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 17\n' })
+  await engine.ingest(hookBatch(stopped(stale, 1, 20)))
+  expect(criterionOf(store, stale).status.value).toBe('stale')
+
+  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', stale.session)), run: runOf(target) })
+  await engine.ingest(hookBatch(preTool(later, 'later-verify', 30), postTool(later, 'later-verify', passed(head), 31)))
+  expect(criterionOf(store, later).status.value).toBe('confirmed')
+  const session = objectId(sessionKey('claude', later.session))
+  await engine.bind({ kind: 'attach', session, run: runOf(target) })
+  expect(criterionOf(store, target)).toMatchObject({
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'later-verify') },
+    checked_commit: null,
+  })
+  await engine.bind({ kind: 'detach', session })
+  const unversioned = {
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'stale-verify') },
+    checked_commit: null,
+  }
+  expect(criterionOf(store, target)).toMatchObject(unversioned)
+  expect(await git(repository.path, 'status', '--porcelain', '--', 'src')).toBe('M src/app.ts')
+  expect(statusesOf(store, target)).toEqual([
+    ['session.move', 'passed_unversioned'],
+    ['session.move', 'passed_unversioned'],
+    ['session.move', 'passed_unversioned'],
+  ])
+  await engine.refreshCriteria()
+  expect(criterionOf(store, target)).toMatchObject(unversioned)
+})
+
+test('a check of the run uncovered by detach stays passed_unversioned until the next check of the run', async ({
   onTestFinished,
 }) => {
   const { store, engine, repository } = await setup(onTestFinished)
-  const root = { session: 'dirty-root-session', cwd: repository.path }
-  const moved = { session: 'clean-moved-session', cwd: repository.path }
-  const commit = await isolatedCheckout(repository)
-  await engine.ingest(hookBatch(started(root), started(moved)))
-  await engine.ingest(hookBatch(preTool(root, 'root-verify', 10), postTool(root, 'root-verify', passed(commit), 11)))
+  const root = { session: 'uncovered-root-session', cwd: repository.path }
+  const moved = { session: 'uncovered-moved-session', cwd: repository.path }
+  const session = objectId(sessionKey('claude', moved.session))
+  const commit = await confirm(engine, store, repository, root, 'root-verify')
+  await engine.ingest(hookBatch(started(moved)))
+  await engine.bind({ kind: 'attach', session, run: runOf(root) })
   await engine.ingest(hookBatch(preTool(moved, 'moved-verify', 20), postTool(moved, 'moved-verify', passed(commit), 21)))
-  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 18\n' })
-  await engine.ingest(hookBatch(stopped(root, 1, 30)))
-  expect(criterionOf(store, root).status.value).toBe('stale')
-  await writeFiles(repository.path, { 'src/app.ts': committed['src/app.ts'] })
-  await engine.ingest(hookBatch(stopped(moved, 1, 40)))
-  expect(criterionOf(store, moved).status.value).toBe('confirmed')
-  expect(snapshotsOf(store, moved).map(({ trigger, clean }) => ({ trigger, clean }))).toEqual([
-    { trigger: 'check', clean: true },
-    { trigger: 'turn_end', clean: true },
-  ])
-  const confirmed = {
-    status: { value: 'confirmed', evidence: [...callFacts(store, 'moved-verify'), ...snapshotFacts(store, moved)].sort() },
+  expect(criterionOf(store, root)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'moved-verify') },
     checked_commit: commit,
-  }
+  })
 
-  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', moved.session)), run: runOf(root) })
-  expect(criterionOf(store, root)).toMatchObject(confirmed)
-  await engine.ingest(
-    hookBatch(preTool(moved, 'moved-list', 50, 'ls src'), postTool(moved, 'moved-list', 'app.ts\nutil.ts\n', 51, 'ls src')),
+  await engine.bind({ kind: 'detach', session })
+  const unversioned = {
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'root-verify') },
+    checked_commit: null,
+  }
+  expect(criterionOf(store, root)).toMatchObject(unversioned)
+  const snapshots = snapshotsOf(store, root)
+  await engine.ingest(hookBatch(stopped(root, 1, 30)))
+  await engine.refreshCriteria()
+  expect(criterionOf(store, root)).toMatchObject(unversioned)
+  expect(snapshotsOf(store, root)).toEqual(snapshots)
+
+  await engine.ingest(hookBatch(preTool(root, 'root-repeat', 40), postTool(root, 'root-repeat', passed(commit), 41)))
+  expect(criterionOf(store, root)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'root-repeat') },
+    checked_commit: commit,
+  })
+  expect(statusesOf(store, root)).toEqual([
+    ['criterion.status', 'confirmed'],
+    ['criterion.status', 'confirmed'],
+    ['session.move', 'passed_unversioned'],
+    ['criterion.status', 'confirmed'],
+  ])
+})
+
+test('contracts of nested roots with the same masks keep their own snapshots, so an edit makes only the criterion of its root stale', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const repository = await createRepository(onTestFinished, { ...committed, 'sub/src/app.ts': 'export const sub = 1\n' })
+  const store = home.open()
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: {
+      all: true,
+      roots: [
+        { path: repository.path, contracts: [{ ...testContract(['src']), name: 'outer' }] },
+        { path: join(repository.path, 'sub'), contracts: [{ ...testContract(['src']), name: 'inner' }] },
+      ],
+    },
+    fsWatch: false,
+  })
+  onTestFinished(() => engine.close())
+  const source = { session: 'nested-roots-session', cwd: join(repository.path, 'sub') }
+  const commit = await isolatedCheckout(repository)
+  await engine.ingest(hookBatch(started(source), preTool(source, 'call-verify', 10), postTool(source, 'call-verify', passed(commit), 11)))
+  const statuses = () =>
+    criteriaOf(store, source)
+      .map(({ contract, status }) => ({ contract, status: status.value }))
+      .sort((left, right) => (left.contract ?? '').localeCompare(right.contract ?? ''))
+  expect(statuses()).toEqual([
+    { contract: 'inner', status: 'confirmed' },
+    { contract: 'outer', status: 'confirmed' },
+  ])
+
+  await writeFiles(repository.path, { 'sub/src/app.ts': 'export const sub = 2\n' })
+  await engine.ingest(hookBatch(stopped(source, 1, 20)))
+  const inner = [join(repository.path, 'sub', 'src')]
+  const outer = [join(repository.path, 'src')]
+  expect(snapshotsOf(store, source).map(({ trigger, masks, clean }) => ({ trigger, masks, clean }))).toEqual([
+    { trigger: 'check', masks: inner, clean: true },
+    { trigger: 'check', masks: outer, clean: true },
+    { trigger: 'turn_end', masks: inner, clean: false },
+    { trigger: 'turn_end', masks: outer, clean: true },
+  ])
+  expect(statuses()).toEqual([
+    { contract: 'inner', status: 'stale' },
+    { contract: 'outer', status: 'confirmed' },
+  ])
+  const dirty = snapshotsOf(store, source).find(({ trigger, clean }) => trigger === 'turn_end' && !clean)?.fact
+  expect(criteriaOf(store, source).find(({ contract }) => contract === 'inner')?.status.evidence).toEqual(
+    [...callFacts(store, 'call-verify'), dirty].sort(),
   )
-  expect(criterionOf(store, root)).toMatchObject(confirmed)
-  expect(journalOf(store, root).map(({ status }) => status)).toEqual(['confirmed', 'stale', 'confirmed'])
+
+  await engine.refreshCriteria()
+  expect(snapshotsOf(store, source).filter(({ trigger }) => trigger === 'restart').map(({ masks, clean }) => ({ masks, clean }))).toEqual([
+    { masks: inner, clean: false },
+    { masks: outer, clean: true },
+  ])
+  expect(statuses()).toEqual([
+    { contract: 'inner', status: 'stale' },
+    { contract: 'outer', status: 'confirmed' },
+  ])
 })
 
 test('a batch where a later check finds a repository cloned after an earlier check keeps the earlier check unversioned', async ({
