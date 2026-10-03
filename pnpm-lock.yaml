@@ -386,6 +386,22 @@ importers:
         specifier: ~6.0.3
         version: 6.0.3
 
+  tools/owner-checklist:
+    dependencies:
+      '@aang/contract':
+        specifier: workspace:*
+        version: link:../../packages/contract
+      '@aang/hook':
+        specifier: workspace:*
+        version: link:../../packages/hook
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+    devDependencies:
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
   tools/record:
     dependencies:
       '@aang/contract':
@@ -418,6 +434,9 @@ importers:
       '@aang/contract':
         specifier: workspace:*
         version: link:../../packages/contract
+      '@aang/hook':
+        specifier: workspace:*
+        version: link:../../packages/hook
       zod:
         specifier: ^4.6.5
         version: 4.6.5

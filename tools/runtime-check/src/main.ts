@@ -1,20 +1,32 @@
 import { execFileSync } from 'node:child_process'
-import { appendFile, mkdir, writeFile } from 'node:fs/promises'
-import { arch, cpus, platform, release, tmpdir } from 'node:os'
+import { appendFile, mkdir, realpath, writeFile } from 'node:fs/promises'
+import { arch, cpus, homedir, loadavg, platform, release, tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
+import { type AgentSdk, installAgentSdk } from './agent-sdk.js'
 import { startAnthropicStub } from './anthropic-stub.js'
 import { checkSection, type SectionCheck } from './checks.js'
 import { claudeDelivery, claudeLaunchers } from './claude.js'
 import { inspectExecutables, locateClis } from './clis.js'
 import { codexBehaviour, codexForms } from './codex.js'
 import { type CheckContext, probeScript } from './context.js'
+import {
+  aangInstallForm,
+  claudeMarketplace,
+  claudeRemoval,
+  claudeSkillsDirectory,
+  codexInstallation,
+  compareUserProfile,
+  installedLatency,
+  snapshotUserProfile,
+  trimProbes,
+} from './delivery.js'
 import { processTrees } from './jobs.js'
 import { claudeSeries, codexSeries, hookLatency } from './latency.js'
 import { observerAdmission } from './observer.js'
 import { pipelineCheck } from './pipeline.js'
-import { createProfile, writeJson } from './profile.js'
+import { createProfile } from './profile.js'
 import { isWindows } from './process.js'
 import { startResponsesStub } from './responses-stub.js'
 import { defaultRoots } from './roots.js'
@@ -27,8 +39,18 @@ const { values } = parseArgs({
     claude: { type: 'string' },
     codex: { type: 'string' },
     'disposable-profile': { type: 'boolean', default: false },
+    suite: { type: 'string', default: 'windows' },
+    'agent-sdk': { type: 'string', default: 'latest' },
   },
 })
+
+const suites = ['windows', 'delivery'] as const
+type Suite = (typeof suites)[number]
+const isSuite = (value: string): value is Suite => (suites as readonly string[]).includes(value)
+if (!isSuite(values.suite)) {
+  throw new Error(`unknown suite ${values.suite}; expected one of ${suites.join(', ')}`)
+}
+const suite: Suite = values.suite
 
 const repositoryRoot = fileURLToPath(new URL('../../../', import.meta.url))
 const hookBinary = resolve(
@@ -37,6 +59,15 @@ const hookBinary = resolve(
 const out = resolve(values.out ?? 'runtime-check-report')
 const work = resolve(values.work ?? join(process.env.RUNNER_TEMP ?? tmpdir(), `aang check ${String(Date.now())}`))
 const reportPath = join(out, 'report.json')
+await mkdir(work, { recursive: true })
+const workReal = await realpath(work)
+
+const redact = (text: string): string =>
+  suite === 'delivery'
+    ? [workReal, work, homedir()].reduce((current, path) => current.replaceAll(path, path === homedir() ? '~' : '<work>'), text)
+    : text
+
+const writeReport = (): Promise<void> => writeFile(reportPath, redact(`${JSON.stringify(report, null, 2)}\n`))
 
 const defenderRealtime = (): string | null => {
   try {
@@ -57,8 +88,9 @@ const report: Record<string, unknown> = {
     arch: arch(),
     cpu: cpus()[0]?.model ?? null,
     node: process.version,
-    ...(isWindows ? { defenderRealTimeProtection: defenderRealtime() } : {}),
+    ...(isWindows ? { defenderRealTimeProtection: defenderRealtime() } : { loadAverageAtStart: loadavg() }),
   },
+  suite,
   startedAt: new Date().toISOString(),
 }
 const timings: Record<string, string> = {}
@@ -92,13 +124,13 @@ const section = async <T>(
   report.checks = checks
   process.stdout.write(`${symbol(name)} ${name} (${timings[name]})\n`)
   if (checks[name].status === 'failed') process.stdout.write(`${checks[name].reasons.join('\n')}\n`)
-  await writeJson(reportPath, report)
+  await writeReport()
   return value
 }
 
 const summary = (): string =>
   [
-    `# aang runtime check on ${platform()} ${release()} ${arch()}`,
+    `# aang runtime check (${suite}) on ${platform()} ${release()} ${arch()}`,
     '',
     ...Object.entries(timings).map(([name, time]) => `- ${symbol(name)} ${name} — ${time}`),
     '',
@@ -118,7 +150,7 @@ const summary = (): string =>
   ].join('\n')
 
 await mkdir(out, { recursive: true })
-await mkdir(work, { recursive: true })
+const userProfile = suite === 'delivery' ? await snapshotUserProfile() : null
 const anthropic = await startAnthropicStub()
 const responses = await startResponsesStub()
 const profile = await createProfile(work, hookBinary)
@@ -134,7 +166,7 @@ const context: CheckContext = {
   probe: { node: process.execPath, script: probeScript, log: join(work, 'probe.jsonl') },
 }
 
-try {
+const windowsSuite = async (): Promise<void> => {
   await section('executables', () => inspectExecutables(clis), null)
   await section('claude hook delivery', () => claudeDelivery(context), null)
   const claudeProbes = await section(
@@ -176,13 +208,64 @@ try {
   await section('observer admission', () => observerAdmission(context, probeForm), null)
   await section('process trees in a job object', () => processTrees(context, installForm), null)
   await section('default roots', () => defaultRoots(context, values['disposable-profile']), null)
+}
+
+const deliverySeriesPairs = 15
+
+const deliverySuite = async (): Promise<void> => {
+  await section('executables', () => inspectExecutables(clis), null)
+  const sdk = await section<AgentSdk | null>(
+    'agent sdk',
+    () => installAgentSdk(work, values['agent-sdk']),
+    null,
+    (value) => (value === null ? null : { requested: values['agent-sdk'], version: value.version }),
+  )
+  await section('claude plugin from the marketplace', () => claudeMarketplace(context, hookBinary, sdk), null)
+  await section('claude plugin from the skills directory', () => claudeSkillsDirectory(context, sdk), null)
+  const claudeProbes = await section(
+    'claude hook launchers',
+    () => claudeLaunchers(context),
+    { report: {}, probes: [] },
+    ({ report: launchers }) => trimProbes(launchers, 'claude'),
+  )
+  const codex = await section(
+    'codex hooks installed by aang',
+    () => codexInstallation(context, hookBinary),
+    null,
+    (value) => value?.report,
+  )
+  await section('codex hook exit and timeout', () => codexBehaviour(context, aangInstallForm), null)
+  await section(
+    'installed hook latency',
+    () => installedLatency(context, { claudeProbes: claudeProbes.probes, codexLauncher: codex?.launcher ?? null }),
+    null,
+  )
+  await section('claude series with and without hooks', () => claudeSeries(context, deliverySeriesPairs), null)
+  await section(
+    'codex series with and without hooks',
+    () => codexSeries(context, aangInstallForm, deliverySeriesPairs),
+    null,
+  )
+  await section('claude plugin removal', () => claudeRemoval(context), null)
+  await section(
+    'user profile untouched',
+    () => (userProfile === null ? Promise.resolve(null) : compareUserProfile(userProfile, work)),
+    null,
+  )
+}
+
+try {
+  await (suite === 'delivery' ? deliverySuite() : windowsSuite())
 } finally {
   report.finishedAt = new Date().toISOString()
+  if (!isWindows) {
+    report.loadAverageAtFinish = loadavg()
+  }
   report.failedSections = failed
-  await writeJson(reportPath, report)
-  await writeFile(join(out, 'summary.md'), summary())
+  await writeReport()
+  await writeFile(join(out, 'summary.md'), redact(summary()))
   if (process.env.GITHUB_STEP_SUMMARY !== undefined) {
-    await appendFile(process.env.GITHUB_STEP_SUMMARY, summary())
+    await appendFile(process.env.GITHUB_STEP_SUMMARY, redact(summary()))
   }
   await anthropic.close()
   await responses.close()

@@ -110,7 +110,7 @@ RFC §4, §7 и §8 требуют наблюдать Claude Code и Codex во 
   - динамически — строки сессии появляются в файлах, а hook-событий от неё нет.
 - **Доставка и удаление:**
   - `aang install` генерирует плагин в `~/.aang/claude-plugin/` и ставит его в пользовательский scope через локальный маркетплейс и команды `claude plugin` (решение 1);
-  - ожидаемый охват плагина — CLI, Desktop Local/worktree и Agent SDK с `settingSources` по умолчанию. Загрузку `enabledPlugins` в SDK спайк не проверил. Исключения:
+  - ожидаемый охват плагина — CLI, Desktop Local/worktree и Agent SDK с `settingSources` по умолчанию. Загрузку плагина маркетплейса и запасного каталога в CLI 2.1.288 и Agent SDK 0.3.288 подтвердила D.5 (`docs/research/d5-plugin-delivery-live.md`); Desktop проверяет чек-лист владельца (D.7). Исключения:
     - resume из `sessionStore`: SDK вырезает `enabledPlugins` и работает во временном `CLAUDE_CONFIG_DIR`;
     - `persistSession: false`: транскрипта нет, остаётся режим «только hooks»;
   - изолированные SDK-приложения (`settingSources: []`) подключаются строкой `plugins: [{type: 'local', path}]` (спайк 5.3-L);

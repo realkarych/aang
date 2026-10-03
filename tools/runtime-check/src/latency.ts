@@ -27,7 +27,7 @@ import { createSpool, inheritedEnv } from './profile.js'
 import { isWindows, quoteWindowsArgument, run } from './process.js'
 import { clearDelivered, deliveredNames } from './spool.js'
 
-interface Launcher {
+export interface Launcher {
   readonly id: string
   readonly command: string
   readonly args: readonly string[]
@@ -35,12 +35,12 @@ interface Launcher {
   readonly verbatim: boolean
 }
 
-interface Series {
+export interface Series {
   readonly warmup: number
   readonly runs: number
 }
 
-interface LatencySummary {
+export interface LatencySummary {
   readonly launcher: Launcher
   readonly runs: number
   readonly p50: number
@@ -62,7 +62,7 @@ const typicalEnv: Readonly<Record<string, string>> = Object.fromEntries(
   Object.entries(envelope.env).filter(([name]) => (spoolEnvKeys as readonly string[]).includes(name)),
 )
 
-const strictSeries: Series = { warmup: 20, runs: 500 }
+export const strictSeries: Series = { warmup: 20, runs: 500 }
 
 const percentile = (sorted: readonly number[], fraction: number): number =>
   sorted[Math.min(sorted.length - 1, Math.ceil(fraction * sorted.length) - 1)] ?? Number.NaN
@@ -75,7 +75,7 @@ const median = (values: readonly number[]): number =>
     0.5,
   )
 
-const measure = async (launcher: Launcher, spool: string, series: Series): Promise<LatencySummary> => {
+export const measure = async (launcher: Launcher, spool: string, series: Series): Promise<LatencySummary> => {
   await clearDelivered(spool)
   const durations: number[] = []
   let failures = 0
@@ -208,6 +208,10 @@ const seriesIncrement = async (
     medianWithoutHooksMs: round(medianWithout),
     medianEventsPerRun: medianEvents,
     perEventMs: medianEvents > 0 ? round((medianWith - medianWithout) / medianEvents) : null,
+    perEventPairedMs:
+      medianEvents > 0
+        ? round(median(withHooks.map((sample, index) => sample.durationMs - (withoutHooks[index]?.durationMs ?? Number.NaN))) / medianEvents)
+        : null,
     failures: [...withHooks, ...withoutHooks].filter(({ ok }) => !ok).length,
     withHooksMs: withHooks.map(({ durationMs }) => round(durationMs)),
     withoutHooksMs: withoutHooks.map(({ durationMs }) => round(durationMs)),
@@ -218,7 +222,7 @@ const seriesSteps = 20
 
 const seriesPairs = 5
 
-export const claudeSeries = async (context: CheckContext): Promise<Record<string, unknown>> => {
+export const claudeSeries = async (context: CheckContext, pairs = seriesPairs): Promise<Record<string, unknown>> => {
   const { profile } = context
   const bareConfigDir = join(profile.home, '.claude-bare')
   return seriesIncrement(async (hooks) => {
@@ -234,13 +238,17 @@ export const claudeSeries = async (context: CheckContext): Promise<Record<string
       ok: session.result.status === 0 && session.final?.subtype === 'success',
       events,
     }
-  }, seriesPairs)
+  }, pairs)
 }
 
 export const allEventHooks = (context: CheckContext, form: CommandForm): CodexHooks =>
   Object.fromEntries(codexEvents.map((event) => [event, [formHook(context, form, context.profile.spool, 2)]]))
 
-export const codexSeries = async (context: CheckContext, form: CommandForm): Promise<Record<string, unknown>> => {
+export const codexSeries = async (
+  context: CheckContext,
+  form: CommandForm,
+  pairs = seriesPairs,
+): Promise<Record<string, unknown>> => {
   const { profile } = context
   const hooksHome = join(context.work, 'codex-series-hooks')
   const bareHome = join(context.work, 'codex-series-bare')
@@ -259,7 +267,7 @@ export const codexSeries = async (context: CheckContext, form: CommandForm): Pro
       ok: session.result.status === 0 && session.events.some((event) => event.type === 'turn.completed'),
       events,
     }
-  }, seriesPairs)
+  }, pairs)
 }
 
 const withoutPwsh = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv => {

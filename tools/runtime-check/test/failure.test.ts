@@ -5,23 +5,28 @@ import { join, resolve } from 'node:path'
 import { expect, test } from 'vitest'
 import { run } from '../dist/process.js'
 
+const runWithFailingClis = async (directory: string, suiteArgs: readonly string[]) => {
+  const cli = join(directory, process.platform === 'win32' ? 'failed-cli.exe' : 'failed-cli')
+  execFileSync('go', ['build', '-o', cli, resolve('tools/runtime-check/test/fixtures/failing-cli.go')])
+  const out = join(directory, 'out')
+  const result = await run(process.execPath, [
+    resolve('tools/runtime-check/dist/main.js'), '--claude', cli, '--codex', cli,
+    '--out', out, '--work', join(directory, 'work'), ...suiteArgs,
+  ], {
+    env: { ...process.env, HOME: directory, USERPROFILE: directory, PATH: '', Path: '', GITHUB_STEP_SUMMARY: undefined },
+    timeoutMs: 180_000,
+  })
+  const report = JSON.parse(await readFile(join(out, 'report.json'), 'utf8')) as {
+    failedSections: string[]
+    checks: Record<string, { status: string }>
+  }
+  return { result, report }
+}
+
 test('the runtime check fails when external CLIs report versions but every session fails', async () => {
   const directory = await mkdtemp(join(tmpdir(), 'aang-runtime-failure-'))
   try {
-    const cli = join(directory, process.platform === 'win32' ? 'failed-cli.exe' : 'failed-cli')
-    execFileSync('go', ['build', '-o', cli, resolve('tools/runtime-check/test/fixtures/failing-cli.go')])
-    const out = join(directory, 'out')
-    const result = await run(process.execPath, [
-      resolve('tools/runtime-check/dist/main.js'), '--claude', cli, '--codex', cli,
-      '--out', out, '--work', join(directory, 'work'),
-    ], {
-      env: { ...process.env, HOME: directory, USERPROFILE: directory, PATH: '', Path: '', GITHUB_STEP_SUMMARY: undefined },
-      timeoutMs: 180_000,
-    })
-    const report = JSON.parse(await readFile(join(out, 'report.json'), 'utf8')) as {
-      failedSections: string[]
-      checks: Record<string, { status: string }>
-    }
+    const { result, report } = await runWithFailingClis(directory, [])
     expect(result.timedOut, `${result.stdout}\n${result.stderr}\n${JSON.stringify(report)}`).toBe(false)
     expect(result.status, result.stderr).toBe(1)
     expect(report.checks['default roots']?.status).toBe('skipped')
@@ -35,6 +40,30 @@ test('the runtime check fails when external CLIs report versions but every sessi
       'claude series with and without hooks',
       'codex series with and without hooks',
       'observer admission',
+    ]))
+  } finally {
+    await rm(directory, { recursive: true, force: true })
+  }
+}, 240_000)
+
+test('the plugin delivery check fails when external CLIs report versions but every session fails', async () => {
+  const directory = await mkdtemp(join(tmpdir(), 'aang-delivery-failure-'))
+  try {
+    const { result, report } = await runWithFailingClis(directory, ['--suite', 'delivery'])
+    expect(result.timedOut, `${result.stdout}\n${result.stderr}\n${JSON.stringify(report)}`).toBe(false)
+    expect(result.status, result.stderr).toBe(1)
+    expect(report.checks['user profile untouched']?.status).toBe('passed')
+    expect(report.failedSections).toEqual(expect.arrayContaining([
+      'agent sdk',
+      'claude plugin from the marketplace',
+      'claude plugin from the skills directory',
+      'claude hook launchers',
+      'codex hooks installed by aang',
+      'codex hook exit and timeout',
+      'installed hook latency',
+      'claude series with and without hooks',
+      'codex series with and without hooks',
+      'claude plugin removal',
     ]))
   } finally {
     await rm(directory, { recursive: true, force: true })
