@@ -135,6 +135,7 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     version: scenario.version,
     cwd: process.cwd(),
     tools: ['StructuredOutput', ...scenario.leakedTools],
+    plugins: scenario.builtinPlugins,
     permissionMode: lastValue(options, 'permission-mode') ?? 'default',
     startedAt,
   }

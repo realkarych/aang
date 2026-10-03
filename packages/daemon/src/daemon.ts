@@ -6,6 +6,7 @@ import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
+import { startObserver } from './observer.js'
 import { otelToken } from './otel-token.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
@@ -112,12 +113,20 @@ const serve = async ({ options, config, runtimeRoots, paths, listener, store }: 
     settle({ reason })
   }
   const auth = createAuthenticator(paths)
+  const observer = startObserver({ store, config, aangHome: paths.home, environment: options.environment.env })
+  void observer.failure.then((error) => {
+    settle({ error })
+  })
   const ingestion = await startIngestion({
     store,
     config,
     spool: paths.spool,
     runtimeRoots,
     otelToken: otelToken(store),
+    onIngested: observer.wake,
+  }).catch(async (error: unknown) => {
+    await observer.close()
+    throw error
   })
   void ingestion.failure.then((error) => {
     settle({ error })
@@ -185,6 +194,7 @@ const serve = async ({ options, config, runtimeRoots, paths, listener, store }: 
     }
     await runAll([
       ingestion.stop,
+      observer.close,
       async () => {
         await worker.drained()
         await running.spool?.release()

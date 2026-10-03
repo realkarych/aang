@@ -11,6 +11,7 @@ export interface IngestionOptions {
   readonly spool: string
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
   readonly otelToken: string
+  readonly onIngested: () => void
 }
 
 export interface Ingestion {
@@ -40,6 +41,7 @@ export const startIngestion = async ({
   spool,
   runtimeRoots,
   otelToken,
+  onIngested,
 }: IngestionOptions): Promise<Ingestion> => {
   const engine = createEngine({ store, adapters, watch: config.watch, quietAfterMs: config.freshness.quietAfterMs })
   const collector = createCollector({
@@ -58,6 +60,7 @@ export const startIngestion = async ({
   const pump = async (): Promise<void> => {
     for await (const batch of collector.start(store.cursors.list())) {
       const { settled, rescan } = await engine.ingest(batch)
+      onIngested()
       for (const acknowledged of settled) {
         await collector.ack(acknowledged)
       }

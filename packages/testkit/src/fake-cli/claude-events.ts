@@ -10,6 +10,7 @@ export interface ClaudeSession {
   readonly version: string
   readonly cwd: string
   readonly tools: readonly string[]
+  readonly plugins: readonly string[]
   readonly permissionMode: string
   readonly startedAt: number
 }
@@ -33,11 +34,11 @@ const noUsage: ClaudeUsage = {
 const fiveHoursInSeconds = 5 * 60 * 60
 const thinkingTokens = 190
 
-const builtinPlugins = ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'].map((name) => ({
+const builtinPlugin = (name: string): JsonValue => ({
   name,
   path: 'builtin',
   source: `${name}@builtin`,
-}))
+})
 
 const capabilities = [
   'interrupt_receipt_v1',
@@ -129,7 +130,7 @@ export const initEvent = (session: ClaudeSession): JsonValue => ({
   output_style: 'default',
   agents: ['claude', 'Explore', 'general-purpose', 'Plan', 'statusline-setup'],
   skills: [],
-  plugins: builtinPlugins,
+  plugins: session.plugins.map(builtinPlugin),
   capabilities,
   analytics_disabled: true,
   product_feedback_disabled: false,

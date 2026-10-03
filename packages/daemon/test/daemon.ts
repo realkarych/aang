@@ -27,6 +27,7 @@ export interface DaemonSettings {
   readonly config?: Record<string, unknown>
   readonly bind?: string | null
   readonly staticRoot?: string | null
+  readonly env?: Readonly<Record<string, string>>
 }
 
 export const createHome = async (
@@ -46,12 +47,12 @@ export const createHome = async (
 export const startDaemon = async (
   home: Home,
   onTestFinished: TestContext['onTestFinished'],
-  { bind = null, staticRoot = null }: DaemonSettings = {},
+  { bind = null, staticRoot = null, env = {} }: DaemonSettings = {},
 ): Promise<RunningDaemon> => {
   const controller = new AbortController()
   const ready = Promise.withResolvers<DaemonReady>()
   const stopped = runDaemon({
-    environment: { env: { AANG_HOME: home.paths.home }, homedir: home.root },
+    environment: { env: { ...env, AANG_HOME: home.paths.home }, homedir: home.root },
     bind,
     staticRoot,
     signal: controller.signal,
