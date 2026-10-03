@@ -13,6 +13,7 @@ export interface PendingFact {
   readonly fact: FactId
   readonly seq: RawSeq
   readonly at: EpochNs
+  readonly observed_at: EpochNs
   readonly urgent: boolean
   readonly bytes: number
   readonly attempts: number
@@ -50,6 +51,7 @@ type PendingRow = {
   fact_id: string
   seq: bigint
   occurred_at: bigint
+  observed_at: bigint
   urgent: bigint
   bytes: bigint
   attempts: bigint
@@ -69,6 +71,7 @@ const fromPendingRow = (row: PendingRow): PendingFact => ({
   fact: FactId.parse(row.fact_id),
   seq: RawSeq.parse(Number(row.seq)),
   at: EpochNs.parse(row.occurred_at),
+  observed_at: EpochNs.parse(row.observed_at),
   urgent: row.urgent === 1n,
   bytes: Number(row.bytes),
   attempts: Number(row.attempts),
@@ -77,8 +80,7 @@ const fromPendingRow = (row: PendingRow): PendingFact => ({
 
 export const recoverInterpretations = (database: DatabaseSync): void => {
   database.exec(
-    `UPDATE fact_interpretation SET status = 'pending', attempts = MAX(attempts - 1, 0), observer_call_id = NULL
-     WHERE status = 'in_call'`,
+    "UPDATE fact_interpretation SET status = 'pending', attempts = MAX(attempts - 1, 0) WHERE status = 'in_call'",
   )
 }
 
@@ -104,8 +106,9 @@ export const createInterpretations = (database: DatabaseSync) => {
   )
   const pending = prepareStatement(
     database,
-    `SELECT i.fact_id, f.seq, f.occurred_at, f.urgent, length(f.payload) AS bytes, i.attempts, i.observer_call_id
-     FROM fact_interpretation i JOIN facts f ON f.id = i.fact_id
+    `SELECT i.fact_id, f.seq, f.occurred_at, r.observed_at, f.urgent, length(CAST(f.payload AS BLOB)) AS bytes, i.attempts,
+       i.observer_call_id
+     FROM fact_interpretation i JOIN facts f ON f.id = i.fact_id JOIN raw_records r ON r.seq = f.seq
      WHERE i.run_id = ? AND i.status = 'pending'
      ORDER BY f.seq, f.record_index`,
   )

@@ -1,17 +1,18 @@
-import type {
-  Action,
-  ActionId,
-  AgentId,
-  Fact,
-  FactId,
-  MaterialUnavailableReason,
-  ModelEntityRef,
-  ObserverInput,
-  RawRecord,
-  RunId,
-  Runtime,
-  SessionId,
-  StageId,
+import {
+  type Action,
+  type ActionId,
+  type AgentId,
+  type Fact,
+  type FactId,
+  type MaterialUnavailableReason,
+  type ModelEntityRef,
+  ModelVersion,
+  type ObserverInput,
+  type RawRecord,
+  type RunId,
+  type Runtime,
+  type SessionId,
+  type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { FactReader, ModelReader, ObservationReader, RawRecordReader } from '@aang/store'
@@ -37,6 +38,8 @@ export interface InputScope extends InputScopeOptions {
   readonly action: (action: Action) => ScopeExclusion | null
   readonly session: (session: SessionId) => ScopeExclusion | null
   readonly agent: (agent: AgentId) => ScopeExclusion | null
+  readonly grounds: (evidence: readonly FactId[]) => ScopeExclusion | null
+  readonly entity: (ref: ModelEntityRef) => ScopeExclusion | null
 }
 
 export interface ScopeViolation {
@@ -62,13 +65,20 @@ export const factSession = (fact: Fact): SessionId => {
 
 export const inputScope = (reader: ScopeReader, options: InputScopeOptions): InputScope => {
   const { run, backend, crossVendor } = options
-  const admit = (session: SessionId, vendor: Runtime): ScopeExclusion | null => {
-    if (!sessionInRun(reader.model, run, session)) {
-      return 'out_of_scope'
-    }
-    return vendor === backend || crossVendor ? null : 'cross_vendor'
-  }
+  const vendor = (runtime: Runtime): ScopeExclusion | null =>
+    runtime === backend || crossVendor ? null : 'cross_vendor'
+  const admit = (session: SessionId, runtime: Runtime): ScopeExclusion | null =>
+    sessionInRun(reader.model, run, session) ? vendor(runtime) : 'out_of_scope'
   const fact = (value: Fact): ScopeExclusion | null => admit(factSession(value), value.entity_key.runtime)
+  const grounds = (evidence: readonly FactId[]): ScopeExclusion | null => {
+    const exclusions = new Set(
+      evidence.map((id) => {
+        const stored = reader.facts.get(id)
+        return stored === null ? 'out_of_scope' : vendor(stored.entity_key.runtime)
+      }),
+    )
+    return exclusions.has('out_of_scope') ? 'out_of_scope' : exclusions.has('cross_vendor') ? 'cross_vendor' : null
+  }
   return {
     run,
     backend,
@@ -83,6 +93,11 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
       const agent = reader.observations.getAgent(id)
       return agent === null ? 'out_of_scope' : admit(agent.session, agent.key.runtime)
     },
+    grounds,
+    entity: (ref) =>
+      reader.model.entity(run, ref) === null
+        ? 'out_of_scope'
+        : grounds(reader.model.entityChanges(run, ref, ModelVersion.parse(0)).flatMap(({ evidence }) => evidence)),
     record: (record) => {
       const exclusions = reader.facts.ofRecord(record.seq).map(fact)
       if (exclusions.length === 0 || exclusions.includes('out_of_scope')) {
@@ -119,7 +134,7 @@ export const inputViolations = (reader: ScopeReader, scope: InputScope, input: O
     }
   }
   const entity = (ref: ModelEntityRef): void => {
-    check(`${ref.kind} ${ref.id}`, reader.model.entity(scope.run, ref) === null ? 'out_of_scope' : null)
+    check(`${ref.kind} ${ref.id}`, scope.entity(ref))
   }
   const stage = (id: StageId | null): void => {
     if (id !== null) {

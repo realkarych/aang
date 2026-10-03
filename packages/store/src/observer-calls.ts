@@ -47,6 +47,7 @@ export interface ObserverCallResult {
 export interface ObserverCallReader {
   readonly get: (id: ObserverCallId) => StoredObserverCall | null
   readonly unfinished: () => ObserverCallId[]
+  readonly latestStart: (run: RunId) => EpochNs | null
 }
 
 export interface ObserverCallWriter extends ObserverCallReader {
@@ -74,6 +75,10 @@ export const createObserverCalls = (database: DatabaseSync) => {
     database,
     'SELECT id FROM observer_calls WHERE finished_at IS NULL ORDER BY started_at, id',
   )
+  const selectLatestStart = prepareStatement(
+    database,
+    'SELECT started_at FROM observer_calls WHERE run_id = ? ORDER BY started_at DESC LIMIT 1',
+  )
   const insert = prepareStatement(
     database,
     `INSERT INTO observer_calls (id, run_id, backend, base_version, input, started_at, change_seq)
@@ -86,6 +91,10 @@ export const createObserverCalls = (database: DatabaseSync) => {
   )
   const reader: ObserverCallReader = {
     unfinished: () => (selectUnfinished.all() as { id: string }[]).map(({ id }) => ObserverCallId.parse(id)),
+    latestStart: (run) => {
+      const row = selectLatestStart.get(run) as { started_at: bigint } | undefined
+      return row === undefined ? null : EpochNs.parse(row.started_at)
+    },
     get: (id) => {
       const row = select.get(id) as CallRow | undefined
       return row === undefined

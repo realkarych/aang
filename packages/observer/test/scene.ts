@@ -16,12 +16,15 @@ import {
   type RunId,
   type Runtime,
 } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { createEngine } from '@aang/engine'
+import { objectId, runId } from '@aang/contract/ids'
+import { applyChangeSet, createEngine } from '@aang/engine'
 import {
+  type CliCommand,
   createClaudeBackend,
+  createClaudeLauncher,
   createCodexBackend,
   createObserverScheduler,
+  type ObserverExecutor,
   type SchedulerClock,
   type SchedulerLimits,
 } from '@aang/observer'
@@ -152,6 +155,14 @@ const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 
 
 export const start = Date.parse('2026-10-03T09:00:00.000Z')
 
+export const epochOf = (milliseconds: number): EpochNs => EpochNs.parse(BigInt(milliseconds) * 1_000_000n)
+
+export interface SceneLaunch {
+  readonly root: string
+  readonly claude: CliCommand
+  readonly launcher: (cli: CliCommand) => ObserverExecutor
+}
+
 export interface SceneOptions {
   readonly claude?: readonly ClaudeReply[]
   readonly codex?: readonly CodexReply[]
@@ -161,6 +172,7 @@ export interface SceneOptions {
   readonly limits?: Partial<SchedulerLimits>
   readonly timeoutMs?: number
   readonly systemClock?: boolean
+  readonly executors?: (launch: SceneLaunch) => Partial<Record<Runtime, ObserverExecutor>>
 }
 
 export const createScene = async ({ onTestFinished }: TestContext, options: SceneOptions = {}) => {
@@ -192,16 +204,19 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
   })
   const admitted = options.admit ?? ['claude']
   await Promise.all(admitted.map((runtime) => (runtime === 'claude' ? claude : codex).admit()))
+  const launcher = (cli: CliCommand): ObserverExecutor =>
+    createClaudeLauncher({ ...launch, cli, model: 'claude-opus-5-5', builtins })
+  const backends = { claude, codex, ...options.executors?.({ root, claude: fakeClaude, launcher }) }
   const manual = options.systemClock === true ? null : manualClock(start)
   let failure: unknown = null
-  const boot = () => {
+  const boot = (crossVendor = options.crossVendor) => {
     const store = openStore({ home: join(root, 'aang') })
     const engine = createEngine({ store, adapters, watch: { all: true, roots: [] } })
     const scheduler = createObserverScheduler({
       store,
-      backends: { claude, codex },
+      backends,
       ...(options.backend === undefined ? {} : { backend: options.backend }),
-      ...(options.crossVendor === undefined ? {} : { crossVendor: options.crossVendor }),
+      ...(crossVendor === undefined ? {} : { crossVendor }),
       ...(manual === null ? {} : { clock: manual }),
       ...(options.limits === undefined ? {} : { limits: options.limits }),
     })
@@ -228,7 +243,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
         stream: null,
         position: { kind: 'spool', file: `${String(delivered).padStart(6, '0')}.evt` },
         hook: { registration: 'plugin', env: {} },
-        observed_at: EpochNs.parse(BigInt(now() + offsetMs) * 1_000_000n),
+        observed_at: epochOf(now() + offsetMs),
         payload,
       })
     })
@@ -246,6 +261,13 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
         offsetMs,
       ),
     permission: (offsetMs = 0) => deliver('claude', [claudeHook('PermissionRequest.Bash.json', session, workspace)], offsetMs),
+    command: (command: string) =>
+      deliver('claude', [
+        claudeHook('PreToolUse.Bash.json', session, workspace, {
+          tool_use_id: `${session}-command`,
+          tool_input: { command, description: 'Run a command' },
+        }),
+      ]),
   })
   const codexSession = (session: string) => ({
     run: runId({ kind: 'session', runtime: 'codex', session }),
@@ -275,10 +297,27 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
     get scheduler() {
       return daemon.scheduler
     },
-    restart: async (): Promise<void> => {
+    restart: async (changes: { readonly crossVendor?: boolean } = {}): Promise<void> => {
       await daemon.scheduler.close()
       daemon.store.close()
-      daemon = boot()
+      daemon = boot(changes.crossVendor)
+    },
+    attach: (runtime: Runtime, session: string, run: RunId): void => {
+      daemon.store.transaction((transaction) => {
+        applyChangeSet(transaction, {
+          run,
+          author: 'rule',
+          at: epochOf(now()),
+          changes: [
+            {
+              op: 'session.move',
+              put: { kind: 'session_membership', value: { run, session: objectId({ kind: 'session', runtime, session }) } },
+              basis: { kind: 'observed' },
+              evidence: [],
+            },
+          ],
+        })
+      })
     },
     advance: (milliseconds: number): void => {
       if (manual === null) {
@@ -288,6 +327,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
     },
     claude,
     codex,
+    launcher,
     fakeClaude,
     fakeCodex,
     claudeSession,

@@ -188,14 +188,18 @@ E.7b and E.7c.
 observer input; chat materials (K.1) use the same filter. An object is in scope only
 when its session belongs to the run. A session of a vendor other than `backend`, the
 vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
-is attributed through its facts, so a record without facts is out of scope.
+is attributed through its facts, so a record without facts is out of scope. A model
+entity of the run is attributed through its grounds, the evidence of every change in
+its journal: it is excluded when a ground comes from a vendor other than `backend`
+without `crossVendor`, or when a ground fact is missing. A ground from a session that
+has since left the run does not exclude the entity.
 
 `inputViolations(reader, scope, input)` applies the scope to the whole input: the
 sessions and agents of the run description, the context record, the stages,
 criteria and attention items of the snapshot, the facts of the batch with their
 sessions, agents and actions, the agents of collapsed facts and of the backlog, and
-the artifact versions with the actions that produced them. Snapshot entities must
-belong to the run. The context record follows the raw record rule, and an artifact
+the artifact versions with the actions that produced them. Snapshot entities and the
+stages they refer to must belong to the run and pass the grounds rule. The context record follows the raw record rule, and an artifact
 version must be bound to the run, so both are refused until F.7a and E.7b provide
 their storage. `beginObserverCall` refuses an input with any violation and a first
 call that already carries materials; `beginObserverFollowUp` checks the stored input
@@ -241,13 +245,16 @@ starts the next call of a run from its pending facts in the order of their recor
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
-- the batch is the first facts up to `limits.facts` whose payload length stays
-  within `limits.bytes`; the first fact always goes;
+- the batch is the first facts up to `limits.facts` whose payload size in UTF-8 bytes
+  stays within `limits.bytes`; the first fact always goes;
 - the input carries the run description with the sessions and agents in scope, the
   snapshot of the current version (active stages, criteria, open attention items),
   the batch facts with their session, agent and action and payload strings cut at
   `limits.textLength`, and the reasons of the latest rejected call of these facts as
-  `previous_attempt`. The context, collapsed facts, backlog and artifact versions
+  `previous_attempt`. The run goal and brief, stages, criteria and attention items
+  enter only when their grounds are in scope; a reference to a stage left out becomes
+  `null`. The reasons carry over calls that ended without a response, so a backend
+  failure or a restart after a rejection does not drop them. The context, collapsed facts, backlog and artifact versions
   stay empty until F.7a, F.7b and E.7b fill them;
 - the call is recorded by `beginObserverCall`. Without a run entity or an eligible
   fact nothing starts and the result is `null`.
@@ -260,6 +267,8 @@ store the usage of the call.
 
 When the store opens, facts left `in_call` by a stopped process return to `pending`
 and get the attempt of the interrupted call back: a stop is not a content failure.
+They keep the reference to the interrupted call, which carries the reasons of the
+previous rejection.
 
 `exhaustObserverCall` turns the facts of a rejected call that reached the attempt
 limit into `not_interpreted` and opens a gap `not_interpreted` for the call.

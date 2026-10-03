@@ -1,9 +1,32 @@
+import { execFile } from 'node:child_process'
+import { mkdirSync } from 'node:fs'
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { EpochNs, ObserverCallId, type RunId } from '@aang/contract'
-import { startObserverBatch } from '@aang/engine'
-import { createObserverScheduler } from '@aang/observer'
+import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
+import { type FactId, ObserverCallId, type RunId } from '@aang/contract'
+import { applyChangeSet, startObserverBatch } from '@aang/engine'
+import { type CliCommand, createObserverScheduler } from '@aang/observer'
+import type { ClaudeReply } from '@aang/testkit'
 import { expect, test } from 'vitest'
-import { accepted, briefed, createScene, needing, outdated, start, structured } from './scene.js'
+import { accepted, briefed, createScene, epochOf, needing, outdated, start, structured } from './scene.js'
+
+const wrapped = (wrapper: string, ...args: string[]): CliCommand => ({
+  command: process.execPath,
+  args: [fileURLToPath(new URL(wrapper, import.meta.url)), ...args],
+})
+
+const gated = (gate: string, cli: CliCommand): CliCommand => wrapped('gate-wrapper.ts', gate, cli.command, ...(cli.args ?? []))
+
+const zombieTree = (directory: string, helper: string, cli: CliCommand): CliCommand => {
+  mkdirSync(directory)
+  return wrapped('zombie-wrapper.ts', helper, directory, cli.command, ...(cli.args ?? []))
+}
+
+const rejection = 'version: base_version does not match the saved observer call'
+
+const batchLimits = { facts: 30, bytes: 96_000, textLength: 4_000 }
 
 const until = async (condition: () => boolean): Promise<void> => {
   const deadline = Date.now() + 15_000
@@ -315,7 +338,7 @@ test('closing the scheduler cancels a running call without spending its attempt'
     ['pending', 0],
     ['pending', 0],
   ])
-  await expect(scene.scheduler.chat(() => Promise.resolve(null))).rejects.toThrow('closed')
+  await expect(scene.scheduler.chat((signal) => scene.claude.execute({ input: {}, signal }))).rejects.toThrow('closed')
   scene.scheduler.wake()
   expect(scene.tally(session.run)).toEqual({ pending: 2 })
 })
@@ -332,8 +355,8 @@ test('a restart ends the call of the stopped process and sends its batch again w
       backend: 'claude',
       crossVendor: false,
       id: stopped,
-      at: EpochNs.parse(BigInt(start) * 1_000_000n),
-      limits: { facts: 30, bytes: 96_000, textLength: 4_000 },
+      at: epochOf(start),
+      limits: batchLimits,
     }),
   )
   expect(scene.tally(session.run)).toEqual({ in_call: 2 })
@@ -345,6 +368,10 @@ test('a restart ends the call of the stopped process and sends its batch again w
     ['pending', 0],
   ])
   scene.scheduler.wake()
+  scene.advance(9_999)
+  expect(scene.tally(session.run)).toEqual({ pending: 2 })
+  scene.advance(1)
+  expect(scene.tally(session.run)).toEqual({ in_call: 2 })
   await scene.scheduler.idle()
   expect(scene.statuses(session.run).map(({ status, attempts }) => [status, attempts])).toEqual([
     ['interpreted', 1],
@@ -364,4 +391,307 @@ test('a store failure surfaces through the scheduler instead of stopping the pro
   scene.scheduler.wake()
   expect(await scene.scheduler.failure).toBeInstanceOf(Error)
   await scene.scheduler.close()
+})
+
+test('a restart after a finished call keeps calls of a run ten seconds apart', async (context) => {
+  const scene = await createScene(context, { claude: [accepted, accepted] })
+  const session = scene.claudeSession('session-paced')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  expect(scene.tally(session.run)).toEqual({ interpreted: 2 })
+
+  await scene.restart()
+  await session.permission()
+  scene.scheduler.wake()
+  scene.advance(9_999)
+  expect(scene.tally(session.run)).toEqual({ interpreted: 2, pending: 1 })
+  scene.advance(1)
+  expect(scene.tally(session.run)).toEqual({ interpreted: 2, in_call: 1 })
+  await scene.scheduler.idle()
+  expect(scene.calls(session.run).map(({ started_at: started }) => started)).toEqual([epochOf(start), epochOf(start + 10_000)])
+})
+
+test('a fact that arrives during a call ages from its arrival, so its batch starts as soon as the call ends', async (context) => {
+  let gate = ''
+  const scene = await createScene(context, {
+    claude: [accepted, accepted],
+    executors: ({ root, claude, launcher }) => {
+      gate = join(root, 'gate')
+      return { claude: launcher(gated(gate, claude)) }
+    },
+  })
+  const session = scene.claudeSession('session-arrival')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  scene.advance(1_000)
+  await session.tools(1)
+  scene.scheduler.wake()
+  scene.advance(19_000)
+  expect(scene.tally(session.run)).toEqual({ in_call: 2, pending: 1 })
+
+  await writeFile(gate, '')
+  await until(() => scene.calls(session.run).length === 2)
+  expect(scene.calls(session.run).map(({ started_at: started }) => started)).toEqual([epochOf(start), epochOf(start + 20_000)])
+  await scene.scheduler.idle()
+  expect(scene.tally(session.run)).toEqual({ interpreted: 3 })
+})
+
+test('the queue bound applies to a run while its call is running', async (context) => {
+  let gate = ''
+  const scene = await createScene(context, {
+    claude: [accepted, accepted],
+    limits: { queueFacts: 2 },
+    executors: ({ root, claude, launcher }) => {
+      gate = join(root, 'gate')
+      return { claude: launcher(gated(gate, claude)) }
+    },
+  })
+  const session = scene.claudeSession('session-busy')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await session.tools(3)
+  scene.scheduler.wake()
+  expect(scene.tally(session.run)).toEqual({ in_call: 2, deferred: 1, pending: 2 })
+  expect(scene.store.gaps.open('summarized_backlog')).toMatchObject([{ run: session.run }])
+
+  await writeFile(gate, '')
+  await scene.scheduler.idle()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+  expect(scene.tally(session.run)).toEqual({ interpreted: 4, deferred: 1 })
+})
+
+test('facts of a run whose backend is down are deferred after 24 hours without another wake', async (context) => {
+  const scene = await createScene(context, { admit: [] })
+  const session = scene.claudeSession('session-down')
+  await session.start()
+  scene.scheduler.wake()
+  scene.advance(24 * 60 * 60 * 1_000)
+  expect(scene.tally(session.run)).toEqual({ pending: 1 })
+  expect(scene.store.gaps.open('summarized_backlog')).toEqual([])
+
+  scene.advance(1)
+  expect(scene.tally(session.run)).toEqual({ deferred: 1 })
+  expect(scene.store.gaps.open('summarized_backlog')).toMatchObject([{ run: session.run }])
+})
+
+test('the reasons of a rejected response survive a backend failure and a restart, and neither spends an attempt', { timeout: 60_000 }, async (context) => {
+  const scene = await createScene(context, { claude: [outdated, { kind: 'timeout' }, accepted], timeoutMs: 1_500 })
+  const session = scene.claudeSession('session-reasons')
+  const attempts = () => scene.statuses(session.run).map(({ status, attempts: count }) => [status, count])
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+  expect(attempts()).toEqual([
+    ['pending', 1],
+    ['pending', 1],
+  ])
+
+  scene.store.transaction((transaction) =>
+    startObserverBatch(transaction, {
+      run: session.run,
+      backend: 'claude',
+      crossVendor: false,
+      id: ObserverCallId.parse('stopped-call'),
+      at: epochOf(start + 10_000),
+      limits: batchLimits,
+    }),
+  )
+  await scene.restart()
+  expect(attempts()).toEqual([
+    ['pending', 1],
+    ['pending', 1],
+  ])
+  scene.advance(10_000)
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+
+  expect(scene.calls(session.run).map(({ verdict, input }) => [verdict, input.previous_attempt?.reasons ?? null])).toEqual([
+    ['rejected', null],
+    ['failed', [rejection]],
+    ['failed', [rejection]],
+    ['accepted', [rejection]],
+  ])
+  expect(attempts()).toEqual([
+    ['interpreted', 2],
+    ['interpreted', 2],
+  ])
+})
+
+test('the batch size counts payload bytes, not characters', async (context) => {
+  const scene = await createScene(context, { claude: [accepted, accepted], limits: { batchBytes: 5_000 } })
+  const session = scene.claudeSession('session-bytes')
+  await session.start()
+  await session.command(`echo ${'я'.repeat(3_000)}`)
+  const text = (fact: FactId): string =>
+    JSON.stringify(scene.store.facts.get(fact)?.payload, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value))
+  const queued = scene.store.interpretations.pending(session.run)
+  expect(queued.some(({ urgent }) => urgent)).toBe(false)
+  expect(queued.reduce((total, { fact }) => total + text(fact).length, 0)).toBeLessThan(5_000)
+  expect(queued.reduce((total, { fact }) => total + Buffer.byteLength(text(fact)), 0)).toBeGreaterThanOrEqual(5_000)
+
+  scene.scheduler.wake()
+  expect(scene.tally(session.run)).toEqual({ in_call: 1, pending: 1 })
+  await scene.scheduler.idle()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+  expect(scene.calls(session.run).map(({ input }) => input.batch.facts.map(({ kind }) => kind))).toEqual([
+    ['session_start'],
+    ['action_start'],
+  ])
+})
+
+test.skipIf(process.platform === 'win32')(
+  'a process tree that has not stopped keeps its observer or chat slot until the backend confirms the stop',
+  { timeout: 90_000 },
+  async (context) => {
+    let helper = ''
+    const scene = await createScene(context, {
+      admit: ['codex'],
+      claude: [accepted, accepted],
+      codex: [accepted, accepted, { kind: 'answer', output: { base_version: 0, ops: [], needs: [] } }],
+      executors: ({ root, claude, launcher }) => {
+        helper = join(root, 'zombie-helper')
+        return { claude: launcher(zombieTree(join(root, 'observer-tree'), helper, claude)) }
+      },
+    })
+    await promisify(execFile)('cc', [fileURLToPath(new URL('zombie.c', import.meta.url)), '-o', helper])
+    const chatTree = scene.launcher(zombieTree(join(scene.root, 'chat-tree'), helper, scene.fakeClaude))
+    const release = (tree: string): Promise<void> => writeFile(join(scene.root, tree, 'release'), '')
+    const question = 'Which stage is blocked?'
+    const asked = (): boolean => scene.fakeCodex.calls().some((call) => call.prompt?.includes(question) === true)
+    const stuck = scene.claudeSession('session-stuck')
+    const [first, second] = [scene.codexSession('thread-first'), scene.codexSession('thread-second')]
+    let idled = false
+    try {
+      await stuck.start()
+      await stuck.permission()
+      scene.scheduler.wake()
+      expect(scene.tally(stuck.run)).toEqual({ in_call: 2 })
+      const stuckChat = scene.scheduler.chat((signal) => chatTree.execute({ input: { chat: 'first' }, signal }))
+      expect(await stuckChat).toMatchObject({ ok: false, error: { class: 'process_stuck' } })
+      await until(() => scene.calls(stuck.run)[0]?.verdict === 'failed')
+      expect(scene.statuses(stuck.run).map(({ status, attempts }) => [status, attempts])).toEqual([
+        ['pending', 0],
+        ['pending', 0],
+      ])
+
+      const idle = scene.scheduler.idle().then(() => {
+        idled = true
+      })
+      const following = scene.scheduler.chat((signal) => scene.codex.execute({ input: { chat: question }, signal }))
+      for (const session of [first, second]) {
+        await session.start()
+        await session.permission()
+      }
+      scene.scheduler.wake()
+      expect([first, second].map(({ run }) => scene.tally(run))).toEqual([{ in_call: 2 }, { pending: 2 }])
+      await until(() => scene.tally(second.run)['interpreted'] === 2)
+      await sleep(200)
+      expect(asked()).toBe(false)
+
+      await release('chat-tree')
+      expect(await following).toMatchObject({ ok: true })
+      expect(asked()).toBe(true)
+      expect(idled).toBe(false)
+
+      await scene.scheduler.close()
+      expect(idled).toBe(false)
+      await release('observer-tree')
+      await idle
+      expect(scene.tally(stuck.run)).toEqual({ pending: 2 })
+    } finally {
+      await Promise.all(['observer-tree', 'chat-tree'].map(release))
+    }
+  },
+)
+
+const attachedCriterion: ClaudeReply = {
+  kind: 'answer',
+  output: {
+    base_version: { $input: '/model/version' },
+    ops: [
+      {
+        op: 'criterion.add',
+        temp_id: 'attached',
+        stage: { kind: 'existing', id: { $input: '/model/stages/0/id' } },
+        text: 'The attached session ran its check',
+        source: 'task',
+        evidence: { $input: '/batch/facts/*/id' },
+        rationale: 'Attached session',
+      },
+    ],
+    needs: [],
+  },
+}
+
+test('without crossVendor no text grounded on facts of another vendor reaches the observer', async (context) => {
+  const scene = await createScene(context, {
+    backend: 'claude',
+    crossVendor: true,
+    claude: [structured, attachedCriterion, accepted],
+  })
+  const root = scene.codexSession('thread-root')
+  const attached = scene.claudeSession('session-attached')
+  await root.start()
+  scene.attach('claude', 'session-attached', root.run)
+  await attached.start()
+  await root.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  await attached.permission()
+  scene.scheduler.wake()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  const [goal] = scene.store.facts.ofSession({ kind: 'session', runtime: 'codex', session: 'thread-root' })
+  const run = scene.store.model.entity(root.run, { kind: 'run', id: root.run })
+  if (goal === undefined || run?.kind !== 'run') {
+    throw new Error('the codex root must start the run')
+  }
+  scene.store.transaction((transaction) => {
+    applyChangeSet(transaction, {
+      run: root.run,
+      author: 'rule',
+      at: epochOf(start + 10_000),
+      changes: [
+        {
+          op: 'run.goal',
+          put: { kind: 'run', value: { ...run.value, goal: { text: 'Ship the codex task', fact: goal.id } } },
+          basis: { kind: 'observed' },
+          evidence: [goal.id],
+        },
+      ],
+    })
+  })
+  await scene.restart({ crossVendor: false })
+  await attached.tools(1)
+  scene.advance(10_000)
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+
+  const attention = scene.store.model.entities(root.run).flatMap((entity) => (entity.kind === 'attention_item' ? [entity.value] : []))
+  const codexAttention = attention.find(({ evidence }) => evidence.every((id) => scene.store.facts.get(id)?.entity_key.runtime === 'codex'))
+  const claudeAttention = attention.find(({ evidence }) => evidence.every((id) => scene.store.facts.get(id)?.entity_key.runtime === 'claude'))
+  expect([codexAttention?.kind, claudeAttention?.kind]).toEqual(['permission', 'permission'])
+  const [, crossing, separated] = scene.prompts('claude')
+  const withheld = [codexAttention?.text ?? '', 'The observer read the batch', 'Review the requested command', 'The command is allowed or denied']
+  for (const text of withheld) {
+    expect(JSON.stringify(crossing)).toContain(text)
+  }
+  for (const text of [...withheld, 'Ship the codex task']) {
+    expect(JSON.stringify(separated)).not.toContain(text)
+  }
+  expect(separated?.run).toMatchObject({ id: root.run, runtime: 'codex', goal: null, brief: null, sessions: [{ runtime: 'claude' }] })
+  expect(separated?.model.stages).toEqual([])
+  expect(separated?.model.criteria).toMatchObject([{ text: 'The attached session ran its check', stage: null }])
+  expect(separated?.model.attention.map(({ id }) => id)).toEqual([claudeAttention?.id])
+  expect(scene.tally(root.run)).toEqual({ interpreted: 5 })
 })

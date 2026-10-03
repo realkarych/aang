@@ -17,6 +17,7 @@ import {
   type Runtime,
   type Session,
   type SessionId,
+  type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { PendingFact, StoredObserverCall, Transaction } from '@aang/store'
@@ -74,8 +75,8 @@ const describeRun = (transaction: Transaction, scope: InputScope, run: Run): Run
   return {
     id: run.id,
     runtime: run.runtime,
-    goal: run.goal?.text ?? null,
-    brief: run.brief?.text ?? null,
+    goal: run.goal !== null && scope.grounds([run.goal.fact]) === null ? run.goal.text : null,
+    brief: run.brief !== null && scope.grounds(run.brief.evidence) === null ? run.brief.text : null,
     sessions: sessions.map(sessionBrief),
     agents: sessions
       .flatMap((session) => transaction.observations.agents(session.id))
@@ -84,19 +85,34 @@ const describeRun = (transaction: Transaction, scope: InputScope, run: Run): Run
   }
 }
 
-const snapshotOf = (transaction: Transaction, run: RunId): ModelSnapshot => {
-  const entities: ModelEntity[] = transaction.model.entities(run)
+const admitted = (scope: InputScope, entity: ModelEntity): boolean => {
+  switch (entity.kind) {
+    case 'stage':
+      return entity.value.lifecycle.state === 'active' && scope.entity({ kind: 'stage', id: entity.value.id }) === null
+    case 'criterion':
+      return scope.entity({ kind: 'criterion', id: entity.value.id }) === null
+    case 'attention_item':
+      return entity.value.resolution === 'open' && scope.entity({ kind: 'attention_item', id: entity.value.id }) === null
+    default:
+      return false
+  }
+}
+
+const snapshotOf = (transaction: Transaction, scope: InputScope): ModelSnapshot => {
+  const entities = transaction.model.entities(scope.run).filter((entity) => admitted(scope, entity))
+  const stages = new Set(entities.flatMap((entity) => (entity.kind === 'stage' ? [entity.value.id] : [])))
+  const stageOf = (id: StageId | null): StageId | null => (id !== null && stages.has(id) ? id : null)
   return {
-    version: transaction.model.head(run),
+    version: transaction.model.head(scope.run),
     stages: entities.flatMap((entity) =>
-      entity.kind === 'stage' && entity.value.lifecycle.state === 'active'
+      entity.kind === 'stage'
         ? [
             {
               id: entity.value.id,
               title: entity.value.title,
               expected_result: entity.value.expected_result,
               summary: entity.value.summary,
-              parent: entity.value.parent,
+              parent: stageOf(entity.value.parent),
               origin: entity.value.origin,
               execution: entity.value.execution.value,
               decision: entity.value.decision.value,
@@ -109,7 +125,7 @@ const snapshotOf = (transaction: Transaction, run: RunId): ModelSnapshot => {
         ? [
             {
               id: entity.value.id,
-              stage: entity.value.stage,
+              stage: stageOf(entity.value.stage),
               text: entity.value.text,
               source: entity.value.source,
               status: entity.value.status.value,
@@ -118,14 +134,14 @@ const snapshotOf = (transaction: Transaction, run: RunId): ModelSnapshot => {
         : [],
     ),
     attention: entities.flatMap((entity) =>
-      entity.kind === 'attention_item' && entity.value.resolution === 'open'
+      entity.kind === 'attention_item'
         ? [
             {
               id: entity.value.id,
               kind: entity.value.kind,
               author: entity.value.author,
               text: entity.value.text,
-              stage: entity.value.stage,
+              stage: stageOf(entity.value.stage),
               runtime_wait: entity.value.runtime_wait,
               resolution: entity.value.resolution,
               likely_resolved: entity.value.likely_resolved !== null,
@@ -217,18 +233,17 @@ const select = (queued: readonly Queued[], limits: BatchLimits): Queued[] => {
 const describeRejection = ({ op_index: index, cause, message }: ObserverRejection): string =>
   `${cause}${index === null ? '' : ` (operation ${String(index)})`}: ${message}`
 
+const attemptOf = (call: StoredObserverCall): ObserverInput['previous_attempt'] =>
+  call.verdict === 'rejected' ? { reasons: call.reasons.map(describeRejection) } : call.input.previous_attempt
+
 const previousAttempt = (transaction: Transaction, batch: readonly Queued[]): ObserverInput['previous_attempt'] => {
   const calls = new Set(batch.flatMap(({ pending }) => (pending.observer_call === null ? [] : [pending.observer_call])))
-  const latest = [...calls]
-    .flatMap((id) => {
-      const call = transaction.observerCalls.get(id)
-      return call?.verdict === 'rejected' ? [call] : []
-    })
-    .reduce<StoredObserverCall | null>(
-      (newest, call) => (newest === null || call.started_at > newest.started_at ? call : newest),
-      null,
-    )
-  return latest === null ? null : { reasons: latest.reasons.map(describeRejection) }
+  const [latest] = [...calls]
+    .flatMap((id) => transaction.observerCalls.get(id) ?? [])
+    .toSorted((left, right) => Number(right.started_at - left.started_at))
+    .map(attemptOf)
+    .filter((attempt) => attempt !== null)
+  return latest ?? null
 }
 
 const positive = (limits: BatchLimits): boolean =>
@@ -255,7 +270,7 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
   const input: ObserverInput = {
     run: describeRun(transaction, scope, entity.value),
     context: null,
-    model: snapshotOf(transaction, run),
+    model: snapshotOf(transaction, scope),
     batch: {
       facts: batch.map(({ fact }) => inputFact(transaction, scope, fact, limits.textLength)),
       collapsed: [],
