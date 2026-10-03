@@ -135,8 +135,7 @@ const activityOf = (store: Store, run: RunId, from: ViewPosition): AgentActivity
 }
 
 export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPosition): ChangesResponse | null => {
-  const current = runOf(store, run)
-  if (current === null) {
+  if (runOf(store, run) === null) {
     return null
   }
   const head = store.model.head(run)
@@ -146,9 +145,9 @@ export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPositio
       `position ${String(from.version)}/${String(from.change_seq)} is ahead of ${String(head)}/${String(position)}`,
     )
   }
-  if (precedesPrune(store, current, from.change_seq)) {
+  if (precedesPrune(store, from.change_seq)) {
     throw new InvalidPositionError(
-      `position ${String(from.version)}/${String(from.change_seq)} precedes the prune of the run ${run}`,
+      `position ${String(from.version)}/${String(from.change_seq)} precedes the latest prune`,
     )
   }
   const parts = partsOf(store.model.entities(run))

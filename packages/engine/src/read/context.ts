@@ -7,7 +7,6 @@ import {
   type FactKind,
   type Link,
   type ModelEntity,
-  ModelVersion,
   type ObserverState,
   type ResetReason,
   type Run,
@@ -16,6 +15,7 @@ import {
   type StageId,
 } from '@aang/contract'
 import type { Store } from '@aang/store'
+import { pruneEpochSetting } from '../ingest/prune.js'
 import { compareText } from '../observations/evidence.js'
 
 export interface ObserverRunStatus {
@@ -52,8 +52,6 @@ export const origin: ChangeSeq = ChangeSeq.parse(0)
 
 export const planKinds: readonly FactKind[] = ['plan_update']
 
-const firstVersion: ModelVersion = ModelVersion.parse(1)
-
 export const byId = <T extends { readonly id: string }>(left: T, right: T): number => compareText(left.id, right.id)
 
 export const runOf = (store: Store, id: RunId): Run | null => {
@@ -61,8 +59,10 @@ export const runOf = (store: Store, id: RunId): Run | null => {
   return entity?.kind === 'run' ? entity.value : null
 }
 
-export const precedesPrune = (store: Store, run: Run, position: ChangeSeq): boolean =>
-  run.start_pruned && position < (store.model.version(run.id, firstVersion)?.change_seq ?? origin)
+export const precedesPrune = (store: Store, position: ChangeSeq): boolean => {
+  const epoch = store.settings.get(pruneEpochSetting)
+  return epoch !== undefined && position < ChangeSeq.parse(epoch)
+}
 
 export const partsOf = (entities: readonly ModelEntity[]): ModelParts => {
   const parts: ModelParts = { stages: [], criteria: [], cards: [], links: [], attention: [], bindings: [] }

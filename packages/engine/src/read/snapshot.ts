@@ -180,8 +180,8 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
   if (run === null) {
     return null
   }
-  if (precedesPrune(store, run, after)) {
-    throw new InvalidPositionError(`position ${String(after)} precedes the prune of the run ${id}`)
+  if (precedesPrune(store, after)) {
+    throw new InvalidPositionError(`position ${String(after)} precedes the latest prune`)
   }
   const versions = store.model.versions(id, after)
   const first = versions[0]

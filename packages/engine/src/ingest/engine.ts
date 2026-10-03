@@ -38,7 +38,7 @@ import { checkSnapshots } from '../snapshots/checks.js'
 import { recordSnapshot } from '../snapshots/record.js'
 import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { normalizeOtel } from './otel.js'
-import { type PrefixHash, pruneBoundaries, type PruneOutcome, pruneRuns, pruneTarget } from './prune.js'
+import { type PrefixHash, pruneBoundaries, pruneEpochSetting, type PruneOutcome, pruneRuns, pruneTarget } from './prune.js'
 import { queueFacts } from './queue.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
@@ -697,12 +697,14 @@ export const createEngine = ({
       return { runs, boundaries: [] }
     }
     const { owners, ...target } = pruneTarget(store, adapters, runs)
-    const boundaries = await pruneBoundaries(store, owners, prefixHash, now())
+    const at = now()
+    const boundaries = await pruneBoundaries(store, owners, prefixHash, at)
     store.transaction((transaction) => {
       transaction.pruning.remove(target)
       for (const boundary of boundaries) {
         transaction.pruned.save(boundary)
       }
+      transaction.settings.save(pruneEpochSetting, transaction.nextChangeSeq(), at)
     })
     quiet = quietWatchOf(store.observations.sessions())
     return { runs, boundaries }

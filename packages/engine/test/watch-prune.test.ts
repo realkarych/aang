@@ -4,6 +4,7 @@ import {
   type CollectorBatch,
   EpochNs,
   type RunId,
+  type RunSnapshot,
   type Runtime,
   type SessionKey,
 } from '@aang/contract'
@@ -29,6 +30,9 @@ const startPruned = (store: Store, run: RunId): boolean | null => {
   const entity = store.model.entity(run, { kind: 'run', id: run })
   return entity?.kind === 'run' ? entity.value.start_pruned : null
 }
+
+const readsOf = (store: Store) =>
+  createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
 
 const runtimeHook = (runtime: Runtime, name: string, session: string, cwd: string, file: string, arrival: number): HookDelivery =>
   runtime === 'claude'
@@ -212,7 +216,7 @@ describe('watch and prune through the engine', () => {
     expect(runOf(store, claudeKey)).toBe(run)
     expect(run === null ? null : startPruned(store, run)).toBe(true)
     const reformed = run ?? ('' as RunId)
-    const reads = createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
+    const reads = readsOf(store)
     const current = { version: store.model.head(reformed), change_seq: store.changes.head() }
     expect(() => reads.feed(reformed, held)).toThrow(InvalidPositionError)
     expect(() => reads.changes(reformed, { ...current, change_seq: held })).toThrow(InvalidPositionError)
@@ -286,6 +290,70 @@ describe('watch and prune through the engine', () => {
       expect(kept()).toEqual(before)
       expect(reopened.model.entity(run, { kind: 'run', id: run })).toBeNull()
       expect(reopened.observations.getSession(objectId(host))?.run).toBe(hostRun)
+    },
+  )
+
+  test.for(['claude', 'codex'] as const)(
+    'a %s run formed again by revoking the move of its root session after its prune refuses positions taken before the prune, also after a restart',
+    async (runtime, { onTestFinished }) => {
+      const workspace = await createWorkspace(onTestFinished)
+      const home = await createHome(onTestFinished)
+      const store = home.open()
+      const engine = engineAt(store, [workspace.repository])
+      const hook = (name: string, session: string, file: string, arrival: number): HookDelivery =>
+        runtimeHook(runtime, name, session, workspace.repository, file, arrival)
+      const [root, host, member] = [
+        sessionKey(runtime, 'g10-root'),
+        sessionKey(runtime, 'g10-host'),
+        sessionKey(runtime, 'g10-member'),
+      ]
+      const [run, hostRun] = [runId(root), runId(host)]
+      await engine.ingest(
+        hookBatch(
+          hook('SessionStart.startup.json', root.session, 'a-000001.evt', 0),
+          hook('SessionStart.startup.json', host.session, 'a-000002.evt', 1),
+          hook('SessionStart.startup.json', member.session, 'a-000003.evt', 2),
+          hook('PreToolUse.Bash.json', member.session, 'a-000004.evt', 3),
+          hook('PostToolUse.Bash.json', member.session, 'a-000005.evt', 4),
+        ),
+      )
+      await engine.bind({ kind: 'attach', session: objectId(member), run })
+      const { binding } = await engine.bind({ kind: 'attach', session: objectId(root), run: hostRun })
+      const held = readsOf(store).snapshot(run)
+
+      const outcome = await engine.prune({ scope: 'run', run }, () => Promise.resolve(null))
+      await engine.revokeBinding(binding.id)
+      const reads = readsOf(store)
+      const reread = reads.snapshot(run)
+      if (held === null || reread === null) {
+        throw new Error('the run must exist before and after the prune')
+      }
+      const sessionsOf = ({ objects }: RunSnapshot): string[] => objects.sessions.map(({ key }) => key.session).sort()
+      const actorsOf = ({ objects }: RunSnapshot): string[] => objects.actions.map(({ key }) => key.session)
+      const stale = held.change_seq
+      const position = reread.change_seq
+      const current = { version: store.model.head(run), change_seq: position }
+
+      expect(sessionsOf(held)).toEqual([member.session])
+      expect(actorsOf(held)).toContain(member.session)
+      expect(outcome.runs).toEqual([run])
+      expect(outcome.boundaries.map(({ session }) => session)).toEqual([member.session])
+      expect(store.pruned.ofSession(root)).toEqual([])
+      expect(runOf(store, root)).toBe(run)
+      expect(startPruned(store, run)).toBe(false)
+      expect(sessionsOf(reread)).toEqual([root.session])
+      expect(actorsOf(reread)).not.toContain(member.session)
+      expect(() => reads.feed(run, stale)).toThrow(InvalidPositionError)
+      expect(() => reads.changes(run, { ...current, change_seq: stale })).toThrow(InvalidPositionError)
+      expect(() => reads.feed(hostRun, stale)).toThrow(InvalidPositionError)
+      expect(reads.feed(run, position)?.events).toEqual([])
+      expect(reads.changes(run, current)?.to).toEqual(current)
+
+      store.close()
+      const reopened = readsOf(home.open())
+      expect(() => reopened.feed(run, stale)).toThrow(InvalidPositionError)
+      expect(reopened.snapshot(run)).toEqual(reread)
+      expect(reopened.feed(run, position)?.events).toEqual([])
     },
   )
 })
