@@ -211,7 +211,9 @@ contract decides its status with observed basis, and every change is a
   a commit. `checked_commit` is the full name. The contract is responsible for the
   check reading that commit, for example by checking out the commit in an isolated
   `git worktree` and printing its `HEAD`; the output alone links them, so a check
-  read by backfill is confirmed as well;
+  read by backfill is confirmed as well. The evidence cites the facts of the check
+  and every result of the action whose output reported the name, so a commit
+  reported only by a later transcript result of a call is cited as well;
 - every other passing check gives `passed_unversioned`: no commit pattern, no
   reported name, several names, a name that is not a commit, a directory outside a
   git repository. When the snapshot taken after the start of the check was ingested
@@ -223,8 +225,16 @@ contract decides its status with observed basis, and every change is a
   contract taken after the end of a confirming check decide `stale`: when the latest
   of them is not clean on `checked_commit` (another `HEAD`, a change under the
   masks or a failed git command), the criterion is `stale` and cites the first
-  snapshot since the tree last showed the commit. A later snapshot clean on the
-  commit confirms it again, since the current state is the checked version.
+  snapshot since the tree last showed the commit. A failed snapshot names the check
+  directory instead of its working tree and belongs to the criterion as well, so a
+  deleted check directory makes it `stale`. A later snapshot clean on the commit
+  confirms it again, since the current state is the checked version.
+
+Once a result has given `checked_commit`, the commit stays established for that
+result: while the latest result is the same and the criterion cites its facts, a
+later evaluation keeps `checked_commit` without resolving the name again, so a check
+directory that is gone after a restart leaves the criterion `stale`, not
+`passed_unversioned`.
 
 The order of snapshots and check facts is the order of their raw records, so it
 does not depend on the clocks of the runtime and the daemon.
@@ -237,16 +247,25 @@ A criterion with `checked_commit` is watched:
   of the store; the daemon calls it once after start;
 - with `fsWatch` (on by default, `collector.fsWatch` in the daemon), the engine
   watches the paths of the masks inside the working tree: a directory recursively,
-  a file through its parent directory, ignoring `.git`. A change takes a
-  `fs_watch` snapshot after 100 ms of quiet. A notification is only a signal: a
+  a file through its parent directory, a mask with a wildcard (`*`, `?`, `[`)
+  through the path before its first wildcard segment, recursively, ignoring `.git`.
+  A change takes a `fs_watch` snapshot after 100 ms of quiet, and the snapshot
+  decides whether the change is under the masks. A notification is only a signal: a
   missed one is caught by the next snapshot at a turn end or a restart.
 
-The ingest evaluates the criteria of every run whose sessions received facts after
-it records the snapshots of the batch, so an evaluation interrupted by a crash is
-repeated by the next batch of the run. Git object names and working trees that
-were found are cached for the life of the engine. `engine.close()` stops watching
-and waits for queued work; a failure of work started by a notification is raised by
-the next call of the engine.
+The ingest evaluates the criteria of every run whose sessions received facts in the
+transaction of the batch, together with its facts and cursors (ADR-0005). The git
+state that a verdict needs (the working tree of the check directory and the commit
+of the reported name) is read before that transaction: when the transaction meets a
+check whose git state is not known yet, it is rolled back, the engine reads the git
+state and repeats the transaction once. Working trees and commits, found or not,
+are cached for the life of the engine. The snapshots of the batch are taken after
+the commit and recorded together with the evaluation they change in one more
+transaction. A crash between the two loses only these snapshots: a confirmed
+criterion is checked again by the `restart` snapshot, and the note of an
+unversioned pass, which needs the snapshot after the check, is not given.
+`engine.close()` stops watching and waits for queued work; a failure of work started
+by a notification is raised by the next call of the engine.
 
 ## Working tree snapshots
 

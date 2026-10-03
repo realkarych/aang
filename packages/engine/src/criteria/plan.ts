@@ -1,8 +1,13 @@
-import type { Fact, FactOf, RunId, SessionKey } from '@aang/contract'
+import type { Fact, FactId, FactOf, RunId, SessionKey } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import type { Contract } from '../checks/catalog.js'
 import { checkDirectory, type CheckEntry, type RunChecks } from '../checks/history.js'
 import type { CheckResult } from '../checks/results.js'
+
+export interface ReportedCommit {
+  readonly name: string
+  readonly evidence: readonly FactId[]
+}
 
 export interface CriterionCheck {
   readonly run: RunId
@@ -10,7 +15,7 @@ export interface CriterionCheck {
   readonly contract: Contract
   readonly result: CheckResult
   readonly directory: string | null
-  readonly commit: string | null
+  readonly commit: ReportedCommit | null
 }
 
 const objectName = /^[0-9a-f]{7,64}$/
@@ -22,16 +27,15 @@ const captured = (match: RegExpMatchArray): string => (match.groups?.['commit'] 
 const longest = (names: ReadonlySet<string>): string[] =>
   [...names].filter((name) => ![...names].some((other) => other !== name && other.startsWith(name)))
 
-const reportedCommit = (pattern: RegExp, ends: readonly FactOf<'action_end'>[]): string | null => {
-  const names = new Set(
-    ends.flatMap(({ payload }) =>
-      payload.output === null
-        ? []
-        : [...payload.output.matchAll(pattern)].map(captured).filter((name) => objectName.test(name)),
-    ),
-  )
-  const [commit, ...others] = longest(names)
-  return others.length === 0 ? (commit ?? null) : null
+const namesOf = (pattern: RegExp, { payload }: FactOf<'action_end'>): string[] =>
+  payload.output === null ? [] : [...payload.output.matchAll(pattern)].map(captured).filter((name) => objectName.test(name))
+
+const reportedCommit = (pattern: RegExp, ends: readonly FactOf<'action_end'>[]): ReportedCommit | null => {
+  const reports = ends.map((end) => ({ end, names: namesOf(pattern, end) }))
+  const [name, ...others] = longest(new Set(reports.flatMap(({ names }) => names)))
+  return name === undefined || others.length > 0
+    ? null
+    : { name, evidence: reports.flatMap(({ end, names }) => (names.length === 0 ? [] : [end.id])) }
 }
 
 const criterionCheck = (

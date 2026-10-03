@@ -13,10 +13,18 @@ interface Watched {
   readonly runs: Set<RunId>
 }
 
+const wildcard = /[*?[]/
+
+const staticPart = (mask: string): string => {
+  const segments = mask.split(/[\\/]/)
+  const first = segments.findIndex((segment) => wildcard.test(segment))
+  return first === -1 ? mask : segments.slice(0, first).join('/')
+}
+
 export const maskTargets = (worktree: string, maskRoot: string, masks: readonly string[]): string[] => [
   ...new Set(
     masks.flatMap((mask) => {
-      const target = resolve(maskRoot, mask)
+      const target = resolve(maskRoot, staticPart(mask))
       return contains(worktree, target) ? [target] : contains(target, worktree) ? [worktree] : []
     }),
   ),

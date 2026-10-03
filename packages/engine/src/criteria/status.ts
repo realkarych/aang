@@ -13,7 +13,7 @@ import {
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type ModelChangeDraft } from '../model/journal.js'
-import type { ResolvedCheck } from './git.js'
+import type { CheckGit, ResolvedCheck } from './git.js'
 import type { CriterionCheck } from './plan.js'
 
 interface Verdict {
@@ -27,6 +27,11 @@ interface Verdict {
 interface Seen {
   readonly snapshot: GitSnapshot
   readonly seq: RawSeq
+}
+
+interface VerifiedCommit {
+  readonly name: string
+  readonly evidence: readonly FactId[]
 }
 
 interface Update {
@@ -54,12 +59,12 @@ const later = (left: EpochNs, right: EpochNs): EpochNs => (right > left ? right 
 const sameMasks = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((mask, index) => mask === right[index])
 
-const snapshotsOf = (transaction: Transaction, { run, contract }: CriterionCheck, worktree: string): Seen[] =>
+const snapshotsOf = (transaction: Transaction, { run, contract, directory }: CriterionCheck, { worktree }: CheckGit): Seen[] =>
   transaction.artifacts
     .snapshots(run)
     .flatMap((snapshot) => {
       const seq =
-        snapshot.worktree === worktree && sameMasks(snapshot.masks, contract.inputMasks)
+        (snapshot.worktree === worktree || snapshot.worktree === directory) && sameMasks(snapshot.masks, contract.inputMasks)
           ? transaction.facts.get(snapshot.fact)?.seq
           : undefined
       return seq === undefined ? [] : [{ snapshot, seq }]
@@ -76,23 +81,23 @@ const firstDeparture = (after: readonly Seen[], commit: string): Seen | null => 
   return departure
 }
 
-const versionedVerdict = (check: CriterionCheck, commit: string, after: readonly Seen[]): Verdict => {
-  const { result } = check
-  const departure = firstDeparture(after, commit)
+const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, after: readonly Seen[]): Verdict => {
+  const evidence = [...result.evidence, ...commit.evidence]
+  const departure = firstDeparture(after, commit.name)
   if (departure === null) {
     const latest = after.at(-1)
     return {
       status: 'confirmed',
-      evidence: result.evidence,
-      checkedCommit: commit,
+      evidence,
+      checkedCommit: commit.name,
       cleanTreeCommit: null,
       at: latest === undefined ? result.at : later(result.at, latest.snapshot.taken_at),
     }
   }
   return {
     status: 'stale',
-    evidence: [...result.evidence, departure.snapshot.fact],
-    checkedCommit: commit,
+    evidence: [...evidence, departure.snapshot.fact],
+    checkedCommit: commit.name,
     cleanTreeCommit: null,
     at: later(result.at, departure.snapshot.taken_at),
   }
@@ -115,15 +120,31 @@ const unversionedVerdict = ({ result }: CriterionCheck, seen: readonly Seen[]): 
   }
 }
 
-const verdictOf = (transaction: Transaction, { check, git }: ResolvedCheck): Verdict => {
+const establishedCommit = (stored: Criterion | null, { result, commit }: CriterionCheck): string | null => {
+  const checked = stored?.checked_commit ?? null
+  if (stored === null || checked === null || commit === null || !checked.startsWith(commit.name)) {
+    return null
+  }
+  const cited = new Set(stored.status.evidence)
+  return [...result.evidence, ...commit.evidence].every((fact) => cited.has(fact)) ? checked : null
+}
+
+const verifiedCommit = (transaction: Transaction, { check, git }: ResolvedCheck): VerifiedCommit | null => {
+  const name = establishedCommit(storedCriterion(transaction, check), check) ?? git.commit
+  return name === null || check.commit === null ? null : { name, evidence: check.commit.evidence }
+}
+
+const verdictOf = (transaction: Transaction, resolved: ResolvedCheck): Verdict => {
+  const { check, git } = resolved
   const { result } = check
   if (!result.passed) {
     return { status: 'failed', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
   }
-  const seen = git.worktree === null ? [] : snapshotsOf(transaction, check, git.worktree)
-  return git.commit === null
+  const seen = snapshotsOf(transaction, check, git)
+  const commit = verifiedCommit(transaction, resolved)
+  return commit === null
     ? unversionedVerdict(check, seen)
-    : versionedVerdict(check, git.commit, seen.filter(({ seq }) => seq > result.ended))
+    : versionedVerdict(check, commit, seen.filter(({ seq }) => seq > result.ended))
 }
 
 const criterionOf = (check: CriterionCheck, verdict: Verdict, stored: Criterion | null): Criterion => ({

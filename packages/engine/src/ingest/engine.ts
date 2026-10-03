@@ -29,7 +29,7 @@ import { projectVersions } from '../artifacts/versions.js'
 import { refreshChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
 import { changedRunChecks, storedRunChecks } from '../checks/history.js'
-import { createCriteriaMonitor, versionedSnapshots } from '../criteria/monitor.js'
+import { createCriteriaMonitor, UnresolvedChecks, versionedSnapshots } from '../criteria/monitor.js'
 import { type CriterionCheck, latestChecks } from '../criteria/plan.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
@@ -580,6 +580,7 @@ export const createEngine = ({
       refreshChecks(transaction, checked, instant)
       projectVersions(transaction, changedActions.values())
       const latest = latestChecks(transaction, checked)
+      criteria.reconcile(transaction, latest)
       const ended = new Set([...endedSessions.values()].map((key) => sessionRun(transaction, key)))
       const snapshots = distinctRequests([
         ...versionedSnapshots(transaction, latest.filter(({ run }) => ended.has(run)), 'turn_end'),
@@ -627,6 +628,18 @@ export const createEngine = ({
     return { files, hooks, abandoned, deferred }
   }
 
+  const commitPrepared = async (...parts: Parameters<typeof commit>): Promise<Committed> => {
+    try {
+      return commit(...parts)
+    } catch (error) {
+      if (!(error instanceof UnresolvedChecks)) {
+        throw error
+      }
+      await criteria.prepare(error.checks)
+      return commit(...parts)
+    }
+  }
+
   const ingestBatch = async (batch: CollectorBatch): Promise<IngestResult> => {
     const now = Date.now()
     const steps = fileSteps(batch, now)
@@ -634,7 +647,7 @@ export const createEngine = ({
     const scopes = sessionScopes()
     const evidence = gatherEvidence(steps, items, scopes)
     const decided = await decideSessions(evidence, scopes)
-    const committed = commit(batch, items, steps, decided, scopes)
+    const committed = await commitPrepared(batch, items, steps, decided, scopes)
     quiet = committed.quiet
     const kept = withinLimits(committed)
     const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))

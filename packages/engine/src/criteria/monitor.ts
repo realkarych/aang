@@ -12,6 +12,8 @@ import { isVersioned, reconcileCriteria } from './status.js'
 import { createTreeWatch, maskTargets } from './watch.js'
 
 export interface CriteriaMonitor {
+  readonly reconcile: (transaction: Transaction, checks: readonly CriterionCheck[]) => void
+  readonly prepare: (checks: readonly CriterionCheck[]) => Promise<void>
   readonly settle: (requests: readonly SnapshotRequest[], checks: readonly CriterionCheck[]) => Promise<void>
   readonly recheck: (runs: ReadonlySet<RunId> | null, trigger: SnapshotTrigger) => Promise<void>
   readonly close: () => void
@@ -23,6 +25,14 @@ export interface CriteriaMonitorOptions {
   readonly now: () => EpochNs
   readonly fsWatch: boolean
   readonly onTreeChange: (runs: ReadonlySet<RunId>) => void
+}
+
+export class UnresolvedChecks extends Error {
+  override readonly name = 'UnresolvedChecks'
+
+  constructor(readonly checks: readonly CriterionCheck[]) {
+    super('the git state of contract checks must be prepared before the transaction')
+  }
 }
 
 const treeSettleMs = 100
@@ -71,6 +81,14 @@ export const createCriteriaMonitor = ({
     }
   }
 
+  const reconcile = (transaction: Transaction, checks: readonly CriterionCheck[]): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
+    const resolved = git.resolved(checks)
+    if (resolved === null) {
+      throw new UnresolvedChecks(checks)
+    }
+    return reconcileCriteria(transaction, resolved)
+  }
+
   const settle = async (requests: readonly SnapshotRequest[], checks: readonly CriterionCheck[]): Promise<void> => {
     const taken: TakenSnapshot[] = []
     for (const request of requests) {
@@ -79,8 +97,8 @@ export const createCriteriaMonitor = ({
         taken.push(snapshot)
       }
     }
-    const resolved = await git.resolve(checks)
-    if (taken.length === 0 && resolved.length === 0) {
+    await git.prepare(checks)
+    if (taken.length === 0 && checks.length === 0) {
       return
     }
     track(
@@ -88,12 +106,14 @@ export const createCriteriaMonitor = ({
         for (const snapshot of taken) {
           recordSnapshot(transaction, snapshot)
         }
-        return reconcileCriteria(transaction, resolved)
+        return reconcile(transaction, checks)
       }),
     )
   }
 
   return {
+    reconcile,
+    prepare: git.prepare,
     settle,
     recheck: async (runs, trigger) => {
       if (catalog.empty) {

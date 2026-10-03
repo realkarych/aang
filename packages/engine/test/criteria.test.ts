@@ -1,9 +1,13 @@
-import { mkdir } from 'node:fs/promises'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
+import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   CheckContract,
   type Criterion,
   type FactId,
+  type FactOf,
   type GitSnapshot,
   type JsonValue,
   ModelVersion,
@@ -14,16 +18,24 @@ import { runId } from '@aang/contract/ids'
 import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test, vi } from 'vitest'
-import { type HookDelivery, hookBatch, jsonlFile } from './batches.js'
+import { hookBatch, type JsonlFile, jsonlFile } from './batches.js'
+import {
+  failedTool,
+  passed,
+  postTool,
+  preTool,
+  reporting,
+  type Source,
+  started,
+  stopped,
+  testContract,
+  verifiedCheck,
+  verifyCommand,
+} from './check-hooks.js'
 import { adapters, factsOf, sessionKey } from './harness.js'
 import { createHome, type Home } from './home.js'
 import { createRepository, git, type Register, type Repository, writeFiles } from './repository.js'
-import { claudeHook, claudeTranscript } from './samples.js'
-
-interface Source {
-  readonly session: string
-  readonly cwd: string
-}
+import { claudeTranscript } from './samples.js'
 
 interface SetupOptions {
   readonly commitPattern?: string | null
@@ -38,16 +50,12 @@ const committed = {
   '.gitignore': '*.log\n',
 }
 
-const reporting = 'verified commit ([0-9a-f]+)'
-
 const observed = { kind: 'observed' } as const
-
-const verifyCommand = 'git worktree add --detach ../verify HEAD && cd ../verify && pnpm test && echo "verified commit $(git rev-parse HEAD)"'
 
 const setup = async (register: Register, { commitPattern = reporting, fsWatch = false, masks = ['src'] }: SetupOptions = {}) => {
   const home = await createHome(register)
   const repository = await createRepository(register, committed)
-  const contract = CheckContract.parse({ name: 'test', command: 'pnpm test', inputMasks: masks, commitPattern })
+  const contract = testContract(masks, commitPattern)
   const start = (store: Store): Engine => {
     const engine = createEngine({
       store,
@@ -68,45 +76,26 @@ const isolatedCheckout = async (repository: Repository, name = 'verify'): Promis
   return git(path, 'rev-parse', 'HEAD')
 }
 
-const started = (source: Source): HookDelivery => ({
-  file: `${source.session}-start.evt`,
-  payload: claudeHook('SessionStart.startup.json', source),
-})
-
-const bash = (call: string, command: string) => ({ tool_use_id: call, tool_input: { command, description: 'Run the check' } })
-
-const preTool = (source: Source, call: string, arrival: number, command = verifyCommand): HookDelivery => ({
-  file: `${call}-pre.evt`,
-  payload: claudeHook('PreToolUse.Bash.json', source, bash(call, command)),
-  arrival,
-})
-
-const postTool = (source: Source, call: string, stdout: string, arrival: number, command = verifyCommand): HookDelivery => ({
-  file: `${call}-post.evt`,
-  payload: claudeHook('PostToolUse.Bash.json', source, {
-    ...bash(call, command),
-    tool_response: { stdout, stderr: '', interrupted: false, isImage: false, noOutputExpected: false },
-  }),
-  arrival,
-})
-
-const failedTool = (source: Source, call: string, arrival: number): HookDelivery => ({
-  file: `${call}-post.evt`,
-  payload: claudeHook('PostToolUseFailure.Bash.json', source, {
-    ...bash(call, verifyCommand),
-    error: 'Exit code 1\nchecks failed',
-    is_interrupt: false,
-  }),
-  arrival,
-})
-
-const stopped = (source: Source, turn: number, arrival: number): HookDelivery => ({
-  file: `${source.session}-stop-${String(turn)}.evt`,
-  payload: claudeHook('Stop.json', source, { last_assistant_message: `Turn ${String(turn)} done` }),
-  arrival,
-})
-
-const passed = (commit: string): string => `Tests passed\nverified commit ${commit}\n`
+const transcriptOf = (source: Source, repository: Repository, call: string, output: string, minute = '00'): JsonlFile => {
+  const line = (uuid: string, second: number, type: 'assistant' | 'user', message: JsonValue, extra: Record<string, JsonValue> = {}) =>
+    JSON.stringify({ type, sessionId: source.session, uuid, timestamp: `2026-10-01T12:${minute}:0${String(second)}.000Z`, cwd: source.cwd, message, ...extra })
+  const lines = [
+    ...claudeTranscript(source).slice(0, 5),
+    line('call', 1, 'assistant', {
+      id: 'message-call',
+      role: 'assistant',
+      content: [{ type: 'tool_use', id: call, name: 'Bash', input: { command: verifyCommand } }],
+    }),
+    line(
+      'result',
+      2,
+      'user',
+      { role: 'user', content: [{ type: 'tool_result', tool_use_id: call, content: output, is_error: false }] },
+      { toolUseResult: { stdout: output, stderr: '', interrupted: false, isImage: false } },
+    ),
+  ]
+  return jsonlFile({ runtime: 'claude', path: join(repository.path, '..', 'transcript.jsonl'), lines, ino: 41n })
+}
 
 const runOf = (source: Source): RunId => runId(sessionKey('claude', source.session))
 
@@ -188,26 +177,8 @@ test('a check read by backfill confirms the commit it reports by an abbreviated 
   const { store, engine, repository } = await setup(onTestFinished)
   const source = { session: 'backfill-session', cwd: repository.path }
   const commit = await isolatedCheckout(repository)
-  const output = passed(commit.slice(0, 12))
-  const line = (uuid: string, second: number, type: 'assistant' | 'user', message: JsonValue, extra: Record<string, JsonValue> = {}) =>
-    JSON.stringify({ type, sessionId: source.session, uuid, timestamp: `2026-10-01T12:00:0${String(second)}.000Z`, cwd: source.cwd, message, ...extra })
-  const lines = [
-    ...claudeTranscript(source).slice(0, 5),
-    line('call', 1, 'assistant', {
-      id: 'message-call',
-      role: 'assistant',
-      content: [{ type: 'tool_use', id: 'tool-verify', name: 'Bash', input: { command: verifyCommand } }],
-    }),
-    line(
-      'result',
-      2,
-      'user',
-      { role: 'user', content: [{ type: 'tool_result', tool_use_id: 'tool-verify', content: output, is_error: false }] },
-      { toolUseResult: { stdout: output, stderr: '', interrupted: false, isImage: false } },
-    ),
-  ]
-  const transcript = jsonlFile({ runtime: 'claude', path: join(repository.path, '..', 'transcript.jsonl'), lines, ino: 41n })
-  await engine.ingest(transcript.batch(1, lines.length))
+  const transcript = transcriptOf(source, repository, 'tool-verify', passed(commit.slice(0, 12)))
+  await engine.ingest(transcript.batch(1, transcript.lines.length))
   expect(criterionOf(store, source)).toMatchObject({
     status: { value: 'confirmed', basis: observed, evidence: callFacts(store, 'tool-verify') },
     checked_commit: commit,
@@ -453,4 +424,118 @@ test('a failing latest check fails the criterion and a passing repeat that repor
     checked_commit: commit,
   })
   expect(journalOf(store, source).map(({ status }) => status)).toEqual(['confirmed', 'failed', 'confirmed'])
+})
+
+const crashScript = fileURLToPath(new URL('./criteria-process.ts', import.meta.url))
+
+test('a criterion committed with its check survives a crash at the first git command after the commit and a redelivery', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const repository = await createRepository(onTestFinished, committed)
+  const source = { session: 'crash-session', cwd: repository.path }
+  const commit = await isolatedCheckout(repository)
+  const child = spawn(process.execPath, [crashScript, home.path, repository.path, source.session, commit], {
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let output = ''
+  child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+    output += chunk
+  })
+  child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+    output += chunk
+  })
+  const [code] = (await once(child, 'exit')) as [number | null]
+  expect({ code: code === 0 ? 0 : 'killed', output }).toEqual({ code: 'killed', output: '' })
+
+  const store = home.open()
+  const criterion = criterionOf(store, source)
+  expect(criterion).toMatchObject({
+    status: { value: 'confirmed', basis: observed, evidence: callFacts(store, 'call-verify') },
+    checked_commit: commit,
+  })
+  expect(snapshotsOf(store, source)).toEqual([])
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: { all: true, roots: [{ path: repository.path, contracts: [testContract(['src'])] }] },
+    fsWatch: false,
+  })
+  onTestFinished(() => engine.close())
+  expect(await engine.ingest(hookBatch(...verifiedCheck(source, commit)))).toMatchObject({ inserted: 0, duplicates: 3 })
+  await engine.refreshCriteria()
+  expect(snapshotsOf(store, source).map(({ trigger, clean }) => ({ trigger, clean }))).toEqual([{ trigger: 'restart', clean: true }])
+  expect(criterionOf(store, source)).toEqual(criterion)
+  expect(journalOf(store, source)).toEqual([{ op: 'criterion.status', author: 'rule', status: 'confirmed' }])
+})
+
+test('a check run from a subdirectory turns stale when that directory is deleted, at the end of the turn and after a restart', async ({
+  onTestFinished,
+}) => {
+  const { home, store, engine, repository, start } = await setup(onTestFinished)
+  const source = { session: 'subdirectory-session', cwd: repository.path }
+  const inside = { ...source, cwd: join(repository.path, 'src') }
+  const commit = await isolatedCheckout(repository)
+  await engine.ingest(
+    hookBatch(started(source), preTool(inside, 'call-verify', 10), postTool(inside, 'call-verify', passed(commit), 11)),
+  )
+  expect(criterionOf(store, source)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: commit })
+
+  await rm(inside.cwd, { recursive: true, force: true })
+  await engine.ingest(hookBatch(stopped(source, 1, 20)))
+  expect(snapshotsOf(store, source).at(-1)).toMatchObject({ trigger: 'turn_end', worktree: inside.cwd, clean: false })
+  const stale = criterionOf(store, source)
+  expect(stale).toMatchObject({
+    status: { value: 'stale', evidence: [...callFacts(store, 'call-verify'), snapshotFact(store, source, 'turn_end')].sort() },
+    checked_commit: commit,
+  })
+
+  const reopened = await reopen(home, store, engine)
+  await start(reopened).refreshCriteria()
+  expect(snapshotsOf(reopened, source).at(-1)).toMatchObject({ trigger: 'restart', worktree: inside.cwd, clean: false })
+  expect(criterionOf(reopened, source)).toEqual(stale)
+})
+
+test.for([
+  { scenario: 'an edit of a file', mask: 'src/*.ts', files: { 'src/app.ts': 'export const app = 13\n' } },
+  { scenario: 'a new file', mask: 'src/*.ts', files: { 'src/created.ts': 'export const created = 1\n' } },
+  { scenario: 'an edit under a wildcard directory', mask: '*/util.ts', files: { 'src/util.ts': 'export const util = 14\n' } },
+])('fs watch reports $scenario matched by the glob mask $mask and the confirmed criterion becomes stale', async (
+  { mask, files },
+  { onTestFinished },
+) => {
+  const { store, engine, repository } = await setup(onTestFinished, { fsWatch: true, masks: [mask] })
+  const source = { session: 'glob-session', cwd: repository.path }
+  await confirm(engine, store, repository, source)
+  await writeFiles(repository.path, files)
+  await vi.waitFor(() => {
+    expect(criterionOf(store, source).status.value).toBe('stale')
+  }, { timeout: 15_000, interval: 50 })
+  expect(snapshotsOf(store, source).at(-1)).toMatchObject({ trigger: 'fs_watch', clean: false })
+})
+
+test('a confirmation cites the transcript result that reported the commit after a hook result without it', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, repository } = await setup(onTestFinished)
+  const source = { session: 'merged-session', cwd: repository.path }
+  const commit = await isolatedCheckout(repository)
+  await engine.ingest(
+    hookBatch(started(source), preTool(source, 'tool-verify', 10), postTool(source, 'tool-verify', 'Tests passed\n', 11)),
+  )
+  expect(criterionOf(store, source)).toMatchObject({ status: { value: 'passed_unversioned' }, checked_commit: null })
+
+  const transcript = transcriptOf(source, repository, 'tool-verify', passed(commit), '30')
+  await engine.ingest(transcript.batch(1, transcript.lines.length))
+  const ends = factsOf(store).filter((fact): fact is FactOf<'action_end'> => fact.kind === 'action_end')
+  expect(ends.map(({ payload }) => payload.output)).toEqual(['Tests passed\n', passed(commit)])
+  expect(ends[0]?.at).toBeLessThan(ends[1]?.at ?? 0n)
+  const criterion = criterionOf(store, source)
+  expect(criterion).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'tool-verify') },
+    checked_commit: commit,
+  })
+  expect(criterion.status.evidence).toContain(ends[1]?.id)
+  const [, confirmation] = store.model.entityChanges(runOf(source), { kind: 'criterion', id: criterion.id }, ModelVersion.parse(0))
+  expect(confirmation?.evidence).toEqual(criterion.status.evidence)
 })
