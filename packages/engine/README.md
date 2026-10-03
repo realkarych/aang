@@ -258,18 +258,30 @@ transaction evaluates the criteria of the run the session left and of the run it
 joined, and a run with no check of a contract any more loses the criterion of that
 contract with a `session.move` rule change, as failed check items do. Snapshots stay
 in the run they were taken for, and an evaluation reads only the snapshots of its own
-run, so a binding never confirms on snapshots of another run:
+run, so a binding never confirms on snapshots of another run. A passing check that a
+binding moves or brings forward gives `passed_unversioned` without `checked_commit`
+and without the note, with a `session.move` rule change as its reason, and keeps it
+for good:
 
-- a passing check that becomes the latest check of a criterion in a binding
-  transaction gives `passed_unversioned` without `checked_commit` and without the
-  note, with a `session.move` rule change as its reason. It is a check of the moved
-  session in the run it joined, or an earlier check of the run the session left that
-  a later check of the moved session covered;
-- the criterion keeps this status while the same check stays its latest: later
-  evaluations, snapshots at turn ends and `engine.refreshCriteria()` do not confirm
-  it again, and the next check of the contract in the run decides as usual;
-- a check that the moved session runs after the binding is not affected, since every
-  snapshot after it belongs to the run it joined.
+- a carried check is a check of a session that moved into its run after the check
+  ended: its first settled result is not later, by raw record order, than the fact
+  that the latest membership change of the session in this run cites. When a reparse
+  has removed that fact, every check of the session in the run counts as carried
+  until the session moves again;
+- a check brought forward is an earlier check of the run the session left that
+  becomes the latest check of a criterion in the binding transaction, since a later
+  check of the moved session covered it. The criterion journal keeps it: a check
+  that any `session.move` change of the criterion has cited as `passed_unversioned`
+  never confirms again;
+- the status holds whichever check covers the criterion in between and however the
+  order of checks changes later: a transcript read after a check of another session
+  can put the moved check in front again, a detach can uncover it, and turn end
+  snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it the same
+  way. Only a check that is neither carried nor brought forward confirms the
+  criterion again;
+- a check that the moved session runs after the binding, so that its result is
+  recorded after the cited fact, is not affected, since every snapshot after it
+  belongs to the run it joined.
 
 `engine.reparse()` evaluates the criteria of the runs it rebuilds in its transaction
 the same way.
@@ -629,7 +641,10 @@ A transfer (`session.move` rule changes) is journaled in both runs in the
 binding's transaction:
 
 - the session membership and the spawn links of the session's agents leave the
-  source run and enter the target run;
+  source run and enter the target run. The change that brings the membership in
+  cites the last fact of the session (by raw record order) known at the transfer,
+  or nothing when the session has no facts yet; contract criteria use it to tell
+  the checks the session carried from the checks it runs later;
 - the rule attention items of the session's questions leave the source run and
   enter the target run with their state, without a stage and without the marks
   of the source run's observer (likely resolution, priority), so a question is

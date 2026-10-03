@@ -9,6 +9,7 @@ import {
   type FactId,
   type FactOf,
   type ModelChange,
+  type ModelEntityRef,
   ModelVersion,
   type RunId,
 } from '@aang/contract'
@@ -61,18 +62,37 @@ const later = (left: EpochNs, right: EpochNs): EpochNs => (right > left ? right 
 const sameMasks = (left: readonly string[], right: readonly string[]): boolean =>
   left.length === right.length && left.every((mask, index) => mask === right[index])
 
-const lastRuleChange = (transaction: Transaction, { run, contract }: CriterionCheck): ModelChange | undefined =>
-  transaction.model
-    .entityChanges(run, { kind: 'criterion', id: criterionId(run, contract.name) }, ModelVersion.parse(0))
-    .findLast(({ author }) => author === 'rule')
+const cites = (criterion: Criterion | null, { result }: CriterionCheck): boolean =>
+  criterion !== null && result.evidence.some((fact) => criterion.status.evidence.includes(fact))
 
-const unversionedByMove = (transaction: Transaction, check: CriterionCheck, moved: boolean): boolean => {
-  const last = lastRuleChange(transaction, check)
-  const criterion = last?.after?.kind === 'criterion' ? last.after.value : null
-  const follows = criterion !== null && check.result.evidence.some((fact) => criterion.status.evidence.includes(fact))
-  const held = follows && last?.op === 'session.move' && criterion.status.value === 'passed_unversioned'
-  return held || (moved && !follows)
+const changesOf = (transaction: Transaction, run: RunId, target: ModelEntityRef): ModelChange[] =>
+  transaction.model.entityChanges(run, target, ModelVersion.parse(0))
+
+const carriedBySession = (transaction: Transaction, { run, result }: CriterionCheck): boolean => {
+  const last = changesOf(transaction, run, { kind: 'session_membership', id: result.action.session }).at(-1)
+  return (
+    last?.op === 'session.move' &&
+    last.evidence.some((id) => {
+      const anchor = transaction.facts.get(id)
+      return anchor === null || result.ended <= anchor.seq
+    })
+  )
 }
+
+const broughtByMove = (transaction: Transaction, check: CriterionCheck): boolean =>
+  changesOf(transaction, check.run, { kind: 'criterion', id: criterionId(check.run, check.contract.name) }).some(
+    ({ op, author, after }) =>
+      op === 'session.move' &&
+      author === 'rule' &&
+      after?.kind === 'criterion' &&
+      after.value.status.value === 'passed_unversioned' &&
+      cites(after.value, check),
+  )
+
+const unversionedByMove = (transaction: Transaction, check: CriterionCheck, moved: boolean): boolean =>
+  carriedBySession(transaction, check) ||
+  broughtByMove(transaction, check) ||
+  (moved && !cites(storedCriterion(transaction, check), check))
 
 const isSnapshot = (fact: Fact | null): fact is Seen => fact?.kind === 'git_snapshot'
 
