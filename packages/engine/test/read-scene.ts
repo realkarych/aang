@@ -23,7 +23,7 @@ import type { Store } from '@aang/store'
 import { expect, type TestContext } from 'vitest'
 import { type HookDelivery, hookBatch, jsonlFile, snapshotBatch } from './batches.js'
 import { adapters, factsOf, sessionKey } from './harness.js'
-import { createHome } from './home.js'
+import { createHome, type Home } from './home.js'
 import { at } from './model.js'
 import { inputFor, response } from './observer-fixtures.js'
 import { applyFeed } from './run-view.js'
@@ -40,6 +40,7 @@ export interface ObserverCallOptions {
 }
 
 export interface Scene {
+  readonly home: Home
   readonly store: Store
   readonly reads: ReadQueries
   readonly project: string
@@ -83,7 +84,7 @@ export const openScene = async (register: TestContext['onTestFinished']): Promis
     const call = ObserverCallId.parse(id)
     const input = inputFor(store, [...facts], run)
     store.transaction((transaction) => {
-      beginObserverCall(transaction, { id: call, input, at: at(start) })
+      beginObserverCall(transaction, { id: call, backend: 'claude', crossVendor: false, input, at: at(start) })
     })
     return call
   }
@@ -94,6 +95,7 @@ export const openScene = async (register: TestContext['onTestFinished']): Promis
     )
   }
   return {
+    home,
     store,
     reads,
     project,

@@ -14,16 +14,42 @@ import { origin, type ReadContext, runOf } from './context.js'
 
 const nanosecondsPerMillisecond = 1_000_000n
 
-const outcomeOf = ({ verdict }: StoredObserverCall): ObserverCallOutcome => {
+interface LogicalCall {
+  readonly call: StoredObserverCall
+  readonly needs: StoredObserverCall | null
+}
+
+const outcomeOf = ({ verdict }: StoredObserverCall, holding: boolean): ObserverCallOutcome => {
   switch (verdict) {
-    case null:
-      return 'running'
     case 'accepted':
-      return 'accepted'
     case 'rejected':
-      return 'rejected'
+      return verdict
+    case null:
+    case 'needs_requested':
+      return holding ? 'running' : 'failed'
   }
 }
+
+const logicalCalls = (calls: readonly StoredObserverCall[]): LogicalCall[] => {
+  const logical: LogicalCall[] = []
+  let waiting: StoredObserverCall | null = null
+  for (const call of calls) {
+    const followUp = waiting !== null && call.input.materials.length > 0
+    if (waiting !== null && !followUp) {
+      logical.push({ call: waiting, needs: null })
+    }
+    if (call.verdict === 'needs_requested') {
+      waiting = call
+    } else {
+      logical.push({ call, needs: followUp ? waiting : null })
+      waiting = null
+    }
+  }
+  return waiting === null ? logical : [...logical, { call: waiting, needs: null }]
+}
+
+const millisecondsBetween = (start: bigint, end: bigint): number =>
+  Number((end - start) / nanosecondsPerMillisecond)
 
 const attemptsOf = (calls: readonly StoredObserverCall[]): Map<ObserverCallId, number> => {
   const rejections = new Map<FactId, number>()
@@ -61,28 +87,38 @@ export const observerCallsOf = ({ store }: ReadContext, run: RunId): ObserverCal
   const calls = store.observerCalls.ofRun(run)
   const attempts = attemptsOf(calls)
   const results = resultsOf(calls, store.model.versions(run, origin))
-  return calls.map((call) => ({
-    id: call.id,
-    run: call.run,
-    kind: 'batch',
-    vendor: call.backend,
-    cli_version: null,
-    model: null,
-    base_version: call.base_version,
-    result_version: results.get(call.id) ?? null,
-    facts: batchFacts(call.input),
-    attempt: attempts.get(call.id) ?? 1,
-    outcome: outcomeOf(call),
-    error: null,
-    rejections: call.reasons,
-    output: JsonValue.nullable().catch(null).parse(call.output),
-    usage: null,
-    started_at: call.started_at,
-    ended_at: call.finished_at,
-    latency_ms:
-      call.finished_at === null ? null : Number((call.finished_at - call.started_at) / nanosecondsPerMillisecond),
-    needs_latency_ms: null,
-  }))
+  const holders = new Set(
+    store.interpretations
+      .ofRun(run)
+      .flatMap(({ status, observer_call: call }) => (status === 'in_call' && call !== null ? [call] : [])),
+  )
+  return logicalCalls(calls).map(({ call, needs }): ObserverCall => {
+    const holding = holders.has(call.id)
+    const started = needs?.started_at ?? call.started_at
+    const ended = holding ? null : call.finished_at
+    return {
+      id: call.id,
+      run: call.run,
+      kind: 'batch',
+      vendor: call.backend,
+      cli_version: null,
+      model: null,
+      base_version: call.base_version,
+      result_version: results.get(call.id) ?? null,
+      facts: batchFacts(call.input),
+      attempt: attempts.get(call.id) ?? 1,
+      outcome: outcomeOf(call, holding),
+      error: null,
+      rejections: call.reasons,
+      output: JsonValue.nullable().catch(null).parse(call.output),
+      usage: null,
+      started_at: started,
+      ended_at: ended,
+      latency_ms: ended === null ? null : millisecondsBetween(started, ended),
+      needs_latency_ms:
+        needs === null || call.finished_at === null ? null : millisecondsBetween(call.started_at, call.finished_at),
+    }
+  })
 }
 
 export const runObserverCalls = (context: ReadContext, run: RunId): ObserverCall[] | null =>

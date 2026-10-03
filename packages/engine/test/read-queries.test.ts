@@ -6,6 +6,7 @@ import {
   type Fact,
   ModelVersion,
   type ObserverCall,
+  ObserverCallId,
   ObserverCallsResponse,
   type ObserverOp,
   type RunId,
@@ -16,12 +17,20 @@ import {
   TempId,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, createReadQueries, InvalidPositionError, type RunFeed } from '@aang/engine'
+import {
+  applyChangeSet,
+  applyObserverResponse,
+  beginObserverCall,
+  beginObserverFollowUp,
+  createReadQueries,
+  InvalidPositionError,
+  type RunFeed,
+} from '@aang/engine'
 import { describe, expect, test } from 'vitest'
 import { sessionKey } from './harness.js'
 import { createHome } from './home.js'
 import { at, observed } from './model.js'
-import { createStage, existing, temporary } from './observer-fixtures.js'
+import { createStage, existing, inputFor, temporary } from './observer-fixtures.js'
 import {
   actionOf,
   expectFeedReproduces,
@@ -729,6 +738,93 @@ describe('read queries of the model', () => {
       last_success_at: at(30),
     })
     expect(scene.reads.observerCalls(scene.runOf('missing'))).toBeNull()
+  })
+
+  test('a call asking for materials and its follow-up form one call; a restart fails calls without a result', async ({
+    onTestFinished,
+  }) => {
+    const scene = await openScene(onTestFinished)
+    const { source, run, start, steps } = playScene(scene)
+    await start()
+    for (const step of steps.slice(0, 4)) {
+      await step()
+    }
+    await scene.transcript(source, [...read(source, 'read-1', 30), ...read(source, 'read-2', 32)])
+    const requestNeeds = (id: string, facts: readonly Fact[], second: number) => {
+      const call = scene.begin(run, id, facts, second)
+      const output = {
+        base_version: scene.store.model.head(run),
+        ops: [],
+        needs: [{ kind: 'action', action: actionOf(source, 'read-1') }],
+      }
+      expect(
+        scene.store.transaction((transaction) =>
+          applyObserverResponse(transaction, { call, output, at: at(second + 1) }),
+        ),
+      ).toEqual({ status: 'needs_requested' })
+      return call
+    }
+    const lastCall = () => scene.reads.observerCalls(run)?.calls.at(-1)
+    const first = factsOfCall(scene, source, 'read-1')
+    const previous = requestNeeds('call-needs', first, 40)
+    expect(lastCall()).toMatchObject({ id: 'call-needs', outcome: 'running', ended_at: null, latency_ms: null })
+    const followUp = ObserverCallId.parse('call-follow-up')
+    scene.store.transaction((transaction) =>
+      beginObserverFollowUp(transaction, { previous, id: followUp, at: at(42), crossVendor: false }),
+    )
+    expect(lastCall()).toMatchObject({ id: followUp, outcome: 'running', started_at: at(40), needs_latency_ms: null })
+    const evidence = [startOf(scene, source, 'read-1').id]
+    const applied = scene.answer(followUp, [{ ...createStage(evidence, 'docs'), title: 'Read the docs' }], { at: 45 })
+    if (applied.status !== 'accepted') {
+      throw new Error('the follow-up must be accepted')
+    }
+    const listed = scene.reads.observerCalls(run)
+    expect(ObserverCallsResponse.safeParse(listed).error).toBeUndefined()
+    expect(listed?.calls.map(({ id }) => id)).toEqual(['call-1', followUp])
+    expect(listed?.calls.at(-1)).toMatchObject({
+      id: followUp,
+      attempt: 1,
+      outcome: 'accepted',
+      facts: first.map(({ id }) => id),
+      result_version: applied.version,
+      started_at: at(40),
+      ended_at: at(45),
+      latency_ms: 5000,
+      needs_latency_ms: 3000,
+    })
+    const second = factsOfCall(scene, source, 'read-2')
+    requestNeeds('call-lost-needs', second, 50)
+    scene.store.close()
+    const restarted = scene.home.open()
+    const lost = ObserverCallId.parse('call-lost')
+    restarted.transaction((transaction) => {
+      beginObserverCall(transaction, {
+        id: lost,
+        backend: 'claude',
+        crossVendor: false,
+        input: inputFor(restarted, second, run),
+        at: at(60),
+      })
+    })
+    const running = createReadQueries({ store: restarted, observer: okObserver }).observerCalls(run)
+    expect(running?.calls.at(-1)).toMatchObject({ id: lost, outcome: 'running', ended_at: null })
+    restarted.close()
+    const reopened = scene.home.open()
+    const reads = createReadQueries({ store: reopened, observer: okObserver })
+    expect(
+      reads.observerCalls(run)?.calls.map(({ id, outcome, ended_at: ended, latency_ms: latency }) => [
+        id,
+        outcome,
+        ended,
+        latency,
+      ]),
+    ).toEqual([
+      ['call-1', 'accepted', at(10), 1000],
+      [followUp, 'accepted', at(45), 5000],
+      ['call-lost-needs', 'failed', at(51), 1000],
+      [lost, 'failed', null, null],
+    ])
+    expect(reads.runs().runs.find(({ id }) => id === run)?.observer.pending_facts).toBe(second.length)
   })
 
   test.for([

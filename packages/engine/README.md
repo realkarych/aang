@@ -579,13 +579,18 @@ links has the same state before and after, and its journal entries are those lin
 changes.
 
 The attempt of an observer call is one more than the number of earlier rejected
-calls that contained a fact of its batch. A call without a verdict is running. The
-result version of an accepted call is the last version of its transaction, including
-the rule changes that follow its operations, as returned by `applyObserverResponse`.
+calls that contained a fact of its batch. A call that asked for materials and its
+follow-up are one call (ADR-0007): it has the id, verdict and output of the
+follow-up, starts with the request, and its latency includes the follow-up, whose
+own duration is `needs_latency_ms`. A call without a result is running while it holds
+its batch; once a restart returns the batch to the queue, it has failed. The result
+version of an accepted call is the last version of its transaction, including the
+rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: view rules, the view
 mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
 and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
-(E.8, U.1); the CLI version, model, usage, error and `needs` latency of observer
-calls (F.8, F.9). The ingest transaction does not record `pending` interpretation
-rows yet (ADR-0005), so the queue counts only facts that have been in a call.
+(E.8, U.1); the CLI version, model, usage and error of observer calls (F.8, F.9).
+The ingest transaction does not record `pending` interpretation rows yet (ADR-0005),
+so the queue counts only facts that have been in a call or were made `pending` by a
+session transfer.
