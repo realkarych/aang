@@ -1,0 +1,340 @@
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+import { claudeAdapter } from '@aang/adapter-claude'
+import { codexAdapter } from '@aang/adapter-codex'
+import { type Adapter, EpochNs, type Runtime, type SessionKey } from '@aang/contract'
+import { objectId, runId } from '@aang/contract/ids'
+import { createEngine } from '@aang/engine'
+import { openStore } from '@aang/store'
+import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { type TestContext, test } from 'vitest'
+import { createHome, type Home, startDaemon } from './daemon.js'
+import {
+  admissionOf,
+  briefed,
+  configure,
+  configuredPath,
+  installLauncher,
+  observerEnvironment,
+  observerInputs,
+  progressOf,
+  settled,
+  singlePathClaude,
+} from './observers.js'
+import { claudeHook, codexHook, enqueue, openFinished, queued, waitUntil, watchedHome } from './sessions.js'
+
+const claudeKey = (session: string): SessionKey => ({ kind: 'session', runtime: 'claude', session })
+
+const codexKey = (session: string): SessionKey => ({ kind: 'session', runtime: 'codex', session })
+
+const unverifiedIsolation = 'изоляция от сообщений других сессий на этой версии не проверена'
+
+const run = async (home: Home, onTestFinished: TestContext['onTestFinished'], work: () => Promise<void>): Promise<void> => {
+  const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
+  await work()
+  daemon.abort()
+  await daemon.stopped
+}
+
+const claudeEvents = (session: string, workspace: string): string[] => [
+  claudeHook('SessionStart.startup', session, workspace),
+  claudeHook('PermissionRequest.Bash', session, workspace),
+]
+
+const codexEvents = (session: string, workspace: string): string[] => [
+  codexHook('SessionStart.startup', session, workspace),
+  codexHook('PermissionRequest', session, workspace),
+]
+
+test('the daemon admits the Codex CLI from the config and sends a Codex run to it', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
+  await installLauncher(home)
+  await configure(home, workspace, {
+    cli: { codex: await configuredPath(codex) },
+    observer: { effort: { codex: 'low' } },
+  })
+  const session = codexKey('thread-g6-codex')
+  const observed = runId(session)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'codex', codexEvents(session.session, workspace), 'codex')
+    await waitUntil(() => settled(progressOf(home, observed)))
+  })
+
+  const store = openFinished(home, onTestFinished)
+  const facts = store.facts.ofSession(session).map(({ id }) => id)
+  expect(progressOf(home, observed)).toEqual({
+    statuses: facts.map(() => 'interpreted'),
+    batches: [{ verdict: 'accepted', error: null }],
+  })
+  expect(observerInputs(codex, observed).map(({ batch }) => batch.facts.map(({ id }) => id).sort())).toEqual([
+    [...facts].sort(),
+  ])
+  const [work] = codex.calls().filter(({ command, prompt }) => command === 'exec' && prompt?.includes(observed) === true)
+  expect(work?.argv).toEqual(expect.arrayContaining(['-m', 'gpt-6.1-sol', 'model_reasoning_effort="low"']))
+  expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.3', warning: null })
+  expect(await admissionOf(home, 'claude')).toMatchObject({ admitted: false })
+})
+
+test.skipIf(!singlePathClaude)(
+  'each run goes to the observer of its root session vendor, and Claude runs with the unverified isolation mark',
+  async ({ expect, onTestFinished }) => {
+    const { home, workspace } = await watchedHome(onTestFinished)
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { builtinPlugins: [], replies: [briefed] })
+    const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
+    await configure(home, workspace, { cli: { claude: claude.command, codex: codex.command } })
+    const claudeRun = runId(claudeKey('session-g6-claude'))
+    const codexRun = runId(codexKey('thread-g6-codex'))
+
+    await run(home, onTestFinished, async () => {
+      await enqueue(home, 'claude', claudeEvents('session-g6-claude', workspace))
+      await enqueue(home, 'codex', codexEvents('thread-g6-codex', workspace), 'codex')
+      await waitUntil(() => settled(progressOf(home, claudeRun)) && settled(progressOf(home, codexRun)))
+    })
+
+    expect([claudeRun, codexRun].map((observed) => progressOf(home, observed).batches)).toEqual([
+      [{ verdict: 'accepted', error: null }],
+      [{ verdict: 'accepted', error: null }],
+    ])
+    expect([observerInputs(claude, claudeRun), observerInputs(claude, codexRun)].map((inputs) => inputs.length)).toEqual([1, 0])
+    expect([observerInputs(codex, codexRun), observerInputs(codex, claudeRun)].map((inputs) => inputs.length)).toEqual([1, 0])
+    const [work] = claude.calls().filter(({ prompt }) => prompt?.includes(claudeRun) === true)
+    expect(work?.argv).toEqual(expect.arrayContaining(['--model', 'claude-opus-5-5']))
+    expect(await admissionOf(home, 'claude')).toMatchObject({ admitted: true, version: '2.1.286', warning: unverifiedIsolation })
+  },
+)
+
+const adapters = new Map<Runtime, Adapter>([
+  ['claude', claudeAdapter],
+  ['codex', codexAdapter],
+])
+
+const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: TestContext) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const claude = installFakeClaude(join(home.root, 'fake-cli'), { builtinPlugins: [], replies: [briefed] })
+  const root = claudeKey('session-g6-root')
+  const attached = codexKey('thread-g6-attached')
+  const observed = runId(root)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'start', [claudeHook('SessionStart.startup', root.session, workspace)])
+    await enqueue(home, 'attached', [codexHook('SessionStart.startup', attached.session, workspace)], 'codex')
+    await waitUntil(async () => (await queued(home)).length === 0)
+  })
+  const unobserved = openStore({ home: home.paths.home })
+  const before = unobserved.interpretations.ofRun(observed).map(({ status }) => status)
+  await createEngine({ store: unobserved, adapters, watch: { all: true, roots: [] } }).bind({
+    kind: 'attach',
+    session: objectId(attached),
+    run: observed,
+  })
+  unobserved.close()
+
+  await configure(home, workspace, { cli: { claude: claude.command }, observer: { crossVendor } })
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'permission', [claudeHook('PermissionRequest.Bash', root.session, workspace)])
+    await enqueue(home, 'attached-permission', [codexHook('PermissionRequest', attached.session, workspace)], 'codex')
+    await waitUntil(
+      () =>
+        settled(progressOf(home, observed)) &&
+        progressOf(home, observed).batches.some(({ verdict }) => verdict === 'accepted'),
+    )
+  })
+
+  const store = openFinished(home, onTestFinished)
+  const statuses = new Map(store.interpretations.ofRun(observed).map(({ fact, status }) => [fact, status]))
+  const sent = new Set(observerInputs(claude, observed).flatMap(({ batch }) => batch.facts.map(({ id }) => id)))
+  const factsOf = (key: SessionKey) =>
+    store.facts.ofSession(key).map(({ id }) => ({ sent: sent.has(id), status: statuses.get(id) ?? null }))
+  return {
+    before,
+    root: factsOf(root),
+    attached: factsOf(attached),
+    gaps: store.gaps.open('cross_vendor_excluded').map(({ run: gapRun, session, details }) => ({ run: gapRun, session, details })),
+    session: objectId(attached),
+    observed,
+  }
+}
+
+test.skipIf(!singlePathClaude)(
+  'facts of a Codex session in a Claude run are not sent to the Claude observer without crossVendor and stay visible as a gap',
+  async (context) => {
+    const outcome = await attachCodexSession(false, context)
+
+    context.expect(outcome).toEqual({
+      before: ['pending'],
+      root: [
+        { sent: true, status: 'interpreted' },
+        { sent: true, status: 'interpreted' },
+      ],
+      attached: [
+        { sent: false, status: 'not_interpreted' },
+        { sent: false, status: 'not_interpreted' },
+      ],
+      gaps: [
+        {
+          run: outcome.observed,
+          session: outcome.session,
+          details: 'facts of this session are not sent to the claude observer without observer.crossVendor',
+        },
+      ],
+      session: outcome.session,
+      observed: outcome.observed,
+    })
+  },
+)
+
+test.skipIf(!singlePathClaude)(
+  'with crossVendor the Claude observer receives the facts of the attached Codex session',
+  async (context) => {
+    const outcome = await attachCodexSession(true, context)
+
+    context.expect({ attached: outcome.attached, gaps: outcome.gaps }).toEqual({
+      attached: [
+        { sent: true, status: 'interpreted' },
+        { sent: true, status: 'interpreted' },
+      ],
+      gaps: [],
+    })
+  },
+)
+
+test('observer.backend sends a Claude run to the Codex observer, which gets none of its facts without crossVendor', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
+  await installLauncher(home)
+  await configure(home, workspace, { cli: { codex: await configuredPath(codex) }, observer: { backend: 'codex' } })
+  const session = claudeKey('session-g6-overridden')
+  const observed = runId(session)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'claude', claudeEvents(session.session, workspace))
+    await waitUntil(() => settled(progressOf(home, observed)))
+  })
+
+  const store = openFinished(home, onTestFinished)
+  expect(progressOf(home, observed)).toEqual({ statuses: ['not_interpreted', 'not_interpreted'], batches: [] })
+  expect(observerInputs(codex, observed)).toEqual([])
+  expect(store.gaps.open('cross_vendor_excluded')).toMatchObject([
+    {
+      run: observed,
+      session: objectId(session),
+      details: 'facts of this session are not sent to the codex observer without observer.crossVendor',
+    },
+  ])
+})
+
+test('a new Codex version is admitted once the call running on the old one is over', { timeout: 90_000 }, async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [{ kind: 'timeout' }] })
+  await installLauncher(home)
+  await configure(home, workspace, {
+    cli: { codex: await configuredPath(codex) },
+    observer: { timeoutMs: { codex: 5_000 } },
+  })
+  const running = runId(codexKey('thread-g6-running'))
+  const updated = runId(codexKey('thread-g6-updated'))
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'running', codexEvents('thread-g6-running', workspace), 'codex')
+    await waitUntil(() => observerInputs(codex, running).length === 1)
+    codex.setScenario({ version: '0.159.4', replies: [briefed] })
+    await enqueue(home, 'updated', codexEvents('thread-g6-updated', workspace), 'codex')
+    await waitUntil(
+      () =>
+        [running, updated].every((observed) => {
+          const progress = progressOf(home, observed)
+          return settled(progress) && progress.batches.length === 2
+        }),
+      60_000,
+    )
+  })
+
+  expect([running, updated].map((observed) => progressOf(home, observed))).toEqual([
+    {
+      statuses: ['interpreted', 'interpreted'],
+      batches: [
+        { verdict: 'failed', error: 'timeout' },
+        { verdict: 'accepted', error: null },
+      ],
+    },
+    {
+      statuses: ['interpreted', 'interpreted'],
+      batches: [
+        { verdict: 'failed', error: 'version_not_admitted' },
+        { verdict: 'accepted', error: null },
+      ],
+    },
+  ])
+  expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.4' })
+})
+
+test('stopping the daemon cancels a running observer call and leaves its batch pending', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [{ kind: 'timeout' }] })
+  await installLauncher(home)
+  await configure(home, workspace, {
+    cli: { codex: await configuredPath(codex) },
+    observer: { timeoutMs: { codex: 600_000 } },
+  })
+  const session = codexKey('thread-g6-stopped')
+  const observed = runId(session)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'codex', codexEvents(session.session, workspace), 'codex')
+    await waitUntil(() => observerInputs(codex, observed).length === 1)
+  })
+
+  expect(progressOf(home, observed)).toEqual({
+    statuses: ['pending', 'pending'],
+    batches: [{ verdict: 'failed', error: null }],
+  })
+})
+
+test('stopping the daemon during admission does not wait for the CLI and starts no observer', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
+  const hold = { gate: join(home.root, 'gate'), started: join(home.root, 'started') }
+  await installLauncher(home)
+  await configure(home, workspace, { cli: { codex: await configuredPath(codex, hold) } })
+  const session = codexKey('thread-g6-held')
+  const observed = runId(session)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'codex', codexEvents(session.session, workspace), 'codex')
+    await waitUntil(async () => existsSync(hold.started) && (await queued(home)).length === 0)
+  })
+
+  expect(progressOf(home, observed)).toEqual({ statuses: ['pending', 'pending'], batches: [] })
+  expect(codex.calls()).toEqual([])
+  expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: false })
+})
+
+test('a stored observer state that cannot be read stops the daemon with an error', async ({ expect, onTestFinished }) => {
+  const home = await createHome(onTestFinished)
+  const store = openStore({ home: home.paths.home })
+  store.transaction((transaction) => {
+    transaction.settings.save('observer_recovery_codex', { kind: 'resting' }, EpochNs.parse(1n))
+  })
+  store.close()
+
+  const stopped = startDaemon(home, onTestFinished).then((daemon) => daemon.stopped)
+  await expect(stopped).rejects.toMatchObject({ name: 'ZodError' })
+  await expect(stopped).rejects.toThrow('No matching discriminator')
+})
