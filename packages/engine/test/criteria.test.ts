@@ -14,7 +14,7 @@ import {
   type RunId,
   type SnapshotTrigger,
 } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
+import { objectId, runId } from '@aang/contract/ids'
 import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test, vi } from 'vitest'
@@ -95,6 +95,16 @@ const transcriptOf = (source: Source, repository: Repository, call: string, outp
     ),
   ]
   return jsonlFile({ runtime: 'claude', path: join(repository.path, '..', 'transcript.jsonl'), lines, ino: 41n })
+}
+
+const writeUntil = async (path: string, files: Readonly<Record<string, string>>, settled: () => void): Promise<void> => {
+  await vi.waitFor(
+    async () => {
+      await writeFiles(path, files)
+      settled()
+    },
+    { timeout: 15_000, interval: 100 },
+  )
 }
 
 const runOf = (source: Source): RunId => runId(sessionKey('claude', source.session))
@@ -331,13 +341,9 @@ test('fs watch reports an edit under a mask and the confirmed criteria of runs i
   const second = { session: 'other-watch-session', cwd: repository.path }
   const commit = await confirm(engine, store, repository, first)
   await confirm(engine, store, repository, second, 'call-other')
-  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 10\n' })
-  await vi.waitFor(
-    () => {
-      expect([first, second].map((source) => criterionOf(store, source).status.value)).toEqual(['stale', 'stale'])
-    },
-    { timeout: 15_000, interval: 50 },
-  )
+  await writeUntil(repository.path, { 'src/app.ts': 'export const app = 10\n' }, () => {
+    expect([first, second].map((source) => criterionOf(store, source).status.value)).toEqual(['stale', 'stale'])
+  })
   expect(criterionOf(store, first)).toMatchObject({
     status: { evidence: [...callFacts(store, 'call-verify'), snapshotFact(store, first, 'fs_watch')].sort() },
     checked_commit: commit,
@@ -356,14 +362,12 @@ test('fs watch follows a file mask through its directory and stops watching a cr
   const statusOf = (): string => criterionOf(store, source).status.value
   const watched = (): number => snapshotsOf(store, source).filter(({ trigger }) => trigger === 'fs_watch').length
   await confirm(engine, store, repository, source)
-  await writeFiles(repository.path, { 'notes.txt': 'outside the masks\n', 'README.md': '# Edited\n' })
-  await vi.waitFor(() => {
+  await writeUntil(repository.path, { 'notes.txt': 'outside the masks\n', 'README.md': '# Edited\n' }, () => {
     expect(statusOf()).toBe('stale')
-  }, { timeout: 15_000, interval: 50 })
-  await writeFiles(repository.path, { 'README.md': committed['README.md'] })
-  await vi.waitFor(() => {
+  })
+  await writeUntil(repository.path, { 'README.md': committed['README.md'] }, () => {
     expect(statusOf()).toBe('confirmed')
-  }, { timeout: 15_000, interval: 50 })
+  })
 
   await engine.ingest(hookBatch(preTool(source, 'call-broken', 20), failedTool(source, 'call-broken', 21)))
   expect(statusOf()).toBe('failed')
@@ -507,10 +511,9 @@ test.for([
   const { store, engine, repository } = await setup(onTestFinished, { fsWatch: true, masks: [mask] })
   const source = { session: 'glob-session', cwd: repository.path }
   await confirm(engine, store, repository, source)
-  await writeFiles(repository.path, files)
-  await vi.waitFor(() => {
+  await writeUntil(repository.path, files, () => {
     expect(criterionOf(store, source).status.value).toBe('stale')
-  }, { timeout: 15_000, interval: 50 })
+  })
   expect(snapshotsOf(store, source).at(-1)).toMatchObject({ trigger: 'fs_watch', clean: false })
 })
 
@@ -539,3 +542,41 @@ test('a confirmation cites the transcript result that reported the commit after 
   const [, confirmation] = store.model.entityChanges(runOf(source), { kind: 'criterion', id: criterion.id }, ModelVersion.parse(0))
   expect(confirmation?.evidence).toEqual(criterion.status.evidence)
 })
+
+test.for(['detach', 'revoke'] as const)(
+  'a session moved into a run by a binding takes its check along, and %s brings it back',
+  async (move, { onTestFinished }) => {
+    const { store, engine, repository } = await setup(onTestFinished)
+    const root = { session: 'root-session', cwd: repository.path }
+    const moved = { session: 'moved-session', cwd: repository.path }
+    const commit = await isolatedCheckout(repository)
+    await engine.ingest(hookBatch(started(root), preTool(root, 'root-fail', 10), failedTool(root, 'root-fail', 11)))
+    await engine.ingest(
+      hookBatch(started(moved), preTool(moved, 'moved-verify', 20), postTool(moved, 'moved-verify', passed(commit), 21)),
+    )
+    const failed = criterionOf(store, root)
+    const confirmed = criterionOf(store, moved)
+    expect([failed.status.value, confirmed.status.value]).toEqual(['failed', 'confirmed'])
+
+    const session = objectId(sessionKey('claude', moved.session))
+    const attached = await engine.bind({ kind: 'attach', session, run: runOf(root) })
+    expect(criterionOf(store, root)).toMatchObject({
+      id: failed.id,
+      status: { value: 'confirmed', evidence: callFacts(store, 'moved-verify') },
+      checked_commit: commit,
+    })
+    expect(criteriaOf(store, moved)).toEqual([])
+    expect(
+      store.model
+        .entityChanges(runOf(moved), { kind: 'criterion', id: confirmed.id }, ModelVersion.parse(0))
+        .map(({ op, after }) => [op, after?.kind === 'criterion' ? after.value.status.value : null]),
+    ).toEqual([
+      ['criterion.status', 'confirmed'],
+      ['session.move', null],
+    ])
+
+    await (move === 'detach' ? engine.bind({ kind: 'detach', session }) : engine.revokeBinding(attached.binding.id))
+    expect(criterionOf(store, root)).toMatchObject({ id: failed.id, status: failed.status, checked_commit: null })
+    expect(criterionOf(store, moved)).toEqual(confirmed)
+  },
+)

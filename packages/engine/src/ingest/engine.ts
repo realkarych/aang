@@ -28,9 +28,9 @@ import { retainBases } from '../artifacts/retention.js'
 import { projectVersions } from '../artifacts/versions.js'
 import { refreshChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
-import { changedRunChecks, storedRunChecks } from '../checks/history.js'
+import { changedRunChecks, type RunChecks, storedRunChecks } from '../checks/history.js'
 import { createCriteriaMonitor, UnresolvedChecks, versionedSnapshots } from '../criteria/monitor.js'
-import { type CriterionCheck, latestChecks } from '../criteria/plan.js'
+import type { CriterionCheck } from '../criteria/plan.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
@@ -579,8 +579,7 @@ export const createEngine = ({
       const checked = changedRunChecks(transaction, changedSessions.values(), contracts)
       refreshChecks(transaction, checked, instant)
       projectVersions(transaction, changedActions.values())
-      const latest = latestChecks(transaction, checked)
-      criteria.reconcile(transaction, latest)
+      const latest = criteria.reconcile(transaction, checked, instant)
       const ended = new Set([...endedSessions.values()].map((key) => sessionRun(transaction, key)))
       const snapshots = distinctRequests([
         ...versionedSnapshots(transaction, latest.filter(({ run }) => ended.has(run)), 'turn_end'),
@@ -628,15 +627,15 @@ export const createEngine = ({
     return { files, hooks, abandoned, deferred }
   }
 
-  const commitPrepared = async (...parts: Parameters<typeof commit>): Promise<Committed> => {
+  const prepared = async <T>(work: () => T): Promise<T> => {
     try {
-      return commit(...parts)
+      return work()
     } catch (error) {
       if (!(error instanceof UnresolvedChecks)) {
         throw error
       }
       await criteria.prepare(error.checks)
-      return commit(...parts)
+      return work()
     }
   }
 
@@ -647,7 +646,7 @@ export const createEngine = ({
     const scopes = sessionScopes()
     const evidence = gatherEvidence(steps, items, scopes)
     const decided = await decideSessions(evidence, scopes)
-    const committed = await commitPrepared(batch, items, steps, decided, scopes)
+    const committed = await prepared(() => commit(batch, items, steps, decided, scopes))
     quiet = committed.quiet
     const kept = withinLimits(committed)
     const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))
@@ -669,22 +668,35 @@ export const createEngine = ({
     }
   }
 
-  const settleBinding = (change: (transaction: Transaction, at: EpochNsType) => BindingOutcome): BindingResult => {
-    const { binding, watch } = store.transaction((transaction) => {
-      const instant = now()
-      const outcome = change(transaction, instant)
-      const moved = outcome.moved.map(({ session }) => session)
-      const watch = new Map(quiet)
-      const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
-      for (const key of moved) {
-        const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
-        if (projection !== null) { watchQuiet(watch, projection.session) }
-      }
-      refreshChecks(transaction, changedRunChecks(transaction, moved, contracts), instant)
-      refreshChecks(transaction, storedRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts), instant)
-      return { binding: outcome.binding, watch }
-    })
+  const refreshRuns = (transaction: Transaction, runs: readonly RunChecks[], at: EpochNsType): CriterionCheck[] => {
+    const distinct = [...new Map(runs.map((checks) => [checks.run, checks])).values()]
+    refreshChecks(transaction, distinct, at)
+    return criteria.reconcile(transaction, distinct, at)
+  }
+
+  const settleBinding = async (
+    change: (transaction: Transaction, at: EpochNsType) => BindingOutcome,
+  ): Promise<BindingResult> => {
+    const { binding, watch, latest } = await prepared(() =>
+      store.transaction((transaction) => {
+        const instant = now()
+        const outcome = change(transaction, instant)
+        const moved = outcome.moved.map(({ session }) => session)
+        const watch = new Map(quiet)
+        const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
+        for (const key of moved) {
+          const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
+          if (projection !== null) { watchQuiet(watch, projection.session) }
+        }
+        const runs = [
+          ...changedRunChecks(transaction, moved, contracts),
+          ...storedRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts),
+        ]
+        return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant) }
+      }),
+    )
     quiet = watch
+    await criteria.settle([], latest)
     return { binding, head: store.changes.head() }
   }
 
@@ -698,10 +710,17 @@ export const createEngine = ({
       }),
     ingest: (batch) => enqueue(() => ingestBatch(batch)),
     reparse: () =>
-      enqueue(() => {
-        const watch = new Map(quiet)
-        const result = reparse(store, adapters, contracts, watch, now(), quietAfterMs)
+      enqueue(async () => {
+        const { result, watch, latest } = await prepared(() => {
+          const watch = new Map(quiet)
+          let latest: CriterionCheck[] = []
+          const result = reparse(store, adapters, watch, now(), quietAfterMs, (transaction, sessions, at) => {
+            latest = refreshRuns(transaction, changedRunChecks(transaction, sessions, contracts), at)
+          })
+          return { result, watch, latest }
+        })
         quiet = watch
+        await criteria.settle([], latest)
         return result
       }),
     bind: (request) =>

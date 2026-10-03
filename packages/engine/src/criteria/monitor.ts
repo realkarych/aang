@@ -1,18 +1,18 @@
 import type { EpochNs, RunId, SnapshotTrigger } from '@aang/contract'
 import type { Store, Transaction } from '@aang/store'
 import type { ContractCatalog } from '../checks/catalog.js'
-import { storedRunChecks } from '../checks/history.js'
+import { type RunChecks, storedRunChecks } from '../checks/history.js'
 import { sessionRun } from '../observations/runs.js'
 import { distinctRequests, snapshotRequest } from '../snapshots/checks.js'
 import { recordSnapshot } from '../snapshots/record.js'
 import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { createGitResolver, type ResolvedCheck } from './git.js'
 import { type CriterionCheck, latestChecks } from './plan.js'
-import { isVersioned, reconcileCriteria } from './status.js'
+import { isVersioned, reconcileCriteria, releaseCriteria } from './status.js'
 import { createTreeWatch, maskTargets } from './watch.js'
 
 export interface CriteriaMonitor {
-  readonly reconcile: (transaction: Transaction, checks: readonly CriterionCheck[]) => void
+  readonly reconcile: (transaction: Transaction, runs: readonly RunChecks[], at: EpochNs) => CriterionCheck[]
   readonly prepare: (checks: readonly CriterionCheck[]) => Promise<void>
   readonly settle: (requests: readonly SnapshotRequest[], checks: readonly CriterionCheck[]) => Promise<void>
   readonly recheck: (runs: ReadonlySet<RunId> | null, trigger: SnapshotTrigger) => Promise<void>
@@ -81,7 +81,7 @@ export const createCriteriaMonitor = ({
     }
   }
 
-  const reconcile = (transaction: Transaction, checks: readonly CriterionCheck[]): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
+  const reconcileChecks = (transaction: Transaction, checks: readonly CriterionCheck[]): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
     const resolved = git.resolved(checks)
     if (resolved === null) {
       throw new UnresolvedChecks(checks)
@@ -106,13 +106,18 @@ export const createCriteriaMonitor = ({
         for (const snapshot of taken) {
           recordSnapshot(transaction, snapshot)
         }
-        return reconcile(transaction, checks)
+        return reconcileChecks(transaction, checks)
       }),
     )
   }
 
   return {
-    reconcile,
+    reconcile: (transaction, runs, at) => {
+      const latest = latestChecks(transaction, runs)
+      reconcileChecks(transaction, latest)
+      releaseCriteria(transaction, runs, at)
+      return latest
+    },
     prepare: git.prepare,
     settle,
     recheck: async (runs, trigger) => {

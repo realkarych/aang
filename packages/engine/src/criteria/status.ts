@@ -12,6 +12,7 @@ import {
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
+import type { RunChecks } from '../checks/history.js'
 import { applyChangeSet, type ModelChangeDraft } from '../model/journal.js'
 import type { CheckGit, ResolvedCheck } from './git.js'
 import type { CriterionCheck } from './plan.js'
@@ -168,6 +169,20 @@ const updateOf = (transaction: Transaction, resolved: ResolvedCheck, verdict: Ve
   return {
     change: { op: 'criterion.status', put: { kind: 'criterion', value: criterion }, basis: observed, evidence: criterion.status.evidence },
     at: verdict.at,
+  }
+}
+
+export const releaseCriteria = (transaction: Transaction, runs: readonly RunChecks[], at: EpochNs): void => {
+  for (const { run, contracts } of runs) {
+    const changes = contracts.flatMap(({ contract, checks }): ModelChangeDraft[] => {
+      const id = criterionId(run, contract.name)
+      return checks.length === 0 && transaction.model.entity(run, { kind: 'criterion', id }) !== null
+        ? [{ op: 'session.move', remove: { kind: 'criterion', id }, basis: observed, evidence: [] }]
+        : []
+    })
+    if (changes.length > 0) {
+      applyChangeSet(transaction, { run, author: 'rule', at, changes })
+    }
   }
 }
 

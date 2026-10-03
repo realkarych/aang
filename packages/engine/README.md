@@ -253,12 +253,19 @@ A criterion with `checked_commit` is watched:
   decides whether the change is under the masks. A notification is only a signal: a
   missed one is caught by the next snapshot at a turn end or a restart.
 
+A binding that moves a session to another run moves its checks along: the binding
+transaction evaluates the criteria of the run the session left and of the run it
+joined, and a run with no check of a contract any more loses the criterion of that
+contract with a `session.move` rule change, as failed check items do.
+`engine.reparse()` evaluates the criteria of the runs it rebuilds in its
+transaction the same way.
+
 The ingest evaluates the criteria of every run whose sessions received facts in the
 transaction of the batch, together with its facts and cursors (ADR-0005). The git
 state that a verdict needs (the working tree of the check directory and the commit
 of the reported name) is read before that transaction: when the transaction meets a
 check whose git state is not known yet, it is rolled back, the engine reads the git
-state and repeats the transaction once. Working trees and commits, found or not,
+state and repeats the transaction once; a binding and a reparse do the same. Working trees and commits, found or not,
 are cached for the life of the engine. The snapshots of the batch are taken after
 the commit and recorded together with the evaluation they change in one more
 transaction. A crash between the two loses only these snapshots: a confirmed
