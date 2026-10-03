@@ -18,6 +18,7 @@ import {
   type RunSnapshot,
   type RunsResponse,
   type Session,
+  type UsageRecord,
 } from '@aang/contract'
 import type { Observation, StoredObservationRemoval } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
@@ -38,6 +39,7 @@ const isSession = (object: Observation): object is Session => object.key.kind ==
 const isAgent = (object: Observation): object is Agent => object.key.kind === 'agent'
 const isAction = (object: Observation): object is Action => object.key.kind === 'action'
 const isQuestion = (object: Observation): object is Question => object.key.kind === 'question'
+const isUsage = (object: Observation): object is UsageRecord => object.key.kind === 'usage'
 
 const objectsOf = (objects: readonly Observation[], gaps: readonly Gap[]): ObservationObjects => ({
   sessions: objects.filter(isSession),
@@ -46,7 +48,7 @@ const objectsOf = (objects: readonly Observation[], gaps: readonly Gap[]): Obser
   questions: objects.filter(isQuestion),
   artifact_versions: [],
   git_snapshots: [],
-  usage_records: [],
+  usage_records: objects.filter(isUsage),
   gaps: [...gaps],
 })
 

@@ -1,5 +1,6 @@
 import {
   type ActionId,
+  ChangeSeq,
   type CollectorBatch,
   EpochNs,
   type Fact,
@@ -11,21 +12,30 @@ import {
   type UsageRecord,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, type Engine, solverUsage, type StageDraft, stageUsage } from '@aang/engine'
+import {
+  applyChangeSet,
+  createReadQueries,
+  type Engine,
+  solverUsage,
+  type StageDraft,
+  stageUsage,
+} from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
-import { jsonlFile } from './batches.js'
+import { hookBatch, type JsonlFile, jsonlFile } from './batches.js'
 import { factsOf, sessionKey, startEngine } from './harness.js'
 import { createHome } from './home.js'
-import { claudeForkTranscript, claudeTranscript, codexChildRollout, codexRollout } from './samples.js'
+import { claudeForkTranscript, claudeHook, claudeTranscript, codexChildRollout, codexRollout } from './samples.js'
 
 const cwd = '/work/project'
 const projects = '/home/.claude/projects/-work-project'
 const codexSessions = '/home/.codex/sessions'
 const origin = Date.parse('2026-10-02T12:00:00.000Z')
+const everything = ChangeSeq.parse(0)
 
 const isoAt = (second: number): string => new Date(origin + second * 1000).toISOString()
-const epochAt = (second: number): EpochNs => EpochNs.parse(BigInt(origin + second * 1000) * 1_000_000n)
+const epochOf = (iso: string): EpochNs => EpochNs.parse(BigInt(Date.parse(iso)) * 1_000_000n)
+const epochAt = (second: number): EpochNs => epochOf(isoAt(second))
 
 const sessionOf = (runtime: Runtime, session: string) => objectId(sessionKey(runtime, session))
 const runOf = (runtime: Runtime, session: string) => runId(sessionKey(runtime, session))
@@ -136,6 +146,9 @@ const ingested = async (batches: readonly CollectorBatch[]): Promise<Ingested> =
   }
   return { store, engine }
 }
+
+const readsOf = (store: Store) =>
+  createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
 
 const withoutCounters = (record: UsageRecord): object =>
   Object.fromEntries(Object.entries(record).filter(([field]) => field !== 'change_seq'))
@@ -259,6 +272,51 @@ describe('time of a run', () => {
     })
     expect(agents.find(({ agent }) => agent === mainOf('claude', parallel))?.active_ms).toBe(66_000)
     expect(solverUsage(store, runOf('claude', parallel), { pauseAfterMs: 1_200_000 }).time.pauses).toEqual([])
+  })
+
+  test('does not take the reading time of a line without a timestamp for activity', async () => {
+    const session = 'backfilled'
+    const lines = claudeTranscript({ session, cwd })
+    const file = jsonlFile({ runtime: 'claude', path: `${projects}/${session}.jsonl`, lines, ino: 1n })
+    const readAfter = async (hours: bigint) => {
+      const batch = file.batch(1, lines.length)
+      const records = batch.records.map((record) => ({
+        ...record,
+        observed_at: EpochNs.parse(record.observed_at + hours * 3_600_000_000_000n),
+      }))
+      const { store } = await ingested([{ ...batch, records }])
+      return solverUsage(store, runOf('claude', session))
+    }
+
+    const onTime = await readAfter(0n)
+    const later = await readAfter(1n)
+
+    expect(onTime.time).toEqual({
+      started_at: epochOf('2026-10-01T11:49:30.942Z'),
+      ended_at: epochOf('2026-10-01T11:57:53.500Z'),
+      duration_ms: 502_558,
+      pauses: [],
+    })
+    expect(later.time).toEqual(onTime.time)
+    expect(later.agents).toEqual(onTime.agents)
+  })
+
+  test('takes the time of hooks, which are written when they fire', async () => {
+    const session = 'hooked'
+    const hook = (file: string, name: string, second: number) => ({
+      file,
+      arrival: second * 1_000_000_000,
+      payload: claudeHook(name, { session, cwd }),
+    })
+    const { store } = await ingested([
+      hookBatch(
+        hook('start.evt', 'SessionStart.startup.json', 0),
+        hook('prompt.evt', 'UserPromptSubmit.json', 2),
+        hook('stop.evt', 'Stop.json', 90),
+      ),
+    ])
+
+    expect(solverUsage(store, runOf('claude', session)).time.duration_ms).toBe(90_000)
   })
 })
 
@@ -386,6 +444,71 @@ describe('Claude fork', () => {
   })
 })
 
+describe('Claude cost-state', () => {
+  const session = 'resumed'
+  const path = `${projects}/${session}.jsonl`
+  const lines = claudeTranscript({ session, cwd })
+  const lastCost = 0.19517879999999999
+  const transcript = (content: readonly string[], ino = 1n, at = path) =>
+    jsonlFile({ runtime: 'claude', path: at, lines: content, ino })
+  const whole = (content: readonly string[]) => transcript(content).batch(1, content.length)
+  const costState = (store: Store) => solverUsage(store, runOf('claude', session)).journal.sessions[0]
+  const hook = (file: string, name: string) =>
+    hookBatch({ file, arrival: 1_000_000_000, payload: claudeHook(name, { session, cwd }) })
+  const laterLine = (record: object) =>
+    JSON.stringify({
+      parentUuid: null,
+      isSidechain: false,
+      uuid: 'line-after-cost-state',
+      timestamp: '2026-10-01T12:05:00.000Z',
+      sessionId: session,
+      cwd,
+      ...record,
+    })
+
+  test('is not final once a hook resumes the session, before its first new line', async () => {
+    const { store, engine } = await ingested([whole(lines)])
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: true })
+
+    await engine.ingest(hook('resume.evt', 'SessionStart.resume.json'))
+
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: false })
+  })
+
+  test('stays final after the hooks that end the launch which wrote it', async () => {
+    const { store, engine } = await ingested([whole(lines)])
+
+    await engine.ingest(hook('end.evt', 'SessionEnd.json'))
+
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: true })
+  })
+
+  test.each([
+    ['a context attachment without facts', { type: 'attachment', attachment: { type: 'environment', snapshot: {} } }],
+    ['a line of an unknown type', { type: 'unknown-line' }],
+    ['a line stamped before the launch that wrote it', { type: 'unknown-line', timestamp: '2026-10-01T11:00:00.000Z' }],
+  ])('is not final once the transcript goes on with %s', async (_, record) => {
+    const { store } = await ingested([whole([...lines, laterLine(record)])])
+
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: false })
+  })
+
+  const superseded = `${path}.superseded-1790856000000`
+  const current = () => transcript([...lines.slice(0, 2), ...lines.slice(69)], 1n)
+  const previous = () => transcript(lines.slice(0, 69), 2n, superseded)
+  const all = (file: JsonlFile) => file.batch(1, file.lines.length)
+
+  test.each([
+    ['in parts out of order', () => [transcript(lines).batch(1, 1), transcript(lines).batch(70, 97), transcript(lines).batch(2, 69)]],
+    ['from a superseded file read after the current one', () => [all(current()), all(previous())]],
+    ['from a superseded file read before the current one', () => [all(previous()), all(current())]],
+  ])('is the last of the transcript when it arrives %s', async (_, batches) => {
+    const { store } = await ingested(batches())
+
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: true })
+  })
+})
+
 describe('Codex usage records', () => {
   const root = 'codex-root'
   const child = 'codex-child'
@@ -506,6 +629,22 @@ describe('Codex usage records', () => {
     expect(solverUsage(store, runOf('codex', root)).journal.totals.records).toBe(0)
     expect(store.observations.getAgent(mainOf('codex', forked))?.thread_total).toBeNull()
   })
+
+  test('of a thread without token_usage_record keep the total of its last ordinal when the earlier file is read last', async () => {
+    const lines = withoutRecords(codexRollout({ thread: root, cwd }))
+    const middle = Math.floor(lines.length / 2)
+    const archived = lines.slice(0, middle)
+    const { store } = await ingested([
+      codexFile(root, [...lines.slice(0, 1), ...lines.slice(middle)], 1n),
+      jsonlFile({ runtime: 'codex', path: `/home/.codex/archived_sessions/${root}.jsonl`, lines: archived, ino: 2n }).batch(
+        1,
+        archived.length,
+      ),
+    ])
+
+    expect(lastTokenCount(archived)).not.toEqual(lastTokenCount(lines))
+    expect(store.observations.getAgent(mainOf('codex', root))?.thread_total).toEqual(lastTokenCount(lines))
+  })
 })
 
 const stageDraft = (id: StageId, run: RunId): StageDraft => ({
@@ -600,6 +739,10 @@ describe('usage of a stage', () => {
       stage: totals(1, tokens(1, 11)),
       unassigned_in_sessions: totals(1, tokens(1, 33)),
     })
+    expect(readsOf(store).inspector(run, check)?.usage).toEqual({
+      stage: totals(1, tokens(1, 22)),
+      unassigned_in_sessions: totals(1, tokens(1, 33)),
+    })
   })
 
   test('leaves a response unassigned when one of its actions belongs to two stages', async () => {
@@ -676,5 +819,29 @@ describe('usage after a transfer and a reparse', () => {
     await engine.reparse()
 
     expect(store.observations.usageRecords(sessionOf('claude', parallel)).map(withoutCounters)).toEqual(before)
+  })
+})
+
+describe('usage records in the reads of a run', () => {
+  test('come with its snapshot and its change feed', async () => {
+    const [main, ...agentFiles] = parallelRun()
+    const { store, engine } = await ingested(main === undefined ? [] : [main])
+    const reads = readsOf(store)
+    const run = runOf('claude', parallel)
+    const usageOf = (records: readonly UsageRecord[]) => records.map(({ key }) => key.usage).sort()
+    const before = reads.snapshot(run)
+
+    for (const batch of agentFiles) {
+      await engine.ingest(batch)
+    }
+    const fed = (reads.feed(run, before?.change_seq ?? everything)?.events ?? []).flatMap((event) =>
+      event.event === 'facts' ? event.data.objects.usage_records : [],
+    )
+
+    expect(usageOf(before?.objects.usage_records ?? [])).toEqual(['msg-main-1', 'msg-main-2', 'msg-synthetic'])
+    expect(usageOf(fed)).toEqual(expect.arrayContaining(['msg-agent-a-1', 'msg-agent-a-2', 'msg-agent-b-1', 'msg-agent-b-2']))
+    expect(reads.snapshot(run)?.objects.usage_records).toEqual(
+      store.observations.usageRecords(sessionOf('claude', parallel)).toSorted((left, right) => (left.id < right.id ? -1 : 1)),
+    )
   })
 })

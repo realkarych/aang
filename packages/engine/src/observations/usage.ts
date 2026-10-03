@@ -1,8 +1,8 @@
-import type { CostStatePayload, FactKind, RawSeq, RunId, TokenUsage, UsageKey } from '@aang/contract'
+import type { CostStatePayload, RawSeq, RunId, TokenUsage, UsageKey } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
 import type { AgentIdentity } from './agents.js'
-import { byContent, byTime, type Evidence, grouped, type KindEvidence, ofKind } from './evidence.js'
+import { byContent, byTime, compareText, type Evidence, grouped, type KindEvidence, ofKind } from './evidence.js'
 
 interface UsageContext {
   readonly run: RunId
@@ -13,8 +13,28 @@ interface UsageContext {
 const larger = (left: number | null, right: number | null): number | null =>
   left === null ? right : right === null ? left : Math.max(left, right)
 
-export const latest = <K extends FactKind>(items: readonly KindEvidence<K>[]): KindEvidence<K> | null =>
-  items.reduce<KindEvidence<K> | null>((last, item) => (last === null || item.raw.seq > last.raw.seq ? item : last), null)
+type Order<T> = (left: T, right: T) => number
+
+const byValue = (left: number | null, right: number | null): number => (left ?? -1) - (right ?? -1)
+
+const lineOf = ({ raw }: Evidence): number => (raw.position.kind === 'line' ? raw.position.line : 0)
+
+const lastOf = <T extends Evidence>(items: readonly T[], order: Order<T>): T | null =>
+  items.reduce<T | null>(
+    (last, item) => (last === null || (order(item, last) || compareText(item.fact.id, last.fact.id)) > 0 ? item : last),
+    null,
+  )
+
+const byAccumulation: Order<KindEvidence<'cost_state'>> = (left, right) =>
+  byValue(left.fact.payload.total_duration_ms, right.fact.payload.total_duration_ms) ||
+  byValue(left.fact.payload.total_cost_usd, right.fact.payload.total_cost_usd) ||
+  lineOf(left) - lineOf(right)
+
+const byOrdinal: Order<KindEvidence<'usage_total'>> = (left, right) =>
+  byValue(left.fact.runtime_ids.ordinal, right.fact.runtime_ids.ordinal)
+
+export const lastCostState = (items: readonly Evidence[]): KindEvidence<'cost_state'> | null =>
+  lastOf(ofKind(items, 'cost_state'), byAccumulation)
 
 const recordTokens = (content: readonly KindEvidence<'usage'>[], first: KindEvidence<'usage'>): TokenUsage => ({
   ...first.fact.payload.tokens,
@@ -60,7 +80,9 @@ export const projectUsage = (
   })
 
 export const costStateOf = (items: readonly Evidence[]): CostStatePayload | null =>
-  latest(ofKind(items, 'cost_state'))?.fact.payload ?? null
+  lastCostState(items)?.fact.payload ?? null
 
 export const threadTotalOf = (items: readonly Evidence[], hidden: boolean): TokenUsage | null =>
-  hidden || ofKind(items, 'usage').length > 0 ? null : (latest(ofKind(items, 'usage_total'))?.fact.payload.tokens ?? null)
+  hidden || ofKind(items, 'usage').length > 0
+    ? null
+    : (lastOf(ofKind(items, 'usage_total'), byOrdinal)?.fact.payload.tokens ?? null)

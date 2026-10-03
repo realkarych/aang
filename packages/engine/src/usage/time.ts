@@ -46,7 +46,10 @@ const millisBetween = (from: EpochNs, to: EpochNs): number => Number((to - from)
 
 const earlier = (left: bigint, right: bigint): number => (left < right ? -1 : left > right ? 1 : 0)
 
-export const activeMs = (items: readonly Evidence[]): number => {
+export const isActivity = ({ raw }: Evidence): boolean => raw.source_ts !== null || raw.channel === 'hook'
+
+export const activeMs = (evidence: readonly Evidence[]): number => {
+  const items = evidence.filter(isActivity)
   const marks = items
     .flatMap(({ fact }) => {
       const mark = markOf(fact)
@@ -67,20 +70,13 @@ export const activeMs = (items: readonly Evidence[]): number => {
   return open === null || last === null ? total : total + millisBetween(open, last)
 }
 
-interface SessionSpan {
-  readonly started_at: EpochNs
-  readonly last_event_at: EpochNs
-}
-
-export const runTime = (spans: readonly SessionSpan[], activity: readonly EpochNs[], pauseAfterMs: number): RunTime => {
-  const starts = spans.map(({ started_at }) => started_at).sort(earlier)
-  const ends = spans.map(({ last_event_at }) => last_event_at).sort(earlier)
-  const startedAt = starts[0]
-  const endedAt = ends.at(-1)
+export const runTime = (activity: readonly EpochNs[], pauseAfterMs: number): RunTime => {
+  const instants = activity.toSorted(earlier)
+  const startedAt = instants[0]
+  const endedAt = instants.at(-1)
   if (startedAt === undefined || endedAt === undefined) {
     return { started_at: null, ended_at: null, duration_ms: 0, pauses: [] }
   }
-  const instants = [startedAt, ...activity.filter((at) => at > startedAt && at < endedAt), endedAt].sort(earlier)
   const pauses: RunPause[] = []
   instants.forEach((at, index) => {
     const next = instants[index + 1]

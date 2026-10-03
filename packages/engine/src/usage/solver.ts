@@ -2,6 +2,8 @@ import {
   type Agent,
   type AgentId,
   ChangeSeq,
+  type EpochNs,
+  type RawSeq,
   type RunId,
   type RunUsage,
   type Session,
@@ -9,6 +11,7 @@ import {
   type SessionUsage,
   type StageId,
   type StageInspector,
+  type StreamKey,
   type TokenUsage,
   type UsageRecord,
   type UsageTotals,
@@ -16,9 +19,9 @@ import {
 import { objectId } from '@aang/contract/ids'
 import type { FactReader, ModelReader, Observation, ObservationReader, RawRecordReader } from '@aang/store'
 import { compareText, type Evidence, ofKind } from '../observations/evidence.js'
-import { latest } from '../observations/usage.js'
+import { lastCostState } from '../observations/usage.js'
 import { assignedStages, readSession, type SessionReading, stageAttribution, type StageOf } from './attribution.js'
-import { activeMs, runTime, type RunTime } from './time.js'
+import { activeMs, isActivity, runTime, type RunTime } from './time.js'
 
 export interface UsageSource {
   readonly observations: ObservationReader
@@ -55,7 +58,15 @@ interface RunObservations {
   readonly stageOf: StageOf
 }
 
+interface StreamLine {
+  readonly path: string
+  readonly line: number
+  readonly at: EpochNs | null
+}
+
 const defaultPauseAfterMs = 300_000
+
+const pageSize = 256
 
 const everything = ChangeSeq.parse(0)
 
@@ -108,19 +119,53 @@ const observationsOf = (source: UsageSource, run: RunId): RunObservations => {
   }
 }
 
-const costStateFinal = (own: readonly Evidence[]): boolean => {
-  const last = latest(ofKind(own, 'cost_state'))
-  return (
-    last !== null &&
-    !own.some(({ raw }) => raw.stream === last.raw.stream && raw.seq > last.raw.seq && raw.source_ts !== null)
-  )
+const streamLines = (rawRecords: RawRecordReader, stream: StreamKey): StreamLine[] => {
+  const lines: StreamLine[] = []
+  let after: RawSeq | null = null
+  for (;;) {
+    const page = rawRecords.ofStream(stream, after, pageSize)
+    if (page.length === 0) {
+      return lines
+    }
+    for (const { seq, position, source_ts: at } of page) {
+      after = seq
+      if (position.kind === 'line') {
+        lines.push({ path: position.path, line: position.line, at })
+      }
+    }
+  }
 }
 
-const sessionUsage = (session: Session, records: readonly UsageRecord[], reading: SessionReading | undefined): SessionUsage => ({
+const latestOf = (lines: readonly StreamLine[]): EpochNs | null =>
+  lines.reduce<EpochNs | null>((latest, { at }) => (at !== null && (latest === null || at > latest) ? at : latest), null)
+
+const costStateFinal = (rawRecords: RawRecordReader, own: readonly Evidence[]): boolean => {
+  const last = lastCostState(own)
+  const position = last?.raw.position
+  const stream = last?.raw.stream ?? null
+  if (position?.kind !== 'line' || stream === null) {
+    return false
+  }
+  const lines = streamLines(rawRecords, stream)
+  const before = lines.filter(({ line }) => line < position.line)
+  const writtenAfter = latestOf(before.filter(({ path }) => path === position.path)) ?? latestOf(before)
+  const later = (at: EpochNs | null): boolean => at !== null && (writtenAfter === null || at > writtenAfter)
+  const continued = lines.some(({ path, line, at }) =>
+    path === position.path ? line > position.line && at !== null : later(at),
+  )
+  return !continued && !ofKind(own, 'session_start').some(({ fact }) => later(fact.at))
+}
+
+const sessionUsage = (
+  rawRecords: RawRecordReader,
+  session: Session,
+  records: readonly UsageRecord[],
+  reading: SessionReading | undefined,
+): SessionUsage => ({
   session: session.id,
   totals: usageTotals(records.filter((record) => record.session === session.id)),
   cost_state: session.cost_state,
-  cost_state_final: session.cost_state !== null && costStateFinal(reading?.own ?? []),
+  cost_state_final: session.cost_state !== null && costStateFinal(rawRecords, reading?.own ?? []),
 })
 
 const agentFacts = (readings: ReadonlyMap<string, SessionReading>): Map<string, Evidence[]> => {
@@ -176,12 +221,11 @@ export const solverUsage = (
         .flatMap(([stage, members]) => (stage === null ? [] : [{ stage, totals: usageTotals(members) }]))
         .sort((left, right) => compareText(left.stage, right.stage)),
       unassigned: usageTotals(stages.get(null) ?? []),
-      sessions: sessions.map((session) => sessionUsage(session, records, readings.get(session.id))),
+      sessions: sessions.map((session) => sessionUsage(source.rawRecords, session, records, readings.get(session.id))),
     },
     agents: agents.map((agent) => agentUsage(agent, records, facts.get(agent.id) ?? [])),
     time: runTime(
-      sessions,
-      [...readings.values()].flatMap(({ own }) => own.map(({ fact }) => fact.at)),
+      [...readings.values()].flatMap(({ own }) => own.filter(isActivity).map(({ fact }) => fact.at)),
       pauseAfterMs,
     ),
   }
