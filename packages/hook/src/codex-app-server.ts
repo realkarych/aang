@@ -106,7 +106,6 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
       if (terminated) {
         return
       }
-      terminated = true
       try {
         if (child.pid !== undefined) {
           process.kill(-child.pid, 'SIGKILL')
@@ -114,10 +113,15 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
           child.kill('SIGKILL')
         }
       } catch (error) {
+        const unreapedLeader = child.exitCode === null && child.signalCode === null
+        if (isErrorCode(error, 'EPERM') && unreapedLeader) {
+          return
+        }
         if (!isErrorCode(error, 'ESRCH')) {
           outcome = { error: failure('could not stop the app-server process', error) }
         }
       }
+      terminated = true
     }
 
     const stop = (result: NonNullable<typeof outcome>): void => {
@@ -126,8 +130,8 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
       }
       outcome = result
       clearTimeout(timer)
-      child.stdin.destroy()
       terminate()
+      child.stdin.destroy()
     }
     const fail = (message: string, cause?: unknown): void => {
       stop({ error: failure(message, cause) })

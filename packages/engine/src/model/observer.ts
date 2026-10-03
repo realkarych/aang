@@ -1,4 +1,5 @@
 import {
+  type CallUsage,
   type EpochNs,
   type FactId,
   ModelVersion,
@@ -8,6 +9,7 @@ import {
   ObserverOutput,
   type ObserverRejection,
   type RunId,
+  type SessionId,
 } from '@aang/contract'
 import type { ObserverCallStart, Transaction } from '@aang/store'
 import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
@@ -24,7 +26,18 @@ export interface ObserverResponse {
   readonly at: EpochNs
   readonly limits?: ValidationLimits
   readonly observations?: StageObservations
+  readonly usage?: CallUsage | null
 }
+
+interface ObserverCallEnd {
+  readonly call: ObserverCallId
+  readonly at: EpochNs
+  readonly usage?: CallUsage | null
+}
+
+export type ObserverCallFailure =
+  | (ObserverCallEnd & { readonly outcome: 'rejected'; readonly message: string })
+  | (ObserverCallEnd & { readonly outcome: 'failed' })
 
 export type ObserverResponseResult =
   | { readonly status: 'accepted'; readonly version: ModelVersion }
@@ -102,23 +115,30 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
   return input
 }
 
-export const endObserverCalls = (
-  transaction: Transaction,
-  run: RunId,
-  facts: readonly FactId[],
-  at: EpochNs,
-  message: string,
-): void => {
+export interface CallEnding {
+  readonly run: RunId
+  readonly session: SessionId
+  readonly facts: readonly FactId[]
+  readonly at: EpochNs
+  readonly message: string
+}
+
+export interface EndedCallUsage {
+  readonly call: ObserverCallId
+  readonly usage: CallUsage | null
+}
+
+export const endObserverCalls = (transaction: Transaction, { run, session, facts, at, message }: CallEnding): void => {
   const leaving = new Set(facts)
-  const calls = new Set(
-    transaction.interpretations
-      .ofRun(run)
-      .flatMap(({ fact, status, observer_call: call }) =>
-        status === 'in_call' && call !== null && leaving.has(fact) ? [call] : [],
-      ),
-  )
+  const active = transaction.interpretations
+    .ofRun(run)
+    .flatMap(({ fact, status, observer_call: call }) => (status === 'in_call' && call !== null ? [{ fact, call }] : []))
+  const owning = new Set(active.flatMap(({ fact, call }) => (leaving.has(fact) ? [call] : [])))
+  const describes = (call: ObserverCallId): boolean =>
+    transaction.observerCalls.get(call)?.input.run.sessions.some(({ id }) => id === session) === true
+  const calls = [...new Set(active.map(({ call }) => call))].filter((call) => owning.has(call) || describes(call))
   for (const call of calls) {
-    transaction.interpretations.settle(call, 'pending')
+    transaction.interpretations.release(call)
     if (transaction.observerCalls.get(call)?.finished_at !== null) {
       continue
     }
@@ -132,6 +152,17 @@ export const endObserverCalls = (
   }
 }
 
+export const chargeEndedObserverCall = (transaction: Transaction, { call, usage }: EndedCallUsage): boolean => {
+  const stored = transaction.observerCalls.get(call)
+  if (stored === null || stored.finished_at === null) {
+    return false
+  }
+  if (usage !== null) {
+    transaction.observerCalls.charge(call, usage)
+  }
+  return true
+}
+
 const textsOf = (op: ObserverOp): string[] =>
   Object.entries(op)
     .filter(
@@ -142,6 +173,26 @@ const textsOf = (op: ObserverOp): string[] =>
     .map(([, value]) => value as string)
 
 const creation = (op: ObserverOp): boolean => 'temp_id' in op
+
+export const failObserverCall = (transaction: Transaction, failure: ObserverCallFailure): void => {
+  const call = transaction.observerCalls.get(failure.call)
+  if (call === null || call.finished_at !== null) {
+    throw new Error(`observer call ${failure.call} is missing or already finished`)
+  }
+  if (failure.outcome === 'rejected') {
+    transaction.interpretations.settle(call.id, 'pending')
+  } else {
+    transaction.interpretations.release(call.id)
+  }
+  transaction.observerCalls.finish({
+    id: call.id,
+    output: null,
+    verdict: failure.outcome,
+    reasons: failure.outcome === 'rejected' ? [{ op_index: null, cause: 'schema', message: failure.message }] : [],
+    usage: failure.usage ?? null,
+    at: failure.at,
+  })
+}
 
 export const applyObserverResponse = (
   transaction: Transaction,
@@ -175,6 +226,7 @@ export const applyObserverResponse = (
       output: response.output,
       verdict: 'needs_requested',
       reasons: [],
+      usage: response.usage ?? null,
       at: response.at,
     })
     return { status: 'needs_requested' }
@@ -269,6 +321,7 @@ export const applyObserverResponse = (
     output: response.output ?? null,
     verdict: rejected ? 'rejected' : 'accepted',
     reasons: context.rejections,
+    usage: response.usage ?? null,
     at: response.at,
   })
   return rejected ? { status: 'rejected', rejections: context.rejections } : { status: 'accepted', version }

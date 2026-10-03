@@ -15,7 +15,10 @@ CREATE TABLE objects (
   run_id TEXT,
   data TEXT NOT NULL CHECK (json_valid(data)),
   change_seq INTEGER NOT NULL CHECK (change_seq > 0),
-  UNIQUE (kind, entity_key)
+  created_seq INTEGER,
+  UNIQUE (kind, entity_key),
+  CONSTRAINT objects_version_created CHECK ((kind = 'artifact_version') = (created_seq IS NOT NULL)),
+  CONSTRAINT objects_created_before_changed CHECK (created_seq > 0 AND created_seq <= change_seq)
 ) STRICT;
 
 CREATE INDEX objects_run ON objects (run_id, kind);

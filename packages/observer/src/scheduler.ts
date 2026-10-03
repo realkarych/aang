@@ -1,0 +1,304 @@
+import { randomUUID } from 'node:crypto'
+import { EpochNs, ObserverCallId, type ObserverInput, type RunId, type Runtime } from '@aang/contract'
+import {
+  applyObserverResponse,
+  beginObserverFollowUp,
+  boundObserverQueue,
+  chargeEndedObserverCall,
+  exhaustObserverCall,
+  failObserverCall,
+  startObserverBatch,
+} from '@aang/engine'
+import type { PendingFact, Store } from '@aang/store'
+import type { ObserverRequest, ObserverResult } from './backend.js'
+import type { LaunchStatus } from './process.js'
+
+export interface ObserverExecutor {
+  readonly execute: (request: ObserverRequest) => Promise<ObserverResult>
+  readonly status: () => LaunchStatus
+  readonly subscribe: (listener: (status: LaunchStatus) => void) => () => void
+}
+
+export interface SchedulerClock {
+  readonly now: () => number
+  readonly schedule: (delayMs: number, task: () => void) => () => void
+}
+
+export interface SchedulerLimits {
+  readonly batchFacts: number
+  readonly batchBytes: number
+  readonly textLength: number
+  readonly delayMs: number
+  readonly intervalMs: number
+  readonly concurrency: number
+  readonly queueFacts: number
+  readonly queueAgeMs: number
+  readonly attempts: number
+}
+
+export interface SchedulerOptions {
+  readonly store: Store
+  readonly backends: Partial<Record<Runtime, ObserverExecutor>>
+  readonly backend?: Runtime | null
+  readonly crossVendor?: boolean
+  readonly clock?: SchedulerClock
+  readonly limits?: Partial<SchedulerLimits>
+}
+
+export interface ObserverScheduler {
+  readonly wake: () => void
+  readonly chat: <T extends Pick<ObserverResult, 'stopped'>>(work: (signal: AbortSignal) => Promise<T>) => Promise<T>
+  readonly idle: () => Promise<void>
+  readonly close: () => Promise<void>
+  readonly failure: Promise<unknown>
+}
+
+interface Exchange {
+  readonly call: ObserverCallId
+  readonly input: ObserverInput
+}
+
+interface Candidate {
+  readonly run: RunId
+  readonly backend: Runtime
+  readonly executor: ObserverExecutor
+  readonly due: number
+  readonly order: number
+}
+
+const defaultLimits: SchedulerLimits = {
+  batchFacts: 30,
+  batchBytes: 96_000,
+  textLength: 4_000,
+  delayMs: 5_000,
+  intervalMs: 10_000,
+  concurrency: 2,
+  queueFacts: 2_000,
+  queueAgeMs: 24 * 60 * 60 * 1_000,
+  attempts: 3,
+}
+
+const longestTimerMs = 2_147_483_647
+
+export const systemClock: SchedulerClock = {
+  now: () => Date.now(),
+  schedule: (delayMs, task) => {
+    const timer = setTimeout(task, Math.min(delayMs, longestTimerMs)).unref()
+    return () => {
+      clearTimeout(timer)
+    }
+  },
+}
+
+const epoch = (milliseconds: number): EpochNs => EpochNs.parse(BigInt(Math.trunc(milliseconds)) * 1_000_000n)
+
+const millisecondsOf = (value: EpochNs): number => Number(value / 1_000_000n)
+
+const available = (executor: ObserverExecutor): boolean => {
+  const { state } = executor.status().state
+  return state !== 'disabled' && state !== 'unavailable'
+}
+
+export const createObserverScheduler = (options: SchedulerOptions): ObserverScheduler => {
+  const { store, backends, backend: override = null, crossVendor = false, clock = systemClock } = options
+  const limits: SchedulerLimits = { ...defaultLimits, ...options.limits }
+  if (!Object.values(limits).every((value) => Number.isSafeInteger(value) && value > 0)) {
+    throw new RangeError('scheduler limits must be positive integers')
+  }
+  store.transaction((transaction) => {
+    for (const call of transaction.observerCalls.unfinished()) {
+      failObserverCall(transaction, { call, outcome: 'failed', at: epoch(clock.now()) })
+    }
+  })
+  const running = new Map<RunId, Promise<undefined>>()
+  const settling = new Set<Promise<unknown>>()
+  const controller = new AbortController()
+  const closing = Promise.withResolvers<undefined>()
+  const failure = Promise.withResolvers<unknown>()
+  let chatTail: Promise<unknown> = Promise.resolve()
+  let chatWork: Promise<unknown> = Promise.resolve()
+  let cancelTimer: (() => void) | null = null
+  let planRequested = false
+  let closed = false
+
+  const runtimeOf = (run: RunId): Runtime | null => {
+    const entity = store.model.entity(run, { kind: 'run', id: run })
+    return entity?.kind === 'run' ? entity.value.runtime : null
+  }
+
+  const queueOf = (run: RunId, now: number): PendingFact[] =>
+    store.transaction((transaction) =>
+      boundObserverQueue(transaction, { run, at: epoch(now), bounds: { facts: limits.queueFacts, ageMs: limits.queueAgeMs } }),
+    )
+
+  const expiryOf = (queued: readonly PendingFact[]): number =>
+    Math.min(...queued.map(({ at }) => millisecondsOf(at))) + limits.queueAgeMs + 1
+
+  const candidateOf = (run: RunId, queued: readonly PendingFact[], now: number): Candidate | null => {
+    const backend = override ?? runtimeOf(run)
+    const executor = backend === null ? undefined : backends[backend]
+    if (backend === null || executor === undefined || !available(executor)) {
+      return null
+    }
+    const bytes = queued.reduce((total, pending) => total + pending.bytes, 0)
+    const full = queued.length >= limits.batchFacts || bytes >= limits.batchBytes
+    const oldest = Math.min(...queued.map(({ observed_at: observed }) => millisecondsOf(observed)))
+    const ready = full || queued.some(({ urgent }) => urgent) ? now : oldest + limits.delayMs
+    const latest = store.observerCalls.latestStart(run)
+    const due = Math.max(ready, latest === null ? -Infinity : millisecondsOf(latest) + limits.intervalMs)
+    return { run, backend, executor, due, order: Math.min(...queued.map(({ seq }) => seq)) }
+  }
+
+  const settle = (call: ObserverCallId, result: ObserverResult): Exchange | null =>
+    store.transaction((transaction) => {
+      const at = epoch(clock.now())
+      if (chargeEndedObserverCall(transaction, { call, usage: result.usage })) {
+        return null
+      }
+      if (!result.ok) {
+        if (result.error.class === 'invalid_output') {
+          failObserverCall(transaction, { call, outcome: 'rejected', message: result.error.message, at, usage: result.usage })
+          exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
+        } else {
+          failObserverCall(transaction, { call, outcome: 'failed', at, usage: result.usage })
+        }
+        return null
+      }
+      const response = applyObserverResponse(transaction, { call, output: result.output, at, usage: result.usage })
+      if (response.status === 'rejected') {
+        exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
+      }
+      if (response.status !== 'needs_requested') {
+        return null
+      }
+      const followUp = ObserverCallId.parse(randomUUID())
+      return { call: followUp, input: beginObserverFollowUp(transaction, { previous: call, id: followUp, at, crossVendor }) }
+    })
+
+  const perform = async ({ executor }: Candidate, first: Exchange, stopped: Promise<void>[]): Promise<void> => {
+    let exchange: Exchange | null = first
+    while (exchange !== null) {
+      const result = await executor.execute({ input: exchange.input, signal: controller.signal })
+      stopped.push(result.stopped)
+      exchange = settle(exchange.call, result)
+    }
+  }
+
+  const launch = (candidate: Candidate): void => {
+    const { run, backend } = candidate
+    const call = ObserverCallId.parse(randomUUID())
+    const input = store.transaction((transaction) =>
+      startObserverBatch(transaction, {
+        run,
+        backend,
+        crossVendor,
+        id: call,
+        at: epoch(clock.now()),
+        limits: { facts: limits.batchFacts, bytes: limits.batchBytes, textLength: limits.textLength },
+      }),
+    )
+    if (input === null) {
+      return
+    }
+    const finished = Promise.withResolvers<undefined>()
+    const stopped: Promise<void>[] = []
+    running.set(run, finished.promise)
+    const results = perform(candidate, { call, input }, stopped).catch(failure.resolve)
+    settling.add(results)
+    void results
+      .then(() => {
+        settling.delete(results)
+        return Promise.all(stopped)
+      })
+      .finally(() => {
+        running.delete(run)
+        finished.resolve(undefined)
+        plan()
+      })
+  }
+
+  const plan = (): void => {
+    if (closed) {
+      return
+    }
+    cancelTimer?.()
+    cancelTimer = null
+    try {
+      const now = clock.now()
+      const queues = store.interpretations
+        .pendingRuns()
+        .map((run) => ({ run, queued: queueOf(run, now) }))
+        .filter(({ queued }) => queued.length > 0)
+      const wakeups = queues.map(({ queued }) => expiryOf(queued))
+      const candidates = queues
+        .flatMap(({ run, queued }) => {
+          const candidate = running.has(run) ? null : candidateOf(run, queued, now)
+          return candidate === null ? [] : [candidate]
+        })
+        .sort((left, right) => left.due - right.due || left.order - right.order)
+      for (const candidate of candidates) {
+        if (candidate.due > now) {
+          wakeups.push(candidate.due)
+          break
+        }
+        if (running.size >= limits.concurrency) {
+          break
+        }
+        launch(candidate)
+      }
+      const next = Math.min(...wakeups)
+      if (Number.isFinite(next)) {
+        cancelTimer = clock.schedule(next - now, plan)
+      }
+    } catch (error) {
+      failure.resolve(error)
+    }
+  }
+
+  const requestPlan = (): void => {
+    if (!planRequested) {
+      planRequested = true
+      queueMicrotask(() => {
+        planRequested = false
+        plan()
+      })
+    }
+  }
+
+  const unsubscribes = Object.values(backends).map((executor) => executor.subscribe(requestPlan))
+
+  const idle = async (): Promise<void> => {
+    while (running.size > 0) {
+      await Promise.all(running.values())
+    }
+  }
+
+  return {
+    wake: plan,
+    chat: (work) => {
+      if (closed) {
+        return Promise.reject(new Error('the observer scheduler is closed'))
+      }
+      const result = chatTail.then(() => work(controller.signal))
+      chatTail = result.then(
+        ({ stopped }) => Promise.race([stopped, closing.promise]),
+        () => undefined,
+      )
+      chatWork = result.catch(() => undefined)
+      return result
+    },
+    idle,
+    close: async () => {
+      closed = true
+      cancelTimer?.()
+      for (const unsubscribe of unsubscribes) {
+        unsubscribe()
+      }
+      controller.abort()
+      closing.resolve(undefined)
+      await Promise.all(settling)
+      await chatWork
+    },
+    failure: failure.promise,
+  }
+}

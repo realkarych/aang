@@ -1,26 +1,31 @@
-import type {
-  Action,
-  ActionId,
-  AgentId,
-  Fact,
-  FactId,
-  MaterialUnavailableReason,
-  ModelEntityRef,
-  ObserverInput,
-  RawRecord,
-  RunId,
-  Runtime,
-  SessionId,
-  StageId,
+import {
+  type Action,
+  type ActionId,
+  type AgentId,
+  type Fact,
+  type FactId,
+  type MaterialUnavailableReason,
+  type ModelChange,
+  type ModelEntityRef,
+  ModelVersion,
+  type ObserverCallId,
+  type ObserverInput,
+  type RawRecord,
+  type RawSeq,
+  type RunId,
+  type Runtime,
+  type SessionId,
+  type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import type { FactReader, ModelReader, ObservationReader, RawRecordReader } from '@aang/store'
+import type { FactReader, ModelReader, ObservationReader, ObserverCallReader, RawRecordReader } from '@aang/store'
 
 export interface ScopeReader {
   readonly facts: FactReader
   readonly rawRecords: RawRecordReader
   readonly observations: ObservationReader
   readonly model: ModelReader
+  readonly observerCalls: ObserverCallReader
 }
 
 export interface InputScopeOptions {
@@ -37,6 +42,8 @@ export interface InputScope extends InputScopeOptions {
   readonly action: (action: Action) => ScopeExclusion | null
   readonly session: (session: SessionId) => ScopeExclusion | null
   readonly agent: (agent: AgentId) => ScopeExclusion | null
+  readonly grounds: (evidence: readonly FactId[], owner: ModelEntityRef) => ScopeExclusion | null
+  readonly entity: (ref: ModelEntityRef) => ScopeExclusion | null
 }
 
 export interface ScopeViolation {
@@ -62,13 +69,54 @@ export const factSession = (fact: Fact): SessionId => {
 
 export const inputScope = (reader: ScopeReader, options: InputScopeOptions): InputScope => {
   const { run, backend, crossVendor } = options
-  const admit = (session: SessionId, vendor: Runtime): ScopeExclusion | null => {
-    if (!sessionInRun(reader.model, run, session)) {
+  const vendor = (runtime: Runtime): ScopeExclusion | null =>
+    runtime === backend || crossVendor ? null : 'cross_vendor'
+  const admit = (session: SessionId, runtime: Runtime): ScopeExclusion | null =>
+    sessionInRun(reader.model, run, session) ? vendor(runtime) : 'out_of_scope'
+  const own = (value: Fact): ScopeExclusion | null => admit(factSession(value), value.entity_key.runtime)
+  const recordOf = (seq: RawSeq): ScopeExclusion | null => {
+    const exclusions = reader.facts.ofRecord(seq).map(own)
+    if (exclusions.length === 0 || exclusions.includes('out_of_scope')) {
       return 'out_of_scope'
     }
-    return vendor === backend || crossVendor ? null : 'cross_vendor'
+    return exclusions.includes('cross_vendor') ? 'cross_vendor' : null
   }
-  const fact = (value: Fact): ScopeExclusion | null => admit(factSession(value), value.entity_key.runtime)
+  const fact = (value: Fact): ScopeExclusion | null => (value.kind === 'context' ? recordOf(value.seq) : own(value))
+  const sent = new Map<ObserverCallId, ReadonlyMap<FactId, RawSeq>>()
+  const sentFacts = (call: ObserverCallId): ReadonlyMap<FactId, RawSeq> => {
+    const known = sent.get(call)
+    if (known !== undefined) {
+      return known
+    }
+    const facts = new Map((reader.observerCalls.get(call)?.input.batch.facts ?? []).map(({ id, seq }) => [id, seq]))
+    sent.set(call, facts)
+    return facts
+  }
+  const origin = (id: FactId, calls: readonly ObserverCallId[]): Runtime | null => {
+    const stored = reader.facts.get(id)
+    if (stored !== null) {
+      return stored.entity_key.runtime
+    }
+    const seq = calls.map((call) => sentFacts(call).get(id)).find((value) => value !== undefined)
+    return seq === undefined ? null : (reader.rawRecords.get(seq)?.runtime ?? null)
+  }
+  const journalOf = (ref: ModelEntityRef): ModelChange[] => reader.model.entityChanges(run, ref, ModelVersion.parse(0))
+  const attributed = (evidence: readonly FactId[], journal: readonly ModelChange[]): ScopeExclusion | null => {
+    const calls = [...new Set(journal.flatMap(({ observer_call: call }) => (call === null ? [] : [call])))]
+    return evidence.every((id) => origin(id, calls) === backend) ? null : 'cross_vendor'
+  }
+  const grounds = (evidence: readonly FactId[], owner: ModelEntityRef): ScopeExclusion | null =>
+    crossVendor ? null : attributed(evidence, journalOf(owner))
+  const entity = (ref: ModelEntityRef): ScopeExclusion | null => {
+    if (reader.model.entity(run, ref) === null) {
+      return 'out_of_scope'
+    }
+    if (crossVendor) {
+      return null
+    }
+    const journal = journalOf(ref)
+    return attributed(journal.flatMap(({ evidence }) => evidence), journal)
+  }
   return {
     run,
     backend,
@@ -83,13 +131,9 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
       const agent = reader.observations.getAgent(id)
       return agent === null ? 'out_of_scope' : admit(agent.session, agent.key.runtime)
     },
-    record: (record) => {
-      const exclusions = reader.facts.ofRecord(record.seq).map(fact)
-      if (exclusions.length === 0 || exclusions.includes('out_of_scope')) {
-        return 'out_of_scope'
-      }
-      return exclusions.includes('cross_vendor') ? 'cross_vendor' : null
-    },
+    grounds,
+    entity,
+    record: (record) => recordOf(record.seq),
   }
 }
 
@@ -119,7 +163,7 @@ export const inputViolations = (reader: ScopeReader, scope: InputScope, input: O
     }
   }
   const entity = (ref: ModelEntityRef): void => {
-    check(`${ref.kind} ${ref.id}`, reader.model.entity(scope.run, ref) === null ? 'out_of_scope' : null)
+    check(`${ref.kind} ${ref.id}`, scope.entity(ref))
   }
   const stage = (id: StageId | null): void => {
     if (id !== null) {
