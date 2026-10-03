@@ -79,7 +79,7 @@ export const setupCodexObserver = async (onTestFinished: TestContext['onTestFini
     const generic = inputFor(store, batch, codexRun)
     const input = { ...generic, run: { ...generic.run, runtime: 'codex' as const } }
     store.transaction((transaction) => {
-      beginObserverCall(transaction, { id, input, at: at(10) })
+      beginObserverCall(transaction, { id, backend: 'codex', crossVendor: false, input, at: at(10) })
     })
     return input
   }

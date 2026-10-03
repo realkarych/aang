@@ -2,6 +2,7 @@ import type {
   Action,
   ActionMaterial,
   EpochNs,
+  Fact,
   JsonValue,
   MaterialUnavailableReason,
   ObserverMaterial,
@@ -57,17 +58,39 @@ const unavailable = (request: ObserverNeed, reason: MaterialUnavailableReason): 
   reason,
 })
 
+interface ActionOutput {
+  readonly text: string | null
+  readonly result: JsonValue
+}
+
+const actionOutput = (end: Fact | null, call: string): ActionOutput => {
+  switch (end?.kind) {
+    case 'action_end':
+      return { text: end.payload.output, result: end.payload.result }
+    case 'tool_batch_end':
+      return { text: end.payload.calls.find(({ call_id }) => call_id === call)?.response ?? null, result: null }
+    default:
+      return { text: null, result: null }
+  }
+}
+
+const clipOutput = ({ text, result }: ActionOutput, limit: number): Clipped<string | null> => {
+  const output = text === null ? null : clipText(text, 'output', limit)
+  if (result === null) {
+    return { value: output?.value ?? null, truncated: output?.truncated ?? [] }
+  }
+  const structured = clipJson(result, 'result', limit)
+  return {
+    value: JSON.stringify({ output: output?.value ?? null, result: structured.value }),
+    truncated: [...(output?.truncated ?? []), ...structured.truncated],
+  }
+}
+
 const actionMaterial = (reader: ScopeReader, action: Action, limit: number): ActionMaterial => {
   const start = action.input_fact === null ? null : reader.facts.get(action.input_fact)
   const end = action.output_fact === null ? null : reader.facts.get(action.output_fact)
-  const output =
-    end?.kind === 'action_end'
-      ? end.payload.output
-      : end?.kind === 'tool_batch_end'
-        ? (end.payload.calls.find(({ call_id }) => call_id === action.key.call)?.response ?? null)
-        : null
   const input = clipJson(start?.kind === 'action_start' ? start.payload.input : null, 'input', limit)
-  const clippedOutput = output === null ? null : clipText(output, 'output', limit)
+  const output = clipOutput(actionOutput(end, action.key.call), limit)
   return {
     kind: 'action',
     action: action.id,
@@ -78,8 +101,8 @@ const actionMaterial = (reader: ScopeReader, action: Action, limit: number): Act
     ended_at: optionalTime(action.ended_at),
     outcome: action.outcome?.value ?? null,
     input: input.value,
-    output: clippedOutput?.value ?? null,
-    truncated: [...input.truncated, ...(clippedOutput?.truncated ?? [])],
+    output: output.value,
+    truncated: [...input.truncated, ...output.truncated],
   }
 }
 
@@ -99,7 +122,11 @@ const resolveNeed = (
       if (exclusion !== null) {
         return unavailable(need, exclusion)
       }
-      const payload = clipText(withoutThinking(record.payload), 'payload', limit)
+      const stripped = withoutThinking(record)
+      if (stripped === null) {
+        return unavailable(need, 'out_of_scope')
+      }
+      const payload = clipText(stripped, 'payload', limit)
       return {
         kind: 'raw_record',
         seq: record.seq,

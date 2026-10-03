@@ -189,16 +189,35 @@ observer input; chat materials (K.1) use the same filter. An object is in scope 
 when its session belongs to the run. A session of a vendor other than `backend`, the
 vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
 is attributed through its facts, so a record without facts is out of scope.
-`beginObserverCall` refuses batch facts outside the scope and a first call that
-already carries materials. The call records the backend it was started for.
+
+`inputViolations(reader, scope, input)` applies the scope to the whole input: the
+sessions and agents of the run description, the context record, the stages,
+criteria and attention items of the snapshot, the facts of the batch with their
+sessions, agents and actions, the agents of collapsed facts and of the backlog, and
+the artifact versions with the actions that produced them. Snapshot entities must
+belong to the run. The context record follows the raw record rule, and an artifact
+version must be bound to the run, so both are refused until F.7a and E.7b provide
+their storage. `beginObserverCall` refuses an input with any violation and a first
+call that already carries materials; `beginObserverFollowUp` checks the stored input
+again with the current `crossVendor`. The call records the backend it was started
+for.
 
 `resolveObserverNeeds` answers each distinct need, up to `MaterialLimits.needs`, with
 a material or with an `unavailable` reason: `out_of_scope`, `cross_vendor` or
-`not_found`. Thinking and reasoning blocks are removed from raw records before
-truncation: Claude `thinking` and `redacted_thinking` blocks and Codex reasoning
-items and events. Texts longer than `MaterialLimits.textLength` are cut and report
-their original length. Artifact versions and context records answer `not_found`
-until E.7b and F.7a provide their storage.
+`not_found`. Thinking is removed from raw records before truncation, only at the
+positions where the runtimes write it: the `thinking` and `redacted_thinking` blocks
+of `message.content` in Claude assistant lines and the `reasoning` items of
+`replacement_history` in Codex `compacted` lines. Tool inputs and results are kept as
+they are, even when they contain objects with the same `type`. Codex records that
+hold only reasoning produce no facts and are out of scope. A transcript or rollout
+record nested deeper than 256 levels is never sent and answers `out_of_scope`. An
+action is sent with the input of `action_start` and the
+output of `action_end` or `PostToolBatch`. When the action has a structured result,
+such as an edit patch or an MCP result, the output is the JSON text
+`{"output": <text>, "result": <result>}`. Texts longer than
+`MaterialLimits.textLength` are cut, each string of a structured value separately,
+and report their path and original length. Artifact versions and context records
+answer `not_found` until E.7b and F.7a provide their storage.
 
 A response with nonempty `needs` to a call without materials is not applied.
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch

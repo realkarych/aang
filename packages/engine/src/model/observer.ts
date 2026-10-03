@@ -9,7 +9,7 @@ import {
 } from '@aang/contract'
 import type { ObserverCallStart, Transaction } from '@aang/store'
 import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
-import { inputScope } from '../input/scope.js'
+import { type InputScope, inputScope, inputViolations } from '../input/scope.js'
 import { applyChangeSet } from './journal.js'
 import { batchFacts, ObserverContext, OperationRejection, type ValidationLimits } from './observer-context.js'
 import { planOperation } from './observer-operations.js'
@@ -41,6 +41,17 @@ export interface ObserverFollowUp {
   readonly limits?: MaterialLimits
 }
 
+const admitInput = (transaction: Transaction, scope: InputScope, input: ObserverInput): void => {
+  const [violation] = inputViolations(transaction, scope, input)
+  if (violation !== undefined) {
+    throw new Error(
+      violation.reason === 'out_of_scope'
+        ? `${violation.object} is not in run ${scope.run}`
+        : `${violation.object} comes from a vendor other than backend ${scope.backend}`,
+    )
+  }
+}
+
 export const beginObserverCall = (transaction: Transaction, call: ObserverCallBegin): void => {
   const { input, id, backend, crossVendor } = call
   const { run } = input
@@ -60,17 +71,7 @@ export const beginObserverCall = (transaction: Transaction, call: ObserverCallBe
   if (facts.length === 0) {
     throw new Error('observer calls require a nonempty batch')
   }
-  const scope = inputScope(transaction, { run: run.id, backend, crossVendor })
-  for (const fact of facts) {
-    const stored = transaction.facts.get(fact)
-    const exclusion = stored === null ? 'out_of_scope' : scope.fact(stored)
-    if (exclusion === 'out_of_scope') {
-      throw new Error(`fact ${fact} is not in run ${run.id}`)
-    }
-    if (exclusion === 'cross_vendor') {
-      throw new Error(`fact ${fact} comes from a vendor other than backend ${backend}`)
-    }
-  }
+  admitInput(transaction, inputScope(transaction, { run: run.id, backend, crossVendor }), input)
   transaction.observerCalls.start({ id, backend, input, at: call.at })
   transaction.interpretations.begin(run.id, id, facts)
 }
@@ -86,6 +87,7 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
     backend: previous.backend,
     crossVendor: followUp.crossVendor,
   })
+  admitInput(transaction, scope, previous.input)
   const { needs } = ObserverOutput.parse(previous.output)
   const input: ObserverInput = {
     ...previous.input,

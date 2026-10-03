@@ -20,8 +20,10 @@ export {
   type InputScope,
   inputScope,
   type InputScopeOptions,
+  inputViolations,
   type ScopeExclusion,
   type ScopeReader,
+  type ScopeViolation,
 } from './input/scope.js'
 export type { ValidationLimits } from './model/observer-context.js'
 export { refreshStageDecisions, type StageDecisionUpdate } from './model/stage-decision.js'
