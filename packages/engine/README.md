@@ -935,16 +935,23 @@ daemon saves the watch settings. Observer sessions keep their decision.
   Appended lines are discarded while the records already taken stay until
   `prune`.
 - A session that enters the roots becomes `watched`, but its streams keep the
-  `external` decision: their lines were never stored. `rewatch` returns every
-  `external` stream, and the daemon asks the collector to reread them from the
-  beginning within the lookback (ADR-0004). A reread file is held like a new one;
-  the decision of its session wins over the stale stream decision, and the stream
-  decision follows it. Every `watch` returns the same streams, so repeating a watch
-  finishes a reread that a restart interrupted.
-- Appended lines take the decision of the session that owns them as well. A
-  stream whose reread finds nothing past its prune boundary is admitted by the
-  next appended line, and a stale stream decision never keeps lines of a session
-  that left the roots.
+  `external` decision: their lines were never stored. A stream decision tells how
+  the lines read so far were taken, so an `external` stream of a watched session
+  is history still to reread. `rewatch` returns every `external` stream, and the
+  daemon asks the collector to reread them from the beginning within the lookback
+  (ADR-0004). A reread file is held like a new one; the decision of its session
+  wins over the stream decision, and the stream decision follows it.
+- Until such a reread the stream stays `external`, across restarts too, so a
+  later `watch` with a longer lookback or a repeated one after an interrupted
+  reread still takes the whole file. A stream whose reread finds nothing past its
+  prune boundary stays `external` as well, and the next `watch` rereads it from
+  the boundary.
+- New records follow the decision of the session that owns them: appended lines,
+  hooks, OTel records and gaps of a watched session are taken while its stream
+  waits for the reread, and none of them marks the history as taken. Appended
+  lines of a session that left the roots are discarded and make the stream
+  `external`. A hook decides the stream it names only when the stream has no
+  decision yet.
 
 `engine.prune(request, prefixHash)` removes the runs of `aang prune --run` or of
 `aang prune --before`: the runs whose sessions had their last event before the

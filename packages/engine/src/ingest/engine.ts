@@ -62,7 +62,7 @@ import {
   sessionName,
 } from './records.js'
 import { createScopeJudge, type WatchedRoots } from './scope.js'
-import { applyDecisions, externalStreams, judgeAgain, type WatchChange } from './watch.js'
+import { applyDecisions, externalStreams, judgeAgain, streamSession, type WatchChange } from './watch.js'
 
 export interface HoldingLimits {
   readonly fileBytes: number
@@ -394,14 +394,22 @@ export const createEngine = ({
       const streamScope = (stream: StreamKey): ScopeDecision | null =>
         streamScopes.get(stream) ?? transaction.scopes.get(stream)?.scope ?? null
 
-      const settleStream = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null => {
-        const known = streamScope(stream)
-        const scope = session === null ? null : scopes.get(session)
-        if (session === null || scope === null || scope === known) {
-          return known
+      const decideStream = (stream: StreamKey, runtime: Runtime, scope: ScopeDecision): void => {
+        if (streamScope(stream) !== scope) {
+          transaction.scopes.decide({ stream, runtime, scope })
+          streamScopes.set(stream, scope)
         }
-        transaction.scopes.decide({ stream, runtime: session.runtime, scope })
-        streamScopes.set(stream, scope)
+      }
+
+      const takenAs = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null =>
+        (session === null ? null : scopes.get(session)) ?? streamScope(stream)
+
+      const settleStream = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null => {
+        const scope = session === null ? null : scopes.get(session)
+        if (session === null || scope === null) {
+          return streamScope(stream)
+        }
+        decideStream(stream, session.runtime, scope)
         return scope
       }
 
@@ -445,10 +453,15 @@ export const createEngine = ({
       const commitStep = (step: FileStep): void => {
         switch (step.kind) {
           case 'append': {
+            const [first] = step.lines
             const owner = step.lines.map((record) => adapters[record.runtime].owner(record)).find((found) => found !== null)
-            const scope = settleStream(step.stream, owner?.session ?? null)
+            const session = owner?.session ?? (first === undefined ? null : streamSession(transaction, adapters, step.stream))
+            const scope = takenAs(step.stream, session)
             if (scope === null) {
               throw new Error(`the stream ${step.stream} of ${step.file.path} has no scope decision`)
+            }
+            if (first !== undefined && scope !== 'watched') {
+              decideStream(step.stream, first.runtime, scope)
             }
             keep(step.lines, scope)
             saveCursor(step.cursor, step.stream)
@@ -488,8 +501,8 @@ export const createEngine = ({
         } else {
           const record = held.hook.record
           const stream = adapters[record.runtime].streamKey([record.payload])
-          if (stream !== null) {
-            transaction.scopes.decide({ stream, runtime: record.runtime, scope })
+          if (stream !== null && streamScope(stream) === null) {
+            decideStream(stream, record.runtime, scope)
           }
           keep([record], scope)
         }
@@ -502,7 +515,7 @@ export const createEngine = ({
           return
         }
         const stream = gap.stream ?? file?.stream ?? null
-        const scope = stream === null ? null : streamScope(stream)
+        const scope = stream === null ? null : takenAs(stream, streamSession(transaction, adapters, stream))
         if (scope === null || scope === 'watched') {
           saveGap(gap, stream)
         }

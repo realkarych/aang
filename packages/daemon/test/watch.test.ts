@@ -5,22 +5,39 @@ import { describe, test } from 'vitest'
 import { type Home, spawnDaemon } from './daemon.js'
 import {
   admin,
+  claudeHook,
   claudeSession,
   claudeStream,
   claudeTranscript,
   daysAgo,
+  enqueue,
   openFinished,
   rawRecords,
   sleep,
+  spoolFilesOf,
   storedCount,
   transcriptLines,
   waitUntil,
   watchedHome,
 } from './sessions.js'
 
+interface Resumption {
+  readonly home: Home
+  readonly path: string
+  readonly lines: readonly string[]
+  readonly cwd: string
+}
+
+interface Resumed {
+  readonly spool: readonly string[]
+  readonly lines: number
+}
+
 const cursors = 'SELECT count(*) AS count FROM cursors WHERE stream IS NOT NULL'
 
 const streamRecords = 'SELECT count(*) AS count FROM raw_records WHERE stream = ?'
+
+const resumedSession = 'g9-resumed'
 
 const recordsOf = (home: Home, session: string): number => storedCount(home, streamRecords, claudeStream(session))
 
@@ -98,6 +115,61 @@ describe.concurrent('aang watch and unwatch change which sessions the daemon tak
       expect(store.observations.getSession(objectId(claudeSession(older)))).toMatchObject({ cwd: project })
       expect(store.observations.getSession(objectId(claudeSession(oldest)))).toBeNull()
       expect(store.settings.get('watch')).toMatchObject({ lookback_days: 7 })
+    },
+  )
+
+  test.for([
+    {
+      resumed: 'a hook',
+      resume: async ({ home, cwd }: Resumption): Promise<Resumed> => ({
+        spool: await enqueue(home, 'resumed', [claudeHook('UserPromptSubmit', resumedSession, cwd)]),
+        lines: 22,
+      }),
+    },
+    {
+      resumed: 'an appended line',
+      resume: async ({ path, lines }: Resumption): Promise<Resumed> => {
+        await appendFile(path, `${lines.slice(22).join('\n')}\n`)
+        return { spool: [], lines: 23 }
+      },
+    },
+  ])(
+    'after a watch with a short lookback skips an older discarded file, $resumed of the session is taken and a watch with a longer lookback after a restart still rereads the whole file',
+    { timeout: 60_000 },
+    async ({ resume }, { expect, onTestFinished }) => {
+      const { home } = await watchedHome(onTestFinished)
+      const project = join(home.root, 'project')
+      await mkdir(project)
+      const lines = transcriptLines(resumedSession, project, 23)
+      const path = await claudeTranscript(home, '-project', resumedSession, lines.slice(0, 22))
+      await utimes(path, daysAgo(2), daysAgo(2))
+      const first = await spawnDaemon(home, onTestFinished)
+      await waitUntil(() => storedCount(home, cursors) === 1)
+      const short = await admin(home, first.base, 'watch', { scope: 'path', path: project, lookback_days: 1 })
+      await sleep(500)
+      const skipped = storedCount(home, 'SELECT count(*) AS count FROM raw_records')
+      const resumed = await resume({ home, path, lines, cwd: project })
+      await waitUntil(() => storedCount(home, 'SELECT count(*) AS count FROM raw_records') === 1)
+      await sleep(300)
+      expect(await first.shutdown()).toBe(0)
+
+      const second = await spawnDaemon(home, onTestFinished)
+      const long = await admin(home, second.base, 'watch', { scope: 'path', path: project, lookback_days: 7 })
+      await waitUntil(() => recordsOf(home, resumedSession) === resumed.lines)
+      await sleep(500)
+      expect(await second.shutdown()).toBe(0)
+
+      expect(short).toMatchObject({ status: 200, body: { watch: { lookback_days: 7 }, rescanned_streams: 1 } })
+      expect(skipped).toBe(0)
+      expect(long).toMatchObject({ status: 200, body: { rescanned_streams: 1 } })
+      const store = openFinished(home, onTestFinished)
+      const taken = rawRecords(store)
+      expect(taken.flatMap(({ position }) => (position.kind === 'line' ? [position.line] : [])).sort((a, b) => a - b)).toEqual(
+        Array.from({ length: resumed.lines }, (_, index) => index + 1),
+      )
+      expect(spoolFilesOf(store)).toEqual(resumed.spool)
+      expect(store.scopes.get(claudeStream(resumedSession))?.scope).toBe('watched')
+      expect(store.observations.getSession(objectId(claudeSession(resumedSession)))).toMatchObject({ cwd: project })
     },
   )
 
