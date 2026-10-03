@@ -854,6 +854,7 @@ test('resolves OTel decisions of known threads in one reparse and leaves one wit
   expect(otel(malformed)).toEqual({ parse_state: 'invalid', stream: null })
   const recovered = store.facts.get(decisionId(unparsed, rejected))
   assert(recovered?.kind === 'permission_decision' && recovered.entity_key.kind === 'action')
+  expect(store.interpretations.pending(runId(sessionKey('codex', otelRoot))).map(({ fact }) => fact)).toContain(recovered.id)
   expect(store.observations.getAction(objectId(recovered.entity_key))).toMatchObject({ tool: recovered.payload.tool })
 
   await reparsing.ingest(rollout(later, 4n))

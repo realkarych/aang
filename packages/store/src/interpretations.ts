@@ -134,8 +134,7 @@ export const createInterpretations = (database: DatabaseSync) => {
   const queue = prepareStatement(
     database,
     `INSERT INTO fact_interpretation (run_id, fact_id, status, attempts, observer_call_id) VALUES (?, ?, 'pending', 0, NULL)
-     ON CONFLICT (run_id, fact_id) DO UPDATE SET status = 'pending', attempts = 0, observer_call_id = NULL
-       WHERE status <> 'in_call'`,
+     ON CONFLICT (run_id, fact_id) DO NOTHING`,
   )
   const close = prepareStatement(
     database,

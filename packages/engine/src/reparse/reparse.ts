@@ -15,6 +15,7 @@ import type { Observation, Store, Transaction } from '@aang/store'
 import { refreshChecks } from '../checks/attention.js'
 import type { ContractCatalog } from '../checks/catalog.js'
 import { normalizeOtel } from '../ingest/otel.js'
+import { queueFacts } from '../ingest/queue.js'
 import { type Adapters, collectedFields, sessionName } from '../ingest/records.js'
 import type { AgentMove } from '../observations/agents.js'
 import { agentKey } from '../observations/evidence.js'
@@ -30,6 +31,7 @@ interface Reparsed {
   readonly keys: Map<string, SessionKey>
   readonly unknown: Map<string, number>
   readonly moves: Map<string, AgentMove[]>
+  readonly added: Fact[]
 }
 
 const pageSize = 256
@@ -88,6 +90,7 @@ const reparseRecords = (transaction: Transaction, adapters: Adapters, reparsed: 
           result.parse_state === 'parsed' ? result.facts : [],
         )
         recordMoves(reparsed.moves, previous, [...revision.kept, ...revision.added])
+        reparsed.added.push(...revision.added)
         if (
           result.parse_state !== raw.parse_state ||
           sourceTs !== raw.source_ts ||
@@ -111,7 +114,9 @@ const reparseRecords = (transaction: Transaction, adapters: Adapters, reparsed: 
       }
     }
   }
-  tally.facts_added += normalizeOtel(transaction, adapters).length
+  const otel = normalizeOtel(transaction, adapters)
+  reparsed.added.push(...otel)
+  tally.facts_added += otel.length
   return tally
 }
 
@@ -172,9 +177,11 @@ export const reparse = (
   quietAfterMs: number,
 ): ReparseResult => {
   const tally = store.transaction((transaction) => {
-    const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map() }
+    const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map(), added: [] }
     const counted = reparseRecords(transaction, adapters, reparsed)
-    refreshChecks(transaction, rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs), contracts)
+    const rebuilt = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
+    queueFacts(transaction, reparsed.added)
+    refreshChecks(transaction, rebuilt, contracts)
     settleQuiet(transaction, quiet, now, quietAfterMs)
     return counted
   })

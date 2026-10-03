@@ -72,11 +72,12 @@ const agentBrief = (scope: InputScope, agent: Agent): RunDescription['agents'][n
 
 const describeRun = (transaction: Transaction, scope: InputScope, run: Run): RunDescription => {
   const sessions = transaction.observations.sessions().filter((session) => scope.session(session.id) === null)
+  const owner = { kind: 'run', id: run.id } as const
   return {
     id: run.id,
     runtime: run.runtime,
-    goal: run.goal !== null && scope.grounds([run.goal.fact]) === null ? run.goal.text : null,
-    brief: run.brief !== null && scope.grounds(run.brief.evidence) === null ? run.brief.text : null,
+    goal: run.goal !== null && scope.grounds([run.goal.fact], owner) === null ? run.goal.text : null,
+    brief: run.brief !== null && scope.grounds(run.brief.evidence, owner) === null ? run.brief.text : null,
     sessions: sessions.map(sessionBrief),
     agents: sessions
       .flatMap((session) => transaction.observations.agents(session.id))

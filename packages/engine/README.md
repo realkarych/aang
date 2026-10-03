@@ -195,8 +195,12 @@ is attributed through its facts, so a record without facts is out of scope. A mo
 entity of the run is attributed through its grounds, the evidence of every change in
 its journal: it is excluded when a ground comes from a vendor other than `backend`
 without `crossVendor`. A ground from a session that has since left the run does not
-exclude the entity. A ground fact that a reparse no longer produces has no stored
-vendor and does not exclude it either.
+exclude the entity. A ground fact that a reparse no longer produces is attributed
+through the stored input of the observer call that wrote a change of the entity: the
+input keeps the raw record of every batch fact, and the raw record keeps its
+runtime. A ground whose vendor cannot be established this way, such as a deleted
+fact cited by a rule, excludes the entity without `crossVendor`. The run goal and
+brief follow the same rule through the journal of the run.
 
 `inputViolations(reader, scope, input)` applies the scope to the whole input: the
 sessions and agents of the run description, the context record, the stages,
@@ -242,6 +246,10 @@ between calls of a run.
 The ingest transaction queues every new fact as `pending` in the run of its session
 after the observation projection, including the facts of OTel records normalized in
 that transaction (ADR-0005). A redelivered record adds no facts and queues nothing.
+A reparse queues the facts it adds the same way after it rebuilds the projections,
+including the OTel facts it resolves. A fact that already has a status in the run
+keeps it with its attempts, so a fact that a reparse restores under its id is not
+interpreted again.
 
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
 starts the next call of a run from its pending facts in the order of their records:
@@ -400,5 +408,6 @@ item without another `ingest`, and an open item of a failure that the current
 normalizer reads as a success of the same action is closed. Their changes are
 appended to the journal; earlier journal changes are never rewritten.
 `resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
-for a fact the current normalizer no longer produces. Reparse does not write
-`fact_interpretation`.
+for a fact the current normalizer no longer produces. The facts a reparse adds
+enter the observer queue in the same transaction; the statuses of the facts it
+keeps do not change.

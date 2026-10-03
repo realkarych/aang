@@ -843,7 +843,7 @@ test('every part of the observer input passes the same scope before the call is 
       ...base.model,
       stages: [stage, snapshotStage(store, runA, stages.test)],
       criteria: [snapshotCriterion()],
-      attention: [snapshotAttention(), replaced],
+      attention: [snapshotAttention()],
     },
     batch: {
       ...base.batch,
@@ -898,6 +898,7 @@ test('every part of the observer input passes the same scope before the call is 
     [withModel({ criteria: [{ ...snapshotCriterion(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
     [withModel({ attention: [{ ...snapshotAttention(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
     [withModel({ attention: [codexGrounded] }), foreignVendor('attention_item attention-codex')],
+    [withModel({ attention: [replaced] }), foreignVendor('attention_item attention-replaced')],
     [withFact({ session: sessionB }), outside(`session ${sessionB}`)],
     [withFact({ id: unknownFact }), outside(`fact ${unknownFact}`)],
     [withFact({ agent: foreignAgent.id }), outside(`agent ${foreignAgent.id}`)],
@@ -945,7 +946,7 @@ test('every part of the observer input passes the same scope before the call is 
       sessions: [...valid.run.sessions, sessionBrief(codexSession, 'codex')],
       agents: [...valid.run.agents, agentBrief(codexAgent)],
     }),
-    model: { ...valid.model, attention: [...valid.model.attention, codexGrounded] },
+    model: { ...valid.model, attention: [...valid.model.attention, codexGrounded, replaced] },
     batch: withFact({ action: codexAction.id }).batch,
   }
   expect(() => {
