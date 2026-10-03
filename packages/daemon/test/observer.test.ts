@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
-import { join } from 'node:path'
+import { rename } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import { type Adapter, EpochNs, type Runtime, type SessionKey } from '@aang/contract'
@@ -20,8 +21,9 @@ import {
   progressOf,
   settled,
   singlePathClaude,
+  toolAttempt,
 } from './observers.js'
-import { claudeHook, codexHook, enqueue, openFinished, queued, waitUntil, watchedHome } from './sessions.js'
+import { claudeHook, codexHook, enqueue, openFinished, queued, sleep, waitUntil, watchedHome } from './sessions.js'
 
 const claudeKey = (session: string): SessionKey => ({ kind: 'session', runtime: 'claude', session })
 
@@ -240,7 +242,7 @@ test('a new Codex version is admitted once the call running on the old one is ov
   await installLauncher(home)
   await configure(home, workspace, {
     cli: { codex: await configuredPath(codex) },
-    observer: { timeoutMs: { codex: 5_000 } },
+    observer: { timeoutMs: { codex: 15_000 } },
   })
   const running = runId(codexKey('thread-g6-running'))
   const updated = runId(codexKey('thread-g6-updated'))
@@ -277,6 +279,103 @@ test('a new Codex version is admitted once the call running on the old one is ov
     },
   ])
   expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.4' })
+})
+
+test(
+  'an isolation violation keeps the Codex backend off on the same version across a restart, and a new CLI version gets the queue',
+  { timeout: 120_000 },
+  async ({ expect, onTestFinished }) => {
+    const { home, workspace } = await watchedHome(onTestFinished)
+    const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [toolAttempt] })
+    await installLauncher(home)
+    await configure(home, workspace, { cli: { codex: await configuredPath(codex) } })
+    const violated = runId(codexKey('thread-g6-violated'))
+    const later = runId(codexKey('thread-g6-later'))
+
+    await run(home, onTestFinished, async () => {
+      await enqueue(home, 'violated', codexEvents('thread-g6-violated', workspace), 'codex')
+      await waitUntil(() => progressOf(home, violated).batches.length === 1)
+    })
+    const stored = await admissionOf(home, 'codex')
+    expect(stored).toMatchObject({ admitted: false, version: '0.159.3', isolationViolated: true })
+
+    codex.setScenario({ replies: [briefed, briefed] })
+    const restarted = codex.calls().length
+    const since = () => codex.calls().slice(restarted)
+    const refused = async () => {
+      const admission = await admissionOf(home, 'codex')
+      return admission?.['checkedAt'] !== stored?.['checkedAt'] && admission?.['reason'] !== 'admission_pending'
+    }
+    await run(home, onTestFinished, async () => {
+      await enqueue(home, 'later', codexEvents('thread-g6-later', workspace), 'codex')
+      await waitUntil(
+        async () =>
+          (await refused()) &&
+          (await queued(home)).length === 0 &&
+          since().filter(({ command }) => command === 'version').length >= 2,
+        40_000,
+      )
+      expect(since().map(({ command }) => command)).toEqual(since().map(() => 'version'))
+      expect([violated, later].map((observed) => progressOf(home, observed).statuses)).toEqual([
+        ['pending', 'pending'],
+        ['pending', 'pending'],
+      ])
+      expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: false, version: '0.159.3', isolationViolated: true })
+
+      codex.setScenario({ version: '0.159.4', replies: [briefed, briefed] })
+      await waitUntil(() => settled(progressOf(home, violated)) && settled(progressOf(home, later)), 60_000)
+    })
+
+    expect([violated, later].map((observed) => progressOf(home, observed))).toEqual([
+      {
+        statuses: ['interpreted', 'interpreted'],
+        batches: [
+          { verdict: 'failed', error: 'isolation' },
+          { verdict: 'accepted', error: null },
+        ],
+      },
+      { statuses: ['interpreted', 'interpreted'], batches: [{ verdict: 'accepted', error: null }] },
+    ])
+    expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.4', isolationViolated: false })
+  },
+)
+
+test('a Codex CLI that appears after the start is admitted, gets the queued facts and is no longer polled', { timeout: 90_000 }, async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
+  await installLauncher(home)
+  const path = await configuredPath(codex)
+  const installed = dirname(path)
+  const absent = `${installed}-absent`
+  await rename(installed, absent)
+  await configure(home, workspace, { cli: { codex: path } })
+  const session = codexKey('thread-g6-installed')
+  const observed = runId(session)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'codex', codexEvents(session.session, workspace), 'codex')
+    await waitUntil(async () => {
+      const admission = await admissionOf(home, 'codex')
+      return (await queued(home)).length === 0 && admission !== null && admission['reason'] !== 'admission_pending'
+    })
+    expect(progressOf(home, observed).statuses).toEqual(['pending', 'pending'])
+    expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: false, version: null })
+
+    await rename(absent, installed)
+    await waitUntil(() => settled(progressOf(home, observed)), 60_000)
+    const calls = codex.calls().length
+    await sleep(11_000)
+    expect(codex.calls()).toHaveLength(calls)
+  })
+
+  expect(progressOf(home, observed)).toEqual({
+    statuses: ['interpreted', 'interpreted'],
+    batches: [{ verdict: 'accepted', error: null }],
+  })
+  expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.3' })
 })
 
 test('stopping the daemon cancels a running observer call and leaves its batch pending', async ({

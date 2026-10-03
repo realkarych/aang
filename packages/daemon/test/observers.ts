@@ -25,14 +25,15 @@ export interface RunProgress {
 
 export const singlePathClaude = process.platform !== 'win32'
 
-export const briefed: ClaudeReply & CodexReply = {
-  kind: 'answer',
-  output: {
-    base_version: { $input: '/model/version' },
-    ops: [{ op: 'brief.update', text: 'The observer read the batch', evidence: { $input: '/batch/facts/*/id' }, rationale: 'Batch' }],
-    needs: [],
-  },
+const briefing = {
+  base_version: { $input: '/model/version' },
+  ops: [{ op: 'brief.update', text: 'The observer read the batch', evidence: { $input: '/batch/facts/*/id' }, rationale: 'Batch' }],
+  needs: [],
 }
+
+export const briefed: ClaudeReply & CodexReply = { kind: 'answer', output: briefing }
+
+export const toolAttempt: CodexReply = { kind: 'answer', output: briefing, toolAttempts: ['exec'] }
 
 const dropped = /^(?:path|aang_.*|claude.*|codex_.*|ai_agent)$/i
 

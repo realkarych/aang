@@ -105,22 +105,30 @@ for (const model of ['gpt-5.5', 'gpt-6.1-sol']) {
   })
 }
 
-test('Claude requires a fresh successful admission after a runtime isolation violation', async (context) => {
+test('a runtime isolation violation holds for the Claude version and profile through a restart until a manual admission', async (context) => {
   const { root, options } = await sandbox(context)
   const cli = installFakeClaude(root)
-  const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins, verifiedClaudeVersions: ['2.1.286'] })
-  expect(await backend.admit()).toMatchObject({ admitted: true, warning: null })
+  const settings = { ...options, cli, model: 'claude-opus-5-5', builtins, verifiedClaudeVersions: ['2.1.286'] }
+  const backend = createClaudeBackend(settings)
+  expect(await backend.admit()).toMatchObject({ admitted: true, warning: null, isolationViolated: false })
   cli.setScenario({ leakedTools: ['Bash'], replies: [{ kind: 'answer', output }] })
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
-  expect(backend.admission()).toMatchObject({ admitted: false })
+  expect(backend.admission()).toMatchObject({ admitted: false, isolationViolated: true })
   cli.setScenario({ replies: [{ kind: 'answer', output }] })
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
-  expect(await backend.admit()).toMatchObject({ admitted: true })
-  expect(await backend.execute({ input })).toMatchObject({ ok: true })
-  const restarted = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', effort: 'high', builtins })
-  expect(await restarted.execute({ input })).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
-  expect(await restarted.admit()).toMatchObject({ admitted: true, warning: expect.any(String) as unknown })
-  expect(restarted.admission().profile).not.toBe(backend.admission().profile)
+  const checked = cli.calls().length
+  expect(await backend.admit()).toMatchObject({ admitted: false, version: '2.1.286', isolationViolated: true })
+  const restarted = createClaudeBackend(settings)
+  expect(restarted.status().state).toEqual({ state: 'disabled', reason: 'isolation' })
+  expect(await restarted.admit()).toMatchObject({ admitted: false, version: '2.1.286', isolationViolated: true })
+  expect(await restarted.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
+  expect(cli.calls().slice(checked).map((call) => call.command)).toEqual(['version', 'version'])
+  const reconfigured = createClaudeBackend({ ...settings, effort: 'high', verifiedClaudeVersions: [] })
+  expect(await reconfigured.execute({ input })).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
+  expect(await reconfigured.admit()).toMatchObject({ admitted: true, warning: expect.any(String) as unknown, isolationViolated: false })
+  expect(reconfigured.admission().profile).not.toBe(restarted.admission().profile)
+  expect(await restarted.admit(undefined, { manual: true })).toMatchObject({ admitted: true, isolationViolated: false })
+  expect(await restarted.execute({ input })).toMatchObject({ ok: true })
 })
 
 test('working calls are refused while admission is in progress', async (context) => {
@@ -172,16 +180,20 @@ test('Claude rejects tools in synthetic init before permitting working calls', a
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
 })
 
-test('Codex admits the flat Responses inventory and can readmit after a working tool attempt', async (context) => {
+test('Codex admits the flat Responses inventory and after a working tool attempt admits only a new version', async (context) => {
   const { root, options } = await sandbox(context)
   const cli = installFakeCodex(root, { replies: [{ kind: 'answer', output, toolAttempts: ['exec'] }] })
   const backend = createCodexBackend({ ...options, cli, model: 'gpt-5.5' })
   expect(await backend.admit()).toMatchObject({ admitted: true })
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
-  expect(backend.admission()).toMatchObject({ admitted: false })
+  expect(backend.admission()).toMatchObject({ admitted: false, isolationViolated: true })
   cli.setScenario({ replies: [{ kind: 'answer', output }] })
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
-  expect(await backend.admit()).toMatchObject({ admitted: true })
+  expect(await backend.admit()).toMatchObject({ admitted: false, version: '0.159.3', isolationViolated: true })
+  expect(await backend.cliVersion()).toBe('0.159.3')
+  cli.setScenario({ version: '0.159.4', replies: [{ kind: 'answer', output }] })
+  expect(await backend.cliVersion()).toBe('0.159.4')
+  expect(await backend.admit()).toMatchObject({ admitted: true, version: '0.159.4', isolationViolated: false })
   expect(await backend.execute({ input })).toMatchObject({ ok: true })
 })
 
