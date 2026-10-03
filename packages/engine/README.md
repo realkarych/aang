@@ -239,6 +239,61 @@ batch returns to `pending`, and the cycle starts again with a new first call. Th
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
 between calls of a run.
 
+## Forks, bindings and session transfer
+
+Run linking for forks follows ADR-0006 and does not depend on the order in which
+the fork, its original or other forks are read.
+
+- A Claude fork is recognized by a `SessionStart` with `source: fork` or by its
+  transcript. The records that open the file are the launch `queue-operation`
+  lines; the records after them with a time before the launch, up to the first
+  record of the launch's own time, are inherited. Only the opening launch of a
+  transcript is considered, since a fork always starts a new file and a resume
+  appends to the original one. The decision for a record depends only on the
+  records before it in the same file, so it is final when the record is read.
+- Inherited records are not repeated as the fork's own activity. Their actions
+  are stored with `inherited: true`; their agents and questions are not
+  projected; the session start and the run creation time come from the fork's
+  own records. Usage accounting (E.8) uses the same inherited records.
+- The fork starts its own run with a `common_origin` link. The link lists every
+  visible session other than the fork that has a fact with the `uuid` of an
+  inherited record, and names it as `parent_candidate` only when it is the only
+  one. The evidence is the fork markers and the earliest shared fact of each
+  listed session. When a session gets new records, the forks that share their
+  `uuid` are recomputed, so reading the original before or after the fork gives
+  the same objects and links; without the original only the list differs.
+- A Codex rollout with `forked_from_id` starts its own run with a `forked_from`
+  link to the run of the parent thread, with the `session_meta` fact as evidence.
+- The links stay in the run created by the fork even when its session is moved.
+
+Bindings are user changes journaled in the model (`binding.add`,
+`binding.revoke`) and applied by `engine.bind` and `engine.revokeBinding`:
+
+- `attach` moves a session into a run, `detach` returns it to its own run. A
+  session has at most one active `attach` or `detach`: a new one revokes the
+  active one in the same transaction, and revoking the active binding returns
+  the session to its own run. The binding is stored in the run the session moves
+  into.
+- `fork_parent` names the immediate parent of a fork run. While it is active the
+  run has a `forked_from` link to the parent's run with no fact evidence; it
+  overrides the parent named by a Codex fork, and revoking it restores that
+  parent or removes the link. The parent is never inferred.
+- Unknown sessions, runs and bindings, a parent for a run that is not a fork and
+  a fork as its own parent are rejected with `BindingError` (`not_found`,
+  `invalid_request`) without any change.
+
+A transfer (`session.move` rule changes) is journaled in both runs in the
+binding's transaction:
+
+- the session membership and the spawn links of the session's agents leave the
+  source run and enter the target run;
+- every stage that references the session's actions or agents by assignment or
+  participation is marked `session_moved` while any of them lies outside its run;
+- the session's facts become `pending` in the target run and leave the pending
+  queue of the source run;
+- the session and its objects are projected again with the target run, so usage
+  and checks follow it; view marks and view rules stay with their runs.
+
 ## Questions, decisions and rule attention
 
 The ingestion transaction projects every question of a session and reconciles

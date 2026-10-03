@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { ActionId, AgentId, Fact, Gap, Runtime, Session } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { objectId, runId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
 import {
   createPlayer,
@@ -144,6 +144,20 @@ describe('the sample scenarios played into watched runtime roots pass through th
       ]),
     )
     expect(sessionGaps(store)).toEqual([filesOnly('claude', original), filesOnly('claude', forked)])
+    const forkLinks = store.model
+      .entities(runId(sessionKey('claude', forked)))
+      .flatMap((entity) => (entity.kind === 'link' ? [entity.value] : []))
+    expect(forkLinks).toMatchObject([
+      {
+        kind: 'common_origin',
+        sessions: [sessionId('claude', original)],
+        parent_candidate: sessionId('claude', original),
+      },
+    ])
+    expect(store.observations.actions(sessionId('claude', forked)).map(({ inherited }) => inherited)).toEqual([
+      true,
+      true,
+    ])
   })
 
   test('the Claude compaction scenario records the compaction without turning it into an agent', async () => {

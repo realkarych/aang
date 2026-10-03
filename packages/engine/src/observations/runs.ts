@@ -39,12 +39,15 @@ const observed: Basis = { kind: 'observed' }
 
 const linkIdLength = 32
 
+export const derivedLinkId = (...parts: readonly string[]): LinkId =>
+  LinkId.parse(contentHash(canonicalJson([...parts])).slice(0, linkIdLength))
+
 export const sessionRun = (transaction: Transaction, key: SessionKey): RunId =>
   transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
   runId(key)
 
 const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract<Link, { kind: 'spawn' }> => ({
-  id: LinkId.parse(contentHash(canonicalJson(['spawn', child])).slice(0, linkIdLength)),
+  id: derivedLinkId('spawn', child),
   run,
   kind: 'spawn',
   parent,
