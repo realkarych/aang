@@ -1,8 +1,18 @@
-import type { ChangeSeq, FactsDelta, ModelChange, ModelDelta, RunDelta, RunSnapshot, SessionId } from '@aang/contract'
+import type {
+  AttentionDelta,
+  ChangeSeq,
+  FactsDelta,
+  ModelChange,
+  ModelDelta,
+  RunDelta,
+  RunSnapshot,
+  SessionId,
+} from '@aang/contract'
 
 export type FeedEvent =
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
+  | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
 
 export interface FeedSegment {
   readonly position: ChangeSeq
@@ -117,12 +127,31 @@ const applyFacts = (snapshot: RunSnapshot, { facts, objects, removed }: FactsDel
   }
 }
 
+const applyAttention = (snapshot: RunSnapshot, { items, views }: AttentionDelta): RunSnapshot => {
+  const known = new Map(snapshot.attention.views.map((view) => [view.item, view]))
+  for (const view of views) {
+    known.set(view.item, view)
+  }
+  return {
+    ...snapshot,
+    attention: {
+      items: merge(snapshot.attention.items, items),
+      views: [...known.values()].sort((left, right) => byId({ id: left.item }, { id: right.item })),
+    },
+  }
+}
+
 export const applyFeed = (snapshot: RunSnapshot, feed: FeedSegment): RunSnapshot => {
-  const replayed = feed.events.reduce(
-    (view, event) =>
-      event.event === 'facts' ? applyFacts(view, event.data) : event.data.changes.reduce(applyChange, view),
-    snapshot,
-  )
+  const replayed = feed.events.reduce((view, event) => {
+    switch (event.event) {
+      case 'facts':
+        return applyFacts(view, event.data)
+      case 'model':
+        return event.data.changes.reduce(applyChange, view)
+      case 'attention':
+        return applyAttention(view, event.data)
+    }
+  }, snapshot)
   return {
     ...replayed,
     summary: feed.run.summary,
