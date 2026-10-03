@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { expect, test, type TestContext } from 'vitest'
 import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
-import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { installFakeClaude, installFakeCodex, type ClaudeScenario } from '@aang/testkit'
 
 const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'] }
 const input = { model: { version: 7 }, batch: { facts: [] }, private: 'working data must not reach admission' }
@@ -129,6 +129,60 @@ test('a runtime isolation violation holds for the Claude version and profile thr
   expect(reconfigured.admission().profile).not.toBe(restarted.admission().profile)
   expect(await restarted.admit(undefined, { manual: true })).toMatchObject({ admitted: true, isolationViolated: false })
   expect(await restarted.execute({ input })).toMatchObject({ ok: true })
+})
+
+const protocolWrapper = fileURLToPath(new URL('protocol-wrapper.ts', import.meta.url))
+const recordedPlugins = ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring']
+
+test('Claude admits the built-in plugins of the recorded 2.1.286 init without a configured list and fixes them for the version', async (context) => {
+  const { root, options } = await sandbox(context)
+  const fake = installFakeClaude(root, { builtinPlugins: [], replies: [{ kind: 'answer', output }] })
+  const cli = { command: process.execPath, args: [protocolWrapper, 'recorded-init', fake.command, ...fake.args] }
+  const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5' })
+  const admitted = await backend.admit()
+  expect(admitted).toMatchObject({ admitted: true, version: '2.1.286', builtinPlugins: recordedPlugins })
+  expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toEqual(admitted)
+  expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
+  const prints = fake.calls().filter(({ command }) => command === 'print')
+  expect(prints).toHaveLength(3)
+  expect(prints.every(({ argv }) => argv.includes('--include-hook-events'))).toBe(true)
+})
+
+const pluginFaults: readonly (readonly [string, ClaudeScenario, string])[] = [
+  ['runs a hook in the observer profile', { pluginHooks: ['cc-plugin-agents-md'] }, 'Claude hooks executed in the observer profile'],
+  ['brings an MCP server', { pluginMcpServers: ['plugin:cc-plugin-agents-md:docs'] }, 'Claude init does not match the admitted isolation profile'],
+  ['is not built in', { userPlugins: ['superpowers'] }, 'Claude init does not match the admitted isolation profile'],
+]
+
+for (const [fault, scenario, reason] of pluginFaults) {
+  test(`Claude refuses admission when a plugin ${fault}`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const cli = installFakeClaude(root, scenario)
+    const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5' })
+    expect(await backend.admit()).toMatchObject({ admitted: false, reason, isolationViolated: true, builtinPlugins: [] })
+    expect(backend.status().state).toEqual({ state: 'disabled', reason: 'isolation' })
+  })
+}
+
+test('a Claude working call with a built-in plugin the admission did not see is an isolation violation', async (context) => {
+  const { root, options } = await sandbox(context)
+  const cli = installFakeClaude(root, { replies: [{ kind: 'answer', output }] })
+  const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5' })
+  expect(await backend.admit()).toMatchObject({ admitted: true, builtinPlugins: recordedPlugins })
+  expect(await backend.execute({ input })).toMatchObject({ ok: true })
+  cli.setScenario({ builtinPlugins: [...recordedPlugins, 'cc-plugin-telemetry'], replies: [{ kind: 'answer', output }] })
+  expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation', message: 'Claude init does not match the admitted isolation profile' } })
+  expect(backend.admission()).toMatchObject({ admitted: false, isolationViolated: true })
+})
+
+test('a Claude working call in which a built-in plugin runs a hook is an isolation violation', async (context) => {
+  const { root, options } = await sandbox(context)
+  const cli = installFakeClaude(root)
+  const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5' })
+  expect(await backend.admit()).toMatchObject({ admitted: true })
+  cli.setScenario({ pluginHooks: ['cc-plugin-agents-md'], replies: [{ kind: 'answer', output }] })
+  expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation', message: 'Claude hooks executed in the observer profile' } })
+  expect(backend.admission()).toMatchObject({ admitted: false, isolationViolated: true })
 })
 
 test('working calls are refused while admission is in progress', async (context) => {

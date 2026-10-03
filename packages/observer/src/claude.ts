@@ -15,15 +15,41 @@ export interface ClaudeBackendOptions extends BackendOptions {
   readonly builtins?: ClaudeBuiltins
 }
 
-const approved = (items: JsonValue | undefined, names: readonly string[], plugins = false): boolean =>
-  Array.isArray(items) && items.every((item) => {
-    if (typeof item === 'string') return !plugins && names.includes(item)
-    return object(item) && typeof item.name === 'string' && names.includes(item.name) && (!plugins || (item.path === 'builtin' && item.source === `${item.name}@builtin`))
-  })
+export interface ClaudeInitCheck {
+  readonly anyBuiltinPlugin: boolean
+  readonly hooks: boolean
+}
 
-const isolated = (init: JsonObject, allowed: ClaudeBuiltins): boolean =>
+const workingCall: ClaudeInitCheck = { anyBuiltinPlugin: false, hooks: false }
+
+const nameOf = (item: JsonValue): string | null =>
+  typeof item === 'string' ? item : object(item) && typeof item.name === 'string' ? item.name : null
+
+const approved = (items: JsonValue | undefined, names: readonly string[]): boolean =>
+  Array.isArray(items) && items.every((item) => names.includes(nameOf(item) ?? ''))
+
+const builtinPlugin = (item: JsonValue): boolean =>
+  object(item) && typeof item.name === 'string' && item.path === 'builtin' && item.source === `${item.name}@builtin`
+
+const isolated = (init: JsonObject, allowed: ClaudeBuiltins, check: ClaudeInitCheck): boolean =>
   Array.isArray(init.tools) && init.tools.length === 1 && init.tools[0] === 'StructuredOutput' &&
-  approved(init.mcp_servers, allowed.mcpServers) && approved(init.skills, allowed.skills) && approved(init.plugins, allowed.plugins, true)
+  approved(init.mcp_servers, allowed.mcpServers) && approved(init.skills, allowed.skills) &&
+  Array.isArray(init.plugins) && init.plugins.every((plugin) => builtinPlugin(plugin) && (check.anyBuiltinPlugin || allowed.plugins.includes(nameOf(plugin) ?? '')))
+
+const streamOf = (stdout: string): { stream: JsonObject[]; parseError: Error | null } => {
+  let parseError: Error | null = null
+  const stream: JsonObject[] = []
+  for (const line of stdout.split(/\r?\n/)) {
+    try { stream.push(...events(line)) }
+    catch (error) { parseError ??= error instanceof Error ? error : new Error(String(error)) }
+  }
+  return { stream, parseError }
+}
+
+const initsOf = (stream: readonly JsonObject[]): JsonObject[] => stream.filter((event) => event.type === 'system' && event.subtype === 'init')
+
+export const initPlugins = (stdout: string): string[] =>
+  initsOf(streamOf(stdout).stream).flatMap((init) => Array.isArray(init.plugins) ? init.plugins.flatMap((plugin) => nameOf(plugin) ?? []) : [])
 
 const usageOf = (result: JsonObject, model: string): CallUsage => {
   const usage = object(result.usage) ? result.usage : {}
@@ -63,7 +89,7 @@ export const createClaudeLauncher = (options: ClaudeBackendOptions, admittedVers
 }
 
 export const claudeArguments = (options: ClaudeBackendOptions, sessionId: string): string[] => [
-  '-p', '--output-format', 'stream-json', '--verbose',
+  '-p', '--output-format', 'stream-json', '--verbose', '--include-hook-events',
   '--json-schema', JSON.stringify(observerOutputJsonSchema()),
   '--model', options.model,
   ...(options.effort === undefined ? [] : ['--effort', options.effort]),
@@ -73,20 +99,16 @@ export const claudeArguments = (options: ClaudeBackendOptions, sessionId: string
   '--settings', '{"crossSessionInbound":"hold"}', '--session-id', sessionId,
 ]
 
-export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendOptions): ObserverOutcome => {
+export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendOptions, check: ClaudeInitCheck = workingCall): ObserverOutcome => {
   const allowed = options.builtins ?? { mcpServers: [], skills: [], plugins: [] }
-  let parseError: Error | null = null
-  const stream: JsonObject[] = []
-  for (const line of result.stdout.split(/\r?\n/)) {
-    try { stream.push(...events(line)) }
-    catch (error) { parseError ??= error instanceof Error ? error : new Error(String(error)) }
-  }
-  const init = stream.filter((event) => event.type === 'system' && event.subtype === 'init')
+  const { stream, parseError } = streamOf(result.stdout)
+  const init = initsOf(stream)
   const results = stream.filter((event) => event.type === 'result')
   const response = results[0]
   const usage = response === undefined ? null : usageOf(response, options.model)
   const missingInit = init.length === 0 && result.failure === null && parseError === null
-  if (missingInit || init.length > 1 || init.some((event) => !isolated(event, allowed))) throw new LaunchError('isolation', 'Claude init does not match the admitted isolation profile', usage)
+  if (missingInit || init.length > 1 || init.some((event) => !isolated(event, allowed, check))) throw new LaunchError('isolation', 'Claude init does not match the admitted isolation profile', usage)
+  if (!check.hooks && stream.some((event) => event.type === 'system' && typeof event.subtype === 'string' && event.subtype.startsWith('hook_'))) throw new LaunchError('isolation', 'Claude hooks executed in the observer profile', usage)
   if (result.failure !== null) requireSuccess(result)
   if (parseError !== null) throw parseError
   if (response === undefined || results.length !== 1 || response.subtype !== 'success' || response.is_error !== false || result.exitCode !== 0) {
