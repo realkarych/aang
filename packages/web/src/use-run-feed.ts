@@ -2,6 +2,7 @@ import type { RunId, RunSnapshot } from '@aang/contract'
 import { useEffect, useReducer } from 'react'
 import { NotFound, readRun, SignedOut } from './api.js'
 import { applyEvent } from './feed.js'
+import { pause } from './pause.js'
 import { type FeedEvent, followRun } from './stream.js'
 
 export type FeedConnection = 'loading' | 'live' | 'reconnecting' | 'missing'
@@ -37,19 +38,6 @@ const reduce = (state: RunFeedState, action: FeedAction): RunFeedState => {
 
 const retryMs = 1_000
 
-const wait = (milliseconds: number, signal: AbortSignal): Promise<void> =>
-  new Promise((resolve) => {
-    const timer = setTimeout(resolve, milliseconds)
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        resolve()
-      },
-      { once: true },
-    )
-  })
-
 const follow = async (
   run: RunId,
   dispatch: (action: FeedAction) => void,
@@ -64,7 +52,7 @@ const follow = async (
         throw error
       }
       dispatch(error instanceof NotFound ? { kind: 'missing' } : { kind: 'connection', connection: 'reconnecting' })
-      await wait(retryMs, signal)
+      await pause(retryMs, signal)
       continue
     }
     dispatch({ kind: 'snapshot', snapshot })

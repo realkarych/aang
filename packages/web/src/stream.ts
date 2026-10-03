@@ -1,5 +1,6 @@
 import { type ChangeSeq, type ResetReason, type RunId, SseEvent, streamPath } from '@aang/contract'
 import { ensureSignedIn } from './api.js'
+import { pause } from './pause.js'
 
 export type FeedEvent = Exclude<SseEvent, { readonly event: 'reset' }>
 
@@ -88,19 +89,6 @@ const decode = ({ event, data, id }: Frame): SseEvent | null => {
   const parsed = SseEvent.safeParse({ event, id: id === null ? null : Number(id), data: payload })
   return parsed.success ? parsed.data : null
 }
-
-const pause = (milliseconds: number, signal: AbortSignal): Promise<void> =>
-  new Promise((resolve) => {
-    const timer = setTimeout(resolve, milliseconds)
-    signal.addEventListener(
-      'abort',
-      () => {
-        clearTimeout(timer)
-        resolve()
-      },
-      { once: true },
-    )
-  })
 
 const streamUrl = (run: RunId): string => `${streamPath}?${new URLSearchParams({ run }).toString()}`
 

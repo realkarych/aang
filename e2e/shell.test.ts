@@ -5,7 +5,7 @@ import { endpoints, type RunId } from '@aang/contract'
 import { aangHomePaths } from '@aang/contract/home'
 import { runId } from '@aang/contract/ids'
 import { invokeHook, sampleScenarioManifest } from '@aang/testkit'
-import type { Locator, Page } from '@playwright/test'
+import type { Locator, Page, Route } from '@playwright/test'
 import { aangEntry, expect, hookBinary, test } from './fixtures.js'
 
 const claudeSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
@@ -165,6 +165,42 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await appendFile(transcript, complete.subarray(beforeSubagent.length))
   await expect(fact(page, 'Состояние')).toHaveText('ждёт ввода')
   expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
+})
+
+test('the run list says when only the list request fails and shows the run once the request succeeds again', async ({
+  page,
+  player,
+  daemon,
+}) => {
+  const runsRoute = `**${endpoints.runs.path}`
+  const dropRuns = (route: Route): Promise<void> => route.abort('connectionfailed')
+  const trouble = page.getByRole('main').getByRole('status')
+
+  await page.route(runsRoute, dropRuns)
+  await page.goto('/')
+  await expect(trouble).toHaveText('Не удалось загрузить список прогонов. aang повторяет запрос.')
+  await expect(lamp(page, 'Связь')).toHaveText('Связь список не обновляется')
+
+  await page.unroute(runsRoute, dropRuns)
+  await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
+  await expect(trouble).toHaveCount(0)
+  await expect(lamp(page, 'Связь')).toHaveText('Связь есть')
+
+  await page.route(runsRoute, dropRuns)
+  await expect(trouble).toHaveText('Не удалось обновить список прогонов. Показаны прежние данные, они могут устареть.')
+  await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+  await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(2)
+  await expect(page.getByRole('heading', { name: 'Прогонов пока нет' })).toBeVisible()
+  await expect(lamp(page, 'Связь')).toHaveText('Связь список не обновляется')
+  await lamp(page, 'Связь').getByRole('button').click()
+  await expect(page.getByRole('region', { name: 'Связь: подробности' })).toHaveText(
+    'Демон не отдал список прогонов. aang повторяет запрос; список на экране может устареть.',
+  )
+
+  await page.unroute(runsRoute, dropRuns)
+  await expect(runRow(page, 'Claude Code')).toBeVisible()
+  await expect(trouble).toHaveCount(0)
+  await expect(lamp(page, 'Связь')).toHaveText('Связь есть')
 })
 
 test.describe('the status strip', () => {

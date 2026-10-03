@@ -67,6 +67,7 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
     status: status.value,
     statusFailing: status.failing,
     runs: runs.value?.runs ?? null,
+    runsFailing: runs.failing,
     focus: null,
     now,
   })
@@ -75,7 +76,12 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
       <Masthead trail={null} />
       <StatusStrip lamps={lamps} />
       <main className="page">
-        <RunList runs={runs.value?.runs ?? null} watch={status.value?.watch ?? null} now={now} />
+        <RunList
+          runs={runs.value?.runs ?? null}
+          failing={runs.failing}
+          watch={status.value?.watch ?? null}
+          now={now}
+        />
       </main>
     </>
   )
@@ -94,6 +100,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     status: status.value,
     statusFailing: status.failing,
     runs: null,
+    runsFailing: false,
     focus: { connection: feed.connection, run: focused },
     now,
   })

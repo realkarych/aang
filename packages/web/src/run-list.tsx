@@ -2,6 +2,7 @@ import type { RunSummary, WatchState } from '@aang/contract'
 import type { ReactElement } from 'react'
 import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { dayTime } from './format.js'
+import { LevelGlyph } from './glyphs.js'
 import { runtimeLabel, supportModeLabel } from './labels.js'
 import { Moment } from './moment.js'
 import { runHref, useNavigate } from './route.js'
@@ -74,43 +75,61 @@ const RunRow = ({ run, now }: { readonly run: RunSummary; readonly now: bigint }
   )
 }
 
+const ListTrouble = ({ children }: { readonly children: string }): ReactElement => (
+  <p className="list-trouble" role="status">
+    <LevelGlyph level="warning" />
+    <span>{children}</span>
+  </p>
+)
+
+const RunTable = ({ runs, now }: { readonly runs: readonly RunSummary[]; readonly now: bigint }): ReactElement => (
+  <table className="runs">
+    <caption className="visually-hidden">Прогоны</caption>
+    <thead>
+      <tr>
+        <th scope="col">Состояние</th>
+        <th scope="col">Прогон</th>
+        <th scope="col">Внимание</th>
+        <th scope="col">Свежесть</th>
+        <th scope="col">Режим</th>
+        <th scope="col" className="number">
+          Сессии
+        </th>
+        <th scope="col" className="number">
+          Агенты
+        </th>
+        <th scope="col">Последнее событие</th>
+      </tr>
+    </thead>
+    <tbody>
+      {runs.map((run) => (
+        <RunRow key={run.id} run={run} now={now} />
+      ))}
+    </tbody>
+  </table>
+)
+
 export interface RunListProps {
   readonly runs: readonly RunSummary[] | null
+  readonly failing: boolean
   readonly watch: WatchState | null
   readonly now: bigint
 }
 
-export const RunList = ({ runs, watch, now }: RunListProps): ReactElement => {
+export const RunList = ({ runs, failing, watch, now }: RunListProps): ReactElement => {
   if (runs === null) {
-    return <p className="loading">Загрузка прогонов…</p>
-  }
-  if (runs.length === 0) {
-    return <EmptyList watch={watch} />
+    return failing ? (
+      <ListTrouble>Не удалось загрузить список прогонов. aang повторяет запрос.</ListTrouble>
+    ) : (
+      <p className="loading">Загрузка прогонов…</p>
+    )
   }
   return (
-    <table className="runs">
-      <caption className="visually-hidden">Прогоны</caption>
-      <thead>
-        <tr>
-          <th scope="col">Состояние</th>
-          <th scope="col">Прогон</th>
-          <th scope="col">Внимание</th>
-          <th scope="col">Свежесть</th>
-          <th scope="col">Режим</th>
-          <th scope="col" className="number">
-            Сессии
-          </th>
-          <th scope="col" className="number">
-            Агенты
-          </th>
-          <th scope="col">Последнее событие</th>
-        </tr>
-      </thead>
-      <tbody>
-        {runs.map((run) => (
-          <RunRow key={run.id} run={run} now={now} />
-        ))}
-      </tbody>
-    </table>
+    <>
+      {failing ? (
+        <ListTrouble>Не удалось обновить список прогонов. Показаны прежние данные, они могут устареть.</ListTrouble>
+      ) : null}
+      {runs.length === 0 ? <EmptyList watch={watch} /> : <RunTable runs={runs} now={now} />}
+    </>
   )
 }
