@@ -73,6 +73,35 @@ test('versions and snapshots are saved idempotently, listed by run and published
   ])
 })
 
+test('a version keeps the position of its creation while retention and later saves change it', async ({ onTestFinished }) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const report = versionOf('/work/report.md', { kind: 'content', hash: contentHash('report') })
+  const notes = versionOf('/work/notes.md')
+  const [created, other] = store.transaction((transaction) => [
+    transaction.artifacts.saveVersion(report),
+    transaction.artifacts.saveVersion(notes),
+  ])
+  store.transaction((transaction) => {
+    transaction.artifacts.saveSnapshot(snapshotOf('snapshot:1'))
+    const retained = transaction.artifacts.retain(report.id, {
+      kind: 'action_payload',
+      action,
+      content: new TextEncoder().encode('report'),
+    })
+    transaction.artifacts.saveVersion({ ...report, retention: retained.retention, produced_by: ActionId.parse('d'.repeat(32)) })
+  })
+  store.close()
+  const reopened = home.open()
+  const current = reopened.artifacts.getVersion(report.id)
+
+  expect(current?.change_seq).toBeGreaterThan(other.change_seq)
+  expect(reopened.artifacts.versionsCreated(run, ChangeSeq.parse(0))).toEqual([current, other])
+  expect(reopened.artifacts.versionsCreated(run, created.change_seq)).toEqual([other])
+  expect(reopened.artifacts.versionsCreated(run, other.change_seq)).toEqual([])
+  expect(reopened.artifacts.versionsCreated(RunId.parse('e'.repeat(32)), ChangeSeq.parse(0))).toEqual([])
+})
+
 test('retained contents are stored once by hash and released with their last reference', async ({ onTestFinished }) => {
   const home = await createHome(onTestFinished)
   const store = home.open()
