@@ -12,7 +12,7 @@ import type {
 import { contentHash } from '@aang/contract/ids'
 import { absent, isMissing } from './errors.js'
 import type { Backoff, Failure, Retrier } from './retry.js'
-import { epochNs, nowNs } from './time.js'
+import { epochNs, millisecondsToNs, nowNs } from './time.js'
 import { segmentsOf, type TreeRoot } from './tree.js'
 import type { Wakeup } from './wakeup.js'
 
@@ -52,6 +52,7 @@ interface Loaded {
   readonly stats: BigIntStats
   readonly content: Buffer
   readonly changing: boolean
+  readonly startedAt: EpochNs
 }
 
 interface ReadOutcome {
@@ -61,8 +62,12 @@ interface ReadOutcome {
 
 const maxBytesPerBatch = 8 * 1024 ** 2
 const maxRecordsPerBatch = 4096
+const mtimeGranularityNs = millisecondsToNs(2_000)
 
 const fingerprint = (stats: BigIntStats): string => [stats.dev, stats.ino, stats.size, stats.mtimeNs].join(':')
+
+const settledFingerprint = (stats: BigIntStats, startedAt: EpochNs): string | null =>
+  stats.mtimeNs + mtimeGranularityNs <= startedAt ? fingerprint(stats) : null
 
 const isJson = (text: string): boolean => {
   try {
@@ -77,12 +82,13 @@ const load = async (path: string): Promise<Loaded | null> => {
   if (!(await stat(path)).isFile()) {
     return null
   }
+  const startedAt = nowNs()
   const file = await open(path, 'r')
   try {
     const stats = await file.stat({ bigint: true })
     const content = await file.readFile()
     const after = await file.stat({ bigint: true })
-    return { stats, content, changing: fingerprint(after) !== fingerprint(stats) }
+    return { stats, content, changing: fingerprint(after) !== fingerprint(stats), startedAt }
   } finally {
     await file.close()
   }
@@ -159,8 +165,8 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     return false
   }
 
-  const loaded = (file: SnapshotFile, { stats, content }: Loaded): CollectedRecord[] => {
-    file.seen = fingerprint(stats)
+  const loaded = (file: SnapshotFile, { stats, content, startedAt }: Loaded): CollectedRecord[] => {
+    file.seen = settledFingerprint(stats, startedAt)
     const hash = contentHash(content)
     const payload = content.toString('utf8')
     if (hash !== file.emitted && !complete(file, hash, payload)) {

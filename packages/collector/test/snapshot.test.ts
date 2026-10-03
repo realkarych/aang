@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { CollectedRecord, type CollectedPosition } from '@aang/contract'
 import { expect, test, vi } from 'vitest'
@@ -276,6 +276,38 @@ test('with fsWatch off registry files that appear, change and disappear are foun
     snapshot('registry', path, second, secondAt),
     removal('registry', path, second),
   ])
+})
+
+test('a rewrite that keeps the size and the modification time of the issued content is found by the next scan', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = registryPath(sandbox, '1001.json')
+  const first = JSON.stringify({ pid: 1001, sessionId: 's-1001', status: 'busy' })
+  const second = JSON.stringify({ pid: 1001, sessionId: 's-1001', status: 'idle' })
+  const tick = new Date()
+  const writeWithinTick = async (content: string): Promise<bigint> => {
+    await put(path, content)
+    await utimes(path, tick, tick)
+    return (await stat(path, { bigint: true })).mtimeNs
+  }
+  const firstAt = await writeWithinTick(first)
+  const running = runCollector(sandbox, { fsWatch: false })
+  await vi.waitFor(() => {
+    expect(running.records()).toEqual([snapshot('registry', path, first, firstAt)])
+  })
+
+  const secondAt = await writeWithinTick(second)
+  expect(secondAt).toBe(firstAt)
+  running.collector.rescan([])
+  await vi.waitFor(() => {
+    expect(running.records()).toHaveLength(2)
+  })
+  running.collector.rescan([])
+  await sleep(200)
+
+  expect(running.records()).toEqual([snapshot('registry', path, first, firstAt), snapshot('registry', path, second, secondAt)])
+  expect(running.gaps()).toEqual([])
 })
 
 test('a partly written file waits for valid JSON, while content that stays invalid is issued once as it is', async ({
