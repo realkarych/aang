@@ -39,13 +39,15 @@ import { freshnessOf } from './freshness.js'
 import { sourceGaps, type SourceRecord } from './sources.js'
 import { turnState } from './state.js'
 import { linkSession, type Spawn, sessionRun } from './runs.js'
-import { isInherited, lineageOf } from './lineage.js'
+import { isFork, isInherited, lineageOf } from './lineage.js'
 import { refreshCommonOrigin, refreshForkedFrom, refreshRelatedOrigins } from './origins.js'
+import { costStateOf, projectUsage, threadTotalOf } from './usage.js'
 
 interface SessionContext {
   readonly run: RunId
   readonly identity: AgentIdentity
   readonly spawners: ReadonlyMap<string, KindEvidence<'action_start'>>
+  readonly fork: boolean
 }
 
 const spawnersOf = (items: readonly Evidence[]): Map<string, KindEvidence<'action_start'>> => {
@@ -63,7 +65,7 @@ const projectAgent = (
   transaction: Transaction,
   key: AgentKey,
   items: readonly Evidence[],
-  { run, identity, spawners }: SessionContext,
+  { run, identity, spawners, fork }: SessionContext,
   sessionExecution: Execution,
 ): Spawn | null => {
   const starts = ofKind(items, 'agent_start')
@@ -74,7 +76,6 @@ const projectAgent = (
     content.find(({ fact }) => fact.payload[name] !== null)?.fact.payload[name] ?? null
   const end = ends.toSorted(byContent)[0]?.fact
   const id = objectId(key)
-  const previous = transaction.observations.getAgent(id)
   const named = field('parent')
   const spawnedBy = field('spawned_by_call')
   const spawner = spawnedBy === null ? undefined : spawners.get(spawnedBy)
@@ -116,7 +117,7 @@ const projectAgent = (
                     ? 'cancelled'
                     : 'unknown',
           },
-    thread_total: previous?.thread_total ?? null,
+    thread_total: threadTotalOf(items, fork && main),
     started_at:
       starts.toSorted(byTime)[0]?.fact.at ??
       (main ? (ofKind(items, 'session_start')[0]?.fact.at ?? null) : null),
@@ -202,7 +203,12 @@ export const projectSession = (
     return null
   }
   const identity = agentIdentity(key, items)
-  const context: SessionContext = { run: sessionRun(transaction, key), identity, spawners: spawnersOf(items) }
+  const context: SessionContext = {
+    run: sessionRun(transaction, key),
+    identity,
+    spawners: spawnersOf(items),
+    fork: isFork(lineage),
+  }
   const root = items.filter(({ fact }) => identity.of(fact).agent.kind === 'main')
   const starts = ofKind(root, 'session_start')
   const content = root.toSorted(byContent)
@@ -251,7 +257,7 @@ export const projectSession = (
     unknown_records:
       rebuild?.unknownRecords ??
       (previous?.unknown_records ?? 0) + records.filter(({ raw }) => raw.parse_state !== 'parsed').length,
-    cost_state: previous?.cost_state ?? null,
+    cost_state: items.length === 0 ? (previous?.cost_state ?? null) : costStateOf(items),
     started_at: startedAt,
     last_event_at: lastEventAt,
   }
@@ -287,6 +293,7 @@ export const projectSession = (
   }
   projected.push(
     ...projectActions(transaction, key, evidence, { run: context.run, identity, inherited: lineage.inherited }),
+    ...projectUsage(transaction, evidence, { run: context.run, identity, inherited: lineage.inherited }),
   )
   const facts = sessionFacts(items)
   const questions: QuestionAttention[] = []
