@@ -230,6 +230,9 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
         },
         delete: (observation) => {
           context.assertActive()
+          if (selectReplaced.get(observation.key.kind, observation.id) !== undefined) {
+            throw new Error(`${observation.key.kind} ${observation.id} replaces removed observations`)
+          }
           if (Number(deleteObject.run(observation.id, observation.key.kind).changes) > 0) {
             context.nextChangeSeq()
           }

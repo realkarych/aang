@@ -11,7 +11,14 @@ import type {
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
-import { type AgentIdentity, agentIdentity, compactionStop, retireRefined } from './agents.js'
+import {
+  type AgentIdentity,
+  agentIdentity,
+  type AgentMoves,
+  compactionStop,
+  movedAgents,
+  retireRefined,
+} from './agents.js'
 import {
   byContent,
   byTime,
@@ -169,6 +176,11 @@ export interface SessionProjection {
   readonly objects: readonly string[]
 }
 
+export interface SessionRebuild {
+  readonly unknownRecords: number
+  readonly moves: AgentMoves
+}
+
 export const projectSession = (
   transaction: Transaction,
   key: SessionKey,
@@ -176,7 +188,7 @@ export const projectSession = (
   lost: ReadonlySet<SessionId>,
   now: EpochNs,
   quietAfterMs: number,
-  unknownRecords: number | null = null,
+  rebuild: SessionRebuild | null = null,
 ): SessionProjection | null => {
   const items = sessionEvidence(transaction, key)
   const id = objectId(key)
@@ -232,7 +244,8 @@ export const projectSession = (
     support_mode: hooks && files ? 'full' : hooks ? 'hooks_only' : 'files_only',
     double_registration: registrations.size > 1 || previous?.double_registration === true,
     unknown_records:
-      unknownRecords ?? (previous?.unknown_records ?? 0) + records.filter(({ raw }) => raw.parse_state !== 'parsed').length,
+      rebuild?.unknownRecords ??
+      (previous?.unknown_records ?? 0) + records.filter(({ raw }) => raw.parse_state !== 'parsed').length,
     cost_state: previous?.cost_state ?? null,
     started_at: startedAt,
     last_event_at: lastEventAt,
@@ -280,11 +293,22 @@ export const projectSession = (
       }
     }
   }
-  const replacements = retireRefined(transaction, identity)
+  const replacements = retireRefined(transaction, identity.refinements)
+  const moved =
+    rebuild === null
+      ? []
+      : retireRefined(transaction, movedAgents(transaction, key, identity, new Set(projected), rebuild.moves))
   const first = items[0]
   const last = items.at(-1)
   if (first !== undefined && last !== undefined) {
-    linkSession(transaction, { key, run: context.run, root: first.fact, at: last.fact.at, spawns, replacements })
+    linkSession(transaction, {
+      key,
+      run: context.run,
+      root: first.fact,
+      at: last.fact.at,
+      spawns,
+      replacements: [...replacements, ...moved],
+    })
   }
   reconcileRuleAttention(transaction, key, items.at(-1)?.fact.at ?? lastEventAt, questions)
   return { session, objects: projected }

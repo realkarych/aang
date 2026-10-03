@@ -1,25 +1,27 @@
 import assert from 'node:assert/strict'
-import { cp } from 'node:fs/promises'
+import { cp, mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { codexAdapter } from '@aang/adapter-codex'
 import {
   type AgentKey,
   ChangeSeq,
+  CheckContract,
   type CollectedRecord,
-  EpochNs,
   type Fact,
   FactDraft,
   type FactId,
+  type Link,
   ModelVersion,
   type RunId,
   type SessionKey,
 } from '@aang/contract'
 import { factIds, objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, resolveEvidence } from '@aang/engine'
+import { applyChangeSet, createEngine, resolveEvidence } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, onTestFinished, test } from 'vitest'
 import { anotherVersion, draftOf, reversedFactGroups, sameFacts, storeAnotherNormalizer } from './another-normalizer.js'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
-import { expectedOf, factsOf, recordsOf, sessionKey, startEngine, streamOf } from './harness.js'
+import { adapters, expectedOf, factsOf, recordsOf, removalsOf, sessionKey, startEngine, streamOf } from './harness.js'
 import { createHome } from './home.js'
 import { decisionRecord, otelRoot, otelThread } from './otel-records.js'
 import { claudeHook, claudeTranscript, codexChildRollout, codexRollout } from './samples.js'
@@ -63,8 +65,9 @@ const observationsOf = (store: Store, observed: SessionKey) => {
 
 const referenceFacts = (store: Store, owner: RunId, evidence: readonly FactId[]): void => {
   const [goal] = evidence
-  assert(goal !== undefined)
-  const at = EpochNs.parse(1_790_856_600_000_000_000n)
+  const current = store.model.entity(owner, { kind: 'run', id: owner })
+  assert(goal !== undefined && current?.kind === 'run')
+  const { runtime, root_session: root, brief, start_pruned: pruned, created_at: at } = current.value
   store.transaction((transaction) =>
     applyChangeSet(transaction, {
       run: owner,
@@ -77,11 +80,11 @@ const referenceFacts = (store: Store, owner: RunId, evidence: readonly FactId[])
             kind: 'run',
             value: {
               id: owner,
-              runtime: 'claude',
-              root_session: objectId(key),
+              runtime,
+              root_session: root,
               goal: { text: 'Reparse the transcript', fact: goal },
-              brief: null,
-              start_pruned: false,
+              brief,
+              start_pruned: pruned,
               created_at: at,
             },
           },
@@ -95,6 +98,9 @@ const referenceFacts = (store: Store, owner: RunId, evidence: readonly FactId[])
 
 const modelEvidence = (store: Store): FactId[] =>
   store.model.changes(run, ModelVersion.parse(0)).flatMap(({ evidence }) => evidence)
+
+const linksOf = (store: Store): Link[] =>
+  store.model.entities(run).flatMap((entity) => (entity.kind === 'link' ? [entity.value] : []))
 
 const byId = (left: Fact, right: Fact): number => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
 
@@ -145,8 +151,10 @@ test('keeps fact ids and model references when another normalizer version stored
     expect(store.facts.ofRecord(seq).map(({ id }) => id)).toEqual(ids)
   }
   expect(store.model.changes(run, ModelVersion.parse(0))).toEqual(journal)
+  const factById = new Map(facts.map((fact) => [fact.id, fact]))
+  expect(modelEvidence(store)).toEqual(expect.arrayContaining(facts.map(({ id }) => id)))
   expect(resolveEvidence(store.facts, modelEvidence(store))).toEqual(
-    facts.map((fact) => ({ id: fact.id, state: 'available', fact })),
+    modelEvidence(store).map((id) => ({ id, state: 'available', fact: factById.get(id) })),
   )
   expect(observationsOf(store, key)).toEqual(observed)
 
@@ -167,20 +175,21 @@ test('keeps fact ids and model references when another normalizer version stored
   expect(observationsOf(store, key)).toEqual(observed)
 })
 
-test('shows a fact the current normalizer no longer produces as an unavailable basis and adds the facts it newly produces', async () => {
+test('shows a fact the current normalizer no longer produces as unavailable and replaces the agent it keyed', async () => {
   const reference = await createHome(onTestFinished)
   const expected = reference.open()
   await startEngine(expected, { all: true }).ingest(sessionBatch())
   const facts = factsOf(expected)
   const agentStart = facts.find(({ kind }) => kind === 'agent_start')
   const message = facts.find(({ kind }) => kind === 'message')
-  assert(agentStart?.entity_key.kind === 'agent' && agentStart.entity_key.agent.kind === 'subagent')
+  const started = agentStart?.entity_key
+  assert(agentStart !== undefined && started?.kind === 'agent' && started.agent.kind === 'subagent')
   assert(message !== undefined)
-  const subagent = objectId(agentStart.entity_key)
-  const previousAgent: AgentKey = {
-    ...agentStart.entity_key,
-    agent: { kind: 'subagent', agent_id: `${agentStart.entity_key.agent.agent_id}-previous` },
-  }
+  const subagent = objectId(started)
+  const { agent_id: agentId } = started.agent
+  const renamed = (suffix: string): AgentKey => ({ ...started, agent: { kind: 'subagent', agent_id: `${agentId}-${suffix}` } })
+  const previousAgent = renamed('previous')
+  const replaced = renamed('replaced')
   const observed = observationsOf(expected, key)
 
   const home = await createHome(onTestFinished)
@@ -193,20 +202,40 @@ test('shows a fact the current normalizer no longer produces as an unavailable b
       draft.kind === 'agent_start' ? FactDraft.parse({ ...draft, entity_key: previousAgent }) : draft,
     ),
   )
+  const spawned = linksOf(store)
+  expect(spawned.map(({ kind }) => kind)).toEqual(['spawn'])
   store.transaction((transaction) => {
     for (const agent of observationsOf(store, key).agents) {
       transaction.observations.delete(agent)
     }
+    applyChangeSet(transaction, {
+      run,
+      author: 'rule',
+      at: agentStart.at,
+      changes: spawned.map(({ id }) => ({
+        op: 'link.remove',
+        remove: { kind: 'link', id },
+        basis: { kind: 'observed' },
+        evidence: [],
+      })),
+    })
   })
   await engine.ingest(file.batch(file.lines.length, file.lines.length))
   const previousStart = factsOf(store).find(({ kind }) => kind === 'agent_start')
-  assert(previousStart !== undefined)
+  const previous = store.observations.getAgent(objectId(previousAgent))
+  assert(previousStart !== undefined && previous !== null)
+  store.transaction((transaction) => {
+    transaction.observations.save({ ...previous, id: objectId(replaced), key: replaced })
+    transaction.observations.remove({ kind: 'agent', id: objectId(replaced), replaced_by: previous.id })
+  })
   const current = factsOf(store).filter(({ normalizer_version }) => normalizer_version !== anotherVersion)
   const agents = observationsOf(store, key).agents.map(({ id }) => id)
-  expect(agents).toContain(objectId(previousAgent))
+  expect(agents).toContain(previous.id)
   expect(agents).not.toContain(subagent)
+  expect(linksOf(store)).toMatchObject([{ kind: 'spawn', child: previous.id }])
   referenceFacts(store, run, [previousStart.id, message.id])
   const journal = store.model.changes(run, ModelVersion.parse(0))
+  const head = store.changes.head()
   store.close()
 
   store = home.open()
@@ -217,13 +246,223 @@ test('shows a fact the current normalizer no longer produces as an unavailable b
     facts_missing: 1,
   })
   expect(factsOf(store).toSorted(byId)).toEqual(facts.toSorted(byId))
-  expect(resolveEvidence(store.facts, modelEvidence(store))).toEqual([
-    { id: previousStart.id, state: 'unavailable' },
-    { id: message.id, state: 'available', fact: message },
+  expect(resolveEvidence(store.facts, modelEvidence(store))).toEqual(
+    modelEvidence(store).map((id) =>
+      id === previousStart.id ? { id, state: 'unavailable' } : { id, state: 'available', fact: store.facts.get(id) },
+    ),
+  )
+  expect(modelEvidence(store)).toEqual(expect.arrayContaining([previousStart.id, message.id]))
+  expect(store.model.changes(run, ModelVersion.parse(0)).slice(0, journal.length)).toEqual(journal)
+  const [spawn, ...links] = linksOf(store)
+  assert(spawn?.kind === 'spawn' && spawn.child === subagent)
+  expect(links).toEqual([])
+  expect(spawn.evidence).toContain(agentStart.id)
+  expect(
+    store.model
+      .changes(run, ModelVersion.parse(journal.at(-1)?.version ?? 0))
+      .map(({ op, author, before, after, evidence }) => ({
+        op,
+        author,
+        before: before?.kind,
+        after: after?.kind,
+        evidence,
+      })),
+  ).toEqual([
+    { op: 'link.remove', author: 'rule', before: 'link', after: undefined, evidence: [agentStart.id] },
+    { op: 'link.add', author: 'rule', before: undefined, after: 'link', evidence: spawn.evidence },
   ])
-  expect(store.model.changes(run, ModelVersion.parse(0))).toEqual(journal)
-  expect(store.observations.getAgent(objectId(previousAgent))).toBeNull()
   expect(withoutChangeSeqs(observationsOf(store, key))).toEqual(withoutChangeSeqs(observed))
+  const expectReplaced = (stored: Store) => {
+    expect(stored.observations.getAgent(previous.id)).toBeNull()
+    expect(stored.observations.getAgent(objectId(replaced))).toBeNull()
+    expect(stored.observations.getRemoval({ kind: 'agent', id: previous.id })).toMatchObject({ replaced_by: subagent })
+    expect(stored.observations.getRemoval({ kind: 'agent', id: objectId(replaced) })).toMatchObject({
+      replaced_by: subagent,
+    })
+    for (const removal of removalsOf(stored)) {
+      expect(stored.observations.getAgent(removal.replaced_by)).not.toBeNull()
+      expect(removal.change_seq).toBeGreaterThan(head)
+    }
+    for (const link of linksOf(stored)) {
+      const ends = link.kind === 'spawn' ? [link.parent, link.child] : link.kind === 'participation' ? [link.agent] : []
+      for (const end of ends) {
+        expect(stored.observations.getAgent(end)).not.toBeNull()
+      }
+    }
+  }
+  expectReplaced(store)
+  store.close()
+
+  store = home.open()
+  expectReplaced(store)
+  expect(withoutChangeSeqs(observationsOf(store, key))).toEqual(withoutChangeSeqs(observed))
+})
+
+test('deletes an agent whose facts the current normalizer splits between agents and names no replacement', async () => {
+  const home = await createHome(onTestFinished)
+  let store = home.open()
+  const engine = startEngine(store, { all: true })
+  const file = transcriptFile()
+  await engine.ingest(joinBatches(hooks(), file.batch(1, file.lines.length - 1)))
+  const agents = observationsOf(store, key).agents
+  const facts = factsOf(store)
+  const started = facts.find(({ kind }) => kind === 'agent_start')?.entity_key
+  const call = facts.find(({ kind }) => kind === 'action_start')
+  assert(started?.kind === 'agent' && call !== undefined)
+  const merged: AgentKey = { ...started, agent: { kind: 'subagent', agent_id: 'reparse-merged' } }
+  storeAnotherNormalizer(store, (drafts, record) =>
+    drafts.map((draft) =>
+      draft.kind === 'agent_start'
+        ? FactDraft.parse({ ...draft, entity_key: merged })
+        : record.seq === call.seq
+          ? FactDraft.parse({ ...draft, runtime_ids: { ...draft.runtime_ids, agent_id: 'reparse-merged' } })
+          : draft,
+    ),
+  )
+  await engine.ingest(file.batch(file.lines.length, file.lines.length))
+  expect(store.observations.getAgent(objectId(merged))).toMatchObject({ role: 'subagent' })
+  store.close()
+
+  store = home.open()
+  await startEngine(store, { all: true }).reparse()
+  expect(store.observations.getAgent(objectId(merged))).toBeNull()
+  expect(removalsOf(store)).toEqual([])
+  expect(observationsOf(store, key).agents.map(withoutChangeSeq)).toEqual(agents.map(withoutChangeSeq))
+})
+
+test('refuses a reparse that would delete the replacement of removed agents when no agent of its session replaces it', async () => {
+  const home = await createHome(onTestFinished)
+  let store = home.open()
+  await startEngine(store, { all: true }).ingest(sessionBatch())
+  const subagent = store.observations.agents(objectId(key)).find(({ role }) => role === 'subagent')
+  const hookSession = store.observations.getSession(objectId(sessionKey('claude', hookOnly)))
+  assert(subagent?.key.agent.kind === 'subagent' && hookSession !== null)
+  const strayKey = (suffix: string): AgentKey => ({
+    ...subagent.key,
+    session: hookOnly,
+    agent: { kind: 'subagent', agent_id: `reparse-${suffix}` },
+  })
+  const stray = strayKey('stray')
+  const replaced = strayKey('replaced')
+  storeAnotherNormalizer(store, (drafts) =>
+    drafts.map((draft) => (draft.kind === 'agent_start' ? FactDraft.parse({ ...draft, entity_key: stray }) : draft)),
+  )
+  store.transaction((transaction) => {
+    const moved = { ...subagent, session: hookSession.id, run: hookSession.run, parent: null, spawned_by: null }
+    transaction.observations.save({ ...moved, id: objectId(stray), key: stray })
+    transaction.observations.save({ ...moved, id: objectId(replaced), key: replaced })
+    transaction.observations.remove({ kind: 'agent', id: objectId(replaced), replaced_by: objectId(stray) })
+  })
+  const stateOf = (state: Store) => ({
+    head: state.changes.head(),
+    facts: factsOf(state),
+    observed: [observationsOf(state, key), observationsOf(state, sessionKey('claude', hookOnly))],
+    removals: removalsOf(state),
+  })
+  const before = stateOf(store)
+  expect(before.removals).toMatchObject([{ id: objectId(replaced), replaced_by: objectId(stray) }])
+  store.close()
+
+  store = home.open()
+  await expect(startEngine(store, { all: true }).reparse()).rejects.toThrow(
+    `agent ${objectId(stray)} replaces removed observations`,
+  )
+  expect(stateOf(store)).toEqual(before)
+  store.close()
+
+  store = home.open()
+  expect(stateOf(store)).toEqual(before)
+})
+
+test('applies the failed check rule to a failure and its successful repeat that one reparse recovers', async () => {
+  const home = await createHome(onTestFinished)
+  const project = join(home.path, '..', 'project')
+  await mkdir(project, { recursive: true })
+  const failing = { session: 'reparse-failing', cwd: project }
+  const repaired = { session: 'reparse-repaired', cwd: project }
+  const runOf = (source: typeof failing) => runId(sessionKey('claude', source.session))
+  const actionOf = (source: typeof failing, call: string) =>
+    objectId({ kind: 'action', runtime: 'claude', session: source.session, call })
+  const check = (source: typeof failing, call: string, passed: boolean, arrival: number) => {
+    const tool = { tool_use_id: call, tool_input: { command: 'pnpm test', description: 'Run the check' } }
+    return [
+      { file: `${source.session}-${call}-pre.evt`, payload: claudeHook('PreToolUse.Bash.json', source, tool), arrival },
+      {
+        file: `${source.session}-${call}-post.evt`,
+        arrival: arrival + 1,
+        payload: passed
+          ? claudeHook('PostToolUse.Bash.json', source, tool)
+          : claudeHook('PostToolUseFailure.Bash.json', source, {
+              ...tool,
+              error: 'Exit code 1\nchecks failed',
+              is_interrupt: false,
+            }),
+      },
+    ]
+  }
+  const failedChecks = (state: Store, owner: RunId) =>
+    state.model
+      .entities(owner)
+      .flatMap(({ kind, value }) => (kind === 'attention_item' && value.kind === 'failed_check' ? [value] : []))
+  let store = home.open()
+  await startEngine(store, { all: true }).ingest(
+    hookBatch(
+      { file: 'failing-start.evt', payload: claudeHook('SessionStart.startup.json', failing) },
+      ...check(failing, 'call-fail', false, 10),
+      { file: 'repaired-start.evt', payload: claudeHook('SessionStart.startup.json', repaired) },
+      ...check(repaired, 'call-fail', false, 20),
+      ...check(repaired, 'call-pass', true, 30),
+    ),
+  )
+  const ends = factsOf(store).filter(({ kind }) => kind === 'action_end')
+  expect(ends).toHaveLength(3)
+  storeAnotherNormalizer(store, (drafts) => (drafts.some(({ kind }) => kind === 'action_end') ? 'invalid' : drafts))
+  expect(failedChecks(store, runOf(failing))).toEqual([])
+  expect(failedChecks(store, runOf(repaired))).toEqual([])
+  store.close()
+
+  store = home.open()
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: {
+      all: true,
+      roots: [{ path: project, contracts: [CheckContract.parse({ name: 'test', command: '^pnpm test' })] }],
+    },
+  })
+  const result = await engine.reparse()
+  expect(result).toMatchObject({ facts_added: ends.length, facts_missing: 0 })
+  const endOf = (source: typeof failing, call: string) =>
+    ends.find(
+      ({ entity_key: entity }) => entity.kind === 'action' && entity.session === source.session && entity.call === call,
+    )?.at
+  expect(store.observations.getAction(actionOf(failing, 'call-fail'))?.execution.state).toBe('failed')
+  expect(failedChecks(store, runOf(failing))).toMatchObject([
+    {
+      action: actionOf(failing, 'call-fail'),
+      text: 'Check "test" failed with exit code 1',
+      resolution: 'open',
+      opened_at: endOf(failing, 'call-fail'),
+      closed_at: null,
+    },
+  ])
+  const [closed] = failedChecks(store, runOf(repaired))
+  expect(closed).toMatchObject({
+    action: actionOf(repaired, 'call-fail'),
+    resolution: 'answered',
+    opened_at: endOf(repaired, 'call-fail'),
+    closed_at: endOf(repaired, 'call-pass'),
+  })
+  assert(closed !== undefined)
+  expect(
+    store.model
+      .entityChanges(runOf(repaired), { kind: 'attention_item', id: closed.id }, ModelVersion.parse(0))
+      .map(({ op, author }) => [op, author]),
+  ).toEqual([
+    ['attention.open', 'rule'],
+    ['attention.close', 'rule'],
+  ])
+  expect((await engine.reparse()).head).toBe(result.head)
 })
 
 test('recounts the records the current normalizer recognises and closes their gap', async () => {
@@ -319,9 +558,14 @@ test('advances the change position when reparse only deletes facts and objects',
   const hookOnlySession = store.observations.getSession(objectId(sessionKey('claude', hookOnly)))
   assert(record !== undefined && hookOnlyStart !== undefined && hookOnlySession !== null)
   const sessions = store.observations.sessions()
+  const agents = store.observations.agents(objectId(key))
+  const [known] = agents
+  assert(known !== undefined)
+  const staleAgent: AgentKey = { ...known.key, agent: { kind: 'subagent', agent_id: 'reparse-stale' } }
   const unchanged = { records: factless.length, facts_added: 0, facts_kept: 0, facts_missing: 0 }
   store.transaction((transaction) => {
     transaction.observations.save({ ...hookOnlySession, id: objectId(stale), key: stale })
+    transaction.observations.save({ ...known, id: objectId(staleAgent), key: staleAgent })
   })
   const staleHead = store.changes.head()
   store.close()
@@ -333,6 +577,7 @@ test('advances the change position when reparse only deletes facts and objects',
   expect(pruned.head).toBeGreaterThan(staleHead)
   expect(store.changes.after(staleHead, everything)).toEqual([])
   expect(store.observations.sessions()).toEqual(sessions)
+  expect(store.observations.agents(objectId(key))).toEqual(agents)
 
   store.transaction((transaction) => {
     transaction.facts.replace(record.seq, anotherVersion, [

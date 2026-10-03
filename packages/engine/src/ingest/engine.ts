@@ -592,7 +592,7 @@ export const createEngine = ({
     reparse: () =>
       enqueue(() => {
         const watch = new Map(quiet)
-        const result = reparse(store, adapters, watch, now(), quietAfterMs)
+        const result = reparse(store, adapters, contracts, watch, now(), quietAfterMs)
         quiet = watch
         return result
       }),

@@ -290,7 +290,8 @@ is not part of the item. Notifications other than requests for input
 ## Reparse
 
 `engine.reparse()` runs in the same queue as `ingest` and applies its result in
-one transaction. A failure leaves facts, raw records and objects unchanged.
+one transaction. A failure leaves facts, raw records, objects and the model
+unchanged.
 
 It parses again every collector record that has no fact of the current
 adapter's `normalizer_version`: records whose facts come from another
@@ -317,8 +318,20 @@ it has facts or owned records; its `unknown_records` is recounted from the owned
 records that are still not parsed, and its `unknown_records` gap closes when the
 count drops to zero. Fields that `ingest` keeps from earlier records, such as
 the support mode and the event times, are kept. A session without facts or owned
-records is deleted with its objects, and agent, action and question objects that
-no fact supports any longer are deleted.
+records is deleted with its objects, and action and question objects that no
+fact supports any longer are deleted.
+
+An agent that no fact supports any longer is replaced when the records that
+named it now name exactly one other projected agent of its session: the records
+whose facts lost the agent and gained other agents give the candidates, resolved
+through the teammate identity of the session. The agent is then removed with
+that replacement in the same transaction, as an identity refinement of
+ADR-0006: removals that named it are redirected to the replacement, and its
+model links are retargeted by the run linking rule through the journal, with
+the moved facts as evidence. An agent without such a replacement is deleted.
+The store refuses to delete an object that stored removals name as their
+replacement, so a reparse that would leave such an agent without a replacement
+fails and changes nothing: the contract has no removal without a replacement.
 
 A deleted fact, object or discarded record leaves no row in the change feed, so
 every deletion advances `change_seq`, and a record whose facts were added or
@@ -328,6 +341,10 @@ publishes the SSE `reset` with reason `reparsed` after a reparse. An object that
 is deleted and later projected again starts without fields owned by other rules,
 such as its run.
 
-The model journal and model entities are not changed. `resolveEvidence(facts,
+The deterministic rules of `ingest` run on the rebuilt sessions in the same
+transaction: run linking (E.4) and the failed check rule (E.7a) with the current
+contracts, so a check result that only the current normalizer recognises opens
+or closes its item without another `ingest`. Their changes are appended to the
+journal; earlier journal changes are never rewritten. `resolveEvidence(facts,
 evidence)` returns each referenced fact, or `unavailable` for a fact the current
 normalizer no longer produces. Reparse does not write `fact_interpretation`.
