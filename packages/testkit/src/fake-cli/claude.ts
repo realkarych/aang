@@ -86,6 +86,11 @@ const respond = (session: ClaudeSession, reply: Reply, prompt: string): void => 
       emit(initEvent(session))
       hang()
       return
+    case 'network':
+      emit(initEvent(session))
+      emit(errorResultEvent(session, 'API Error: Connection error.', null))
+      finish(1)
+      return
     case 'invalid_json':
       emit(initEvent(session))
       emit(textResultEvent(session, reply.text, defaultClaudeUsage))

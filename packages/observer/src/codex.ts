@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { observerOutputJsonSchema, type CallUsage } from '@aang/contract'
-import { createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, systemPrompt, validateOutput, type BackendOptions, type JsonObject } from './backend.js'
+import { authenticate, createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, resetTime, systemPrompt, validateOutput, type BackendOptions, type JsonObject } from './backend.js'
 
 const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins']
 const settings = [
@@ -35,9 +35,7 @@ export const createCodexLauncher = (options: BackendOptions, admittedVersion?: s
   let catalog: JsonObject | undefined
   return createBackend('codex', options, async ({ directory, run, input }) => {
     if (!authenticated) {
-      const auth = await run(['login', 'status'])
-      if (auth.failure !== null) requireSuccess(auth)
-      if (auth.exitCode !== 0) throw new LaunchError('auth', 'Codex is not logged in')
+      await authenticate('codex', run)
       authenticated = true
     }
     const version = await run(['--version'])
@@ -63,10 +61,13 @@ export const createCodexLauncher = (options: BackendOptions, admittedVersion?: s
     const completed = stream.filter((event) => event.type === 'turn.completed')
     const usage = usageOf(completed[0], options.model)
     if (unsupported) throw new LaunchError('isolation', 'Codex attempted an unsupported tool call', usage)
-    if (result.exitCode !== 0 || completed.length !== 1 || stream.some((event) => event.type === 'turn.failed')) {
-      const kind = failureClass(result.stdout + result.stderr)
+    const failed = stream.find((event) => event.type === 'turn.failed')
+    if (result.exitCode !== 0 || completed.length !== 1 || failed !== undefined) {
+      const text = result.stdout + result.stderr
+      const kind = failureClass(text)
       if (kind === 'auth') authenticated = false
-      throw new LaunchError(kind, 'Codex did not complete its turn', usage)
+      const message = object(failed?.error) && typeof failed.error.message === 'string' ? `: ${failed.error.message}` : ''
+      throw new LaunchError(kind, `Codex did not complete its turn${message}`, usage, kind === 'limit' ? resetTime(text) : null)
     }
     let output
     try { output = json(await readFile(lastPath, 'utf8')) }
