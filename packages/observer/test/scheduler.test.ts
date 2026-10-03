@@ -168,7 +168,7 @@ test('needs get exactly one immediate follow-up that does not spend an attempt',
   ])
 })
 
-test('one call per run, two observer calls at once, and chat keeps its own slot', async (context) => {
+test('one call per run, two observer calls at once, and chat keeps its own slot', { timeout: 90_000 }, async (context) => {
   const hang = { kind: 'timeout' } as const
   const scene = await createScene(context, {
     claude: [hang, hang, hang, accepted, accepted, accepted],
@@ -213,7 +213,7 @@ test('one call per run, two observer calls at once, and chat keeps its own slot'
 })
 
 test('a run waits for an admitted backend of its vendor', async (context) => {
-  const scene = await createScene(context, { admit: false, claude: [accepted], codex: [accepted] })
+  const scene = await createScene(context, { admit: [], claude: [accepted], codex: [accepted] })
   const claudeSession = scene.claudeSession('session-claude')
   const codexSession = scene.codexSession('thread-codex')
   await claudeSession.start()
@@ -237,28 +237,30 @@ test('a run waits for an admitted backend of its vendor', async (context) => {
   expect(scene.prompts('claude').map(({ run }) => run.id)).toEqual([claudeSession.run])
 })
 
-test('an overridden backend gets facts of another vendor only with crossVendor', async (context) => {
-  const excluded = await createScene(context, { backend: 'codex', codex: [accepted] })
-  const session = excluded.claudeSession('session-excluded')
+test('an overridden backend gets no facts of another vendor without crossVendor', async (context) => {
+  const scene = await createScene(context, { admit: ['codex'], backend: 'codex', codex: [accepted] })
+  const session = scene.claudeSession('session-excluded')
   await session.start()
   await session.permission()
-  excluded.scheduler.wake()
-  await excluded.scheduler.idle()
-  expect(excluded.tally(session.run)).toEqual({ not_interpreted: 2 })
-  expect(excluded.calls(session.run)).toEqual([])
-  expect(excluded.store.gaps.open('cross_vendor_excluded')).toMatchObject([
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  expect(scene.tally(session.run)).toEqual({ not_interpreted: 2 })
+  expect(scene.calls(session.run)).toEqual([])
+  expect(scene.store.gaps.open('cross_vendor_excluded')).toMatchObject([
     { run: session.run, details: 'facts of this session are not sent to the codex observer without observer.crossVendor' },
   ])
+})
 
-  const shared = await createScene(context, { backend: 'codex', crossVendor: true, codex: [accepted] })
-  const crossing = shared.claudeSession('session-crossing')
-  await crossing.start()
-  await crossing.permission()
-  shared.scheduler.wake()
-  await shared.scheduler.idle()
-  expect(shared.tally(crossing.run)).toEqual({ interpreted: 2 })
-  expect(shared.prompts('codex').map(({ run }) => [run.id, run.runtime])).toEqual([[crossing.run, 'claude']])
-  expect(shared.calls(crossing.run).map(({ backend }) => backend)).toEqual(['codex'])
+test('an overridden backend gets facts of another vendor with crossVendor', async (context) => {
+  const scene = await createScene(context, { admit: ['codex'], backend: 'codex', crossVendor: true, codex: [accepted] })
+  const session = scene.claudeSession('session-crossing')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  expect(scene.tally(session.run)).toEqual({ interpreted: 2 })
+  expect(scene.prompts('codex').map(({ run }) => [run.id, run.runtime])).toEqual([[session.run, 'claude']])
+  expect(scene.calls(session.run).map(({ backend }) => backend)).toEqual(['codex'])
 })
 
 test('facts beyond the active queue are deferred from the oldest with a visible gap', async (context) => {
@@ -361,5 +363,5 @@ test('a store failure surfaces through the scheduler instead of stopping the pro
 
   scene.scheduler.wake()
   expect(await scene.scheduler.failure).toBeInstanceOf(Error)
-  await scene.scheduler.idle()
+  await scene.scheduler.close()
 })

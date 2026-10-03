@@ -155,7 +155,7 @@ export const start = Date.parse('2026-10-03T09:00:00.000Z')
 export interface SceneOptions {
   readonly claude?: readonly ClaudeReply[]
   readonly codex?: readonly CodexReply[]
-  readonly admit?: boolean
+  readonly admit?: readonly Runtime[]
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
   readonly limits?: Partial<SchedulerLimits>
@@ -190,9 +190,8 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
     model: 'gpt-6.1-sol',
     admissionStatusPath: join(root, 'codex-observer.json'),
   })
-  if (options.admit ?? true) {
-    await Promise.all([claude.admit(), codex.admit()])
-  }
+  const admitted = options.admit ?? ['claude']
+  await Promise.all(admitted.map((runtime) => (runtime === 'claude' ? claude : codex).admit()))
   const manual = options.systemClock === true ? null : manualClock(start)
   let failure: unknown = null
   const boot = () => {
