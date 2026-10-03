@@ -316,27 +316,37 @@ an observer response and after a restart; the engine queue orders it with ingest
 
 ### Patch bases
 
-The base of a patch is the version of the patched path that the action changed. It
-is established only when it is unambiguous:
+The base of a patch is the content of the patched path that the action changed. It
+is established only when it is proven:
 
-- the writes of the run (all its sessions) are the actions that would give a
-  version of the path: a successful file tool or a command that redirects to it,
-  with the time of the first start and of the first qualifying end;
-- the base is the latest write of the source path (the path before a `*** Move
-  to`) that ended before the patch started, and no other write ended at the same
-  time or overlapped the patching action;
-- the content of the base is known from payloads: full content of the base action,
-  or a patch to its own established base. A command write has no known content;
+- a Claude `Edit` or `MultiEdit` that reports `originalFile` in its result has that
+  content as its base: the tool read it right before applying the change. When the
+  result says `userModified`, the change differs from the input and the version is
+  not rebuilt. Only an edit without a reported original looks for a base in the run;
+- otherwise the base is the latest known state of the source path (the path before a
+  `*** Move to`) before the patch started: the end of a write of the run (all its
+  sessions), that is a successful file tool or a command that redirects to the path,
+  or a stored `file_read` of the path with its `read_at`. Two states at the same time
+  make it ambiguous;
+- the content of a write is known from payloads: full content of the action, or a
+  patch to its own established base. A command write has no known content. The
+  content of a stored read is its blob;
+- nothing may have changed the path between that state and the end of the patch: no
+  other action that could write it ran in that window. Every command, MCP tool, code
+  cell and unknown tool could write any path, a file tool could write the paths it
+  names; reads, searches, web, questions, plans and agent calls, whose own actions
+  are observed in their sessions, do not write. Denied actions did not run; an
+  action without an end and a Claude command `run_in_background` are still running;
 - every replacement applies exactly: Claude `old_string` occurs once (or at least
   once with `replace_all`), and an empty `new_string` does not touch a following
   newline; Codex hunks match their context and lines exactly, with the matching
   and end-of-file rules of `apply_patch`.
 
 When any condition fails the version is read from the file as before. Writes the
-daemon does not observe (an editor, a formatter, a command without a redirection)
-are not in the history: exact matching rejects those that touch the patched text,
-but not a change elsewhere in the file. Codex `FileChange` diffs are not used as
-patches; the `apply_patch` input of the same action is.
+daemon does not observe at all, such as an editor outside the sessions, are out of
+reach of these rules; a reported original covers them for Claude edits. Codex
+`FileChange` diffs are not used as patches; the `apply_patch` input of the same
+action is.
 
 Blobs are stored once per hash with a reference per version and its source; the
 last reference removes the blob. Retention changes the version, so it reaches the

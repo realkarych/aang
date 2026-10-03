@@ -29,7 +29,7 @@ interface Source {
   readonly cwd: string
 }
 
-type Call = readonly [id: string, tool: string, input: JsonValue, result: Result]
+type Call = readonly [id: string, tool: string, input: JsonValue, result: Result, response?: JsonValue]
 
 type Result = 'ok' | 'error' | 'denied'
 
@@ -37,21 +37,21 @@ const readAt = at(500)
 
 const observed = { kind: 'observed' } as const
 
-const setup = async (register: Register, maxBlobBytes?: number) => {
+const setup = async (register: Register, maxBlobBytes?: number, now: () => EpochNs = () => readAt) => {
   const home = await createHome(register)
   const project = join(home.path, '..', 'project')
   await writeFiles(project, {})
   const store = home.open()
-  const engine = startEngine(store, maxBlobBytes)
+  const engine = startEngine(store, maxBlobBytes, now)
   return { home, store, engine, project }
 }
 
-const startEngine = (store: Store, maxBlobBytes?: number): Engine =>
+const startEngine = (store: Store, maxBlobBytes?: number, now: () => EpochNs = () => readAt): Engine =>
   createEngine({
     store,
     adapters,
     watch: { all: true, roots: [] },
-    now: () => readAt,
+    now,
     ...(maxBlobBytes === undefined ? {} : { maxBlobBytes }),
   })
 
@@ -66,7 +66,7 @@ const line = (source: Source, uuid: string, second: number, type: 'assistant' | 
     ...extra,
   })
 
-const callLines = (source: Source, [id, tool, input, result]: Call, second: number): string[] => [
+const callLines = (source: Source, [id, tool, input, result, response]: Call, second: number): string[] => [
   line(source, `use-${id}`, second, 'assistant', {
     id: `message-${id}`,
     role: 'assistant',
@@ -83,7 +83,10 @@ const callLines = (source: Source, [id, tool, input, result]: Call, second: numb
         { type: 'tool_result', tool_use_id: id, content: result === 'ok' ? 'done' : 'Exit code 1\nfailed', is_error: result !== 'ok' },
       ],
     },
-    result === 'denied' ? { toolDenialKind: 'user' } : {},
+    {
+      ...(result === 'denied' ? { toolDenialKind: 'user' } : {}),
+      ...(response === undefined ? {} : { toolUseResult: response }),
+    },
   ),
 ]
 
@@ -913,4 +916,156 @@ test.for<{ name: string; added: string; update: string; text: string | null }>([
   linkOutputs(store, codexKey, [version.id], startOf(store, 'call_update'), 'codex-patch-call')
   await engine.retainBases()
   expect(retainedAs(store, version.id)).toEqual(text === null ? { kind: 'file_read', text: 'on disk\n' } : { kind: 'action_payload', text })
+})
+
+const transcriptAt = (second: number, nanos = 0n): EpochNs =>
+  EpochNs.parse(BigInt(Date.UTC(2026, 9, 1, 10, 0, second)) * 1_000_000n + nanos)
+
+const reportedEdit = (id: string, file_path: string, original: string, userModified = false): Call => [
+  id,
+  'Edit',
+  { file_path, old_string: 'alpha', new_string: 'one' },
+  'ok',
+  {
+    filePath: file_path,
+    oldString: 'alpha',
+    newString: 'one',
+    originalFile: original,
+    structuredPatch: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, lines: ['-alpha', '+one'] }],
+    userModified,
+    replaceAll: false,
+  },
+]
+
+test.for<{ name: string; calls: (path: string) => readonly Call[]; retained: { kind: string; text: string } }>([
+  {
+    name: 'an edit is rebuilt from the original it reports, not from an older payload',
+    calls: (path) => [write('toolu_base', path, 'alpha\nbeta\n'), bash('toolu_fix', 'python3 scripts/fix.py'), reportedEdit('toolu_patch', path, 'alpha\ngamma\n')],
+    retained: { kind: 'action_payload', text: 'one\ngamma\n' },
+  },
+  {
+    name: 'an edit the user modified is read from the file',
+    calls: (path) => [write('toolu_base', path, 'alpha\nbeta\n'), reportedEdit('toolu_patch', path, 'alpha\nbeta\n', true)],
+    retained: { kind: 'file_read', text: 'on disk\n' },
+  },
+  {
+    name: 'an edit the user modified without a reported original is read from the file',
+    calls: (path) => [
+      write('toolu_base', path, 'alpha\nbeta\n'),
+      ['toolu_patch', 'Edit', { file_path: path, old_string: 'alpha', new_string: 'one' }, 'ok', { filePath: path, userModified: true }],
+    ],
+    retained: { kind: 'file_read', text: 'on disk\n' },
+  },
+  {
+    name: 'an edit without a reported original after a command that may have changed the file is read from the file',
+    calls: (path) => [write('toolu_base', path, 'alpha\nbeta\n'), bash('toolu_fix', 'python3 scripts/fix.py'), edit('toolu_patch', path, 'alpha', 'one')],
+    retained: { kind: 'file_read', text: 'on disk\n' },
+  },
+  {
+    name: 'an edit without a reported original while a background command still runs is read from the file',
+    calls: (path) => [
+      ['toolu_watch', 'Bash', { command: 'python3 scripts/watch.py', run_in_background: true, description: 'Watch' }, 'ok'],
+      write('toolu_base', path, 'alpha\nbeta\n'),
+      edit('toolu_patch', path, 'alpha', 'one'),
+    ],
+    retained: { kind: 'file_read', text: 'on disk\n' },
+  },
+])('$name', async ({ calls, retained }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  const source = { session: 'reported-session', cwd: project }
+  const path = join(project, 'file.txt')
+  await ingestCalls(engine, source, calls(path))
+  await writeFiles(project, { 'file.txt': 'on disk\n' })
+  const version = versionOfCall(store, runOf(source), 'toolu_patch')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [version.id], startOf(store, 'toolu_patch'), 'reported-call')
+  await engine.retainBases()
+  expect(retainedAs(store, version.id)).toEqual(retained)
+})
+
+test('a Codex patch after a command that may have changed another line of its base is read from the file', async ({ onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  await ingestCodex(engine, project, [
+    ...codexPatchCall(1, 'call_add', '*** Begin Patch\n*** Add File: notes.txt\n+alpha\n+beta\n*** End Patch\n'),
+    codexExec(3, 'call_fix', { cmd: 'python3 scripts/fix.py' }),
+    codexCommand(4, 'call_fix', ['/bin/zsh', '-lc', 'python3 scripts/fix.py'], project),
+    ...codexPatchCall(5, 'call_update', '*** Begin Patch\n*** Update File: notes.txt\n@@\n-alpha\n+one\n*** End Patch\n'),
+  ])
+  await writeFiles(project, { 'notes.txt': 'one\ngamma\n' })
+  const run = runId(codexKey)
+  const version = versionOfCall(store, run, 'call_update')
+  openRun(store, codexKey)
+  linkOutputs(store, codexKey, [version.id], startOf(store, 'call_update'), 'codex-fix-call')
+  await engine.retainBases()
+  expect(retainedAs(store, version.id)).toEqual({ kind: 'file_read', text: 'one\ngamma\n' })
+})
+
+test.for<{ name: string; reported: boolean }>([
+  { name: 'reporting its original', reported: true },
+  { name: 'without a reported original', reported: false },
+])('a Claude edit $name of a file a command created and that was read as a basis is rebuilt after the file is gone', async ({ reported }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished, undefined, () => transcriptAt(1, 500_000_000n))
+  const source = { session: 'created-session', cwd: project }
+  const path = join(project, 'file.txt')
+  const transcript = transcriptOf(source, [
+    bash('toolu_create', 'printf "alpha\\nbeta\\n" > file.txt'),
+    reported ? reportedEdit('toolu_patch', path, 'alpha\nbeta\n') : edit('toolu_patch', path, 'alpha', 'one'),
+  ])
+  await writeFiles(project, { 'file.txt': 'alpha\nbeta\n' })
+  await engine.ingest(transcript.batch(1, 2))
+  const created = versionOfCall(store, runOf(source), 'toolu_create')
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), [created.id], startOf(store, 'toolu_create'), 'created-call')
+  await engine.retainBases()
+  expect(retainedAs(store, created.id)).toEqual({ kind: 'file_read', text: 'alpha\nbeta\n' })
+
+  await engine.ingest(transcript.batch(3, 4))
+  await rm(path)
+  const patched = versionOfCall(store, runOf(source), 'toolu_patch')
+  linkOutputs(store, keyOf(source), [patched.id], startOf(store, 'toolu_patch'), 'patched-call')
+  const action = objectId({ kind: 'action', runtime: 'claude', session: source.session, call: 'toolu_patch' })
+  expect(await engine.retainBases()).toEqual([
+    expect.objectContaining({ id: patched.id, retention: { kind: 'action_payload', blob: contentHash('one\nbeta\n'), action } }),
+  ])
+  expect(retainedAs(store, patched.id)).toEqual({ kind: 'action_payload', text: 'one\nbeta\n' })
+})
+
+test.for<{ name: string; between: (project: string) => readonly string[]; retained: { kind: string; text: string } | null }>([
+  { name: 'is rebuilt from the stored read', between: () => [], retained: { kind: 'action_payload', text: 'one\nbeta\n' } },
+  {
+    name: 'after another command is not rebuilt',
+    between: (project) => [
+      codexExec(4, 'call_fix', { cmd: 'python3 scripts/fix.py' }),
+      codexCommand(5, 'call_fix', ['/bin/zsh', '-lc', 'python3 scripts/fix.py'], project),
+    ],
+    retained: null,
+  },
+])('a Codex patch to a file a command created and that was read as a basis $name', async ({ between, retained }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished, undefined, () =>
+    EpochNs.parse(BigInt(codexStartMs + 2_500) * 1_000_000n),
+  )
+  const lines = [
+    codexRollout({ thread: codexThread, cwd: project })[0] ?? '',
+    codexExec(1, 'call_create', { cmd: "printf 'alpha\\nbeta\\n' > notes.txt" }),
+    codexCommand(2, 'call_create', ['/bin/zsh', '-lc', "printf 'alpha\\nbeta\\n' > notes.txt"], project),
+    ...between(project),
+    ...codexPatchCall(6, 'call_update', '*** Begin Patch\n*** Update File: notes.txt\n@@\n-alpha\n+one\n*** End Patch\n'),
+  ]
+  const file = jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 25n })
+  await writeFiles(project, { 'notes.txt': 'alpha\nbeta\n' })
+  await engine.ingest(file.batch(1, 3))
+  const run = runId(codexKey)
+  const created = versionOfCall(store, run, 'call_create')
+  openRun(store, codexKey)
+  linkOutputs(store, codexKey, [created.id], startOf(store, 'call_create'), 'codex-created-call')
+  await engine.retainBases()
+  expect(retainedAs(store, created.id)).toEqual({ kind: 'file_read', text: 'alpha\nbeta\n' })
+
+  await engine.ingest(file.batch(4, lines.length))
+  await rm(join(project, 'notes.txt'))
+  const patched = versionOfCall(store, run, 'call_update')
+  linkOutputs(store, codexKey, [patched.id], startOf(store, 'call_update'), 'codex-patched-call')
+  await engine.retainBases()
+  expect(store.artifacts.getVersion(patched.id)?.retention.kind).toBe(retained === null ? 'reference' : retained.kind)
+  expect(retainedAs(store, patched.id)).toEqual(retained ?? { kind: 'reference', text: null })
 })

@@ -1,17 +1,21 @@
 import { createHash } from 'node:crypto'
 import { type FileHandle, open, stat } from 'node:fs/promises'
 import {
+  type Action,
   type ActionId,
+  type ActionKind,
   type ArtifactVersion,
   type ArtifactVersionId,
   ContentHash,
   type EpochNs,
   type Fact,
+  type FactOf,
   type RunId,
   type SessionId,
 } from '@aang/contract'
 import { contentHash, objectId } from '@aang/contract/ids'
 import type { RetainedContent, Store } from '@aang/store'
+import { fieldOf } from '../checks/commands.js'
 import { applyPatch } from './patches.js'
 import { actionCandidates, type FilePatch } from './references.js'
 import { actionWrites, type PathWrite } from './versions.js'
@@ -21,7 +25,33 @@ export interface RetentionOptions {
   readonly now: () => EpochNs
 }
 
-type History = ReadonlyMap<string, readonly PathWrite[]>
+interface Activity {
+  readonly action: ActionId
+  readonly started: EpochNs | null
+  readonly ended: EpochNs | null
+  readonly paths: ReadonlySet<string> | null
+}
+
+interface StoredRead {
+  readonly at: EpochNs
+  readonly blob: ContentHash
+}
+
+interface History {
+  readonly writes: ReadonlyMap<string, readonly PathWrite[]>
+  readonly activities: readonly Activity[]
+  readonly reads: ReadonlyMap<string, readonly StoredRead[]>
+  readonly originals: ReadonlyMap<ActionId, string | null>
+}
+
+type Base = { readonly kind: 'write'; readonly write: PathWrite } | { readonly kind: 'read'; readonly blob: ContentHash }
+
+interface State {
+  readonly at: EpochNs
+  readonly since: EpochNs
+  readonly action: ActionId | null
+  readonly base: Base
+}
 
 interface Retention {
   readonly store: Store
@@ -68,8 +98,59 @@ const added = <T>(groups: Map<string, T[]>, key: string, value: T): void => {
   }
 }
 
+const single = <T>(values: readonly T[], key: (value: T) => string): T | null => {
+  const distinct = new Map(values.map((value) => [key(value), value]))
+  const [only] = distinct.values()
+  return distinct.size === 1 && only !== undefined ? only : null
+}
+
+const silentKinds: ReadonlySet<ActionKind> = new Set(['file_read', 'search', 'web', 'agent', 'question', 'plan'])
+
+const extreme = (times: readonly EpochNs[], later: boolean): EpochNs | null =>
+  times.reduce<EpochNs | null>((found, time) => (found === null || (later ? time > found : time < found) ? time : found), null)
+
+const activityOf = (action: Action, facts: readonly Fact[], session: string | null): Activity | null => {
+  if (silentKinds.has(action.action_kind) || action.outcome?.value === 'denied') {
+    return null
+  }
+  const starts = facts.filter((fact): fact is FactOf<'action_start'> => fact.kind === 'action_start')
+  const ends = facts.flatMap((fact) => (fact.kind === 'action_end' ? [fact.at] : []))
+  const background = starts.some(({ payload }) => fieldOf(payload.input, 'run_in_background') === true)
+  const written = action.action_kind === 'file_write' ? actionCandidates(facts, session) : []
+  return {
+    action: action.id,
+    started: extreme(starts.map(({ at }) => at), false),
+    ended: background ? null : (extreme(ends, true) ?? action.ended_at),
+    paths: written.length === 0 ? null : new Set(written.flatMap(({ path, patch }) => (patch === null ? [path] : [path, patch.base]))),
+  }
+}
+
+const originalOf = (facts: readonly Fact[]): string | null | undefined => {
+  const results = facts.flatMap((fact) => (fact.kind === 'action_end' && fact.payload.result !== null ? [fact.payload.result] : []))
+  if (results.some((result) => fieldOf(result, 'userModified') === true)) {
+    return null
+  }
+  const originals = results.flatMap((result) => {
+    const original = fieldOf(result, 'originalFile')
+    return typeof original === 'string' ? [original] : []
+  })
+  return originals.length === 0 ? undefined : single(originals, (text) => text)
+}
+
+const storedReads = (store: Store, run: RunId): Map<string, StoredRead[]> => {
+  const reads = new Map<string, StoredRead[]>()
+  for (const { ref, retention } of store.artifacts.versions(run)) {
+    if (ref.kind === 'file' && retention.kind === 'file_read') {
+      added(reads, ref.path, { at: retention.read_at, blob: retention.blob })
+    }
+  }
+  return reads
+}
+
 const historyOf = (store: Store, run: RunId, session: SessionId): History => {
-  const history = new Map<string, PathWrite[]>()
+  const writes = new Map<string, PathWrite[]>()
+  const activities: Activity[] = []
+  const originals = new Map<ActionId, string | null>()
   for (const id of sessionsOf(store, run, session)) {
     const owner = store.observations.getSession(id)
     if (owner === null) {
@@ -85,40 +166,70 @@ const historyOf = (store: Store, run: RunId, session: SessionId): History => {
       if (action.inherited) {
         continue
       }
-      for (const write of actionWrites(action, facts.get(action.id) ?? [], owner.cwd)) {
-        added(history, write.path, write)
+      const own = facts.get(action.id) ?? []
+      for (const write of actionWrites(action, own, owner.cwd)) {
+        added(writes, write.path, write)
+      }
+      const activity = activityOf(action, own, owner.cwd)
+      if (activity !== null) {
+        activities.push(activity)
+      }
+      const original = action.action_kind === 'file_write' ? originalOf(own) : undefined
+      if (original !== undefined) {
+        originals.set(action.id, original)
       }
     }
   }
-  return history
+  return { writes, activities, reads: storedReads(store, run), originals }
 }
 
-const baseOf = (history: History, write: PathWrite, path: string): PathWrite | null => {
-  const others = (history.get(path) ?? []).filter(({ action }) => action.id !== write.action.id)
-  if (others.some(({ started, ended }) => started <= write.ended && ended >= write.started)) {
+const baseOf = (history: History, write: PathWrite, path: string): Base | null => {
+  const states: State[] = [
+    ...(history.writes.get(path) ?? []).flatMap((other): State[] =>
+      other.action.id !== write.action.id && other.ended < write.started
+        ? [{ at: other.ended, since: other.started, action: other.action.id, base: { kind: 'write', write: other } }]
+        : [],
+    ),
+    ...(history.reads.get(path) ?? []).flatMap(({ at, blob }): State[] =>
+      at < write.started ? [{ at, since: at, action: null, base: { kind: 'read', blob } }] : [],
+    ),
+  ]
+  const latest = states.reduce<State | null>((found, state) => (found === null || state.at > found.at ? state : found), null)
+  if (latest === null || states.filter(({ at }) => at === latest.at).length > 1) {
     return null
   }
-  const earlier = others.filter(({ ended }) => ended < write.started)
-  const latest = earlier.reduce<PathWrite | null>((found, other) => (found === null || other.ended > found.ended ? other : found), null)
-  return latest === null || earlier.filter(({ ended }) => ended === latest.ended).length > 1 ? null : latest
+  const touched = history.activities.some(
+    ({ action, started, ended, paths }) =>
+      action !== write.action.id &&
+      action !== latest.action &&
+      (paths === null || paths.has(path)) &&
+      (started === null || started <= write.ended) &&
+      (ended === null || ended >= latest.since),
+  )
+  return touched ? null : latest.base
 }
 
-const single = <T>(values: readonly T[], key: (value: T) => string): T | null => {
-  const distinct = new Map(values.map((value) => [key(value), value]))
-  const [only] = distinct.values()
-  return distinct.size === 1 && only !== undefined ? only : null
+const decoder = new TextDecoder('utf-8', { fatal: true })
+
+const blobText = (store: Store, blob: ContentHash): string | null => {
+  const bytes = store.artifacts.blob(blob)
+  try {
+    return bytes === null ? null : decoder.decode(bytes)
+  } catch {
+    return null
+  }
 }
 
 const writeKey = ({ action, path }: PathWrite): string => `${action.id}\0${path}`
 
 const contentOf = (retention: Retention, history: History, write: PathWrite): string | null => {
   const patched: { readonly write: PathWrite; readonly patch: FilePatch }[] = []
-  let current: PathWrite | null = write
-  let content: string | null = null
-  while (current !== null) {
+  let current = write
+  let content: string | null
+  for (;;) {
     const known = retention.contents.get(writeKey(current))
-    if (known !== undefined) {
-      content = known
+    if (known !== undefined || patched.some((step) => step.write === current)) {
+      content = known ?? null
       break
     }
     const full = current.candidates.flatMap(({ content: text }) => (text === null ? [] : [text]))
@@ -132,7 +243,13 @@ const contentOf = (retention: Retention, history: History, write: PathWrite): st
       break
     }
     patched.push({ write: current, patch })
-    current = baseOf(history, current, patch.base)
+    const original = history.originals.get(current.action.id)
+    const base = original === undefined ? baseOf(history, current, patch.base) : null
+    if (base?.kind !== 'write') {
+      content = original ?? (base === null ? null : blobText(retention.store, base.blob))
+      break
+    }
+    current = base.write
   }
   for (const { write: step, patch } of patched.toReversed()) {
     content = content === null ? null : applyPatch(patch.change, content)
@@ -161,7 +278,7 @@ const payloadContent = (retention: Retention, version: ArtifactVersion): Retaine
   }
   const history = retention.histories.get(version.run) ?? historyOf(store, version.run, session.id)
   retention.histories.set(version.run, history)
-  const write = history.get(path)?.find((candidate) => candidate.action.id === action.id)
+  const write = history.writes.get(path)?.find((candidate) => candidate.action.id === action.id)
   const content = write === undefined ? null : contentOf(retention, history, write)
   return content === null ? null : produced(action.id, content, options.maxBlobBytes)
 }
