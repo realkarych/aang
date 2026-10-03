@@ -205,7 +205,7 @@ describe('records that precede the first cwd of their session', () => {
     expect(recordsOf(store).map((record) => [record.channel, record.stream])).toEqual([
       ['transcript', stream],
       ['transcript', stream],
-      ['hook', null],
+      ['hook', stream],
     ])
     expect(store.cursors.list()).toEqual([file.cursor(2, stream)])
   })

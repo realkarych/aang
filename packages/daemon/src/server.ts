@@ -9,7 +9,10 @@ import {
   type ShutdownResponse,
   streamPath,
 } from '@aang/contract'
+import { z } from 'zod'
+import { AdminError } from './admin-error.js'
 import type { Authenticator } from './auth.js'
+import type { Admin } from './ingestion.js'
 import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
 import type { Streams } from './stream.js'
@@ -20,6 +23,7 @@ export interface ServerOptions {
   readonly staticRoot: string | null
   readonly routes: (address: Listener) => readonly ApiRoute[]
   readonly streams: Streams
+  readonly admin: Admin
   readonly onShutdown: () => void
 }
 
@@ -89,6 +93,7 @@ export const startServer = async ({
   staticRoot,
   routes,
   streams,
+  admin,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
   const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
@@ -108,6 +113,50 @@ export const startServer = async ({
     sendJson(response, 200, accepted)
   }
 
+  const serveAdmin = async <S extends z.ZodType, R extends z.ZodType>(
+    request: IncomingMessage,
+    response: ServerResponse,
+    spec: { readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => Promise<z.output<R>>,
+  ): Promise<void> => {
+    let body: unknown
+    try {
+      body = await readJson(request)
+    } catch (error) {
+      sendError(response, 'invalid_request', error instanceof Error ? error.message : String(error))
+      return
+    }
+    const parsed = spec.body.safeParse(body)
+    if (!parsed.success) {
+      sendError(response, 'invalid_request', z.prettifyError(parsed.error))
+      return
+    }
+    try {
+      sendJson(response, 200, spec.response.encode(await handle(parsed.data)))
+    } catch (error) {
+      if (error instanceof AdminError) {
+        sendError(response, error.code, error.message)
+        return
+      }
+      throw error
+    }
+  }
+
+  const adminRoute = <S extends z.ZodType, R extends z.ZodType>(
+    spec: { readonly method: string; readonly path: string; readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => Promise<z.output<R>>,
+  ) => ({
+    method: spec.method,
+    path: spec.path,
+    serve: (request: IncomingMessage, response: ServerResponse) => serveAdmin(request, response, spec, handle),
+  })
+
+  const adminRoutes = [
+    adminRoute(endpoints.watch, admin.watch),
+    adminRoute(endpoints.unwatch, admin.unwatch),
+    adminRoute(endpoints.prune, admin.prune),
+  ]
+
   const routeApi = async (
     table: readonly ApiRoute[],
     request: IncomingMessage,
@@ -125,6 +174,11 @@ export const startServer = async ({
       if (refusal !== null) {
         sendError(response, refusal.code, refusal.message)
       }
+      return
+    }
+    const adminMatch = adminRoutes.find((route) => route.method === method && route.path === pathname)
+    if (adminMatch !== undefined) {
+      await adminMatch.serve(request, response)
       return
     }
     const match = matchRoute(table, method, pathname)

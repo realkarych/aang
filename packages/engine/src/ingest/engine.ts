@@ -13,6 +13,7 @@ import type {
   Fact,
   FileCursor,
   EpochNs as EpochNsType,
+  PruneRequest,
   RecordOwner,
   RunId,
   Runtime,
@@ -23,7 +24,7 @@ import type {
 } from '@aang/contract'
 import { BindingId, EpochNs } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
-import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
+import type { GapDraft, SessionDecision, Store, Transaction } from '@aang/store'
 import { retainBases } from '../artifacts/retention.js'
 import { projectVersions } from '../artifacts/versions.js'
 import { refreshChecks, refreshRunChecks } from '../checks/attention.js'
@@ -37,6 +38,7 @@ import { checkSnapshots } from '../snapshots/checks.js'
 import { recordSnapshot } from '../snapshots/record.js'
 import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { normalizeOtel } from './otel.js'
+import { type PrefixHash, pruneBoundaries, pruneEpochSetting, type PruneOutcome, pruneRuns, pruneTarget } from './prune.js'
 import { queueFacts } from './queue.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
@@ -60,6 +62,7 @@ import {
   sessionName,
 } from './records.js'
 import { createScopeJudge, type WatchedRoots } from './scope.js'
+import { applyDecisions, externalStreams, judgeAgain, streamSession, type WatchChange } from './watch.js'
 
 export interface HoldingLimits {
   readonly fileBytes: number
@@ -99,6 +102,8 @@ export interface Engine {
   readonly revokeBinding: (id: BindingId) => Promise<BindingResult>
   readonly reparse: () => Promise<ReparseResult>
   readonly retainBases: (runs?: Iterable<RunId>) => Promise<readonly ArtifactVersion[]>
+  readonly rewatch: (watch: WatchedRoots, persist: (transaction: Transaction) => void) => Promise<WatchChange>
+  readonly prune: (request: PruneRequest, prefixHash: PrefixHash) => Promise<PruneOutcome>
 }
 
 interface HeldHook {
@@ -212,7 +217,8 @@ export const createEngine = ({
     throw new RangeError('blob size limit must be a positive safe integer in bytes')
   }
   const adapters = adaptersOf(registry)
-  const contracts = createContractCatalog(watch)
+  let watching = watch
+  let contracts = createContractCatalog(watch)
   const limits: HoldingLimits = { ...defaultHolding, ...holding }
   let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
   let quiet = quietWatchOf(store.observations.sessions())
@@ -304,9 +310,9 @@ export const createEngine = ({
   const decideSessions = async (
     evidence: Map<string, Evidence>,
     scopes: SessionScopes,
-  ): Promise<SessionScope[]> => {
-    const judge = createScopeJudge(watch)
-    const decided: SessionScope[] = []
+  ): Promise<SessionDecision[]> => {
+    const judge = createScopeJudge(watching)
+    const decided: SessionDecision[] = []
     for (const [name, gathered] of [...evidence]) {
       const cwd = gathered.start
       const stored = scopes.get(gathered.session)
@@ -315,7 +321,7 @@ export const createEngine = ({
         evidence.delete(name)
         if (stored === null) {
           scopes.set(gathered.session, scope)
-          decided.push({ session: gathered.session, scope })
+          decided.push({ session: gathered.session, scope, cwd })
         }
       }
     }
@@ -326,7 +332,7 @@ export const createEngine = ({
     batch: CollectorBatch,
     items: readonly Item[],
     steps: ReadonlyMap<string, FileStep>,
-    decided: readonly SessionScope[],
+    decided: readonly SessionDecision[],
     scopes: SessionScopes,
   ): Committed =>
     store.transaction((transaction: Transaction) => {
@@ -388,16 +394,22 @@ export const createEngine = ({
       const streamScope = (stream: StreamKey): ScopeDecision | null =>
         streamScopes.get(stream) ?? transaction.scopes.get(stream)?.scope ?? null
 
-      const settleStream = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null => {
-        const known = streamScope(stream)
-        if (known !== null || session === null) {
-          return known
-        }
-        const scope = scopes.get(session)
-        if (scope !== null) {
-          transaction.scopes.decide({ stream, runtime: session.runtime, scope })
+      const decideStream = (stream: StreamKey, runtime: Runtime, scope: ScopeDecision): void => {
+        if (streamScope(stream) !== scope) {
+          transaction.scopes.decide({ stream, runtime, scope })
           streamScopes.set(stream, scope)
         }
+      }
+
+      const takenAs = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null =>
+        (session === null ? null : scopes.get(session)) ?? streamScope(stream)
+
+      const settleStream = (stream: StreamKey, session: SessionKey | null): ScopeDecision | null => {
+        const scope = session === null ? null : scopes.get(session)
+        if (session === null || scope === null) {
+          return streamScope(stream)
+        }
+        decideStream(stream, session.runtime, scope)
         return scope
       }
 
@@ -441,9 +453,15 @@ export const createEngine = ({
       const commitStep = (step: FileStep): void => {
         switch (step.kind) {
           case 'append': {
-            const scope = streamScope(step.stream)
+            const [first] = step.lines
+            const owner = step.lines.map((record) => adapters[record.runtime].owner(record)).find((found) => found !== null)
+            const session = owner?.session ?? (first === undefined ? null : streamSession(transaction, adapters, step.stream))
+            const scope = takenAs(step.stream, session)
             if (scope === null) {
               throw new Error(`the stream ${step.stream} of ${step.file.path} has no scope decision`)
+            }
+            if (first !== undefined && scope !== 'watched') {
+              decideStream(step.stream, first.runtime, scope)
             }
             keep(step.lines, scope)
             saveCursor(step.cursor, step.stream)
@@ -468,17 +486,25 @@ export const createEngine = ({
         }
       }
 
+      const prunedAt = (session: SessionKey): EpochNsType | null =>
+        transaction.pruned
+          .ofSession(session)
+          .reduce<EpochNsType | null>((latest, { pruned_at: at }) => (latest === null || at > latest ? at : latest), null)
+
       const commitHook = (held: HeldHook): void => {
         const scope = scopes.get(held.owner.session)
+        const pruned = prunedAt(held.owner.session)
         if (scope === null) {
           hooks.push(held)
+        } else if (pruned !== null && held.hook.record.observed_at < pruned) {
+          tally.discarded += 1
         } else {
           const record = held.hook.record
           const stream = adapters[record.runtime].streamKey([record.payload])
-          if (stream !== null) {
-            transaction.scopes.decide({ stream, runtime: record.runtime, scope })
+          if (stream !== null && streamScope(stream) === null) {
+            decideStream(stream, record.runtime, scope)
           }
-          keep([record], scope)
+          keep([{ ...record, stream: record.stream ?? stream }], scope)
         }
       }
 
@@ -489,14 +515,14 @@ export const createEngine = ({
           return
         }
         const stream = gap.stream ?? file?.stream ?? null
-        const scope = stream === null ? null : streamScope(stream)
+        const scope = stream === null ? null : takenAs(stream, streamSession(transaction, adapters, stream))
         if (scope === null || scope === 'watched') {
           saveGap(gap, stream)
         }
       }
 
-      for (const { session, scope } of decided) {
-        transaction.scopes.decideSession({ session, scope })
+      for (const decision of decided) {
+        transaction.scopes.decideSession(decision)
       }
       state.hooks.forEach(commitHook)
       for (const file of state.files.values()) {
@@ -654,6 +680,36 @@ export const createEngine = ({
     return { binding, head: store.changes.head() }
   }
 
+  const rewatch = async (next: WatchedRoots, persist: (transaction: Transaction) => void): Promise<WatchChange> => {
+    const changed = await judgeAgain(store, next)
+    store.transaction((transaction) => {
+      applyDecisions(transaction, adapters, changed)
+      persist(transaction)
+    })
+    watching = next
+    contracts = createContractCatalog(next)
+    return { rescan: externalStreams(store) }
+  }
+
+  const prune = async (request: PruneRequest, prefixHash: PrefixHash): Promise<PruneOutcome> => {
+    const runs = pruneRuns(store, request)
+    if (runs.length === 0) {
+      return { runs, boundaries: [] }
+    }
+    const { owners, ...target } = pruneTarget(store, adapters, runs)
+    const at = now()
+    const boundaries = await pruneBoundaries(store, owners, prefixHash, at)
+    store.transaction((transaction) => {
+      transaction.pruning.remove(target)
+      for (const boundary of boundaries) {
+        transaction.pruned.save(boundary)
+      }
+      transaction.settings.save(pruneEpochSetting, transaction.nextChangeSeq(), at)
+    })
+    quiet = quietWatchOf(store.observations.sessions())
+    return { runs, boundaries }
+  }
+
   return {
     refreshFreshness: () =>
       enqueue(() => {
@@ -677,5 +733,7 @@ export const createEngine = ({
     revokeBinding: (id) => enqueue(() => settleBinding((transaction, at) => revokeBinding(transaction, id, at))),
     retainBases: (runs) =>
       enqueue(() => retainBases(store, { maxBlobBytes, now }, runs === undefined ? null : new Set(runs))),
+    rewatch: (next, persist) => enqueue(() => rewatch(next, persist)),
+    prune: (request, prefixHash) => enqueue(() => prune(request, prefixHash)),
   }
 }

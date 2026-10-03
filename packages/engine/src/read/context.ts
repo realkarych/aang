@@ -14,6 +14,7 @@ import {
   type StageId,
 } from '@aang/contract'
 import type { Store } from '@aang/store'
+import { pruneEpochSetting } from '../ingest/prune.js'
 import { compareText } from '../observations/evidence.js'
 
 export interface ObserverRunStatus {
@@ -48,6 +49,11 @@ export const byId = <T extends { readonly id: string }>(left: T, right: T): numb
 export const runOf = (store: Store, id: RunId): Run | null => {
   const entity = store.model.entity(id, { kind: 'run', id })
   return entity?.kind === 'run' ? entity.value : null
+}
+
+export const precedesPrune = (store: Store, position: ChangeSeq): boolean => {
+  const epoch = store.settings.get(pruneEpochSetting)
+  return epoch !== undefined && position < ChangeSeq.parse(epoch)
 }
 
 export const partsOf = (entities: readonly ModelEntity[]): ModelParts => {

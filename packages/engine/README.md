@@ -824,3 +824,74 @@ and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
 (E.8, U.1); the CLI version, model, usage and error of observer calls (F.8, F.9).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
+
+## Watch and prune
+
+A scope decision of a root session keeps the starting directory it was judged by
+(`session_scopes.cwd`). `engine.rewatch(watch, persist)` judges every stored
+decision again with the new roots, in one transaction with `persist`, where the
+daemon saves the watch settings. Observer sessions keep their decision.
+
+- A session that leaves the roots becomes `external` together with its streams:
+  those whose records belong to it and those pruned with it (`pruned_streams`).
+  Appended lines are discarded while the records already taken stay until
+  `prune`.
+- A session that enters the roots becomes `watched`, but its streams keep the
+  `external` decision: their lines were never stored. A stream decision tells how
+  the lines read so far were taken, so an `external` stream of a watched session
+  is history still to reread. `rewatch` returns every `external` stream, and the
+  daemon asks the collector to reread them from the beginning within the lookback
+  (ADR-0004). A reread file is held like a new one; the decision of its session
+  wins over the stream decision, and the stream decision follows it.
+- Until such a reread the stream stays `external`, across restarts too, so a
+  later `watch` with a longer lookback or a repeated one after an interrupted
+  reread still takes the whole file. A stream whose reread finds nothing past its
+  prune boundary stays `external` as well, and the next `watch` rereads it from
+  the boundary.
+- New records follow the decision of the session that owns them: appended lines,
+  hooks, OTel records and gaps of a watched session are taken while its stream
+  waits for the reread, and none of them marks the history as taken. Appended
+  lines of a session that left the roots are discarded and make the stream
+  `external`. A hook decides the stream it names only when the stream has no
+  decision yet.
+- A hook record is stored with the stream its adapter names: Codex the thread,
+  Claude the main or subagent transcript of the event; a Claude registry entry
+  names the main transcript. A stream whose only stored records are such records
+  still belongs to their session, so a gap of its file, such as `source_lost`
+  after the file is deleted before the reread, is taken by the session's
+  decision and attached to the session and its run.
+
+`engine.prune(request, prefixHash)` removes the runs of `aang prune --run` or of
+`aang prune --before`: the runs whose sessions had their last event before the
+date. In one transaction it deletes the raw records of the run's streams and
+sessions with their facts, objects, gaps, the model and its journal, observer
+calls, view state, chat and bindings, and saves a boundary per stream in
+`pruned_streams` (ADR-0005). Cursors and scope decisions stay.
+
+- The streams of a run are the streams of any decision whose records, lines or
+  hooks, belong to one of its sessions, and the streams pruned with those
+  sessions before. Since a hook record keeps the stream its adapter names, a
+  session known only from hooks is bounded too.
+- A context record and a git snapshot belong to the run they were recorded for,
+  named by their fact about the run, and go only with that run, even when its
+  root session has moved to the pruned run. A context record also names the other
+  sessions it read; pruning one of them removes only that reference, so the
+  context of a run that keeps it stays whole for its observer calls (ADR-0007).
+- A Claude boundary is the offset of the furthest cursor of the stream with the
+  hash of the file prefix up to it, from `prefixHash`. Without a cursor the
+  boundary is the empty prefix. When the file can no longer be read, the boundary
+  keeps the offset with the hash of the empty prefix, which no prefix of that
+  length matches, so a file that reappears stops with a gap instead of returning
+  the deleted lines.
+- A Codex boundary is the largest `last_ordinal` of the stream's cursors.
+- Hook records of a pruned session observed before the latest boundary of the
+  session are discarded, and so are pending OTel records of a pruned stream.
+- A run created again for a session with boundaries has `start_pruned`.
+- A pruned run can be pruned again: its sessions are found by the root sessions
+  saved with the boundaries, except a session observed in another run since,
+  such as one resumed after the prune and then attached elsewhere, which stays
+  with that run. This is how a stream stopped with
+  `stream_changed_after_prune` is taken again whole (ADR-0005): a Claude stream
+  with that gap open gets the empty prefix as its new boundary, the gap goes with
+  the other layers of the run, and the collector rereads the stopped files from
+  the start.
