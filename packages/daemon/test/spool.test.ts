@@ -30,14 +30,14 @@ const queueEvent = async (home: Home, name: string, bytes: number): Promise<stri
 
 const thresholdConfig = { spool: { thresholdBytes: 1_000, checkIntervalMs: 50 } }
 
-const recordedGaps = (home: Home, onTestFinished: TestContext['onTestFinished']): Gap[] => {
+const thresholdGaps = (home: Home, onTestFinished: TestContext['onTestFinished']): Gap[] => {
   const store = openStore({ home: home.paths.home })
   onTestFinished(() => {
     store.close()
   })
   return store.changes
     .after(ChangeSeq.parse(0), 100)
-    .flatMap((change) => (change.layer === 'gap' ? [change.gap] : []))
+    .flatMap((change) => (change.layer === 'gap' && change.gap.kind === 'spool_over_threshold' ? [change.gap] : []))
 }
 
 const overThreshold = async (home: Home): Promise<DaemonState['spool_over_threshold']> =>
@@ -65,7 +65,7 @@ describe.concurrent('the daemon keeps the spool lease only while the queue is un
     expect((await readDaemonState(home.paths.daemonState))?.spool_over_threshold).toBeNull()
     daemon.abort()
     await daemon.stopped
-    const gaps = recordedGaps(home, onTestFinished)
+    const gaps = thresholdGaps(home, onTestFinished)
     expect(gaps).toHaveLength(1)
     expect(gaps[0]).toMatchObject({ kind: 'spool_over_threshold', run: null, session: null, stream: null })
     expect(gaps[0]?.details).toContain('1500 bytes, over the 1000-byte threshold')
@@ -99,7 +99,7 @@ describe.concurrent('the daemon keeps the spool lease only while the queue is un
     daemon.abort()
     await daemon.stopped
 
-    const gaps = recordedGaps(home, onTestFinished)
+    const gaps = thresholdGaps(home, onTestFinished)
     expect(gaps).toHaveLength(1)
     expect(gaps[0]?.closed_at).not.toBeNull()
     expect((await readSpoolState(home.paths.spool)).leaseExpiresAt).toBeNull()
@@ -123,7 +123,7 @@ describe.concurrent('the daemon keeps the spool lease only while the queue is un
     await unlink(event)
     await waitUntil(() => leaseIsValid(home))
     expect(await restarted.shutdown()).toBe(0)
-    const gaps = recordedGaps(home, onTestFinished)
+    const gaps = thresholdGaps(home, onTestFinished)
     expect(gaps).toHaveLength(1)
     expect(gaps[0]).toMatchObject({ kind: 'spool_over_threshold', detected_at: episode?.detected_at })
     expect(gaps[0]?.closed_at).not.toBeNull()
@@ -146,7 +146,7 @@ describe.concurrent('the daemon keeps the spool lease only while the queue is un
     expect(await leaseIsValid(home)).toBe(true)
     expect(await overThreshold(home)).toBeNull()
     expect(await restarted.shutdown()).toBe(0)
-    const gaps = recordedGaps(home, onTestFinished)
+    const gaps = thresholdGaps(home, onTestFinished)
     expect(gaps).toHaveLength(1)
     expect(gaps[0]).toMatchObject({ kind: 'spool_over_threshold', detected_at: episode?.detected_at })
     expect(gaps[0]?.closed_at).not.toBeNull()

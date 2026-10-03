@@ -88,7 +88,7 @@ export const createSandbox = async (
   const spool = join(aangHome, 'spool')
   const daemonStateFile = join(aangHome, 'daemon.json')
   await mkdir(aangHome, { recursive: true })
-  await writeFile(join(aangHome, 'config.json'), JSON.stringify({ ...config, api: { port: 0 } }))
+  await writeFile(join(aangHome, 'config.json'), JSON.stringify({ ...config, api: { port: 0 }, otel: { port: 0 } }))
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: root,
@@ -154,7 +154,7 @@ export const createSandbox = async (
     hookWrites: async () => {
       const ready = join(spool, 'new')
       const before = new Set(await namesIn(ready))
-      const payload = JSON.stringify({ hook_event_name: 'Notification', probe: randomUUID() })
+      const payload = JSON.stringify({ hook_event_name: 'Notification', session_id: randomUUID() })
       await invokeHook({ binary: hookBinary, spool, env }, { runtime: 'claude', registration: 'plugin', payload })
       const written = (await namesIn(ready)).filter((name) => !before.has(name))
       const contents = await Promise.all(written.map((name) => readFile(join(ready, name), 'utf8')))
