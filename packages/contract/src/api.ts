@@ -35,7 +35,7 @@ import {
 } from './primitives.js'
 import { RawRecord } from './raw.js'
 import { SupportKey, SupportStatus } from './support.js'
-import { AppliedViewRule, AttentionView, ViewMark, ViewRule, ViewRuleSpec } from './view.js'
+import { AppliedViewRule, AttentionPlace, AttentionView, ViewMark, ViewRule, ViewRuleSpec } from './view.js'
 
 const text = z.string()
 const name = z.string().min(1)
@@ -228,6 +228,7 @@ export type AttentionState = z.infer<typeof AttentionState>
 export const RunView = z.strictObject({
   rules: z.array(AppliedViewRule),
   mark: ViewMark.nullable(),
+  zone: z.array(AttentionPlace),
 })
 export type RunView = z.infer<typeof RunView>
 

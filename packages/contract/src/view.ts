@@ -30,6 +30,14 @@ export const AttentionView = z.strictObject({
 })
 export type AttentionView = z.infer<typeof AttentionView>
 
+export const AttentionPlace = z.strictObject({
+  item: AttentionItemId,
+  waiting_for_human: z.boolean(),
+  dependent_stages: z.array(StageId),
+  viewed: z.boolean(),
+})
+export type AttentionPlace = z.infer<typeof AttentionPlace>
+
 export const ViewSelector = z.union([
   z.strictObject({ kind: z.literal('agent_type'), agent_type: text }),
   z.strictObject({ kind: z.literal('agent_name'), name: text }),

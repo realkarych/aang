@@ -72,6 +72,7 @@ const attentionView: Row = {
   run_id: "'r1'",
   item_id: "'a1'",
   viewed_at: '1759370000000000000',
+  dismissed_at: 'NULL',
   change_seq: '3',
 }
 
@@ -361,6 +362,15 @@ const cases: readonly SchemaCase[] = [
     setup: [insert('attention_views', attentionView)],
     statement: insert('attention_views', attentionView, { change_seq: '4' }),
     error: /UNIQUE constraint failed: attention_views\.run_id, attention_views\.item_id/,
+  },
+  {
+    name: 'an attention item can be dismissed without being viewed',
+    statement: insert('attention_views', attentionView, { viewed_at: 'NULL', dismissed_at: '1759370001000000000' }),
+  },
+  {
+    name: 'an attention view records a view or a dismissal',
+    statement: insert('attention_views', attentionView, { viewed_at: 'NULL' }),
+    error: /CHECK constraint failed: attention_views_marked/,
   },
   {
     name: 'a collapse rule from the interface has no parameters',

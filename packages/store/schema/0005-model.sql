@@ -82,9 +82,11 @@ CREATE TABLE view_marks (
 CREATE TABLE attention_views (
   run_id TEXT NOT NULL,
   item_id TEXT NOT NULL,
-  viewed_at INTEGER NOT NULL,
+  viewed_at INTEGER,
+  dismissed_at INTEGER,
   change_seq INTEGER NOT NULL CHECK (change_seq > 0),
-  PRIMARY KEY (run_id, item_id)
+  PRIMARY KEY (run_id, item_id),
+  CONSTRAINT attention_views_marked CHECK (viewed_at IS NOT NULL OR dismissed_at IS NOT NULL)
 ) STRICT;
 
 CREATE INDEX attention_views_change_seq ON attention_views (change_seq);

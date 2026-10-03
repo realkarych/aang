@@ -23,6 +23,7 @@ import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
 import { createSettings, type SettingReader, type SettingWriter } from './settings.js'
 import { inTransaction } from './transaction.js'
+import { createViews, type ViewReader, type ViewWriter } from './views.js'
 
 export interface StoreOptions {
   readonly home: string
@@ -41,6 +42,7 @@ export interface Transaction {
   readonly settings: SettingWriter
   readonly observerCalls: ObserverCallWriter
   readonly interpretations: InterpretationWriter
+  readonly views: ViewWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
@@ -58,6 +60,7 @@ export interface Store {
   readonly settings: SettingReader
   readonly observerCalls: ObserverCallReader
   readonly interpretations: InterpretationReader
+  readonly views: ViewReader
   readonly changes: ChangeFeed
   readonly close: () => void
 }
@@ -75,6 +78,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const settings = createSettings(database)
   const observerCalls = createObserverCalls(database)
   const interpretations = createInterpretations(database)
+  const views = createViews(database)
   inTransaction(database, () => {
     recoverInterpretations(database)
   })
@@ -107,6 +111,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         settings: settings.writer(context),
         observerCalls: observerCalls.writer(context),
         interpretations: interpretations.writer(context),
+        views: views.writer(context),
       },
       finish: () => {
         active = false
@@ -135,6 +140,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     settings: settings.reader,
     observerCalls: observerCalls.reader,
     interpretations: interpretations.reader,
+    views: views.reader,
     changes: createChangeFeed(database),
     close: () => {
       if (!open) {
