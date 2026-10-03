@@ -1,6 +1,7 @@
 import type { DatabaseSync } from 'node:sqlite'
 import {
   CallUsage,
+  ChangeSeq,
   EpochNs,
   ModelVersion,
   ObserverCallId,
@@ -26,6 +27,7 @@ export interface StoredObserverCall {
   readonly usage: CallUsage | null
   readonly started_at: EpochNs
   readonly finished_at: EpochNs | null
+  readonly change_seq: ChangeSeq
 }
 
 export interface ObserverCallStart {
@@ -44,8 +46,15 @@ export interface ObserverCallResult {
   readonly at: EpochNs
 }
 
+export interface ObserverCallProgress {
+  readonly last_accepted_at: EpochNs | null
+  readonly change_seq: ChangeSeq | null
+}
+
 export interface ObserverCallReader {
   readonly get: (id: ObserverCallId) => StoredObserverCall | null
+  readonly ofRun: (run: RunId) => StoredObserverCall[]
+  readonly progress: (run: RunId) => ObserverCallProgress
   readonly unfinished: () => ObserverCallId[]
   readonly latestStart: (run: RunId) => EpochNs | null
 }
@@ -68,10 +77,35 @@ type CallRow = {
   usage: string | null
   started_at: bigint
   finished_at: bigint | null
+  change_seq: bigint
 }
+
+const toCall = (row: CallRow): StoredObserverCall => ({
+  id: ObserverCallId.parse(row.id),
+  run: RunId.parse(row.run_id),
+  backend: row.backend,
+  base_version: ModelVersion.parse(Number(row.base_version)),
+  input: ObserverInput.parse(decodeJson(row.input)),
+  output: row.output === null ? null : decodeJson(row.output),
+  verdict: row.verdict,
+  reasons: ObserverRejection.array().parse(decodeJson(row.reasons)),
+  usage: row.usage === null ? null : CallUsage.parse(decodeJson(row.usage)),
+  started_at: EpochNs.parse(row.started_at),
+  finished_at: row.finished_at === null ? null : EpochNs.parse(row.finished_at),
+  change_seq: ChangeSeq.parse(Number(row.change_seq)),
+})
 
 export const createObserverCalls = (database: DatabaseSync) => {
   const select = prepareStatement(database, 'SELECT * FROM observer_calls WHERE id = ?')
+  const selectOfRun = prepareStatement(
+    database,
+    'SELECT * FROM observer_calls WHERE run_id = ? ORDER BY started_at, id',
+  )
+  const selectProgress = prepareStatement(
+    database,
+    `SELECT MAX(finished_at) FILTER (WHERE verdict = 'accepted') AS last_accepted_at, MAX(change_seq) AS change_seq
+     FROM observer_calls WHERE run_id = ?`,
+  )
   const selectUnfinished = prepareStatement(
     database,
     'SELECT id FROM observer_calls WHERE finished_at IS NULL ORDER BY started_at, id',
@@ -102,21 +136,15 @@ export const createObserverCalls = (database: DatabaseSync) => {
     },
     get: (id) => {
       const row = select.get(id) as CallRow | undefined
-      return row === undefined
-        ? null
-        : {
-            id: ObserverCallId.parse(row.id),
-            run: RunId.parse(row.run_id),
-            backend: row.backend,
-            base_version: ModelVersion.parse(Number(row.base_version)),
-            input: ObserverInput.parse(decodeJson(row.input)),
-            output: row.output === null ? null : decodeJson(row.output),
-            verdict: row.verdict,
-            reasons: ObserverRejection.array().parse(decodeJson(row.reasons)),
-            usage: row.usage === null ? null : CallUsage.parse(decodeJson(row.usage)),
-            started_at: EpochNs.parse(row.started_at),
-            finished_at: row.finished_at === null ? null : EpochNs.parse(row.finished_at),
-          }
+      return row === undefined ? null : toCall(row)
+    },
+    ofRun: (run) => (selectOfRun.all(run) as CallRow[]).map(toCall),
+    progress: (run) => {
+      const row = selectProgress.get(run) as { last_accepted_at: bigint | null; change_seq: bigint | null }
+      return {
+        last_accepted_at: row.last_accepted_at === null ? null : EpochNs.parse(row.last_accepted_at),
+        change_seq: row.change_seq === null ? null : ChangeSeq.parse(Number(row.change_seq)),
+      }
     },
   }
   const writer = (context: WriteContext): ObserverCallWriter => ({
