@@ -147,11 +147,14 @@ export const startIngestion = async ({
       }),
     prune: (request) =>
       serially(async () => {
-        const { runs, boundaries } = await engine.prune(request, prefixHash)
+        const { runs, boundaries } = await collector.paused(async () => {
+          const outcome = await engine.prune(request, prefixHash)
+          collector.prune(outcome.boundaries)
+          return outcome
+        })
         if (request.scope === 'run' && runs.length === 0) {
           throw new AdminError('not_found', `no run ${request.run}`)
         }
-        collector.prune(boundaries)
         if (runs.length > 0) {
           store.vacuum()
         }

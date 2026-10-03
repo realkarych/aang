@@ -1,6 +1,7 @@
-import type { ScopeDecision, StreamKey } from '@aang/contract'
+import type { ScopeDecision, SessionKey, StreamKey } from '@aang/contract'
 import type { SessionDecision, Store, Transaction } from '@aang/store'
 import { streamOwner } from '../observations/sources.js'
+import { prunedSession } from './prune.js'
 import { type Adapters, sessionName } from './records.js'
 import { createScopeJudge, type WatchedRoots } from './scope.js'
 
@@ -39,9 +40,17 @@ export const applyDecisions = (
   if (excluded.size === 0) {
     return
   }
+  const sessionOf = (stream: StreamKey): SessionKey | null => {
+    const owner = streamOwner(transaction, adapters, stream)
+    if (owner !== null) {
+      return owner.session
+    }
+    const pruned = transaction.pruned.ofStream(stream)
+    return pruned === null ? null : prunedSession(pruned)
+  }
   for (const { stream, runtime, scope } of transaction.scopes.list()) {
-    const owner = scope === 'watched' ? streamOwner(transaction, adapters, stream) : null
-    if (owner !== null && excluded.has(sessionName(owner.session))) {
+    const session = scope === 'watched' ? sessionOf(stream) : null
+    if (session !== null && excluded.has(sessionName(session))) {
       transaction.scopes.decide({ stream, runtime, scope: 'external' })
     }
   }

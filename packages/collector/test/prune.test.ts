@@ -1,10 +1,10 @@
-import { appendFile, mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, open, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { prefixHash } from '@aang/collector'
-import { type FileCursor, PruneBoundary } from '@aang/contract'
+import { type CollectorBatch, type FileCursor, PruneBoundary } from '@aang/contract'
 import { contentHash } from '@aang/contract/ids'
 import { expect, test, vi } from 'vitest'
-import { createSandbox, runCollector, type Sandbox, sleep } from './sandbox.js'
+import { createSandbox, prepareCollector, runCollector, type Sandbox, sleep } from './sandbox.js'
 import { sessions, writeSession } from './sessions.js'
 
 const [claude, codex] = sessions
@@ -42,6 +42,23 @@ const restarts = destinations.flatMap((destination) => [
 ])
 
 const lines = (values: readonly string[]): string => values.map((value) => `${value}\n`).join('')
+
+const overwrite = async (path: string, content: string): Promise<void> => {
+  const handle = await open(path, 'r+')
+  try {
+    await handle.write(content, 0, 'utf8')
+  } finally {
+    await handle.close()
+  }
+}
+
+const rewrites = [
+  { size: 'the same size', appended: [] },
+  { size: 'a larger size', appended: [claude.lines[2]] },
+].flatMap((rewrite) => [
+  { ...rewrite, when: 'while the collector runs', restart: false },
+  { ...rewrite, when: 'while the collector is stopped', restart: true },
+])
 
 test('prefixHash hashes the leading bytes of a file like contentHash and is null for a shorter or missing file', async ({ onTestFinished }) => {
   const sandbox = await createSandbox(onTestFinished)
@@ -163,6 +180,96 @@ test.for(['replaced', 'shrunk'] as const)('a pruned Claude stream %s in place st
   await sleep(200)
   expect(restarted.records()).toEqual([])
   expect(restarted.gaps()).toEqual([])
+})
+
+test.for(rewrites)(
+  'a pruned Claude stream rewritten in place to $size $when keeps its inode, stops with one gap and yields no new records',
+  async ({ appended, restart }, { onTestFinished }) => {
+    const sandbox = await createSandbox(onTestFinished)
+    const path = claude.path(sandbox)
+    await writeSession(path, claude.lines.slice(0, 2))
+    const first = runCollector(sandbox, { fsWatch: false, rootsScanIntervalMs: 50 })
+    await vi.waitFor(() => {
+      expect(first.records()).toHaveLength(2)
+    })
+    const original = first.cursor(path)
+    const boundary = await claudeBoundary(original)
+    const { ino } = await stat(path)
+    const rewritten = lines([...claude.lines.slice(0, 2).map((line) => line.replaceAll('Hello', 'Howdy')), ...appended])
+    let running = first
+    if (restart) {
+      await first.close()
+      await overwrite(path, rewritten)
+      running = runCollector(sandbox, {
+        fsWatch: false,
+        rootsScanIntervalMs: 50,
+        prunedStreams: [boundary],
+        cursors: original === undefined ? [] : [original],
+      })
+    } else {
+      first.collector.prune([boundary])
+      await sleep(200)
+      await overwrite(path, rewritten)
+    }
+
+    await vi.waitFor(() => {
+      expect(running.gaps()).toHaveLength(1)
+    })
+    await sleep(200)
+    expect((await stat(path)).ino).toBe(ino)
+    expect(running.gaps()).toMatchObject([
+      { key: { kind: 'gap', gap: 'stream_changed_after_prune', subject: claude.stream }, stream: claude.stream, closed_at: null },
+    ])
+    expect(running.records()).toHaveLength(restart ? 0 : 2)
+  },
+)
+
+test('a prune made while the collector is paused waits for the batch in hand and applies to the first read after the pause', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = claude.path(sandbox)
+  await writeSession(path, claude.lines.slice(0, 2))
+  const collector = prepareCollector(sandbox, { fsWatch: false, rootsScanIntervalMs: 50 })
+  const batches = collector.start([])[Symbol.asyncIterator]()
+  const withRecords = async (): Promise<CollectorBatch> => {
+    for (;;) {
+      const next = await batches.next()
+      if (next.done === true) {
+        throw new Error('the collector stopped')
+      }
+      if (next.value.records.length > 0) {
+        return next.value
+      }
+    }
+  }
+  const held = await withRecords()
+  const boundary = await claudeBoundary(held.cursors.find((cursor) => cursor.path === path))
+  const moved = join(sandbox.claude, 'projects', '-elsewhere', 'session-1.jsonl')
+  const events: string[] = []
+  let delivered = false
+  const pausing = collector.paused(async () => {
+    events.push('paused')
+    await mkdir(dirname(moved), { recursive: true })
+    await rename(path, moved)
+    await appendFile(moved, lines([claude.lines[2]]))
+    await sleep(300)
+    events.push(delivered ? 'read while paused' : 'nothing read while paused')
+    collector.prune([boundary])
+  })
+  await sleep(200)
+  events.push('batch handed back')
+  const resumed = withRecords().finally(() => {
+    delivered = true
+  })
+  await pausing
+  const after = await resumed
+
+  expect(held.records.map(({ payload }) => payload)).toEqual(claude.lines.slice(0, 2))
+  expect(events).toEqual(['batch handed back', 'paused', 'nothing read while paused'])
+  expect(after.records.map(({ payload, position }) => ({ payload, position }))).toEqual([
+    { payload: claude.lines[2], position: { kind: 'line', path: moved, offset: boundary.offset, line: 3 } },
+  ])
 })
 
 test('a pruned Codex stream archived after the prune yields only lines above the boundary ordinal', async ({ onTestFinished }) => {

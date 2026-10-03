@@ -35,6 +35,7 @@ export interface CollectorService extends Collector {
   requestAttachment(path: string, stream: StreamKey): void
   backfill(lookbackDays: number): void
   prune(boundaries: readonly PruneBoundary[]): void
+  paused<T>(work: () => Promise<T>): Promise<T>
   listenOtel(options: OtelReceiverOptions): Promise<Listener>
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
@@ -43,6 +44,11 @@ export interface CollectorService extends Collector {
 const defaultReadRetry: ReadRetry = { pauseMs: 200, gapAfterMs: 5_000 }
 
 type State = 'ready' | 'running' | 'closed'
+
+interface Pause {
+  readonly parked: PromiseWithResolvers<void>
+  readonly resumed: PromiseWithResolvers<void>
+}
 
 export const createCollector = (options: CollectorOptions): CollectorService => {
   const wakeup = createWakeup()
@@ -83,6 +89,9 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
     wakeup,
   )
   let state: State = 'ready'
+  let generating = false
+  let pause: Pause | null = null
+  let pausing: Promise<unknown> = Promise.resolve()
 
   const running = (): boolean => state === 'running'
 
@@ -105,12 +114,19 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
   }
 
   async function* batches(cursors: readonly FileCursor[]): AsyncGenerator<CollectorBatch> {
+    generating = true
     try {
       await spool.open()
       await otel.open()
       tail.open(cursors, options.openGaps ?? [])
       tree.open()
       while (running()) {
+        if (pause !== null) {
+          const { parked, resumed } = pause
+          parked.resolve()
+          await resumed.promise
+          continue
+        }
         const batch = await take()
         if (batch === null) {
           await wakeup.wait()
@@ -119,8 +135,29 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
         }
       }
     } finally {
+      generating = false
+      pause?.parked.resolve()
       await shutdown()
     }
+  }
+
+  const paused = <T>(work: () => Promise<T>): Promise<T> => {
+    const result = pausing.then(async () => {
+      const current: Pause = { parked: Promise.withResolvers(), resumed: Promise.withResolvers() }
+      pause = current
+      try {
+        if (generating) {
+          wakeup.notify()
+          await current.parked.promise
+        }
+        return await work()
+      } finally {
+        pause = null
+        current.resumed.resolve()
+      }
+    })
+    pausing = result.then(() => undefined, () => undefined)
+    return result
   }
 
   return {
@@ -141,6 +178,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       tree.requestScan()
     },
     prune: tail.prune,
+    paused,
     ack: async (batch) => {
       await spool.ack(batch)
       await otel.ack(batch)

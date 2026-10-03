@@ -8,7 +8,7 @@ import type {
   SessionKey,
   StreamKey,
 } from '@aang/contract'
-import { contentHash } from '@aang/contract/ids'
+import { contentHash, runId } from '@aang/contract/ids'
 import type { PruneTarget, Store } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
 import { collectedOf, streamOwner } from '../observations/sources.js'
@@ -30,6 +30,8 @@ const pageSize = 256
 
 const emptyPrefix = contentHash('')
 
+export const prunedSession = ({ runtime, session }: PruneBoundary): SessionKey => ({ kind: 'session', runtime, session })
+
 export const pruneRuns = (store: Store, request: PruneRequest): RunId[] => {
   const latest = new Map<RunId, EpochNs>()
   for (const { run, last_event_at: at } of store.observations.sessions()) {
@@ -39,9 +41,11 @@ export const pruneRuns = (store: Store, request: PruneRequest): RunId[] => {
     }
   }
   if (request.scope === 'run') {
-    return latest.has(request.run) || store.model.entity(request.run, { kind: 'run', id: request.run }) !== null
-      ? [request.run]
-      : []
+    const known =
+      latest.has(request.run) ||
+      store.model.entity(request.run, { kind: 'run', id: request.run }) !== null ||
+      store.pruned.list().some((boundary) => runId(prunedSession(boundary)) === request.run)
+    return known ? [request.run] : []
   }
   return [...latest].flatMap(([run, at]) => (at < request.before ? [run] : [])).sort(compareText)
 }
@@ -74,20 +78,33 @@ const hooksOf = (store: Store, adapters: Adapters, sessions: ReadonlySet<string>
   return owned
 }
 
-export const pruneTarget = (store: Store, adapters: Adapters, runs: readonly RunId[]): PruneTarget & { readonly owners: readonly StreamOwner[] } => {
+const sessionsOf = (store: Store, runs: readonly RunId[]): Map<string, SessionKey> => {
   const targets = new Set<string>(runs)
-  const sessions = store.observations
-    .sessions()
-    .flatMap(({ run, key }) => (run !== null && targets.has(run) ? [key] : []))
-  const names = new Set(sessions.map(sessionName))
+  const sessions = new Map<string, SessionKey>()
+  for (const { run, key } of store.observations.sessions()) {
+    if (run !== null && targets.has(run)) {
+      sessions.set(sessionName(key), key)
+    }
+  }
+  for (const boundary of store.pruned.list()) {
+    const session = prunedSession(boundary)
+    if (targets.has(runId(session))) {
+      sessions.set(sessionName(session), session)
+    }
+  }
+  return sessions
+}
+
+export const pruneTarget = (store: Store, adapters: Adapters, runs: readonly RunId[]): PruneTarget & { readonly owners: readonly StreamOwner[] } => {
+  const sessions = sessionsOf(store, runs)
   const owners = new Map<StreamKey, StreamOwner>()
-  for (const { stream, scope } of store.scopes.list()) {
-    const owner = scope === 'watched' ? streamOwner(store, adapters, stream) : null
-    if (owner !== null && names.has(sessionName(owner.session))) {
+  for (const { stream } of store.scopes.list()) {
+    const owner = streamOwner(store, adapters, stream)
+    if (owner !== null && sessions.has(sessionName(owner.session))) {
       owners.set(stream, { stream, session: owner.session })
     }
   }
-  for (const session of sessions) {
+  for (const session of sessions.values()) {
     for (const { stream } of store.pruned.ofSession(session)) {
       owners.set(stream, { stream, session })
     }
@@ -99,9 +116,9 @@ export const pruneTarget = (store: Store, adapters: Adapters, runs: readonly Run
   }
   return {
     runs,
-    sessions,
+    sessions: [...sessions.values()],
     streams: [...owners.keys()],
-    records: hooksOf(store, adapters, names),
+    records: hooksOf(store, adapters, new Set(sessions.keys())),
     owners: [...owners.values()],
   }
 }
@@ -113,6 +130,7 @@ export const pruneBoundaries = async (
   at: EpochNs,
 ): Promise<PruneBoundary[]> => {
   const cursors = store.cursors.list()
+  const changed = new Set(store.gaps.open('stream_changed_after_prune').map(({ stream }) => stream))
   const boundaries: PruneBoundary[] = []
   for (const { stream, session } of owners) {
     const files = cursors.filter((cursor) => cursor.stream === stream)
@@ -127,10 +145,12 @@ export const pruneBoundaries = async (
       })
       continue
     }
-    const furthest = files.reduce<(typeof files)[number] | null>(
-      (best, cursor) => (best === null || cursor.offset > best.offset ? cursor : best),
-      null,
-    )
+    const furthest = changed.has(stream)
+      ? null
+      : files.reduce<(typeof files)[number] | null>(
+          (best, cursor) => (best === null || cursor.offset > best.offset ? cursor : best),
+          null,
+        )
     boundaries.push({
       runtime: 'claude',
       stream,
