@@ -25,6 +25,8 @@ import {
   sessionEvidence,
 } from './evidence.js'
 import { projectActions } from './actions.js'
+import { type QuestionAttention, reconcileRuleAttention } from './attention.js'
+import { questionOutcome, type SessionFacts, sessionFacts } from './questions.js'
 import { redeliveries, registrationOf } from './redelivery.js'
 import { freshnessOf } from './freshness.js'
 import { sourceGaps, type SourceRecord } from './sources.js'
@@ -130,23 +132,20 @@ const projectQuestion = (
   transaction: Transaction,
   key: QuestionKey,
   items: readonly Evidence[],
+  session: SessionFacts,
   group: QuestionKey | null,
   { run, identity }: SessionContext,
-): void => {
+): QuestionAttention | null => {
   const request = ofKind(items, 'permission_request')[0]?.fact
   const asked = ofKind(items, 'question_asked').toSorted(byContent)[0]?.fact
-  const opening = request ?? asked
-  if (opening === undefined) {
-    return
-  }
   const first = [...ofKind(items, 'permission_request'), ...ofKind(items, 'question_asked')].sort(byTime)[0]
     ?.fact
-  if (first === undefined) {
-    return
+  const outcome = questionOutcome(key, items, session, (action) => transaction.observations.getAction(action) !== null)
+  if (first === undefined || outcome === null) {
+    return null
   }
   const id = objectId(key)
-  const previous = transaction.observations.getQuestion(id)
-  transaction.observations.save({
+  const question = {
     id,
     key,
     session: objectId({ kind: 'session', runtime: key.runtime, session: key.session }),
@@ -156,14 +155,13 @@ const projectQuestion = (
     blocking: request !== undefined || asked?.payload.blocking === true,
     text: asked?.payload.questions.map(({ text }) => text).join('\n') ?? null,
     asked_at: first.at,
-    answered_at: previous?.answered_at ?? null,
-    action: previous?.action ?? null,
-    decision:
-      previous === null || previous.decision.value === 'requested'
-        ? { value: 'requested', basis: { kind: 'observed' }, evidence: [opening.id] }
-        : previous.decision,
+    answered_at: outcome.answered_at,
+    action: outcome.link,
+    decision: outcome.decision,
     redelivery_group: group === null ? null : objectId(group),
-  })
+  } satisfies ObservationDraft
+  transaction.observations.save(question)
+  return { question, outcome }
 }
 
 export const projectSession = (
@@ -261,10 +259,15 @@ export const projectSession = (
     }
   }
   projectActions(transaction, key, items, context)
+  const facts = sessionFacts(items)
+  const questions: QuestionAttention[] = []
   for (const [name, entityItems] of entityEvidence(items)) {
     const entity = entityItems[0].fact.entity_key
     if (entity.kind === 'question') {
-      projectQuestion(transaction, entity, entityItems, questionGroups.get(name) ?? null, context)
+      const question = projectQuestion(transaction, entity, entityItems, facts, questionGroups.get(name) ?? null, context)
+      if (question !== null) {
+        questions.push(question)
+      }
     }
   }
   const replacements = retireRefined(transaction, identity)
@@ -273,5 +276,6 @@ export const projectSession = (
   if (first !== undefined && last !== undefined) {
     linkSession(transaction, { key, run: context.run, root: first.fact, at: last.fact.at, spawns, replacements })
   }
+  reconcileRuleAttention(transaction, key, items.at(-1)?.fact.at ?? lastEventAt, questions)
   return session
 }

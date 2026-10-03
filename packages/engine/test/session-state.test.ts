@@ -98,7 +98,7 @@ test('an unrelated action does not end a blocking question but its own answer do
   expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'running' })
 })
 
-test('a permission wait ends when its matching call completes and does not change the question decision', async () => {
+test('a permission wait ends only when its matching call completes, which approves the request', async () => {
   const store = (await createHome(onTestFinished)).open()
   const { engine } = clockedEngine(store)
   const call = { tool_use_id: 'approved', tool_name: 'Bash', tool_input: { command: 'pwd' } }
@@ -108,9 +108,10 @@ test('a permission wait ends when its matching call completes and does not chang
   expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'waiting', reason: 'human' })
   await engine.ingest(hook('PostToolUse', 4, { ...call, tool_use_id: 'unrelated', tool_response: 'done' }))
   expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  expect(store.observations.questions(sessionId())).toMatchObject([{ decision: { value: 'requested' } }])
   await engine.ingest(hook('PostToolUse', 5, { ...call, tool_response: '/workspace' }))
   expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'running' })
-  expect(store.observations.questions(sessionId())).toMatchObject([{ decision: { value: 'requested' } }])
+  expect(store.observations.questions(sessionId())).toMatchObject([{ decision: { value: 'approved' } }])
 })
 
 test.each([

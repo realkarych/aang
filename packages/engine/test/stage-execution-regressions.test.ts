@@ -141,13 +141,13 @@ test.for(['running', 'waiting'] as const)(
     const observations = {
       actions: [], agents: [{ ...agent, execution, execution_evidence: [evidence.id] }],
     }
-    begin([solver])
+    const input = begin([solver])
     expect(store.transaction((transaction) => applyObserverResponse(transaction, {
       call: callId, at: at(20), observations,
       output: response([{
         op: 'agents.participate', stage: existing(stages.build), agents: [agent.id],
         evidence: [solver.id], rationale: 'The agent is executing this stage',
-      }], 2),
+      }], input.model.version),
     })).status).toBe('accepted')
     expect(stage()).toMatchObject({ value: { execution: { value: execution } } })
     const before = stage()

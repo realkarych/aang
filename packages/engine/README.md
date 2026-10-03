@@ -228,3 +228,61 @@ is applied or rejected as usual, and its `needs` are ignored. After a restart th
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
 between calls of a run.
+
+## Questions, decisions and rule attention
+
+The ingestion transaction projects every question of a session and reconciles
+its rule attention item in the same transaction as the facts. The item is
+written through the model journal by the author `rule` into the run that holds
+the session's `session_membership`; a session without a run gets no items until
+run linking (E.4) records its membership. Reconciliation is deterministic: a
+repeated or reordered delivery leaves the model unchanged.
+
+Each question yields three independent values:
+
+- `Question.action` links a `PermissionRequest` to a `PreToolUse` of the same
+  session and agent with an equal tool and canonical input that started in the
+  request's turn and had not ended before the request (`rule:permission-link`).
+  The turn starts after the latest event of the agent before the request that
+  ends permission waits: a turn start or end, a human prompt, the agent's end or
+  the session end. A call cancelled in an earlier turn is therefore never a
+  candidate, while its own request still takes the call's late result. Several
+  candidates mark the link ambiguous; the latest candidate is kept, and the
+  attention item then has no action. `AskUserQuestion` and `ExitPlanMode` are
+  linked to their own call.
+- `Question.decision`:
+  - `codex.tool_decision` for the linked call with `source: User` is an observed
+    approval or rejection; `Config` and `AutomatedReviewer` give `none`, and no
+    human decision is inferred for that call;
+  - otherwise `rule:permission-decision` infers an approval from an execution
+    of the call after the request, and a rejection from a denied completion or a
+    `PostToolBatch` without a completion. An execution is a `Post*` hook or a
+    completion with a known result (`item_completed`, a transcript
+    `tool_result`); a Codex `function_call_output` alone has no known result,
+    because Codex also writes it for a request cancelled with Esc. A Codex
+    `turn_aborted` or `Interrupt` while the request waits is a rejection as well;
+  - an ambiguous link is decided only when every candidate call is settled: the
+    request gets their common decision, or `unknown` if they differ. Until then
+    the request keeps waiting; if the wait ends first, the request ends without
+    an answer and its decision is the one shared by the settled candidates and
+    the ended wait, otherwise `unknown`;
+  - `answers` and `ElicitationResult` (correlated by `elicitation_id`) are
+    observed: `accept` answers, `decline` and `cancel` reject;
+  - an `ExitPlanMode` completion is a plan approval or rejection
+    (`rule:plan-approval`);
+  - an ended wait without any of these is `unknown`; an open request is
+    `requested`.
+- The attention item keeps `runtime_wait` and `resolution` apart:
+  - `permission` waits until it is decided (`answered`) or until the turn of its
+    agent ends, a new turn or human prompt starts, the agent ends or the session
+    ends (`ended_without_answer`);
+  - a rule `question` is closed only by a correlated answer. A new prompt, the
+    end of the turn or of the session only end the runtime wait, so the item
+    stays open after the session. Asynchronous Codex questions never wait;
+  - an automatic denial without a host opens and closes the item in one model
+    version, so it remains in the history and leaves the attention zone at once.
+
+Rule fields never touch `likely_resolved` and `priority`, which belong to the
+observer. Dismissal by the user is view state (`AttentionView.dismissed_at`) and
+is not part of the item. Notifications other than requests for input
+(`idle_prompt`, `permission_prompt`) open no item.
