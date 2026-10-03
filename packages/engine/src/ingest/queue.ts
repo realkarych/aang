@@ -2,7 +2,9 @@ import type { Fact, FactId, RunId, SessionId } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import { factSession } from '../input/scope.js'
 
-export const interpretable = (fact: Fact): boolean => fact.kind !== 'context'
+const runContextKinds: ReadonlySet<Fact['kind']> = new Set(['context', 'git_snapshot'])
+
+export const interpretable = (fact: Fact): boolean => !runContextKinds.has(fact.kind)
 
 export const queueFacts = (transaction: Transaction, facts: readonly Fact[]): void => {
   const runs = new Map<SessionId, RunId | null>()

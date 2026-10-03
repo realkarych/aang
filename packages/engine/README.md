@@ -425,7 +425,9 @@ between calls of a run.
 
 The ingest transaction queues every new fact as `pending` in the run of its session
 after the observation projection, including the facts of OTel records normalized in
-that transaction (ADR-0005). `context` facts are never queued. A redelivered record adds no facts and queues nothing.
+that transaction (ADR-0005). `context` and `git_snapshot` facts are never queued: the daemon writes
+them as run context, which reaches the observer through the context of the run (ADR-0007), not
+through a batch. A redelivered record adds no facts and queues nothing.
 A reparse queues the facts it adds the same way after it rebuilds the projections,
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
@@ -433,7 +435,7 @@ attempts.
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
 starts the next call of a run from its pending facts in the order of their records:
 
-- a queued `context` fact leaves the queue without a status;
+- a queued `context` or `git_snapshot` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
@@ -533,8 +535,8 @@ binding's transaction:
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run. Its `context` facts are not queued: they describe a
-  context assembled from several sessions and are never interpreted as facts;
+  queue of the source run. Its `context` and `git_snapshot` facts are not queued:
+  they are run context and are never interpreted as facts;
 - an observer call of the source run whose batch holds any of these facts or
   whose input describes the session is ended as `rejected` with a `scope` reason:
   the rest of its batch returns to `pending` in the source run and gets its

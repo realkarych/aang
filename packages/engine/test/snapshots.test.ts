@@ -211,7 +211,9 @@ test('a check outside a git repository gives an unclean snapshot with the error'
   expect(fact?.kind === 'git_snapshot' ? fact.payload.error : null).toEqual(expect.any(String))
 })
 
-test('a snapshot is a daemon record that does not count as session activity', async ({ onTestFinished }) => {
+test('a snapshot is a daemon record that neither counts as session activity nor joins the observer queue', async ({
+  onTestFinished,
+}) => {
   const later = EpochNs.parse(4_102_444_800_000_000_000n)
   const { store, engine, repository } = await setup(onTestFinished, { now: () => later })
   const source = { session: 'daemon-session', cwd: repository.path }
@@ -230,6 +232,14 @@ test('a snapshot is a daemon record that does not count as session activity', as
   const hookTimes = factsOf(store).filter(({ kind }) => kind !== 'git_snapshot').map(({ at }) => at)
   const session = store.observations.getSession(objectId(sessionKey('claude', source.session)))
   expect(session?.last_event_at).toBe(hookTimes.reduce((latest, time) => (time > latest ? time : latest)))
+  const queued = store.interpretations.pending(runOf(source)).map(({ fact }) => fact)
+  expect(queued).not.toContain(snapshot?.fact)
+  expect(queued.toSorted()).toEqual(
+    factsOf(store)
+      .filter(({ kind }) => kind !== 'git_snapshot')
+      .map(({ id }) => id)
+      .toSorted(),
+  )
 })
 
 test('snapshots read a stale index without rewriting it or touching a held index.lock', async ({ onTestFinished }) => {

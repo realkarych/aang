@@ -125,9 +125,8 @@ const factAgent = (store: Store, fact: Fact) => {
 }
 
 export const pendingFacts = (store: Store, run: RunId): Fact[] => {
-  const sessions = new Set(runSessions(store, run).map(({ id }) => id))
-  const settled = new Set(store.interpretations.ofRun(run).map(({ fact }) => fact))
-  return factsOf(store).filter((fact) => sessions.has(factSession(fact)) && !settled.has(fact.id))
+  const queued = new Set(store.interpretations.pending(run).map(({ fact }) => fact))
+  return factsOf(store).filter((fact) => queued.has(fact.id))
 }
 
 export interface Batch {

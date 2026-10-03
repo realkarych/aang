@@ -1,14 +1,22 @@
-import { ObserverCallId } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { boundObserverQueue, exhaustObserverCall, failObserverCall, startObserverBatch } from '@aang/engine'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
+import { CheckContract, ObserverCallId, type RunId } from '@aang/contract'
+import { objectId, runId } from '@aang/contract/ids'
+import {
+  boundObserverQueue,
+  createEngine,
+  exhaustObserverCall,
+  failObserverCall,
+  startObserverBatch,
+} from '@aang/engine'
 import { expect, onTestFinished, test } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
-import { factsOf, sessionKey, startEngine, streamOf } from './harness.js'
+import { adapters, factsOf, sessionKey, startEngine, streamOf } from './harness.js'
 import { createHome } from './home.js'
 import { at, runA } from './model.js'
 import { callId, setupObserver } from './observer-fixtures.js'
 import { decisionRecord, otelCall, otelRoot, otelThread } from './otel-records.js'
-import { claudeTranscript, codexChildRollout, codexHook, codexRollout } from './samples.js'
+import { claudeHook, claudeTranscript, codexChildRollout, codexHook, codexRollout } from './samples.js'
 
 const cwd = '/watched'
 
@@ -73,6 +81,41 @@ test('facts of a deferred OTel record join the queue when its stream becomes kno
   const run = runId(sessionKey('codex', otelRoot))
   expect(store.interpretations.pendingRuns()).toContain(run)
   expect(store.interpretations.pending(run).map(({ fact }) => fact)).toContain(decision?.id)
+})
+
+test('a git snapshot stays out of the queue, also when its session moves to another run', async () => {
+  const home = await createHome(onTestFinished)
+  const project = join(home.path, '..', 'plain')
+  await mkdir(project, { recursive: true })
+  const store = home.open()
+  const contract = CheckContract.parse({ name: 'test', command: '^pnpm test' })
+  const engine = createEngine({ store, adapters, watch: { all: true, roots: [{ path: project, contracts: [contract] }] } })
+  const tool = { tool_use_id: 'call-check', tool_input: { command: 'pnpm test', description: 'Run' } }
+  const source = (session: string) => ({ session, cwd: project })
+  await engine.ingest(
+    hookBatch(
+      { file: 'first-start.evt', payload: claudeHook('SessionStart.startup.json', source('first')) },
+      { file: 'first-pre.evt', payload: claudeHook('PreToolUse.Bash.json', source('first'), tool), arrival: 10 },
+      { file: 'first-post.evt', payload: claudeHook('PostToolUse.Bash.json', source('first'), tool), arrival: 11 },
+      { file: 'second-start.evt', payload: claudeHook('SessionStart.startup.json', source('second')), arrival: 12 },
+    ),
+  )
+  const runs = ['first', 'second'].map((session) => runId(sessionKey('claude', session)))
+  const queued = (...of: readonly RunId[]) =>
+    of.flatMap((run) => store.interpretations.ofRun(run).map(({ fact }) => fact)).toSorted()
+  const snapshots = factsOf(store).filter(({ kind }) => kind === 'git_snapshot')
+  const events = factsOf(store)
+    .filter(({ kind }) => kind !== 'git_snapshot')
+    .map(({ id }) => id)
+    .toSorted()
+  expect(snapshots.map(({ entity_key: key }) => key)).toEqual([{ kind: 'run', runtime: 'claude', session: 'first' }])
+  expect(queued(...runs)).toEqual(events)
+
+  const second = runId(sessionKey('claude', 'second'))
+  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', 'first')), run: second })
+
+  expect(queued(second)).toEqual(events)
+  expect(queued(...runs)).toEqual(events)
 })
 
 test('queue operations refuse invalid bounds, unknown runs and finished calls', async () => {

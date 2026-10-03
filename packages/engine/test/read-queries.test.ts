@@ -69,7 +69,7 @@ const factsOfCall = (scene: Scene, source: Source, call: string): Fact[] =>
 
 const uninterpreted = (scene: Scene, source: Source, ...calls: readonly string[]): Fact[] => {
   const interpreted = new Set(calls.flatMap((call) => factsOfCall(scene, source, call).map(({ id }) => id)))
-  return scene.factsOf(source).filter(({ id }) => !interpreted.has(id))
+  return scene.factsOf(source).filter(({ id, kind }) => kind !== 'git_snapshot' && !interpreted.has(id))
 }
 
 const oldestOf = (facts: readonly Fact[]): Fact['at'] | null =>
