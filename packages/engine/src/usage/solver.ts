@@ -16,9 +16,10 @@ import {
   type UsageRecord,
   type UsageTotals,
 } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { FactReader, ModelReader, Observation, ObservationReader, RawRecordReader } from '@aang/store'
-import { compareText, type Evidence, ofKind } from '../observations/evidence.js'
+import { compareText, type Evidence, grouped, ofKind } from '../observations/evidence.js'
+import { redeliveries } from '../observations/redelivery.js'
 import { lastCostState } from '../observations/usage.js'
 import { assignedStages, readSession, type SessionReading, stageAttribution, type StageOf } from './attribution.js'
 import { activeMs, isActivity, runTime, type RunTime } from './time.js'
@@ -62,6 +63,17 @@ interface StreamLine {
   readonly path: string
   readonly line: number
   readonly at: EpochNs | null
+}
+
+interface CostLine {
+  readonly state: string
+  readonly path: string
+  readonly line: number
+}
+
+interface CostState {
+  readonly copies: readonly CostLine[]
+  readonly writtenAfter: EpochNs | null
 }
 
 const defaultPauseAfterMs = 300_000
@@ -136,24 +148,76 @@ const streamLines = (rawRecords: RawRecordReader, stream: StreamKey): StreamLine
   }
 }
 
-const latestOf = (lines: readonly StreamLine[]): EpochNs | null =>
-  lines.reduce<EpochNs | null>((latest, { at }) => (at !== null && (latest === null || at > latest) ? at : latest), null)
+const latestOf = (times: readonly (EpochNs | null)[]): EpochNs | null =>
+  times.reduce<EpochNs | null>((latest, at) => (at !== null && (latest === null || at > latest) ? at : latest), null)
+
+const later = (at: EpochNs | null, than: EpochNs | null): boolean => at !== null && (than === null || at > than)
+
+const costLines = (own: readonly Evidence[], stream: StreamKey): CostLine[] =>
+  ofKind(own, 'cost_state').flatMap(({ fact, raw }) =>
+    raw.stream === stream && raw.position.kind === 'line'
+      ? [{ state: canonicalJson(fact.payload), path: raw.position.path, line: raw.position.line }]
+      : [],
+  )
+
+const latestBefore = (lines: readonly StreamLine[]): ((line: number) => EpochNs | null) => {
+  const sorted = lines.toSorted((left, right) => left.line - right.line)
+  const latest: (EpochNs | null)[] = []
+  for (const { at } of sorted) {
+    latest.push(latestOf([latest.at(-1) ?? null, at]))
+  }
+  return (line) => {
+    let low = 0
+    let high = sorted.length
+    while (low < high) {
+      const middle = (low + high) >>> 1
+      if ((sorted[middle]?.line ?? line) < line) {
+        low = middle + 1
+      } else {
+        high = middle
+      }
+    }
+    return latest[low - 1] ?? null
+  }
+}
+
+const costStates = (lines: readonly StreamLine[], costs: readonly CostLine[]): Map<string, CostState> => {
+  const inStream = latestBefore(lines)
+  const inFile = new Map([...grouped(lines, ({ path }) => path)].map(([path, members]) => [path, latestBefore(members)]))
+  const writtenAfter = ({ path, line }: CostLine): EpochNs | null => inFile.get(path)?.(line) ?? inStream(line)
+  return new Map(
+    [...grouped(costs, ({ state }) => state)].map(([state, copies]) => [
+      state,
+      { copies, writtenAfter: latestOf(copies.map(writtenAfter)) },
+    ]),
+  )
+}
+
+const launches = (starts: readonly Evidence[]): number => {
+  const delivered = new Map(redeliveries(starts).flatMap(({ id, facts }) => facts.map((fact) => [fact, id])))
+  return new Set(starts.map(({ fact }) => delivered.get(fact.id) ?? fact.id)).size
+}
 
 const costStateFinal = (rawRecords: RawRecordReader, own: readonly Evidence[]): boolean => {
   const last = lastCostState(own)
-  const position = last?.raw.position
   const stream = last?.raw.stream ?? null
-  if (position?.kind !== 'line' || stream === null) {
+  if (last === null || stream === null) {
     return false
   }
   const lines = streamLines(rawRecords, stream)
-  const before = lines.filter(({ line }) => line < position.line)
-  const writtenAfter = latestOf(before.filter(({ path }) => path === position.path)) ?? latestOf(before)
-  const later = (at: EpochNs | null): boolean => at !== null && (writtenAfter === null || at > writtenAfter)
+  const states = costStates(lines, costLines(own, stream))
+  const total = states.get(canonicalJson(last.fact.payload))
+  if (total === undefined) {
+    return false
+  }
+  const { copies, writtenAfter } = total
+  const holders = new Set(copies.map(({ path }) => path))
   const continued = lines.some(({ path, line, at }) =>
-    path === position.path ? line > position.line && at !== null : later(at),
+    holders.has(path) ? at !== null && copies.some((copy) => copy.path === path && line > copy.line) : later(at, writtenAfter),
   )
-  return !continued && !ofKind(own, 'session_start').some(({ fact }) => later(fact.at))
+  const ended = [...states.values()].filter((state) => !later(writtenAfter, state.writtenAfter)).length
+  const started = launches(ofKind(own, 'session_start').filter(({ fact }) => later(fact.at, writtenAfter)))
+  return !continued && started < ended
 }
 
 const sessionUsage = (

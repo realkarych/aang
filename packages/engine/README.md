@@ -859,15 +859,28 @@ and the session facts; `source` is the store or a transaction:
   of its sessions and each of its agents is the sum of its records, so the
   sessions of a run add up to the run. `cost_usd` is `null`: money comes only
   from `cost-state`, shown per session.
-- The `cost-state` of a session is final while nothing shows a later launch. Its
-  line has no time, so the launch that wrote it was last active at the latest
-  time of the lines before it in its file. A later launch shows as a record of
-  the same file after the line that has a time, of any parse state and with or
-  without facts; as a record of another file of the stream with a time after
-  that moment; or as a `SessionStart` hook after it, which comes before the
-  first new line of a resumed session. While a later launch runs, an interactive
-  session has not written its line yet, so the money and compaction usage it
-  shows are of an earlier launch.
+- The `cost-state` of a session is final while no launch runs after the one
+  that wrote it. Each launch ends with a `cost-state` line. Lines of the same
+  content in several files of the stream, such as a superseded copy, are copies
+  of one line. A line has no time: it was written after the latest time of the
+  records before any of its copies in their files, or before it in any file of
+  the stream when its own file has none there. Which file holds a record read
+  in several copies depends on the order of reading, so a copy in each file
+  counts. A later launch shows:
+  - as a record with a time after a copy of the line in the same file, of any
+    parse state and with or without facts;
+  - as a record with a time after that moment in a file of the stream that holds
+    no copy of the line;
+  - or as `SessionStart` hooks after that moment, as many as the `cost-state`
+    lines written after it or more. The first such line ends the launch active
+    at that moment, and each next one a launch that started after it and wrote
+    no record with a time, such as a run that made no API call. A hook beyond
+    them starts a launch that still runs, such as a resumed session before its
+    first new line. One `SessionStart` delivered by several registrations is
+    one launch; `SessionEnd` does not count.
+
+  While a later launch runs, an interactive session has not written its line
+  yet, so the money and compaction usage it shows are of an earlier launch.
 - A record belongs to a stage when the actions of its response are known, not
   empty, and each of them is assigned to that stage and to no other one. The
   actions of a Claude response are the tool calls of its `message.id`. A Codex
