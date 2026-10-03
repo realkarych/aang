@@ -11,7 +11,9 @@ import type {
 } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type ModelChangeDraft, type ModelEntityDraft } from '../model/journal.js'
+import { endObserverCalls } from '../model/observer.js'
 import { compareText } from './evidence.js'
+import { refreshForksOf } from './origins.js'
 import { sessionRun } from './runs.js'
 
 export interface Transfer {
@@ -73,10 +75,10 @@ const stageMarks = (
   })
 }
 
-export const transferSession = (transaction: Transaction, { session, to, at }: Transfer): boolean => {
+export const transferSession = (transaction: Transaction, { session, to, at }: Transfer): RunId | null => {
   const from = sessionRun(transaction, session.key)
   if (from === to) {
-    return false
+    return null
   }
   const agents = new Set<string>(transaction.observations.agents(session.id).map(({ id }) => id))
   const actions = new Set<string>(transaction.observations.actions(session.id).map(({ id }) => id))
@@ -111,8 +113,10 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
       ...stageMarks(transaction, to, runOf, touched),
     ],
   })
+  refreshForksOf(transaction, from, at)
   const facts = transaction.facts.ofSession(session.key).map(({ id }) => id)
+  endObserverCalls(transaction, from, facts, at, `session ${session.id} moved to run ${to} during the call`)
   transaction.interpretations.withdraw(from, facts)
   transaction.interpretations.queue(to, facts)
-  return true
+  return from
 }

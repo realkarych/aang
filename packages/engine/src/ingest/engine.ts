@@ -21,7 +21,7 @@ import type {
 import { BindingId, EpochNs } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
-import { refreshChecks } from '../checks/attention.js'
+import { refreshChecks, refreshRunChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
@@ -595,13 +595,15 @@ export const createEngine = ({
     const { binding, watch } = store.transaction((transaction) => {
       const instant = now()
       const outcome = change(transaction, instant)
+      const moved = outcome.moved.map(({ session }) => session)
       const watch = new Map(quiet)
-      const lost = outcome.moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
-      for (const key of outcome.moved) {
+      const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
+      for (const key of moved) {
         const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
         if (projection !== null) { watchQuiet(watch, projection.session) }
       }
-      refreshChecks(transaction, outcome.moved, contracts)
+      refreshChecks(transaction, moved, contracts)
+      refreshRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts)
       return { binding: outcome.binding, watch }
     })
     quiet = watch

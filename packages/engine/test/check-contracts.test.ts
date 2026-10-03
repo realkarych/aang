@@ -566,6 +566,31 @@ test('a successful repeat in another session of the run closes the item of its r
   expect(store.model.head(runOf('claude', attached.session))).toBe(0)
 })
 
+test('a session moved out of the run takes its successful repeat along and the item opens again at once', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, project } = await setup(onTestFinished, watchingTests)
+  const root = { session: 'root-session', cwd: project }
+  const moved = { session: 'moved-session', cwd: project }
+  const run = runOf('claude', root.session)
+  const session = objectId(sessionKey('claude', moved.session))
+  await engine.ingest(hookBatch(started(root), ...check(root, 'root-fail', 'pnpm test', { exit: 1 }, 10)))
+  await engine.ingest(hookBatch(started(moved), ...check(moved, 'moved-pass', 'pnpm test', 'pass', 20)))
+  const failure = { action: actionOf(root, 'root-fail') }
+  const answered = { ...failure, resolution: 'answered', closed_at: endedAt(store, 'moved-pass') }
+  const open = { ...failure, resolution: 'open', closed_at: null }
+
+  const attached = await engine.bind({ kind: 'attach', session, run })
+  expect(failedChecks(store, run)).toMatchObject([answered])
+  await engine.revokeBinding(attached.binding.id)
+  expect(failedChecks(store, run)).toMatchObject([open])
+  await engine.bind({ kind: 'attach', session, run })
+  expect(failedChecks(store, run)).toMatchObject([answered])
+  await engine.bind({ kind: 'detach', session })
+  expect(failedChecks(store, run)).toMatchObject([open])
+  expect(failedChecks(store, runOf('claude', moved.session))).toEqual([])
+})
+
 test('a Codex check is decided by the exit code of its command item, with or without a function call', async ({
   onTestFinished,
 }) => {

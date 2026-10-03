@@ -179,20 +179,20 @@ const contractChanges = (
   ]
 }
 
-const rootCwd = (transaction: Transaction, run: RunId, session: Session): string | null => {
+const rootCwd = (transaction: Transaction, run: RunId, session: Session | null): string | null => {
   const entity = transaction.model.entity(run, { kind: 'run', id: run })
   if (entity?.kind === 'run') {
     return transaction.observations.getSession(entity.value.root_session)?.cwd ?? null
   }
-  return runId(session.key) === run ? session.cwd : null
+  return session !== null && runId(session.key) === run ? session.cwd : null
 }
 
 const runOf = (transaction: Transaction, key: SessionKey): RunId =>
   transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
   runId(key)
 
-const runActions = (transaction: Transaction, run: RunId, session: Session): ActionFacts[] => {
-  const members = new Set<SessionId>([session.id])
+const runActions = (transaction: Transaction, run: RunId, session: Session | null): ActionFacts[] => {
+  const members = new Set<SessionId>(session === null ? [] : [session.id])
   for (const entity of transaction.model.entities(run)) {
     if (entity.kind !== 'session_membership') {
       continue
@@ -208,7 +208,12 @@ const runActions = (transaction: Transaction, run: RunId, session: Session): Act
     .map((action) => ({ action, facts: transaction.facts.ofEntity(action.key) }))
 }
 
-const refreshRun = (transaction: Transaction, run: RunId, session: Session, catalog: ContractCatalog): void => {
+const refreshRun = (
+  transaction: Transaction,
+  run: RunId,
+  session: Session | null,
+  catalog: ContractCatalog,
+): void => {
   const cwd = rootCwd(transaction, run, session)
   const contracts = cwd === null ? [] : catalog.contractsFor(cwd)
   if (contracts.length === 0) {
@@ -243,5 +248,14 @@ export const refreshChecks = (
     }
     runs.add(run)
     refreshRun(transaction, run, session, catalog)
+  }
+}
+
+export const refreshRunChecks = (transaction: Transaction, runs: Iterable<RunId>, catalog: ContractCatalog): void => {
+  if (catalog.empty) {
+    return
+  }
+  for (const run of new Set(runs)) {
+    refreshRun(transaction, run, null, catalog)
   }
 }

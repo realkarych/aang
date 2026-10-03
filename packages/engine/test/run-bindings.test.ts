@@ -4,22 +4,25 @@ import {
   BindingId,
   type CollectorBatch,
   EpochNs,
+  type Fact,
   type Link,
   LinkId,
   type ModelEntity,
   ModelVersion,
+  ObserverCallId,
   type RunId,
   type Runtime,
   type SessionId,
   StageId,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, BindingError, type Engine } from '@aang/engine'
+import { applyChangeSet, applyObserverResponse, beginObserverCall, BindingError, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { jsonlFile } from './batches.js'
 import { factsOf, sessionKey, startEngine } from './harness.js'
 import { createHome, type Home } from './home.js'
+import { inputFor } from './observer-fixtures.js'
 import { claudeForkTranscript, claudeTranscript, codexRollout } from './samples.js'
 
 const cwd = '/work/project'
@@ -124,6 +127,42 @@ const factsOfSession = (store: Store, session: string): string[] =>
 
 const bindingsOf = (store: Store, run: RunId): ModelEntity[] =>
   store.model.entities(run).filter((entity) => entity.kind === 'binding')
+
+const queueOf = (store: Store, run: RunId) =>
+  store.interpretations.ofRun(run).map(({ fact, status, attempts }) => ({ fact, status, attempts }))
+
+const firstFactOf = (store: Store, session: string): Fact => {
+  const fact = factsOf(store).find(({ entity_key: key }) => key.session === session)
+  if (fact === undefined) {
+    throw new Error(`the session ${session} has no facts`)
+  }
+  return fact
+}
+
+const callAt = EpochNs.parse(1_790_000_000_000_000_000n)
+
+const beginCall = (store: Store, id: string, run: RunId, facts: readonly Fact[]): ObserverCallId => {
+  const call = ObserverCallId.parse(id)
+  store.transaction((transaction) => {
+    beginObserverCall(transaction, {
+      id: call,
+      backend: 'claude',
+      crossVendor: false,
+      input: inputFor(store, [...facts], run),
+      at: callAt,
+    })
+  })
+  return call
+}
+
+const answerCall = (store: Store, call: ObserverCallId): string => {
+  try {
+    return store.transaction((transaction) => applyObserverResponse(transaction, { call, output: {}, at: callAt }))
+      .status
+  } catch (error) {
+    return error instanceof Error ? error.message : String(error)
+  }
+}
 
 const seedStage = (store: Store, run: RunId, session: string): void => {
   store.transaction((transaction) => {
@@ -321,6 +360,58 @@ describe('moving a session between runs', () => {
   })
 })
 
+describe('moving a session during an observer call', () => {
+  test('ends the call of the source run and keeps the moved facts out of its queue, also after a restart', async () => {
+    const { home, store, engine } = await started([
+      transcript('first', 1n),
+      transcript('second', 2n),
+      transcript('third', 3n),
+    ])
+    const [firstRun, secondRun] = [runOf('first'), runOf('second')]
+    await engine.bind({ kind: 'attach', session: sessionOf('third'), run: firstRun })
+    const [own, moving] = [firstFactOf(store, 'first'), firstFactOf(store, 'third')]
+    const call = beginCall(store, 'call-before-move', firstRun, [own, moving])
+
+    await engine.bind({ kind: 'attach', session: sessionOf('third'), run: secondRun })
+
+    expect(store.observerCalls.get(call)).toMatchObject({
+      verdict: 'rejected',
+      reasons: [{ op_index: null, cause: 'scope', message: expect.stringContaining(sessionOf('third')) as unknown }],
+      finished_at: expect.any(BigInt) as unknown,
+    })
+    expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
+    const queues = [
+      [{ fact: own.id, status: 'pending', attempts: 1 }],
+      factsOfSession(store, 'third').map((fact) => ({ fact, status: 'pending', attempts: 0 })),
+    ]
+    expect([queueOf(store, firstRun), queueOf(store, secondRun)]).toEqual(queues)
+    store.close()
+
+    const reopened = home.open()
+    expect([queueOf(reopened, firstRun), queueOf(reopened, secondRun)]).toEqual(queues)
+    const retry = beginCall(reopened, 'call-after-move', secondRun, [moving])
+    expect(reopened.interpretations.ofCall(retry).map(({ run, fact }) => [run, fact])).toEqual([[secondRun, moving.id]])
+  })
+
+  test('returns the facts of a session moved back to the source run to its queue without the ended call', async () => {
+    const { store, engine } = await started([transcript('first', 1n), transcript('second', 2n)])
+    const [firstRun, secondRun] = [runOf('first'), runOf('second')]
+    const moving = firstFactOf(store, 'first')
+    const call = beginCall(store, 'call-before-move', firstRun, [moving])
+
+    await engine.bind({ kind: 'attach', session: sessionOf('first'), run: secondRun })
+    await engine.bind({ kind: 'detach', session: sessionOf('first') })
+
+    expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
+    expect(queueOf(store, firstRun)).toEqual(
+      factsOfSession(store, 'first').map((fact) => ({ fact, status: 'pending', attempts: 0 })),
+    )
+    expect(pending(store, secondRun)).toEqual([])
+    const retry = beginCall(store, 'call-after-return', firstRun, [moving])
+    expect(store.interpretations.ofCall(retry).map(({ run, fact }) => [run, fact])).toEqual([[firstRun, moving.id]])
+  })
+})
+
 describe('fork parent', () => {
   test('is set only by an explicit binding and removed when the binding is revoked', async () => {
     const { store, engine } = await started([transcript('original', 1n), forkTranscript('fork', 2n)])
@@ -356,6 +447,64 @@ describe('fork parent', () => {
 
     await engine.revokeBinding(binding.id)
     expect(linkOfKind(store, run, 'forked_from')).toEqual(runtimeLink)
+  })
+
+  test('follows the parent session moved to another run whether it is named before or after the move', async () => {
+    const run = runOf('fork')
+    const links = await Promise.all(
+      [true, false].map(async (namedFirst) => {
+        const { store, engine } = await started([
+          transcript('original', 1n),
+          transcript('other', 2n),
+          forkTranscript('fork', 3n),
+        ])
+        const naming = () => engine.bind({ kind: 'fork_parent', run, parent: sessionOf('original') })
+        if (namedFirst) {
+          await naming()
+        }
+        const { binding } = await engine.bind({ kind: 'attach', session: sessionOf('original'), run: runOf('other') })
+        if (!namedFirst) {
+          await naming()
+        }
+        const moved = linkOfKind(store, run, 'forked_from')
+        await engine.revokeBinding(binding.id)
+        return [moved, linkOfKind(store, run, 'forked_from')]
+      }),
+    )
+
+    expect(links[0]).toEqual(links[1])
+    expect(links[0]).toMatchObject([{ parent: runOf('other') }, { parent: runOf('original') }])
+  })
+
+  test('of a Codex fork follows its moved parent thread whether the fork is read before or after the move', async () => {
+    const forkMeta = { forked_from_id: 'codex-parent', forked_from_ordinal_exclusive: 3 }
+    const fork = rollout('codex-fork', 3n, forkMeta)
+    const run = runOf('codex-fork', 'codex')
+    const links = await Promise.all(
+      [true, false].map(async (forkFirst) => {
+        const { store, engine } = await started([rollout('codex-parent', 1n), rollout('codex-other', 2n)])
+        if (forkFirst) {
+          await engine.ingest(fork)
+        }
+        const { binding } = await engine.bind({
+          kind: 'attach',
+          session: sessionOf('codex-parent', 'codex'),
+          run: runOf('codex-other', 'codex'),
+        })
+        if (!forkFirst) {
+          await engine.ingest(fork)
+        }
+        const moved = linkOfKind(store, run, 'forked_from')
+        await engine.revokeBinding(binding.id)
+        return [moved, linkOfKind(store, run, 'forked_from')]
+      }),
+    )
+
+    expect(links[0]).toEqual(links[1])
+    expect(links[0]).toMatchObject([
+      { parent: runOf('codex-other', 'codex') },
+      { parent: runOf('codex-parent', 'codex') },
+    ])
   })
 })
 

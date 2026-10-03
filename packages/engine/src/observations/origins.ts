@@ -1,5 +1,5 @@
 import { isDeepStrictEqual } from 'node:util'
-import type { Basis, Binding, EpochNs, Fact, Link, LinkId, RunId, SessionId, SessionKey } from '@aang/contract'
+import type { Basis, Binding, EpochNs, Fact, Link, LinkId, RunId, Session, SessionId, SessionKey } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet } from '../model/journal.js'
@@ -145,4 +145,25 @@ export const refreshForkedFrom = (
         },
     at,
   )
+}
+
+export const runLineage = (
+  transaction: Transaction,
+  run: RunId,
+): { readonly root: Session; readonly lineage: Lineage } | null => {
+  const entity = transaction.model.entity(run, { kind: 'run', id: run })
+  const root = entity?.kind === 'run' ? transaction.observations.getSession(entity.value.root_session) : null
+  if (root === null) {
+    return null
+  }
+  return { root, lineage: lineageOf(transaction, root.key, sessionEvidence(transaction, root.key)) }
+}
+
+export const refreshForksOf = (transaction: Transaction, parent: RunId, at: EpochNs): void => {
+  for (const run of transaction.model.forksOf(parent)) {
+    const fork = runLineage(transaction, run)
+    if (fork !== null) {
+      refreshForkedFrom(transaction, run, fork.lineage.forkedFrom, at)
+    }
+  }
 }

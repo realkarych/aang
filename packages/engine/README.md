@@ -265,6 +265,10 @@ the fork, its original or other forks are read.
 - A Codex rollout with `forked_from_id` starts its own run with a `forked_from`
   link to the run of the parent thread, with the `session_meta` fact as evidence.
 - The links stay in the run created by the fork even when its session is moved.
+  The `forked_from` link points at the run that holds the parent session now:
+  a transfer of the parent session updates the links of its forks in the same
+  transaction, so naming the parent or reading the fork before or after the
+  transfer gives the same link.
 
 Bindings are user changes journaled in the model (`binding.add`,
 `binding.revoke`) and applied by `engine.bind` and `engine.revokeBinding`:
@@ -291,8 +295,15 @@ binding's transaction:
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
   queue of the source run;
+- an observer call of the source run whose batch holds any of these facts is
+  ended as `rejected` with a `scope` reason: the rest of its batch returns to
+  `pending` in the source run, and a late response to it is refused, so neither
+  a rejection nor a restart returns the moved facts to the source run, and a
+  session moved back gets its facts `pending` again;
 - the session and its objects are projected again with the target run, so usage
-  and checks follow it; view marks and view rules stay with their runs.
+  follows it; checks are recomputed for the target run and for the source run
+  with its remaining sessions; view marks and view rules stay with their runs;
+- the `forked_from` links that point at the source run are recomputed.
 
 ## Questions, decisions and rule attention
 

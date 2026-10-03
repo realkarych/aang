@@ -12,9 +12,8 @@ import type {
 import { runId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet } from '../model/journal.js'
-import { sessionEvidence } from './evidence.js'
-import { isFork, type Lineage, lineageOf } from './lineage.js'
-import { activeForkParent, refreshForkedFrom } from './origins.js'
+import { isFork, type Lineage } from './lineage.js'
+import { activeForkParent, refreshForkedFrom, runLineage } from './origins.js'
 import { sessionRun } from './runs.js'
 import { transferSession } from './transfer.js'
 
@@ -31,9 +30,14 @@ export class BindingError extends Error {
   }
 }
 
+export interface MovedSession {
+  readonly session: SessionKey
+  readonly from: RunId
+}
+
 export interface BindingOutcome {
   readonly binding: Binding
-  readonly moved: readonly SessionKey[]
+  readonly moved: readonly MovedSession[]
 }
 
 type SessionBinding = Extract<Binding, { kind: 'attach' | 'detach' }>
@@ -82,13 +86,15 @@ const activeSessionBinding = (transaction: Transaction, session: Session): Sessi
     )[0] ?? null
 
 const rootLineage = (transaction: Transaction, run: RunId): { readonly root: Session; readonly lineage: Lineage } => {
-  const entity = transaction.model.entity(run, { kind: 'run', id: run })
-  const root = entity?.kind === 'run' ? transaction.observations.getSession(entity.value.root_session) : null
-  if (root === null) {
+  const fork = runLineage(transaction, run)
+  if (fork === null) {
     throw new BindingError('not_found', `run ${run} does not exist`)
   }
-  return { root, lineage: lineageOf(transaction, root.key, sessionEvidence(transaction, root.key)) }
+  return fork
 }
+
+const movedFrom = (session: Session, from: RunId | null): MovedSession[] =>
+  from === null ? [] : [{ session: session.key, from }]
 
 const placeSession = (
   transaction: Transaction,
@@ -102,7 +108,7 @@ const placeSession = (
   }
   const target = binding.kind === 'attach' ? binding.run : runId(session.key)
   journal(transaction, target, at, 'binding.add', binding)
-  return { binding, moved: transferSession(transaction, { session, to: target, at }) ? [session.key] : [] }
+  return { binding, moved: movedFrom(session, transferSession(transaction, { session, to: target, at })) }
 }
 
 export const addBinding = (
@@ -161,6 +167,6 @@ export const revokeBinding = (transaction: Transaction, id: BindingId, at: Epoch
   }
   const session = requireSession(transaction, binding.session)
   const placed = sessionRun(transaction, session.key) === run
-  const moved = placed && transferSession(transaction, { session, to: runId(session.key), at })
-  return { binding, moved: moved ? [session.key] : [] }
+  const from = placed ? transferSession(transaction, { session, to: runId(session.key), at }) : null
+  return { binding, moved: movedFrom(session, from) }
 }
