@@ -6,9 +6,12 @@ import {
   type ApiErrorCode,
   endpoints,
   type Listener,
+  type OtelConfigRequest,
+  type OtelConfigResponse,
   type ShutdownResponse,
   streamPath,
 } from '@aang/contract'
+import { z } from 'zod'
 import type { Authenticator } from './auth.js'
 import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
@@ -20,6 +23,7 @@ export interface ServerOptions {
   readonly staticRoot: string | null
   readonly routes: (address: Listener) => readonly ApiRoute[]
   readonly streams: Streams
+  readonly otelConfig: (request: OtelConfigRequest) => OtelConfigResponse
   readonly onShutdown: () => void
 }
 
@@ -89,6 +93,7 @@ export const startServer = async ({
   staticRoot,
   routes,
   streams,
+  otelConfig,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
   const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
@@ -108,6 +113,27 @@ export const startServer = async ({
     sendJson(response, 200, accepted)
   }
 
+  const serveAdmin = async <S extends z.ZodType, R extends z.ZodType>(
+    request: IncomingMessage,
+    response: ServerResponse,
+    spec: { readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => z.output<R>,
+  ): Promise<void> => {
+    let body: unknown
+    try {
+      body = await readJson(request)
+    } catch (error) {
+      sendError(response, 'invalid_request', error instanceof Error ? error.message : String(error))
+      return
+    }
+    const parsed = spec.body.safeParse(body)
+    if (!parsed.success) {
+      sendError(response, 'invalid_request', z.prettifyError(parsed.error))
+      return
+    }
+    sendJson(response, 200, spec.response.encode(handle(parsed.data)))
+  }
+
   const routeApi = async (
     table: readonly ApiRoute[],
     request: IncomingMessage,
@@ -118,6 +144,10 @@ export const startServer = async ({
     const method = request.method ?? 'GET'
     if (method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
       await shutdown(request, response)
+      return
+    }
+    if (method === endpoints.otelConfig.method && pathname === endpoints.otelConfig.path) {
+      await serveAdmin(request, response, endpoints.otelConfig, otelConfig)
       return
     }
     if (method === 'GET' && pathname === streamPath) {

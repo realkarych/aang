@@ -7,7 +7,7 @@ import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
-import { otelToken } from './otel-token.js'
+import { otelEndpoint, otelToken, rotateOtelToken } from './otel-token.js'
 import { readRoutes } from './reads.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
@@ -165,6 +165,12 @@ const serve = async ({
         return readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
       },
       streams,
+      otelConfig: ({ rotate }) => {
+        if (rotate) {
+          ingestion.setOtelToken(rotateOtelToken(store))
+        }
+        return { endpoint: otelEndpoint(ingestion.otel, otelToken(store)) }
+      },
       onShutdown: () => {
         requestStop('shutdown')
       },

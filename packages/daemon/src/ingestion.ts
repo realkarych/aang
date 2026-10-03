@@ -15,6 +15,7 @@ export interface IngestionOptions {
 
 export interface Ingestion {
   readonly otel: Listener
+  readonly setOtelToken: (token: string) => void
   readonly failure: Promise<unknown>
   readonly stop: () => Promise<void>
 }
@@ -75,6 +76,9 @@ export const startIngestion = async ({
 
   return {
     otel,
+    setOtelToken: (token) => {
+      collector.setOtelToken(token)
+    },
     failure: failure.promise,
     stop: async () => {
       clearInterval(refresh)
