@@ -22,6 +22,7 @@ export {
   chargeEndedObserverCall,
   type EndedCallUsage,
   failObserverCall,
+  type FollowUpOptions,
   type ObserverCallBegin,
   type ObserverCallFailure,
   type ObserverFollowUp,
@@ -30,6 +31,7 @@ export {
 } from './model/observer.js'
 export { type MaterialLimits, resolveObserverNeeds } from './input/materials.js'
 export { type BatchLimits, type ObserverBatchStart, startObserverBatch } from './input/batch.js'
+export { defaultInputTokens, observerInputTokens } from './input/fit.js'
 export {
   boundObserverQueue,
   type CallExhaustion,
@@ -68,6 +70,16 @@ export {
   type StageDraft,
 } from './model/journal.js'
 export { BindingError, type BindingErrorCode } from './observations/bindings.js'
+export {
+  type AgentUsage,
+  solverUsage,
+  type SolverUsage,
+  type SolverUsageOptions,
+  stageUsage,
+  type StageUsage,
+  type UsageSource,
+} from './usage/solver.js'
+export type { RunPause, RunTime } from './usage/time.js'
 export { hookRedeliveries, type HookRedelivery } from './observations/redelivery.js'
 export { InvalidPositionError, type ObserverRunStatus } from './read/context.js'
 export { createReadQueries, type ReadQueries, type ReadQueriesOptions } from './read/queries.js'

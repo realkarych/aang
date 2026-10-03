@@ -407,13 +407,24 @@ output of `action_end` or `PostToolBatch`. When the action has a structured resu
 such as an edit patch or an MCP result, the output is the JSON text
 `{"output": <text>, "result": <result>}`. Texts longer than
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
-and report their path and original length. Artifact versions answer `not_found`
-until E.7b provides their storage. Context records answer `not_found`: the resolver
-does not read the stored context of F.7a yet.
+and report their path and original length. A string is cut only when the cut text
+and its truncation entry together are shorter in JSON than the whole string, so a
+cut never lengthens a material, and a cut never splits a surrogate pair. Artifact
+versions answer `not_found`
+until E.7b provides their storage. A context request returns the stored run context
+of F.7a with its entries cut at `MaterialLimits.textLength`; a record of another
+channel answers `not_found`, a context out of scope its exclusion.
 
-A response with nonempty `needs` to a call without materials is not applied.
+A response with nonempty `needs` to a call without materials is not applied. When
+at least one requested material fits a follow-up within its input limit,
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch
-`in_call`. `beginObserverFollowUp` starts the only follow-up with the same snapshot
+`in_call`; the response option `followUp` (`crossVendor`, material limits,
+`inputTokens`) must match the options later given to `beginObserverFollowUp`.
+Otherwise the response is rejected with the cause `limit`: the batch returns to
+`pending`, spends the attempt like any rejected response, and the next call gets the
+reason in `previous_attempt`. A follow-up therefore always carries materials, and a
+call with materials is a follow-up whose `needs` are ignored.
+`beginObserverFollowUp` starts the only follow-up with the same snapshot
 and batch plus the resolved materials, with the backend of the first call. It hands
 the batch over to the follow-up without spending an attempt. The follow-up response
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
@@ -432,26 +443,74 @@ A reparse queues the facts it adds the same way after it rebuilds the projection
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
 
-`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context })`
 starts the next call of a run from its pending facts in the order of their records:
 
 - a queued `context` or `git_snapshot` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
-- the batch is the first facts up to `limits.facts` whose payload size in UTF-8 bytes
-  stays within `limits.bytes`; the first fact always goes;
+- the candidates are the first facts up to `limits.facts` whose payload size in UTF-8
+  bytes stays within `limits.bytes`; the first fact always goes;
 - the input carries the run description with the sessions and agents in scope, the
-  snapshot of the current version (active stages, criteria, open attention items),
-  the batch facts with their session, agent and action and payload strings cut at
-  `limits.textLength`, and the reasons of the latest rejected call of these facts as
-  `previous_attempt`. The run goal and brief, stages, criteria and attention items
-  enter only when their grounds are in scope; a reference to a stage left out becomes
-  `null`. The reasons carry over calls that ended without a response, so a backend
-  failure or a restart after a rejection does not drop them. The context, collapsed
-  facts, backlog and artifact versions stay empty: the batch does not pack them yet;
+  given run context when its record is in scope (otherwise `null`), the snapshot of
+  the current version (active stages, criteria, open attention items), the batch
+  facts with their session, agent and action, the collapsed routine facts and the
+  reasons of the latest rejected call of these facts as `previous_attempt`. The run
+  goal and brief, stages, criteria and attention items enter only when their grounds
+  are in scope; a reference to a stage left out becomes `null`. The reasons carry
+  over calls that ended without a response, so a backend failure or a restart after
+  a rejection does not drop them. The backlog and artifact versions stay empty;
+- the input is packed within the limit (see "Observer input" below);
 - the call is recorded by `beginObserverCall`. Without a run entity or an eligible
-  fact nothing starts and the result is `null`.
+  fact, or when the run description, the snapshot and the context leave no room
+  even for one fact without its payload, nothing starts, the facts stay `pending`
+  and the result is `null`.
+
+### Observer input
+
+The size of an input is its JSON in UTF-8 bytes divided by four, rounded up, in
+tokens (`observerInputTokens`); `limits.inputTokens` bounds it (ADR-0007, 24 000 by
+default in the scheduler). A first call is packed within seven eighths of the limit,
+so that the follow-up for `needs` has room for its materials under the full limit.
+
+Routine facts are folded into counters (`batch.collapsed`) before the size is
+measured. A fact is routine when it starts an action that reads files or searches
+(`file_read`, `search`), or ends one with the outcome `ok`, and is not urgent. The
+facts of each session and agent are taken in batch order; a series of routine facts
+of the same tool that covers at least three actions becomes one counter with the
+tool, the action kind, the agent, the fact ids and the time span. Any other fact of
+the same agent ends the series; facts of other agents do not. Collapsed facts belong
+to the batch: they may be cited as evidence and are interpreted with it.
+
+When the input exceeds the limit, the packing gives up detail in this order and
+stops at the first input that fits:
+
+1. the strings of the batch fact payloads and the context entries are cut to the
+   longest common length between 256 characters and `limits.textLength`; every cut
+   reports its path and original length;
+2. with those strings at 256 characters, the texts of the run description, the
+   snapshot and `previous_attempt` are cut to the longest length from 64 characters
+   and end with `…`;
+3. the batch keeps the longest prefix of the candidates that fits with full model
+   texts, and the strings of that prefix get the longest length that still fits; the
+   other candidates stay `pending` for the next batch;
+4. one fact with 256-character strings and model texts cut from 64 characters;
+5. the first candidate alone with its payload omitted: `payload` is `null` and its
+   only truncation entry has the path `payload` and the length of the payload JSON.
+   The observer can request the raw record by the `seq` of the fact. The other
+   candidates stay `pending` for the next batch.
+
+A string or a model text is cut only when the cut, together with its truncation
+entry or the `…` mark, is shorter in JSON than the whole text. The input size
+therefore never grows when the length goes down, and each length above is found by
+trying the longest one first and then by bisection.
+
+`beginObserverFollowUp` packs the stored input with the resolved materials within
+`inputTokens` (24 000 by default) by steps 1–4. The materials are resolved with the
+same string length as the batch facts and the context, which can be cut further than
+in the first call; step 3 drops materials from the end instead of facts and keeps at
+least one. The batch, the snapshot version and the ids stay those of the first call.
 
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a
@@ -825,7 +884,100 @@ rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: view rules, the view
 mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
-and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
-(E.8, U.1); the CLI version, model, usage and error of observer calls (F.8, F.9).
+and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
+error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
+
+## Solver usage
+
+The solver journal follows ADR-0009. The ingestion transaction projects a usage
+record for every `usage` entity of a session, next to its actions:
+
+- A Claude record is keyed by `message.id` and groups every transcript record of
+  the message. Input and cache tokens come from any of them, output and reasoning
+  output are the largest. When no record of the group has a `stop_reason`, the
+  output is marked as a lower bound (`output_lower_bound`), which is how the
+  understated output of subagents shows. A `<synthetic>` message is stored with
+  `synthetic: true`. The agent is the one of the file: the main thread or the
+  subagent.
+- A Codex record is keyed by `(thread_id, response_id)` of `token_usage_record`;
+  its output is never a lower bound. `turn.completed`, `thread_token_usage` and
+  `token_count` are not summed.
+- Records copied by a Claude fork are stored with `inherited: true`, by the same
+  rule as inherited actions (Forks, bindings and session transfer).
+- The session keeps the last `cost-state` line of its transcript as
+  `cost_state`; it is never added to the records. The line is cumulative through
+  resume, so the last one has the largest total duration, then the largest cost;
+  the line number breaks a tie. The order of reading does not decide it: a backfill
+  of an earlier part or a superseded file of the stream may be read last.
+- An agent of a Codex thread that has no `token_usage_record` keeps the total of
+  the thread with the largest ordinal as `thread_total`. A thread with records,
+  and the root thread of a fork, whose counter includes its parent, have none.
+
+`solverUsage(source, run)` reads the journal of a run from the projected objects
+and the session facts; `source` is the store or a transaction:
+
+- Totals count records that are neither inherited nor synthetic: the run, each
+  of its sessions and each of its agents is the sum of its records, so the
+  sessions of a run add up to the run. `cost_usd` is `null`: money comes only
+  from `cost-state`, shown per session.
+- The `cost-state` of a session is final only when the data show that no launch
+  runs after the one that wrote it; when they cannot show it, it is not final.
+  Each launch ends with a `cost-state` line. Lines of the same content in several
+  files of the stream, such as a superseded copy, are copies of one line. A line
+  has no time. It was written after the latest time of the records stored before
+  any of its copies in their own files, and before the first of its copies was
+  read. A later launch shows:
+  - as a record with a time after the first of its copies was read;
+  - as a record with a time after a copy of the line in the same file, of any
+    parse state and with or without facts;
+  - as a record with a time after that moment in a file of the stream that holds
+    no copy of the line;
+  - or as a `SessionStart` hook after that moment that no launch which wrote its
+    line after it explains. The `cost-state` lines written after the moment end
+    launches in the order of their totals: the first one the launch active at
+    that moment, each next one a launch that started after it and wrote no
+    record with a time, such as a run that made no API call. Hooks are matched
+    to these launches in the order of time, each to a launch whose line was read
+    after the hook. Each `SessionStart` is a launch of its own: a possible
+    redelivery from another registration does not prove one launch. A hook left
+    without a launch starts a launch that still runs, such as a resumed session
+    before its first new line, or one that started after the lines of the
+    earlier launches were read. `SessionEnd` does not count.
+
+  Two limits follow from what the data can show. A record read in several files
+  is stored once, in the file read first, so the file of a copy may keep no
+  dated record before it; the records of the other files are not taken in its
+  place, and such a line is not final. A launch that writes no record with a time
+  is told from a launch still running only by the time its line was read, so a
+  hook that fired before the line was read is taken as the start of the launch
+  that wrote it.
+
+  While a later launch runs, an interactive session has not written its line
+  yet, so the money and compaction usage it shows are of an earlier launch.
+- A record belongs to a stage when the actions of its response are known, not
+  empty, and each of them is assigned to that stage and to no other one. The
+  actions of a Claude response are the tool calls of its `message.id`. A Codex
+  item names no response, so the actions of a Codex record are all actions of
+  its turn: the record belongs to a stage only when every action of the turn
+  does. The other records are `unassigned`. `stageUsage(source, run, stage)`
+  gives the stage's records and the unassigned records of the sessions whose
+  actions or agents are linked to the stage. There is no proportional estimate.
+- The duration of a run runs from the first to the last activity of its sessions.
+  Activity is a fact of a record that carries its own time, or of a hook, whose
+  time is the moment it was written. A line without a timestamp, such as
+  `cost-state`, a registry entry or a file read whole, takes the time it was read,
+  which a backfill moves arbitrarily, so it is not activity. A silence of at least
+  `pauseAfterMs` (5 minutes by default) between two activities of the run is a
+  pause; pauses stay inside the duration.
+- The active time of an agent is the sum of its turns, from its own activity
+  without the inherited facts. A turn opens with a turn start, an agent start or
+  a prompt that is not a slash command or a synthetic line, or with the first
+  message, action or usage after a closed turn. It closes with a final message,
+  a turn end, an agent end or the session end. A turn still open lasts until the
+  last activity of the agent. The active times of parallel agents overlap, so their
+  sum is not the duration of the run.
+- A transfer projects the session again with its new run, so both runs read the
+  moved usage on the next query.

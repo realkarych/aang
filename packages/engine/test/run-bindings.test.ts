@@ -516,7 +516,7 @@ describe('moving a session during an observer call', () => {
         crossVendor: false,
         id: call,
         at: callAt,
-        limits: { facts: 1, bytes: 96_000, textLength: 4_000 },
+        limits: { facts: 1, bytes: 96_000, textLength: 4_000, inputTokens: 24_000 },
       }),
     )
     expect(input?.run.sessions.map(({ id }) => id).sort()).toEqual([sessionOf('first'), sessionOf('third')].sort())
@@ -582,7 +582,7 @@ describe('moving a session into a run of another vendor', () => {
           crossVendor,
           id: ObserverCallId.parse(id),
           at: callAt,
-          limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000 },
+          limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000, inputTokens: 10_000_000 },
         }),
       )
     const fail = (id: string): void => {

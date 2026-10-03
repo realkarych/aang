@@ -108,8 +108,8 @@ export const createHome = async (register: (cleanup: Cleanup) => void): Promise<
     recordObserverCalls: (calls) => {
       const connection = database()
       const insertCall = connection.prepare(
-        `INSERT INTO observer_calls (id, run_id, backend, base_version, input, started_at, change_seq)
-         VALUES (?, ?, 'claude', ?, '{}', 1759370000000000000, 1)`,
+        `INSERT INTO observer_calls (id, kind, run_id, backend, base_version, input, started_at, change_seq)
+         VALUES (?, 'batch', ?, 'claude', ?, '{}', 1759370000000000000, 1)`,
       )
       for (const call of calls) {
         insertCall.run(call.id, call.run, call.base_version)
