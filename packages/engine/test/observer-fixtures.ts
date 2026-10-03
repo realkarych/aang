@@ -105,11 +105,16 @@ export const setupObserver = async (onTestFinished: TestContext['onTestFinished'
     }
   }
   store.transaction((transaction) => {
+    const ingested = transaction.model.entity(runA, { kind: 'run', id: runA })
+    if (ingested?.kind !== 'run') {
+      throw new Error('ingesting a root session must create its run')
+    }
     applyChangeSet(transaction, {
       run: runA,
       author: 'rule',
       at: at(2),
       changes: [
+        put('run.goal', { kind: 'run', value: { ...ingested.value, goal: drafts.runA.goal } }, observed, []),
         put('stage.create', { kind: 'stage', value: drafts.build }, observed, []),
         put('stage.create', { kind: 'stage', value: drafts.testing }, observed, []),
         put('criterion.add', { kind: 'criterion', value: drafts.testsPass }, observed, []),
