@@ -128,6 +128,7 @@ const storedObservations = (transaction: Transaction, key: SessionKey): Observat
     ...transaction.observations.agents(session),
     ...transaction.observations.actions(session),
     ...transaction.observations.questions(session),
+    ...transaction.observations.usageRecords(session),
   ]
 }
 

@@ -10,7 +10,7 @@ import {
 } from '@aang/contract'
 import { contentHash } from '@aang/contract/ids'
 
-const arrivedAt = 1_790_856_592_228_739_000n
+export const arrivedAt = 1_790_856_592_228_739_000n
 
 const instant = (offset: number): EpochNs => EpochNs.parse(arrivedAt + BigInt(offset))
 

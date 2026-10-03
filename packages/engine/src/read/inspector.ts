@@ -16,26 +16,13 @@ import {
   type StageId,
   type StageInspector,
   type StageLifecycle,
-  type UsageTotals,
 } from '@aang/contract'
 import { compareText } from '../observations/evidence.js'
+import { stageUsage } from '../usage/solver.js'
 import { byId, earliest, latest, partsOf, type ReadContext, runOf, stagesOfLink } from './context.js'
 import { observerCallsOf } from './observer-calls.js'
 
 const nanosecondsPerMillisecond = 1_000_000n
-
-const noUsage: UsageTotals = {
-  tokens: {
-    uncached_input_tokens: 0,
-    cache_read_input_tokens: 0,
-    cache_write_input_tokens: 0,
-    output_tokens: 0,
-    reasoning_output_tokens: null,
-  },
-  records: 0,
-  output_lower_bound: false,
-  cost_usd: null,
-}
 
 const successorsOf = (lifecycle: StageLifecycle): StageId[] => {
   switch (lifecycle.state) {
@@ -187,7 +174,7 @@ export const stageInspector = (context: ReadContext, run: RunId, id: StageId): S
       ended_at: ended ? latest(actions.flatMap(({ ended_at: end }) => (end === null ? [] : [end]))) : null,
       active_ms: activeMs(actions),
     },
-    usage: { stage: noUsage, unassigned_in_sessions: noUsage },
+    usage: stageUsage(store, run, id),
     evidence: groundsOf(stage)
       .map((fact) => store.facts.get(fact))
       .filter((fact): fact is Fact => fact !== null),

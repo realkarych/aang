@@ -825,7 +825,100 @@ rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: view rules, the view
 mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
-and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
-(E.8, U.1); the CLI version, model, usage and error of observer calls (F.8, F.9).
+and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
+error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
+
+## Solver usage
+
+The solver journal follows ADR-0009. The ingestion transaction projects a usage
+record for every `usage` entity of a session, next to its actions:
+
+- A Claude record is keyed by `message.id` and groups every transcript record of
+  the message. Input and cache tokens come from any of them, output and reasoning
+  output are the largest. When no record of the group has a `stop_reason`, the
+  output is marked as a lower bound (`output_lower_bound`), which is how the
+  understated output of subagents shows. A `<synthetic>` message is stored with
+  `synthetic: true`. The agent is the one of the file: the main thread or the
+  subagent.
+- A Codex record is keyed by `(thread_id, response_id)` of `token_usage_record`;
+  its output is never a lower bound. `turn.completed`, `thread_token_usage` and
+  `token_count` are not summed.
+- Records copied by a Claude fork are stored with `inherited: true`, by the same
+  rule as inherited actions (Forks, bindings and session transfer).
+- The session keeps the last `cost-state` line of its transcript as
+  `cost_state`; it is never added to the records. The line is cumulative through
+  resume, so the last one has the largest total duration, then the largest cost;
+  the line number breaks a tie. The order of reading does not decide it: a backfill
+  of an earlier part or a superseded file of the stream may be read last.
+- An agent of a Codex thread that has no `token_usage_record` keeps the total of
+  the thread with the largest ordinal as `thread_total`. A thread with records,
+  and the root thread of a fork, whose counter includes its parent, have none.
+
+`solverUsage(source, run)` reads the journal of a run from the projected objects
+and the session facts; `source` is the store or a transaction:
+
+- Totals count records that are neither inherited nor synthetic: the run, each
+  of its sessions and each of its agents is the sum of its records, so the
+  sessions of a run add up to the run. `cost_usd` is `null`: money comes only
+  from `cost-state`, shown per session.
+- The `cost-state` of a session is final only when the data show that no launch
+  runs after the one that wrote it; when they cannot show it, it is not final.
+  Each launch ends with a `cost-state` line. Lines of the same content in several
+  files of the stream, such as a superseded copy, are copies of one line. A line
+  has no time. It was written after the latest time of the records stored before
+  any of its copies in their own files, and before the first of its copies was
+  read. A later launch shows:
+  - as a record with a time after the first of its copies was read;
+  - as a record with a time after a copy of the line in the same file, of any
+    parse state and with or without facts;
+  - as a record with a time after that moment in a file of the stream that holds
+    no copy of the line;
+  - or as a `SessionStart` hook after that moment that no launch which wrote its
+    line after it explains. The `cost-state` lines written after the moment end
+    launches in the order of their totals: the first one the launch active at
+    that moment, each next one a launch that started after it and wrote no
+    record with a time, such as a run that made no API call. Hooks are matched
+    to these launches in the order of time, each to a launch whose line was read
+    after the hook. Each `SessionStart` is a launch of its own: a possible
+    redelivery from another registration does not prove one launch. A hook left
+    without a launch starts a launch that still runs, such as a resumed session
+    before its first new line, or one that started after the lines of the
+    earlier launches were read. `SessionEnd` does not count.
+
+  Two limits follow from what the data can show. A record read in several files
+  is stored once, in the file read first, so the file of a copy may keep no
+  dated record before it; the records of the other files are not taken in its
+  place, and such a line is not final. A launch that writes no record with a time
+  is told from a launch still running only by the time its line was read, so a
+  hook that fired before the line was read is taken as the start of the launch
+  that wrote it.
+
+  While a later launch runs, an interactive session has not written its line
+  yet, so the money and compaction usage it shows are of an earlier launch.
+- A record belongs to a stage when the actions of its response are known, not
+  empty, and each of them is assigned to that stage and to no other one. The
+  actions of a Claude response are the tool calls of its `message.id`. A Codex
+  item names no response, so the actions of a Codex record are all actions of
+  its turn: the record belongs to a stage only when every action of the turn
+  does. The other records are `unassigned`. `stageUsage(source, run, stage)`
+  gives the stage's records and the unassigned records of the sessions whose
+  actions or agents are linked to the stage. There is no proportional estimate.
+- The duration of a run runs from the first to the last activity of its sessions.
+  Activity is a fact of a record that carries its own time, or of a hook, whose
+  time is the moment it was written. A line without a timestamp, such as
+  `cost-state`, a registry entry or a file read whole, takes the time it was read,
+  which a backfill moves arbitrarily, so it is not activity. A silence of at least
+  `pauseAfterMs` (5 minutes by default) between two activities of the run is a
+  pause; pauses stay inside the duration.
+- The active time of an agent is the sum of its turns, from its own activity
+  without the inherited facts. A turn opens with a turn start, an agent start or
+  a prompt that is not a slash command or a synthetic line, or with the first
+  message, action or usage after a closed turn. It closes with a final message,
+  a turn end, an agent end or the session end. A turn still open lasts until the
+  last activity of the agent. The active times of parallel agents overlap, so their
+  sum is not the duration of the run.
+- A transfer projects the session again with its new run, so both runs read the
+  moved usage on the next query.
