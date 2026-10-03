@@ -659,8 +659,11 @@ fails and changes nothing: the contract has no removal without a replacement.
 A deleted fact, object or discarded record leaves no row in the change feed, so
 every deletion advances `change_seq`, and a record whose facts were added or
 removed is rewritten with a new `change_seq`. The head therefore moves with
-every visible change and a reparse that changes nothing keeps it. The daemon
-publishes the SSE `reset` with reason `reparsed` after a reparse. An object that
+every visible change and a reparse that changes nothing keeps it. A reparse that
+moves the head stores the new head as the reparse boundary in the same
+transaction, because a client that holds an earlier position cannot learn its
+deletions from the feed. `feed` refuses such a position, and the daemon answers it
+with the SSE `reset` with reason `reparsed`, also after a restart. An object that
 is deleted and later projected again starts without fields owned by other rules,
 such as its run.
 
@@ -767,7 +770,9 @@ counts come from the interpretation statuses.
     `session_membership` takes the objects of that session out of the run;
   - `run` is the current summary, view and bindings, which the transport delivers
     after the events;
-  - a position ahead of the change feed is an `InvalidPositionError`.
+  - a position ahead of the change feed is an `InvalidPositionError` with reason
+    `stale_position`; a position before the reparse boundary is one with reason
+    `reparsed`.
 - `inspector(run, stage)`, `changes(run, { version, change_seq })` and
   `observerCalls(run)` serve the inspector, the changes since a view mark and the
   observer calls.

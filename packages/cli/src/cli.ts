@@ -1,5 +1,6 @@
 import { parseArgs } from 'node:util'
 import { openLink, rotateToken } from './access.js'
+import { reparse } from './admin.js'
 import { describeError, type Output, processOutput } from './output.js'
 import { daemonCommand, type DaemonProgram, runDaemonProcess, startInBackground, startInForeground } from './start.js'
 import { status } from './status.js'
@@ -12,6 +13,7 @@ const usage = `usage: aang <command>
   status                                    show the daemon and the spool
   open                                      print a one-time sign-in link to the UI
   token rotate                              replace the UI token
+  reparse                                   parse stored records again with the current normalizers
 `
 
 class UsageError extends Error {}
@@ -53,6 +55,9 @@ const dispatch = async (argv: string[], program: DaemonProgram, output: Output):
     case 'open':
       noArguments(command, args)
       return openLink(output)
+    case 'reparse':
+      noArguments(command, args)
+      return reparse(output)
     case 'token':
       if (args.length !== 1 || args[0] !== 'rotate') {
         throw new UsageError('usage: aang token rotate')
