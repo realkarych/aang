@@ -1,6 +1,8 @@
+import { join } from 'node:path'
 import {
   AttentionItemId,
   type AttentionItem,
+  type ArtifactVersion,
   ChangeSeq,
   ChangesResponse,
   type Fact,
@@ -13,8 +15,10 @@ import {
   TempId,
   type ViewPosition,
 } from '@aang/contract'
-import { createViewState, InvalidPositionError } from '@aang/engine'
+import { createReadQueries, createViewState, InvalidPositionError } from '@aang/engine'
 import { describe, expect, test } from 'vitest'
+import type { HookDelivery } from './batches.js'
+import { startEngine } from './harness.js'
 import { at } from './model.js'
 import { createStage, existing, temporary } from './observer-fixtures.js'
 import {
@@ -28,6 +32,7 @@ import {
   toolResult,
   toolUse,
 } from './read-scene.js'
+import { writeFiles } from './repository.js'
 import { claudeTranscript } from './samples.js'
 
 const time = (second: number): string => new Date(Date.UTC(2026, 9, 1, 12, 0, second)).toISOString()
@@ -111,6 +116,28 @@ const startRun = async (scene: Scene) => {
     ...read(source, 'read-4', 6),
   ])
   return { source, run }
+}
+
+const writeHooks = (source: Source, call: string, path: string, content: string, arrival: number): HookDelivery[] => {
+  const tool = { tool_name: 'Write', tool_use_id: call, tool_input: { file_path: path, content } }
+  return [
+    { ...hook(source, `${call}-pre.evt`, 'PreToolUse.Bash.json', tool), arrival },
+    {
+      ...hook(source, `${call}-post.evt`, 'PostToolUse.Bash.json', {
+        ...tool,
+        tool_response: { type: 'create', filePath: path, content },
+      }),
+      arrival: arrival + 1,
+    },
+  ]
+}
+
+const versionOf = (versions: readonly ArtifactVersion[], path: string): ArtifactVersion => {
+  const version = versions.find(({ ref }) => ref.kind === 'file' && ref.path === path)
+  if (version === undefined) {
+    throw new Error(`the run must have a version of ${path}`)
+  }
+  return version
 }
 
 const ask = (source: Source) =>
@@ -228,6 +255,87 @@ describe('since the last view and the order of attention', () => {
     expect(recovered.attention).toEqual({ opened: [], closed: [] })
     expect(recovered.activity).toEqual([])
     expect(itemWith(snapshotOf(scene, run), ({ id }) => id === asked.id).priority?.value).toBe('high')
+  })
+
+  test('an artifact version that appears while the observer is unavailable is in the changes since the mark once, also after its retention, an earlier producer and a restart', async ({
+    onTestFinished,
+  }) => {
+    const scene = await openScene(onTestFinished)
+    const views = createViewState({ store: scene.store, now: () => at(100) })
+    const { source, run } = await startRun(scene)
+    const first = views.markViewed(run, positionOf(snapshotOf(scene, run)))
+    if (first === null) {
+      throw new Error('the run must exist')
+    }
+    const plan = join(scene.project, 'docs', 'plan.md')
+    const summary = join(scene.project, 'reports', 'summary.md')
+    const content = '# Plan\n\n1. Ship\n'
+
+    await scene.hooks(...writeHooks(source, 'write-b', plan, content, 20))
+    await scene.transcript(source, [
+      toolUse(source, 'report', time(14), 'Bash', {
+        command: 'node scripts/report.js > reports/summary.md',
+        description: 'Write the report',
+      }),
+      toolResult(source, 'report', time(15), 'done'),
+    ])
+
+    const created = scene.store.artifacts.versions(run)
+    const written = versionOf(created, plan)
+    const report = versionOf(created, summary)
+    expect(written).toMatchObject({ produced_by: actionOf(source, 'write-b'), retention: { kind: 'reference' } })
+    expect(report).toMatchObject({ produced_by: actionOf(source, 'report'), retention: { kind: 'reference' } })
+    expect(changesSince(scene, run, first).artifact_versions).toEqual([written, report])
+
+    const second = views.markViewed(run, positionOf(snapshotOf(scene, run)))
+    if (second === null) {
+      throw new Error('the run must exist')
+    }
+    const grounds = { evidence: [startOf(scene, source, 'report').id], rationale: 'The observer is back' }
+    expect(
+      scene.observe(
+        run,
+        'call-recovered',
+        factsOfCall(scene, source, 'report'),
+        [
+          stageOp(grounds.evidence, 'publish', 'Publish the plan'),
+          ...[written, report].map((version) => ({
+            ...grounds,
+            op: 'artifact.link' as const,
+            stage: temporary('publish'),
+            version: version.id,
+            direction: 'output' as const,
+          })),
+        ],
+        { at: 30 },
+      ).status,
+    ).toBe('accepted')
+    const [retained, ...unread] = await scene.retainBases()
+    expect(unread).toEqual([])
+    expect(retained).toMatchObject({
+      id: written.id,
+      retention: { kind: 'action_payload', action: actionOf(source, 'write-b') },
+    })
+    expect(retained?.change_seq).toBeGreaterThan(second.change_seq)
+    await scene.hooks(...writeHooks(source, 'write-a', plan, content, 10))
+    const refined = scene.store.artifacts.getVersion(written.id)
+    expect(refined).toMatchObject({
+      produced_by: actionOf(source, 'write-a'),
+      retention: { kind: 'action_payload', action: actionOf(source, 'write-a') },
+    })
+    expect(refined?.change_seq).toBeGreaterThan(second.change_seq)
+    expect(changesSince(scene, run, second).artifact_versions).toEqual([])
+
+    await writeFiles(scene.project, { 'reports/summary.md': '# Summary\n' })
+    scene.store.close()
+    const store = scene.home.open()
+    const [restored, ...others] = await startEngine(store, { all: true }).retainBases()
+    expect(others).toEqual([])
+    expect(restored).toMatchObject({ id: report.id, retention: { kind: 'file_read' } })
+    expect(restored?.change_seq).toBeGreaterThan(second.change_seq)
+    const reads = createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
+    expect(reads.changes(run, second)?.artifact_versions).toEqual([])
+    expect(reads.changes(run, first)?.artifact_versions).toEqual([refined, restored])
   })
 
   test('the zone puts a waiting request first, then items more active stages depend on through any stages, then older items; a recommendation keeps the order and a viewed item goes down', async ({
