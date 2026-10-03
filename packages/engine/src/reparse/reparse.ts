@@ -181,7 +181,7 @@ export const reparse = (
     const counted = reparseRecords(transaction, adapters, reparsed)
     const rebuilt = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
     queueFacts(transaction, reparsed.added)
-    refreshChecks(transaction, rebuilt, contracts)
+    refreshChecks(transaction, rebuilt, contracts, now)
     settleQuiet(transaction, quiet, now, quietAfterMs)
     return counted
   })

@@ -9,7 +9,7 @@ import type {
   SessionId,
   SessionKey,
 } from '@aang/contract'
-import { canonicalJson, objectId } from '@aang/contract/ids'
+import { canonicalJson, objectId, runId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
 import {
   type AgentIdentity,
@@ -39,6 +39,8 @@ import { freshnessOf } from './freshness.js'
 import { sourceGaps, type SourceRecord } from './sources.js'
 import { turnState } from './state.js'
 import { linkSession, type Spawn, sessionRun } from './runs.js'
+import { isInherited, lineageOf } from './lineage.js'
+import { refreshCommonOrigin, refreshForkedFrom, refreshRelatedOrigins } from './origins.js'
 
 interface SessionContext {
   readonly run: RunId
@@ -190,10 +192,13 @@ export const projectSession = (
   quietAfterMs: number,
   rebuild: SessionRebuild | null = null,
 ): SessionProjection | null => {
-  const items = sessionEvidence(transaction, key)
+  const evidence = sessionEvidence(transaction, key)
+  const lineage = lineageOf(transaction, key, evidence)
+  const inherited = isInherited(lineage)
+  const items = evidence.filter((item) => !inherited(item))
   const id = objectId(key)
   const previous = transaction.observations.getSession(id)
-  if (items.length === 0 && records.length === 0 && previous === null) {
+  if (evidence.length === 0 && records.length === 0 && previous === null) {
     return null
   }
   const identity = agentIdentity(key, items)
@@ -216,7 +221,7 @@ export const projectSession = (
       .find(({ fact }) => fact.payload.surface !== null)?.fact.payload.surface ?? null
   const times = [
     ...items.map(({ fact }) => fact.at),
-    ...records.map(({ raw }) => raw.source_ts ?? raw.observed_at),
+    ...records.flatMap(({ raw }) => (lineage.inherited.has(raw.seq) ? [] : [raw.source_ts ?? raw.observed_at])),
     ...(previous === null ? [] : [previous.started_at, previous.last_event_at]),
   ].sort((a, b) => a < b ? -1 : a > b ? 1 : 0)
   const startedAt = times[0]
@@ -280,7 +285,9 @@ export const projectSession = (
       }
     }
   }
-  projected.push(...projectActions(transaction, key, items, context))
+  projected.push(
+    ...projectActions(transaction, key, evidence, { run: context.run, identity, inherited: lineage.inherited }),
+  )
   const facts = sessionFacts(items)
   const questions: QuestionAttention[] = []
   for (const [name, entityItems] of entityEvidence(items)) {
@@ -301,14 +308,23 @@ export const projectSession = (
   const first = items[0]
   const last = items.at(-1)
   if (first !== undefined && last !== undefined) {
+    const at = last.fact.at
     linkSession(transaction, {
       key,
       run: context.run,
       root: first.fact,
-      at: last.fact.at,
+      at,
       spawns,
       replacements: [...replacements, ...moved],
     })
+    if (key.runtime === 'claude') {
+      const batch = new Set(records.map(({ raw }) => raw.seq))
+      refreshCommonOrigin(transaction, key, lineage, evidence, at)
+      refreshRelatedOrigins(transaction, key, evidence.filter(({ raw }) => batch.has(raw.seq)), at)
+    }
+    if (lineage.forkedFrom !== null) {
+      refreshForkedFrom(transaction, runId(key), lineage.forkedFrom, at)
+    }
   }
   reconcileRuleAttention(transaction, key, items.at(-1)?.fact.at ?? lastEventAt, questions)
   return { session, objects: projected }

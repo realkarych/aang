@@ -1,4 +1,5 @@
 export {
+  type BindingResult,
   createEngine,
   type Engine,
   type EngineOptions,
@@ -8,6 +9,12 @@ export {
 export type { WatchedRoot, WatchedRoots } from './ingest/scope.js'
 export { type EvidenceReference, resolveEvidence } from './reparse/basis.js'
 export type { ReparseResult } from './reparse/reparse.js'
+export {
+  type ContextLimits,
+  recordRunContext,
+  type RunContextOptions,
+  storedRunContext,
+} from './input/context.js'
 export {
   applyObserverResponse,
   beginObserverCall,
@@ -58,4 +65,5 @@ export {
   type RunDraft,
   type StageDraft,
 } from './model/journal.js'
+export { BindingError, type BindingErrorCode } from './observations/bindings.js'
 export { hookRedeliveries, type HookRedelivery } from './observations/redelivery.js'

@@ -1,4 +1,4 @@
-import type { ActionKey, ActionOutcome, Execution, RunId, SessionKey } from '@aang/contract'
+import type { ActionKey, ActionOutcome, Execution, RawSeq, RunId, SessionKey } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
 import type { AgentIdentity } from './agents.js'
@@ -12,6 +12,7 @@ interface ActionEvidence {
 interface ActionContext {
   readonly run: RunId
   readonly identity: AgentIdentity
+  readonly inherited: ReadonlySet<RawSeq>
 }
 
 const actionExecution = (outcome: ActionOutcome): Execution => {
@@ -31,7 +32,7 @@ const actionExecution = (outcome: ActionOutcome): Execution => {
 const projectAction = (
   transaction: Transaction,
   { key, items }: ActionEvidence,
-  { run, identity }: ActionContext,
+  { run, identity, inherited }: ActionContext,
 ): string | null => {
   const first = items[0]?.fact
   if (first === undefined) {
@@ -46,7 +47,6 @@ const projectAction = (
   const batch = batches.toSorted(byContent)[0]?.fact
   const denied = denials.toSorted(byTime)[0]?.fact
   const id = objectId(key)
-  const previous = transaction.observations.getAction(id)
   const evidence = end ?? denied ?? batch
   const outcome =
     end?.payload.outcome ?? (denied !== undefined ? 'denied' : batch === undefined ? null : 'unknown')
@@ -77,7 +77,7 @@ const projectAction = (
       outcome === null ? { state: starts.length === 0 ? 'unknown' : 'running' } : actionExecution(outcome),
     input_fact: start?.id ?? null,
     output_fact: end?.id ?? batch?.id ?? null,
-    inherited: previous?.inherited ?? false,
+    inherited: items.every(({ raw }) => inherited.has(raw.seq)),
   }
   return transaction.observations.save(draft).id
 }

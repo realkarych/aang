@@ -1,12 +1,14 @@
 import {
   type CallUsage,
   type EpochNs,
+  type FactId,
   ModelVersion,
   type ObserverCallId,
   type ObserverInput,
   type ObserverOp,
   ObserverOutput,
   type ObserverRejection,
+  type RunId,
 } from '@aang/contract'
 import type { ObserverCallStart, Transaction } from '@aang/store'
 import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
@@ -110,6 +112,36 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
     throw new Error(`observer call ${previous.id} no longer owns its batch`)
   }
   return input
+}
+
+export const endObserverCalls = (
+  transaction: Transaction,
+  run: RunId,
+  facts: readonly FactId[],
+  at: EpochNs,
+  message: string,
+): void => {
+  const leaving = new Set(facts)
+  const calls = new Set(
+    transaction.interpretations
+      .ofRun(run)
+      .flatMap(({ fact, status, observer_call: call }) =>
+        status === 'in_call' && call !== null && leaving.has(fact) ? [call] : [],
+      ),
+  )
+  for (const call of calls) {
+    transaction.interpretations.settle(call, 'pending')
+    if (transaction.observerCalls.get(call)?.finished_at !== null) {
+      continue
+    }
+    transaction.observerCalls.finish({
+      id: call,
+      output: null,
+      verdict: 'rejected',
+      reasons: [{ op_index: null, cause: 'scope', message }],
+      at,
+    })
+  }
 }
 
 const textsOf = (op: ObserverOp): string[] =>

@@ -25,14 +25,15 @@ const gitEnvironment = (): NodeJS.ProcessEnv => ({
   GIT_CONFIG_GLOBAL: join(tmpdir(), 'aang-engine-no-gitconfig'),
 })
 
-const git = async (cwd: string, ...args: readonly string[]): Promise<void> => {
-  await run('git', ['-c', 'user.name=aang', '-c', 'user.email=aang@example.invalid', ...args], {
+export const git = async (cwd: string, ...args: readonly string[]): Promise<string> => {
+  const { stdout } = await run('git', ['-c', 'user.name=aang', '-c', 'user.email=aang@example.invalid', ...args], {
     cwd,
     env: gitEnvironment(),
   })
+  return stdout.trim()
 }
 
-const createRepository = async (path: string): Promise<void> => {
+export const createRepository = async (path: string): Promise<void> => {
   await mkdir(path, { recursive: true })
   await git(path, 'init', '--quiet', '--initial-branch=main')
   await git(path, 'commit', '--quiet', '--allow-empty', '--message=init')

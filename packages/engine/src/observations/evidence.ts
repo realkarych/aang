@@ -27,6 +27,8 @@ export const isFile = ({ raw }: Evidence): boolean =>
 export const byContent = (left: Evidence, right: Evidence): number =>
   Number(isFile(right)) - Number(isFile(left)) || byTime(left, right)
 
+const runtimeChannel = ({ raw }: Evidence): boolean => raw.channel !== 'snapshot' && raw.channel !== 'context'
+
 export const sessionEvidence = (source: ObservationSource, key: SessionKey): Evidence[] => {
   const raws = new Map<number, RawRecord>()
   return source.facts
@@ -39,6 +41,7 @@ export const sessionEvidence = (source: ObservationSource, key: SessionKey): Evi
       raws.set(fact.seq, raw)
       return { fact, raw }
     })
+    .filter(runtimeChannel)
     .sort(byTime)
 }
 

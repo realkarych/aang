@@ -175,6 +175,17 @@ facts, after the observation projection (ADR-0006):
   success; the closing journal change cites the success, and the remaining
   failures of its former streak form their own item. An item whose failures no
   longer match a contract after the configuration changes keeps its last state.
+- A session moved out of the run takes its failures and successes along. Besides
+  the items its failures name by id, a streak considers the items that no failure
+  names, cite any of its failures and have an id derived from the same contract and
+  a failure in the item's journal, because the failure their id derives from left.
+  It keeps one of them by the same preference, so the open item goes on with the
+  rest of the streak, also when a success that left merges two streaks, and closes
+  on its next success. An item that no streak keeps leaves the current state with
+  a rule `session.move` removal at the time of the transfer when none of its cited
+  facts remain in the run or when the success that closed it left. Its history
+  stays in the journal, and a streak that moves back gets its item id again. A
+  transfer is never recorded as a success or a removal by the user.
 
 The run of a session is the run of its `session_membership`, or the run of its own
 root key when there is none, the rule that run linking (E.4) uses for projections.
@@ -207,10 +218,17 @@ sessions and agents of the run description, the context record, the stages,
 criteria and attention items of the snapshot, the facts of the batch with their
 sessions, agents and actions, the agents of collapsed facts and of the backlog, and
 the artifact versions with the actions that produced them. Snapshot entities and the
-stages they refer to must belong to the run and pass the grounds rule. The context record follows the raw record rule, and an artifact
-version must be bound to the run, so both are refused until F.7a and E.7b provide
-their storage. `beginObserverCall` refuses an input with any violation and a first
-call that already carries materials; `beginObserverFollowUp` checks the stored input
+stages they refer to must belong to the run and pass the grounds rule. The context
+record follows the raw record rule through its `context` facts, one keyed by the
+run of the root session and one for every other
+session whose data the context was assembled from (F.7a). A context that read a
+session of another vendor is therefore refused without `crossVendor`, whether it is
+the context of the input, the input checked again before a follow-up or a requested
+raw record. An
+artifact version must be bound to the run, so it is refused until E.7b provides its
+storage.
+`beginObserverCall` refuses an input with any violation and a first call that already
+carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started
 for.
 
@@ -228,8 +246,9 @@ output of `action_end` or `PostToolBatch`. When the action has a structured resu
 such as an edit patch or an MCP result, the output is the JSON text
 `{"output": <text>, "result": <result>}`. Texts longer than
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
-and report their path and original length. Artifact versions and context records
-answer `not_found` until E.7b and F.7a provide their storage.
+and report their path and original length. Artifact versions answer `not_found`
+until E.7b provides their storage. Context records answer `not_found`: the resolver
+does not read the stored context of F.7a yet.
 
 A response with nonempty `needs` to a call without materials is not applied.
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch
@@ -247,9 +266,8 @@ The ingest transaction queues every new fact as `pending` in the run of its sess
 after the observation projection, including the facts of OTel records normalized in
 that transaction (ADR-0005). A redelivered record adds no facts and queues nothing.
 A reparse queues the facts it adds the same way after it rebuilds the projections,
-including the OTel facts it resolves. A fact that already has a status in the run
-keeps it with its attempts, so a fact that a reparse restores under its id is not
-interpreted again.
+including the OTel facts it resolves; the facts it keeps keep their status and
+attempts.
 
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
 starts the next call of a run from its pending facts in the order of their records:
@@ -266,8 +284,8 @@ starts the next call of a run from its pending facts in the order of their recor
   `previous_attempt`. The run goal and brief, stages, criteria and attention items
   enter only when their grounds are in scope; a reference to a stage left out becomes
   `null`. The reasons carry over calls that ended without a response, so a backend
-  failure or a restart after a rejection does not drop them. The context, collapsed facts, backlog and artifact versions
-  stay empty until F.7a, F.7b and E.7b fill them;
+  failure or a restart after a rejection does not drop them. The context, collapsed
+  facts, backlog and artifact versions stay empty: the batch does not pack them yet;
 - the call is recorded by `beginObserverCall`. Without a run entity or an eligible
   fact nothing starts and the result is `null`.
 
@@ -287,6 +305,79 @@ limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
 `boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
 defers any, and returns the active queue.
+
+## Forks, bindings and session transfer
+
+Run linking for forks follows ADR-0006 and does not depend on the order in which
+the fork, its original or other forks are read.
+
+- A Claude fork is recognized by a `SessionStart` with `source: fork` or by its
+  transcript. The records that open the file are the launch `queue-operation`
+  lines; the records after them with a time before the launch, up to the first
+  record of the launch's own time, are inherited. Only the opening launch of a
+  transcript is considered, since a fork always starts a new file and a resume
+  appends to the original one. The decision for a record depends only on the
+  records before it in the same file, so it is final when the record is read.
+- Inherited records are not repeated as the fork's own activity. Their actions
+  are stored with `inherited: true`; their agents and questions are not
+  projected; the session start and the run creation time come from the fork's
+  own records. Usage accounting (E.8) uses the same inherited records.
+- The fork starts its own run with a `common_origin` link. The link lists every
+  visible session other than the fork that has a fact with the `uuid` of an
+  inherited record, and names it as `parent_candidate` only when it is the only
+  one. The evidence is the fork markers and the earliest shared fact of each
+  listed session. When a session gets new records, the forks that share their
+  `uuid` are recomputed, so reading the original before or after the fork gives
+  the same objects and links; without the original only the list differs.
+- A Codex rollout with `forked_from_id` starts its own run with a `forked_from`
+  link to the run of the parent thread, with the `session_meta` fact as evidence.
+- The links stay in the run created by the fork even when its session is moved.
+  The `forked_from` link points at the run that holds the parent session now:
+  a transfer of the parent session updates the links of its forks in the same
+  transaction, so naming the parent or reading the fork before or after the
+  transfer gives the same link.
+
+Bindings are user changes journaled in the model (`binding.add`,
+`binding.revoke`) and applied by `engine.bind` and `engine.revokeBinding`:
+
+- `attach` moves a session into a run, `detach` returns it to its own run. A
+  session has at most one active `attach` or `detach`: a new one revokes the
+  active one in the same transaction, and revoking the active binding returns
+  the session to its own run. The binding is stored in the run the session moves
+  into.
+- `fork_parent` names the immediate parent of a fork run. While it is active the
+  run has a `forked_from` link to the parent's run with no fact evidence; it
+  overrides the parent named by a Codex fork, and revoking it restores that
+  parent or removes the link. The parent is never inferred.
+- Unknown sessions, runs and bindings, a parent for a run that is not a fork and
+  a fork as its own parent are rejected with `BindingError` (`not_found`,
+  `invalid_request`) without any change.
+
+A transfer (`session.move` rule changes) is journaled in both runs in the
+binding's transaction:
+
+- the session membership and the spawn links of the session's agents leave the
+  source run and enter the target run;
+- the rule attention items of the session's questions leave the source run and
+  enter the target run with their state, without a stage and without the marks
+  of the source run's observer (likely resolution, priority), so a question is
+  in the attention zone of one run only and its later answer closes it there;
+- every stage that references the session's actions or agents by assignment or
+  participation is marked `session_moved` while any of them lies outside its run;
+- the session's facts become `pending` in the target run and leave the pending
+  queue of the source run;
+- an observer call of the source run whose batch holds any of these facts is
+  ended as `rejected` with a `scope` reason: the rest of its batch returns to
+  `pending` in the source run, and a late response to it is refused, so neither
+  a rejection nor a restart returns the moved facts to the source run, and a
+  session moved back gets its facts `pending` again. A call that already ended
+  as `needs_requested` keeps its verdict: its batch returns to `pending` the same
+  way, and its follow-up is refused;
+- the session and its objects are projected again with the target run, so usage
+  follows it; checks are recomputed for the target run and for the source run
+  with its remaining sessions, as described in Check contracts; view marks and
+  view rules stay with their runs;
+- the `forked_from` links that point at the source run are recomputed.
 
 ## Questions, decisions and rule attention
 
@@ -411,3 +502,70 @@ appended to the journal; earlier journal changes are never rewritten.
 for a fact the current normalizer no longer produces. The facts a reparse adds
 enter the observer queue in the same transaction; the statuses of the facts it
 keeps do not change.
+
+## Run context
+
+`recordRunContext(store, { run, backend, crossVendor, at, claudeConfigDir, limits })`
+collects the context of a run for the observer input (ADR-0007) from the allowed
+sources only:
+
+- `task`: the earliest nonempty prompt of a human to the main agent of the root
+  session; `ref` is the id of the prompt fact.
+- `instructions`: the files named by `InstructionsLoaded` facts of a session, or,
+  when a session has none, `CLAUDE.md` (Claude) or `AGENTS.md` (Codex) in its `cwd`
+  and every ancestor directory; `ref` is the path.
+- `agent_definition`: for each subagent or teammate type of a Claude session, the
+  file `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
+  hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
+  file. Types without such a file, such as built-in and plugin agents, have no entry.
+- `skill`: only skills invoked through the `Skill` tool of a Claude session, except
+  calls that ended with an error or were denied. A skill listed in the catalog but
+  not invoked is never included. The text is the `description` of `SKILL.md` in
+  `.claude/skills/<name>/` of the nearest directory of the session's `cwd` hierarchy
+  or in `skills/<name>/` of `claudeConfigDir`, and `ref` is the path of that file.
+  When there is no such file, `ref` is the name of the skill and the text is empty.
+  Codex has no skill tool, so a Codex run has no skill entries.
+- `mcp_server`: the servers of MCP actions with the names of the tools called.
+- `git`: one entry per worktree, whose `ref` is the top of the worktree (or the `cwd`
+  of a session outside git): the branch of each session working there and, for each
+  set of masks, the latest git snapshot (`git_snapshot` fact of the run): the masks,
+  the commit, whether the tree is clean under those masks, changed paths and error.
+
+Only sessions of the run are read, and a session of a vendor other than `backend` is
+skipped unless `crossVendor` is set; when the root session is skipped, or the run is
+unknown, there is no context. Skills and agent definitions are resolved in the
+directory of each session, so files of the same name in different projects stay
+separate entries. The `cwd` of each session that is read and the working directories
+of its facts are resolved to the top of their git worktree with
+`git rev-parse --show-toplevel`, as the snapshot writer of E.7b does. A git snapshot
+is included only when its worktree is one of these tops or exactly one of these
+directories, which is where a failed snapshot is recorded. A worktree or repository
+nested in another tree is a separate worktree, so a snapshot of the enclosing tree
+used only by a skipped session stays out, while a worktree shared with a skipped
+session stays in. A directory that no longer resolves to a worktree admits no
+snapshot of a worktree. Relative paths are ignored.
+Each text is cut to `limits.textLength` characters (4000 by default) and reports its
+original length; files are read up to 1 MiB, and a larger file reports its size in
+bytes.
+
+Names of the solver's hooks, definitions of plugin agents, of agents given by the
+`--agents` flag and of Codex roles, and descriptions of plugin skills are allowed
+sources that need facts or formats the adapters do not provide yet; plan item F.7d
+adds them.
+
+Entries are ordered by kind and `ref`, and `content_hash` is the SHA-256 of their
+canonical JSON. A nonempty context is stored as a raw record of the `context` channel
+(position `daemon`, no runtime or stream). Its `context` facts list the sources and
+record where they come from: one fact is keyed by the run of the root session, and
+each other session that was read gets a fact keyed by that session. The scope of
+the observer input (F.7c) admits the record only when it admits every one of these
+sessions, so a context that includes another vendor reaches the observer only with
+`crossVendor`. The dedupe key is the run, the hash and the sessions that were read. An
+unchanged context assembled from the same sessions, including one that returns to an
+earlier state, reuses the existing record, so it is written once and its `seq` can
+be cited; the same text assembled from other sessions, for example with
+`crossVendor`, is a separate record with its own facts.
+`storedRunContext(rawRecords, seq)` reproduces the `RunContext` of a record.
+Records of the `context` and `snapshot` channels are not events of a session: they do
+not change its projection, freshness or `last_event_at`. The `context` facts are not
+queued for interpretation.

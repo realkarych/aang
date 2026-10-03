@@ -36,6 +36,7 @@ export interface ModelReader {
   readonly version: (run: RunId, version: ModelVersion) => ModelVersionRecord | null
   readonly entity: (run: RunId, target: ModelEntityRef) => ModelEntity | null
   readonly entities: (run: RunId) => ModelEntity[]
+  readonly forksOf: (parent: RunId) => RunId[]
   readonly changes: (run: RunId, after: ModelVersion) => ModelChange[]
   readonly entityChanges: (run: RunId, target: ModelEntityRef, after: ModelVersion) => ModelChange[]
 }
@@ -183,6 +184,11 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     database,
     'SELECT kind, data FROM model_entities WHERE run_id = ? ORDER BY kind, id',
   )
+  const selectForks = prepareStatement(
+    database,
+    `SELECT run_id FROM model_entities WHERE kind = 'link' AND json_extract(data, '$.kind') = 'forked_from'
+     AND json_extract(data, '$.parent') = ? ORDER BY run_id`,
+  )
   const selectChanges = prepareStatement(
     database,
     `SELECT ${selectChangeColumns} FROM ${journal} WHERE c.run_id = ? AND c.version > ? ORDER BY c.version, c.change_index`,
@@ -244,6 +250,8 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
       return row === undefined ? null : toEntity(row)
     },
     entities: (run) => (selectEntities.all(run) as EntityRow[]).map(toEntity),
+    forksOf: (parent) =>
+      (selectForks.all(parent) as { run_id: string }[]).map((row) => RunId.parse(row.run_id)),
     changes: (run, after) => (selectChanges.all(run, after) as ChangeRow[]).map(toChange),
     entityChanges: (run, target, after) =>
       (selectEntityChanges.all(run, target.kind, target.id, after) as ChangeRow[]).map(toChange),

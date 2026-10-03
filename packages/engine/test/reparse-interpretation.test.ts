@@ -12,7 +12,7 @@ import { objectId, runId } from '@aang/contract/ids'
 import { applyChangeSet, applyObserverResponse, createEngine, failObserverCall, startObserverBatch } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, onTestFinished, test } from 'vitest'
-import { anotherVersion, storeAnotherNormalizer } from './another-normalizer.js'
+import { anotherVersion } from './another-normalizer.js'
 import { hookBatch, jsonlFile } from './batches.js'
 import { adapters, recordsOf, sessionKey, startEngine } from './harness.js'
 import { createHome } from './home.js'
@@ -143,30 +143,6 @@ test('reparse queues the facts it adds in the run of their session and keeps the
   expect(await engine.reparse()).toMatchObject({ facts_added: 0, facts_kept: 0, facts_missing: 0 })
   expect(statuses(store, run)).toEqual(settled)
   expect(start(store, run, 'third-call', 30, 'claude', false)).toBeNull()
-})
-
-test('a fact that reparse restores under its id keeps its interpretation', async () => {
-  const session = 'reparse-restored'
-  const run = runId(sessionKey('claude', session))
-  const home = await createHome(onTestFinished)
-  const store = home.open()
-  const engine = startEngine(store, { all: true })
-  const lines = claudeTranscript({ session, cwd })
-  await engine.ingest(jsonlFile({ runtime: 'claude', path: `/${session}.jsonl`, lines, ino: 1n }).batch(1, lines.length))
-  expect(respond(store, start(store, run, 'first-call', 10, 'claude', false), 'first-call', 11)).toMatchObject({
-    status: 'accepted',
-  })
-  const interpreted = statuses(store, run)
-  const [restored] = recordsOf(store).filter(({ seq }) => store.facts.ofRecord(seq).length > 0)
-  assert(restored !== undefined)
-  storeAnotherNormalizer(store, (drafts, record) => (record.seq === restored.seq ? 'invalid' : drafts))
-  expect(store.facts.ofRecord(restored.seq)).toEqual([])
-
-  const result = await engine.reparse()
-  expect(result.facts_added).toBeGreaterThan(0)
-  expect(store.facts.ofRecord(restored.seq).length).toBe(result.facts_added)
-  expect(statuses(store, run)).toEqual(interpreted)
-  expect(start(store, run, 'second-call', 20, 'claude', false)).toBeNull()
 })
 
 test('a model text grounded on a fact that reparse deleted reaches another vendor only with crossVendor', async () => {

@@ -43,6 +43,28 @@ export const claudeTranscript = (session: ClaudeSession): string[] =>
     rewriteClaudeLine(line, session),
   )
 
+const forkOwnLines = 39
+
+export const claudeForkTranscript = (session: ClaudeSession, own = ''): string[] =>
+  sampleLines('claude-code-transcripts/session-cdfb3544-fork-full.jsonl').map((line, index) => {
+    const rewritten = rewriteClaudeLine(line, session)
+    if (own === '' || index + 1 < forkOwnLines) {
+      return rewritten
+    }
+    const record = parseObject(rewritten)
+    const message = record['message']
+    return JSON.stringify({
+      ...record,
+      ...(typeof record['uuid'] === 'string' ? { uuid: `${record['uuid']}-${own}` } : {}),
+      ...(typeof message === 'object' &&
+      message !== null &&
+      !Array.isArray(message) &&
+      typeof message['id'] === 'string'
+        ? { message: { ...message, id: `${message['id']}-${own}` } }
+        : {}),
+    })
+  })
+
 const renumbered = (line: string, copy: number): string => {
   if (copy === 0) {
     return line
