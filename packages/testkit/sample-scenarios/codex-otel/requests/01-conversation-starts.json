@@ -1,0 +1,182 @@
+{
+  "resourceLogs": [
+    {
+      "resource": {
+        "attributes": [
+          {
+            "key": "telemetry.sdk.name",
+            "value": {
+              "stringValue": "opentelemetry"
+            }
+          },
+          {
+            "key": "service.version",
+            "value": {
+              "stringValue": "0.159.2"
+            }
+          },
+          {
+            "key": "telemetry.sdk.language",
+            "value": {
+              "stringValue": "rust"
+            }
+          },
+          {
+            "key": "telemetry.sdk.version",
+            "value": {
+              "stringValue": "0.31.0"
+            }
+          },
+          {
+            "key": "host.name",
+            "value": {
+              "stringValue": "<HOST>"
+            }
+          },
+          {
+            "key": "service.name",
+            "value": {
+              "stringValue": "codex-app-server"
+            }
+          },
+          {
+            "key": "env",
+            "value": {
+              "stringValue": "aang-spike"
+            }
+          }
+        ],
+        "droppedAttributesCount": 0,
+        "entityRefs": []
+      },
+      "scopeLogs": [
+        {
+          "scope": {
+            "name": "codex_otel.log_only",
+            "version": "",
+            "attributes": [],
+            "droppedAttributesCount": 0
+          },
+          "logRecords": [
+            {
+              "timeUnixNano": "0",
+              "observedTimeUnixNano": "1790860418481078000",
+              "severityNumber": 9,
+              "severityText": "INFO",
+              "body": null,
+              "attributes": [
+                {
+                  "key": "event.name",
+                  "value": {
+                    "stringValue": "codex.conversation_starts"
+                  }
+                },
+                {
+                  "key": "provider_name",
+                  "value": {
+                    "stringValue": "mock"
+                  }
+                },
+                {
+                  "key": "auth.env_openai_api_key_present",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "auth.env_codex_api_key_present",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "auth.env_codex_api_key_enabled",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "auth.env_refresh_token_url_override_present",
+                  "value": {
+                    "boolValue": false
+                  }
+                },
+                {
+                  "key": "reasoning_summary",
+                  "value": {
+                    "stringValue": "auto"
+                  }
+                },
+                {
+                  "key": "approval_policy",
+                  "value": {
+                    "stringValue": "on-request"
+                  }
+                },
+                {
+                  "key": "sandbox_policy",
+                  "value": {
+                    "stringValue": "read-only"
+                  }
+                },
+                {
+                  "key": "mcp_servers",
+                  "value": {
+                    "stringValue": ""
+                  }
+                },
+                {
+                  "key": "event.timestamp",
+                  "value": {
+                    "stringValue": "2026-10-01T13:13:38.481Z"
+                  }
+                },
+                {
+                  "key": "conversation.id",
+                  "value": {
+                    "stringValue": "01a0f799-5daf-7d02-9e6c-116068f9ca2d"
+                  }
+                },
+                {
+                  "key": "app.version",
+                  "value": {
+                    "stringValue": "0.159.2"
+                  }
+                },
+                {
+                  "key": "originator",
+                  "value": {
+                    "stringValue": "aang_otel_probe"
+                  }
+                },
+                {
+                  "key": "terminal.type",
+                  "value": {
+                    "stringValue": "xterm-256color"
+                  }
+                },
+                {
+                  "key": "model",
+                  "value": {
+                    "stringValue": "gpt-6.1-sol"
+                  }
+                },
+                {
+                  "key": "slug",
+                  "value": {
+                    "stringValue": "gpt-6.1-sol"
+                  }
+                }
+              ],
+              "droppedAttributesCount": 0,
+              "flags": 1,
+              "traceId": "493cdcd21557053f9724516161946b87",
+              "spanId": "8bacc3856e7df11a",
+              "eventName": "event otel/src/events/session_telemetry.rs:661"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

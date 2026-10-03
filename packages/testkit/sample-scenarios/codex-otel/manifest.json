@@ -1,0 +1,139 @@
+{
+  "steps": [
+    {
+      "at": 0,
+      "kind": "otlp",
+      "source": "requests/01-conversation-starts.json"
+    },
+    {
+      "at": 3,
+      "kind": "otlp",
+      "source": "requests/02-startup-phase.json"
+    },
+    {
+      "at": 7,
+      "kind": "otlp",
+      "source": "requests/03-user-prompt.json"
+    },
+    {
+      "at": 60,
+      "kind": "otlp",
+      "source": "requests/04-api-request.json"
+    },
+    {
+      "at": 61,
+      "kind": "otlp",
+      "source": "requests/05-sse-event.json"
+    },
+    {
+      "at": 61,
+      "kind": "otlp",
+      "source": "requests/06-turn-ttft.json"
+    },
+    {
+      "at": 4112,
+      "label": "app-server-accept",
+      "kind": "otlp",
+      "source": "requests/07-tool-decision.json"
+    },
+    {
+      "at": 4159,
+      "kind": "otlp",
+      "source": "requests/08-tool-result.json"
+    },
+    {
+      "at": 8369,
+      "label": "app-server-decline",
+      "kind": "otlp",
+      "source": "requests/09-tool-decision.json"
+    },
+    {
+      "at": 8369,
+      "kind": "otlp",
+      "source": "requests/10-tool-result.json"
+    },
+    {
+      "at": 9574,
+      "label": "app-server-acceptforsession",
+      "kind": "otlp",
+      "source": "requests/11-tool-decision.json"
+    },
+    {
+      "at": 10967,
+      "label": "app-server-echo-hi-under-on-request-safe-command-no-prompt",
+      "kind": "otlp",
+      "source": "requests/12-tool-decision.json"
+    },
+    {
+      "at": 12192,
+      "label": "app-server-apply-patch-accept",
+      "kind": "otlp",
+      "source": "requests/13-tool-decision.json"
+    },
+    {
+      "at": 13445,
+      "label": "app-server-untrusted-policy-echo-hi-accept",
+      "kind": "otlp",
+      "source": "requests/14-tool-decision.json"
+    },
+    {
+      "at": 190964,
+      "kind": "otlp",
+      "source": "requests/15-tool-result.json"
+    },
+    {
+      "at": 191154,
+      "label": "codex-exec-approval-never-echo-hi",
+      "kind": "otlp",
+      "source": "requests/16-tool-decision.json"
+    },
+    {
+      "at": 192105,
+      "label": "codex-exec-approve-for-me-guardian",
+      "kind": "otlp",
+      "source": "requests/17-tool-decision.json"
+    },
+    {
+      "at": 694465,
+      "label": "tui-no-daemon-key-y",
+      "kind": "otlp",
+      "source": "requests/18-tool-decision.json"
+    },
+    {
+      "at": 734224,
+      "label": "tui-no-daemon-apply-patch-key-y",
+      "kind": "otlp",
+      "source": "requests/19-tool-decision.json"
+    },
+    {
+      "at": 740653,
+      "label": "tui-no-daemon-key-p-prefix-rule",
+      "kind": "otlp",
+      "source": "requests/20-tool-decision.json"
+    },
+    {
+      "at": 746052,
+      "label": "tui-no-daemon-after-prefix-rule-saved",
+      "kind": "otlp",
+      "source": "requests/21-tool-decision.json"
+    },
+    {
+      "at": 803765,
+      "label": "tui-on-managed-daemon-key-y",
+      "kind": "otlp",
+      "source": "requests/22-tool-decision.json"
+    },
+    {
+      "at": 858841,
+      "label": "codex-sdk-0-159-3-approval-never-echo-hi",
+      "kind": "otlp",
+      "source": "requests/23-tool-decision.json"
+    },
+    {
+      "at": 1070794,
+      "label": "codex-exec-subagent-thread",
+      "kind": "otlp",
+      "source": "requests/24-tool-decision.json"
+    }
+  ]
+}
