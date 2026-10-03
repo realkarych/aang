@@ -109,6 +109,9 @@ const sleep = (milliseconds: number): Promise<void> => new Promise((resolve) => 
 
 const queued = (home: Home): Promise<string[]> => readdir(home.paths.spoolReady)
 
+const queuedOtel = async (home: Home): Promise<string[]> =>
+  (await readdir(join(home.paths.spool, 'otel'))).filter((name) => name.endsWith('.json'))
+
 const registrations: Readonly<Record<Runtime, RegistrationTag>> = { claude: 'plugin', codex: 'user' }
 
 const spoolBytes = (runtime: Runtime, payload: string): Buffer =>
@@ -324,10 +327,11 @@ describe.concurrent('the daemon takes collected records through the engine and a
     const accepted = await post(token)
     expect(accepted.status).toBe(200)
     await accepted.arrayBuffer()
-
-    const otelQueue = join(home.paths.spool, 'otel')
-    await waitUntil(async () => (await readdir(otelQueue)).every((name) => !name.endsWith('.json')))
     expect(await daemon.shutdown()).toBe(0)
+
+    const restarted = await spawnDaemon(home, onTestFinished)
+    await waitUntil(async () => (await queuedOtel(home)).length === 0)
+    expect(await restarted.shutdown()).toBe(0)
     const store = openFinished(home, onTestFinished)
     expect(store.settings.get('otel_token')).toBe(token)
     expect(rawRecords(store).filter(({ channel }) => channel === 'otel')).toHaveLength(1)
