@@ -152,13 +152,13 @@ export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPositio
   )
   return {
     run,
-    from,
+    from: { version: from.version, change_seq: from.change_seq },
     to: { version: head, change_seq: position },
     stages: transitions(journal, 'stage', stageOf, touchedStages, parts.stages),
     criteria: transitions(journal, 'criterion', criterionOf, touchedCriteria, parts.criteria),
     cards: parts.cards.filter(({ id }) => created.has(id)),
     plan_facts: store.facts.ofRun(run, from.change_seq, planKinds).map(({ fact }) => fact),
-    artifact_versions: [],
+    artifact_versions: store.artifacts.versionsCreated(run, from.change_seq),
     attention: attentionChanges(journal, parts.attention),
     activity: activityOf(store, run, from),
   }

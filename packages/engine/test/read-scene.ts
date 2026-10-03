@@ -1,6 +1,7 @@
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
+  type ArtifactVersion,
   CheckContract,
   type Fact,
   type JsonValue,
@@ -48,6 +49,7 @@ export interface Scene {
   readonly runOf: (session: string) => RunId
   readonly transcript: (source: Source, lines: readonly string[]) => Promise<void>
   readonly hooks: (...deliveries: readonly HookDelivery[]) => Promise<void>
+  readonly retainBases: () => Promise<readonly ArtifactVersion[]>
   readonly teammateMeta: (source: Source, agent: string, name: string, team: string) => Promise<void>
   readonly factsOf: (source: Source, kind?: Fact['kind']) => Fact[]
   readonly begin: (run: RunId, id: string, facts: readonly Fact[], at: number) => ObserverCallId
@@ -116,6 +118,7 @@ export const openScene = async (register: TestContext['onTestFinished']): Promis
     hooks: async (...deliveries) => {
       await engine.ingest(hookBatch(...deliveries))
     },
+    retainBases: () => engine.retainBases(),
     teammateMeta: async ({ session }, agent, name, team) => {
       await engine.ingest(
         snapshotBatch({
