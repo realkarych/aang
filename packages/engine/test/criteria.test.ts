@@ -34,7 +34,7 @@ import {
 } from './check-hooks.js'
 import { adapters, factsOf, sessionKey } from './harness.js'
 import { createHome, type Home } from './home.js'
-import { createRepository, git, type Register, type Repository, writeFiles } from './repository.js'
+import { createRepository, git, initRepository, type Register, type Repository, writeFiles } from './repository.js'
 import { claudeTranscript } from './samples.js'
 
 interface SetupOptions {
@@ -580,3 +580,112 @@ test.for(['detach', 'revoke'] as const)(
     expect(criterionOf(store, moved)).toEqual(confirmed)
   },
 )
+
+test.for(['attach', 'detach', 'revoke'] as const)(
+  'a stale criterion keeps the snapshot of its staleness when %s moves its session to another run',
+  async (move, { onTestFinished }) => {
+    const { store, engine, repository } = await setup(onTestFinished)
+    const root = { session: 'stale-root-session', cwd: repository.path }
+    const moved = { session: 'stale-moved-session', cwd: repository.path }
+    const session = objectId(sessionKey('claude', moved.session))
+    await engine.ingest(hookBatch(started(root), started(moved)))
+    const attached = move === 'attach' ? null : await engine.bind({ kind: 'attach', session, run: runOf(root) })
+    const before = attached === null ? moved : root
+    const after = attached === null ? root : moved
+    const commit = await isolatedCheckout(repository)
+    await engine.ingest(hookBatch(preTool(moved, 'stale-verify', 20), postTool(moved, 'stale-verify', passed(commit), 21)))
+    expect(criterionOf(store, before)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: commit })
+    await writeFiles(repository.path, { 'src/app.ts': 'export const app = 15\n' })
+    await engine.ingest(hookBatch(stopped(moved, 1, 30)))
+    const stale = {
+      status: { value: 'stale', evidence: [...callFacts(store, 'stale-verify'), snapshotFact(store, before, 'turn_end')].sort() },
+      checked_commit: commit,
+    }
+    expect(criterionOf(store, before)).toMatchObject(stale)
+
+    if (attached === null) {
+      await engine.bind({ kind: 'attach', session, run: runOf(root) })
+    } else if (move === 'detach') {
+      await engine.bind({ kind: 'detach', session })
+    } else {
+      await engine.revokeBinding(attached.binding.id)
+    }
+    expect(criteriaOf(store, before)).toEqual([])
+    expect(criterionOf(store, after)).toMatchObject(stale)
+    expect(journalOf(store, after).map(({ status }) => status)).toEqual(['stale'])
+  },
+)
+
+test('a session detached from a run where a later check saw another HEAD takes its check back as stale', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, repository } = await setup(onTestFinished)
+  const root = { session: 'head-root-session', cwd: repository.path }
+  const moved = { session: 'head-moved-session', cwd: repository.path }
+  const session = objectId(sessionKey('claude', moved.session))
+  await engine.ingest(hookBatch(started(root), started(moved)))
+  await engine.bind({ kind: 'attach', session, run: runOf(root) })
+  const commit = await isolatedCheckout(repository)
+  await engine.ingest(hookBatch(preTool(moved, 'moved-verify', 20), postTool(moved, 'moved-verify', passed(commit), 21)))
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 16\n' })
+  await git(repository.path, 'commit', '--quiet', '--all', '--message=later')
+  const later = await git(repository.path, 'rev-parse', 'HEAD')
+  await engine.ingest(hookBatch(preTool(root, 'root-verify', 30), postTool(root, 'root-verify', passed(later), 31)))
+  expect(criterionOf(store, root)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'root-verify') },
+    checked_commit: later,
+  })
+  const departure = snapshotFact(store, root, 'check')
+
+  await engine.bind({ kind: 'detach', session })
+  expect(criterionOf(store, root)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: later })
+  expect(criterionOf(store, moved)).toMatchObject({
+    status: { value: 'stale', evidence: [...callFacts(store, 'moved-verify'), departure].sort() },
+    checked_commit: commit,
+  })
+})
+
+test('a check after git init in its directory confirms the commit that a check before it could not see', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const project = join(home.path, '..', 'later-repository')
+  await mkdir(join(project, 'src'), { recursive: true })
+  const store = home.open()
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: { all: true, roots: [{ path: project, contracts: [testContract(['src'])] }] },
+    fsWatch: false,
+  })
+  onTestFinished(() => engine.close())
+  const source = { session: 'init-session', cwd: project }
+  await engine.ingest(hookBatch(started(source), preTool(source, 'call-before', 10), postTool(source, 'call-before', 'Tests passed\n', 11)))
+  expect(criterionOf(store, source)).toMatchObject({ status: { value: 'passed_unversioned' }, checked_commit: null })
+
+  const { head } = await initRepository(project, committed)
+  await engine.ingest(hookBatch(preTool(source, 'call-after', 20), postTool(source, 'call-after', passed(head ?? ''), 21)))
+  expect(criterionOf(store, source)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'call-after') },
+    checked_commit: head,
+  })
+})
+
+test('a commit fetched after a check reported it is confirmed by the next check that reports it', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, repository } = await setup(onTestFinished)
+  const upstream = await createRepository(onTestFinished, { ...committed, 'src/app.ts': 'export const app = 17\n' })
+  const fetched = upstream.head ?? ''
+  const source = { session: 'fetch-session', cwd: repository.path }
+  await engine.ingest(hookBatch(started(source), preTool(source, 'call-missing', 10), postTool(source, 'call-missing', passed(fetched), 11)))
+  expect(criterionOf(store, source)).toMatchObject({ status: { value: 'passed_unversioned' }, checked_commit: null })
+
+  await git(repository.path, 'fetch', '--quiet', upstream.path, 'main')
+  await git(repository.path, 'checkout', '--quiet', '--detach', fetched)
+  await engine.ingest(hookBatch(preTool(source, 'call-fetched', 20), postTool(source, 'call-fetched', passed(fetched), 21)))
+  expect(criterionOf(store, source)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'call-fetched') },
+    checked_commit: fetched,
+  })
+})

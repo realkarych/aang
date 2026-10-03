@@ -31,6 +31,7 @@ import { createContractCatalog } from '../checks/catalog.js'
 import { changedRunChecks, type RunChecks, storedRunChecks } from '../checks/history.js'
 import { createCriteriaMonitor, UnresolvedChecks, versionedSnapshots } from '../criteria/monitor.js'
 import type { CriterionCheck } from '../criteria/plan.js'
+import type { Origins } from '../criteria/status.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
@@ -668,10 +669,15 @@ export const createEngine = ({
     }
   }
 
-  const refreshRuns = (transaction: Transaction, runs: readonly RunChecks[], at: EpochNsType): CriterionCheck[] => {
+  const refreshRuns = (
+    transaction: Transaction,
+    runs: readonly RunChecks[],
+    at: EpochNsType,
+    origins?: Origins,
+  ): CriterionCheck[] => {
     const distinct = [...new Map(runs.map((checks) => [checks.run, checks])).values()]
     refreshChecks(transaction, distinct, at)
-    return criteria.reconcile(transaction, distinct, at)
+    return criteria.reconcile(transaction, distinct, at, origins)
   }
 
   const settleBinding = async (
@@ -692,7 +698,8 @@ export const createEngine = ({
           ...changedRunChecks(transaction, moved, contracts),
           ...storedRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts),
         ]
-        return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant) }
+        const origins = new Map(outcome.moved.map(({ session, from }) => [objectId(session), from]))
+        return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant, origins) }
       }),
     )
     quiet = watch

@@ -8,11 +8,11 @@ import { recordSnapshot } from '../snapshots/record.js'
 import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { createGitResolver, type ResolvedCheck } from './git.js'
 import { type CriterionCheck, latestChecks } from './plan.js'
-import { isVersioned, reconcileCriteria, releaseCriteria } from './status.js'
+import { isVersioned, type Origins, reconcileCriteria, releaseCriteria } from './status.js'
 import { createTreeWatch, maskTargets } from './watch.js'
 
 export interface CriteriaMonitor {
-  readonly reconcile: (transaction: Transaction, runs: readonly RunChecks[], at: EpochNs) => CriterionCheck[]
+  readonly reconcile: (transaction: Transaction, runs: readonly RunChecks[], at: EpochNs, origins?: Origins) => CriterionCheck[]
   readonly prepare: (checks: readonly CriterionCheck[]) => Promise<void>
   readonly settle: (requests: readonly SnapshotRequest[], checks: readonly CriterionCheck[]) => Promise<void>
   readonly recheck: (runs: ReadonlySet<RunId> | null, trigger: SnapshotTrigger) => Promise<void>
@@ -36,6 +36,8 @@ export class UnresolvedChecks extends Error {
 }
 
 const treeSettleMs = 100
+
+const noOrigins: Origins = new Map()
 
 export const versionedSnapshots = (
   transaction: Transaction,
@@ -81,12 +83,16 @@ export const createCriteriaMonitor = ({
     }
   }
 
-  const reconcileChecks = (transaction: Transaction, checks: readonly CriterionCheck[]): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
+  const reconcileChecks = (
+    transaction: Transaction,
+    checks: readonly CriterionCheck[],
+    origins: Origins,
+  ): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
     const resolved = git.resolved(checks)
     if (resolved === null) {
       throw new UnresolvedChecks(checks)
     }
-    return reconcileCriteria(transaction, resolved)
+    return reconcileCriteria(transaction, resolved, origins)
   }
 
   const settle = async (requests: readonly SnapshotRequest[], checks: readonly CriterionCheck[]): Promise<void> => {
@@ -106,15 +112,15 @@ export const createCriteriaMonitor = ({
         for (const snapshot of taken) {
           recordSnapshot(transaction, snapshot)
         }
-        return reconcileChecks(transaction, checks)
+        return reconcileChecks(transaction, checks, noOrigins)
       }),
     )
   }
 
   return {
-    reconcile: (transaction, runs, at) => {
+    reconcile: (transaction, runs, at, origins = noOrigins) => {
       const latest = latestChecks(transaction, runs)
-      reconcileChecks(transaction, latest)
+      reconcileChecks(transaction, latest, origins)
       releaseCriteria(transaction, runs, at)
       return latest
     },
