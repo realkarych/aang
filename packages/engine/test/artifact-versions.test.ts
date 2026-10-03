@@ -401,13 +401,21 @@ const codexPatchCall = (ordinal: number, call: string, patch: string): string[] 
   codexItem(ordinal + 1, { type: 'FileChange', id: call, changes: {}, status: 'completed', stdout: 'Success.\n', stderr: '' }),
 ]
 
-const codexExec = (ordinal: number, call: string, input: Record<string, JsonValue>): string =>
+const codexExec = (ordinal: number, call: string, input: Record<string, JsonValue>, name = 'exec_command'): string =>
   codexLine(ordinal, 'response_item', {
     type: 'function_call',
     id: `fc_${call}`,
-    name: 'exec_command',
+    name,
     arguments: JSON.stringify(input),
     call_id: call,
+    internal_chat_message_metadata_passthrough: passthrough,
+  })
+
+const codexOutput = (ordinal: number, call: string, status: string): string =>
+  codexLine(ordinal, 'response_item', {
+    type: 'function_call_output',
+    call_id: call,
+    output: `Chunk ID: 5c1f0a\nWall time: 1.0 seconds\n${status}\nOutput:\n`,
     internal_chat_message_metadata_passthrough: passthrough,
   })
 
@@ -1000,6 +1008,51 @@ test('a Codex patch after a command that may have changed another line of its ba
   expect(retainedAs(store, version.id)).toEqual({ kind: 'file_read', text: 'one\ngamma\n' })
 })
 
+test.for<{ name: string; polls: readonly string[]; file: boolean; retained: { kind: string; text: string | null } }>([
+  {
+    name: 'is read from the file while the process still runs',
+    polls: [],
+    file: true,
+    retained: { kind: 'file_read', text: 'one\ngamma\n' },
+  },
+  {
+    name: 'stays a reference without the file while the process still runs',
+    polls: [],
+    file: false,
+    retained: { kind: 'reference', text: null },
+  },
+  {
+    name: 'stays a reference without the file when a poll finds the process still running',
+    polls: ['Process running with session ID 42'],
+    file: false,
+    retained: { kind: 'reference', text: null },
+  },
+  {
+    name: 'is rebuilt from the patches once a poll reports that the process exited',
+    polls: ['Process exited with code 0'],
+    file: false,
+    retained: { kind: 'action_payload', text: 'one\nbeta\n' },
+  },
+])('a Codex patch to a file added after a command returned with its process running $name', async ({ polls, file, retained }, { onTestFinished }) => {
+  const { store, engine, project } = await setup(onTestFinished)
+  await ingestCodex(engine, project, [
+    codexExec(1, 'call_watch', { cmd: 'python3 scripts/watch.py', yield_time_ms: 1000 }),
+    codexOutput(2, 'call_watch', 'Process running with session ID 42'),
+    ...polls.flatMap((status) => [codexExec(3, 'call_poll', { session_id: 42, chars: '' }, 'write_stdin'), codexOutput(4, 'call_poll', status)]),
+    ...codexPatchCall(5, 'call_add', '*** Begin Patch\n*** Add File: notes.txt\n+alpha\n+beta\n*** End Patch\n'),
+    ...codexPatchCall(7, 'call_update', '*** Begin Patch\n*** Update File: notes.txt\n@@\n-alpha\n+one\n*** End Patch\n'),
+  ])
+  if (file) {
+    await writeFiles(project, { 'notes.txt': 'one\ngamma\n' })
+  }
+  const run = runId(codexKey)
+  const version = versionOfCall(store, run, 'call_update')
+  openRun(store, codexKey)
+  linkOutputs(store, codexKey, [version.id], startOf(store, 'call_update'), 'codex-watch-call')
+  await engine.retainBases()
+  expect(retainedAs(store, version.id)).toEqual(retained)
+})
+
 test.for<{ name: string; reported: boolean }>([
   { name: 'reporting its original', reported: true },
   { name: 'without a reported original', reported: false },
@@ -1030,17 +1083,26 @@ test.for<{ name: string; reported: boolean }>([
   expect(retainedAs(store, patched.id)).toEqual({ kind: 'action_payload', text: 'one\nbeta\n' })
 })
 
-test.for<{ name: string; between: (project: string) => readonly string[]; retained: { kind: string; text: string } | null }>([
-  { name: 'is rebuilt from the stored read', between: () => [], retained: { kind: 'action_payload', text: 'one\nbeta\n' } },
+test.for<{ name: string; created: string; between: (project: string) => readonly string[]; update: string; retained: string | null }>([
+  { name: 'is rebuilt from the stored read', created: 'alpha\nbeta\n', between: () => [], update: '@@\n-alpha\n+one\n', retained: 'one\nbeta\n' },
+  {
+    name: 'is rebuilt from the stored read with its byte order mark',
+    created: '\uFEFFalpha\nbeta\n',
+    between: () => [],
+    update: '@@\n-beta\n+gamma\n',
+    retained: '\uFEFFalpha\ngamma\n',
+  },
   {
     name: 'after another command is not rebuilt',
+    created: 'alpha\nbeta\n',
     between: (project) => [
       codexExec(4, 'call_fix', { cmd: 'python3 scripts/fix.py' }),
       codexCommand(5, 'call_fix', ['/bin/zsh', '-lc', 'python3 scripts/fix.py'], project),
     ],
+    update: '@@\n-alpha\n+one\n',
     retained: null,
   },
-])('a Codex patch to a file a command created and that was read as a basis $name', async ({ between, retained }, { onTestFinished }) => {
+])('a Codex patch to a file a command created and that was read as a basis $name', async ({ created, between, update, retained }, { onTestFinished }) => {
   const { store, engine, project } = await setup(onTestFinished, undefined, () =>
     EpochNs.parse(BigInt(codexStartMs + 2_500) * 1_000_000n),
   )
@@ -1049,23 +1111,27 @@ test.for<{ name: string; between: (project: string) => readonly string[]; retain
     codexExec(1, 'call_create', { cmd: "printf 'alpha\\nbeta\\n' > notes.txt" }),
     codexCommand(2, 'call_create', ['/bin/zsh', '-lc', "printf 'alpha\\nbeta\\n' > notes.txt"], project),
     ...between(project),
-    ...codexPatchCall(6, 'call_update', '*** Begin Patch\n*** Update File: notes.txt\n@@\n-alpha\n+one\n*** End Patch\n'),
+    ...codexPatchCall(6, 'call_update', `*** Begin Patch\n*** Update File: notes.txt\n${update}*** End Patch\n`),
   ]
   const file = jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 25n })
-  await writeFiles(project, { 'notes.txt': 'alpha\nbeta\n' })
+  await writeFiles(project, { 'notes.txt': created })
   await engine.ingest(file.batch(1, 3))
   const run = runId(codexKey)
-  const created = versionOfCall(store, run, 'call_create')
+  const command = versionOfCall(store, run, 'call_create')
   openRun(store, codexKey)
-  linkOutputs(store, codexKey, [created.id], startOf(store, 'call_create'), 'codex-created-call')
+  linkOutputs(store, codexKey, [command.id], startOf(store, 'call_create'), 'codex-created-call')
   await engine.retainBases()
-  expect(retainedAs(store, created.id)).toEqual({ kind: 'file_read', text: 'alpha\nbeta\n' })
+  expect(store.artifacts.getVersion(command.id)?.retention).toMatchObject({ kind: 'file_read', blob: contentHash(created) })
 
   await engine.ingest(file.batch(4, lines.length))
   await rm(join(project, 'notes.txt'))
   const patched = versionOfCall(store, run, 'call_update')
   linkOutputs(store, codexKey, [patched.id], startOf(store, 'call_update'), 'codex-patched-call')
   await engine.retainBases()
-  expect(store.artifacts.getVersion(patched.id)?.retention.kind).toBe(retained === null ? 'reference' : retained.kind)
-  expect(retainedAs(store, patched.id)).toEqual(retained ?? { kind: 'reference', text: null })
+  const action = objectId({ kind: 'action', runtime: 'codex', session: codexThread, call: 'call_update' })
+  expect(store.artifacts.getVersion(patched.id)?.retention).toEqual(
+    retained === null ? { kind: 'reference' } : { kind: 'action_payload', blob: contentHash(retained), action },
+  )
+  const blob = retained === null ? null : store.artifacts.blob(contentHash(retained))
+  expect(blob === null ? null : Buffer.from(blob)).toEqual(retained === null ? null : Buffer.from(retained, 'utf8'))
 })

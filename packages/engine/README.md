@@ -330,13 +330,18 @@ is established only when it is proven:
   make it ambiguous;
 - the content of a write is known from payloads: full content of the action, or a
   patch to its own established base. A command write has no known content. The
-  content of a stored read is its blob;
+  content of a stored read is its blob, decoded as strict UTF-8 with its byte order
+  mark kept;
 - nothing may have changed the path between that state and the end of the patch: no
   other action that could write it ran in that window. Every command, MCP tool, code
   cell and unknown tool could write any path, a file tool could write the paths it
   names; reads, searches, web, questions, plans and agent calls, whose own actions
   are observed in their sessions, do not write. Denied actions did not run; an
-  action without an end and a Claude command `run_in_background` are still running;
+  action without an end and a Claude command `run_in_background` are still running.
+  A Codex command whose call returned `Process running with session ID N` runs until
+  its own result settles with an exit code or an outcome, or a `write_stdin` poll of
+  session `N` reports `Process exited with code`; a return of the call is not the
+  end of the process;
 - every replacement applies exactly: Claude `old_string` occurs once (or at least
   once with `replace_all`), and an empty `new_string` does not touch a following
   newline; Codex hunks match their context and lines exactly, with the matching

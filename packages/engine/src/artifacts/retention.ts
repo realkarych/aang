@@ -106,21 +106,75 @@ const single = <T>(values: readonly T[], key: (value: T) => string): T | null =>
 
 const silentKinds: ReadonlySet<ActionKind> = new Set(['file_read', 'search', 'web', 'agent', 'question', 'plan'])
 
+type Start = FactOf<'action_start'>
+
+type End = FactOf<'action_end'>
+
+type Exits = ReadonlyMap<string, readonly EpochNs[]>
+
+const runningProcess = /^Process running with session ID (\d+)$/m
+
+const exitedProcess = /^Process exited with code -?\d+$/m
+
 const extreme = (times: readonly EpochNs[], later: boolean): EpochNs | null =>
   times.reduce<EpochNs | null>((found, time) => (found === null || (later ? time > found : time < found) ? time : found), null)
 
-const activityOf = (action: Action, facts: readonly Fact[], session: string | null): Activity | null => {
+const startsOf = (facts: readonly Fact[]): Start[] => facts.filter((fact): fact is Start => fact.kind === 'action_start')
+
+const endsOf = (facts: readonly Fact[]): End[] => facts.filter((fact): fact is End => fact.kind === 'action_end')
+
+const headerOf = ({ payload }: End): string => (payload.output ?? '').split(/^Output:$/m, 1)[0] ?? ''
+
+const settles = ({ payload }: End): boolean => payload.exit_code !== null || payload.outcome === 'ok' || payload.outcome === 'error'
+
+const processExits = (actions: readonly Action[], facts: ReadonlyMap<string, readonly Fact[]>): Map<string, EpochNs[]> => {
+  const exits = new Map<string, EpochNs[]>()
+  for (const action of actions) {
+    const own = facts.get(action.id) ?? []
+    const polled = new Set(
+      startsOf(own).flatMap(({ payload }) => {
+        const process = fieldOf(payload.input, 'session_id')
+        return payload.action_kind === 'command' && (typeof process === 'number' || typeof process === 'string') ? [String(process)] : []
+      }),
+    )
+    for (const end of endsOf(own).filter((end) => exitedProcess.test(headerOf(end)))) {
+      for (const process of polled) {
+        added(exits, process, end.at)
+      }
+    }
+  }
+  return exits
+}
+
+const runningOf = (ends: readonly End[]): { readonly process: string; readonly since: EpochNs } | null => {
+  if (ends.some(settles)) {
+    return null
+  }
+  const [running] = ends.flatMap((end) => {
+    const process = runningProcess.exec(headerOf(end))?.[1]
+    return process === undefined ? [] : [{ process, since: end.at }]
+  })
+  return running ?? null
+}
+
+const endedAt = (action: Action, ends: readonly End[], exits: Exits): EpochNs | null => {
+  const running = runningOf(ends)
+  return running === null
+    ? (extreme(ends.map(({ at }) => at), true) ?? action.ended_at)
+    : extreme((exits.get(running.process) ?? []).filter((at) => at >= running.since), false)
+}
+
+const activityOf = (action: Action, facts: readonly Fact[], session: string | null, exits: Exits): Activity | null => {
   if (silentKinds.has(action.action_kind) || action.outcome?.value === 'denied') {
     return null
   }
-  const starts = facts.filter((fact): fact is FactOf<'action_start'> => fact.kind === 'action_start')
-  const ends = facts.flatMap((fact) => (fact.kind === 'action_end' ? [fact.at] : []))
+  const starts = startsOf(facts)
   const background = starts.some(({ payload }) => fieldOf(payload.input, 'run_in_background') === true)
   const written = action.action_kind === 'file_write' ? actionCandidates(facts, session) : []
   return {
     action: action.id,
     started: extreme(starts.map(({ at }) => at), false),
-    ended: background ? null : (extreme(ends, true) ?? action.ended_at),
+    ended: background ? null : endedAt(action, endsOf(facts), exits),
     paths: written.length === 0 ? null : new Set(written.flatMap(({ path, patch }) => (patch === null ? [path] : [path, patch.base]))),
   }
 }
@@ -162,15 +216,14 @@ const historyOf = (store: Store, run: RunId, session: SessionId): History => {
         added(facts, objectId(fact.entity_key), fact)
       }
     }
-    for (const action of store.observations.actions(id)) {
-      if (action.inherited) {
-        continue
-      }
+    const actions = store.observations.actions(id).filter(({ inherited }) => !inherited)
+    const exits = processExits(actions, facts)
+    for (const action of actions) {
       const own = facts.get(action.id) ?? []
       for (const write of actionWrites(action, own, owner.cwd)) {
         added(writes, write.path, write)
       }
-      const activity = activityOf(action, own, owner.cwd)
+      const activity = activityOf(action, own, owner.cwd, exits)
       if (activity !== null) {
         activities.push(activity)
       }
@@ -209,7 +262,7 @@ const baseOf = (history: History, write: PathWrite, path: string): Base | null =
   return touched ? null : latest.base
 }
 
-const decoder = new TextDecoder('utf-8', { fatal: true })
+const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
 
 const blobText = (store: Store, blob: ContentHash): string | null => {
   const bytes = store.artifacts.blob(blob)
