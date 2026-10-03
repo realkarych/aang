@@ -17,6 +17,7 @@ import { acquireWriterLock, type WriterLock } from './lock.js'
 import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createObservations, type ObservationReader, type ObservationWriter } from './observations.js'
 import { createObserverCalls, type ObserverCallReader, type ObserverCallWriter } from './observer-calls.js'
+import { createPrunedStreams, type PrunedStreamReader, type PrunedStreamWriter } from './pruned.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
@@ -34,6 +35,7 @@ export interface Transaction {
   readonly facts: FactWriter
   readonly scopes: ScopeWriter
   readonly cursors: CursorWriter
+  readonly pruned: PrunedStreamWriter
   readonly gaps: GapWriter
   readonly model: ModelWriter
   readonly settings: SettingWriter
@@ -50,6 +52,7 @@ export interface Store {
   readonly facts: FactReader
   readonly scopes: ScopeReader
   readonly cursors: CursorReader
+  readonly pruned: PrunedStreamReader
   readonly gaps: GapReader
   readonly model: ModelReader
   readonly settings: SettingReader
@@ -66,6 +69,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
   const facts = createFacts(database)
   const scopes = createScopes(database)
   const cursors = createCursors(database)
+  const pruned = createPrunedStreams(database)
   const gaps = createGaps(database)
   const model = createModel(database)
   const settings = createSettings(database)
@@ -97,6 +101,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         facts: facts.writer(context),
         scopes: scopes.writer(context),
         cursors: cursors.writer(context),
+        pruned: pruned.writer(context),
         gaps: gaps.writer(context),
         model: model.writer(context),
         settings: settings.writer(context),
@@ -124,6 +129,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     facts: facts.reader,
     scopes: scopes.reader,
     cursors: cursors.reader,
+    pruned: pruned.reader,
     gaps: gaps.reader,
     model: model.reader,
     settings: settings.reader,

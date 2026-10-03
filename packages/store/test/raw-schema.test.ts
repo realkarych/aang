@@ -73,6 +73,7 @@ const gap: Row = {
 const claudeBoundary: Row = {
   stream: "'claude:s1:main'",
   runtime: "'claude'",
+  session: "'s1'",
   last_ordinal: 'NULL',
   byte_offset: '120',
   prefix_hash: "'sha256:ab'",
@@ -82,6 +83,7 @@ const claudeBoundary: Row = {
 const codexBoundary: Row = {
   stream: "'codex:t1'",
   runtime: "'codex'",
+  session: "'t1'",
   last_ordinal: '41',
   byte_offset: 'NULL',
   prefix_hash: 'NULL',
@@ -258,6 +260,15 @@ const cases: readonly SchemaCase[] = [
     error: /UNIQUE constraint failed: session_scopes\.runtime, session_scopes\.session/,
   },
   {
+    name: 'a root session scope decision keeps the starting directory it was judged by',
+    statement: insert('session_scopes', sessionScope, { cwd: "'/work/project'" }),
+  },
+  {
+    name: 'a root session scope decision does not keep an empty starting directory',
+    statement: insert('session_scopes', sessionScope, { cwd: "''" }),
+    error: /CHECK constraint failed: cwd <> ''/,
+  },
+  {
     name: 'sessions of different runtimes with the same id are decided separately',
     setup: [insert('session_scopes', sessionScope)],
     statement: insert('session_scopes', sessionScope, { runtime: "'codex'", scope: "'external'" }),
@@ -332,6 +343,11 @@ const cases: readonly SchemaCase[] = [
     name: 'a Codex prune boundary with a byte offset is rejected',
     statement: insert('pruned_streams', codexBoundary, { byte_offset: '120' }),
     error: /CHECK constraint failed: pruned_streams_boundary/,
+  },
+  {
+    name: 'a prune boundary names the root session of its stream',
+    statement: insert('pruned_streams', codexBoundary, { session: "''" }),
+    error: /CHECK constraint failed: session <> ''/,
   },
   {
     name: 'a stream has a single prune boundary',
