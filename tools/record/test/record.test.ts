@@ -427,16 +427,21 @@ test.each([
   })
 })
 
-test('verification rejects a host name or machine id of this machine anywhere in any file, but not inside longer words', async () => {
+test('verification rejects a host name or machine id of this machine anywhere in any file, including escaped JSON strings, but not inside longer words', async () => {
   vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac.local')
   const directory = await recordSession(await options('codex'), async (session) => {
-    await writeFile(join(session.project, 'result.json'), JSON.stringify({ text: 'Private-Owner-Machine and private-owner-macs' }))
+    await writeFile(join(session.project, 'result.json'), String.raw`{"text":"Private-Owner-Machine and private-owner-macs","escaped":"\u0050rivate-Owner-Machine","nested":"{\"text\":\"\\u0050rivate-Owner-Macs\"}"}`)
   })
   await verifyRecording(directory)
   const machine = await machineId()
   const mentions = [
     'ssh Private-Owner-Mac', 'PRIVATE-OWNER-MAC.local:22', String.raw`{"text":"line\nprivate-owner-mac"}`, 'user_Private-Owner-Mac', 'Private-Owner-Mac-2',
-    ...machine ? [`id ${machine}`] : [],
+    String.raw`{"text":"Connected to \u0050rivate-Owner-Mac"}`,
+    String.raw`{"\u0050RIVATE-owner-mac.local":"online"}`,
+    String.raw`{"payload":"{\"text\":\"Connected to \\u0050rivate-Owner-Mac\"}"}`,
+    String.raw`{"payload":"{\"inner\":\"{\\\"text\\\":\\\"Private-Owner-\\\\u004dac\\\"}\"}"}`,
+    String.raw`plain line` + '\n' + String.raw`["ssh \u0070rivate-owner-mac"]`,
+    ...machine ? [`id ${machine}`, String.raw`{"id":"\u00${machine.charCodeAt(0).toString(16)}${machine.slice(1)}"}`] : [],
   ]
   for (const mention of mentions) {
     await writeFile(join(directory, 'unchecked.txt'), mention)
@@ -515,10 +520,13 @@ const runtimeLine = (root: 'claude' | 'codex', sample: string, line = 0, mention
   await writeFile(file, `${mention === undefined ? record : record.replaceAll(...mention)}\n`)
 }
 
-const hookEvent = (payload: string | Readonly<Record<string, unknown>>): Write => async (session) =>
-  session.run(process.execPath, [hookScript, typeof payload === 'string' ? await sampleRecord(payload) : JSON.stringify({ session_id: 'session-public-1', ...payload })])
+const hookEvent = (payload: string | Readonly<Record<string, unknown>>, mention?: readonly [string, string]): Write => async (session) => {
+  const record = typeof payload === 'string' ? await sampleRecord(payload) : JSON.stringify({ session_id: 'session-public-1', ...payload })
+  await session.run(process.execPath, [hookScript, mention === undefined ? record : record.replaceAll(...mention)])
+}
 
-const projectFile = (content: Readonly<Record<string, unknown>>): Write => (session) => writeFile(join(session.project, 'result.json'), JSON.stringify(content))
+const projectFile = (content: string | Readonly<Record<string, unknown>>): Write => (session) =>
+  writeFile(join(session.project, 'result.json'), typeof content === 'string' ? content : JSON.stringify(content))
 
 const commandMarkers = 'claude-code-transcripts/rec-compact-local-command-users.jsonl'
 const bashFailure = 'claude-code-hooks/PostToolUseFailure.Bash.json'
@@ -536,6 +544,19 @@ test.each([
   {
     name: 'Private-Owner-Mac', runtime: 'claude', source: 'Claude message text',
     write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', '"text":"Connected to Private-Owner-Mac"']),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'escaped Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', String.raw`"text":"Connected to \u0050rivate-Owner-Mac"`]),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'an escaped permission denial reason in the spool',
+    write: hookEvent({ hook_event_name: 'PermissionDenied', tool_name: 'Bash', tool_use_id: 'toolu_denied', reason: 'SSH to Private-Owner-Mac was denied by the user' }, ['Private', String.raw`\u0050rivate`]),
+  },
+  { name: 'Private-Owner-Mac', runtime: 'codex', source: 'an escaped project value', write: projectFile(String.raw`{"text":"Connected to \u0050rivate-Owner-Mac"}`) },
+  {
+    name: 'Private-Owner-Mac', runtime: 'codex', source: 'an escaped value of nested serialized JSON',
+    write: projectFile(String.raw`{"payload":"{\"text\":\"Connected to \\u0050rivate-Owner-Mac\"}"}`),
   },
   {
     name: 'Private-Owner-Mac', runtime: 'claude', source: 'a permission denial reason',
