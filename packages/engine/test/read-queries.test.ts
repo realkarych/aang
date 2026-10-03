@@ -15,10 +15,11 @@ import {
   StageInspector,
   TempId,
 } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
+import { objectId, runId } from '@aang/contract/ids'
 import { applyChangeSet, createReadQueries, InvalidPositionError, type RunFeed } from '@aang/engine'
 import { describe, expect, test } from 'vitest'
 import { sessionKey } from './harness.js'
+import { createHome } from './home.js'
 import { at, observed } from './model.js'
 import { createStage, existing, temporary } from './observer-fixtures.js'
 import {
@@ -35,6 +36,7 @@ import {
 } from './read-scene.js'
 import { claudeTranscript } from './samples.js'
 import { filesReplay, startScenario } from './scenarios.js'
+import { clockedEngine, hook as sessionHook, sessionId, source as stateSource } from './session-fixtures.js'
 
 const fileAgent = 'aworker-0123456789abcdef'
 
@@ -62,6 +64,8 @@ const startOf = (scene: Scene, source: Source, call: string): Fact => {
   }
   return start
 }
+
+const okObserver = () => ({ state: { state: 'ok' }, isolation_unverified: false }) as const
 
 const snapshotOf = (scene: Scene, session: string): RunSnapshot => {
   const snapshot = scene.reads.snapshot(scene.runOf(session))
@@ -274,6 +278,108 @@ describe('read queries of the model', () => {
     expect(own?.freshness).toBe(scene.reads.snapshot(run)?.objects.sessions[0]?.freshness)
     expect(own?.last_event_at).toBe(scene.reads.snapshot(run)?.objects.sessions[0]?.last_event_at)
     expect(other).toMatchObject({ freshness: 'hooks_inactive', support_modes: ['files_only'], sessions: 1 })
+  })
+
+  test.for(['claude', 'codex'] as const)(
+    'a %s run follows its session through the turn to done',
+    async (runtime, { onTestFinished }) => {
+      const store = (await createHome(onTestFinished)).open()
+      const { engine } = clockedEngine(store)
+      const reads = createReadQueries({ store, observer: okObserver })
+      const run = runId(sessionKey(runtime, stateSource.session))
+      const lifecycle = [
+        ['SessionStart', {}],
+        ['UserPromptSubmit', { prompt: 'Start' }],
+        ['Stop', {}],
+        ['SessionEnd', { reason: 'other' }],
+      ] as const
+      const shown: string[] = []
+      for (const [index, [event, fields]] of lifecycle.entries()) {
+        await engine.ingest(sessionHook(event, index, fields, runtime))
+        const summary = reads.snapshot(run)?.summary
+        expect(reads.runs().runs).toEqual([summary])
+        expect(summary?.execution).toEqual(store.observations.getSession(sessionId(runtime))?.execution)
+        shown.push(summary?.execution.state ?? 'missing')
+      }
+      expect(shown).toEqual(['unknown', 'running', 'waiting', 'done'])
+    },
+  )
+
+  test('a dependency or an assignment alone changes the stages it links and appears in their inspectors', async ({
+    onTestFinished,
+  }) => {
+    const scene = await openScene(onTestFinished)
+    const { source, run, start, steps } = playScene(scene)
+    await start()
+    for (const step of steps.slice(0, 4)) {
+      await step()
+    }
+    await scene.transcript(source, read(source, 'read-1', 30))
+    const facts = factsOfCall(scene, source, 'read-1')
+    const evidence = [startOf(scene, source, 'read-1').id]
+    const grounds = { evidence, rationale: 'The docs describe the parser' }
+    const accept = (id: string, ops: ObserverOp[], second: number) => {
+      const marked = snapshotOf(scene, 'session-a')
+      const applied = scene.observe(run, id, facts, ops, { at: second })
+      if (applied.status !== 'accepted') {
+        throw new Error(`the call ${id} must be accepted`)
+      }
+      const changes = scene.reads.changes(run, { version: marked.summary.version, change_seq: marked.change_seq })
+      expect(ChangesResponse.safeParse(changes).error).toBeUndefined()
+      return { version: applied.version, stages: changes?.stages, current: snapshotOf(scene, 'session-a').model.stages }
+    }
+    accept('call-docs', [{ ...createStage(evidence, 'docs'), title: 'Write the docs' }], 40)
+    const stages = snapshotOf(scene, 'session-a').model.stages
+    const build = stages.find(({ title }) => title === 'Build the parser')
+    const docs = stages.find(({ title }) => title === 'Write the docs')
+    if (build === undefined || docs === undefined) {
+      throw new Error('both stages must exist')
+    }
+    const depended = accept(
+      'call-depends',
+      [{ ...grounds, op: 'stage.depends', stage: existing(docs.id), depends_on: existing(build.id), via: null }],
+      50,
+    )
+    expect(depended.stages).toEqual(
+      depended.current.map((stage) => ({
+        before: stage,
+        after: stage,
+        changes: [{ version: depended.version, index: 0 }],
+      })),
+    )
+    expect(depended.current).toEqual(stages)
+    const assigned = accept(
+      'call-assign',
+      [{ ...grounds, op: 'actions.assign', actions: [actionOf(source, 'read-1')], stage: existing(docs.id) }],
+      60,
+    )
+    const unchanged = assigned.current.find(({ id }) => id === docs.id)
+    expect(assigned.stages).toEqual([
+      { before: unchanged, after: unchanged, changes: [{ version: assigned.version, index: 0 }] },
+    ])
+    const ofDocs = scene.reads.inspector(run, docs.id)
+    expect(ofDocs?.actions.map(({ id }) => id)).toEqual([actionOf(source, 'read-1')])
+    expect(ofDocs?.history.map(({ op, observer_call: call }) => [op, call])).toEqual([
+      ['stage.create', 'call-docs'],
+      ['stage.depends', 'call-depends'],
+      ['actions.assign', 'call-assign'],
+    ])
+    expect(ofDocs?.observer_calls.map(({ id }) => id)).toEqual(['call-docs', 'call-depends', 'call-assign'])
+    const ofBuild = scene.reads.inspector(run, build.id)
+    const history = ofBuild?.history ?? []
+    expect(history).toEqual(history.toSorted((left, right) => left.version - right.version || left.index - right.index))
+    expect(history.map(({ op }) => op)).toEqual(
+      expect.arrayContaining([
+        'stage.create',
+        'actions.assign',
+        'agents.participate',
+        'criterion.add',
+        'attention.add',
+        'attention.open',
+        'stage.depends',
+      ]),
+    )
+    expect(ofBuild?.observer_calls.map(({ id }) => id)).toEqual(['call-1', 'call-depends'])
   })
 
   test('the inspector shows the work, grounds, successors and observer calls of a stage', async ({
@@ -536,6 +642,7 @@ describe('read queries of the model', () => {
     for (const step of steps.slice(0, 4)) {
       await step()
     }
+    const interpreted = scene.store.model.head(run)
     await scene.transcript(source, [...read(source, 'read-1', 30), ...read(source, 'read-2', 32)])
     const retried = factsOfCall(scene, source, 'read-1')
     const grounds = { evidence: [startOf(scene, source, 'read-1').id], rationale: 'Reading' }
@@ -544,14 +651,16 @@ describe('read queries of the model', () => {
     heads.push(scene.store.model.head(run))
     expect(scene.observe(run, 'call-2', retried, ops, { at: 20, base: 0 }).status).toBe('rejected')
     heads.push(scene.store.model.head(run))
-    expect(scene.observe(run, 'call-3', retried, ops, { at: 30 }).status).toBe('accepted')
+    const applied = scene.observe(run, 'call-3', retried, ops, { at: 30 })
+    if (applied.status !== 'accepted') {
+      throw new Error('the retried call must be accepted')
+    }
     heads.push(scene.store.model.head(run))
     const running = factsOfCall(scene, source, 'read-2')
     scene.begin(run, 'call-4', running, 40)
     const listed = scene.reads.observerCalls(run)
     expect(ObserverCallsResponse.safeParse(listed).error).toBeUndefined()
     const versions = scene.store.model.versions(run, ChangeSeq.parse(0))
-    const resultOf = (call: string) => versions.find(({ observer_call: own }) => own === call)?.version ?? null
     const summary = ({
       id,
       kind,
@@ -576,8 +685,9 @@ describe('read queries of the model', () => {
       id: 'call-1',
       attempt: 1,
       outcome: 'accepted',
-      result: resultOf('call-1'),
+      result: interpreted,
     })
+    expect(versions.find(({ version }) => version === interpreted)?.author).toBe('rule')
     expect((first?.base_version ?? Infinity) < (first?.result_version ?? 0)).toBe(true)
     expect(later.map(summary)).toEqual([
       {
@@ -597,7 +707,7 @@ describe('read queries of the model', () => {
         attempt: 2,
         outcome: 'accepted',
         base: heads[1],
-        result: resultOf('call-3'),
+        result: applied.version,
         latency: 1000,
       },
       {
@@ -629,10 +739,7 @@ describe('read queries of the model', () => {
     async ([name, runs]) => {
       const scenario = await startScenario(name)
       const replay = filesReplay(scenario)
-      const reads = createReadQueries({
-        store: scenario.store,
-        observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }),
-      })
+      const reads = createReadQueries({ store: scenario.store, observer: okObserver })
       const snapshots = new Map<RunId, RunSnapshot>()
       const labels = scenario.manifest.steps.flatMap(({ label }) => (label === undefined ? [] : [label]))
       for (const until of [...labels, null]) {

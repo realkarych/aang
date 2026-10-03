@@ -42,9 +42,10 @@ const freshnessOrder: readonly Freshness[] = ['lost', 'hooks_inactive', 'quiet',
 const runExecution = (sessions: readonly Session[]): Execution =>
   sessions
     .map(({ execution }) => execution)
-    .reduce<Execution>((shown, execution) => (executionRank(execution) < executionRank(shown) ? execution : shown), {
-      state: 'unknown',
-    })
+    .reduce<Execution | null>(
+      (shown, execution) => (shown === null || executionRank(execution) < executionRank(shown) ? execution : shown),
+      null,
+    ) ?? { state: 'unknown' }
 
 const runFreshness = (sessions: readonly Session[]): Freshness =>
   freshnessOrder.find((freshness) => sessions.some((session) => session.freshness === freshness)) ?? 'ok'

@@ -5,18 +5,20 @@ import type {
   AttentionItem,
   ChangesResponse,
   Criterion,
+  CriterionId,
   FactId,
   ModelChange,
   ModelChangeRef,
   ModelEntity,
   RunId,
   Stage,
+  StageId,
   ViewPosition,
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
 import { compareText, grouped } from '../observations/evidence.js'
-import { InvalidPositionError, partsOf, planKinds, type ReadContext, runOf } from './context.js'
+import { InvalidPositionError, partsOf, planKinds, type ReadContext, runOf, stagesOfLink } from './context.js'
 
 interface Transition<T> {
   readonly before: T | null
@@ -39,16 +41,43 @@ const transitions = <T extends { readonly id: string }>(
   journal: readonly ModelChange[],
   kind: 'stage' | 'criterion',
   valueOf: (entity: ModelEntity | null) => T | null,
+  touched: (change: ModelChange) => readonly string[],
   current: readonly T[],
 ): Transition<T>[] => {
-  const changes = changesOf(journal, kind)
+  const changes = new Map<string, ModelChange[]>()
+  for (const change of journal) {
+    for (const id of touched(change)) {
+      const own = changes.get(id)
+      if (own === undefined) {
+        changes.set(id, [change])
+      } else {
+        own.push(change)
+      }
+    }
+  }
   return current.flatMap((after) => {
     const own = changes.get(after.id)
-    return own === undefined
-      ? []
-      : [{ before: valueOf(own[0].before), after, changes: own.map(({ version, index }) => ({ version, index })) }]
+    if (own === undefined) {
+      return []
+    }
+    const first = own.find(({ target }) => target.kind === kind)
+    return [
+      {
+        before: first === undefined ? after : valueOf(first.before),
+        after,
+        changes: own.map(({ version, index }) => ({ version, index })),
+      },
+    ]
   })
 }
+
+const linkedStages = (entity: ModelEntity | null): StageId[] =>
+  entity?.kind === 'link' ? stagesOfLink(entity.value) : []
+
+const touchedStages = ({ target, before, after }: ModelChange): StageId[] =>
+  target.kind === 'stage' ? [target.id] : [...new Set([...linkedStages(before), ...linkedStages(after)])]
+
+const touchedCriteria = ({ target }: ModelChange): CriterionId[] => (target.kind === 'criterion' ? [target.id] : [])
 
 const stageOf = (entity: ModelEntity | null): Stage | null => (entity?.kind === 'stage' ? entity.value : null)
 
@@ -125,8 +154,8 @@ export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPositio
     run,
     from,
     to: { version: head, change_seq: position },
-    stages: transitions(journal, 'stage', stageOf, parts.stages),
-    criteria: transitions(journal, 'criterion', criterionOf, parts.criteria),
+    stages: transitions(journal, 'stage', stageOf, touchedStages, parts.stages),
+    criteria: transitions(journal, 'criterion', criterionOf, touchedCriteria, parts.criteria),
     cards: parts.cards.filter(({ id }) => created.has(id)),
     plan_facts: store.facts.ofRun(run, from.change_seq, planKinds).map(({ fact }) => fact),
     artifact_versions: [],

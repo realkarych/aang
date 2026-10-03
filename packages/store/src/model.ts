@@ -44,6 +44,7 @@ export interface ModelReader {
   readonly forksOf: (parent: RunId) => RunId[]
   readonly changes: (run: RunId, after: ModelVersion) => ModelChange[]
   readonly entityChanges: (run: RunId, target: ModelEntityRef, after: ModelVersion) => ModelChange[]
+  readonly kindChanges: (run: RunId, kind: ModelEntityRef['kind'], after: ModelVersion) => ModelChange[]
 }
 
 export interface ModelWriter extends ModelReader {
@@ -213,6 +214,12 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
      WHERE c.run_id = ? AND c.entity_kind = ? AND c.entity_id = ? AND c.version > ?
      ORDER BY c.version, c.change_index`,
   )
+  const selectKindChanges = prepareStatement(
+    database,
+    `SELECT ${selectChangeColumns} FROM ${journal}
+     WHERE c.run_id = ? AND c.entity_kind = ? AND c.version > ?
+     ORDER BY c.version, c.change_index`,
+  )
   const selectJournal = prepareStatement(
     database,
     `SELECT c.run_id, c.version, c.entity_kind, c.entity_id, c.after_state, v.change_seq FROM ${journal}
@@ -273,6 +280,7 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     changes: (run, after) => (selectChanges.all(run, after) as ChangeRow[]).map(toChange),
     entityChanges: (run, target, after) =>
       (selectEntityChanges.all(run, target.kind, target.id, after) as ChangeRow[]).map(toChange),
+    kindChanges: (run, kind, after) => (selectKindChanges.all(run, kind, after) as ChangeRow[]).map(toChange),
   }
 
   const writer = (context: WriteContext): ModelWriter => ({

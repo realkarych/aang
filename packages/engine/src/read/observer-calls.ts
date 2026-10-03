@@ -2,6 +2,7 @@ import {
   type FactId,
   JsonValue,
   type ModelVersion,
+  type ModelVersionRecord,
   type ObserverCall,
   type ObserverCallId,
   type ObserverCallOutcome,
@@ -39,15 +40,27 @@ const attemptsOf = (calls: readonly StoredObserverCall[]): Map<ObserverCallId, n
   return attempts
 }
 
+const resultsOf = (
+  calls: readonly StoredObserverCall[],
+  versions: readonly ModelVersionRecord[],
+): Map<ObserverCallId, ModelVersion> => {
+  const finished = new Map(calls.map(({ id, change_seq: seq }) => [id, seq]))
+  const results = new Map<ObserverCallId, ModelVersion>()
+  let current: ObserverCallId | null = null
+  for (const { observer_call: call, version, change_seq: seq } of versions) {
+    const sameTransaction: boolean = current !== null && seq < (finished.get(current) ?? seq)
+    current = call ?? (sameTransaction ? current : null)
+    if (current !== null) {
+      results.set(current, version)
+    }
+  }
+  return results
+}
+
 export const observerCallsOf = ({ store }: ReadContext, run: RunId): ObserverCall[] => {
   const calls = store.observerCalls.ofRun(run)
   const attempts = attemptsOf(calls)
-  const results = new Map<ObserverCallId, ModelVersion>()
-  for (const { observer_call: call, version } of store.model.versions(run, origin)) {
-    if (call !== null && !results.has(call)) {
-      results.set(call, version)
-    }
-  }
+  const results = resultsOf(calls, store.model.versions(run, origin))
   return calls.map((call) => ({
     id: call.id,
     run: call.run,

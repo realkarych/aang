@@ -546,7 +546,7 @@ The run summary:
 
 - `execution` is the most active execution among the sessions: running, waiting for
   a human, for background work, for an unknown reason, idle after an answer, then
-  failed, cancelled, unknown, planned and done;
+  failed, cancelled, unknown, planned and done. A run without sessions is unknown;
 - `freshness` takes the sessions in the order of a single session: lost, hooks
   inactive, quiet, ok;
 - open attention items are those with resolution `open`; an item waits for a human
@@ -562,18 +562,26 @@ participating agents together with the agents of those actions, the items of the
 stage and the action-level items of its actions, and the facts of the current
 grounds of the stage. Its time runs from the first start to the last end once every
 action has ended; the active time is the union of the action intervals, so parallel
-work is not added up (ADR-0009). Its observer calls changed the stage or were
-rejected while naming it.
+work is not added up (ADR-0009). Its history holds the journal entries of the
+stage, of the links that name it before or after the change (dependencies in both
+directions, assignments, participation and artifact links), of its criteria and of
+the attention items it shows. Its observer calls made these entries or were rejected
+while naming the stage.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
 entries in between, cards added after the version, plan facts and new actions after
 the position, and attention items opened after the version and still open or closed
 after it. An action is new when every fact of it came after the position; inherited
-actions are not new.
+actions are not new. A change of a link changes every stage the link names before or
+after it, so a dependency changes both of its stages. A stage changed only through its
+links has the same state before and after, and its journal entries are those link
+changes.
 
 The attempt of an observer call is one more than the number of earlier rejected
-calls that contained a fact of its batch. A call without a verdict is running.
+calls that contained a fact of its batch. A call without a verdict is running. The
+result version of an accepted call is the last version of its transaction, including
+the rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: view rules, the view
 mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs

@@ -3,9 +3,12 @@ import {
   type ActionId,
   type Agent,
   type AgentId,
+  type AttentionItemId,
   type Fact,
   type FactId,
   type JsonValue,
+  type ModelChange,
+  type ModelEntity,
   ModelVersion,
   type ObserverCall,
   type RunId,
@@ -16,7 +19,7 @@ import {
   type UsageTotals,
 } from '@aang/contract'
 import { compareText } from '../observations/evidence.js'
-import { byId, earliest, latest, partsOf, type ReadContext, runOf } from './context.js'
+import { byId, earliest, latest, partsOf, type ReadContext, runOf, stagesOfLink } from './context.js'
 import { observerCallsOf } from './observer-calls.js'
 
 const nanosecondsPerMillisecond = 1_000_000n
@@ -91,6 +94,40 @@ const groundsOf = (stage: Stage): FactId[] =>
     ]),
   ].sort(compareText)
 
+const concerns = (entity: ModelEntity | null, stage: StageId): boolean => {
+  switch (entity?.kind) {
+    case 'link':
+      return stagesOfLink(entity.value).includes(stage)
+    case 'criterion':
+    case 'attention_item':
+      return entity.value.stage === stage
+    default:
+      return false
+  }
+}
+
+const relatedKinds = ['link', 'criterion', 'attention_item'] as const
+
+const historyOf = (
+  { store }: ReadContext,
+  run: RunId,
+  stage: StageId,
+  shown: ReadonlySet<AttentionItemId>,
+): ModelChange[] =>
+  [
+    ...store.model.entityChanges(run, { kind: 'stage', id: stage }, ModelVersion.parse(0)),
+    ...relatedKinds.flatMap((kind) =>
+      store.model
+        .kindChanges(run, kind, ModelVersion.parse(0))
+        .filter(
+          ({ target, before, after }) =>
+            (target.kind === 'attention_item' && shown.has(target.id)) ||
+            concerns(before, stage) ||
+            concerns(after, stage),
+        ),
+    ),
+  ].sort((left, right) => left.version - right.version || left.index - right.index)
+
 export const stageInspector = (context: ReadContext, run: RunId, id: StageId): StageInspector | null => {
   const { store } = context
   if (runOf(store, run) === null) {
@@ -117,7 +154,10 @@ export const stageInspector = (context: ReadContext, run: RunId, id: StageId): S
     .map((agent) => store.observations.getAgent(agent))
     .filter((agent): agent is Agent => agent?.run === run)
     .sort(byId)
-  const history = store.model.entityChanges(run, { kind: 'stage', id }, ModelVersion.parse(0))
+  const attention = parts.attention.filter(
+    (item) => item.stage === id || (item.stage === null && item.action !== null && assigned.has(item.action)),
+  )
+  const history = historyOf(context, run, id, new Set(attention.map(({ id: item }) => item)))
   const shaping = new Set(history.flatMap(({ observer_call: call }) => (call === null ? [] : [call])))
   const calls: ObserverCall[] = observerCallsOf(context, run).filter(
     (call) => shaping.has(call.id) || (call.outcome === 'rejected' && mentions(call.output, id)),
@@ -141,9 +181,7 @@ export const stageInspector = (context: ReadContext, run: RunId, id: StageId): S
     criteria: parts.criteria
       .filter(({ stage: owner }) => owner === id)
       .map((criterion) => ({ criterion, snapshots: [] })),
-    attention: parts.attention.filter(
-      (item) => item.stage === id || (item.stage === null && item.action !== null && assigned.has(item.action)),
-    ),
+    attention,
     time: {
       started_at: earliest(actions.flatMap(({ started_at: start }) => (start === null ? [] : [start]))),
       ended_at: ended ? latest(actions.flatMap(({ ended_at: end }) => (end === null ? [] : [end]))) : null,

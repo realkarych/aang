@@ -11,6 +11,7 @@ import {
   type Run,
   type RunId,
   type Stage,
+  type StageId,
 } from '@aang/contract'
 import type { Store } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
@@ -80,6 +81,21 @@ export const partsOf = (entities: readonly ModelEntity[]): ModelParts => {
     list.sort(byId)
   }
   return parts
+}
+
+export const stagesOfLink = (link: Link): StageId[] => {
+  switch (link.kind) {
+    case 'dependency':
+      return [link.stage, link.depends_on]
+    case 'participation':
+    case 'assignment':
+    case 'artifact':
+      return [link.stage]
+    case 'spawn':
+    case 'forked_from':
+    case 'common_origin':
+      return []
+  }
 }
 
 export const latest = <T extends bigint>(values: readonly T[]): T | null =>
