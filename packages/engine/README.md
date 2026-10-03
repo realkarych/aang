@@ -988,9 +988,9 @@ while naming the stage.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
-entries in between, cards added after the version, plan facts and new actions after
-the position, and attention items opened after the version and still open or closed
-after it. An action is new when every fact of it came after the position; inherited
+entries in between, cards added after the version, plan facts, new actions and the
+artifact versions created after the position in their current state, and attention
+items opened after the version and still open or closed after it. An action is new when every fact of it came after the position; inherited
 actions are not new. A change of a link changes every stage the link names before or
 after it, so a dependency changes both of its stages. A stage changed only through its
 links has the same state before and after, and its journal entries are those link
@@ -1006,10 +1006,10 @@ recorded as `failed`. The result
 version of an accepted call is the last version of its transaction, including the
 rule changes that follow its operations, as returned by `applyObserverResponse`.
 
-Some parts of the contract have no source yet and stay empty: view rules (M.7);
-artifact versions, git snapshots, stage inputs
-and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
-error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+Some parts of the contract have no source yet and stay empty: the artifact versions
+and git snapshots of the snapshot and the feed, stage inputs and outputs and
+criterion snapshots (E.7b, E.7c); the CLI version, model, usage and error of
+observer calls (F.8, F.9). The usage records of a run come with its objects,
 and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
@@ -1274,7 +1274,11 @@ mark version and the observation layer after the mark position. Rule items, such
 a question asked or a check failed while the observer was unavailable, are journal
 entries of the author `rule`, so they are in the changes without the observer. Later
 observer changes of such an item, a priority or a likely resolution, do not open it
-again, so after a new mark it is not announced a second time.
+again, so after a new mark it is not announced a second time. An artifact version
+written while the observer was unavailable is in the changes as well: a version is
+new when it was created after the mark position. The store keeps the position at
+which a version was first stored, so storing it again when its base is retained,
+when an earlier producer is found or after a restart does not announce it again.
 
 The attention zone (`view.zone`) lists the open items that are not dismissed, in the
 order of ADR-0008. Each place explains itself:
