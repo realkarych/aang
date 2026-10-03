@@ -30,7 +30,8 @@ export const normalizeOtel = (transaction: Transaction, adapters: Adapters): Fac
           continue
         }
         const pruned = transaction.pruned.ofStream(stream)
-        if (scope !== 'watched' || owner.observer || (pruned !== null && record.observed_at < pruned.pruned_at)) {
+        const taken = transaction.scopes.ofSession(owner.session)?.scope ?? scope
+        if (taken !== 'watched' || owner.observer || (pruned !== null && record.observed_at < pruned.pruned_at)) {
           transaction.rawRecords.discardUnparsed(raw.seq)
           break
         }

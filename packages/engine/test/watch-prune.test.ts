@@ -1,11 +1,12 @@
-import { CollectedRecord, type CollectorBatch, EpochNs, type RunId, type SessionKey } from '@aang/contract'
+import { type CollectedGap, CollectedRecord, type CollectorBatch, EpochNs, type RunId, type SessionKey } from '@aang/contract'
 import { contentHash, objectId } from '@aang/contract/ids'
 import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, test } from 'vitest'
-import { batchOf, hookBatch, jsonlFile } from './batches.js'
-import { adapters, recordsOf, sessionKey, streamOf } from './harness.js'
+import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
+import { adapters, factsOf, gapsOf, recordsOf, sessionKey, streamOf } from './harness.js'
 import { createHome } from './home.js'
+import { decisionRecord, otelRoot } from './otel-records.js'
 import { claudeHook, claudeTranscript, codexHook, codexRollout } from './samples.js'
 import { createWorkspace } from './workspace.js'
 
@@ -83,6 +84,49 @@ describe('watch and prune through the engine', () => {
     expect(stored()).toEqual({ inside: inside.length - 2, outside: outside.length })
     expect(store.observations.getSession(objectId(sessionKey('claude', 's-inside')))).not.toBeNull()
     expect(store.settings.get('watch-probe')).toBe('widened')
+  })
+
+  test('a session admitted by rewatch takes appended lines, OTel decisions and gaps while its discarded stream waits for a reread, and only the reread admits the stream', async ({
+    onTestFinished,
+  }) => {
+    const workspace = await createWorkspace(onTestFinished)
+    const store = (await createHome(onTestFinished)).open()
+    const engine = engineAt(store, [])
+    const lines = codexRollout({ thread: otelRoot, cwd: workspace.repository })
+    const file = jsonlFile({ runtime: 'codex', path: '/r/resumed.jsonl', lines, ino: 1n })
+    const stream = streamOf('codex', lines)
+    const roots = { all: false, roots: [{ path: workspace.repository }] }
+    const lost: CollectedGap = {
+      key: { kind: 'gap', gap: 'source_lost', subject: stream },
+      stream,
+      details: 'the rollout went missing for a while',
+      detected_at: prunedAt,
+      closed_at: null,
+    }
+    await engine.ingest(file.batch(1, lines.length - 1))
+    const discarded = recordsOf(store).length
+
+    const admitted = await engine.rewatch(roots, () => undefined)
+    await engine.ingest(
+      joinBatches(file.batch(lines.length, lines.length, stream), batchOf({ records: [decisionRecord(otelRoot)], gaps: [lost] })),
+    )
+    const resumed = {
+      lines: recordsOf(store).filter(({ channel }) => channel === 'rollout').length,
+      decisions: factsOf(store).filter(({ kind }) => kind === 'permission_decision').length,
+      lost: gapsOf(store).filter(({ key }) => key.gap === 'source_lost').length,
+      stream: store.scopes.get(stream)?.scope,
+    }
+    const pending = await engine.rewatch(roots, () => undefined)
+    await engine.ingest(file.batch(1, lines.length, stream))
+    const reread = await engine.rewatch(roots, () => undefined)
+
+    expect(discarded).toBe(0)
+    expect(admitted).toEqual({ rescan: [stream] })
+    expect(resumed).toEqual({ lines: 1, decisions: 1, lost: 1, stream: 'external' })
+    expect(pending).toEqual({ rescan: [stream] })
+    expect(reread).toEqual({ rescan: [] })
+    expect(store.scopes.get(stream)?.scope).toBe('watched')
+    expect(recordsOf(store).filter(({ channel }) => channel === 'rollout')).toHaveLength(lines.length)
   })
 
   test('prune removes every layer of a run, bounds its streams, drops earlier hooks and marks the run formed again', async ({

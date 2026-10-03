@@ -9,6 +9,15 @@ export interface WatchChange {
   readonly rescan: readonly StreamKey[]
 }
 
+export const streamSession = (transaction: Transaction, adapters: Adapters, stream: StreamKey): SessionKey | null => {
+  const owner = streamOwner(transaction, adapters, stream)
+  if (owner !== null) {
+    return owner.session
+  }
+  const pruned = transaction.pruned.ofStream(stream)
+  return pruned === null ? null : prunedSession(pruned)
+}
+
 export const judgeAgain = async (store: Store, watch: WatchedRoots): Promise<SessionDecision[]> => {
   const judge = createScopeJudge(watch)
   const verdicts = new Map<string, Promise<ScopeDecision>>()
@@ -40,16 +49,8 @@ export const applyDecisions = (
   if (excluded.size === 0) {
     return
   }
-  const sessionOf = (stream: StreamKey): SessionKey | null => {
-    const owner = streamOwner(transaction, adapters, stream)
-    if (owner !== null) {
-      return owner.session
-    }
-    const pruned = transaction.pruned.ofStream(stream)
-    return pruned === null ? null : prunedSession(pruned)
-  }
   for (const { stream, runtime, scope } of transaction.scopes.list()) {
-    const session = scope === 'watched' ? sessionOf(stream) : null
+    const session = scope === 'watched' ? streamSession(transaction, adapters, stream) : null
     if (session !== null && excluded.has(sessionName(session))) {
       transaction.scopes.decide({ stream, runtime, scope: 'external' })
     }
