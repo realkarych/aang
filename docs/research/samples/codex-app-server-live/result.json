@@ -1,0 +1,2278 @@
+{
+  "environment": {
+    "date": "2026-10-03T21:11:17.567Z",
+    "platform": "darwin 27.0.0 arm64",
+    "node": "v26.10.0",
+    "codex": "codex-cli 0.160.0",
+    "codexCommand": "/opt/homebrew/bin/codex",
+    "codexHome": "~/.codex",
+    "settings": {
+      "controlMs": 30000,
+      "beforeInitializeMs": 5000,
+      "afterInitializeMs": 5000,
+      "afterListMs": 20000,
+      "productRuns": 3
+    }
+  },
+  "snapshots": [
+    {
+      "label": "start",
+      "at": 15,
+      "settledAt": 1410,
+      "entries": 12598,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": "DIGEST_2",
+        "AGENTS.md": "DIGEST_3",
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": "DIGEST_4",
+        "models_cache.json": "DIGEST_5",
+        ".codex-global-state.json": "DIGEST_6",
+        "history.jsonl": "DIGEST_7",
+        "session_index.jsonl": "DIGEST_8"
+      },
+      "config": {
+        "hooksState": [
+          {
+            "key": "<codex>/hooks.json:session_start:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_1\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_2\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_3\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_4\""
+            ]
+          }
+        ],
+        "projects": {
+          "count": 6,
+          "digest": "DIGEST_9"
+        },
+        "hooksJson": {
+          "SessionStart": [
+            1,
+            1
+          ],
+          "UserPromptSubmit": [
+            1
+          ],
+          "Stop": [
+            1
+          ]
+        }
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 335557,
+            "sqlite_sequence": 1
+          },
+          "minId": 687959,
+          "maxId": 1412056
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 1,
+            "sqlite_sequence": 1
+          }
+        },
+        "sqlite/codex-dev.db": {
+          "tables": {
+            "automation_runs": 0,
+            "automations": 0,
+            "codex_schema_migrations": 31,
+            "inbox_items": 0,
+            "live_visualization_suggestions": 0,
+            "local_app_server_feature_enablement": 0,
+            "local_thread_catalog": 46,
+            "local_thread_catalog_hosts": 2,
+            "local_thread_catalog_metadata": 1,
+            "local_thread_catalog_scan_checkpoints": 0,
+            "local_thread_catalog_scan_entries": 0,
+            "local_thread_catalog_sync_state": 2,
+            "thread_timeline_ledger": 0
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 2,
+            "project_roots": 1,
+            "projects": 1,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 1,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 165,
+            "threads": 419
+          },
+          "threads": 419
+        },
+        "thread_history_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 7,
+            "thread_history_projection_state": 419,
+            "thread_items": 32484,
+            "thread_realtime_items": 0,
+            "thread_turns": 523
+          }
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "<codex>/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-2>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after control window",
+      "at": 31461,
+      "settledAt": 32233,
+      "entries": 12598,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": "DIGEST_2",
+        "AGENTS.md": "DIGEST_3",
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": "DIGEST_4",
+        "models_cache.json": "DIGEST_5",
+        ".codex-global-state.json": "DIGEST_6",
+        "history.jsonl": "DIGEST_7",
+        "session_index.jsonl": "DIGEST_8"
+      },
+      "config": {
+        "hooksState": [
+          {
+            "key": "<codex>/hooks.json:session_start:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_1\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_2\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_3\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_4\""
+            ]
+          }
+        ],
+        "projects": {
+          "count": 6,
+          "digest": "DIGEST_9"
+        },
+        "hooksJson": {
+          "SessionStart": [
+            1,
+            1
+          ],
+          "UserPromptSubmit": [
+            1
+          ],
+          "Stop": [
+            1
+          ]
+        }
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 335557,
+            "sqlite_sequence": 1
+          },
+          "minId": 687959,
+          "maxId": 1412061
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 1,
+            "sqlite_sequence": 1
+          }
+        },
+        "sqlite/codex-dev.db": {
+          "tables": {
+            "automation_runs": 0,
+            "automations": 0,
+            "codex_schema_migrations": 31,
+            "inbox_items": 0,
+            "live_visualization_suggestions": 0,
+            "local_app_server_feature_enablement": 0,
+            "local_thread_catalog": 46,
+            "local_thread_catalog_hosts": 2,
+            "local_thread_catalog_metadata": 1,
+            "local_thread_catalog_scan_checkpoints": 0,
+            "local_thread_catalog_scan_entries": 0,
+            "local_thread_catalog_sync_state": 2,
+            "thread_timeline_ledger": 0
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 2,
+            "project_roots": 1,
+            "projects": 1,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 1,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 165,
+            "threads": 419
+          },
+          "threads": 419
+        },
+        "thread_history_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 7,
+            "thread_history_projection_state": 419,
+            "thread_items": 32484,
+            "thread_realtime_items": 0,
+            "thread_turns": 523
+          }
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "<codex>/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-2>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after instrumented run",
+      "at": 63657,
+      "settledAt": 64433,
+      "entries": 12593,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": "DIGEST_2",
+        "AGENTS.md": "DIGEST_3",
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": "DIGEST_4",
+        "models_cache.json": "DIGEST_10",
+        ".codex-global-state.json": "DIGEST_6",
+        "history.jsonl": "DIGEST_7",
+        "session_index.jsonl": "DIGEST_8"
+      },
+      "config": {
+        "hooksState": [
+          {
+            "key": "<codex>/hooks.json:session_start:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_1\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_2\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_3\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_4\""
+            ]
+          }
+        ],
+        "projects": {
+          "count": 6,
+          "digest": "DIGEST_9"
+        },
+        "hooksJson": {
+          "SessionStart": [
+            1,
+            1
+          ],
+          "UserPromptSubmit": [
+            1
+          ],
+          "Stop": [
+            1
+          ]
+        }
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 335599,
+            "sqlite_sequence": 1
+          },
+          "minId": 687959,
+          "maxId": 1412103
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 1,
+            "sqlite_sequence": 1
+          }
+        },
+        "sqlite/codex-dev.db": {
+          "tables": {
+            "automation_runs": 0,
+            "automations": 0,
+            "codex_schema_migrations": 31,
+            "inbox_items": 0,
+            "live_visualization_suggestions": 0,
+            "local_app_server_feature_enablement": 0,
+            "local_thread_catalog": 46,
+            "local_thread_catalog_hosts": 2,
+            "local_thread_catalog_metadata": 1,
+            "local_thread_catalog_scan_checkpoints": 0,
+            "local_thread_catalog_scan_entries": 0,
+            "local_thread_catalog_sync_state": 2,
+            "thread_timeline_ledger": 0
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 2,
+            "project_roots": 1,
+            "projects": 1,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 1,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 165,
+            "threads": 419
+          },
+          "threads": 419
+        },
+        "thread_history_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 7,
+            "thread_history_projection_state": 419,
+            "thread_items": 32484,
+            "thread_realtime_items": 0,
+            "thread_turns": 523
+          }
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "<codex>/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-2>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after product runs",
+      "at": 73926,
+      "settledAt": 74712,
+      "entries": 12602,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": "DIGEST_2",
+        "AGENTS.md": "DIGEST_3",
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": "DIGEST_4",
+        "models_cache.json": "DIGEST_10",
+        ".codex-global-state.json": "DIGEST_6",
+        "history.jsonl": "DIGEST_7",
+        "session_index.jsonl": "DIGEST_8"
+      },
+      "config": {
+        "hooksState": [
+          {
+            "key": "<codex>/hooks.json:session_start:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_1\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_2\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_3\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_4\""
+            ]
+          }
+        ],
+        "projects": {
+          "count": 6,
+          "digest": "DIGEST_9"
+        },
+        "hooksJson": {
+          "SessionStart": [
+            1,
+            1
+          ],
+          "UserPromptSubmit": [
+            1
+          ],
+          "Stop": [
+            1
+          ]
+        }
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 335599,
+            "sqlite_sequence": 1
+          },
+          "minId": 687959,
+          "maxId": 1412103
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 1,
+            "sqlite_sequence": 1
+          }
+        },
+        "sqlite/codex-dev.db": {
+          "tables": {
+            "automation_runs": 0,
+            "automations": 0,
+            "codex_schema_migrations": 31,
+            "inbox_items": 0,
+            "live_visualization_suggestions": 0,
+            "local_app_server_feature_enablement": 0,
+            "local_thread_catalog": 46,
+            "local_thread_catalog_hosts": 2,
+            "local_thread_catalog_metadata": 1,
+            "local_thread_catalog_scan_checkpoints": 0,
+            "local_thread_catalog_scan_entries": 0,
+            "local_thread_catalog_sync_state": 2,
+            "thread_timeline_ledger": 0
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 2,
+            "project_roots": 1,
+            "projects": 1,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 1,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 165,
+            "threads": 419
+          },
+          "threads": 419
+        },
+        "thread_history_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 7,
+            "thread_history_projection_state": 419,
+            "thread_items": 32484,
+            "thread_realtime_items": 0,
+            "thread_turns": 523
+          }
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "<codex>/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-2>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after final control window",
+      "at": 104780,
+      "settledAt": 105557,
+      "entries": 12602,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": "DIGEST_2",
+        "AGENTS.md": "DIGEST_3",
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": "DIGEST_4",
+        "models_cache.json": "DIGEST_11",
+        ".codex-global-state.json": "DIGEST_6",
+        "history.jsonl": "DIGEST_7",
+        "session_index.jsonl": "DIGEST_8"
+      },
+      "config": {
+        "hooksState": [
+          {
+            "key": "<codex>/hooks.json:session_start:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_1\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_2\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_3\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_4\""
+            ]
+          }
+        ],
+        "projects": {
+          "count": 6,
+          "digest": "DIGEST_9"
+        },
+        "hooksJson": {
+          "SessionStart": [
+            1,
+            1
+          ],
+          "UserPromptSubmit": [
+            1
+          ],
+          "Stop": [
+            1
+          ]
+        }
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 335599,
+            "sqlite_sequence": 1
+          },
+          "minId": 687959,
+          "maxId": 1412115
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 1,
+            "sqlite_sequence": 1
+          }
+        },
+        "sqlite/codex-dev.db": {
+          "tables": {
+            "automation_runs": 0,
+            "automations": 0,
+            "codex_schema_migrations": 31,
+            "inbox_items": 0,
+            "live_visualization_suggestions": 0,
+            "local_app_server_feature_enablement": 0,
+            "local_thread_catalog": 46,
+            "local_thread_catalog_hosts": 2,
+            "local_thread_catalog_metadata": 1,
+            "local_thread_catalog_scan_checkpoints": 0,
+            "local_thread_catalog_scan_entries": 0,
+            "local_thread_catalog_sync_state": 2,
+            "thread_timeline_ledger": 0
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 2,
+            "project_roots": 1,
+            "projects": 1,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 1,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 165,
+            "threads": 419
+          },
+          "threads": 419
+        },
+        "thread_history_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 7,
+            "thread_history_projection_state": 419,
+            "thread_items": 32484,
+            "thread_realtime_items": 0,
+            "thread_turns": 523
+          }
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "<codex>/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-2>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after trust verification",
+      "at": 106862,
+      "settledAt": 107651,
+      "entries": 12596,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": "DIGEST_2",
+        "AGENTS.md": "DIGEST_3",
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": "DIGEST_4",
+        "models_cache.json": "DIGEST_11",
+        ".codex-global-state.json": "DIGEST_6",
+        "history.jsonl": "DIGEST_7",
+        "session_index.jsonl": "DIGEST_8"
+      },
+      "config": {
+        "hooksState": [
+          {
+            "key": "<codex>/hooks.json:session_start:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_1\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_2\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_3\""
+            ]
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "body": [
+              "trusted_hash = \"TRUSTED_HASH_4\""
+            ]
+          }
+        ],
+        "projects": {
+          "count": 6,
+          "digest": "DIGEST_9"
+        },
+        "hooksJson": {
+          "SessionStart": [
+            1,
+            1
+          ],
+          "UserPromptSubmit": [
+            1
+          ],
+          "Stop": [
+            1
+          ]
+        }
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 335599,
+            "sqlite_sequence": 1
+          },
+          "minId": 687959,
+          "maxId": 1412115
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 1,
+            "sqlite_sequence": 1
+          }
+        },
+        "sqlite/codex-dev.db": {
+          "tables": {
+            "automation_runs": 0,
+            "automations": 0,
+            "codex_schema_migrations": 31,
+            "inbox_items": 0,
+            "live_visualization_suggestions": 0,
+            "local_app_server_feature_enablement": 0,
+            "local_thread_catalog": 46,
+            "local_thread_catalog_hosts": 2,
+            "local_thread_catalog_metadata": 1,
+            "local_thread_catalog_scan_checkpoints": 0,
+            "local_thread_catalog_scan_entries": 0,
+            "local_thread_catalog_sync_state": 2,
+            "thread_timeline_ledger": 0
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 2,
+            "project_roots": 1,
+            "projects": 1,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 1,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 165,
+            "threads": 419
+          },
+          "threads": 419
+        },
+        "thread_history_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 7,
+            "thread_history_projection_state": 419,
+            "thread_items": 32484,
+            "thread_realtime_items": 0,
+            "thread_turns": 523
+          }
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "<codex>/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-2>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    }
+  ],
+  "intervals": [
+    {
+      "label": "control before",
+      "from": 1410,
+      "to": 31461,
+      "keyFiles": {
+        "auth.json": "unchanged",
+        "config.toml": "unchanged",
+        "hooks.json": "unchanged",
+        "AGENTS.md": "unchanged",
+        "installation_id": "unchanged",
+        "version.json": "unchanged",
+        "models_cache.json": "unchanged",
+        ".codex-global-state.json": "unchanged",
+        "history.jsonl": "unchanged",
+        "session_index.jsonl": "unchanged"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [],
+        "removed": [],
+        "changed": [
+          {
+            "group": "logs_2.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-wal"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 1412056,
+            "to": 1412061,
+            "minIdBefore": 687959,
+            "minIdAfter": 687959
+          }
+        }
+      },
+      "logWriters": [
+        {
+          "pid": 6680,
+          "kind": "desktop app-server",
+          "rows": 5,
+          "bytes": 1201
+        }
+      ]
+    },
+    {
+      "label": "instrumented run",
+      "from": 32233,
+      "to": 63657,
+      "keyFiles": {
+        "auth.json": "unchanged",
+        "config.toml": "unchanged",
+        "hooks.json": "unchanged",
+        "AGENTS.md": "unchanged",
+        "installation_id": "unchanged",
+        "version.json": "unchanged",
+        "models_cache.json": "content changed",
+        ".codex-global-state.json": "unchanged",
+        "history.jsonl": "unchanged",
+        "session_index.jsonl": "unchanged"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [],
+        "removed": [
+          {
+            "group": "tmp/arg0",
+            "count": 5,
+            "paths": [
+              "tmp/arg0/codex-arg0KsyQWN",
+              "tmp/arg0/codex-arg0KsyQWN/.lock",
+              "tmp/arg0/codex-arg0KsyQWN/apply_patch",
+              "tmp/arg0/codex-arg0KsyQWN/applypatch",
+              "tmp/arg0/codex-arg0KsyQWN/codex-execve-wrapper"
+            ]
+          }
+        ],
+        "changed": [
+          {
+            "group": "cache/remote_plugin_catalog",
+            "count": 3,
+            "paths": [
+              "cache/remote_plugin_catalog",
+              "cache/remote_plugin_catalog/CATALOG_KEY_1.json",
+              "cache/remote_plugin_catalog/CATALOG_KEY_2.json"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-wal"
+            ]
+          },
+          {
+            "group": "models_cache.json",
+            "count": 1,
+            "paths": [
+              "models_cache.json"
+            ]
+          },
+          {
+            "group": "plugins/cache",
+            "count": 20,
+            "paths": [
+              "plugins/cache/created-by-me-remote/<plugin 1>",
+              "plugins/cache/created-by-me-remote/<plugin 1>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 2>",
+              "plugins/cache/openai-curated-remote/<plugin 2>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 3>",
+              "plugins/cache/openai-curated-remote/<plugin 3>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 4>",
+              "plugins/cache/openai-curated-remote/<plugin 4>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 5>",
+              "plugins/cache/openai-curated-remote/<plugin 5>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 6>",
+              "plugins/cache/openai-curated-remote/<plugin 6>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 7>",
+              "plugins/cache/openai-curated-remote/<plugin 7>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 8>",
+              "plugins/cache/openai-curated-remote/<plugin 8>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 9>",
+              "plugins/cache/openai-curated-remote/<plugin 9>/.codex-remote-plugin-install.json",
+              "plugins/cache/openai-curated-remote/<plugin 10>",
+              "plugins/cache/openai-curated-remote/<plugin 10>/.codex-remote-plugin-install.json"
+            ]
+          },
+          {
+            "group": "state_5.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite-shm"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 1,
+            "paths": [
+              "tmp/arg0"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {
+            "logs": 42
+          },
+          "logIds": {
+            "from": 1412061,
+            "to": 1412103,
+            "minIdBefore": 687959,
+            "minIdAfter": 687959
+          }
+        }
+      },
+      "logWriters": [
+        {
+          "pid": 84721,
+          "kind": "own",
+          "rows": 42,
+          "bytes": 11761
+        }
+      ]
+    },
+    {
+      "label": "product runs",
+      "from": 64433,
+      "to": 73926,
+      "keyFiles": {
+        "auth.json": "unchanged",
+        "config.toml": "unchanged",
+        "hooks.json": "unchanged",
+        "AGENTS.md": "unchanged",
+        "installation_id": "unchanged",
+        "version.json": "unchanged",
+        "models_cache.json": "unchanged",
+        ".codex-global-state.json": "unchanged",
+        "history.jsonl": "unchanged",
+        "session_index.jsonl": "unchanged"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [
+          {
+            "group": "goals_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "goals_1.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite-wal"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite-wal"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 5,
+            "paths": [
+              "tmp/arg0/codex-arg0EsNltE",
+              "tmp/arg0/codex-arg0EsNltE/.lock",
+              "tmp/arg0/codex-arg0EsNltE/apply_patch",
+              "tmp/arg0/codex-arg0EsNltE/applypatch",
+              "tmp/arg0/codex-arg0EsNltE/codex-execve-wrapper"
+            ]
+          }
+        ],
+        "removed": [],
+        "changed": [
+          {
+            "group": "logs_2.sqlite",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite"
+            ]
+          },
+          {
+            "group": "state_5.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite-shm"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 1,
+            "paths": [
+              "tmp/arg0"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 1412103,
+            "to": 1412103,
+            "minIdBefore": 687959,
+            "minIdAfter": 687959
+          }
+        }
+      },
+      "logWriters": []
+    },
+    {
+      "label": "control after",
+      "from": 74712,
+      "to": 104780,
+      "keyFiles": {
+        "auth.json": "unchanged",
+        "config.toml": "unchanged",
+        "hooks.json": "unchanged",
+        "AGENTS.md": "unchanged",
+        "installation_id": "unchanged",
+        "version.json": "unchanged",
+        "models_cache.json": "content changed",
+        ".codex-global-state.json": "unchanged",
+        "history.jsonl": "unchanged",
+        "session_index.jsonl": "unchanged"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [],
+        "removed": [],
+        "changed": [
+          {
+            "group": "logs_2.sqlite",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-shm"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-wal"
+            ]
+          },
+          {
+            "group": "models_cache.json",
+            "count": 1,
+            "paths": [
+              "models_cache.json"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 1412103,
+            "to": 1412115,
+            "minIdBefore": 687959,
+            "minIdAfter": 687959
+          }
+        }
+      },
+      "logWriters": [
+        {
+          "pid": 6680,
+          "kind": "desktop app-server",
+          "rows": 12,
+          "bytes": 4401
+        }
+      ]
+    },
+    {
+      "label": "trust verification",
+      "from": 105557,
+      "to": 106862,
+      "keyFiles": {
+        "auth.json": "unchanged",
+        "config.toml": "unchanged",
+        "hooks.json": "unchanged",
+        "AGENTS.md": "unchanged",
+        "installation_id": "unchanged",
+        "version.json": "unchanged",
+        "models_cache.json": "unchanged",
+        ".codex-global-state.json": "unchanged",
+        "history.jsonl": "unchanged",
+        "session_index.jsonl": "unchanged"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [],
+        "removed": [
+          {
+            "group": "goals_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 5,
+            "paths": [
+              "tmp/arg0/codex-arg0EsNltE",
+              "tmp/arg0/codex-arg0EsNltE/.lock",
+              "tmp/arg0/codex-arg0EsNltE/apply_patch",
+              "tmp/arg0/codex-arg0EsNltE/applypatch",
+              "tmp/arg0/codex-arg0EsNltE/codex-execve-wrapper"
+            ]
+          }
+        ],
+        "changed": [
+          {
+            "group": "logs_2.sqlite",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "state_5.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite-shm"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 1,
+            "paths": [
+              "tmp/arg0"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 1412115,
+            "to": 1412115,
+            "minIdBefore": 687959,
+            "minIdAfter": 687959
+          }
+        }
+      },
+      "logWriters": []
+    }
+  ],
+  "instrumented": {
+    "cwd": "<work>/project",
+    "pid": 84721,
+    "phases": [
+      {
+        "phase": "spawned",
+        "at": 32281
+      },
+      {
+        "phase": "initialize sent",
+        "at": 37309
+      },
+      {
+        "phase": "initialize answered",
+        "at": 37321
+      },
+      {
+        "phase": "hooks/list {} sent",
+        "at": 42354
+      },
+      {
+        "phase": "hooks/list {} answered",
+        "at": 42400
+      },
+      {
+        "phase": "hooks/list {\"cwds\":[\"<codex>\"]} sent",
+        "at": 42401
+      },
+      {
+        "phase": "hooks/list {\"cwds\":[\"<codex>\"]} answered",
+        "at": 42403
+      },
+      {
+        "phase": "stdin closed",
+        "at": 62429
+      },
+      {
+        "phase": "exited",
+        "at": 62440
+      }
+    ],
+    "initialize": {
+      "userAgent": "aang/0.160.0 (Mac OS 27.0.1; arm64) herdr/0.9.3 (aang; 0.0.0)",
+      "codexHome": "<codex>",
+      "platformFamily": "unix",
+      "platformOs": "macos",
+      "keys": [
+        "codexHome",
+        "platformFamily",
+        "platformOs",
+        "userAgent"
+      ]
+    },
+    "listings": [
+      {
+        "params": {},
+        "data": [
+          {
+            "cwd": "<work>/project",
+            "hooks": [
+              {
+                "key": "<codex>/hooks.json:session_start:0:0",
+                "eventName": "sessionStart",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:session_start:1:0",
+                "eventName": "sessionStart",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+                "eventName": "userPromptSubmit",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:stop:0:0",
+                "eventName": "stop",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              }
+            ],
+            "warnings": [],
+            "errors": []
+          }
+        ]
+      },
+      {
+        "params": {
+          "cwds": [
+            "<codex>"
+          ]
+        },
+        "data": [
+          {
+            "cwd": "<codex>",
+            "hooks": [
+              {
+                "key": "<codex>/hooks.json:session_start:0:0",
+                "eventName": "sessionStart",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:session_start:1:0",
+                "eventName": "sessionStart",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+                "eventName": "userPromptSubmit",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:stop:0:0",
+                "eventName": "stop",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              }
+            ],
+            "warnings": [],
+            "errors": []
+          }
+        ]
+      }
+    ],
+    "messages": [
+      {
+        "at": 37321,
+        "method": "remoteControl/status/changed",
+        "request": false,
+        "paramKeys": [
+          "environmentId",
+          "installationId",
+          "serverName",
+          "status"
+        ]
+      },
+      {
+        "at": 37322,
+        "method": "account/updated",
+        "request": false,
+        "paramKeys": [
+          "authMode",
+          "planType"
+        ]
+      }
+    ],
+    "termination": {
+      "graceful": true,
+      "code": 0,
+      "signal": null,
+      "at": 62440
+    },
+    "leftovers": [],
+    "stderrTail": [],
+    "processes": [
+      {
+        "pid": 84721,
+        "ppid": 84506,
+        "pgid": 84721,
+        "command": "/opt/homebrew/bin/codex app-server",
+        "firstSeen": 32307,
+        "lastSeen": 62455
+      }
+    ],
+    "openFiles": [
+      {
+        "path": "tmp/arg0/codex-arg06bNoEN/.lock",
+        "type": "REG",
+        "firstSeen": 32327
+      },
+      {
+        "path": "state_5.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "logs_2.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "goals_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "memories_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "queue_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "state_5.sqlite",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "state_5.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "logs_2.sqlite",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "logs_2.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "goals_1.sqlite",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "goals_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "memories_1.sqlite",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "memories_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "queue_1.sqlite",
+        "type": "REG",
+        "firstSeen": 32734
+      },
+      {
+        "path": "queue_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 32734
+      }
+    ],
+    "sockets": [
+      {
+        "type": "IPv4",
+        "remote": "104.18.32.47:443",
+        "resolvesFrom": [
+          "chatgpt.com",
+          "ab.chatgpt.com"
+        ],
+        "firstSeen": 32734
+      }
+    ],
+    "unixSockets": 9
+  },
+  "product": [
+    {
+      "index": 1,
+      "at": 64481,
+      "durationMs": 35,
+      "pids": [
+        86620
+      ],
+      "outcome": {
+        "status": "active",
+        "aangHooks": [
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "eventName": "sessionStart",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "eventName": "userPromptSubmit",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "eventName": "stop",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          }
+        ],
+        "warnings": []
+      },
+      "leftovers": [],
+      "processes": [
+        {
+          "pid": 86620,
+          "ppid": 84506,
+          "pgid": 86620,
+          "command": "/opt/homebrew/bin/codex app-server",
+          "firstSeen": 64508,
+          "lastSeen": 64508
+        }
+      ],
+      "openFiles": [],
+      "sockets": [],
+      "unixSockets": 0
+    },
+    {
+      "index": 2,
+      "at": 67612,
+      "durationMs": 50,
+      "pids": [
+        86642
+      ],
+      "outcome": {
+        "status": "active",
+        "aangHooks": [
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "eventName": "sessionStart",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "eventName": "userPromptSubmit",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "eventName": "stop",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          }
+        ],
+        "warnings": []
+      },
+      "leftovers": [],
+      "processes": [
+        {
+          "pid": 86642,
+          "ppid": 84506,
+          "pgid": 86642,
+          "command": "/opt/homebrew/bin/codex app-server",
+          "firstSeen": 67655,
+          "lastSeen": 67655
+        }
+      ],
+      "openFiles": [],
+      "sockets": [],
+      "unixSockets": 0
+    },
+    {
+      "index": 3,
+      "at": 70769,
+      "durationMs": 53,
+      "pids": [
+        86668
+      ],
+      "outcome": {
+        "status": "active",
+        "aangHooks": [
+          {
+            "key": "<codex>/hooks.json:session_start:1:0",
+            "eventName": "sessionStart",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          },
+          {
+            "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+            "eventName": "userPromptSubmit",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          },
+          {
+            "key": "<codex>/hooks.json:stop:0:0",
+            "eventName": "stop",
+            "handlerType": "command",
+            "source": "user",
+            "sourcePath": "<codex>/hooks.json",
+            "enabled": true,
+            "trustStatus": "trusted"
+          }
+        ],
+        "warnings": []
+      },
+      "leftovers": [],
+      "processes": [
+        {
+          "pid": 86668,
+          "ppid": 84506,
+          "pgid": 86668,
+          "command": "/opt/homebrew/bin/codex app-server",
+          "firstSeen": 70815,
+          "lastSeen": 70815
+        }
+      ],
+      "openFiles": [],
+      "sockets": [],
+      "unixSockets": 0
+    }
+  ],
+  "verification": {
+    "cwd": "<work>/project",
+    "pid": 86831,
+    "phases": [
+      {
+        "phase": "spawned",
+        "at": 105605
+      },
+      {
+        "phase": "initialize sent",
+        "at": 105607
+      },
+      {
+        "phase": "initialize answered",
+        "at": 105628
+      },
+      {
+        "phase": "hooks/list {} sent",
+        "at": 105628
+      },
+      {
+        "phase": "hooks/list {} answered",
+        "at": 105637
+      },
+      {
+        "phase": "stdin closed",
+        "at": 105657
+      },
+      {
+        "phase": "exited",
+        "at": 105660
+      }
+    ],
+    "initialize": {
+      "userAgent": "aang/0.160.0 (Mac OS 27.0.1; arm64) herdr/0.9.3 (aang; 0.0.0)",
+      "codexHome": "<codex>",
+      "platformFamily": "unix",
+      "platformOs": "macos",
+      "keys": [
+        "codexHome",
+        "platformFamily",
+        "platformOs",
+        "userAgent"
+      ]
+    },
+    "listings": [
+      {
+        "params": {},
+        "data": [
+          {
+            "cwd": "<work>/project",
+            "hooks": [
+              {
+                "key": "<codex>/hooks.json:session_start:0:0",
+                "eventName": "sessionStart",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:session_start:1:0",
+                "eventName": "sessionStart",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:user_prompt_submit:0:0",
+                "eventName": "userPromptSubmit",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              },
+              {
+                "key": "<codex>/hooks.json:stop:0:0",
+                "eventName": "stop",
+                "handlerType": "command",
+                "source": "user",
+                "sourcePath": "<codex>/hooks.json",
+                "enabled": true,
+                "trustStatus": "trusted"
+              }
+            ],
+            "warnings": [],
+            "errors": []
+          }
+        ]
+      }
+    ],
+    "messages": [
+      {
+        "at": 105628,
+        "method": "remoteControl/status/changed",
+        "request": false,
+        "paramKeys": [
+          "environmentId",
+          "installationId",
+          "serverName",
+          "status"
+        ]
+      }
+    ],
+    "termination": {
+      "graceful": true,
+      "code": 0,
+      "signal": null,
+      "at": 105660
+    },
+    "leftovers": [],
+    "stderrTail": [],
+    "processes": [
+      {
+        "pid": 86831,
+        "ppid": 84506,
+        "pgid": 86831,
+        "command": "/opt/homebrew/bin/codex app-server",
+        "firstSeen": 105633,
+        "lastSeen": 105633
+      }
+    ],
+    "openFiles": [
+      {
+        "path": "state_5.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "logs_2.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "goals_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "memories_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "queue_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "tmp/arg0/codex-arg0o8tzww/.lock",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "state_5.sqlite",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "state_5.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "logs_2.sqlite",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "logs_2.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "goals_1.sqlite",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "goals_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "memories_1.sqlite",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "memories_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "queue_1.sqlite",
+        "type": "REG",
+        "firstSeen": 105652
+      },
+      {
+        "path": "queue_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 105652
+      }
+    ],
+    "sockets": [
+      {
+        "type": "IPv4",
+        "remote": "104.18.32.47:443",
+        "resolvesFrom": [
+          "chatgpt.com",
+          "ab.chatgpt.com"
+        ],
+        "firstSeen": 105652
+      }
+    ],
+    "unixSockets": 9
+  },
+  "ownLogs": {
+    "84721": {
+      "rows": 42,
+      "bytes": 11761,
+      "withThread": 0,
+      "first": 32388,
+      "last": 45210,
+      "byPhase": {
+        "spawned": 21,
+        "initialize sent": 7,
+        "initialize answered": 1,
+        "hooks/list {} sent": 7,
+        "hooks/list {\"cwds\":[\"<codex>\"]} sent": 5,
+        "hooks/list {\"cwds\":[\"<codex>\"]} answered": 1
+      },
+      "byTarget": [
+        {
+          "key": "DEBUG codex_config::loader::macos",
+          "count": 18
+        },
+        {
+          "key": "DEBUG codex_config::loader::layer_io",
+          "count": 6
+        },
+        {
+          "key": "INFO codex_http_client::custom_ca",
+          "count": 3
+        },
+        {
+          "key": "TRACE codex_app_server::message_processor",
+          "count": 3
+        },
+        {
+          "key": "INFO codex_app_server_transport::transport::remote_control::websocket",
+          "count": 2
+        },
+        {
+          "key": "INFO codex_core_plugins::remote",
+          "count": 2
+        },
+        {
+          "key": "WARN codex_skills::interface",
+          "count": 2
+        },
+        {
+          "key": "DEBUG codex_http_client::client",
+          "count": 1
+        },
+        {
+          "key": "INFO feedback_tags",
+          "count": 1
+        },
+        {
+          "key": "INFO codex_core_plugins::manager",
+          "count": 1
+        },
+        {
+          "key": "INFO codex_skills_extension::host_service",
+          "count": 1
+        },
+        {
+          "key": "TRACE codex_app_server::outgoing_message",
+          "count": 1
+        },
+        {
+          "key": "INFO codex_app_server::message_processor",
+          "count": 1
+        }
+      ]
+    }
+  }
+}
