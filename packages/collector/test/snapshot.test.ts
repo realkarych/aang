@@ -50,6 +50,13 @@ const removal = (channel: 'registry' | 'transcript', path: string, lastContent: 
 const ofPath = (running: Running, path: string): CollectedRecord[] =>
   running.records().filter(({ position }) => position.kind !== 'spool' && position.kind !== 'otel' && position.path === path)
 
+const lastPositions = (running: Running): Map<string, CollectedPosition> =>
+  new Map(
+    running
+      .records()
+      .flatMap(({ position }) => (position.kind === 'spool' || position.kind === 'otel' ? [] : [[position.path, position] as const])),
+  )
+
 interface RegistryEvent {
   readonly event: string
   readonly file?: string
@@ -438,9 +445,9 @@ test('removals racing with scans and watch events are issued once per incarnatio
 
   const present = new Map<string, string>()
   const settled = (): void => {
+    const positions = lastPositions(running)
     for (const path of paths) {
-      const events = ofPath(running, path)
-      const last = events.at(-1)?.position
+      const last = positions.get(path)
       const content = present.get(path)
       if (content === undefined) {
         expect([path, last?.kind ?? 'file_removed']).toEqual([path, 'file_removed'])
