@@ -26,6 +26,8 @@ interface StreamOwner {
   readonly session: SessionKey
 }
 
+export const pruneEpochSetting = 'prune_epoch'
+
 const pageSize = 256
 
 const emptyPrefix = contentHash('')
