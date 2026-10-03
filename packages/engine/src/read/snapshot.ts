@@ -76,7 +76,7 @@ const summaryStateOf = (context: ReadContext, run: Run): RunState =>
 
 const runDelta = (context: ReadContext, state: RunState): RunDelta => ({
   summary: summaryOf(context, state),
-  view: { rules: [], mark: null, zone: [] },
+  view: { rules: [], placements: [], mark: null, zone: [] },
   bindings: state.parts.bindings,
 })
 
@@ -96,7 +96,7 @@ export const runSnapshot = (context: ReadContext, id: RunId): RunSnapshot | null
     objects: sortedObjects(objectsOf(objects, store.gaps.ofRun(id, origin))),
     plan_facts: store.facts.ofRun(id, origin, planKinds).map(({ fact }) => fact),
     attention: { items: parts.attention, views: [] },
-    view: { rules: [], mark: null, zone: [] },
+    view: { rules: [], placements: [], mark: null, zone: [] },
     bindings: parts.bindings,
     change_seq: store.changes.head(),
   }

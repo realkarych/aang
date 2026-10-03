@@ -762,7 +762,7 @@ test('a context shared across vendors stays out of the queue and the batch of a 
       crossVendor: false,
       id: ObserverCallId.parse('moved-batch'),
       at: recordedAt,
-      limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000 },
+      limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000, inputTokens: 10_000_000 },
     }),
   )
   expect(input?.batch.facts.map(({ kind }) => kind)).not.toContain('context')

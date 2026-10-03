@@ -711,56 +711,42 @@ test('an action carries its text output together with the structured result and 
   })
 })
 
-test('needs are deduplicated, capped and truncated with the original length', async ({ onTestFinished }) => {
+test('needs are deduplicated, capped and truncated with the original length where cutting shortens them', async ({
+  onTestFinished,
+}) => {
   const { store, thinkingRecord, claudeAction } = await setupNeeds(onTestFinished)
   const scope = inputScope(store, { run: runA, backend: 'claude', crossVendor: false })
   const action: ObserverNeed = { kind: 'action', action: claudeAction.id }
+  const edit: ObserverNeed = { kind: 'action', action: editAction }
   const record: ObserverNeed = { kind: 'raw_record', seq: thinkingRecord.seq }
   const materials = resolveObserverNeeds(
     store,
     scope,
-    [action, { ...action }, record, { kind: 'raw_record', seq: RawSeq.parse(999_999) }],
-    { needs: 2, textLength: 1 },
+    [action, { ...action }, edit, record, { kind: 'raw_record', seq: RawSeq.parse(999_999) }],
+    { needs: 3, textLength: 1 },
   )
-  expect(materials.map(({ kind }) => kind)).toEqual(['action', 'raw_record'])
-  const [actionMaterial, recordMaterial] = materials
+  expect(materials.map(({ kind }) => kind)).toEqual(['action', 'action', 'raw_record'])
+  const [shortMaterial, editMaterial, recordMaterial] = materials
   const payload = JSON.stringify(stripped(thinkingRecord.payload, 'message', 'content'))
   expect(recordMaterial).toMatchObject({
     payload: payload.slice(0, 1),
     truncated: { path: 'payload', length: payload.length },
   })
-  if (actionMaterial?.kind !== 'action') {
-    throw new Error('the first material must describe the action')
-  }
+  expect(editMaterial).toMatchObject({
+    input: editInput,
+    output: envelope(null, { ...editResponse, originalFile: editResponse.originalFile.slice(0, 1) }),
+    truncated: [{ path: 'result.originalFile', length: editResponse.originalFile.length }],
+  })
   const start = factOf(store, claudeAction.input_fact)
   const end = factOf(store, claudeAction.output_fact)
-  const originalOutput = end.kind === 'action_end' ? (end.payload.output ?? '') : ''
-  const originalResult = end.kind === 'action_end' ? membersOf(end.payload.result) : {}
-  const originalInput = start.kind === 'action_start' ? membersOf(start.payload.input) : {}
-  const longTexts = (members: JsonObject, prefix: string) =>
-    Object.entries(members).flatMap(([key, value]) =>
-      typeof value === 'string' && value.length > 1 ? [{ path: `${prefix}.${key}`, length: value.length }] : [],
-    )
-  const longInputs = longTexts(originalInput, 'input')
-  const longResults = longTexts(originalResult, 'result')
-  expect(longInputs.length).toBeGreaterThan(0)
-  expect(longResults.length).toBeGreaterThan(0)
-  expect(actionMaterial.output).toBe(
-    envelope(
-      originalOutput.slice(0, 1),
-      Object.fromEntries(
-        Object.entries(originalResult).map(([key, value]) => [
-          key,
-          typeof value === 'string' ? value.slice(0, 1) : value,
-        ]),
-      ),
-    ),
-  )
-  expect(actionMaterial.truncated).toEqual([
-    ...longInputs,
-    { path: 'output', length: originalOutput.length },
-    ...longResults,
-  ])
+  const originalOutput = end.kind === 'action_end' ? end.payload.output : null
+  expect(originalOutput?.length).toBeGreaterThan(1)
+  expect(shortMaterial).toMatchObject({
+    kind: 'action',
+    input: start.kind === 'action_start' ? start.payload.input : null,
+    output: envelope(originalOutput, end.kind === 'action_end' ? membersOf(end.payload.result) : null),
+    truncated: [],
+  })
   expect(() => resolveObserverNeeds(store, scope, [action], { needs: 0, textLength: 1 })).toThrow(
     'positive integers',
   )
