@@ -1,9 +1,26 @@
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
-import { createCollector } from '@aang/collector'
-import type { Adapter, AdapterRegistry, CollectedGap, Config, Gap, Listener, Runtime } from '@aang/contract'
+import { createCollector, prefixHash } from '@aang/collector'
+import type {
+  Adapter,
+  AdapterRegistry,
+  CollectedGap,
+  Config,
+  Gap,
+  Listener,
+  PruneRequest,
+  PruneResponse,
+  Runtime,
+  UnwatchRequest,
+  UnwatchResponse,
+  WatchRequest,
+  WatchResponse,
+  WatchState,
+} from '@aang/contract'
 import { createEngine } from '@aang/engine'
 import type { Store } from '@aang/store'
+import { AdminError } from './admin-error.js'
+import { loadWatch, rootOf, saveWatch, watchedDirectory, watchedRoots } from './watch.js'
 
 export interface IngestionOptions {
   readonly store: Store
@@ -13,8 +30,15 @@ export interface IngestionOptions {
   readonly otelToken: string
 }
 
+export interface Admin {
+  readonly watch: (request: WatchRequest) => Promise<WatchResponse>
+  readonly unwatch: (request: UnwatchRequest) => Promise<UnwatchResponse>
+  readonly prune: (request: PruneRequest) => Promise<PruneResponse>
+}
+
 export interface Ingestion {
   readonly otel: Listener
+  readonly admin: Admin
   readonly failure: Promise<unknown>
   readonly stop: () => Promise<void>
 }
@@ -41,13 +65,20 @@ export const startIngestion = async ({
   runtimeRoots,
   otelToken,
 }: IngestionOptions): Promise<Ingestion> => {
-  const engine = createEngine({ store, adapters, watch: config.watch, quietAfterMs: config.freshness.quietAfterMs })
+  let watching = loadWatch(store, config)
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: watchedRoots(watching, config),
+    quietAfterMs: config.freshness.quietAfterMs,
+  })
   const collector = createCollector({
     spool,
     runtimeRoots,
-    config,
+    config: { ...config, watch: { ...config.watch, lookbackDays: watching.lookback_days } },
     adapters,
-    openGaps: store.gaps.open('source_lost').map(collectedGap),
+    openGaps: [...store.gaps.open('source_lost'), ...store.gaps.open('stream_changed_after_prune')].map(collectedGap),
+    prunedStreams: store.pruned.list(),
   })
   const otel = await collector.listenOtel({ port: config.otel.port, token: otelToken }).catch(async (error: unknown) => {
     await collector.close()
@@ -73,11 +104,68 @@ export const startIngestion = async ({
     refreshing = engine.refreshFreshness().catch(failure.resolve)
   }, Math.min(config.freshness.quietAfterMs, freshnessRefreshCeilingMs))
 
+  let administering: Promise<unknown> = Promise.resolve()
+  const serially = <T>(work: () => Promise<T>): Promise<T> => {
+    const result = administering.then(work)
+    administering = result.then(() => undefined, () => undefined)
+    return result
+  }
+
+  const rewatch = async (next: WatchState) => {
+    const change = await engine.rewatch(watchedRoots(next, config), saveWatch(next))
+    watching = next
+    return change
+  }
+
+  const admin: Admin = {
+    watch: (request) =>
+      serially(async () => {
+        const next =
+          request.scope === 'all'
+            ? { ...watching, all: true }
+            : await watchedDirectory(request.path).then((path) => ({
+                ...watching,
+                roots: watching.roots.includes(path) ? watching.roots : [...watching.roots, path],
+              }))
+        const { rescan } = await rewatch(next)
+        const lookbackDays = request.lookback_days ?? next.lookback_days
+        collector.rescan(rescan, lookbackDays)
+        collector.backfill(lookbackDays)
+        return { watch: next, rescanned_streams: rescan.length }
+      }),
+    unwatch: (request) =>
+      serially(async () => {
+        const next =
+          request.scope === 'all'
+            ? { ...watching, all: false }
+            : await rootOf(watching, request.path).then((root) => ({
+                ...watching,
+                roots: watching.roots.filter((path) => path !== root),
+              }))
+        await rewatch(next)
+        return { watch: next }
+      }),
+    prune: (request) =>
+      serially(async () => {
+        const { runs, boundaries } = await engine.prune(request, prefixHash)
+        if (request.scope === 'run' && runs.length === 0) {
+          throw new AdminError('not_found', `no run ${request.run}`)
+        }
+        collector.prune(boundaries)
+        if (runs.length > 0) {
+          store.vacuum()
+        }
+        return { runs: [...runs], streams: boundaries.length }
+      }),
+  }
+
   return {
     otel,
+    admin,
     failure: failure.promise,
     stop: async () => {
       clearInterval(refresh)
+      await administering
       await collector.close()
       await pumping
       await refreshing
