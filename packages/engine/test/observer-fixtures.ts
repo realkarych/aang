@@ -132,10 +132,10 @@ export const setupObserver = async (onTestFinished: TestContext['onTestFinished'
   const begin = (batch = [solver, human, tool], id = callId) => {
     const input = inputFor(store, batch)
     store.transaction((transaction) => {
-      beginObserverCall(transaction, { id, input, at: at(10) })
+      beginObserverCall(transaction, { id, backend: 'claude', crossVendor: false, input, at: at(10) })
     })
     return input
   }
   const stage = (id = stages.build) => store.model.entity(runA, { kind: 'stage', id })
-  return { home, store, facts, foreignFacts, solver, human, tool, begin, stage }
+  return { home, store, engine, facts, foreignFacts, solver, human, tool, begin, stage }
 }

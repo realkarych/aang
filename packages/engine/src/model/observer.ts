@@ -2,19 +2,16 @@ import {
   type EpochNs,
   ModelVersion,
   type ObserverCallId,
+  type ObserverInput,
   type ObserverOp,
   ObserverOutput,
   type ObserverRejection,
 } from '@aang/contract'
 import type { ObserverCallStart, Transaction } from '@aang/store'
+import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
+import { type InputScope, inputScope, inputViolations } from '../input/scope.js'
 import { applyChangeSet } from './journal.js'
-import {
-  batchFacts,
-  factBelongsToRun,
-  ObserverContext,
-  OperationRejection,
-  type ValidationLimits,
-} from './observer-context.js'
+import { batchFacts, ObserverContext, OperationRejection, type ValidationLimits } from './observer-context.js'
 import { planOperation } from './observer-operations.js'
 import { refreshStageDecisions } from './stage-decision.js'
 import { refreshStageExecution, type StageObservations } from './stage-execution.js'
@@ -30,9 +27,33 @@ export interface ObserverResponse {
 export type ObserverResponseResult =
   | { readonly status: 'accepted'; readonly version: ModelVersion }
   | { readonly status: 'rejected'; readonly rejections: readonly ObserverRejection[] }
+  | { readonly status: 'needs_requested' }
 
-export const beginObserverCall = (transaction: Transaction, call: ObserverCallStart): void => {
-  const { input, id } = call
+export interface ObserverCallBegin extends ObserverCallStart {
+  readonly crossVendor: boolean
+}
+
+export interface ObserverFollowUp {
+  readonly previous: ObserverCallId
+  readonly id: ObserverCallId
+  readonly at: EpochNs
+  readonly crossVendor: boolean
+  readonly limits?: MaterialLimits
+}
+
+const admitInput = (transaction: Transaction, scope: InputScope, input: ObserverInput): void => {
+  const [violation] = inputViolations(transaction, scope, input)
+  if (violation !== undefined) {
+    throw new Error(
+      violation.reason === 'out_of_scope'
+        ? `${violation.object} is not in run ${scope.run}`
+        : `${violation.object} comes from a vendor other than backend ${scope.backend}`,
+    )
+  }
+}
+
+export const beginObserverCall = (transaction: Transaction, call: ObserverCallBegin): void => {
+  const { input, id, backend, crossVendor } = call
   const { run } = input
   if (
     transaction.model.entity(run.id, { kind: 'run', id: run.id }) === null ||
@@ -43,18 +64,40 @@ export const beginObserverCall = (transaction: Transaction, call: ObserverCallSt
   if (transaction.interpretations.ofRun(run.id).some(({ status }) => status === 'in_call')) {
     throw new Error(`run ${run.id} already has an observer call`)
   }
+  if (input.materials.length > 0) {
+    throw new Error('materials are sent only in a follow-up call')
+  }
   const facts = batchFacts(input)
   if (facts.length === 0) {
     throw new Error('observer calls require a nonempty batch')
   }
-  for (const id of facts) {
-    const fact = transaction.facts.get(id)
-    if (fact === null || !factBelongsToRun(transaction, run.id, fact)) {
-      throw new Error(`fact ${id} is not in run ${run.id}`)
-    }
-  }
-  transaction.observerCalls.start(call)
+  admitInput(transaction, inputScope(transaction, { run: run.id, backend, crossVendor }), input)
+  transaction.observerCalls.start({ id, backend, input, at: call.at })
   transaction.interpretations.begin(run.id, id, facts)
+}
+
+export const beginObserverFollowUp = (transaction: Transaction, followUp: ObserverFollowUp): ObserverInput => {
+  const previous = transaction.observerCalls.get(followUp.previous)
+  if (previous?.verdict !== 'needs_requested') {
+    throw new Error(`observer call ${followUp.previous} did not request materials`)
+  }
+  const batch = batchFacts(previous.input)
+  const scope = inputScope(transaction, {
+    run: previous.run,
+    backend: previous.backend,
+    crossVendor: followUp.crossVendor,
+  })
+  admitInput(transaction, scope, previous.input)
+  const { needs } = ObserverOutput.parse(previous.output)
+  const input: ObserverInput = {
+    ...previous.input,
+    materials: resolveObserverNeeds(transaction, scope, needs, followUp.limits),
+  }
+  transaction.observerCalls.start({ id: followUp.id, backend: previous.backend, input, at: followUp.at })
+  if (transaction.interpretations.handover(previous.id, followUp.id) !== batch.length) {
+    throw new Error(`observer call ${previous.id} no longer owns its batch`)
+  }
+  return input
 }
 
 const textsOf = (op: ObserverOp): string[] =>
@@ -84,12 +127,27 @@ export const applyObserverResponse = (
   ) {
     throw new Error(`observer call ${call.id} no longer owns its batch`)
   }
-  const context: ObserverContext = new ObserverContext(transaction, call)
   const limits = response.limits ?? { operations: 200, textLength: 16_384 }
   if (![limits.operations, limits.textLength].every((value) => Number.isSafeInteger(value) && value > 0)) {
     throw new RangeError('observer validation limits must be positive integers')
   }
   const parsed = ObserverOutput.safeParse(response.output)
+  if (
+    parsed.success &&
+    parsed.data.base_version === call.base_version &&
+    parsed.data.needs.length > 0 &&
+    call.input.materials.length === 0
+  ) {
+    transaction.observerCalls.finish({
+      id: call.id,
+      output: response.output,
+      verdict: 'needs_requested',
+      reasons: [],
+      at: response.at,
+    })
+    return { status: 'needs_requested' }
+  }
+  const context: ObserverContext = new ObserverContext(transaction, call)
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
       const index = issue.path[0] === 'ops' && typeof issue.path[1] === 'number' ? issue.path[1] : null

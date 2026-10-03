@@ -677,7 +677,7 @@ test('a rule update of a failed check keeps the priority and likely resolution s
   }
   const input = inputFor(store, [failure], run)
   store.transaction((transaction) => {
-    beginObserverCall(transaction, { id: callId, input, at: failure.at })
+    beginObserverCall(transaction, { id: callId, backend: 'claude', crossVendor: false, input, at: failure.at })
   })
   const grounds = { evidence: [failure.id], rationale: 'The solver is fixing the failing test' }
   const result = store.transaction((transaction) =>

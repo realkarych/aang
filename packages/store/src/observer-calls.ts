@@ -11,6 +11,8 @@ import {
 import { decodeJson, encodeJson } from './codec.js'
 import { prepareStatement, type WriteContext } from './context.js'
 
+export type ObserverCallVerdict = 'accepted' | 'rejected' | 'needs_requested'
+
 export interface StoredObserverCall {
   readonly id: ObserverCallId
   readonly run: RunId
@@ -18,7 +20,7 @@ export interface StoredObserverCall {
   readonly base_version: ModelVersion
   readonly input: ObserverInput
   readonly output: unknown
-  readonly verdict: 'accepted' | 'rejected' | null
+  readonly verdict: ObserverCallVerdict | null
   readonly reasons: ObserverRejection[]
   readonly started_at: EpochNs
   readonly finished_at: EpochNs | null
@@ -26,6 +28,7 @@ export interface StoredObserverCall {
 
 export interface ObserverCallStart {
   readonly id: ObserverCallId
+  readonly backend: Runtime
   readonly input: ObserverInput
   readonly at: EpochNs
 }
@@ -33,7 +36,7 @@ export interface ObserverCallStart {
 export interface ObserverCallResult {
   readonly id: ObserverCallId
   readonly output: unknown
-  readonly verdict: 'accepted' | 'rejected'
+  readonly verdict: ObserverCallVerdict
   readonly reasons: readonly ObserverRejection[]
   readonly at: EpochNs
 }
@@ -54,7 +57,7 @@ type CallRow = {
   base_version: bigint
   input: string
   output: string | null
-  verdict: 'accepted' | 'rejected' | null
+  verdict: ObserverCallVerdict | null
   reasons: string
   started_at: bigint
   finished_at: bigint | null
@@ -93,12 +96,12 @@ export const createObserverCalls = (database: DatabaseSync) => {
   }
   const writer = (context: WriteContext): ObserverCallWriter => ({
     ...reader,
-    start: ({ id, input, at }) => {
+    start: ({ id, backend, input, at }) => {
       context.assertActive()
       insert.run(
         id,
         input.run.id,
-        input.run.runtime,
+        backend,
         input.model.version,
         encodeJson(input),
         at,

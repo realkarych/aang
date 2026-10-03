@@ -16,8 +16,8 @@ import {
   type StageRef,
   type TempId,
 } from '@aang/contract'
-import { objectId } from '@aang/contract/ids'
 import type { StoredObserverCall, Transaction } from '@aang/store'
+import { factSession, sessionInRun } from '../input/scope.js'
 import type { ModelChangeDraft, ModelEntityDraft } from './journal.js'
 
 export const batchFacts = (input: ObserverInput): FactId[] => [
@@ -27,14 +27,8 @@ export const batchFacts = (input: ObserverInput): FactId[] => [
   ]),
 ]
 
-export const factBelongsToRun = (transaction: Transaction, run: RunId, fact: Fact): boolean => {
-  const { runtime, session } = fact.entity_key
-  const id = objectId({ kind: 'session', runtime, session })
-  const owner = transaction.model.objectRun('session', id)
-  return owner === undefined
-    ? transaction.model.entity(run, { kind: 'session_membership', id }) !== null
-    : owner === run
-}
+export const factBelongsToRun = (transaction: Transaction, run: RunId, fact: Fact): boolean =>
+  sessionInRun(transaction.model, run, factSession(fact))
 
 export class OperationRejection extends Error {
   constructor(

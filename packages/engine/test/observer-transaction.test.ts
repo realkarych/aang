@@ -44,6 +44,8 @@ test.for(['started', 'applying', 'accepted'] as const)(
       restarted.transaction((transaction) => {
         beginObserverCall(transaction, {
           id: retry,
+          backend: 'claude',
+          crossVendor: false,
           input: ObserverInput.parse(restarted.settings.get('observer-test-input')),
           at: at(30),
         })
@@ -133,13 +135,13 @@ test('does not start a call with a stale snapshot, foreign facts or an already a
   stale.model.version = version(0)
   expect(() => {
     store.transaction((transaction) => {
-      beginObserverCall(transaction, { id: callId, input: stale, at: at(10) })
+      beginObserverCall(transaction, { id: callId, backend: 'claude', crossVendor: false, input: stale, at: at(10) })
     })
   }).toThrow('current run version')
   const foreign = inputFor(store, foreignFacts)
   expect(() => {
     store.transaction((transaction) => {
-      beginObserverCall(transaction, { id: callId, input: foreign, at: at(10) })
+      beginObserverCall(transaction, { id: callId, backend: 'claude', crossVendor: false, input: foreign, at: at(10) })
     })
   }).toThrow('not in run')
   expect(store.observerCalls.get(callId)).toBeNull()
@@ -154,7 +156,7 @@ test('refuses an empty batch that could not be recovered through interpretation 
 }) => {
   const { store } = await setupObserver(onTestFinished)
   expect(() => { store.transaction((transaction) => {
-      beginObserverCall(transaction, { id: callId, input: inputFor(store, []), at: at(10) })
+      beginObserverCall(transaction, { id: callId, backend: 'claude', crossVendor: false, input: inputFor(store, []), at: at(10) })
     }); },
   ).toThrow('nonempty batch')
   expect(store.observerCalls.get(callId)).toBeNull()
@@ -164,7 +166,7 @@ test('requires the exact recorded batch when accepting a response', async ({ onT
   const { store, solver, human } = await setupObserver(onTestFinished)
   const input = inputFor(store, [solver])
   store.transaction((transaction) => {
-    transaction.observerCalls.start({ id: callId, input, at: at(10) })
+    transaction.observerCalls.start({ id: callId, backend: 'claude', input, at: at(10) })
     transaction.interpretations.begin(runA, callId, [human.id])
   })
   expect(() =>

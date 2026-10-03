@@ -181,3 +181,50 @@ is its own root uses its `cwd`.
 Checks do not produce criterion statuses: a check alone never gives `confirmed`.
 Snapshots around checks, `passed_unversioned`, `confirmed` and `stale` belong to
 E.7b and E.7c.
+
+## Input scope and needs
+
+`inputScope(reader, { run, backend, crossVendor })` is the single filter for the
+observer input; chat materials (K.1) use the same filter. An object is in scope only
+when its session belongs to the run. A session of a vendor other than `backend`, the
+vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
+is attributed through its facts, so a record without facts is out of scope.
+
+`inputViolations(reader, scope, input)` applies the scope to the whole input: the
+sessions and agents of the run description, the context record, the stages,
+criteria and attention items of the snapshot, the facts of the batch with their
+sessions, agents and actions, the agents of collapsed facts and of the backlog, and
+the artifact versions with the actions that produced them. Snapshot entities must
+belong to the run. The context record follows the raw record rule, and an artifact
+version must be bound to the run, so both are refused until F.7a and E.7b provide
+their storage. `beginObserverCall` refuses an input with any violation and a first
+call that already carries materials; `beginObserverFollowUp` checks the stored input
+again with the current `crossVendor`. The call records the backend it was started
+for.
+
+`resolveObserverNeeds` answers each distinct need, up to `MaterialLimits.needs`, with
+a material or with an `unavailable` reason: `out_of_scope`, `cross_vendor` or
+`not_found`. Thinking is removed from raw records before truncation, only at the
+positions where the runtimes write it: the `thinking` and `redacted_thinking` blocks
+of `message.content` in Claude assistant lines and the `reasoning` items of
+`replacement_history` in Codex `compacted` lines. Tool inputs and results are kept as
+they are, even when they contain objects with the same `type`. Codex records that
+hold only reasoning produce no facts and are out of scope. A transcript or rollout
+record nested deeper than 256 levels is never sent and answers `out_of_scope`. An
+action is sent with the input of `action_start` and the
+output of `action_end` or `PostToolBatch`. When the action has a structured result,
+such as an edit patch or an MCP result, the output is the JSON text
+`{"output": <text>, "result": <result>}`. Texts longer than
+`MaterialLimits.textLength` are cut, each string of a structured value separately,
+and report their path and original length. Artifact versions and context records
+answer `not_found` until E.7b and F.7a provide their storage.
+
+A response with nonempty `needs` to a call without materials is not applied.
+`applyObserverResponse` records the verdict `needs_requested` and leaves the batch
+`in_call`. `beginObserverFollowUp` starts the only follow-up with the same snapshot
+and batch plus the resolved materials, with the backend of the first call. It hands
+the batch over to the follow-up without spending an attempt. The follow-up response
+is applied or rejected as usual, and its `needs` are ignored. After a restart the
+batch returns to `pending`, and the cycle starts again with a new first call. The
+scheduler (F.8) starts the follow-up immediately, outside the minimum interval
+between calls of a run.
