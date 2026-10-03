@@ -66,6 +66,7 @@ const viewMark: Row = {
   model_version: '1',
   change_seq: '2',
   viewed_at: '1759370000000000000',
+  mark_change_seq: '3',
 }
 
 const attentionView: Row = {
@@ -349,13 +350,18 @@ const cases: readonly SchemaCase[] = [
   {
     name: 'a run has a single view mark',
     setup: [insert('view_marks', viewMark)],
-    statement: insert('view_marks', viewMark, { model_version: '2', change_seq: '5' }),
+    statement: insert('view_marks', viewMark, { model_version: '2', change_seq: '5', mark_change_seq: '6' }),
     error: /UNIQUE constraint failed: view_marks\.run_id/,
   },
   {
     name: 'a view mark keeps the model version together with the change sequence number',
     statement: insert('view_marks', viewMark, { change_seq: 'NULL' }),
     error: /NOT NULL constraint failed: view_marks\.change_seq/,
+  },
+  {
+    name: 'a view mark is changed after the state it marks',
+    statement: insert('view_marks', viewMark, { mark_change_seq: '2' }),
+    error: /CHECK constraint failed: view_marks_after_viewed/,
   },
   {
     name: 'an attention item is marked viewed once per run',

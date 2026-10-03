@@ -29,19 +29,25 @@ const commitVersion = (store: Store, target: RunId): ChangeSeq =>
     return changeSeq
   })
 
-test('a run keeps one view mark that the next mark replaces and that survives reopening', async ({
+test('a run keeps one view mark that the next mark replaces at a new change sequence number and that survives reopening', async ({
   onTestFinished,
 }) => {
   const home = await createHome(onTestFinished)
   const store = home.open()
-  const first = { run, version: ModelVersion.parse(2), change_seq: ChangeSeq.parse(7), marked_at: instant(10n) }
-  const second = { run, version: ModelVersion.parse(3), change_seq: ChangeSeq.parse(9), marked_at: instant(20n) }
+  const built = commitVersion(store, run)
+  const first = { run, version: ModelVersion.parse(1), change_seq: built, marked_at: instant(10n) }
   const other = { run: otherRun, version: ModelVersion.parse(0), change_seq: ChangeSeq.parse(0), marked_at: instant(5n) }
 
   expect(store.views.mark(run)).toBeNull()
+  expect(store.views.markChangeSeq(run)).toBeNull()
   store.transaction((transaction) => {
     transaction.views.saveMark(first)
     transaction.views.saveMark(other)
+  })
+  const tested = commitVersion(store, run)
+  const second = { run, version: ModelVersion.parse(2), change_seq: tested, marked_at: instant(20n) }
+  store.transaction((transaction) => {
+    transaction.views.saveMark(second)
   })
   store.transaction((transaction) => {
     transaction.views.saveMark(second)
@@ -50,7 +56,10 @@ test('a run keeps one view mark that the next mark replaces and that survives re
   const reopened = home.open()
 
   expect(reopened.views.mark(run)).toEqual(second)
+  expect(reopened.views.markChangeSeq(run)).toBe(tested + 1)
   expect(reopened.views.mark(otherRun)).toEqual(other)
+  expect(reopened.views.markChangeSeq(otherRun)).toBe(built + 2)
+  expect(reopened.changes.head()).toBe(tested + 1)
 })
 
 test('the model version at a change sequence number is the last version of the run committed up to it', async ({

@@ -1,11 +1,12 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { type AttentionItemId, AttentionView, type ChangeSeq, type RunId, ViewMark } from '@aang/contract'
+import { type AttentionItemId, AttentionView, ChangeSeq, type RunId, ViewMark } from '@aang/contract'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
 
 export type AttentionViewDraft = Omit<AttentionView, 'change_seq'>
 
 export interface ViewReader {
   readonly mark: (run: RunId) => ViewMark | null
+  readonly markChangeSeq: (run: RunId) => ChangeSeq | null
   readonly attentionView: (run: RunId, item: AttentionItemId) => AttentionView | null
   readonly attention: (run: RunId, after: ChangeSeq) => AttentionView[]
 }
@@ -25,6 +26,7 @@ type MarkRow = {
   readonly model_version: bigint
   readonly change_seq: bigint
   readonly viewed_at: bigint
+  readonly mark_change_seq: bigint
 }
 
 type AttentionViewRow = {
@@ -34,7 +36,7 @@ type AttentionViewRow = {
   readonly change_seq: bigint
 }
 
-const markColumns = ['run_id', 'model_version', 'change_seq', 'viewed_at']
+const markColumns = ['run_id', 'model_version', 'change_seq', 'viewed_at', 'mark_change_seq']
 
 const attentionColumns = ['item_id', 'viewed_at', 'dismissed_at', 'change_seq']
 
@@ -56,6 +58,9 @@ const toAttentionView = (row: AttentionViewRow): AttentionView =>
 
 const sameView = (left: AttentionViewDraft, right: AttentionViewDraft): boolean =>
   left.viewed_at === right.viewed_at && left.dismissed_at === right.dismissed_at
+
+const sameMark = (left: ViewMark, right: ViewMark): boolean =>
+  left.version === right.version && left.change_seq === right.change_seq && left.marked_at === right.marked_at
 
 export const createViews = (database: DatabaseSync): ViewRepository => {
   const selectMark = prepareStatement(database, `SELECT ${markColumns.join(', ')} FROM view_marks WHERE run_id = ?`)
@@ -82,10 +87,16 @@ export const createViews = (database: DatabaseSync): ViewRepository => {
     return row === undefined ? null : toAttentionView(row)
   }
 
+  const markRow = (run: RunId): MarkRow | undefined => selectMark.get(run) as MarkRow | undefined
+
   const reader: ViewReader = {
     mark: (run) => {
-      const row = selectMark.get(run) as MarkRow | undefined
+      const row = markRow(run)
       return row === undefined ? null : toMark(row)
+    },
+    markChangeSeq: (run) => {
+      const row = markRow(run)
+      return row === undefined ? null : ChangeSeq.parse(Number(row.mark_change_seq))
     },
     attentionView,
     attention: (run, after) => (selectAttention.all(run, after) as AttentionViewRow[]).map(toAttentionView),
@@ -95,11 +106,16 @@ export const createViews = (database: DatabaseSync): ViewRepository => {
     ...reader,
     saveMark: (mark) => {
       context.assertActive()
+      const previous = reader.mark(mark.run)
+      if (previous !== null && sameMark(previous, mark)) {
+        return
+      }
       upsertMark.run({
         run_id: mark.run,
         model_version: mark.version,
         change_seq: mark.change_seq,
         viewed_at: mark.marked_at,
+        mark_change_seq: context.nextChangeSeq(),
       })
     },
     saveAttention: (run, view) => {
