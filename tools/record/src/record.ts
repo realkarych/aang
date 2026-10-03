@@ -10,7 +10,7 @@ import { createAnonymizer } from './anonymize.js'
 import { createCapture, type ControlTarget } from './capture.js'
 import { isMissing } from './files.js'
 import { startOtlpReceiver } from './otlp.js'
-import { type ModelMode, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
+import { type CodexHome, type ModelMode, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
 import { verifyRecording } from './verify.js'
 
 export interface RecordOptions {
@@ -23,7 +23,7 @@ export interface RecordOptions {
   readonly expectedFacts: readonly string[]
   readonly fixturesRoot: string
   readonly hookBinary: string
-  readonly codexHome?: 'isolated' | 'regular' | undefined
+  readonly codexHome?: CodexHome | undefined
 }
 
 export interface RunOptions {
@@ -105,10 +105,10 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       capture.otlp(body, receivedAt)
     })
     const runner = createProcessRunner({ windowsLauncher: hookBinary, temporaryDirectory: root })
-    const excluded = new Set(['AANG_OBSERVER', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE', ...regular ? ['CODEX_HOME'] : []])
+    const excluded = new Set(['AANG_OBSERVER', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'])
     const env: Record<string, string> = {
       ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !excluded.has(entry[0]))),
-      ...regular ? { HOME: userHome, USERPROFILE: userHome } : { HOME: home, USERPROFILE: home, CODEX_HOME: codex }, CLAUDE_CONFIG_DIR: claude,
+      ...regular ? { HOME: userHome, USERPROFILE: userHome } : { HOME: home, USERPROFILE: home }, CODEX_HOME: codex, CLAUDE_CONFIG_DIR: claude,
       AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: hookBinary,
     }
     const execution: { running: boolean; failure?: Error } = { running: false }

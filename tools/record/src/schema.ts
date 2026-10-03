@@ -8,6 +8,9 @@ export const Segment = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/)
 export const ModelMode = z.enum(['stub', 'live'])
 export type ModelMode = z.infer<typeof ModelMode>
 
+export const CodexHome = z.enum(['isolated', 'regular'])
+export type CodexHome = z.infer<typeof CodexHome>
+
 export const RecordMetadata = z.strictObject({
   runtime: Runtime,
   engineVersion: Segment,

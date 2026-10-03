@@ -77,7 +77,7 @@ const questionScenario = stubScenario({
   trust: true,
   expectedFacts: [
     'The SDK turn asks the user through request_user_input_async; the rollout has item_completed AgentMessage with delivery "async" and one question with two options',
-    'The answer arrives as a new user message through resumeThread(id).runStreamed',
+    'A reply arrives as a new user message through resumeThread(id).runStreamed',
   ],
   script: { 'sdk-question': [[question]] },
   run: async ({ session }) => {
@@ -89,9 +89,9 @@ const questionScenario = stubScenario({
     check(thread !== undefined && resumed === thread, 'resumeThread continued the same thread')
     const rollout = await rolloutOf(session.codex, thread ?? '')
     check(completedItems(rollout, 'AgentMessage').filter((item) => item['delivery'] === 'async' && Array.isArray(item['questions'])).length === 1, 'an async question was recorded')
-    check(responseItems(rollout, 'message').some((item) => item['role'] === 'user' && JSON.stringify(item['content']).includes('"text":"hello"')), 'the answer is in the rollout')
-    await session.checkpoint('question-asked', containing(rollout, '"delivery":"async"'), 'An explicit question to the user is open and the SDK session waits for an answer')
-    await session.checkpoint('question-answered', finished(rollout), 'The question asked in the SDK session is answered and no longer waits')
+    check(responseItems(rollout, 'message').some((item) => item['role'] === 'user' && JSON.stringify(item['content']).includes('"text":"hello"')), 'the reply is in the rollout')
+    await session.checkpoint('question-asked', containing(rollout, '"delivery":"async"'), 'A non-blocking question to the user opens an attention item; it does not block the SDK turn, nothing waits in the runtime and the stage is not waiting')
+    await session.checkpoint('question-reply', finished(rollout), 'A user prompt replies after the SDK question; the attention item may be marked likely answered as an interpretation, stays open until the user dismisses it, and the stage is not waiting')
   },
 })
 

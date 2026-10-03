@@ -86,7 +86,7 @@ test.each(['protobuf', 'invalid'])('an OTLP %s body aborts publication', async (
   await expect(readFile(join(config.fixturesRoot, 'codex', '0.0.1', 'codex_exec', os, 'otlp', 'manifest.json'))).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
-test('the regular Codex home keeps only new rollouts of the temporary project and the real home', async () => {
+test('the regular Codex home is passed to the runtime and keeps only new rollouts of the temporary project and the real home', async () => {
   const config = await options()
   const codexHome = join(await directory(), 'codex-home')
   await mkdir(join(codexHome, 'sessions'), { recursive: true })
@@ -94,13 +94,13 @@ test('the regular Codex home keeps only new rollouts of the temporary project an
   await writeFile(join(codexHome, 'auth.json'), JSON.stringify({ token: 'never-copy-authorization' }))
   const previous = process.env['CODEX_HOME']
   process.env['CODEX_HOME'] = codexHome
-  let environment: { home?: string; codexHome?: string | null } = {}
+  let environment: { home?: string; codexHome?: string } = {}
   try {
     const recording = await recordSession({ ...config, model: 'live', codexHome: 'regular' }, async (session) => {
       expect(session.codex).toBe(codexHome)
-      environment = JSON.parse((await session.run(process.execPath, [script, 'regular', session.codex])).stdout) as typeof environment
+      environment = JSON.parse((await session.run(process.execPath, [script, 'regular', 'thread-own-1'])).stdout) as typeof environment
     })
-    expect(environment).toEqual({ home: homedir(), codexHome: null })
+    expect(environment).toEqual({ home: homedir(), codexHome })
     const playback = await loadManifest(join(recording, 'playback.json'))
     const targets = playback.steps.flatMap((step) => 'target' in step ? [step.target.path] : [])
     expect(targets).toEqual(['sessions/2026/10/03/rollout-own.jsonl'])

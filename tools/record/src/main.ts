@@ -6,11 +6,11 @@ import { z } from 'zod'
 import { driverOf, scenarios } from './catalog.js'
 import { recordSession, type RecordContext } from './record.js'
 import { recordScenario, scenarioModel, supportsOs } from './scenario.js'
-import { ModelMode, RecordMetadata, recordingOs } from './schema.js'
+import { CodexHome, ModelMode, RecordMetadata, recordingOs } from './schema.js'
 import { verifyRecording } from './verify.js'
 
 const Scenario = z.object({
-  options: RecordMetadata.safeExtend({ fixturesRoot: z.string().min(1), hookBinary: z.string().min(1) }),
+  options: RecordMetadata.safeExtend({ fixturesRoot: z.string().min(1), hookBinary: z.string().min(1), codexHome: CodexHome.optional() }),
   run: z.custom<(context: RecordContext) => Promise<void>>((value) => typeof value === 'function'),
 })
 

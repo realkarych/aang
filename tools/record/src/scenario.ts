@@ -1,6 +1,6 @@
 import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
 import { recordSession, type RecordContext } from './record.js'
-import { type ModelMode, recordingOs } from './schema.js'
+import { type CodexHome, type ModelMode, recordingOs } from './schema.js'
 
 export interface EngineSelection {
   readonly claude?: string | undefined
@@ -32,7 +32,7 @@ export interface Scenario {
   readonly surface: Surface
   readonly models: readonly ModelMode[]
   readonly os?: readonly OperatingSystem[] | undefined
-  readonly codexHome?: 'isolated' | 'regular' | undefined
+  readonly codexHome?: CodexHome | undefined
   readonly expectedFacts: readonly string[]
   readonly run: (session: ScenarioSession) => Promise<void>
 }

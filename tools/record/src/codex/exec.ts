@@ -75,7 +75,7 @@ const questionScenario = stubScenario({
   surface,
   expectedFacts: [
     'The model asks the user through request_user_input_async; the rollout has item_completed AgentMessage with delivery "async" and one question with two options',
-    'The turn ends without waiting; the answer arrives later as a new user message through codex exec resume',
+    'The turn ends without waiting; a reply arrives later as a new user message through codex exec resume',
   ],
   script: { question: [[question]] },
   run: async ({ session }) => {
@@ -83,12 +83,12 @@ const questionScenario = stubScenario({
     const asked = await rolloutOf(session.codex, thread)
     const questions = completedItems(asked, 'AgentMessage').filter((item) => item['delivery'] === 'async' && Array.isArray(item['questions']))
     check(questions.length === 1, 'an async question was recorded')
-    await session.checkpoint('question-asked', containing(asked, '"delivery":"async"'), 'An explicit question to the user is open and the session waits for an answer')
+    await session.checkpoint('question-asked', containing(asked, '"delivery":"async"'), 'A non-blocking question to the user opens an attention item; it does not block the turn, nothing waits in the runtime and the stage is not waiting')
     await codexExec(session, ['resume', thread, 'hello'])
-    const answered = await rolloutOf(session.codex, thread)
-    check(events(answered, 'task_started').length === 2, 'the answer started a second turn in the same rollout')
-    check(responseItems(answered, 'message').some((item) => item['role'] === 'user' && JSON.stringify(item['content']).includes('"text":"hello"')), 'the answer is in the rollout')
-    await session.checkpoint('question-answered', finished(answered), 'The question is answered by the user and no longer waits')
+    const replied = await rolloutOf(session.codex, thread)
+    check(events(replied, 'task_started').length === 2, 'the reply started a second turn in the same rollout')
+    check(responseItems(replied, 'message').some((item) => item['role'] === 'user' && JSON.stringify(item['content']).includes('"text":"hello"')), 'the reply is in the rollout')
+    await session.checkpoint('question-reply', finished(replied), 'A user prompt replies after the question; the attention item may be marked likely answered as an interpretation, stays open until the user dismisses it, and the stage is not waiting')
   },
 })
 

@@ -33,14 +33,16 @@ switch (mode) {
     await post('application/json', '{"resourceLogs":')
     break
   case 'regular': {
-    const day = join(target, 'sessions', '2026', '10', '03')
+    const codexHome = process.env['CODEX_HOME']
+    if (!codexHome) throw new Error('Missing CODEX_HOME')
+    const day = join(codexHome, 'sessions', '2026', '10', '03')
     await mkdir(day, { recursive: true })
-    await writeFile(join(day, 'rollout-own.jsonl'), rollout(process.cwd(), 'thread-own-1'))
+    await writeFile(join(day, 'rollout-own.jsonl'), rollout(process.cwd(), target))
     await appendFile(join(day, 'rollout-own.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'task_started' } })}\n`)
     await writeFile(join(day, 'rollout-foreign.jsonl'), rollout('/Users/someone-else/elsewhere', 'thread-foreign-1'))
     await writeFile(join(day, 'rollout-partial.jsonl'), '{"type":"session_meta"')
-    await appendFile(join(target, 'sessions', 'existing.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'later' } })}\n`)
-    process.stdout.write(JSON.stringify({ home: process.env['HOME'], codexHome: process.env['CODEX_HOME'] ?? null }))
+    await appendFile(join(codexHome, 'sessions', 'existing.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'later' } })}\n`)
+    process.stdout.write(JSON.stringify({ home: process.env['HOME'], codexHome }))
     break
   }
   case 'append':
