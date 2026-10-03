@@ -1,4 +1,5 @@
 export {
+  type BindingResult,
   createEngine,
   type Engine,
   type EngineOptions,
@@ -53,4 +54,5 @@ export {
   type RunDraft,
   type StageDraft,
 } from './model/journal.js'
+export { BindingError, type BindingErrorCode } from './observations/bindings.js'
 export { hookRedeliveries, type HookRedelivery } from './observations/redelivery.js'

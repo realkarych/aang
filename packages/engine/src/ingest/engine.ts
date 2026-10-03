@@ -1,10 +1,13 @@
+import { randomUUID } from 'node:crypto'
 import type {
   Adapter,
   AdapterRegistry,
+  Binding,
   ChangeSeq,
   CollectedGap,
   CollectedRecord,
   CollectorBatch,
+  CreateBindingRequest,
   Fact,
   FileCursor,
   EpochNs as EpochNsType,
@@ -15,11 +18,12 @@ import type {
   SessionKey,
   StreamKey,
 } from '@aang/contract'
-import { EpochNs } from '@aang/contract'
+import { BindingId, EpochNs } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
-import { refreshChecks } from '../checks/attention.js'
+import { refreshChecks, refreshRunChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
+import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
@@ -73,9 +77,16 @@ export interface IngestResult {
   readonly rescan: readonly StreamKey[]
 }
 
+export interface BindingResult {
+  readonly binding: Binding
+  readonly head: ChangeSeq
+}
+
 export interface Engine {
   readonly ingest: (batch: CollectorBatch) => Promise<IngestResult>
   readonly refreshFreshness: () => Promise<ChangeSeq>
+  readonly bind: (request: CreateBindingRequest) => Promise<BindingResult>
+  readonly revokeBinding: (id: BindingId) => Promise<BindingResult>
   readonly reparse: () => Promise<ReparseResult>
 }
 
@@ -503,7 +514,7 @@ export const createEngine = ({
         const projection = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
         if (projection !== null) { watchQuiet(watch, projection.session) }
       }
-      refreshChecks(transaction, changedSessions.values(), contracts)
+      refreshChecks(transaction, changedSessions.values(), contracts, instant)
       settleQuiet(transaction, watch, instant, quietAfterMs)
       return { tally, files, hooks, rescan: [...rescan], quiet: watch }
     })
@@ -580,6 +591,25 @@ export const createEngine = ({
     return result
   }
 
+  const settleBinding = (change: (transaction: Transaction, at: EpochNsType) => BindingOutcome): BindingResult => {
+    const { binding, watch } = store.transaction((transaction) => {
+      const instant = now()
+      const outcome = change(transaction, instant)
+      const moved = outcome.moved.map(({ session }) => session)
+      const watch = new Map(quiet)
+      const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
+      for (const key of moved) {
+        const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
+        if (projection !== null) { watchQuiet(watch, projection.session) }
+      }
+      refreshChecks(transaction, moved, contracts, instant)
+      refreshRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts, instant)
+      return { binding: outcome.binding, watch }
+    })
+    quiet = watch
+    return { binding, head: store.changes.head() }
+  }
+
   return {
     refreshFreshness: () =>
       enqueue(() => {
@@ -596,5 +626,10 @@ export const createEngine = ({
         quiet = watch
         return result
       }),
+    bind: (request) =>
+      enqueue(() =>
+        settleBinding((transaction, at) => addBinding(transaction, request, BindingId.parse(randomUUID()), at)),
+      ),
+    revokeBinding: (id) => enqueue(() => settleBinding((transaction, at) => revokeBinding(transaction, id, at))),
   }
 }

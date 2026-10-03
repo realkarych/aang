@@ -174,7 +174,7 @@ export const reparse = (
   const tally = store.transaction((transaction) => {
     const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map() }
     const counted = reparseRecords(transaction, adapters, reparsed)
-    refreshChecks(transaction, rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs), contracts)
+    refreshChecks(transaction, rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs), contracts, now)
     settleQuiet(transaction, quiet, now, quietAfterMs)
     return counted
   })
