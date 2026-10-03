@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test, expect, type TestContext } from 'vitest'
-import { createClaudeLauncher, createCodexLauncher } from '@aang/observer'
+import { createClaudeLauncher, createCodexLauncher, observerSystemPrompt } from '@aang/observer'
 import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 
 const output = { base_version: 7, ops: [], needs: [] }
@@ -34,7 +34,7 @@ test('Claude launches with the isolated profile and returns structured output an
   expect(result).toMatchObject({ ok: true, output, usage: { model: 'claude-opus-5-5', cost_usd: 0.04196, tokens: { uncached_input_tokens: 2, output_tokens: 872, cache_read_input_tokens: 0, cache_write_input_tokens: 3064 } } })
   expect(backend.status()).toEqual({ state: { state: 'ok' }, activeCalls: 0 })
   const call = cli.calls().find((call) => call.command === 'print')
-  expect(call).toMatchObject({ violations: [], cwd: join(root, 'aang-observer', 'empty') })
+  expect(call).toMatchObject({ violations: [], cwd: join(root, 'aang-observer', 'empty'), systemPrompt: observerSystemPrompt })
   expect(JSON.parse(call?.prompt ?? '')).toEqual(input)
   expect(call?.env).not.toHaveProperty('ANTHROPIC_API_KEY')
   expect(call?.env).not.toHaveProperty('NODE_OPTIONS')
@@ -110,7 +110,8 @@ test('Codex derives a tool-free catalog for the selected model and returns usage
   const backend = createCodexLauncher({ ...options, cli, model: 'gpt-5.5', effort: 'xhigh' })
   expect(await backend.execute({ input })).toMatchObject({ ok: true, output, usage: { model: 'gpt-5.5', cost_usd: null, tokens: { uncached_input_tokens: 1531, output_tokens: 463 } } })
   const call = cli.calls().find((call) => call.command === 'exec')
-  expect(call).toMatchObject({ violations: [] })
+  expect(call).toMatchObject({ violations: [], systemPrompt: observerSystemPrompt })
+  expect(JSON.parse(call?.prompt ?? '')).toEqual(input)
   expect(call?.argv).toContain('model_reasoning_effort="xhigh"')
   expect(backend.status().activeCalls).toBe(0)
 })
