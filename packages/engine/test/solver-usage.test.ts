@@ -472,6 +472,42 @@ describe('Claude cost-state', () => {
       ...record,
     })
   const earlierLine = laterLine({ type: 'unknown-line', timestamp: '2026-10-01T11:00:00.000Z' })
+  const readAt = (batch: CollectorBatch, iso: string): CollectorBatch => ({
+    ...batch,
+    records: batch.records.map((record) => ({ ...record, observed_at: epochOf(iso) })),
+  })
+
+  test.each([
+    ['is not final once a hook resumes the session after the lines of its last launches were read', '2026-10-01T12:10:00.000Z', false],
+    ['stays final after a SessionStart that may start the launch which wrote its line before that line was read', '2026-10-01T11:58:00.000Z', true],
+  ])('%s', async (_, iso, final) => {
+    const { store, engine } = await ingested([whole(lines)])
+    expect(costState(store)).toMatchObject({ cost_state: { total_duration_ms: 62195 }, cost_state_final: true })
+
+    await engine.ingest(hook('resume.evt', 'SessionStart.resume.json', iso))
+
+    expect(costState(store)).toMatchObject({ cost_state: { total_duration_ms: 62195 }, cost_state_final: final })
+  })
+
+  test.each([
+    ['within the window of a redelivery', '01'],
+    ['beyond the window of a redelivery', '03'],
+  ])('counts each SessionStart of one registration as a launch of its own, a second resume coming %s', async (_, second) => {
+    const file = transcript(lines)
+    const { store, engine } = await ingested([readAt(file.batch(1, 68), '2026-10-01T11:55:00.000Z')])
+    const resumed = (at: string) =>
+      hookBatch(
+        delivery(`resume-plugin-${at}.evt`, 'SessionStart.resume.json', `2026-10-01T11:56:${at}.000Z`, 'plugin'),
+        delivery(`resume-user-${at}.evt`, 'SessionStart.resume.json', `2026-10-01T11:56:${at}.010Z`, 'user'),
+      )
+
+    await engine.ingest(resumed('00'))
+    await engine.ingest(readAt(file.batch(69, 69), '2026-10-01T11:56:00.100Z'))
+    expect(costState(store)).toMatchObject({ cost_state: { total_duration_ms: 28386 }, cost_state_final: true })
+
+    await engine.ingest(resumed(second))
+    expect(costState(store)).toMatchObject({ cost_state: { total_duration_ms: 28386 }, cost_state_final: false })
+  })
 
   test('is not final once a hook resumes the session, and final again once that launch writes its line without dated lines', async () => {
     const file = transcript(lines)
@@ -494,19 +530,24 @@ describe('Claude cost-state', () => {
     expectLine(28386, false)
   })
 
-  test('counts a SessionStart delivered by two registrations as one launch', async () => {
+  test.each([
+    ['of another registration as the same launch within the window of a redelivery', 'user', '00.500', '05.000', true],
+    ['of another registration as a launch of its own beyond the window of a redelivery', 'user', '03.000', '05.000', false],
+    ['of another registration as a launch of its own once the line of the first was read', 'user', '01.000', '00.100', false],
+    ['of the same registration as a launch of its own within the window of a redelivery', 'plugin', '00.500', '05.000', false],
+  ] as const)('counts a second SessionStart %s', async (_, registration, second, read, final) => {
     const file = transcript(lines)
-    const { store, engine } = await ingested([file.batch(1, 68)])
+    const { store, engine } = await ingested([readAt(file.batch(1, 68), '2026-10-01T11:55:00.000Z')])
 
     await engine.ingest(
-      hookBatch(
-        delivery('resume-plugin.evt', 'SessionStart.resume.json', '2026-10-01T11:56:00.000Z', 'plugin'),
-        delivery('resume-user.evt', 'SessionStart.resume.json', '2026-10-01T11:56:00.500Z', 'user'),
-      ),
+      hookBatch(delivery('resume-first.evt', 'SessionStart.resume.json', '2026-10-01T11:56:00.000Z', 'plugin')),
     )
-    await engine.ingest(file.batch(69, 69))
+    await engine.ingest(readAt(file.batch(69, 69), `2026-10-01T11:56:${read}Z`))
+    await engine.ingest(
+      hookBatch(delivery('resume-second.evt', 'SessionStart.resume.json', `2026-10-01T11:56:${second}Z`, registration)),
+    )
 
-    expect(costState(store)).toMatchObject({ cost_state: { total_duration_ms: 28386 }, cost_state_final: true })
+    expect(costState(store)).toMatchObject({ cost_state: { total_duration_ms: 28386 }, cost_state_final: final })
   })
 
   test('stays final after the hooks that start and end the launch which wrote it', async () => {
@@ -542,10 +583,18 @@ describe('Claude cost-state', () => {
     ['from a superseded copy up to the same line read after the current one', () => [all(current()), all(copy())]],
     ['from a superseded copy up to the same line read before the current one', () => [all(copy()), all(current())]],
     ['whole after a superseded copy of all its lines but the last two', () => [all(copy(95)), all(transcript(lines))]],
+    ['whole before a superseded copy of all its lines', () => [all(transcript(lines)), all(copy())]],
+    [
+      'whole with a superseded copy of all its lines, the parts of both files interleaved',
+      () => [transcript(lines).batch(1, 50), copy().batch(1, 95), transcript(lines).batch(51, 97), copy().batch(96, 97)],
+    ],
   ])('is the last of the transcript when it arrives %s', async (_, batches) => {
     const { store } = await ingested(batches())
 
-    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: true })
+    expect(costState(store)).toMatchObject({
+      cost_state: { total_cost_usd: lastCost, total_duration_ms: 62195 },
+      cost_state_final: true,
+    })
   })
 
   test.each([
@@ -559,6 +608,18 @@ describe('Claude cost-state', () => {
 
   test('is not final once a later launch goes on in a file of the stream that holds no copy of it', async () => {
     const { store } = await ingested([all(copy()), all(transcript([laterLine({ type: 'unknown-line' })]))])
+
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: false })
+  })
+
+  test('is not final once a hook resumes the session after the current file was read, though a superseded copy of its line is read later', async () => {
+    const { store, engine } = await ingested([
+      readAt(all(current()), '2026-10-01T12:00:00.000Z'),
+      readAt(all(copy()), '2026-10-01T12:20:00.000Z'),
+    ])
+    expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: true })
+
+    await engine.ingest(hook('resume.evt', 'SessionStart.resume.json', '2026-10-01T12:10:00.000Z'))
 
     expect(costState(store)).toMatchObject({ cost_state: { total_cost_usd: lastCost }, cost_state_final: false })
   })

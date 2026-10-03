@@ -13,7 +13,7 @@ export interface HookRedelivery {
 export const registrationOf = ({ raw }: Evidence): string | null =>
   raw.hook === null ? null : canonicalJson([raw.hook.registration, raw.hook.env.CLAUDE_PLUGIN_ROOT ?? null])
 
-const windowNs = 2_000_000_000n
+export const redeliveryWindowNs = 2_000_000_000n
 
 type Episode = [Evidence, ...Evidence[]]
 
@@ -55,8 +55,8 @@ export const redeliveries = (evidence: readonly Evidence[]): HookRedelivery[] =>
           const distance = left.raw.observed_at - right.raw.observed_at
           if (
             registrationOf(left) !== registrationOf(right) &&
-            distance >= -windowNs &&
-            distance <= windowNs
+            distance >= -redeliveryWindowNs &&
+            distance <= redeliveryWindowNs
           ) {
             visited.add(next)
             connected.push(next)

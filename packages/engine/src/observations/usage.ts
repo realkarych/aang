@@ -25,7 +25,7 @@ const lastOf = <T extends Evidence>(items: readonly T[], order: Order<T>): T | n
     null,
   )
 
-const byAccumulation: Order<KindEvidence<'cost_state'>> = (left, right) =>
+export const byAccumulation: Order<KindEvidence<'cost_state'>> = (left, right) =>
   byValue(left.fact.payload.total_duration_ms, right.fact.payload.total_duration_ms) ||
   byValue(left.fact.payload.total_cost_usd, right.fact.payload.total_cost_usd) ||
   lineOf(left) - lineOf(right)
