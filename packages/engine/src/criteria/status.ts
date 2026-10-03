@@ -40,6 +40,8 @@ export type Origins = ReadonlyMap<SessionId, RunId>
 
 type Seen = FactOf<'git_snapshot'>
 
+type Foreign = (considered: readonly (Seen | undefined)[]) => FactId[]
+
 const observed: Basis = { kind: 'observed' }
 
 const criterionIdLength = 32
@@ -86,6 +88,11 @@ const snapshotsOf = (transaction: Transaction, check: CriterionCheck, { worktree
     )
     .sort((left, right) => left.seq - right.seq)
 
+const foreignTo = (transaction: Transaction, run: RunId): Foreign => {
+  const native = new Set(transaction.artifacts.snapshots(run).map(({ fact }) => fact))
+  return (considered) => considered.flatMap((seen) => (seen === undefined || native.has(seen.id) ? [] : [seen.id]))
+}
+
 const showsCommit = ({ payload }: Seen, commit: string): boolean => payload.clean && payload.head === commit
 
 const firstDeparture = (after: readonly Seen[], commit: string): Seen | null => {
@@ -96,8 +103,8 @@ const firstDeparture = (after: readonly Seen[], commit: string): Seen | null => 
   return departure
 }
 
-const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, after: readonly Seen[]): Verdict => {
-  const evidence = [...result.evidence, ...commit.evidence]
+const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, after: readonly Seen[], foreign: Foreign): Verdict => {
+  const evidence = [...result.evidence, ...commit.evidence, ...foreign(after)]
   const departure = firstDeparture(after, commit.name)
   if (departure === null) {
     const latest = after.at(-1)
@@ -118,11 +125,17 @@ const versionedVerdict = ({ result }: CriterionCheck, commit: VerifiedCommit, af
   }
 }
 
-const unversionedVerdict = ({ result }: CriterionCheck, seen: readonly Seen[]): Verdict => {
+const unversionedVerdict = ({ result }: CriterionCheck, seen: readonly Seen[], foreign: Foreign): Verdict => {
   const { started, ended } = result
-  const plain: Verdict = { status: 'passed_unversioned', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
   const before = seen.filter(({ seq }) => seq > started && seq < ended).at(-1)
   const after = seen.find(({ seq }) => seq > ended)
+  const plain: Verdict = {
+    status: 'passed_unversioned',
+    evidence: [...result.evidence, ...foreign([before, after])],
+    checkedCommit: null,
+    cleanTreeCommit: null,
+    at: result.at,
+  }
   const head = before?.payload.head ?? null
   if (before === undefined || after === undefined || head === null || !showsCommit(before, head) || !showsCommit(after, head)) {
     return plain
@@ -159,9 +172,10 @@ const verdictOf = (transaction: Transaction, resolved: ResolvedCheck, origins: O
   const runs = priorRuns(check, origins)
   const seen = snapshotsOf(transaction, check, git, runs)
   const commit = verifiedCommit(transaction, resolved, runs)
+  const foreign = foreignTo(transaction, check.run)
   return commit === null
-    ? unversionedVerdict(check, seen)
-    : versionedVerdict(check, commit, seen.filter(({ seq }) => seq > result.ended))
+    ? unversionedVerdict(check, seen, foreign)
+    : versionedVerdict(check, commit, seen.filter(({ seq }) => seq > result.ended), foreign)
 }
 
 const criterionOf = (check: CriterionCheck, verdict: Verdict, stored: Criterion | null): Criterion => ({

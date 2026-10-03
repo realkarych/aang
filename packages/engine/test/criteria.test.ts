@@ -128,6 +128,8 @@ const callFacts = (store: Store, ...calls: readonly string[]): FactId[] =>
 
 const snapshotsOf = (store: Store, source: Source): GitSnapshot[] => store.artifacts.snapshots(runOf(source))
 
+const snapshotFacts = (store: Store, source: Source): FactId[] => snapshotsOf(store, source).map(({ fact }) => fact)
+
 const snapshotFact = (store: Store, source: Source, trigger: SnapshotTrigger): FactId => {
   const snapshot = snapshotsOf(store, source).findLast((candidate) => candidate.trigger === trigger)
   if (snapshot === undefined) {
@@ -562,7 +564,7 @@ test.for(['detach', 'revoke'] as const)(
     const attached = await engine.bind({ kind: 'attach', session, run: runOf(root) })
     expect(criterionOf(store, root)).toMatchObject({
       id: failed.id,
-      status: { value: 'confirmed', evidence: callFacts(store, 'moved-verify') },
+      status: { value: 'confirmed', evidence: [...callFacts(store, 'moved-verify'), ...snapshotFacts(store, moved)].sort() },
       checked_commit: commit,
     })
     expect(criteriaOf(store, moved)).toEqual([])
@@ -611,7 +613,10 @@ test.for(['attach', 'detach', 'revoke'] as const)(
       await engine.revokeBinding(attached.binding.id)
     }
     expect(criteriaOf(store, before)).toEqual([])
-    expect(criterionOf(store, after)).toMatchObject(stale)
+    expect(criterionOf(store, after)).toMatchObject({
+      ...stale,
+      status: { value: 'stale', evidence: [...callFacts(store, 'stale-verify'), ...snapshotFacts(store, before)].sort() },
+    })
     expect(journalOf(store, after).map(({ status }) => status)).toEqual(['stale'])
   },
 )
@@ -635,13 +640,86 @@ test('a session detached from a run where a later check saw another HEAD takes i
     status: { value: 'confirmed', evidence: callFacts(store, 'root-verify') },
     checked_commit: later,
   })
-  const departure = snapshotFact(store, root, 'check')
+  expect(snapshotsOf(store, root).map(({ trigger, head, clean }) => ({ trigger, head, clean }))).toEqual([
+    { trigger: 'check', head: commit, clean: true },
+    { trigger: 'check', head: later, clean: true },
+  ])
 
   await engine.bind({ kind: 'detach', session })
   expect(criterionOf(store, root)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: later })
   expect(criterionOf(store, moved)).toMatchObject({
-    status: { value: 'stale', evidence: [...callFacts(store, 'moved-verify'), departure].sort() },
+    status: { value: 'stale', evidence: [...callFacts(store, 'moved-verify'), ...snapshotFacts(store, root)].sort() },
     checked_commit: commit,
+  })
+})
+
+test('a session attached to a run whose snapshot went dirty brings a later clean snapshot and keeps that run confirmed', async ({
+  onTestFinished,
+}) => {
+  const { store, engine, repository } = await setup(onTestFinished)
+  const root = { session: 'dirty-root-session', cwd: repository.path }
+  const moved = { session: 'clean-moved-session', cwd: repository.path }
+  const commit = await isolatedCheckout(repository)
+  await engine.ingest(hookBatch(started(root), started(moved)))
+  await engine.ingest(hookBatch(preTool(root, 'root-verify', 10), postTool(root, 'root-verify', passed(commit), 11)))
+  await engine.ingest(hookBatch(preTool(moved, 'moved-verify', 20), postTool(moved, 'moved-verify', passed(commit), 21)))
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 18\n' })
+  await engine.ingest(hookBatch(stopped(root, 1, 30)))
+  expect(criterionOf(store, root).status.value).toBe('stale')
+  await writeFiles(repository.path, { 'src/app.ts': committed['src/app.ts'] })
+  await engine.ingest(hookBatch(stopped(moved, 1, 40)))
+  expect(criterionOf(store, moved).status.value).toBe('confirmed')
+  expect(snapshotsOf(store, moved).map(({ trigger, clean }) => ({ trigger, clean }))).toEqual([
+    { trigger: 'check', clean: true },
+    { trigger: 'turn_end', clean: true },
+  ])
+  const confirmed = {
+    status: { value: 'confirmed', evidence: [...callFacts(store, 'moved-verify'), ...snapshotFacts(store, moved)].sort() },
+    checked_commit: commit,
+  }
+
+  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', moved.session)), run: runOf(root) })
+  expect(criterionOf(store, root)).toMatchObject(confirmed)
+  await engine.ingest(
+    hookBatch(preTool(moved, 'moved-list', 50, 'ls src'), postTool(moved, 'moved-list', 'app.ts\nutil.ts\n', 51, 'ls src')),
+  )
+  expect(criterionOf(store, root)).toMatchObject(confirmed)
+  expect(journalOf(store, root).map(({ status }) => status)).toEqual(['confirmed', 'stale', 'confirmed'])
+})
+
+test('a batch where a later check finds a repository cloned after an earlier check keeps the earlier check unversioned', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const upstream = await createRepository(onTestFinished, committed)
+  const project = join(home.path, '..', 'cloned-repository')
+  await mkdir(project, { recursive: true })
+  const store = home.open()
+  const engine = createEngine({
+    store,
+    adapters,
+    watch: { all: true, roots: [{ path: project, contracts: [testContract(['src'])] }] },
+    fsWatch: false,
+  })
+  onTestFinished(() => engine.close())
+  const before = { session: 'before-clone-session', cwd: project }
+  const after = { session: 'after-clone-session', cwd: project }
+  await engine.ingest(
+    hookBatch(started(before), preTool(before, 'call-before', 10), postTool(before, 'call-before', passed(upstream.head ?? ''), 11)),
+  )
+  expect(criterionOf(store, before)).toMatchObject({ status: { value: 'passed_unversioned' }, checked_commit: null })
+
+  await git(project, 'clone', '--quiet', upstream.path, '.')
+  await engine.ingest(
+    hookBatch(stopped(before, 1, 20), started(after), preTool(after, 'call-after', 21), postTool(after, 'call-after', 'Tests passed\n', 22)),
+  )
+  expect(criterionOf(store, before)).toMatchObject({
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'call-before') },
+    checked_commit: null,
+  })
+  expect(criterionOf(store, after)).toMatchObject({
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'call-after') },
+    checked_commit: null,
   })
 })
 

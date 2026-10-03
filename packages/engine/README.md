@@ -259,23 +259,29 @@ joined, and a run with no check of a contract any more loses the criterion of th
 contract with a `session.move` rule change, as failed check items do. Snapshots stay
 in the run they were taken for, so the evaluation of a check of the moved session
 also reads the snapshots of the run the session left, and the snapshots and the
-established commit cited by the criterion of that run. The evaluation of a criterion
-always reads the snapshots its stored criterion cites besides the snapshots of its
-run, so a moved `stale` criterion keeps citing the snapshot of its staleness until a
-later snapshot clean on the commit replaces it, and a move never confirms a check
-against a snapshot already known. `engine.reparse()` evaluates the criteria of the runs it rebuilds in its
-transaction the same way.
+established commit cited by the criterion of that run. Every evaluation reads the
+snapshots its stored criterion cites besides the snapshots of its run, and a
+criterion cites every snapshot of another run that its verdict takes into account:
+the snapshots after the end of a check with `checked_commit`, the snapshots before
+and after an unversioned check. A later evaluation without the run the session left
+therefore reads the same snapshots: a moved `stale` criterion keeps the snapshot of
+its staleness, and a moved clean snapshot later than a dirty one of the run it
+joined keeps the criterion `confirmed`. `engine.reparse()` evaluates the criteria of
+the runs it rebuilds in its transaction the same way.
 
 The ingest evaluates the criteria of every run whose sessions received facts in the
 transaction of the batch, together with its facts and cursors (ADR-0005). The git
 state that a verdict needs (the working tree of the check directory and the commit
 of the reported name) is read before that transaction: when the transaction meets a
 check whose git state is not known yet, it is rolled back, the engine reads the git
-state and repeats the transaction once; a binding and a reparse do the same. A found
-working tree or commit is cached for the life of the engine; a missing one only for
-the result that asked for it (the facts of the check and of the reported name), so a
-later result reads git again and finds a repository created or a commit fetched
-since. The snapshots of the batch are taken after
+state and repeats the transaction once; a binding and a reparse do the same. The git
+state is read once for each result (its check directory, the facts of the check and
+the reported name with its facts) and kept for the life of the engine. A later
+result reads git again and finds a repository created or a commit fetched since; a
+result already read keeps its state even when a later result of the same directory
+finds a repository, so the state of one check never changes the verdict of another.
+After a restart a result without an established commit is read again. The snapshots
+of the batch are taken after
 the commit and recorded together with the evaluation they change in one more
 transaction. A crash between the two loses only these snapshots: a confirmed
 criterion is checked again by the `restart` snapshot, and the note of an
