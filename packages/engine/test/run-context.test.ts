@@ -25,8 +25,10 @@ import {
   beginObserverFollowUp,
   createEngine,
   type Engine,
+  failObserverCall,
   recordRunContext,
   type RunContextOptions,
+  startObserverBatch,
   storedRunContext,
 } from '@aang/engine'
 import type { Store } from '@aang/store'
@@ -718,6 +720,71 @@ test('a context assembled across vendors reaches only an observer with crossVend
   const openMaterials = followUp('open', 'open-follow-up', true)
   expect(materialsOf(openMaterials)).toEqual(['raw_record', 'raw_record'])
   expect(JSON.stringify(openMaterials.materials[0])).toContain(restricted)
+})
+
+test('a context shared across vendors stays out of the queue and the batch of a session moved away', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, project, cwd } = workspace
+  const restricted = 'CODEX-PRIVATE-MCP-SERVER'
+  const lines = [...codexRollout({ thread: codexThread, cwd }).slice(0, 20), mcpToolCall(20, restricted, 'navigate')]
+  await engine.ingest(codexFile(project, 'shared', lines, 31n).batch(1, lines.length))
+  const source = { session: 'moving-session', cwd }
+  const start = claudeTranscript(source).slice(0, 12)
+  await engine.ingest(claudeFile(workspace, 'moving', start, 33n).batch(1, start.length))
+  const [codexRun, claudeRun] = [runOf('codex', codexThread), runOf('claude', source.session)]
+  const session = objectId(sessionKey('claude', source.session))
+  await engine.bind({ kind: 'attach', session, run: codexRun })
+  const shared = await recorded(store, optionsOf(workspace, codexRun, { backend: 'codex', crossVendor: true }))
+  expect(ofKind(shared, 'mcp_server').map(({ ref }) => ref)).toEqual([restricted])
+  const contexts = store.facts.ofRecord(shared.seq)
+  const moved = contexts.find(({ entity_key: key }) => key.session === source.session)
+  if (moved === undefined) {
+    throw new Error('the attached session must get a context fact')
+  }
+  const queued = (run: RunId) => store.interpretations.ofRun(run).map(({ fact }) => fact)
+  const contextIds = contexts.map(({ id }) => id)
+  const queuedContexts = () => [...queued(codexRun), ...queued(claudeRun)].filter((id) => contextIds.includes(id))
+  expect(queuedContexts()).toEqual([])
+
+  await engine.bind({ kind: 'detach', session })
+  expect(queuedContexts()).toEqual([])
+  expect(queued(claudeRun)).toEqual(sessionFacts(store, source.session).map(({ id }) => id).sort())
+
+  store.transaction((transaction) => {
+    transaction.interpretations.queue(claudeRun, contextIds)
+  })
+  const input = store.transaction((transaction) =>
+    startObserverBatch(transaction, {
+      run: claudeRun,
+      backend: 'claude',
+      crossVendor: false,
+      id: ObserverCallId.parse('moved-batch'),
+      at: recordedAt,
+      limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000 },
+    }),
+  )
+  expect(input?.batch.facts.map(({ kind }) => kind)).not.toContain('context')
+  expect(JSON.stringify(input)).not.toContain(restricted)
+  expect(queuedContexts()).toEqual([])
+  store.transaction((transaction) => {
+    failObserverCall(transaction, { call: ObserverCallId.parse('moved-batch'), outcome: 'failed', at: recordedAt })
+  })
+
+  for (const crossVendor of [false, true]) {
+    expect(() => {
+      store.transaction((transaction) => {
+        beginObserverCall(transaction, {
+          id: ObserverCallId.parse(`smuggled-${String(crossVendor)}`),
+          backend: 'claude',
+          crossVendor,
+          input: inputFor(store, [moved], claudeRun),
+          at: recordedAt,
+        })
+      })
+    }).toThrow(`fact ${moved.id} is not in run ${claudeRun}`)
+  }
 })
 
 test('a context of the same text assembled with another vendor stays apart from the own one', async ({

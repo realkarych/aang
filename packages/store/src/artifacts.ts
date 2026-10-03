@@ -3,6 +3,7 @@ import {
   type ActionId,
   ArtifactVersion,
   type ArtifactVersionId,
+  type ChangeSeq,
   type ContentHash,
   type EpochNs,
   GitSnapshot,
@@ -12,7 +13,7 @@ import {
 } from '@aang/contract'
 import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
 import { decodeJson, encodeJson } from './codec.js'
-import { prepareStatement, upsertInto, type WriteContext } from './context.js'
+import { insertInto, prepareStatement, type WriteContext } from './context.js'
 
 export type ArtifactVersionDraft = Omit<ArtifactVersion, 'change_seq'>
 export type GitSnapshotDraft = Omit<GitSnapshot, 'change_seq'>
@@ -25,6 +26,7 @@ export type RetainedContent =
 export interface ArtifactReader {
   readonly getVersion: (id: ArtifactVersionId) => ArtifactVersion | null
   readonly versions: (run: RunId) => ArtifactVersion[]
+  readonly versionsCreated: (run: RunId, after: ChangeSeq) => ArtifactVersion[]
   readonly unretained: () => ArtifactVersion[]
   readonly blob: (hash: ContentHash) => Uint8Array | null
   readonly getSnapshot: (id: GitSnapshotId) => GitSnapshot | null
@@ -74,6 +76,10 @@ export const createArtifacts = (database: DatabaseSync): ArtifactRepository => {
     database,
     'SELECT data FROM objects WHERE kind = ? AND run_id = ? ORDER BY change_seq, id',
   )
+  const selectCreated = prepareStatement(
+    database,
+    "SELECT data FROM objects WHERE kind = 'artifact_version' AND run_id = ? AND created_seq > ? ORDER BY created_seq, id",
+  )
   const selectUnretained = prepareStatement(
     database,
     "SELECT data FROM objects WHERE kind = 'artifact_version' AND json_extract(data, '$.retention.kind') = 'reference' ORDER BY run_id, change_seq, id",
@@ -86,7 +92,8 @@ export const createArtifacts = (database: DatabaseSync): ArtifactRepository => {
   )
   const upsert = prepareStatement(
     database,
-    upsertInto('objects', 'id', ['id', 'kind', 'entity_key', 'run_id', 'data', 'change_seq']),
+    `${insertInto('objects', ['id', 'kind', 'entity_key', 'run_id', 'data', 'change_seq', 'created_seq'])}
+     ON CONFLICT (id) DO UPDATE SET run_id = excluded.run_id, data = excluded.data, change_seq = excluded.change_seq`,
   )
 
   const getVersion = (id: ArtifactVersionId): ArtifactVersion | null => {
@@ -103,6 +110,10 @@ export const createArtifacts = (database: DatabaseSync): ArtifactRepository => {
   const reader: ArtifactReader = {
     getVersion,
     versions: (run) => ofRun('artifact_version', run).map((value) => ArtifactVersion.parse(value)),
+    versionsCreated: (run, after) =>
+      (selectCreated.all(run, after) as { readonly data: string }[]).map(({ data }) =>
+        ArtifactVersion.parse(decodeJson(data)),
+      ),
     unretained: () =>
       (selectUnretained.all() as { readonly data: string }[]).map(({ data }) => ArtifactVersion.parse(decodeJson(data))),
     blob: (hash) => {
@@ -126,6 +137,7 @@ export const createArtifacts = (database: DatabaseSync): ArtifactRepository => {
         run_id: stored.run,
         data: encodeJson(stored),
         change_seq: stored.change_seq,
+        created_seq: stored.key.kind === 'artifact_version' ? stored.change_seq : null,
       })
       return stored
     }

@@ -47,7 +47,7 @@ export const recordObjectOwners = (store: Store, owned: readonly (Action | Agent
 export const recordArtifactVersion = (home: Home, version: ArtifactVersion): void => {
   const database = home.database()
   database.prepare(
-    'INSERT INTO objects (id, kind, entity_key, run_id, data, change_seq) VALUES (?, ?, ?, ?, ?, ?)',
-  ).run(version.id, version.key.kind, canonicalJson(version.key), version.run, '{}', version.change_seq)
+    'INSERT INTO objects (id, kind, entity_key, run_id, data, change_seq, created_seq) VALUES (?, ?, ?, ?, ?, ?, ?)',
+  ).run(version.id, version.key.kind, canonicalJson(version.key), version.run, '{}', version.change_seq, version.change_seq)
   database.close()
 }

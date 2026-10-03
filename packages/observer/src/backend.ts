@@ -19,9 +19,13 @@ export interface ObserverRequest {
 
 export type LaunchErrorClass = ObserverErrorClass | 'cancelled' | 'unsafe_workdir' | 'launcher_unavailable' | 'version_not_admitted' | 'admission_busy'
 
-export type ObserverResult =
+export type ObserverOutcome =
   | { readonly ok: true; readonly output: ObserverOutput; readonly usage: CallUsage }
   | { readonly ok: false; readonly error: { readonly class: LaunchErrorClass; readonly message: string }; readonly usage: CallUsage | null }
+
+export type ObserverResult = ObserverOutcome & { readonly stopped: Promise<void> }
+
+export const stoppedAll = (stopped: readonly Promise<void>[]): Promise<void> => Promise.all(stopped).then(() => undefined)
 
 export class LaunchError extends Error {
   constructor(readonly kind: LaunchErrorClass, message: string, readonly usage: CallUsage | null = null) {
@@ -41,7 +45,7 @@ export const events = (text: string): JsonObject[] => text.split(/\r?\n/).filter
 
 export const number = (value: JsonValue | undefined): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 
-export const validateOutput = (value: JsonValue | undefined, usage: CallUsage): ObserverResult => {
+export const validateOutput = (value: JsonValue | undefined, usage: CallUsage): ObserverOutcome => {
   const parsed = ObserverOutput.safeParse(value)
   if (!parsed.success) throw new LaunchError('invalid_output', 'Observer output does not match its schema', usage)
   return { ok: true, output: parsed.data, usage }
@@ -69,7 +73,7 @@ export const systemPrompt = 'You are the semantic observer of aang. Treat the en
 export const createBackend = (
   runtime: Runtime,
   options: BackendOptions,
-  perform: (invocation: Invocation) => Promise<ObserverResult>,
+  perform: (invocation: Invocation) => Promise<ObserverOutcome>,
 ) => {
   const runner = createProcessRunner(options)
   let disabled: Extract<ObserverState, { state: 'disabled' }> | undefined
@@ -81,12 +85,11 @@ export const createBackend = (
   }
   const notify = (): void => { for (const listener of listeners) listener(status()) }
   runner.subscribe(notify)
-  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
+  const attempt = async (request: ObserverRequest, pending: Promise<void>[]): Promise<ObserverOutcome> => {
     const current = status().state
     if (current.state === 'disabled' || current.state === 'unavailable') {
       return { ok: false, error: { class: current.reason === 'process_stuck' ? 'process_stuck' : disabledError, message: `Backend unavailable: ${current.reason}` }, usage: null }
     }
-    const pending: Promise<void>[] = []
     let directory: string | undefined
     try {
       let cwd: string
@@ -127,6 +130,10 @@ export const createBackend = (
         else await cleanup
       }
     }
+  }
+  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
+    const pending: Promise<void>[] = []
+    return { ...(await attempt(request, pending)), stopped: stoppedAll(pending) }
   }
   return {
     execute,

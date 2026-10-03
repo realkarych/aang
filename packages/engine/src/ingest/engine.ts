@@ -37,6 +37,7 @@ import { checkSnapshots } from '../snapshots/checks.js'
 import { recordSnapshot } from '../snapshots/record.js'
 import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
 import { normalizeOtel } from './otel.js'
+import { queueFacts } from './queue.js'
 import { type Evidence, noEvidence, withOwner } from './evidence.js'
 import {
   advanceFile,
@@ -337,6 +338,7 @@ export const createEngine = ({
       const hooks: HeldHook[] = []
       const rescan = new Set<StreamKey>()
       const streamScopes = new Map<StreamKey, ScopeDecision>()
+      const inserted: Fact[] = []
 
       const changed = (facts: readonly Fact[]): void => {
         for (const { kind, entity_key } of facts) {
@@ -355,6 +357,7 @@ export const createEngine = ({
           return
         }
         const facts = transaction.facts.insert(seq, parsed.normalizerVersion, factsOf(parsed))
+        inserted.push(...facts)
         const owner = adapters[parsed.record.runtime].owner(parsed.record) ?? fallback
         if (owner !== null && parsed.record.channel !== 'otel') {
           const name = sessionName(owner.session)
@@ -524,7 +527,9 @@ export const createEngine = ({
         }
       }
       batch.gaps.forEach(resolveGap)
-      changed(normalizeOtel(transaction, adapters))
+      const otelFacts = normalizeOtel(transaction, adapters)
+      inserted.push(...otelFacts)
+      changed(otelFacts)
       const instant = now()
       const watch = new Map(quiet)
       const lost = changedSessions.size === 0 ? new Set<SessionId>() : lostSessions(transaction)
@@ -532,6 +537,7 @@ export const createEngine = ({
         const projection = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
         if (projection !== null) { watchQuiet(watch, projection.session) }
       }
+      queueFacts(transaction, inserted)
       refreshChecks(transaction, changedSessions.values(), contracts, instant)
       projectVersions(transaction, changedActions.values())
       const snapshots = checkSnapshots(transaction, changedActions.values(), contracts)

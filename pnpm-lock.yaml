@@ -340,6 +340,12 @@ importers:
         specifier: workspace:*
         version: link:../store
     devDependencies:
+      '@aang/adapter-claude':
+        specifier: workspace:*
+        version: link:../adapter-claude
+      '@aang/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
       '@aang/testkit':
         specifier: workspace:*
         version: link:../testkit

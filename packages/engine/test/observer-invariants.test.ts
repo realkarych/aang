@@ -265,9 +265,9 @@ test.for(['action', 'agent', 'artifact_version'] as const)(
     const database = home.database()
     database
       .prepare(
-        'INSERT INTO objects (id, kind, entity_key, run_id, data, change_seq) VALUES (?, ?, ?, ?, ?, ?)',
+        'INSERT INTO objects (id, kind, entity_key, run_id, data, change_seq, created_seq) VALUES (?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(id, kind, '{}', runA, '{}', 1)
+      .run(id, kind, '{}', runA, '{}', 1, kind === 'artifact_version' ? 1 : null)
     const operation: ObserverOp =
       kind === 'action'
         ? {

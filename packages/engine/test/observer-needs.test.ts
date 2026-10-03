@@ -4,6 +4,7 @@ import {
   type Agent,
   AgentId,
   ArtifactVersionId,
+  AttentionItemId,
   ContentHash,
   CriterionId,
   type EpochNs,
@@ -339,7 +340,10 @@ const followUp = (store: Store, previous = callId, id = followUpId, crossVendor 
   )
 
 const queue = (store: Store) =>
-  store.interpretations.ofRun(runA).map(({ status, attempts, observer_call }) => [status, attempts, observer_call])
+  store.interpretations
+    .ofRun(runA)
+    .filter(({ attempts }) => attempts > 0)
+    .map(({ status, attempts, observer_call }) => [status, attempts, observer_call])
 
 const outcomes = (materials: readonly ObserverMaterial[]) =>
   materials.map((material) => (material.kind === 'unavailable' ? material.reason : material.kind))
@@ -499,7 +503,12 @@ test('a restart between the request and the follow-up returns the batch to the q
   )
   store.close()
   const restarted = home.open()
-  expect(queue(restarted)).toEqual([['pending', 1, null]])
+  expect(
+    restarted.interpretations
+      .ofRun(runA)
+      .filter(({ fact }) => fact === solver.id)
+      .map(({ status, attempts, observer_call }) => [status, attempts, observer_call]),
+  ).toEqual([['pending', 0, callId]])
   expect(() => followUp(restarted)).toThrow('no longer owns its batch')
   expect(restarted.observerCalls.get(followUpId)).toBeNull()
 })
@@ -808,6 +817,20 @@ test('every part of the observer input passes the same scope before the call is 
 }) => {
   const setup = await setupNeeds(onTestFinished)
   const { store, solver, foreignRecord, foreignAction, codexAction, compactionRecord } = setup
+  const grounded = (id: string, evidence: Fact['id'][]): SnapshotAttentionItem => {
+    const item = { ...drafts.permission, id: AttentionItemId.parse(id), evidence }
+    store.transaction((transaction) => {
+      applyChangeSet(transaction, {
+        run: runA,
+        author: 'rule',
+        at: at(4),
+        changes: [put('attention.open', { kind: 'attention_item', value: item }, observed, evidence)],
+      })
+    })
+    return { ...snapshotAttention(), id: item.id }
+  }
+  const codexGrounded = grounded('attention-codex', setup.codexFacts.slice(0, 1).map(({ id }) => id))
+  const replaced = grounded('attention-replaced', [fact(999)])
   const ownAgent = agentOf(store, sessionA)
   const foreignAgent = agentOf(store, sessionB)
   const codexAgent = agentOf(store, codexSession)
@@ -874,6 +897,8 @@ test('every part of the observer input passes the same scope before the call is 
     ],
     [withModel({ criteria: [{ ...snapshotCriterion(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
     [withModel({ attention: [{ ...snapshotAttention(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
+    [withModel({ attention: [codexGrounded] }), foreignVendor('attention_item attention-codex')],
+    [withModel({ attention: [replaced] }), foreignVendor('attention_item attention-replaced')],
     [withFact({ session: sessionB }), outside(`session ${sessionB}`)],
     [withFact({ id: unknownFact }), outside(`fact ${unknownFact}`)],
     [withFact({ agent: foreignAgent.id }), outside(`agent ${foreignAgent.id}`)],
@@ -914,13 +939,14 @@ test('every part of the observer input passes the same scope before the call is 
     }).toThrow(message)
   }
   expect(store.observerCalls.get(callId)).toBeNull()
-  expect(store.interpretations.ofRun(runA)).toEqual([])
+  expect(store.interpretations.ofRun(runA).filter(({ status }) => status !== 'pending')).toEqual([])
 
   const crossVendor = {
     ...withRun({
       sessions: [...valid.run.sessions, sessionBrief(codexSession, 'codex')],
       agents: [...valid.run.agents, agentBrief(codexAgent)],
     }),
+    model: { ...valid.model, attention: [...valid.model.attention, codexGrounded, replaced] },
     batch: withFact({ action: codexAction.id }).batch,
   }
   expect(() => {

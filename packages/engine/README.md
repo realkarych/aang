@@ -363,15 +363,27 @@ change feed. Versions of URLs, commits and pull requests are not retained here.
 observer input; chat materials (K.1) use the same filter. An object is in scope only
 when its session belongs to the run. A session of a vendor other than `backend`, the
 vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
-is attributed through its facts, so a record without facts is out of scope.
+is attributed through its facts, so a record without facts is out of scope. A
+`context` fact follows the rule of its record: it is in scope only when every
+session the context was assembled from is, whichever session keys it. A model
+entity of the run is attributed through its grounds, the evidence of every change in
+its journal: it is excluded when a ground comes from a vendor other than `backend`
+without `crossVendor`. A ground from a session that has since left the run does not
+exclude the entity. A ground fact that a reparse no longer produces is attributed
+through the stored input of the observer call that wrote a change of the entity: the
+input keeps the raw record of every batch fact, and the raw record keeps its
+runtime. A ground whose vendor cannot be established this way, such as a deleted
+fact cited by a rule, excludes the entity without `crossVendor`. The run goal and
+brief follow the same rule through the journal of the run.
 
 `inputViolations(reader, scope, input)` applies the scope to the whole input: the
 sessions and agents of the run description, the context record, the stages,
 criteria and attention items of the snapshot, the facts of the batch with their
 sessions, agents and actions, the agents of collapsed facts and of the backlog, and
-the artifact versions with the actions that produced them. Snapshot entities must
-belong to the run. The context record follows the raw record rule through its
-`context` facts, one keyed by the run of the root session and one for every other
+the artifact versions with the actions that produced them. Snapshot entities and the
+stages they refer to must belong to the run and pass the grounds rule. The context
+record follows the raw record rule through its `context` facts, one keyed by the
+run of the root session and one for every other
 session whose data the context was assembled from (F.7a). A context that read a
 session of another vendor is therefore refused without `crossVendor`, whether it is
 the context of the input, the input checked again before a follow-up or a requested
@@ -408,6 +420,58 @@ is applied or rejected as usual, and its `needs` are ignored. After a restart th
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
 between calls of a run.
+
+## Observer queue
+
+The ingest transaction queues every new fact as `pending` in the run of its session
+after the observation projection, including the facts of OTel records normalized in
+that transaction (ADR-0005). `context` and `git_snapshot` facts are never queued: the daemon writes
+them as run context, which reaches the observer through the context of the run (ADR-0007), not
+through a batch. A redelivered record adds no facts and queues nothing.
+A reparse queues the facts it adds the same way after it rebuilds the projections,
+including the OTel facts it resolves; the facts it keeps keep their status and
+attempts.
+
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits })`
+starts the next call of a run from its pending facts in the order of their records:
+
+- a queued `context` or `git_snapshot` fact leaves the queue without a status;
+- a fact that the input scope excludes, from a session of another vendor without
+  `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
+  an open gap `cross_vendor_excluded` or `not_interpreted`;
+- the batch is the first facts up to `limits.facts` whose payload size in UTF-8 bytes
+  stays within `limits.bytes`; the first fact always goes;
+- the input carries the run description with the sessions and agents in scope, the
+  snapshot of the current version (active stages, criteria, open attention items),
+  the batch facts with their session, agent and action and payload strings cut at
+  `limits.textLength`, and the reasons of the latest rejected call of these facts as
+  `previous_attempt`. The run goal and brief, stages, criteria and attention items
+  enter only when their grounds are in scope; a reference to a stage left out becomes
+  `null`. The reasons carry over calls that ended without a response, so a backend
+  failure or a restart after a rejection does not drop them. The context, collapsed
+  facts, backlog and artifact versions stay empty: the batch does not pack them yet;
+- the call is recorded by `beginObserverCall`. Without a run entity or an eligible
+  fact nothing starts and the result is `null`.
+
+`failObserverCall` ends a call without an applicable response. `rejected`, an output
+the backend could not read against the schema, returns the batch to `pending` as a
+schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
+`pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
+store the usage of the call. A response that arrives after a session transfer ended
+its call is not applied: `chargeEndedObserverCall` stores its usage on the ended
+call, leaves its verdict, reasons and facts as they are, and returns `true`; for a
+call that is still running it returns `false`.
+
+When the store opens, facts left `in_call` by a stopped process return to `pending`
+and get the attempt of the interrupted call back: a stop is not a content failure.
+They keep the reference to the interrupted call, which carries the reasons of the
+previous rejection.
+
+`exhaustObserverCall` turns the facts of a rejected call that reached the attempt
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+`boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
+rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
+defers any, and returns the active queue.
 
 ## Forks, bindings and session transfer
 
@@ -464,18 +528,24 @@ binding's transaction:
 - the rule attention items of the session's questions leave the source run and
   enter the target run with their state, without a stage and without the marks
   of the source run's observer (likely resolution, priority), so a question is
-  in the attention zone of one run only and its later answer closes it there;
+  in the attention zone of one run only and its later answer closes it there.
+  The change that brings an item in cites the item's evidence, so the input scope
+  attributes its text to the vendor of the question's session in the target run
+  too;
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run;
-- an observer call of the source run whose batch holds any of these facts is
-  ended as `rejected` with a `scope` reason: the rest of its batch returns to
-  `pending` in the source run, and a late response to it is refused, so neither
-  a rejection nor a restart returns the moved facts to the source run, and a
-  session moved back gets its facts `pending` again. A call that already ended
-  as `needs_requested` keeps its verdict: its batch returns to `pending` the same
-  way, and its follow-up is refused;
+  queue of the source run. Its `context` and `git_snapshot` facts are not queued:
+  they are run context and are never interpreted as facts;
+- an observer call of the source run whose batch holds any of these facts or
+  whose input describes the session is ended as `rejected` with a `scope` reason:
+  the rest of its batch returns to `pending` in the source run and gets its
+  attempt back, since a transfer is not a content failure, and a late
+  response to it is not applied, so neither a rejection nor a restart returns the
+  moved facts to the source run, and a session moved back gets its facts
+  `pending` again. A call that already ended as `needs_requested` keeps its
+  verdict: its batch returns to `pending` the same way, and its follow-up is
+  refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and
@@ -602,8 +672,9 @@ item without another `ingest`, and an open item of a failure that the current
 normalizer reads as a success of the same action is closed. Their changes are
 appended to the journal; earlier journal changes are never rewritten.
 `resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
-for a fact the current normalizer no longer produces. Reparse does not write
-`fact_interpretation`.
+for a fact the current normalizer no longer produces. The facts a reparse adds
+enter the observer queue in the same transaction; the statuses of the facts it
+keeps do not change.
 
 ## Run context
 
@@ -742,7 +813,8 @@ calls that contained a fact of its batch. A call that asked for materials and it
 follow-up are one call (ADR-0007): it has the id, verdict and output of the
 follow-up, starts with the request, and its latency includes the follow-up, whose
 own duration is `needs_latency_ms`. A call without a result is running while it holds
-its batch; once a restart returns the batch to the queue, it has failed. The result
+its batch; once a restart returns the batch to the queue, it has failed, as has a call
+recorded as `failed`. The result
 version of an accepted call is the last version of its transaction, including the
 rule changes that follow its operations, as returned by `applyObserverResponse`.
 
@@ -750,6 +822,5 @@ Some parts of the contract have no source yet and stay empty: view rules, the vi
 mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
 and outputs and criterion snapshots (E.7b, E.7c); usage records and stage usage
 (E.8, U.1); the CLI version, model, usage and error of observer calls (F.8, F.9).
-The ingest transaction does not record `pending` interpretation rows yet (ADR-0005),
-so the queue counts only facts that have been in a call or were made `pending` by a
-session transfer.
+The queue of a run counts every fact of it that is `pending` or in a call, since the
+ingest transaction queues each new fact (Observer queue).

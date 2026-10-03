@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { observerOutputJsonSchema, ObserverOutput } from '@aang/contract'
+import { ChatOutput, observerOutputJsonSchema, ObserverOutput } from '@aang/contract'
 import { fakeCliExitCodes, installFakeCodex, type CodexScenario, type FakeCli } from '@aang/testkit'
 import { describe, expect, test } from 'vitest'
 import { z } from 'zod'
@@ -15,7 +15,16 @@ import {
   type Exit,
   type Workspace,
 } from './fake-process.js'
-import { briefTemplate, factIds, modelVersion, observerPrompt, systemPrompt } from './observer-batch.js'
+import {
+  briefTemplate,
+  chatInput,
+  factIds,
+  modelVersion,
+  observerPrompt,
+  scenarioIds,
+  scenarioInput,
+  systemPrompt,
+} from './observer-batch.js'
 import { assistantMessage, startResponsesStub, stubUsage } from './responses-stub.js'
 import { keysOf, readSample, readSampleLines } from './samples.js'
 
@@ -255,6 +264,7 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
         prompt,
         systemPrompt,
         schema: observerOutputJsonSchema(),
+        purpose: 'observer',
         reply: 0,
         violations: [],
       },
@@ -357,6 +367,35 @@ describe('fake codex answers like codex exec --json in the observer profile (F.4
     expect(exits.slice(1).map((exit) => ObserverOutput.parse(JSON.parse(agentText(exit.events))).ops[0])).toEqual(
       ['Первый', 'Второй', 'Второй'].map((text) => expect.objectContaining({ text }) as unknown),
     )
+  })
+})
+
+describe('fake codex answers observer and chat calls from scenario scripts (T.6)', () => {
+  test('scripts answer chat and observer calls from separate reply queues', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, {
+      replies: [{ kind: 'script', script: 'claimed-done' }],
+      chatReplies: [{ kind: 'script', script: 'chat-collapse-reviewers' }],
+    })
+
+    const collapsed = await observer.call(observer.profile, observerPrompt(chatInput))
+    const observed = await observer.call(observer.profile, observerPrompt(scenarioInput))
+
+    expect([collapsed.code, observed.code]).toEqual([0, 0])
+    expect(ChatOutput.parse(JSON.parse(agentText(collapsed.events))).view_rule).toMatchObject({
+      selector: { kind: 'agent_type', agent_type: 'code-reviewer' },
+    })
+    expect(ObserverOutput.parse(JSON.parse(agentText(observed.events))).ops).toContainEqual(
+      expect.objectContaining({ op: 'stage.state', execution: { state: 'done' }, evidence: [scenarioIds.claim] }),
+    )
+    expect(
+      observer.fake
+        .calls()
+        .filter((call) => call.command === 'exec')
+        .map((call) => [call.purpose, call.reply]),
+    ).toEqual([
+      ['chat', 0],
+      ['observer', 0],
+    ])
   })
 })
 

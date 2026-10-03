@@ -149,7 +149,7 @@ test.for([
     expect(result.status).toBe('rejected')
     expect(store.model.head(runA)).toBe(2)
     expect(store.model.entities(runA)).toEqual(before)
-    expect(store.interpretations.ofRun(runA).map(({ status }) => status)).toEqual([
+    expect(store.interpretations.ofCall(callId).map(({ status }) => status)).toEqual([
       'pending',
       'pending',
       'pending',
