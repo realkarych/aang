@@ -1,4 +1,4 @@
-import type { EpochNs, RunId, SnapshotTrigger } from '@aang/contract'
+import type { EpochNs, RunId, SessionId, SnapshotTrigger } from '@aang/contract'
 import type { Store, Transaction } from '@aang/store'
 import type { ContractCatalog } from '../checks/catalog.js'
 import { type RunChecks, storedRunChecks } from '../checks/history.js'
@@ -12,7 +12,12 @@ import { isVersioned, reconcileCriteria, releaseCriteria } from './status.js'
 import { createTreeWatch, maskTargets } from './watch.js'
 
 export interface CriteriaMonitor {
-  readonly reconcile: (transaction: Transaction, runs: readonly RunChecks[], at: EpochNs, moved: boolean) => CriterionCheck[]
+  readonly reconcile: (
+    transaction: Transaction,
+    runs: readonly RunChecks[],
+    at: EpochNs,
+    moved: ReadonlySet<SessionId>,
+  ) => CriterionCheck[]
   readonly prepare: (checks: readonly CriterionCheck[]) => Promise<void>
   readonly settle: (requests: readonly SnapshotRequest[], checks: readonly CriterionCheck[]) => Promise<void>
   readonly recheck: (runs: ReadonlySet<RunId> | null, trigger: SnapshotTrigger) => Promise<void>
@@ -117,8 +122,8 @@ export const createCriteriaMonitor = ({
 
   return {
     reconcile: (transaction, runs, at, moved) => {
-      const latest = latestChecks(transaction, runs)
-      reconcileChecks(transaction, latest, moved)
+      const latest = latestChecks(transaction, runs, moved)
+      reconcileChecks(transaction, latest, moved.size > 0)
       releaseCriteria(transaction, runs, at)
       return latest
     },
@@ -129,7 +134,11 @@ export const createCriteriaMonitor = ({
         return
       }
       const { requests, checks } = store.transaction((transaction) => {
-        const selected = latestChecks(transaction, storedRunChecks(transaction, runs ?? versionedRuns(transaction), catalog))
+        const selected = latestChecks(
+          transaction,
+          storedRunChecks(transaction, runs ?? versionedRuns(transaction), catalog),
+          new Set(),
+        )
         return { requests: versionedSnapshots(transaction, selected, trigger), checks: selected }
       })
       await settle(requests, checks)

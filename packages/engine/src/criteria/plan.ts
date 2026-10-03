@@ -1,4 +1,4 @@
-import type { Fact, FactId, FactOf, RunId, SessionKey } from '@aang/contract'
+import type { ActionId, Fact, FactId, FactOf, RunId, SessionId, SessionKey } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import type { Contract } from '../checks/catalog.js'
 import { checkDirectory, type CheckEntry, type RunChecks } from '../checks/history.js'
@@ -16,6 +16,7 @@ export interface CriterionCheck {
   readonly result: CheckResult
   readonly directory: string | null
   readonly commit: ReportedCommit | null
+  readonly carried: readonly ActionId[]
 }
 
 const objectName = /^[0-9a-f]{7,64}$/
@@ -43,6 +44,7 @@ const criterionCheck = (
   { run, root }: RunChecks,
   contract: Contract,
   entry: CheckEntry,
+  carried: readonly ActionId[],
 ): CriterionCheck => {
   const ends = entry.facts.filter(isEnd)
   const { commitPattern } = contract
@@ -53,13 +55,19 @@ const criterionCheck = (
     result: entry.result,
     directory: checkDirectory(transaction, entry, root),
     commit: entry.result.passed && commitPattern !== null ? reportedCommit(commitPattern, ends) : null,
+    carried,
   }
 }
 
-export const latestChecks = (transaction: Transaction, runs: readonly RunChecks[]): CriterionCheck[] =>
+export const latestChecks = (
+  transaction: Transaction,
+  runs: readonly RunChecks[],
+  moved: ReadonlySet<SessionId>,
+): CriterionCheck[] =>
   runs.flatMap((checks) =>
     checks.contracts.flatMap(({ contract, checks: entries }) => {
       const latest = entries.at(-1)
-      return latest === undefined ? [] : [criterionCheck(transaction, checks, contract, latest)]
+      const carried = entries.flatMap(({ action }) => (moved.has(action.session) ? [action.id] : []))
+      return latest === undefined ? [] : [criterionCheck(transaction, checks, contract, latest, carried)]
     }),
   )

@@ -261,27 +261,27 @@ in the run they were taken for, and an evaluation reads only the snapshots of it
 run, so a binding never confirms on snapshots of another run. A passing check that a
 binding moves or brings forward gives `passed_unversioned` without `checked_commit`
 and without the note, with a `session.move` rule change as its reason, and keeps it
-for good:
+for good. The criterion keeps these checks in `carried_checks`, by the id of the
+check action, and the binding transaction adds them with a `session.move` change of
+the criterion even when another check still covers it:
 
-- a carried check is a check of a session that moved into its run after the check
-  ended: its first settled result is not later, by raw record order, than the fact
-  that the latest membership change of the session in this run cites. When a reparse
-  has removed that fact, every check of the session in the run counts as carried
-  until the session moves again;
-- a check brought forward is an earlier check of the run the session left that
-  becomes the latest check of a criterion in the binding transaction, since a later
-  check of the moved session covered it. The criterion journal keeps it: a check
-  that any `session.move` change of the criterion has cited as `passed_unversioned`
-  never confirms again;
-- the status holds whichever check covers the criterion in between and however the
-  order of checks changes later: a transcript read after a check of another session
-  can put the moved check in front again, a detach can uncover it, and turn end
-  snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it the same
-  way. Only a check that is neither carried nor brought forward confirms the
-  criterion again;
-- a check that the moved session runs after the binding, so that its result is
-  recorded after the cited fact, is not affected, since every snapshot after it
-  belongs to the run it joined.
+- a carried check is any check of a moved session that has a result in the run when
+  the binding moves the session, whether or not it is the latest check of the
+  criterion;
+- a check brought forward is the latest check of a criterion in the binding
+  transaction that the criterion did not cite before, such as an earlier check of
+  the run the session left that a later check of the moved session covered;
+- a check is carried for good once any state of the criterion in its journal has
+  listed it, including a state before the criterion was removed and created again.
+  The status holds whichever check covers the criterion in between and however the
+  results of the action change later: a transcript read after a check of another
+  session can put the moved check in front again, a detach can uncover it, a reparse
+  can remove its first result while a later result of the same action stays, and
+  turn end snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it
+  the same way. Only a check of another action confirms the criterion again;
+- a check that the moved session runs after the binding is not affected, since its
+  action has no result at the binding and every snapshot after it belongs to the run
+  it joined.
 
 `engine.reparse()` evaluates the criteria of the runs it rebuilds in its transaction
 the same way.
@@ -641,10 +641,7 @@ A transfer (`session.move` rule changes) is journaled in both runs in the
 binding's transaction:
 
 - the session membership and the spawn links of the session's agents leave the
-  source run and enter the target run. The change that brings the membership in
-  cites the last fact of the session (by raw record order) known at the transfer,
-  or nothing when the session has no facts yet; contract criteria use it to tell
-  the checks the session carried from the checks it runs later;
+  source run and enter the target run;
 - the rule attention items of the session's questions leave the source run and
   enter the target run with their state, without a stage and without the marks
   of the source run's observer (likely resolution, priority), so a question is

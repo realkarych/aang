@@ -3,7 +3,6 @@ import type {
   Basis,
   EpochNs,
   Evidence,
-  Fact,
   Link,
   ModelEntityRef,
   RunId,
@@ -97,12 +96,6 @@ const stageMarks = (
   })
 }
 
-const lastOf = (facts: readonly Fact[]): Evidence =>
-  facts
-    .toSorted((left, right) => left.seq - right.seq || compareText(left.id, right.id))
-    .slice(-1)
-    .map(({ id }) => id)
-
 export const transferSession = (transaction: Transaction, { session, to, at }: Transfer): RunId | null => {
   const from = sessionRun(transaction, session.key)
   if (from === to) {
@@ -124,7 +117,6 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
   const membership: ModelEntityRef = { kind: 'session_membership', id: session.id }
   const member = transaction.model.entity(from, membership) !== null
   const attention = ruleAttentionOf(transaction, from, session.id)
-  const facts = transaction.facts.ofSession(session.key)
   const leaving = [
     ...(member ? [moveOut(membership)] : []),
     ...spawns.map((link) => moveOut({ kind: 'link', id: link.id })),
@@ -139,7 +131,7 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
     author: 'rule',
     at,
     changes: [
-      moveIn({ kind: 'session_membership', value: { session: session.id, run: to } }, lastOf(facts)),
+      moveIn({ kind: 'session_membership', value: { session: session.id, run: to } }),
       ...spawns.map((link) => moveIn({ kind: 'link', value: { ...link, run: to } })),
       ...attention.map((item) =>
         moveIn(
@@ -154,6 +146,7 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
     ],
   })
   refreshForksOf(transaction, from, at)
+  const facts = transaction.facts.ofSession(session.key)
   const ids = facts.map(({ id }) => id)
   endObserverCalls(transaction, {
     run: from,

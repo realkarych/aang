@@ -1,5 +1,6 @@
 import { isDeepStrictEqual } from 'node:util'
 import {
+  type ActionId,
   type Basis,
   type Criterion,
   CriterionId,
@@ -8,8 +9,6 @@ import {
   type Fact,
   type FactId,
   type FactOf,
-  type ModelChange,
-  type ModelEntityRef,
   ModelVersion,
   type RunId,
 } from '@aang/contract'
@@ -65,34 +64,17 @@ const sameMasks = (left: readonly string[], right: readonly string[]): boolean =
 const cites = (criterion: Criterion | null, { result }: CriterionCheck): boolean =>
   criterion !== null && result.evidence.some((fact) => criterion.status.evidence.includes(fact))
 
-const changesOf = (transaction: Transaction, run: RunId, target: ModelEntityRef): ModelChange[] =>
-  transaction.model.entityChanges(run, target, ModelVersion.parse(0))
-
-const carriedBySession = (transaction: Transaction, { run, result }: CriterionCheck): boolean => {
-  const last = changesOf(transaction, run, { kind: 'session_membership', id: result.action.session }).at(-1)
-  return (
-    last?.op === 'session.move' &&
-    last.evidence.some((id) => {
-      const anchor = transaction.facts.get(id)
-      return anchor === null || result.ended <= anchor.seq
-    })
-  )
-}
-
-const broughtByMove = (transaction: Transaction, check: CriterionCheck): boolean =>
-  changesOf(transaction, check.run, { kind: 'criterion', id: criterionId(check.run, check.contract.name) }).some(
-    ({ op, author, after }) =>
-      op === 'session.move' &&
-      author === 'rule' &&
-      after?.kind === 'criterion' &&
-      after.value.status.value === 'passed_unversioned' &&
-      cites(after.value, check),
+const journaledCarried = (transaction: Transaction, { run, contract }: CriterionCheck): Set<ActionId> =>
+  new Set(
+    transaction.model
+      .entityChanges(run, { kind: 'criterion', id: criterionId(run, contract.name) }, ModelVersion.parse(0))
+      .flatMap(({ after }) => (after?.kind === 'criterion' ? after.value.carried_checks : [])),
   )
 
-const unversionedByMove = (transaction: Transaction, check: CriterionCheck, moved: boolean): boolean =>
-  carriedBySession(transaction, check) ||
-  broughtByMove(transaction, check) ||
-  (moved && !cites(storedCriterion(transaction, check), check))
+const movedChecks = (check: CriterionCheck, stored: Criterion | null, moved: boolean): ActionId[] => [
+  ...check.carried,
+  ...(moved && !cites(stored, check) ? [check.result.action.id] : []),
+]
 
 const isSnapshot = (fact: Fact | null): fact is Seen => fact?.kind === 'git_snapshot'
 
@@ -178,12 +160,12 @@ const verifiedCommit = (transaction: Transaction, check: CriterionCheck, git: Ch
   return name === null || check.commit === null ? null : { name, evidence: check.commit.evidence }
 }
 
-const verdictOf = (transaction: Transaction, { check, git }: ResolvedCheck, moved: boolean): Verdict => {
+const verdictOf = (transaction: Transaction, { check, git }: ResolvedCheck, carried: readonly ActionId[]): Verdict => {
   const { result } = check
   if (!result.passed) {
     return { op: 'criterion.status', status: 'failed', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
   }
-  if (unversionedByMove(transaction, check, moved)) {
+  if (carried.includes(result.action.id)) {
     return { op: 'session.move', status: 'passed_unversioned', evidence: result.evidence, checkedCommit: null, cleanTreeCommit: null, at: result.at }
   }
   const seen = snapshotsOf(transaction, check, git)
@@ -193,7 +175,7 @@ const verdictOf = (transaction: Transaction, { check, git }: ResolvedCheck, move
     : versionedVerdict(check, commit, seen.filter(({ seq }) => seq > result.ended))
 }
 
-const criterionOf = (check: CriterionCheck, verdict: Verdict, stored: Criterion | null): Criterion => ({
+const criterionOf = (check: CriterionCheck, verdict: Verdict, stored: Criterion | null, carried: readonly ActionId[]): Criterion => ({
   id: criterionId(check.run, check.contract.name),
   run: check.run,
   stage: stored?.stage ?? null,
@@ -203,16 +185,27 @@ const criterionOf = (check: CriterionCheck, verdict: Verdict, stored: Criterion 
   status: { value: verdict.status, basis: observed, evidence: [...new Set(verdict.evidence)].sort() },
   checked_commit: verdict.checkedCommit,
   clean_tree_commit: verdict.cleanTreeCommit,
+  carried_checks: [...carried],
 })
 
-const updateOf = (transaction: Transaction, resolved: ResolvedCheck, verdict: Verdict): Update | null => {
-  const stored = storedCriterion(transaction, resolved.check)
-  const criterion = criterionOf(resolved.check, verdict, stored)
+const updateOf = (
+  check: CriterionCheck,
+  verdict: Verdict,
+  stored: Criterion | null,
+  carried: readonly ActionId[],
+  carriedNow: boolean,
+): Update | null => {
+  const criterion = criterionOf(check, verdict, stored, carried)
   if (stored !== null && isDeepStrictEqual(stored, criterion)) {
     return null
   }
   return {
-    change: { op: verdict.op, put: { kind: 'criterion', value: criterion }, basis: observed, evidence: criterion.status.evidence },
+    change: {
+      op: carriedNow ? 'session.move' : verdict.op,
+      put: { kind: 'criterion', value: criterion },
+      basis: observed,
+      evidence: criterion.status.evidence,
+    },
     at: verdict.at,
   }
 }
@@ -240,8 +233,12 @@ export const reconcileCriteria = (
   const versioned = new Map<RunId, ResolvedCheck[]>()
   for (const entry of resolved) {
     const { run } = entry.check
-    const verdict = verdictOf(transaction, entry, moved)
-    const update = updateOf(transaction, entry, verdict)
+    const stored = storedCriterion(transaction, entry.check)
+    const known = journaledCarried(transaction, entry.check)
+    const added = movedChecks(entry.check, stored, moved).filter((action) => !known.has(action))
+    const carried = [...new Set([...known, ...added])].sort()
+    const verdict = verdictOf(transaction, entry, carried)
+    const update = updateOf(entry.check, verdict, stored, carried, added.length > 0)
     updates.set(run, [...(updates.get(run) ?? []), ...(update === null ? [] : [update])])
     versioned.set(run, [...(versioned.get(run) ?? []), ...(verdict.checkedCommit === null ? [] : [entry])])
   }

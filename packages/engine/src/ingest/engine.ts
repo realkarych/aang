@@ -579,7 +579,7 @@ export const createEngine = ({
       const checked = changedRunChecks(transaction, changedSessions.values(), contracts)
       refreshChecks(transaction, checked, instant)
       projectVersions(transaction, changedActions.values())
-      const latest = criteria.reconcile(transaction, checked, instant, false)
+      const latest = criteria.reconcile(transaction, checked, instant, new Set())
       const ended = new Set([...endedSessions.values()].map((key) => sessionRun(transaction, key)))
       const snapshots = distinctRequests([
         ...versionedSnapshots(transaction, latest.filter(({ run }) => ended.has(run)), 'turn_end'),
@@ -672,7 +672,7 @@ export const createEngine = ({
     transaction: Transaction,
     runs: readonly RunChecks[],
     at: EpochNsType,
-    moved: boolean,
+    moved: ReadonlySet<SessionId>,
   ): CriterionCheck[] => {
     const distinct = [...new Map(runs.map((checks) => [checks.run, checks])).values()]
     refreshChecks(transaction, distinct, at)
@@ -697,7 +697,8 @@ export const createEngine = ({
           ...changedRunChecks(transaction, moved, contracts),
           ...storedRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts),
         ]
-        return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant, true) }
+        const sessions = new Set(moved.map((key) => objectId(key)))
+        return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant, sessions) }
       }),
     )
     quiet = watch
@@ -720,7 +721,7 @@ export const createEngine = ({
           const watch = new Map(quiet)
           let latest: CriterionCheck[] = []
           const result = reparse(store, adapters, watch, now(), quietAfterMs, (transaction, sessions, at) => {
-            latest = refreshRuns(transaction, changedRunChecks(transaction, sessions, contracts), at, false)
+            latest = refreshRuns(transaction, changedRunChecks(transaction, sessions, contracts), at, new Set())
           })
           return { result, watch, latest }
         })

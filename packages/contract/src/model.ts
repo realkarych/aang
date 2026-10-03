@@ -104,6 +104,7 @@ export const Criterion = z.strictObject({
   status: assessed(CriterionStatus),
   checked_commit: text.nullable(),
   clean_tree_commit: text.nullable(),
+  carried_checks: z.array(ActionId),
 })
 export type Criterion = z.infer<typeof Criterion>
 

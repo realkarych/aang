@@ -3,6 +3,7 @@ import { once } from 'node:events'
 import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { claudeAdapter } from '@aang/adapter-claude'
 import {
   CheckContract,
   type Criterion,
@@ -18,8 +19,8 @@ import { objectId, runId } from '@aang/contract/ids'
 import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test, vi } from 'vitest'
-import { anotherVersion, draftOf } from './another-normalizer.js'
-import { hookBatch, type JsonlFile, jsonlFile } from './batches.js'
+import { anotherVersion } from './another-normalizer.js'
+import { hookBatch, hookRecord, type JsonlFile, jsonlFile } from './batches.js'
 import {
   failedTool,
   passed,
@@ -180,6 +181,7 @@ test('a commit reported by a check in an isolated worktree confirms the contract
     status: { value: 'confirmed', basis: observed, evidence: callFacts(store, 'call-verify') },
     checked_commit: commit,
     clean_tree_commit: null,
+    carried_checks: [],
   })
   expect(journalOf(store, source)).toEqual([{ op: 'criterion.status', author: 'rule', status: 'confirmed' }])
 })
@@ -761,6 +763,7 @@ test.for(['before', 'after'] as const)(
     const moved = [
       ...(order === 'before' ? [['session.move', 'passed_unversioned']] : []),
       ['criterion.status', 'confirmed'],
+      ...(order === 'after' ? [['session.move', 'confirmed']] : []),
       ['session.move', 'passed_unversioned'],
     ]
     expect(statusesOf(store, target)).toEqual(moved)
@@ -778,46 +781,67 @@ test.for(['before', 'after'] as const)(
   },
 )
 
-test('when a reparse removes the last fact a session had at attach, every check of the session in the run stays passed_unversioned', async ({
+test('a check carried behind a later check stays passed_unversioned when a reparse removes its first result and a later result of the same action puts it in front', async ({
   onTestFinished,
 }) => {
-  const { store, engine, repository } = await setup(onTestFinished)
-  const root = { session: 'anchor-root-session', cwd: repository.path }
-  const moved = { session: 'anchor-moved-session', cwd: repository.path }
-  await engine.ingest(hookBatch(started(root), started(moved)))
-  const lines = [JSON.stringify({ type: 'future_record', sessionId: moved.session, cwd: moved.cwd })]
+  const { store, engine, repository, second, head } = await twoWorktrees(onTestFinished)
+  const target = { session: 'hidden-target-session', cwd: second }
+  const carried = { session: 'hidden-carried-session', cwd: repository.path }
+  await engine.ingest(hookBatch(started(target), started(carried), preTool(carried, 'carried-verify', 10)))
+  const lines = [JSON.stringify({ type: 'future_record', sessionId: carried.session, cwd: carried.cwd })]
   const future = jsonlFile({ runtime: 'claude', path: join(repository.path, '..', 'future.jsonl'), lines, ino: 42n })
   await engine.ingest(future.batch(1, 1))
   const record = recordsOf(store).at(-1)
-  const start = factsOf(store).find(
-    ({ kind, entity_key }) => kind === 'session_start' && entity_key.kind === 'session' && entity_key.session === moved.session,
-  )
-  if (record === undefined || start === undefined) {
-    throw new Error('the moved session must have a start and an unrecognised record')
+  const parsed = claudeAdapter.parse(hookRecord(postTool(carried, 'carried-verify', passed(head), 11)))
+  if (record === undefined || parsed.parse_state !== 'parsed') {
+    throw new Error('the carried session must have an unrecognised record and a parsed result')
   }
   store.transaction((transaction) => {
-    transaction.facts.replace(record.seq, anotherVersion, [draftOf(start)])
+    transaction.facts.replace(record.seq, anotherVersion, parsed.facts.filter(({ kind }) => kind === 'action_end'))
     transaction.rawRecords.setParse(record.seq, 'parsed', record.observed_at)
   })
-  const [anchor] = store.facts.ofRecord(record.seq)
-  const session = objectId(sessionKey('claude', moved.session))
-  await engine.bind({ kind: 'attach', session, run: runOf(root) })
-  expect(
-    store.model.entityChanges(runOf(root), { kind: 'session_membership', id: session }, ModelVersion.parse(0)).at(-1)?.evidence,
-  ).toEqual([anchor?.id])
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 20\n' })
+  await engine.ingest(hookBatch(stopped(carried, 1, 12)))
+  expect(criterionOf(store, carried)).toMatchObject({ status: { value: 'stale' }, checked_commit: head })
+
+  await engine.ingest(hookBatch(preTool(target, 'target-verify', 30), postTool(target, 'target-verify', passed(head), 31)))
+  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', carried.session)), run: runOf(target) })
+  const action = objectId({ kind: 'action', runtime: 'claude', session: carried.session, call: 'carried-verify' })
+  const confirmed = {
+    status: { value: 'confirmed', evidence: callFacts(store, 'target-verify') },
+    checked_commit: head,
+    carried_checks: [action],
+  }
+  expect(criterionOf(store, target)).toMatchObject(confirmed)
+  await engine.ingest(hookBatch(postTool(carried, 'carried-verify', passed(head), 40)))
+  expect(criterionOf(store, target)).toMatchObject(confirmed)
 
   expect(await engine.reparse()).toMatchObject({ facts_missing: 1 })
   expect(store.facts.ofRecord(record.seq)).toEqual([])
-  const commit = await isolatedCheckout(repository)
-  await engine.ingest(hookBatch(preTool(moved, 'after-verify', 20), postTool(moved, 'after-verify', passed(commit), 21)))
-  expect(criterionOf(store, root)).toMatchObject({
-    status: { value: 'passed_unversioned', evidence: callFacts(store, 'after-verify') },
+  const unversioned = {
+    status: { value: 'passed_unversioned', evidence: callFacts(store, 'carried-verify') },
     checked_commit: null,
-  })
-  expect(statusesOf(store, root)).toEqual([['session.move', 'passed_unversioned']])
+    clean_tree_commit: null,
+    carried_checks: [action],
+  }
+  expect(criterionOf(store, target)).toMatchObject(unversioned)
+  expect(await git(repository.path, 'status', '--porcelain', '--', 'src')).toBe('M src/app.ts')
+  await writeFiles(repository.path, { 'src/app.ts': committed['src/app.ts'] })
+  await engine.ingest(hookBatch(stopped(target, 1, 45)))
+  await engine.refreshCriteria()
+  expect(criterionOf(store, target)).toMatchObject(unversioned)
+  expect(statusesOf(store, target)).toEqual([
+    ['criterion.status', 'confirmed'],
+    ['session.move', 'confirmed'],
+    ['session.move', 'passed_unversioned'],
+  ])
 
-  await engine.ingest(hookBatch(preTool(root, 'root-verify', 30), postTool(root, 'root-verify', passed(commit), 31)))
-  expect(criterionOf(store, root)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: commit })
+  await engine.ingest(hookBatch(preTool(target, 'target-repeat', 50), postTool(target, 'target-repeat', passed(head), 51)))
+  expect(criterionOf(store, target)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(store, 'target-repeat') },
+    checked_commit: head,
+    carried_checks: [action],
+  })
 })
 
 test('a check of the run uncovered by detach stays passed_unversioned until the next check of the run', async ({
