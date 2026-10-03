@@ -308,7 +308,9 @@ binding's transaction:
   ended as `rejected` with a `scope` reason: the rest of its batch returns to
   `pending` in the source run, and a late response to it is refused, so neither
   a rejection nor a restart returns the moved facts to the source run, and a
-  session moved back gets its facts `pending` again;
+  session moved back gets its facts `pending` again. A call that already ended
+  as `needs_requested` keeps its verdict: its batch returns to `pending` the same
+  way, and its follow-up is refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and

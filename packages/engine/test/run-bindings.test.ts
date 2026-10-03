@@ -16,7 +16,14 @@ import {
   StageId,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, applyObserverResponse, beginObserverCall, BindingError, type Engine } from '@aang/engine'
+import {
+  applyChangeSet,
+  applyObserverResponse,
+  beginObserverCall,
+  beginObserverFollowUp,
+  BindingError,
+  type Engine,
+} from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { jsonlFile } from './batches.js'
@@ -391,6 +398,39 @@ describe('moving a session during an observer call', () => {
     expect([queueOf(reopened, firstRun), queueOf(reopened, secondRun)]).toEqual(queues)
     const retry = beginCall(reopened, 'call-after-move', secondRun, [moving])
     expect(reopened.interpretations.ofCall(retry).map(({ run, fact }) => [run, fact])).toEqual([[secondRun, moving.id]])
+  })
+
+  test('ends an exchange that waits for its follow-up and refuses the follow-up', async () => {
+    const { store, engine } = await started([
+      transcript('first', 1n),
+      transcript('second', 2n),
+      transcript('third', 3n),
+    ])
+    const [firstRun, secondRun] = [runOf('first'), runOf('second')]
+    await engine.bind({ kind: 'attach', session: sessionOf('third'), run: firstRun })
+    const [own, moving] = [firstFactOf(store, 'first'), firstFactOf(store, 'third')]
+    const call = beginCall(store, 'call-before-move', firstRun, [own, moving])
+    const needs = [{ kind: 'action', action: bashOf('first') }]
+    const output = { base_version: store.model.head(firstRun), ops: [], needs }
+    const requested = store.transaction((transaction) =>
+      applyObserverResponse(transaction, { call, output, at: callAt }),
+    )
+    expect(requested.status).toBe('needs_requested')
+
+    await engine.bind({ kind: 'attach', session: sessionOf('third'), run: secondRun })
+
+    expect(store.observerCalls.get(call)).toMatchObject({ verdict: 'needs_requested', finished_at: callAt })
+    const followUp = ObserverCallId.parse('call-follow-up')
+    expect(() =>
+      store.transaction((transaction) =>
+        beginObserverFollowUp(transaction, { previous: call, id: followUp, at: callAt, crossVendor: false }),
+      ),
+    ).toThrow(`fact ${moving.id} is not in run ${firstRun}`)
+    expect(store.observerCalls.get(followUp)).toBeNull()
+    expect([queueOf(store, firstRun), queueOf(store, secondRun)]).toEqual([
+      [{ fact: own.id, status: 'pending', attempts: 1 }],
+      factsOfSession(store, 'third').map((fact) => ({ fact, status: 'pending', attempts: 0 })),
+    ])
   })
 
   test('returns the facts of a session moved back to the source run to its queue without the ended call', async () => {

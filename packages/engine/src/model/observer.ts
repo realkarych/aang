@@ -119,6 +119,9 @@ export const endObserverCalls = (
   )
   for (const call of calls) {
     transaction.interpretations.settle(call, 'pending')
+    if (transaction.observerCalls.get(call)?.finished_at !== null) {
+      continue
+    }
     transaction.observerCalls.finish({
       id: call,
       output: null,
