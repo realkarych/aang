@@ -1,6 +1,6 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@aang/testkit'
@@ -16,6 +16,8 @@ interface Connected {
   readonly workspace: string
   readonly claude: FakeCli<ClaudeScenario>
   readonly codex: FakeCli<CodexScenario>
+  readonly codexHome: string
+  readonly defaultCodexHome: string
   readonly pluginHooks: string
   readonly codexHooks: string
   readonly hookBinary: string
@@ -51,9 +53,11 @@ const connect = async (
   await mkdir(workspace)
   const claude = installFakeClaude(join(outside, 'fakes'))
   const codex = installFakeCodex(join(outside, 'fakes'))
+  const codexHome = join(outside, 'codex')
   const sandbox = await createSandbox(onTestFinished, {
     cli: { claude: claude.command, codex: codex.command },
     watch: { roots: [{ path: workspace }] },
+    runtimes: { codex: { home: codexHome } },
     ...config,
   })
   return {
@@ -61,8 +65,10 @@ const connect = async (
     workspace,
     claude,
     codex,
+    codexHome,
+    defaultCodexHome: join(sandbox.env.HOME ?? '', '.codex'),
     pluginHooks: join(sandbox.aangHome, 'claude-plugin', 'hooks', 'hooks.json'),
-    codexHooks: join(sandbox.env.CODEX_HOME ?? '', 'hooks.json'),
+    codexHooks: join(codexHome, 'hooks.json'),
     hookBinary: join(sandbox.aangHome, 'bin', 'aang-hook'),
   }
 }
@@ -91,13 +97,24 @@ const runs = async ({ sandbox }: Connected): Promise<RunListing['runs']> => {
 const pluginCalls = (claude: FakeCli<ClaudeScenario>): string[][] =>
   claude.calls().filter((call) => call.command === 'plugin').map((call) => call.argv)
 
+const profileFiles = async (directory: string): Promise<Record<string, string> | null> => {
+  const names = await readdir(directory).catch(() => null)
+  return names === null
+    ? null
+    : Object.fromEntries(
+        await Promise.all(
+          names.map(async (name): Promise<[string, string]> => [name, await readFile(join(directory, name), 'utf8')]),
+        ),
+      )
+}
+
 describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code and Codex to aang', () => {
   test('install registers the plugin and the Codex hooks, and their commands deliver events to the running daemon', async ({
     expect,
     onTestFinished,
   }) => {
     const connected = await connect(onTestFinished)
-    const { sandbox, workspace, claude, codex, pluginHooks, codexHooks, hookBinary } = connected
+    const { sandbox, workspace, claude, codex, codexHome, pluginHooks, codexHooks, hookBinary } = connected
     const pluginDirectory = join(sandbox.aangHome, 'claude-plugin')
     expect((await sandbox.aang('start')).code).toBe(0)
 
@@ -121,7 +138,7 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
     ])
     const appServers = codex.calls().filter((call) => call.command === 'app_server')
     expect(appServers).toHaveLength(3)
-    expect(appServers.map((call) => call.env.CODEX_HOME)).toEqual(Array(3).fill(sandbox.env.CODEX_HOME))
+    expect(appServers.map((call) => call.env.CODEX_HOME)).toEqual(Array(3).fill(codexHome))
 
     const [pluginHandler] = handlersOf(await readHooks(pluginHooks), 'SessionStart')
     expect(pluginHandler).toEqual({
@@ -163,9 +180,9 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
     expect,
     onTestFinished,
   }) => {
-    const { sandbox, claude, codex, codexHooks } = await connect(onTestFinished)
+    const { sandbox, claude, codex, codexHome, codexHooks } = await connect(onTestFinished)
     const foreign = { hooks: { Stop: [{ hooks: [{ type: 'command', command: 'notify-done', timeout: 5 }] }] } }
-    await mkdir(sandbox.env.CODEX_HOME ?? '', { recursive: true })
+    await mkdir(codexHome, { recursive: true })
     await writeFile(codexHooks, JSON.stringify(foreign))
 
     const first = await sandbox.aang('install', '--codex')
@@ -202,6 +219,36 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
       'codex: aang hooks are not listed by codex app-server after the installation, so Codex does not load them\n',
     )
   })
+
+  test.for([
+    { via: 'CODEX_HOME', config: { runtimes: { codex: { home: null } } }, linked: false, existing: false },
+    { via: 'a symlink in the aang config', config: {}, linked: true, existing: true },
+    { via: 'a dangling symlink in the aang config', config: {}, linked: true, existing: false },
+  ])(
+    'install refuses the default Codex profile reached through $via before starting codex app-server and still installs Claude',
+    async ({ config, linked, existing }, { expect, onTestFinished }) => {
+      const { sandbox, claude, codex, codexHome, defaultCodexHome } = await connect(onTestFinished, config)
+      if (existing) {
+        await mkdir(defaultCodexHome)
+        await writeFile(join(defaultCodexHome, 'hooks.json'), JSON.stringify({ hooks: { Stop: [] } }))
+      }
+      if (linked) {
+        await symlink(defaultCodexHome, codexHome)
+      }
+      const before = await profileFiles(defaultCodexHome)
+
+      const installed = await sandbox.aang('install')
+
+      expect(installed.code).toBe(1)
+      expect(installed.stderr).toBe(
+        `aang install: codex: installing hooks into the default Codex profile ${linked ? codexHome : defaultCodexHome} is not enabled yet: the effects of codex app-server on it are not verified\n`,
+      )
+      expect(installed.stdout).toContain('claude: plugin aang@aang is enabled\n')
+      expect(pluginCalls(claude)).toHaveLength(3)
+      expect(codex.calls()).toEqual([])
+      expect(await profileFiles(defaultCodexHome)).toEqual(before)
+    },
+  )
 
   test('install --claude touches only the plugin', async ({ expect, onTestFinished }) => {
     const { sandbox, claude, codex, codexHooks } = await connect(onTestFinished)
