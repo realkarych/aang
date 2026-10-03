@@ -81,6 +81,8 @@ Explicit credentials are masked as well: values of fields named like `access_tok
 
 `/root` is masked only before a dot directory such as `/root/.codex`: Codex uses `/root/...` as logical agent paths in fields, OTLP attributes, and message text, and `/root` itself identifies nobody.
 
+Machine identities are masked too. The recorder registers the host name of the recording machine (`os.hostname()`, its first DNS label and `COMPUTERNAME`, in any letter case) as `HOST_n` and the Linux `machine-id` as `MACHINE_n`, so they are replaced wherever they appear: the OTLP resource attribute `host.name`, `serverName` of the Codex app-server, the Claude session registry `pidDomain` (`win32:<host>`, `linux:<machine-id>:pid:[…]`) and free text. Verification, which runs on any machine, detects them by field: `host.name`/`hostname`, `machine_id` and the second segment of `pidDomain`; `localhost` is not an identity.
+
 Home placeholders follow the source path syntax (`/Users/USER`, `/home/USER`, `C:\Users\USER`); other identities use numbered placeholders. The mapping itself is never saved. This is the identity/path anonymization required by R.1 plus explicit credential fields, not a general detector of secrets in arbitrary prose or tool output.
 
 Verification examines every file, including files absent from the manifest, with one mapping discovered across all of them, checks anonymization and control-event references, and loads the playback sources. Publication uses a staging directory and rename; an existing scenario is refused. Temporary raw data is removed on success and ordinary failures. An external kill or machine crash can leave temporary directories for manual cleanup.

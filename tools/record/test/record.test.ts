@@ -1,5 +1,5 @@
 import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
-import { tmpdir } from 'node:os'
+import { hostname, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
@@ -262,6 +262,11 @@ test('verification detects every private input class independently of the record
     { text: String.raw`Raw JSON: {"cwd":"\/Users\/PrivatePerson\/work"}` },
     { text: String.raw`Raw JSON: {"cwd":"\u002fhome\u002fPrivatePerson\u002fwork"}` },
     { text: String.raw`Raw JSON: {"cwd":"C:\u005cUsers\u005cPrivatePerson\u005cwork"}` },
+    { attributes: [{ key: 'host.name', value: { stringValue: 'Private-Laptop.local' } }] },
+    { hostname: 'private-laptop' },
+    { machine_id: '0123456789abcdef0123456789abcdef' },
+    { pidDomain: 'linux:0123456789abcdef0123456789abcdef:pid:[4026531836]' },
+    { pidDomain: 'win32:PRIVATE-DESKTOP' },
   ]
   for (const vector of vectors) {
     await writeFile(join(directory, 'unchecked.json'), JSON.stringify(vector))
@@ -370,6 +375,41 @@ test('masks credentials, short identities and escaped home paths while keeping e
   expect(value.config).toBe('/home/USER/.codex/config.toml')
   const agent = JSON.parse(content('project/agent.json')) as { payload: { source: { subagent: { thread_spawn: { agent_path: string } } } } }
   expect(agent.payload.source.subagent.thread_spawn.agent_path).toBe('/root/pong')
+})
+
+test('masks the host name and machine id of the recording machine wherever they appear', async () => {
+  const config = await options('codex')
+  const host = hostname()
+  const label = /^([a-z][\w-]{3,})\./i.exec(host)?.[1] ?? host
+  const machine = await readFile('/etc/machine-id', 'utf8').then((text) => text.trim(), () => '')
+  const directory = await recordSession(config, async (session) => {
+    await writeFile(join(session.project, 'host.json'), JSON.stringify({
+      resource: { attributes: [{ key: 'host.name', value: { stringValue: host } }] },
+      params: { serverName: host, status: 'disabled' },
+      pidDomain: `win32:${host.toUpperCase()}`,
+      text: `Connected to ${label.toLowerCase()} on ${machine || 'no machine id'}`,
+      local: 'http://localhost:4318/v1/logs',
+    }))
+  })
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const step = playback.steps.find((item) => 'target' in item && item.target.path === 'project/host.json')
+  const content = playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
+  expect(content.toLowerCase()).not.toContain(label.toLowerCase())
+  if (machine) expect(content).not.toContain(machine)
+  const value = JSON.parse(content) as {
+    resource: { attributes: { value: { stringValue: string } }[] }
+    params: { serverName: string }
+    pidDomain: string
+    text: string
+    local: string
+  }
+  const masked = value.resource.attributes[0]?.value.stringValue
+  expect(masked).toMatch(/^HOST_\d+$/)
+  expect(value.params.serverName).toBe(masked)
+  expect(value.pidDomain).toBe(`win32:${String(masked)}`)
+  expect(value.text).toBe(`Connected to ${String(masked)} on ${machine ? 'MACHINE_1' : 'no machine id'}`)
+  expect(value.local).toBe('http://localhost:4318/v1/logs')
+  await verifyRecording(directory)
 })
 
 test('rejects a missing, directory or non-executable hook binary before running the scenario', async () => {

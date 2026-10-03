@@ -1,12 +1,12 @@
 import { constants } from 'node:fs'
-import { access, mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
-import { homedir, tmpdir } from 'node:os'
+import { access, mkdir, mkdtemp, readFile, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
+import { homedir, hostname, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
 import { writeClaudePlugin } from '@aang/hook'
 import { createProcessRunner } from '@aang/observer'
 import { leaseSpool } from '@aang/testkit'
-import { createAnonymizer } from './anonymize.js'
+import { createAnonymizer, type Identity } from './anonymize.js'
 import { createCapture, type ControlTarget } from './capture.js'
 import { isMissing } from './files.js'
 import { startOtlpReceiver } from './otlp.js'
@@ -49,6 +49,11 @@ export interface RecordContext {
   readonly work: string
   readonly run: (command: string, args: readonly string[], options?: RunOptions) => Promise<RunOutput>
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
+}
+
+const machineIdentities = async (): Promise<(readonly [Identity, string])[]> => {
+  const ids = await Promise.all(['/etc/machine-id', '/var/lib/dbus/machine-id'].map((path) => readFile(path, 'utf8').then((text) => text.trim(), () => '')))
+  return [['HOST', hostname()], ['HOST', process.env['COMPUTERNAME'] ?? ''], ...ids.map((id) => ['MACHINE', id] as const)]
 }
 
 const removeTree = (directory: string): Promise<void> => rm(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
@@ -189,7 +194,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     const files = new Map(capture.artifacts.map((artifact) => [artifact.source, artifact.content]))
     files.set('manifest.json', json(manifest))
     files.set('playback.json', json({ steps: capture.steps }))
-    const anonymizer = createAnonymizer(paths)
+    const anonymizer = createAnonymizer(paths, await machineIdentities())
     anonymizer.discover(files.values())
     await mkdir(dirname(destination), { recursive: true })
     staging = await mkdtemp(join(dirname(destination), '.record-'))

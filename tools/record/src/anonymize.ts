@@ -1,6 +1,6 @@
 type Json = null | boolean | number | string | Json[] | { [key: string]: Json }
 
-type Identity = 'ACCOUNT' | 'ORGANIZATION' | 'INSTALLATION' | 'USER'
+export type Identity = 'ACCOUNT' | 'ORGANIZATION' | 'INSTALLATION' | 'USER' | 'HOST' | 'MACHINE'
 
 const normalize = (key: string): string => key.replaceAll(/[^a-z]/gi, '').toLowerCase()
 
@@ -10,12 +10,24 @@ const identityKind = (key: string): Identity | undefined => {
   if (/(?:organization|org)(?:id|uuid)$/.test(normalized)) return 'ORGANIZATION'
   if (/(?:installation|install)(?:id|uuid)$/.test(normalized)) return 'INSTALLATION'
   if (/(?:user)(?:id|uuid)$/.test(normalized)) return 'USER'
+  if (normalized === 'hostname') return 'HOST'
+  if (/^machine(?:id|uuid)$/.test(normalized)) return 'MACHINE'
   return undefined
 }
 
 const isCredential = (key: string): boolean => /(?:token|apikey|secret|password|authorization)$/.test(normalize(key))
 
-const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|EMAIL|SECRET)_\d+$/
+const processDomain = /^[a-z\d]+:([^:\s]+)/i
+
+const hostLabel = /^([a-z][\w-]{3,})\./i
+
+const aliases = (value: string, kind: string): string[] => {
+  if (kind !== 'HOST') return [value]
+  const label = hostLabel.exec(value)?.[1]
+  return [value, ...label === undefined ? [] : [label]].flatMap((name) => [name, name.toLowerCase(), name.toUpperCase()])
+}
+
+const placeholder = /^(?:ACCOUNT|ORGANIZATION|INSTALLATION|USER|HOST|MACHINE|EMAIL|SECRET)_\d+$/
 const email = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}.-]+\.[a-z]{2,}/giu
 const slash = String.raw`(?:\\*/|\\+u002f)`
 const separators = String.raw`(?:\\+u00(?:5c|2f)|\\*/|\\+)+`
@@ -82,18 +94,22 @@ export interface Anonymizer {
   readonly text: (text: string) => string
 }
 
-export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map()): Anonymizer => {
+export const createAnonymizer = (
+  paths: ReadonlyMap<string, string> = new Map(),
+  identities: Iterable<readonly [Identity, string]> = [],
+): Anonymizer => {
   const replacements = new Map(paths)
   const secrets = new Set<string>()
   const counts = new Map<string, number>()
   let ordered: (readonly [string, string])[] | undefined
   const register = (value: string, kind: string): void => {
-    if (!value || placeholder.test(value) || replacements.has(value)) return
+    if (!value || placeholder.test(value) || replacements.has(value) || (kind === 'HOST' && /^localhost$/i.test(value))) return
     const next = (counts.get(kind) ?? 0) + 1
     counts.set(kind, next)
-    replacements.set(value, `${kind}_${String(next)}`)
+    for (const alias of aliases(value, kind)) if (!replacements.has(alias)) replacements.set(alias, `${kind}_${String(next)}`)
     ordered = undefined
   }
+  for (const [kind, value] of identities) register(value, kind)
   const registerSecret = (value: string): void => {
     const secret = value.replace(/^(?:bearer|basic|token)\s+/i, '')
     if (secret.length < 24 && (secret.length < 8 || !/\d/.test(secret))) return
@@ -102,6 +118,7 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map())
   }
   const discoverField = (key: string, value: Json | undefined): void => {
     if (typeof value !== 'string' && typeof value !== 'number') return
+    if (normalize(key) === 'piddomain' && typeof value === 'string') register(processDomain.exec(value)?.[1] ?? '', 'MACHINE')
     const kind = identityKind(key)
     if (kind) register(String(value), kind)
     else if (typeof value === 'string' && isCredential(key)) registerSecret(value)
