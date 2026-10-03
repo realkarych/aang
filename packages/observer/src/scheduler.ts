@@ -1,5 +1,14 @@
 import { randomUUID } from 'node:crypto'
-import { EpochNs, ObserverCallId, type ObserverInput, type ObserverState, type RunContext, type RunId, type Runtime, runtimes } from '@aang/contract'
+import {
+  EpochNs,
+  ObserverCallId,
+  type ObserverInput,
+  type ObserverState,
+  type RunContext,
+  type RunId,
+  type Runtime,
+  runtimes,
+} from '@aang/contract'
 import {
   applyObserverResponse,
   beginObserverFollowUp,
@@ -7,7 +16,9 @@ import {
   chargeEndedObserverCall,
   exhaustObserverCall,
   failObserverCall,
+  type ObserverResponseResult,
   recordRunContext,
+  skipObserverFollowUp,
   startObserverBatch,
 } from '@aang/engine'
 import type { PendingFact, Store, Transaction } from '@aang/store'
@@ -199,6 +210,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
   })
   const backendOf = (runtime: Runtime): Backend | undefined => configured.find((entry) => entry.runtime === runtime)
   const running = new Map<RunId, Promise<undefined>>()
+  const summarizing = new Set<RunId>()
   const checks = new Map<Runtime, Promise<undefined>>()
   const settling = new Set<Promise<unknown>>()
   const contexts = new Map<RunId, RunContext | null>()
@@ -352,7 +364,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
 
   const followUp = { crossVendor, inputTokens: limits.inputTokens }
 
-  const record = (transaction: Transaction, call: ObserverCallId, result: ObserverResult, at: EpochNs): Exchange | null => {
+  const record = (transaction: Transaction, call: ObserverCallId, result: ObserverResult, at: EpochNs): ObserverResponseResult | null => {
     if (chargeEndedObserverCall(transaction, { call, usage: result.usage })) {
       return null
     }
@@ -370,11 +382,22 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     if (response.status === 'rejected') {
       exhaustObserverCall(transaction, { call, attempts: limits.attempts, at })
     }
-    if (response.status !== 'needs_requested') {
+    return response
+  }
+
+  const followUpOf = (
+    transaction: Transaction,
+    { executor }: Candidate,
+    previous: ObserverCallId,
+    health: Health,
+    at: EpochNs,
+  ): Exchange | null => {
+    if (!available(executor) || health.kind !== 'ok') {
+      skipObserverFollowUp(transaction, previous)
       return null
     }
-    const next = ObserverCallId.parse(randomUUID())
-    return { call: next, input: beginObserverFollowUp(transaction, { previous: call, id: next, at, ...followUp }) }
+    const call = ObserverCallId.parse(randomUUID())
+    return { call, input: beginObserverFollowUp(transaction, { previous, id: call, at, ...followUp }) }
   }
 
   const invoke = async (candidate: Candidate, { call, input }: Exchange, stopped: Promise<void>[]): Promise<Exchange | null> => {
@@ -384,10 +407,10 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     stopped.push(result.stopped)
     const { exchange, next } = store.transaction((transaction) => {
       const now = clock.now()
-      return {
-        exchange: record(transaction, call, result, epoch(now)),
-        next: transit(transaction, candidate, started, after(recovery.health, result.ok ? null : result.error, now), now),
-      }
+      const response = record(transaction, call, result, epoch(now))
+      const health = transit(transaction, candidate, started, after(recovery.health, result.ok ? null : result.error, now), now)
+      const needs = response?.status === 'needs_requested'
+      return { exchange: needs ? followUpOf(transaction, candidate, call, health ?? recovery.health, epoch(now)) : null, next: health }
     })
     adopt(recovery, next)
     return exchange
@@ -436,11 +459,15 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     const finished = Promise.withResolvers<undefined>()
     const stopped: Promise<void>[] = []
     running.set(run, finished.promise)
+    if (input.batch.backlog !== null) {
+      summarizing.add(run)
+    }
     const results = perform(candidate, { call, input }, stopped).catch(failure.resolve)
     settling.add(results)
     void results
       .then(() => {
         settling.delete(results)
+        summarizing.delete(run)
         return Promise.all(stopped)
       })
       .finally(() => {
@@ -530,7 +557,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
       const now = clock.now()
       const { over, freesAt } = budgetOf(now)
       const pending = store.interpretations.pendingRuns().map((run) => ({ run, queued: queueOf(run, now) }))
-      const backlogged = new Set(store.interpretations.backlogRuns())
+      const backlogged = new Set([...store.interpretations.backlogRuns(), ...summarizing])
       const queues: Queue[] = [
         ...pending.map((queue) => ({ ...queue, backlog: backlogged.has(queue.run) })),
         ...[...backlogged].filter((run) => !pending.some((queue) => queue.run === run)).map((run) => ({ run, queued: [], backlog: true })),
@@ -642,7 +669,8 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     },
     state: (run) => {
       const now = clock.now()
-      const queue = { run, queued: store.interpretations.pending(run), backlog: store.interpretations.backlogRuns().includes(run) }
+      const backlog = summarizing.has(run) || store.interpretations.backlogRuns().includes(run)
+      const queue = { run, queued: store.interpretations.pending(run), backlog }
       return runStateOf(queue, now, budgetOf(now).over)
     },
     backendState: (runtime) => backendStateOf(runtime, budgetOf(clock.now()).over),

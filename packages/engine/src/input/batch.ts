@@ -351,6 +351,11 @@ const summaryAttempt = (transaction: Transaction, run: RunId): ObserverInput['pr
   return call === null || call.verdict === 'accepted' || call.input.batch.backlog === null ? null : attemptOf(call)
 }
 
+const joinAttempts = (attempts: readonly ObserverInput['previous_attempt'][]): ObserverInput['previous_attempt'] => {
+  const known = attempts.filter((attempt) => attempt !== null)
+  return known.length === 0 ? null : { reasons: [...new Set(known.flatMap(({ reasons }) => reasons))] }
+}
+
 const positive = (values: readonly number[]): boolean => values.every((value) => Number.isSafeInteger(value) && value > 0)
 
 const catchUp = (
@@ -407,8 +412,9 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     return null
   }
   const backlog = backlogOf(transaction, scope, summarized)
+  const retried = summarized.length > 0 ? summaryAttempt(transaction, run) : null
   const attempt = (queued: readonly Queued[]): ObserverInput['previous_attempt'] =>
-    batch.length > 0 ? previousAttempt(transaction, queued) : summaryAttempt(transaction, run)
+    joinAttempts([previousAttempt(transaction, queued), retried])
   const description = describeRun(transaction, scope, entity.value)
   const model = snapshotOf(transaction, scope)
   const context = admittedContext(transaction, scope, start.context ?? null)

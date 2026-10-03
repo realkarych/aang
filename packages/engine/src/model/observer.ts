@@ -174,6 +174,13 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
   return input
 }
 
+export const skipObserverFollowUp = (transaction: Transaction, previous: ObserverCallId): void => {
+  if (transaction.observerCalls.get(previous)?.verdict !== 'needs_requested') {
+    throw new Error(`observer call ${previous} did not request materials`)
+  }
+  transaction.interpretations.release(previous)
+}
+
 export interface CallEnding {
   readonly run: RunId
   readonly session: SessionId
