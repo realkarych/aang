@@ -40,6 +40,9 @@ const defaultCodexUsage: CodexUsage = {
 const unauthorized =
   'unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses'
 
+const disconnected =
+  'stream disconnected before completion: error sending request for url (https://api.openai.com/v1/responses)'
+
 const usageJson = (usage: CodexUsage): JsonValue => ({
   input_tokens: usage.inputTokens,
   cached_input_tokens: usage.cachedInputTokens,
@@ -100,6 +103,11 @@ const respond = (turn: Turn, reply: Reply, prompt: string): void => {
     case 'timeout':
       startTurn(turn)
       hang()
+      return
+    case 'network':
+      startTurn(turn)
+      emit({ type: 'error', message: `Reconnecting... 1/5 (${disconnected})` })
+      failTurn(disconnected)
       return
     case 'invalid_json':
       startTurn(turn)

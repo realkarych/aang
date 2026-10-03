@@ -10,7 +10,7 @@ import {
   type ObserverRejection,
   type RunId,
 } from '@aang/contract'
-import type { ObserverCallStart, Transaction } from '@aang/store'
+import type { ObserverCallError, ObserverCallStart, Transaction } from '@aang/store'
 import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
 import { type InputScope, inputScope, inputViolations } from '../input/scope.js'
 import { applyChangeSet } from './journal.js'
@@ -32,6 +32,7 @@ interface ObserverCallEnd {
   readonly call: ObserverCallId
   readonly at: EpochNs
   readonly usage?: CallUsage | null
+  readonly error?: ObserverCallError | null
 }
 
 export type ObserverCallFailure =
@@ -170,9 +171,21 @@ export const failObserverCall = (transaction: Transaction, failure: ObserverCall
     output: null,
     verdict: failure.outcome,
     reasons: failure.outcome === 'rejected' ? [{ op_index: null, cause: 'schema', message: failure.message }] : [],
+    error: failure.error ?? null,
     usage: failure.usage ?? null,
     at: failure.at,
   })
+}
+
+const nanosecondsPerMillisecond = 1_000_000n
+
+const batchDelay = (transaction: Transaction, input: ObserverInput, at: EpochNs): number => {
+  const oldest = batchFacts(input).reduce((earliest, id) => {
+    const fact = transaction.facts.get(id)
+    const observed = fact === null ? null : (transaction.rawRecords.get(fact.seq)?.observed_at ?? null)
+    return observed !== null && observed < earliest ? observed : earliest
+  }, at)
+  return Number((at - oldest) / nanosecondsPerMillisecond)
 }
 
 export const applyObserverResponse = (
@@ -303,6 +316,7 @@ export const applyObserverResponse = (
     verdict: rejected ? 'rejected' : 'accepted',
     reasons: context.rejections,
     usage: response.usage ?? null,
+    delay_ms: rejected ? null : batchDelay(transaction, call.input, response.at),
     at: response.at,
   })
   return rejected ? { status: 'rejected', rejections: context.rejections } : { status: 'accepted', version }

@@ -92,6 +92,19 @@ test('queue operations refuse invalid bounds, unknown runs and finished calls', 
   expect(start(runId(sessionKey('claude', 'session-without-facts')))).toBeNull()
   expect(() => start(runA, { ...limits, facts: 0 })).toThrow(RangeError)
   expect(() =>
+    store.transaction((transaction) =>
+      startObserverBatch(transaction, {
+        run: runA,
+        backend: 'claude',
+        crossVendor: false,
+        id: ObserverCallId.parse('guarded-call'),
+        at: at(10),
+        limits,
+        catchUpMs: 0,
+      }),
+    ),
+  ).toThrow(RangeError)
+  expect(() =>
     store.transaction((transaction) => boundObserverQueue(transaction, { run: runA, at: at(10), bounds: { facts: 1, ageMs: 0 } })),
   ).toThrow(RangeError)
   expect(() =>
@@ -101,6 +114,15 @@ test('queue operations refuse invalid bounds, unknown runs and finished calls', 
     store.transaction((transaction) => exhaustObserverCall(transaction, { call: callId, attempts: 3, at: at(10) })),
   ).toThrow('missing')
   begin()
+  const [held] = store.interpretations.ofCall(callId)
+  if (held === undefined) {
+    throw new Error('the call holds no facts')
+  }
+  expect(() => {
+    store.transaction((transaction) => {
+      transaction.interpretations.summarize(runA, callId, [held.fact])
+    })
+  }).toThrow('is not deferred for a summary')
   store.transaction((transaction) => {
     failObserverCall(transaction, { call: callId, outcome: 'failed', at: at(20) })
   })

@@ -1,4 +1,4 @@
-import type { EpochNs, FactId, GapKey, ObserverCallId, RunId } from '@aang/contract'
+import type { EpochNs, FactId, ObserverCallId, RunId } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { GapDraft, PendingFact, Transaction } from '@aang/store'
 
@@ -30,6 +30,26 @@ const openGap = (transaction: Transaction, draft: GapDraft): void => {
 
 const positive = (value: number): boolean => Number.isSafeInteger(value) && value > 0
 
+export interface FactDeferral {
+  readonly run: RunId
+  readonly facts: readonly FactId[]
+  readonly at: EpochNs
+  readonly details: string
+}
+
+export const deferFacts = (transaction: Transaction, { run, facts, at, details }: FactDeferral): void => {
+  transaction.interpretations.close(run, facts, 'deferred')
+  openGap(transaction, {
+    key: { kind: 'gap', gap: 'summarized_backlog', subject: run },
+    run,
+    session: null,
+    stream: null,
+    details,
+    detected_at: at,
+    closed_at: null,
+  })
+}
+
 export const boundObserverQueue = (transaction: Transaction, { run, at, bounds }: QueueDeferral): PendingFact[] => {
   if (!positive(bounds.facts) || !positive(bounds.ageMs)) {
     throw new RangeError('queue bounds must be positive integers')
@@ -42,20 +62,11 @@ export const boundObserverQueue = (transaction: Transaction, { run, at, bounds }
     return queued
   }
   const active = new Set(kept.map(({ fact }) => fact))
-  transaction.interpretations.close(
+  deferFacts(transaction, {
     run,
-    queued.flatMap(({ fact }) => (active.has(fact) ? [] : [fact])),
-    'deferred',
-  )
-  const key: GapKey = { kind: 'gap', gap: 'summarized_backlog', subject: run }
-  openGap(transaction, {
-    key,
-    run,
-    session: null,
-    stream: null,
+    facts: queued.flatMap(({ fact }) => (active.has(fact) ? [] : [fact])),
+    at,
     details: `facts beyond the active observer queue of ${String(bounds.facts)} facts or ${String(bounds.ageMs)} ms are deferred`,
-    detected_at: at,
-    closed_at: null,
   })
   return kept
 }

@@ -13,6 +13,7 @@ const faults = [
   z.strictObject({ kind: z.literal('auth') }),
   z.strictObject({ kind: z.literal('limit'), resetsAt: epochSeconds.optional() }),
   z.strictObject({ kind: z.literal('timeout') }),
+  z.strictObject({ kind: z.literal('network') }),
   z.strictObject({ kind: z.literal('invalid_json'), text: z.string() }),
 ] as const
 
