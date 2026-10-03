@@ -17,6 +17,8 @@ import type {
 import { EpochNs } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionScope, Store, Transaction } from '@aang/store'
+import { refreshChecks } from '../checks/attention.js'
+import { createContractCatalog } from '../checks/catalog.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
@@ -181,6 +183,7 @@ export const createEngine = ({
     throw new RangeError('quiet interval must be a positive safe integer in milliseconds')
   }
   const adapters = adaptersOf(registry)
+  const contracts = createContractCatalog(watch)
   const limits: HoldingLimits = { ...defaultHolding, ...holding }
   let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
   let quiet = quietWatchOf(store.observations.sessions())
@@ -493,6 +496,7 @@ export const createEngine = ({
         const session = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
         if (session !== null) { watchQuiet(watch, session) }
       }
+      refreshChecks(transaction, changedSessions.values(), contracts)
       settleQuiet(transaction, watch, instant, quietAfterMs)
       return { tally, files, hooks, rescan: [...rescan], quiet: watch }
     })

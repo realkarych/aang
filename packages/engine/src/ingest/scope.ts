@@ -2,11 +2,16 @@ import { execFile } from 'node:child_process'
 import { realpath } from 'node:fs/promises'
 import { isAbsolute, relative, resolve, sep } from 'node:path'
 import { promisify } from 'node:util'
-import type { ScopeDecision } from '@aang/contract'
+import type { CheckContract, ScopeDecision } from '@aang/contract'
+
+export interface WatchedRoot {
+  readonly path: string
+  readonly contracts?: readonly CheckContract[]
+}
 
 export interface WatchedRoots {
   readonly all: boolean
-  readonly roots: readonly { readonly path: string }[]
+  readonly roots: readonly WatchedRoot[]
 }
 
 export type ScopeJudge = (cwd: string) => Promise<ScopeDecision>
@@ -19,7 +24,7 @@ const canonicalPath = async (path: string): Promise<string> => {
   return realpath(absolute).catch(() => absolute)
 }
 
-const contains = (root: string, path: string): boolean => {
+export const contains = (root: string, path: string): boolean => {
   const relation = relative(root, path)
   return relation === '' || (!isAbsolute(relation) && relation !== '..' && !relation.startsWith(`..${sep}`))
 }

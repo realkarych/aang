@@ -5,7 +5,7 @@ export {
   type HoldingLimits,
   type IngestResult,
 } from './ingest/engine.js'
-export type { WatchedRoots } from './ingest/scope.js'
+export type { WatchedRoot, WatchedRoots } from './ingest/scope.js'
 export {
   applyObserverResponse,
   beginObserverCall,
