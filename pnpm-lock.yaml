@@ -425,6 +425,10 @@ importers:
       zod:
         specifier: ^4.6.5
         version: 4.6.5
+    devDependencies:
+      '@aang/adapter-codex':
+        specifier: workspace:*
+        version: link:../../packages/adapter-codex
 
   tools/runtime-check:
     dependencies:

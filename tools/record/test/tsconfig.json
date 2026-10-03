@@ -2,5 +2,5 @@
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": { "noEmit": true },
   "include": ["**/*.ts"],
-  "references": [{ "path": ".." }]
+  "references": [{ "path": ".." }, { "path": "../../../packages/adapter-codex" }]
 }
