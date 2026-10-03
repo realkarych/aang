@@ -24,6 +24,8 @@ import {
   beginObserverFollowUp,
   BindingError,
   type Engine,
+  failObserverCall,
+  startObserverBatch,
 } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { describe, expect, onTestFinished, test } from 'vitest'
@@ -128,11 +130,14 @@ const pending = (store: Store, run: RunId): string[] =>
     .flatMap(({ fact, status }) => (status === 'pending' ? [fact] : []))
     .sort()
 
-const factsOfSession = (store: Store, session: string): string[] =>
+const factsOfSession = (store: Store, ...sessions: readonly string[]): string[] =>
   factsOf(store)
-    .filter(({ entity_key: key }) => key.session === session)
+    .filter(({ entity_key: key }) => sessions.includes(key.session))
     .map(({ id }) => id)
     .sort()
+
+const queuedOf = (store: Store, sessions: readonly string[]) =>
+  factsOfSession(store, ...sessions).map((fact) => ({ fact, status: 'pending', attempts: 0 }))
 
 const bindingsOf = (store: Store, run: RunId): ModelEntity[] =>
   store.model.entities(run).filter((entity) => entity.kind === 'binding')
@@ -270,7 +275,7 @@ describe('moving a session between runs', () => {
       ['rule', 'session.move', 'session_membership'],
       ['rule', 'session.move', 'link'],
     ])
-    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'first'))
+    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'first', 'second'))
     expect(pending(store, firstRun)).toEqual([])
   })
 
@@ -297,7 +302,7 @@ describe('moving a session between runs', () => {
       ['rule', 'session.move', 'link'],
     ])
     expect(pending(store, firstRun)).toEqual(factsOfSession(store, 'first'))
-    expect(pending(store, secondRun)).toEqual([])
+    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'second'))
     expect((await engine.revokeBinding(binding.id)).binding).toEqual(revoked.binding)
   })
 
@@ -452,10 +457,7 @@ describe('moving a session during an observer call', () => {
       finished_at: expect.any(BigInt) as unknown,
     })
     expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
-    const queues = [
-      [{ fact: own.id, status: 'pending', attempts: 1 }],
-      factsOfSession(store, 'third').map((fact) => ({ fact, status: 'pending', attempts: 0 })),
-    ]
+    const queues = [queuedOf(store, ['first']), queuedOf(store, ['second', 'third'])]
     expect([queueOf(store, firstRun), queueOf(store, secondRun)]).toEqual(queues)
     store.close()
 
@@ -493,9 +495,41 @@ describe('moving a session during an observer call', () => {
     ).toThrow(`fact ${moving.id} is not in run ${firstRun}`)
     expect(store.observerCalls.get(followUp)).toBeNull()
     expect([queueOf(store, firstRun), queueOf(store, secondRun)]).toEqual([
-      [{ fact: own.id, status: 'pending', attempts: 1 }],
-      factsOfSession(store, 'third').map((fact) => ({ fact, status: 'pending', attempts: 0 })),
+      queuedOf(store, ['first']),
+      queuedOf(store, ['second', 'third']),
     ])
+  })
+
+  test('ends a call whose input describes the moved session even when its batch holds no fact of it', async () => {
+    const { store, engine } = await started([
+      transcript('first', 1n),
+      transcript('second', 2n),
+      transcript('third', 3n),
+    ])
+    const [firstRun, secondRun] = [runOf('first'), runOf('second')]
+    await engine.bind({ kind: 'attach', session: sessionOf('third'), run: firstRun })
+    const call = ObserverCallId.parse('call-describing-third')
+    const input = store.transaction((transaction) =>
+      startObserverBatch(transaction, {
+        run: firstRun,
+        backend: 'claude',
+        crossVendor: false,
+        id: call,
+        at: callAt,
+        limits: { facts: 1, bytes: 96_000, textLength: 4_000 },
+      }),
+    )
+    expect(input?.run.sessions.map(({ id }) => id).sort()).toEqual([sessionOf('first'), sessionOf('third')].sort())
+    expect(input?.batch.facts.map(({ session }) => session)).toEqual([sessionOf('first')])
+
+    await engine.bind({ kind: 'attach', session: sessionOf('third'), run: secondRun })
+
+    expect(store.observerCalls.get(call)).toMatchObject({
+      verdict: 'rejected',
+      reasons: [{ op_index: null, cause: 'scope', message: expect.stringContaining(sessionOf('third')) as unknown }],
+    })
+    expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
+    expect(queueOf(store, firstRun)).toEqual(queuedOf(store, ['first']))
   })
 
   test('returns the facts of a session moved back to the source run to its queue without the ended call', async () => {
@@ -508,12 +542,80 @@ describe('moving a session during an observer call', () => {
     await engine.bind({ kind: 'detach', session: sessionOf('first') })
 
     expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
-    expect(queueOf(store, firstRun)).toEqual(
-      factsOfSession(store, 'first').map((fact) => ({ fact, status: 'pending', attempts: 0 })),
-    )
-    expect(pending(store, secondRun)).toEqual([])
+    expect(queueOf(store, firstRun)).toEqual(queuedOf(store, ['first']))
+    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'second'))
     const retry = beginCall(store, 'call-after-return', firstRun, [moving])
     expect(store.interpretations.ofCall(retry).map(({ run, fact }) => [run, fact])).toEqual([[firstRun, moving.id]])
+  })
+})
+
+describe('moving a session into a run of another vendor', () => {
+  test('its question reaches the observer of that run only with crossVendor', async () => {
+    const { store, engine } = await started([rollout('codex-root', 1n)])
+    const asker = claudeHooks('asker')
+    const question = 'CLAUDE-PRIVATE-QUESTION choose database?'
+    const ask = { questions: [{ question, header: 'Database', options: [{ label: 'SQLite' }, { label: 'Postgres' }] }] }
+    await engine.ingest(hookBatch({ ...asker.start(), file: 'asker-start.evt' }))
+    await engine.ingest(hookBatch(asker.pre('ask.evt', 'ask', millisecond, ask, 'AskUserQuestion')))
+    const run = runOf('codex-root', 'codex')
+
+    await engine.bind({ kind: 'attach', session: sessionOf('asker'), run })
+
+    const [item, ...others] = store.model
+      .entities(run)
+      .flatMap((entity) => (entity.kind === 'attention_item' ? [entity.value] : []))
+    if (item === undefined) {
+      throw new Error('the question must move with its session')
+    }
+    expect(others).toEqual([])
+    expect(item).toMatchObject({ kind: 'question', author: 'rule', resolution: 'open' })
+    expect(item.text).toContain(question)
+    const ref = { kind: 'attention_item', id: item.id } as const
+    expect(store.model.entityChanges(run, ref, ModelVersion.parse(0)).map(({ op, evidence }) => [op, evidence])).toEqual([
+      ['session.move', item.evidence],
+    ])
+    const start = (id: string, crossVendor: boolean) =>
+      store.transaction((transaction) =>
+        startObserverBatch(transaction, {
+          run,
+          backend: 'codex',
+          crossVendor,
+          id: ObserverCallId.parse(id),
+          at: callAt,
+          limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000 },
+        }),
+      )
+    const fail = (id: string): void => {
+      store.transaction((transaction) => {
+        failObserverCall(transaction, { call: ObserverCallId.parse(id), outcome: 'failed', at: callAt })
+      })
+    }
+
+    const open = start('cross-vendor', true)
+    expect(open?.model.attention.map(({ id }) => id)).toEqual([item.id])
+    expect(JSON.stringify(open?.model)).toContain(question)
+    fail('cross-vendor')
+
+    const separated = start('same-vendor', false)
+    if (separated === null) {
+      throw new Error('the codex facts must start a call')
+    }
+    expect(separated.run.sessions.map(({ runtime }) => runtime)).toEqual(['codex'])
+    expect(separated.model.attention).toEqual([])
+    expect(JSON.stringify(separated)).not.toContain('CLAUDE-PRIVATE-QUESTION')
+    fail('same-vendor')
+
+    expect(() => {
+      store.transaction((transaction) => {
+        beginObserverCall(transaction, {
+          id: ObserverCallId.parse('smuggled'),
+          backend: 'codex',
+          crossVendor: false,
+          input: { ...separated, model: { ...separated.model, attention: open?.model.attention ?? [] } },
+          at: callAt,
+        })
+      })
+    }).toThrow(`attention_item ${item.id} comes from a vendor other than backend codex`)
   })
 })
 

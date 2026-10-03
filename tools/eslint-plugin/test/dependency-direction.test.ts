@@ -250,12 +250,20 @@ const violations: readonly DirectionCase[] = [
   },
   {
     name: 'tests of other packages may not import adapters',
-    path: 'packages/observer/test/adapter.test.ts',
+    path: 'packages/cli/test/adapter.test.ts',
     code: ["import '@aang/adapter-codex'"],
+    errors: [
+      [1, '@aang/cli test code may not import @aang/adapter-codex; allowed: @aang/contract, @aang/hook, @aang/testkit'],
+    ],
+  },
+  {
+    name: 'observer tests may not import collector',
+    path: 'packages/observer/test/collector.test.ts',
+    code: ["import '@aang/collector'"],
     errors: [
       [
         1,
-        '@aang/observer test code may not import @aang/adapter-codex; allowed: @aang/contract, @aang/store, @aang/engine, @aang/testkit',
+        '@aang/observer test code may not import @aang/collector; allowed: @aang/contract, @aang/store, @aang/engine, @aang/testkit, @aang/adapter-claude, @aang/adapter-codex',
       ],
     ],
   },
@@ -283,6 +291,12 @@ const allowed: readonly DirectionCase[] = [
       "import '@aang/collector'",
       "import '@aang/testkit'",
     ],
+    errors: [],
+  },
+  {
+    name: 'observer tests may import both adapters and testkit',
+    path: 'packages/observer/test/scheduler.test.ts',
+    code: ["import '@aang/adapter-claude'", "import '@aang/adapter-codex'", "import '@aang/testkit'"],
     errors: [],
   },
   {

@@ -23,6 +23,7 @@ import {
   beginObserverCall,
   beginObserverFollowUp,
   createReadQueries,
+  failObserverCall,
   InvalidPositionError,
   type RunFeed,
 } from '@aang/engine'
@@ -65,6 +66,14 @@ const read = (source: Source, call: string, second: number): string[] => [
 
 const factsOfCall = (scene: Scene, source: Source, call: string): Fact[] =>
   scene.factsOf(source).filter(({ entity_key: key }) => key.kind === 'action' && key.call === call)
+
+const uninterpreted = (scene: Scene, source: Source, ...calls: readonly string[]): Fact[] => {
+  const interpreted = new Set(calls.flatMap((call) => factsOfCall(scene, source, call).map(({ id }) => id)))
+  return scene.factsOf(source).filter(({ id, kind }) => kind !== 'git_snapshot' && !interpreted.has(id))
+}
+
+const oldestOf = (facts: readonly Fact[]): Fact['at'] | null =>
+  facts.reduce<Fact['at'] | null>((oldest, { at }) => (oldest === null || at < oldest ? at : oldest), null)
 
 const startOf = (scene: Scene, source: Source, call: string): Fact => {
   const start = factsOfCall(scene, source, call).find(({ kind }) => kind === 'action_start')
@@ -226,7 +235,7 @@ describe('read queries of the model', () => {
     expect(passed?.events.some(({ event }) => event === 'model')).toBe(true)
     expect(bound?.run.bindings.map(({ id }) => id)).toEqual(['attach-session-c'])
     expect(rejected?.events).toEqual([])
-    expect(rejected?.run.summary.observer.pending_facts).toBe(factsOfCall(scene, source, 'check-2').length)
+    expect(rejected?.run.summary.observer.pending_facts).toBe(uninterpreted(scene, source, 'check-1').length)
 
     expect(snapshot.objects.sessions.map(({ id }) => id)).toEqual([
       objectId({ kind: 'session', runtime: 'claude', session: 'session-a' }),
@@ -273,10 +282,10 @@ describe('read queries of the model', () => {
       },
       observer: {
         state: { state: 'ok' },
-        pending_facts: factsOfCall(scene, source, 'check-2').length,
+        pending_facts: uninterpreted(scene, source, 'check-1').length,
         deferred_facts: 0,
         not_interpreted_facts: 0,
-        oldest_pending_at: startOf(scene, source, 'check-2').at,
+        oldest_pending_at: oldestOf(uninterpreted(scene, source, 'check-1')),
         last_success_at: at(10),
         isolation_unverified: false,
       },
@@ -733,8 +742,8 @@ describe('read queries of the model', () => {
     expect(listed?.calls[1]?.rejections.map(({ cause }) => cause)).toEqual(['version'])
     expect(listed?.calls[3]).toMatchObject({ ended_at: null, facts: running.map(({ id }) => id) })
     expect(scene.reads.runs().runs.find(({ id }) => id === run)?.observer).toMatchObject({
-      pending_facts: running.length,
-      oldest_pending_at: startOf(scene, source, 'read-2').at,
+      pending_facts: uninterpreted(scene, source, 'check-1', 'read-1').length,
+      oldest_pending_at: oldestOf(uninterpreted(scene, source, 'check-1', 'read-1')),
       last_success_at: at(30),
     })
     expect(scene.reads.observerCalls(scene.runOf('missing'))).toBeNull()
@@ -793,6 +802,7 @@ describe('read queries of the model', () => {
       needs_latency_ms: 3000,
     })
     const second = factsOfCall(scene, source, 'read-2')
+    const remaining = uninterpreted(scene, source, 'check-1', 'read-1').length
     requestNeeds('call-lost-needs', second, 50)
     scene.store.close()
     const restarted = scene.home.open()
@@ -824,7 +834,16 @@ describe('read queries of the model', () => {
       ['call-lost-needs', 'failed', at(51), 1000],
       [lost, 'failed', null, null],
     ])
-    expect(reads.runs().runs.find(({ id }) => id === run)?.observer.pending_facts).toBe(second.length)
+    expect(reads.runs().runs.find(({ id }) => id === run)?.observer.pending_facts).toBe(remaining)
+    reopened.transaction((transaction) => {
+      failObserverCall(transaction, { call: lost, outcome: 'failed', at: at(70) })
+    })
+    expect(reads.observerCalls(run)?.calls.at(-1)).toMatchObject({
+      id: lost,
+      outcome: 'failed',
+      ended_at: at(70),
+      latency_ms: 10_000,
+    })
   })
 
   test.for([

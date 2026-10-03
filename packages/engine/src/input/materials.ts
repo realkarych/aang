@@ -22,11 +22,11 @@ const defaultLimits: MaterialLimits = { needs: 8, textLength: 4_000 }
 
 const nanosecondsPerMillisecond = 1_000_000n
 
-const isoTime = (time: EpochNs): string => new Date(Number(time / nanosecondsPerMillisecond)).toISOString()
+export const isoTime = (time: EpochNs): string => new Date(Number(time / nanosecondsPerMillisecond)).toISOString()
 
 const optionalTime = (time: EpochNs | null): string | null => (time === null ? null : isoTime(time))
 
-interface Clipped<T> {
+export interface Clipped<T> {
   readonly value: T
   readonly truncated: Truncation[]
 }
@@ -36,7 +36,7 @@ const clipText = (text: string, path: string, limit: number): Clipped<string> =>
     ? { value: text.slice(0, limit), truncated: [{ path, length: text.length }] }
     : { value: text, truncated: [] }
 
-const clipJson = (value: JsonValue, path: string, limit: number): Clipped<JsonValue> => {
+export const clipJson = (value: JsonValue, path: string, limit: number): Clipped<JsonValue> => {
   if (typeof value === 'string') {
     return clipText(value, path, limit)
   }

@@ -17,15 +17,20 @@ test.for(['started', 'applying', 'accepted'] as const)(
     await writer.kill()
     const restarted = home.open()
     expect(restarted.model.head(runA)).toBe(phase === 'accepted' ? 3 : 2)
-    expect(restarted.interpretations.ofRun(runA).map(({ status, attempts }) => [status, attempts])).toEqual(
+    const batch = (): [string, number][] =>
+      restarted.interpretations
+        .ofRun(runA)
+        .filter(({ fact }) => fact === solver.id || fact === human.id)
+        .map(({ status, attempts }) => [status, attempts])
+    expect(batch()).toEqual(
       phase === 'accepted'
         ? [
             ['interpreted', 1],
             ['interpreted', 1],
           ]
         : [
-            ['pending', 1],
-            ['pending', 1],
+            ['pending', 0],
+            ['pending', 0],
           ],
     )
     const crashed = ObserverCallId.parse('crash-call')
@@ -59,10 +64,10 @@ test.for(['started', 'applying', 'accepted'] as const)(
           }),
         ).status,
       ).toBe('accepted')
-      expect(restarted.interpretations.ofRun(runA).map(({ status, attempts }) => [status, attempts])).toEqual(
+      expect(batch()).toEqual(
         [
-          ['interpreted', 2],
-          ['interpreted', 2],
+          ['interpreted', 1],
+          ['interpreted', 1],
         ],
       )
     }
@@ -145,7 +150,7 @@ test('does not start a call with a stale snapshot, foreign facts or an already a
     })
   }).toThrow('not in run')
   expect(store.observerCalls.get(callId)).toBeNull()
-  expect(store.interpretations.ofRun(runA)).toEqual([])
+  expect(store.interpretations.ofRun(runA).filter(({ status }) => status !== 'pending')).toEqual([])
   begin()
   expect(() => begin([solver], ObserverCallId.parse('concurrent'))).toThrow('already has an observer call')
   expect(store.observerCalls.get(ObserverCallId.parse('concurrent'))).toBeNull()

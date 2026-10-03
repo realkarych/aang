@@ -2,6 +2,7 @@ import type {
   AttentionItem,
   Basis,
   EpochNs,
+  Evidence,
   Link,
   ModelEntityRef,
   RunId,
@@ -11,6 +12,7 @@ import type {
   StageId,
 } from '@aang/contract'
 import type { Transaction } from '@aang/store'
+import { interpretable } from '../ingest/queue.js'
 import { applyChangeSet, type ModelChangeDraft, type ModelEntityDraft } from '../model/journal.js'
 import { endObserverCalls } from '../model/observer.js'
 import { compareText } from './evidence.js'
@@ -25,7 +27,12 @@ export interface Transfer {
 
 const observed: Basis = { kind: 'observed' }
 
-const moveIn = (put: ModelEntityDraft): ModelChangeDraft => ({ op: 'session.move', put, basis: observed, evidence: [] })
+const moveIn = (put: ModelEntityDraft, evidence: Evidence = []): ModelChangeDraft => ({
+  op: 'session.move',
+  put,
+  basis: observed,
+  evidence: [...evidence],
+})
 
 const moveOut = (remove: ModelEntityRef): ModelChangeDraft => ({
   op: 'session.move',
@@ -127,18 +134,28 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
       moveIn({ kind: 'session_membership', value: { session: session.id, run: to } }),
       ...spawns.map((link) => moveIn({ kind: 'link', value: { ...link, run: to } })),
       ...attention.map((item) =>
-        moveIn({
-          kind: 'attention_item',
-          value: { ...item, run: to, stage: null, likely_resolved: null, priority: null },
-        }),
+        moveIn(
+          {
+            kind: 'attention_item',
+            value: { ...item, run: to, stage: null, likely_resolved: null, priority: null },
+          },
+          item.evidence,
+        ),
       ),
       ...stageMarks(transaction, to, runOf, touched),
     ],
   })
   refreshForksOf(transaction, from, at)
-  const facts = transaction.facts.ofSession(session.key).map(({ id }) => id)
-  endObserverCalls(transaction, from, facts, at, `session ${session.id} moved to run ${to} during the call`)
-  transaction.interpretations.withdraw(from, facts)
-  transaction.interpretations.queue(to, facts)
+  const facts = transaction.facts.ofSession(session.key)
+  const ids = facts.map(({ id }) => id)
+  endObserverCalls(transaction, {
+    run: from,
+    session: session.id,
+    facts: ids,
+    at,
+    message: `session ${session.id} moved to run ${to} during the call`,
+  })
+  transaction.interpretations.withdraw(from, ids)
+  transaction.interpretations.queue(to, facts.filter(interpretable).map(({ id }) => id))
   return from
 }

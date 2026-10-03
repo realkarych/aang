@@ -23,6 +23,7 @@ const outcomeOf = ({ verdict }: StoredObserverCall, holding: boolean): ObserverC
   switch (verdict) {
     case 'accepted':
     case 'rejected':
+    case 'failed':
       return verdict
     case null:
     case 'needs_requested':
