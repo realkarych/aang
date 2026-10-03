@@ -8,6 +8,7 @@ CREATE TABLE session_scopes (
   runtime TEXT NOT NULL CHECK (runtime IN ('claude', 'codex')),
   session TEXT NOT NULL CHECK (session <> ''),
   scope TEXT NOT NULL CHECK (scope IN ('watched', 'external', 'observer')),
+  cwd TEXT CHECK (cwd <> ''),
   PRIMARY KEY (runtime, session)
 ) STRICT;
 
@@ -86,6 +87,7 @@ CREATE INDEX gaps_change_seq ON gaps (change_seq);
 CREATE TABLE pruned_streams (
   stream TEXT PRIMARY KEY,
   runtime TEXT NOT NULL CHECK (runtime IN ('claude', 'codex')),
+  session TEXT NOT NULL CHECK (session <> ''),
   last_ordinal INTEGER CHECK (last_ordinal >= 0),
   byte_offset INTEGER CHECK (byte_offset >= 0),
   prefix_hash TEXT,
@@ -95,3 +97,5 @@ CREATE TABLE pruned_streams (
     OR (runtime = 'codex' AND last_ordinal IS NOT NULL AND byte_offset IS NULL AND prefix_hash IS NULL)
   )
 ) STRICT;
+
+CREATE INDEX pruned_streams_session ON pruned_streams (runtime, session);

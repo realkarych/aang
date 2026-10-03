@@ -1,5 +1,5 @@
-import { ChangeSeq, FactId, RawSeq, type SessionKey, StreamKey } from '@aang/contract'
-import { factIds } from '@aang/contract/ids'
+import { ChangeSeq, EpochNs, FactId, type PruneBoundary, RawSeq, type SessionKey, StreamKey } from '@aang/contract'
+import { contentHash, factIds } from '@aang/contract/ids'
 import { MissingRawRecordError, type Store, type Transaction } from '@aang/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
@@ -193,6 +193,76 @@ test('a root session scope decision is stored per runtime and can be changed', a
   expect(reopened.scopes.ofSession(codexSession)).toEqual({ session: codexSession, scope: 'observer' })
   expect(reopened.scopes.ofSession({ kind: 'session', runtime: 'claude', session: 's2' })).toBeNull()
   expect(reopened.scopes.get(mainStream)).toBeNull()
+  expect(reopened.changes.head()).toBe(0)
+})
+
+test('root session scope decisions keep the starting directory they were judged by until it is replaced', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const watched: SessionKey = { kind: 'session', runtime: 'claude', session: 's1' }
+  const observer: SessionKey = { kind: 'session', runtime: 'codex', session: 't1' }
+
+  store.transaction((transaction) => {
+    transaction.scopes.decideSession({ session: watched, scope: 'watched', cwd: '/work/project' })
+    transaction.scopes.decideSession({ session: observer, scope: 'observer' })
+  })
+  store.transaction((transaction) => {
+    transaction.scopes.decideSession({ session: watched, scope: 'external' })
+    transaction.scopes.decideSession({ session: observer, scope: 'observer', cwd: '/tmp/observer' })
+  })
+  store.close()
+  const reopened = home.open()
+
+  expect(reopened.scopes.sessions()).toEqual([
+    { session: watched, scope: 'external', cwd: '/work/project' },
+    { session: observer, scope: 'observer', cwd: '/tmp/observer' },
+  ])
+  expect(reopened.scopes.ofSession(watched)).toEqual({ session: watched, scope: 'external' })
+  expect(reopened.changes.head()).toBe(0)
+})
+
+test('prune boundaries are stored per stream, found by root session and replaced on a later prune', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const prunedAt = EpochNs.parse(1_759_370_000_000_000_000n)
+  const claude: PruneBoundary = {
+    runtime: 'claude',
+    stream: mainStream,
+    session: 's1',
+    offset: 120,
+    prefix_hash: contentHash('prefix'),
+    pruned_at: prunedAt,
+  }
+  const subagent: PruneBoundary = { ...claude, stream: subagentStream, offset: 0, prefix_hash: contentHash('') }
+  const codex: PruneBoundary = {
+    runtime: 'codex',
+    stream: StreamKey.parse('codex:t1'),
+    session: 's1',
+    last_ordinal: 41,
+    pruned_at: prunedAt,
+  }
+  const later = { ...claude, offset: 240, pruned_at: EpochNs.parse(prunedAt + 1n) }
+
+  store.transaction((transaction) => {
+    transaction.pruned.save(claude)
+    transaction.pruned.save(subagent)
+    transaction.pruned.save(codex)
+  })
+  store.transaction((transaction) => {
+    transaction.pruned.save(later)
+  })
+  store.close()
+  const reopened = home.open()
+
+  expect(reopened.pruned.list()).toEqual([subagent, later, codex])
+  expect(reopened.pruned.ofStream(mainStream)).toEqual(later)
+  expect(reopened.pruned.ofStream(StreamKey.parse('claude:s2:main'))).toBeNull()
+  expect(reopened.pruned.ofSession({ kind: 'session', runtime: 'claude', session: 's1' })).toEqual([subagent, later])
+  expect(reopened.pruned.ofSession({ kind: 'session', runtime: 'codex', session: 's1' })).toEqual([codex])
   expect(reopened.changes.head()).toBe(0)
 })
 
