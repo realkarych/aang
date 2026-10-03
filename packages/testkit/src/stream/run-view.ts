@@ -1,5 +1,14 @@
-import type { FactsDelta, ModelChange, RunSnapshot, SessionId } from '@aang/contract'
-import type { RunFeed } from '@aang/engine'
+import type { ChangeSeq, FactsDelta, ModelChange, ModelDelta, RunDelta, RunSnapshot, SessionId } from '@aang/contract'
+
+export type FeedEvent =
+  | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
+  | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
+
+export interface FeedSegment {
+  readonly position: ChangeSeq
+  readonly events: readonly FeedEvent[]
+  readonly run: RunDelta
+}
 
 interface Identified {
   readonly id: string
@@ -108,7 +117,7 @@ const applyFacts = (snapshot: RunSnapshot, { facts, objects, removed }: FactsDel
   }
 }
 
-export const applyFeed = (snapshot: RunSnapshot, feed: RunFeed): RunSnapshot => {
+export const applyFeed = (snapshot: RunSnapshot, feed: FeedSegment): RunSnapshot => {
   const replayed = feed.events.reduce(
     (view, event) =>
       event.event === 'facts' ? applyFacts(view, event.data) : event.data.changes.reduce(applyChange, view),

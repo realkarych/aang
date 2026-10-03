@@ -48,3 +48,4 @@ export {
   type PlayerOptions,
   type PlayOptions,
 } from './player/player.js'
+export { applyFeed, type FeedEvent, type FeedSegment } from './stream/run-view.js'
