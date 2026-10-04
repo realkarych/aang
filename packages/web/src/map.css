@@ -80,6 +80,7 @@
 
 .stage-card {
   --tone: var(--tone-idle);
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 248px;
@@ -91,7 +92,17 @@
   border-left: 4px solid var(--tone);
   color: var(--ink);
   pointer-events: auto;
-  cursor: default;
+  cursor: pointer;
+}
+
+.stage-card[data-selection='self'] {
+  outline: 2px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.stage-card[data-selection='inside'] {
+  outline: 2px dashed var(--ink-soft);
+  outline-offset: 3px;
 }
 
 .stage-card[data-tone='go'] {
@@ -151,16 +162,34 @@
 }
 
 .stage-title {
-  display: -webkit-box;
+  min-width: 0;
   margin: 0;
-  overflow: hidden;
   font-size: 14px;
   font-weight: 600;
   line-height: 18px;
+}
+
+.stage-pick {
+  display: -webkit-box;
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
   overflow-wrap: anywhere;
+  cursor: pointer;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+}
+
+.stage-card:hover .stage-pick {
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
 
 .stage-axes {
@@ -197,6 +226,46 @@
   max-width: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.map-handover {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 20px;
+  border-bottom: 1px solid var(--rule);
+  box-shadow: inset 3px 0 var(--ink);
+  background: color-mix(in srgb, var(--ink) 4%, var(--sheet));
+}
+
+.map-handover[data-shown='false'] {
+  padding: 0;
+  border: 0;
+  box-shadow: none;
+}
+
+.map-handover .glyph {
+  position: relative;
+  top: 1px;
+}
+
+.map-handover p {
+  flex: 0 1 auto;
+  max-width: 80ch;
+  margin: 0;
+}
+
+.map-dismiss {
+  flex: none;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 .map-route {
@@ -272,7 +341,8 @@
 @media (max-width: 760px) {
   .map-head,
   .map-note,
-  .map-legend {
+  .map-legend,
+  .map-handover {
     padding-inline: 12px;
   }
 }

@@ -9,11 +9,12 @@ import {
   useReactFlow,
   useStore,
 } from '@xyflow/react'
-import { type ReactElement, useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { basisLabel } from './labels.js'
 import { type MapEdge, type MapStage, stageGraph, type VisibleMap, visibleMap } from './map-graph.js'
-import { layoutMap, type MapDirection, type MapLayout } from './map-layout.js'
-import { RouteEdge, type RouteFlowEdge, StageNode, type StageFlowNode } from './map-node.js'
+import { keptViewport, layoutMap, type MapDirection, type MapLayout, revealedViewport } from './map-layout.js'
+import { RouteEdge, type RouteFlowEdge, type Selection, StageNode, type StageFlowNode } from './map-node.js'
+import type { StageSelection } from './stage-lineage.js'
 
 const nodeTypes = { stage: StageNode }
 
@@ -78,6 +79,40 @@ const FollowLayout = ({ layout, following }: { readonly layout: MapLayout; reado
   return null
 }
 
+interface KeepPlaceProps {
+  readonly layout: MapLayout
+  readonly following: boolean
+  readonly selection: StageSelection | null
+}
+
+const KeepPlace = ({ layout, following, selection }: KeepPlaceProps): null => {
+  const { getViewport, setViewport } = useReactFlow()
+  const width = useStore((state) => state.width)
+  const height = useStore((state) => state.height)
+  const shown = useRef(layout)
+  const seen = useRef({ width, height })
+  useEffect(() => {
+    const before = shown.current
+    const area = seen.current
+    shown.current = layout
+    seen.current = { width, height }
+    if (following) {
+      return
+    }
+    const lineage = selection?.lineage ?? []
+    const viewport = getViewport()
+    const kept = before === layout ? null : keptViewport(before, layout, lineage, { ...viewport, ...area })
+    const place = kept ?? viewport
+    const resized = area.width !== width || area.height !== height
+    const revealed = resized ? revealedViewport(layout, lineage, { ...viewport, ...place, width, height }, area) : null
+    const next = revealed ?? place
+    if (next.x !== viewport.x || next.y !== viewport.y) {
+      void setViewport({ x: next.x, y: next.y, zoom: viewport.zoom })
+    }
+  }, [layout, following, selection, width, height, getViewport, setViewport])
+  return null
+}
+
 const openByDefault = ({ depth }: MapStage): boolean => depth === 0
 
 const edgeLabel = ({ kind, from, to, bases }: MapEdge, titles: ReadonlyMap<string, string>): string => {
@@ -88,13 +123,22 @@ const edgeLabel = ({ kind, from, to, bases }: MapEdge, titles: ReadonlyMap<strin
     : `${target} начат после завершения ${source}`
 }
 
+interface NodeActions {
+  readonly onToggle: (stage: StageId, open: boolean) => void
+  readonly onSelect: (stage: StageId | null) => void
+}
+
+const selectionOf = ({ source }: MapLayout, node: StageId, selected: StageId | null): Selection =>
+  selected === null ? 'none' : selected === node ? 'self' : source.holders.get(selected) === node ? 'inside' : 'none'
+
 const flowNodes = (
-  { source, nodes, cards }: MapLayout,
-  onToggle: (stage: StageId, open: boolean) => void,
+  layout: MapLayout,
+  selected: StageId | null,
+  { onToggle, onSelect }: NodeActions,
 ): StageFlowNode[] =>
-  source.stages.map(({ node, parent, open }) => {
-    const { x, y, width, height } = nodes.get(node.stage.id) ?? { x: 0, y: 0, width: 0, height: 0 }
-    const card = cards.get(node.stage.id)
+  layout.source.stages.map(({ node, parent, open }) => {
+    const { x, y, width, height } = layout.nodes.get(node.stage.id) ?? { x: 0, y: 0, width: 0, height: 0 }
+    const card = layout.cards.get(node.stage.id)
     return {
       id: node.stage.id,
       type: 'stage',
@@ -102,7 +146,14 @@ const flowNodes = (
       width,
       height,
       ...(parent === null ? {} : { parentId: parent }),
-      data: { node, open, onToggle, ...(card === undefined ? {} : { card }) },
+      data: {
+        node,
+        open,
+        selection: selectionOf(layout, node.stage.id, selected),
+        onToggle,
+        onSelect,
+        ...(card === undefined ? {} : { card }),
+      },
       draggable: false,
       selectable: false,
       connectable: false,
@@ -176,7 +227,14 @@ const Legend = (): ReactElement => (
   </ul>
 )
 
-export const StageMap = ({ snapshot }: { readonly snapshot: RunSnapshot }): ReactElement => {
+interface StageMapProps {
+  readonly snapshot: RunSnapshot
+  readonly selection: StageSelection | null
+  readonly onSelect: (stage: StageId | null) => void
+}
+
+export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): ReactElement => {
+  const selected = selection?.stage.id ?? null
   const graph = useMemo(() => stageGraph(snapshot), [snapshot])
   const [toggled, setToggled] = useState<ReadonlyMap<StageId, boolean>>(() => new Map())
   const visible = useMemo(
@@ -189,8 +247,8 @@ export const StageMap = ({ snapshot }: { readonly snapshot: RunSnapshot }): Reac
     setToggled((current) => new Map(current).set(stage, open))
   }, [])
   const nodes = useMemo(
-    () => (layout instanceof Error || layout === null ? [] : flowNodes(layout, onToggle)),
-    [layout, onToggle],
+    () => (layout instanceof Error || layout === null ? [] : flowNodes(layout, selected, { onToggle, onSelect })),
+    [layout, selected, onToggle, onSelect],
   )
   const edges = useMemo(() => (layout instanceof Error || layout === null ? [] : flowEdges(layout)), [layout])
   if (layout === null) {
@@ -221,13 +279,14 @@ export const StageMap = ({ snapshot }: { readonly snapshot: RunSnapshot }): Reac
           elementsSelectable={false}
           zoomOnScroll={false}
           preventScrolling={false}
-          onMoveStart={(event) => {
+          onMove={(event) => {
             if (event !== null) {
               setFollowing(false)
             }
           }}
         >
           <FollowLayout layout={layout} following={following} />
+          <KeepPlace layout={layout} following={following} selection={selection} />
           <Background variant={BackgroundVariant.Cross} gap={32} size={7} color="var(--map-grid)" />
           <Controls
             showInteractive={false}

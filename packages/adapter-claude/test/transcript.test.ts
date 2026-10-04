@@ -1,3 +1,4 @@
+import { readdir, readFile } from 'node:fs/promises'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { CollectedRecord, EpochNs, FactDraft, type JsonValue, type ParseResult } from '@aang/contract'
 import { describe, test } from 'vitest'
@@ -382,6 +383,22 @@ describe.concurrent('Claude transcript: records', () => {
     }
   })
 
+  test('the plan mode reminders of the reference plan session are context without facts', async ({ expect }) => {
+    const recording = new URL('../../../fixtures/sessions/claude/2.1.289/claude_cli/macos/plan/data/', import.meta.url)
+    const chunks = (await readdir(recording)).filter((name) => name.endsWith('.jsonl')).sort()
+    const lines = (await Promise.all(chunks.map((name) => readFile(new URL(name, recording), 'utf8'))))
+      .flatMap((chunk) => chunk.split('\n'))
+      .filter((line) => line.length > 0)
+    const reminders = lines
+      .map((payload) => lineRecord({ payload, line: 1 }))
+      .filter((record) => typeOf(record).startsWith('attachment/plan_mode'))
+
+    expect(reminders.map(typeOf)).toEqual(['attachment/plan_mode', 'attachment/plan_mode_exit'])
+    for (const record of reminders) {
+      expect(claudeAdapter.parse(record), typeOf(record)).toMatchObject({ parse_state: 'parsed', facts: [] })
+    }
+  })
+
   test('the subagent prompt comes from the parent agent and its answer goes back to it', async ({ expect }) => {
     const records = await transcriptRecords('claude-code-transcripts/subagent-agent-aad616394e806288d.jsonl')
     const facts = records.flatMap((record) => factsOf(claudeAdapter.parse(record)))
@@ -414,7 +431,7 @@ describe.concurrent('Claude transcript: tool results', () => {
     expect(end).toMatchObject({ urgent: true, payload: { outcome: 'error', exit_code: 2, output: 'Exit code 2\nboom' } })
   })
 
-  test('a denial by the human is a denied action, marked unverified', async ({ expect }) => {
+  test('a denial by the human is a denied action', async ({ expect }) => {
     const [end] = factsOf(
       await toolResult(
         { toolDenialKind: 'user-rejected', toolUseResult: 'User rejected tool use' },
@@ -422,7 +439,7 @@ describe.concurrent('Claude transcript: tool results', () => {
       ),
     )
 
-    expect(end).toMatchObject({ urgent: false, format_verified: false, payload: { outcome: 'denied', exit_code: null } })
+    expect(end).toMatchObject({ urgent: false, format_verified: true, payload: { outcome: 'denied', exit_code: null } })
   })
 
   test('an interrupted command is interrupted, not an error', async ({ expect }) => {

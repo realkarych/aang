@@ -18,10 +18,12 @@ export {
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
   nestedStageTitles,
   preparationStageTitle,
   reportQuestionText,
   reportStageTitle,
+  splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {
   type ObserverScenarioName,

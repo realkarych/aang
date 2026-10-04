@@ -19,7 +19,7 @@ import { runId } from '@aang/contract/ids'
 import { openStore, type Store } from '@aang/store'
 import { invokeHook } from '@aang/testkit'
 import type { TestContext } from 'vitest'
-import { bearer, createHome, type Home, spawnDaemon } from './daemon.js'
+import { bearer, createHome, type Home, missingCli, spawnDaemon } from './daemon.js'
 
 export interface WatchedHome {
   readonly home: Home
@@ -87,6 +87,7 @@ export const watchedHome = async (
     JSON.stringify({
       api: { port: 0 },
       otel: { port: 0 },
+      cli: missingCli(home.root),
       collector: { rootsScanIntervalMs: 200 },
       watch: { roots: [{ path: workspace }] },
       ...config,
