@@ -173,6 +173,13 @@ test('a catalog scenario records under the resolved engine version with its mode
 test('the scenario CLI lists the catalog and rejects unknown surfaces and scenarios', async () => {
   const listed = await exec(process.execPath, [cli, 'scenarios'])
   expect(listed.stderr).toBe('')
+  const interactive = os === 'windows' ? ' (not on windows)' : ''
+  for (const surface of ['claude_cli', 'claude_sdk', 'claude_desktop']) {
+    expect(listed.stdout).toMatch(new RegExp(`^${surface} elicitation \\[stub\\]`, 'm'))
+    expect(listed.stdout).toMatch(new RegExp(`^${surface} workflow \\[stub\\]`, 'm'))
+  }
+  expect(listed.stdout).toContain(`claude_cli teammates [stub]${interactive}\nclaude_cli input-dialogs [stub]${interactive}\n`)
+  expect(listed.stdout).not.toMatch(/^claude_(?:sdk|desktop) (?:teammates|input-dialogs) /m)
   await expect(exec(process.execPath, [cli, 'scenario', 'unknown_surface'])).rejects.toMatchObject({ code: 1 })
   await expect(exec(process.execPath, [cli, 'scenario', 'codex_exec', 'no-such-scenario'])).rejects.toMatchObject({ code: 1, stderr: expect.stringContaining('Unknown codex_exec scenarios') as unknown })
   await expect(exec(process.execPath, [cli, 'scenario', 'codex_exec', '--model', 'other'])).rejects.toMatchObject({ code: 1 })

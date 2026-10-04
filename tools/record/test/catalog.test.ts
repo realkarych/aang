@@ -39,7 +39,14 @@ test.for(runnable.map((scenario) => ({ id: `${scenario.surface}/${scenario.name}
       context.skip()
       return
     }
-    const recording = await recordScenario(scenario, driver, { fixturesRoot, hookBinary: binary, model: 'stub', selection })
+    const recording = await recordScenario(scenario, driver, { fixturesRoot, hookBinary: binary, model: 'stub', selection }).catch((error: unknown) => {
+      if (error instanceof EngineUnavailableError && !required.has(scenario.surface)) return undefined
+      throw error
+    })
+    if (recording === undefined) {
+      context.skip()
+      return
+    }
     await verifyRecording(recording)
   },
 )

@@ -1,5 +1,5 @@
 import { pathToFileURL } from 'node:url'
-import { createConversation, hostArguments, type PermissionResponse } from './conversation.js'
+import { createConversation, type ElicitationResponse, hostArguments, type PermissionResponse } from './conversation.js'
 import { pluginDirectory } from './plan.js'
 
 interface SdkUserMessage {
@@ -18,6 +18,15 @@ interface SdkOptions {
   readonly forkSession?: boolean
   readonly stderr: (data: string) => void
   readonly canUseTool: (tool: string, input: Record<string, unknown>, options: { readonly toolUseID?: string }) => Promise<PermissionResponse>
+  readonly mcpServers: Readonly<Record<string, { readonly type: 'stdio'; readonly command: string; readonly args: readonly string[] }>>
+  readonly onElicitation: (request: SdkElicitation) => Promise<ElicitationResponse>
+}
+
+interface SdkElicitation {
+  readonly serverName: string
+  readonly mode?: 'form' | 'url'
+  readonly url?: string
+  readonly elicitationId?: string
 }
 
 interface SdkQuery extends AsyncIterable<unknown> {
@@ -87,6 +96,13 @@ const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
         process.stderr.write(data)
       },
       canUseTool: (tool, input, { toolUseID }) => conversation.permission(tool, toolUseID ?? null, input),
+      mcpServers: Object.fromEntries(Object.entries(plan.mcpServers).map(([name, server]) => [name, { type: 'stdio', ...server }])),
+      onElicitation: (request) => conversation.elicit({
+        server: request.serverName,
+        mode: request.mode ?? 'form',
+        url: request.url ?? null,
+        elicitationId: request.elicitationId ?? null,
+      }),
     },
   })
   handle.query = query
