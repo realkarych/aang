@@ -762,7 +762,7 @@ test('a lagging run whose batch outgrows the input limit sends the latest fact i
 test('a session moved away during a summary-only call ends it, and its late needs response keeps the usage without a follow-up', async (context) => {
   let gate = ''
   const scene = await createScene(context, {
-    limits: { queueAgeMs: minute },
+    limits: { queueAgeMs: minute, concurrency: 1 },
     executors: ({ root, claude, launcher }) => {
       gate = join(root, 'gate')
       return { claude: launcher(gated(gate, claude)) }
@@ -804,6 +804,8 @@ test('a session moved away during a summary-only call ends it, and its late need
     ['deferred', 0, null],
   ])
   expect(scene.scheduler.state(staying.run)).toEqual({ state: 'lagging', reason: 'backlog' })
+  scene.scheduler.wake()
+  expect(scene.calls(moving.run)).toEqual([])
 
   await writeFile(gate, '')
   await until(() => scene.prompts('claude').length === 2)
