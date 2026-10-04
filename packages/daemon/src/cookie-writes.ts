@@ -6,33 +6,41 @@ export interface Refusal {
   readonly message: string
 }
 
+export type CookieWriteCheck = (request: IncomingMessage) => Refusal | null
+
 const safeMethods = new Set(['GET', 'HEAD', 'OPTIONS', 'TRACE'])
 
-const fromDaemonOrigin = ({ headers }: IncomingMessage): boolean => {
-  if (headers.origin === undefined) {
-    return headers['sec-fetch-site'] === 'same-origin'
-  }
-  return URL.canParse(headers.origin) && new URL(headers.origin).host === headers.host?.toLowerCase()
-}
+const daemonHosts = ['127.0.0.1', 'localhost']
 
 const isJson = (contentType: string | undefined): boolean =>
   contentType?.split(';')[0]?.trim().toLowerCase() === 'application/json'
 
-export const cookieWriteRefusal = (request: IncomingMessage): Refusal | null => {
-  if (safeMethods.has(request.method ?? 'GET')) {
+export const cookieWriteCheck = (port: number): CookieWriteCheck => {
+  const daemonUrls = daemonHosts.map((host) => new URL(`http://${host}:${String(port)}`))
+  const origins = new Set(daemonUrls.map((url) => url.origin))
+  const hosts = new Set(daemonUrls.map((url) => url.host))
+
+  const fromDaemonPage = ({ headers }: IncomingMessage): boolean =>
+    headers.origin === undefined
+      ? headers['sec-fetch-site'] === 'same-origin' && hosts.has(headers.host ?? '')
+      : origins.has(headers.origin)
+
+  return (request) => {
+    if (safeMethods.has(request.method ?? 'GET')) {
+      return null
+    }
+    if (!fromDaemonPage(request)) {
+      return {
+        code: 'forbidden',
+        message: 'a change signed in with the session cookie must come from the aang page itself',
+      }
+    }
+    if (!isJson(request.headers['content-type'])) {
+      return {
+        code: 'unsupported_media_type',
+        message: 'a change signed in with the session cookie must have a JSON body (Content-Type: application/json)',
+      }
+    }
     return null
   }
-  if (!fromDaemonOrigin(request)) {
-    return {
-      code: 'forbidden',
-      message: 'a change signed in with the session cookie must come from the aang page itself',
-    }
-  }
-  if (!isJson(request.headers['content-type'])) {
-    return {
-      code: 'unsupported_media_type',
-      message: 'a change signed in with the session cookie must have a JSON body (Content-Type: application/json)',
-    }
-  }
-  return null
 }

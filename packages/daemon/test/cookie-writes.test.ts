@@ -74,9 +74,15 @@ describe.concurrent('a change signed in with the session cookie must come as JSO
     const { port } = daemon.ready.api
     const foreign: readonly Headers[] = [
       { origin: elsewhere },
-      { origin: `http://localhost:${String(port)}` },
+      { origin: `https://127.0.0.1:${String(port)}` },
+      { origin: `ftp://127.0.0.1:${String(port)}` },
+      { origin: `${daemon.base}/not-an-origin` },
       { origin: 'null' },
       { origin: elsewhere, 'sec-fetch-site': 'same-origin' },
+      { host: '127.0.0.1:9000', origin: 'http://127.0.0.1:9000' },
+      { host: 'aang.example.com', origin: 'https://aang.example.com' },
+      { host: 'attacker.example', origin: 'http://attacker.example' },
+      { host: 'attacker.example', 'sec-fetch-site': 'same-origin' },
       { 'sec-fetch-site': 'same-site' },
       { 'sec-fetch-site': 'cross-site' },
       {},
@@ -102,16 +108,19 @@ describe.concurrent('a change signed in with the session cookie must come as JSO
     expect(await daemon.stopped).toBe('shutdown')
   })
 
-  test('a change from the origin the browser addressed the daemon by passes', async ({ expect, onTestFinished }) => {
+  test('a change from http://127.0.0.1 or http://localhost on the daemon port passes', async ({
+    expect,
+    onTestFinished,
+  }) => {
     const { daemon, cookie } = await signedIn(onTestFinished)
-    const { port } = daemon.ready.api
+    const localhost = `localhost:${String(daemon.ready.api.port)}`
     const own: readonly Headers[] = [
       { origin: daemon.base },
       { origin: daemon.base, 'content-type': 'Application/JSON; charset=utf-8' },
       { 'sec-fetch-site': 'same-origin' },
-      { host: `localhost:${String(port)}`, origin: `http://localhost:${String(port)}` },
-      { host: '127.0.0.1:9000', origin: 'http://127.0.0.1:9000' },
-      { host: 'aang.example.com', origin: 'https://aang.example.com' },
+      { origin: `http://${localhost}` },
+      { host: localhost, origin: `http://${localhost}` },
+      { host: localhost, 'sec-fetch-site': 'same-origin' },
     ]
 
     for (const headers of own) {

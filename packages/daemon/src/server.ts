@@ -13,7 +13,7 @@ import {
 import { z } from 'zod'
 import { AdminError } from './admin-error.js'
 import type { Authenticator } from './auth.js'
-import { cookieWriteRefusal } from './cookie-writes.js'
+import { type CookieWriteCheck, cookieWriteCheck } from './cookie-writes.js'
 import type { Admin } from './ingestion.js'
 import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
@@ -249,6 +249,7 @@ export const startServer = async ({
 
   const handle = async (
     table: readonly ApiRoute[],
+    checkCookieWrite: CookieWriteCheck,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> => {
@@ -268,7 +269,7 @@ export const startServer = async ({
       }
       return
     }
-    const refusal = credential === 'cookie' ? cookieWriteRefusal(request) : null
+    const refusal = credential === 'cookie' ? checkCookieWrite(request) : null
     if (refusal !== null) {
       if (api) {
         sendError(response, refusal.code, refusal.message)
@@ -290,9 +291,10 @@ export const startServer = async ({
   const { port } = server.address() as AddressInfo
   const address: Listener = { host: listener.host, port }
   const table = routes(address)
+  const checkCookieWrite = cookieWriteCheck(port)
   server.on('request', (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader('x-content-type-options', 'nosniff')
-    handle(table, request, response).catch((error: unknown) => {
+    handle(table, checkCookieWrite, request, response).catch((error: unknown) => {
       process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
       if (response.headersSent) {
         response.destroy()
