@@ -1,11 +1,11 @@
 import { existsSync } from 'node:fs'
-import { rename } from 'node:fs/promises'
+import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import { type Adapter, EpochNs, type Runtime, type SessionKey } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { createEngine } from '@aang/engine'
+import { createEngine, observerInputTokens } from '@aang/engine'
 import { openStore } from '@aang/store'
 import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 import { type TestContext, test } from 'vitest'
@@ -235,6 +235,61 @@ test('observer.backend sends a Claude run to the Codex observer, which gets none
       session: objectId(session),
       details: 'facts of this session are not sent to the codex observer without observer.crossVendor',
     },
+  ])
+})
+
+test('the scheduler finds skills in the configured Claude directory and keeps observer inputs within observer.inputLimitTokens', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed, briefed] })
+  await installLauncher(home)
+  const claudeHome = join(home.root, 'claude-home')
+  const skill = join(claudeHome, 'skills', 'g6-review', 'SKILL.md')
+  await mkdir(dirname(skill), { recursive: true })
+  await writeFile(skill, '---\nname: g6-review\ndescription: Reviews the change before it ships\n---\nSteps\n')
+  const inputLimit = 1_150
+  await configure(home, workspace, {
+    runtimes: { claude: { configDir: claudeHome } },
+    cli: { codex: await configuredPath(codex) },
+    observer: { backend: 'codex', crossVendor: true, inputLimitTokens: inputLimit },
+  })
+  const session = claudeKey('session-g6-context')
+  const observed = runId(session)
+
+  await run(home, onTestFinished, async () => {
+    await enqueue(home, 'skill', [
+      claudeHook('SessionStart.startup', session.session, workspace),
+      claudeHook('PreToolUse.Bash', session.session, workspace, {
+        tool_name: 'Skill',
+        tool_input: { skill: 'g6-review' },
+        tool_use_id: 'toolu_g6_skill',
+      }),
+    ])
+    await waitUntil(() => settled(progressOf(home, observed)))
+    await enqueue(home, 'permission', [
+      claudeHook('PermissionRequest.Bash', session.session, workspace, {
+        tool_input: { command: `echo ${'x'.repeat(3_900)}`, description: 'Print a long line' },
+      }),
+    ])
+    await waitUntil(() => {
+      const progress = progressOf(home, observed)
+      return settled(progress) && progress.batches.length === 2
+    })
+  })
+
+  const inputs = observerInputs(codex, observed)
+  expect(inputs.map((input) => observerInputTokens(input) <= inputLimit)).toEqual([true, true])
+  const [, second] = inputs
+  expect(second?.context?.entries).toContainEqual({
+    kind: 'skill',
+    ref: skill,
+    text: 'Reviews the change before it ships',
+    truncated: null,
+  })
+  expect(second?.batch.facts.map(({ kind, truncated }) => ({ kind, truncated: truncated.length > 0 }))).toEqual([
+    { kind: 'permission_request', truncated: true },
   ])
 })
 

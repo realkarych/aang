@@ -1,8 +1,8 @@
 import { rm } from 'node:fs/promises'
-import type { Config, Listener, Runtime } from '@aang/contract'
+import type { Config, Listener, Runtime, StatusResponse } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
-import { createReadQueries, type ObserverRunStatus } from '@aang/engine'
+import { createReadQueries } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
 import { startIngestion } from './ingestion.js'
@@ -48,16 +48,13 @@ const openExclusive = (home: string): Store => {
   }
 }
 
-const observerOfRun = (): ObserverRunStatus => ({
-  state: { state: 'disabled', reason: 'version_not_admitted' },
-  isolation_unverified: false,
-})
-
-const notifying = (store: Store, changed: () => void): Store => ({
+const notifying = (store: Store, listeners: ReadonlySet<() => void>): Store => ({
   ...store,
   transaction: (work) => {
     const result = store.transaction(work)
-    changed()
+    for (const listener of listeners) {
+      listener()
+    }
     return result
   },
 })
@@ -125,9 +122,8 @@ const serve = async ({
   store: opened,
 }: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
-  const reads = createReadQueries({ store: opened, observer: observerOfRun })
-  const streams = createStreams({ reads, head: opened.changes.head, onError: report })
-  const store = notifying(opened, streams.changed)
+  const committed = new Set<() => void>()
+  const store = notifying(opened, committed)
   const stop = Promise.withResolvers<StopCause>()
   const stopRequest = { made: false }
   const settle = (cause: StopCause): void => {
@@ -142,9 +138,28 @@ const serve = async ({
     settle({ reason })
   }
   const auth = createAuthenticator(paths)
-  const observer = startObserver({ store, config, aangHome: paths.home, environment: options.environment.env })
+  const observer = startObserver({
+    store,
+    config,
+    aangHome: paths.home,
+    claudeConfigDir: runtimeRoots.claude,
+    environment: options.environment.env,
+  })
   void observer.failure.then((error) => {
     settle({ error })
+  })
+  const reads = createReadQueries({ store: opened, observer: observer.run })
+  const status = Promise.withResolvers<() => Promise<StatusResponse>>()
+  const streams = createStreams({
+    reads,
+    head: opened.changes.head,
+    status: () => status.promise.then((read) => read()),
+    onError: report,
+  })
+  committed.add(streams.changed)
+  observer.subscribe(() => {
+    streams.changed()
+    streams.statusChanged()
   })
   const ingestion = await startIngestion({
     store,
@@ -171,7 +186,9 @@ const serve = async ({
       staticRoot: options.staticRoot,
       routes: (api) => {
         const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
-        return readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
+        const read = createStatus({ daemon, store, config, runtimeRoots, paths, observer: observer.backends })
+        status.resolve(read)
+        return readRoutes({ store, reads, status: read })
       },
       streams,
       reparse: ingestion.reparse,

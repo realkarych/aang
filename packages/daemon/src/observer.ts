@@ -1,18 +1,39 @@
 import { join } from 'node:path'
-import type { Config, Runtime } from '@aang/contract'
+import {
+  type Admission,
+  type AdmissionOutcome,
+  type Config,
+  EpochNs,
+  type ObserverBackendStatus,
+  type ObserverState,
+  type Run,
+  type Runtime,
+  runtimes,
+} from '@aang/contract'
+import type { ObserverRunStatus } from '@aang/engine'
 import { hookInstallPaths } from '@aang/hook'
-import { createClaudeBackend, createCodexBackend, createObserverScheduler, type ObserverScheduler } from '@aang/observer'
+import {
+  type AdmissionStatus,
+  createClaudeBackend,
+  createCodexBackend,
+  createObserverScheduler,
+  type ObserverScheduler,
+} from '@aang/observer'
 import type { Store } from '@aang/store'
 
 export interface ObserverOptions {
   readonly store: Store
   readonly config: Config
   readonly aangHome: string
+  readonly claudeConfigDir: string
   readonly environment: Readonly<Partial<Record<string, string>>>
 }
 
 export interface Observer {
   readonly wake: () => void
+  readonly backends: () => ObserverBackendStatus[]
+  readonly run: (run: Run) => ObserverRunStatus
+  readonly subscribe: (listener: () => void) => void
   readonly failure: Promise<unknown>
   readonly close: () => Promise<void>
 }
@@ -39,8 +60,26 @@ const backendOptions = ({ config, aangHome, environment }: ObserverOptions, runt
   }
 }
 
+const outcomeOf = ({ admitted, reason }: AdmissionStatus): AdmissionOutcome =>
+  admitted ? 'admitted' : reason === 'admission_pending' ? 'pending' : 'failed'
+
+const admissionOf = (status: AdmissionStatus): Admission | null => {
+  if (status.version === null || status.checkedAt === null) {
+    return null
+  }
+  const outcome = outcomeOf(status)
+  return {
+    vendor: status.runtime,
+    cli_version: status.version,
+    outcome,
+    failure: outcome === 'failed' ? status.reason : null,
+    cross_session_inbound_verified: status.admitted && status.warning === null,
+    checked_at: EpochNs.parse(BigInt(Date.parse(status.checkedAt)) * 1_000_000n),
+  }
+}
+
 export const startObserver = (options: ObserverOptions): Observer => {
-  const { store, config } = options
+  const { store, config, claudeConfigDir } = options
   const backends: Readonly<Record<Runtime, Backend>> = {
     claude: createClaudeBackend(backendOptions(options, 'claude')),
     codex: createCodexBackend(backendOptions(options, 'codex')),
@@ -50,7 +89,19 @@ export const startObserver = (options: ObserverOptions): Observer => {
   const checkedVersions = new Map<Backend, string | null>()
   const checks = new Map<Backend, Promise<void>>()
   const timers: NodeJS.Timeout[] = []
+  const listeners = new Set<() => void>()
   const running: { scheduler: ObserverScheduler | null; closed: boolean } = { scheduler: null, closed: false }
+
+  const changed = (): void => {
+    for (const listener of listeners) {
+      listener()
+    }
+  }
+
+  const unsubscribes = Object.values(backends).map((backend) => backend.subscribe(changed))
+
+  const stateOf = (runtime: Runtime): ObserverState =>
+    running.scheduler?.backendState(runtime) ?? backends[runtime].status().state
 
   const admit = async (backend: Backend): Promise<void> => {
     const { version, reason } = await backend.admit(controller.signal)
@@ -90,9 +141,12 @@ export const startObserver = (options: ObserverOptions): Observer => {
         backends,
         backend: config.observer.backend,
         crossVendor: config.observer.crossVendor,
+        claudeConfigDir,
         budgetTokensPerHour: config.observer.budgetTokensPerHour,
+        limits: { inputTokens: config.observer.inputLimitTokens },
       })
       running.scheduler = scheduler
+      unsubscribes.push(scheduler.subscribe(changed))
       void scheduler.failure.then(failure.resolve)
       timers.push(
         setInterval(() => {
@@ -100,12 +154,37 @@ export const startObserver = (options: ObserverOptions): Observer => {
         }, versionCheckMs).unref(),
       )
       scheduler.wake()
+      changed()
     })
     .catch(failure.resolve)
 
   return {
     wake: () => {
       running.scheduler?.wake()
+    },
+    backends: () =>
+      runtimes.map((runtime) => {
+        const admission = backends[runtime].admission()
+        return {
+          vendor: runtime,
+          state: stateOf(runtime),
+          cli_path: config.cli[runtime],
+          cli_version: admission.version,
+          model: config.observer.models[runtime],
+          effort: config.observer.effort[runtime],
+          admission: admissionOf(admission),
+        }
+      }),
+    run: ({ id, runtime }) => {
+      const backend = config.observer.backend ?? runtime
+      const { admitted, warning } = backends[backend].admission()
+      return {
+        state: running.scheduler?.state(id) ?? stateOf(backend),
+        isolation_unverified: admitted && warning !== null,
+      }
+    },
+    subscribe: (listener) => {
+      listeners.add(listener)
     },
     failure: failure.promise,
     close: async () => {
@@ -115,6 +194,10 @@ export const startObserver = (options: ObserverOptions): Observer => {
       await starting
       await Promise.all(checks.values())
       await running.scheduler?.close()
+      unsubscribes.forEach((unsubscribe) => {
+        unsubscribe()
+      })
+      listeners.clear()
     },
   }
 }
