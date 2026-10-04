@@ -18,6 +18,7 @@ export type { RawInsertResult, RawRecordReader, RawRecordWriter } from './raw-re
 export type { ScopeReader, ScopeWriter, SessionDecision, SessionScope, StreamScope } from './scopes.js'
 export type { SettingReader, SettingWriter } from './settings.js'
 export type {
+  LatestObserverCall,
   ObserverCallError,
   ObserverCallProgress,
   ObserverCallReader,
