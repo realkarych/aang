@@ -55,7 +55,7 @@ export const workflow: Definition = {
     })
     check(summary.tools.includes('Workflow'), 'The engine offered no Workflow tool')
     const sessionId = sessionOf(summary)
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const call = present(named(toolUses(transcript), 'Workflow').at(-1), 'The session never called the Workflow tool')
     check(toolResult(transcript, call.id)?.isError === false, 'The Workflow action failed')
     const directory = sessionDirectory(transcript)

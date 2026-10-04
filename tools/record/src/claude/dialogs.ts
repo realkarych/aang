@@ -62,10 +62,10 @@ export const inputDialogs: Definition = {
         { idle: 2 },
       ],
     })
-    const roots = await transcriptFiles(session.claude)
+    const roots = await transcriptFiles(session)
     check(roots.length === 1, `The interactive session wrote ${String(roots.length)} root transcripts`)
     const sessionId = basename(present(roots[0], 'No root transcript'), '.jsonl')
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const greeting = resultOf(transcript, greetingTool)
     const confirmation = resultOf(transcript, linkTool)
     const spawn = resultOf(transcript, 'Agent')

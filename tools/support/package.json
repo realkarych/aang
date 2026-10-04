@@ -1,0 +1,22 @@
+{
+  "name": "@aang/support",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "dependencies": {
+    "@aang/adapter-claude": "workspace:*",
+    "@aang/adapter-codex": "workspace:*",
+    "@aang/collector": "workspace:*",
+    "@aang/contract": "workspace:*",
+    "@aang/engine": "workspace:*",
+    "@aang/record": "workspace:*",
+    "@aang/store": "workspace:*",
+    "@aang/testkit": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}

@@ -52,7 +52,7 @@ export const teammates: Definition = {
         { idle: 2 },
       ],
     })
-    const roots = await transcriptFiles(session.claude)
+    const roots = await transcriptFiles(session)
     check(roots.length === 1, `The interactive session wrote ${String(roots.length)} root transcripts`)
     const sessionId = basename(present(roots[0], 'No root transcript'), '.jsonl')
     const hooks = await hookRecords(session.spool)
@@ -66,7 +66,7 @@ export const teammates: Definition = {
     check(hooksNamed(hooks, 'TeammateIdle', { key: 'teammate_name', value: 'helper' }).some((hook) => hook['team_name'] === team), 'helper never became idle')
     const tasks = await taskFiles(session, team)
     check(tasks.length === 2 && tasks.every(({ task }) => task.status === 'completed'), `The team task list is not two completed tasks: ${tasks.map(({ task }) => `${task.id}:${task.status}`).join(', ')}`)
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const subagents = join(transcript.file.slice(0, -'.jsonl'.length), 'subagents')
     const metaFile = present((await readdir(subagents)).find((name) => /^agent-ahelper-.+\.meta\.json$/.test(name)), 'helper has no meta file')
     const meta = TeammateMeta.parse(JSON.parse(await readFile(join(subagents, metaFile), 'utf8')))

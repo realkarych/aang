@@ -88,7 +88,7 @@ export const elicitation: Definition = {
     check(greetingOf(log.answered('form')?.content) === 'Hello', 'The MCP server did not receive the greeting Hello')
     check(log.confirmed(linkId), 'The MCP server did not see the link opened and did not confirm completion')
     const sessionId = sessionOf(summary)
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const greeting = resultOf(transcript, greetingTool)
     const confirmation = resultOf(transcript, linkTool)
     check(!greeting.isError && greeting.text.includes('Hello'), `The greeting action does not carry the answer: ${greeting.text}`)

@@ -77,7 +77,7 @@ const stubKey = 'sk-ant-api03-aang-record-model-stub'
 
 const liveCredentials = (): void => {
   if (process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_CODE_OAUTH_TOKEN']) return
-  throw new Error('Live Claude scenarios need ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: the temporary CLAUDE_CONFIG_DIR has no login')
+  throw new Error('Live Claude scenarios need ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, or the regular Claude home: the temporary CLAUDE_CONFIG_DIR has no login')
 }
 
 export const withClaude = (
@@ -86,7 +86,8 @@ export const withClaude = (
   body: (run: ClaudeRun) => Promise<void>,
 ) => async (session: ScenarioSession): Promise<void> => {
   const live = session.model === 'live'
-  if (live) liveCredentials()
+  const regular = session.claudeHome === 'regular'
+  if (live && !regular) liveCredentials()
   const stub = live ? undefined : await startModelStub(script(session), join(session.work, 'model-stub.jsonl'))
   const env = stub === undefined
     ? quiet
