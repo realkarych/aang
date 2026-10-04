@@ -147,8 +147,7 @@ describe('the contract run over recordings generated from the spike samples', ()
 
     const check = await supportCli(['check', ...cliOptions(join(portable, 'sessions'), join(portable, 'support'))])
 
-    expect(check.stdout).toBe('4 recordings, 0 problems\n')
-    expect(check.code).toBe(0)
+    expect(check).toEqual({ code: 0, stdout: '4 recordings, 0 problems\n', stderr: '' })
   }, 120_000)
 
   test('the run refuses an unknown command, a recording outside its own directory and a missing hook binary', async () => {
