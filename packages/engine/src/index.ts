@@ -30,6 +30,7 @@ export {
   type ObserverFollowUp,
   type ObserverResponse,
   type ObserverResponseResult,
+  skipObserverFollowUp,
 } from './model/observer.js'
 export { type MaterialLimits, resolveObserverNeeds } from './input/materials.js'
 export { type BatchLimits, type ObserverBatchStart, startObserverBatch } from './input/batch.js'
@@ -94,3 +95,4 @@ export {
   type ViewRuleErrorCode,
   type ViewRuleRevocation,
 } from './view/rules.js'
+export { createViewState, type ViewState, type ViewStateOptions } from './view/state.js'

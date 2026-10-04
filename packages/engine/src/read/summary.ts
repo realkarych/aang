@@ -2,6 +2,7 @@ import {
   type Agent,
   type AttentionCounts,
   type AttentionItem,
+  type AttentionView,
   AttentionKind,
   type Execution,
   type Freshness,
@@ -12,11 +13,13 @@ import {
   SupportMode,
 } from '@aang/contract'
 import type { InterpretationQueue, ObserverCallProgress } from '@aang/store'
+import { dismissedItems, inZone } from '../view/zone.js'
 import { latest, type ModelParts, origin, type ReadContext } from './context.js'
 
 export interface RunState {
   readonly run: Run
   readonly parts: ModelParts
+  readonly views: readonly AttentionView[]
   readonly sessions: readonly Session[]
   readonly agents: readonly Agent[]
 }
@@ -50,8 +53,9 @@ const runExecution = (sessions: readonly Session[]): Execution =>
 const runFreshness = (sessions: readonly Session[]): Freshness =>
   freshnessOrder.find((freshness) => sessions.some((session) => session.freshness === freshness)) ?? 'ok'
 
-const attentionCounts = (items: readonly AttentionItem[]): AttentionCounts => {
-  const open = items.filter(({ resolution }) => resolution === 'open')
+const attentionCounts = (items: readonly AttentionItem[], views: readonly AttentionView[]): AttentionCounts => {
+  const dismissed = dismissedItems(views)
+  const open = items.filter((item) => inZone(item, dismissed))
   return {
     open: open.length,
     waiting_for_human: open.filter(({ runtime_wait: wait }) => wait === 'active').length,
@@ -81,12 +85,13 @@ const observerState = (
 
 export const summaryOf = (context: ReadContext, state: RunState): RunSummary => {
   const { store } = context
-  const { run, parts, sessions, agents } = state
+  const { run, parts, views, sessions, agents } = state
   const head = store.model.head(run.id)
   const progress = store.observerCalls.progress(run.id)
   const changed = [
     store.model.version(run.id, head)?.change_seq ?? origin,
     progress.change_seq ?? origin,
+    ...views.map(({ change_seq: seq }) => seq),
     ...[...sessions, ...agents].map(({ change_seq: seq }) => seq),
   ]
   const forked = parts.links.find((link) => link.kind === 'forked_from')
@@ -102,7 +107,7 @@ export const summaryOf = (context: ReadContext, state: RunState): RunSummary => 
     support_modes: SupportMode.options.filter((mode) => sessions.some(({ support_mode: own }) => own === mode)),
     sessions: sessions.length,
     agents: agents.length,
-    attention: attentionCounts(parts.attention),
+    attention: attentionCounts(parts.attention, views),
     observer: observerState(context, run, store.interpretations.queueOf(run.id), progress),
     forked_from: forked?.kind === 'forked_from' ? forked.parent : null,
     start_pruned: run.start_pruned,
