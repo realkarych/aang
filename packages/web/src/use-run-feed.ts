@@ -1,7 +1,7 @@
-import type { RunId, RunSnapshot } from '@aang/contract'
-import { useEffect, useReducer } from 'react'
+import type { AttentionView, RunId, RunSnapshot } from '@aang/contract'
+import { useCallback, useEffect, useReducer } from 'react'
 import { NotFound, readRun, SignedOut } from './api.js'
-import { applyEvent } from './feed.js'
+import { applyAttentionView, applyEvent } from './feed.js'
 import { pause } from './pause.js'
 import { type FeedEvent, followRun } from './stream.js'
 
@@ -12,10 +12,15 @@ export interface RunFeedState {
   readonly connection: FeedConnection
 }
 
+export interface RunFeed extends RunFeedState {
+  readonly noteView: (view: AttentionView) => void
+}
+
 type FeedAction =
   | { readonly kind: 'start' }
   | { readonly kind: 'snapshot'; readonly snapshot: RunSnapshot }
   | { readonly kind: 'event'; readonly event: FeedEvent }
+  | { readonly kind: 'view'; readonly view: AttentionView }
   | { readonly kind: 'connection'; readonly connection: FeedConnection }
   | { readonly kind: 'missing' }
 
@@ -29,6 +34,8 @@ const reduce = (state: RunFeedState, action: FeedAction): RunFeedState => {
       return { ...state, snapshot: action.snapshot }
     case 'event':
       return state.snapshot === null ? state : { ...state, snapshot: applyEvent(state.snapshot, action.event) }
+    case 'view':
+      return state.snapshot === null ? state : { ...state, snapshot: applyAttentionView(state.snapshot, action.view) }
     case 'connection':
       return state.connection === action.connection ? state : { ...state, connection: action.connection }
     case 'missing':
@@ -75,7 +82,7 @@ const follow = async (
   }
 }
 
-export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeedState => {
+export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
   const [state, dispatch] = useReducer(reduce, initial)
   useEffect(() => {
     const controller = new AbortController()
@@ -91,5 +98,8 @@ export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeedState =>
       controller.abort()
     }
   }, [run, onSignedOut])
-  return state
+  const noteView = useCallback((view: AttentionView) => {
+    dispatch({ kind: 'view', view })
+  }, [])
+  return { ...state, noteView }
 }

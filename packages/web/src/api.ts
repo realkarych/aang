@@ -1,5 +1,7 @@
 import {
   ApiError,
+  type AttentionItemId,
+  type AttentionView,
   endpoints,
   type Fact,
   type FactId,
@@ -42,12 +44,12 @@ export const ensureSignedIn = (response: Response): Response => {
   return response
 }
 
-const read = async <T>(path: string, decoder: Decoder<T>, signal: AbortSignal): Promise<T> => {
+const exchange = async <T>(path: string, init: RequestInit, decoder: Decoder<T>): Promise<T> => {
   let response: Response
   try {
-    response = await fetch(path, { headers: { accept: 'application/json' }, cache: 'no-store', signal })
+    response = await fetch(path, { ...init, cache: 'no-store' })
   } catch (error) {
-    if (signal.aborted) {
+    if (init.signal?.aborted === true) {
       throw error
     }
     throw new Unreachable(error instanceof Error ? error.message : String(error))
@@ -62,7 +64,20 @@ const read = async <T>(path: string, decoder: Decoder<T>, signal: AbortSignal): 
   return decoder.parse(await response.json())
 }
 
+const read = <T>(path: string, decoder: Decoder<T>, signal: AbortSignal): Promise<T> =>
+  exchange(path, { headers: { accept: 'application/json' }, signal }, decoder)
+
+const post = <T>(path: string, decoder: Decoder<T>): Promise<T> =>
+  exchange(
+    path,
+    { method: 'POST', headers: { accept: 'application/json', 'content-type': 'application/json' }, body: '{}' },
+    decoder,
+  )
+
 const withRun = (path: string, run: RunId): string => path.replace(':run', encodeURIComponent(run))
+
+const withItem = (path: string, run: RunId, item: AttentionItemId): string =>
+  withRun(path, run).replace(':item', encodeURIComponent(item))
 
 export const readStatus = (signal: AbortSignal): Promise<StatusResponse> =>
   read(endpoints.status.path, endpoints.status.response, signal)
@@ -75,3 +90,9 @@ export const readRun = (run: RunId, signal: AbortSignal): Promise<RunSnapshot> =
 
 export const readFact = async (id: FactId, signal: AbortSignal): Promise<Fact> =>
   (await read(endpoints.fact.path.replace(':id', encodeURIComponent(id)), endpoints.fact.response, signal)).fact
+
+export const markAttentionViewed = async (run: RunId, item: AttentionItemId): Promise<AttentionView> =>
+  (await post(withItem(endpoints.attentionViewed.path, run, item), endpoints.attentionViewed.response)).view
+
+export const dismissAttention = async (run: RunId, item: AttentionItemId): Promise<AttentionView> =>
+  (await post(withItem(endpoints.attentionDismiss.path, run, item), endpoints.attentionDismiss.response)).view

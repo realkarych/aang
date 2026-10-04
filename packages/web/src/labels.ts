@@ -3,6 +3,8 @@ import type {
   AgentRole,
   AttentionAuthor,
   AttentionKind,
+  AttentionPriority,
+  AttentionResolution,
   BasisKind,
   Execution,
   Freshness,
@@ -165,6 +167,28 @@ export const attentionAuthorLabel: Readonly<Record<AttentionAuthor, string>> = {
   observer: 'от наблюдателя',
 }
 
+export const attentionPriorityLabel: Readonly<Record<AttentionPriority, string>> = {
+  high: 'высокий приоритет',
+  medium: 'средний приоритет',
+  low: 'низкий приоритет',
+}
+
+const closedLabel: Readonly<Record<Exclude<AttentionResolution, 'open' | 'answered'>, string>> = {
+  resolved: 'решён',
+  ended_without_answer: 'ожидание прекращено без ответа',
+}
+
+const answeredLabel: Readonly<Record<AttentionKind, string>> = {
+  question: 'отвечен',
+  permission: 'решение принято',
+  review_request: 'отвечен',
+  blocker: 'решён',
+  failed_check: 'проверка прошла',
+}
+
+export const attentionOutcomeLabel = (kind: AttentionKind, resolution: Exclude<AttentionResolution, 'open'>): string =>
+  resolution === 'answered' ? answeredLabel[kind] : closedLabel[resolution]
+
 export const questionKindLabel: Readonly<Record<QuestionKind, string>> = {
   permission: 'Запрос одобрения',
   ask_user_question: 'Вопрос',
@@ -238,5 +262,7 @@ export const fileForms = { one: 'файл', few: 'файла', many: 'файло
 export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
 export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const
 export const stepForms = { one: 'ранний шаг', few: 'ранних шага', many: 'ранних шагов' } as const
+export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
+export const itemForms = { one: 'пункт', few: 'пункта', many: 'пунктов' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
