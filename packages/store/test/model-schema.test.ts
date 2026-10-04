@@ -115,11 +115,28 @@ const chatMessage: Row = {
   stage_id: 'NULL',
   model_version: '1',
   question: "'What is left?'",
+  status: "'pending'",
   answer: 'NULL',
   citations: "'[]'",
+  unconfirmed_citations: '0',
+  insufficient_data: '0',
+  view_rule_id: 'NULL',
+  error: 'NULL',
   asked_at: '1759370000000000000',
   answered_at: 'NULL',
   change_seq: '3',
+}
+
+const answeredChat: Row = {
+  status: "'answered'",
+  answer: "'Two stages remain.'",
+  answered_at: '1759370005000000000',
+}
+
+const failedChat: Row = {
+  status: "'failed'",
+  error: "'Claude did not produce a successful result'",
+  answered_at: '1759370005000000000',
 }
 
 const setting: Row = {
@@ -579,13 +596,26 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: revoked_at >= created_at/,
   },
   {
-    name: 'an answered chat message keeps its citations',
-    statement: insert('chat_messages', chatMessage, {
+    name: 'a pending chat question waits for its answer',
+    statement: insert('chat_messages', chatMessage),
+  },
+  {
+    name: 'an answered chat message keeps its answer, citations, marks and view rule',
+    statement: insert('chat_messages', chatMessage, answeredChat, {
       stage_id: "'st1'",
-      answer: "'Two stages remain.'",
       citations: '\'[{"kind":"stage","id":"st1"}]\'',
-      answered_at: '1759370005000000000',
+      unconfirmed_citations: '1',
+      insufficient_data: '1',
+      view_rule_id: '7',
     }),
+  },
+  {
+    name: 'an answer may be missing when the data is insufficient',
+    statement: insert('chat_messages', chatMessage, answeredChat, { answer: 'NULL', insufficient_data: '1' }),
+  },
+  {
+    name: 'a failed chat message keeps its error',
+    statement: insert('chat_messages', chatMessage, failedChat),
   },
   {
     name: 'the usage of the chat is kept in its journal, not in chat messages',
@@ -593,13 +623,73 @@ const cases: readonly SchemaCase[] = [
     error: /table chat_messages has no column named usage/,
   },
   {
+    name: 'a chat question is not empty',
+    statement: insert('chat_messages', chatMessage, { question: "''" }),
+    error: /CHECK constraint failed: question <> ''/,
+  },
+  {
+    name: 'a chat message has a known status',
+    statement: insert('chat_messages', chatMessage, answeredChat, { status: "'cancelled'" }),
+    error: /CHECK constraint failed: status IN/,
+  },
+  {
+    name: 'a pending chat question has no answer time',
+    statement: insert('chat_messages', chatMessage, { answered_at: '1759370005000000000' }),
+    error: /CHECK constraint failed: chat_messages_finished/,
+  },
+  {
+    name: 'a finished chat message has its answer time',
+    statement: insert('chat_messages', chatMessage, answeredChat, { answered_at: 'NULL' }),
+    error: /CHECK constraint failed: chat_messages_finished/,
+  },
+  {
+    name: 'only a failed chat message has an error',
+    statement: insert('chat_messages', chatMessage, answeredChat, { error: "'late'" }),
+    error: /CHECK constraint failed: chat_messages_error/,
+  },
+  {
+    name: 'a failed chat message names its error',
+    statement: insert('chat_messages', chatMessage, failedChat, { error: 'NULL' }),
+    error: /CHECK constraint failed: chat_messages_error/,
+  },
+  ...(
+    [
+      ['an answer', { answer: "'Two stages remain.'" }],
+      ['citations', { citations: '\'[{"kind":"stage","id":"st1"}]\'' }],
+      ['unconfirmed citations', { unconfirmed_citations: '1' }],
+      ['the insufficient data mark', { insufficient_data: '1' }],
+      ['a view rule', { view_rule_id: '7' }],
+    ] as const
+  ).flatMap(([part, row]): SchemaCase[] => [
+    {
+      name: `a pending chat question has no ${part}`,
+      statement: insert('chat_messages', chatMessage, row),
+      error: /CHECK constraint failed: chat_messages_unanswered/,
+    },
+    {
+      name: `a failed chat message has no ${part}`,
+      statement: insert('chat_messages', chatMessage, failedChat, row),
+      error: /CHECK constraint failed: chat_messages_unanswered/,
+    },
+  ]),
+  {
+    name: 'chat marks are flags',
+    statement: insert('chat_messages', chatMessage, answeredChat, { insufficient_data: '2' }),
+    error: /CHECK constraint failed: insufficient_data IN/,
+  },
+  {
+    name: 'a chat view rule is a stored rule number',
+    statement: insert('chat_messages', chatMessage, answeredChat, { view_rule_id: '0' }),
+    error: /CHECK constraint failed: view_rule_id > 0/,
+  },
+  {
     name: 'chat citations are a JSON array',
-    statement: insert('chat_messages', chatMessage, { citations: '\'{"kind":"stage"}\'' }),
+    statement: insert('chat_messages', chatMessage, answeredChat, { citations: '\'{"kind":"stage"}\'' }),
     error: /CHECK constraint failed: json_type\(citations\)/,
   },
   {
     name: 'a chat answer cannot precede its question',
-    statement: insert('chat_messages', chatMessage, { answered_at: '1759369999999999999' }),
+    statement: insert('chat_messages', chatMessage, answeredChat, { answered_at: '1759369999999999999' }),
     error: /CHECK constraint failed: answered_at >= asked_at/,
   },
   {
