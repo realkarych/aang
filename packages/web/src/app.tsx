@@ -101,7 +101,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     status: status.value,
     statusFailing: status.failing,
     runs: null,
-    runsFailing: false,
+    runsFailing: runs.failing,
     focus: { connection: feed.connection, run: focused },
     now,
   })

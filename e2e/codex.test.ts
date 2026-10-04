@@ -1,6 +1,7 @@
-import { ObserverInput, type RunId } from '@aang/contract'
+import { endpoints, ObserverInput, type RunId } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } from '@aang/testkit'
+import type { Route } from '@playwright/test'
 import { expect, test } from './fixtures.js'
 import { after, codexRecording, filesOnly, threadsOf, through } from './recordings.js'
 import {
@@ -24,6 +25,8 @@ const observed = { timeout: 30_000 }
 const recovery = { timeout: 90_000 }
 
 const calmZone = 'Открытых пунктов нет.'
+
+const earlyFacts = 'Ранние факты карта учитывает только по сводке, с пониженной детализацией.'
 
 const codexRun = (session: string): RunId => runId({ kind: 'session', runtime: 'codex', session })
 
@@ -75,6 +78,7 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
   await expect(unavailable).toContainText('Факты и пункты внимания продолжают поступать')
   await expect(unavailable).toContainText(/Догоняющий режим: \d+ ранн(?:ий факт|их факта|их фактов) наблюдатель видит только сводкой/)
   await expect(lamp(page, 'Модель')).toHaveText('Модель не строилась')
+  await expect(await lampDetails(page, 'Модель')).toContainText(earlyFacts)
   const sent = observerInputs(fakeCodex.calls()).length
   fakeCodex.setScenario(recovered)
 
@@ -97,7 +101,7 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
   await expect(lamp(page, 'Наблюдатель')).toHaveText('Наблюдатель работает', recovery)
   await expect(lamp(page, 'Модель')).toHaveText(/^Модель обновлена /)
   const caughtUp = await lampDetails(page, 'Модель')
-  await expect(caughtUp).toContainText('Смысл ранних фактов восстановлен по сводке, с пониженной детализацией.')
+  await expect(caughtUp).toContainText(earlyFacts)
   await expect(caughtUp).not.toContainText('Ждут наблюдателя')
   await expect(fact(page, 'Версия карты')).not.toHaveText('1')
   await expect(await lampDetails(page, 'Наблюдатель')).toContainText('Догоняющий режим')
@@ -183,6 +187,16 @@ test.describe('with the Codex observer drawing the map', () => {
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(sourceTitle)
     const forks = fact(page, 'Ответвления').getByRole('link')
     await expect(forks).toHaveCount(1)
+    const runsRoute = `**${endpoints.runs.path}`
+    const dropRuns = (route: Route): Promise<void> => route.abort('connectionfailed')
+    await page.route(runsRoute, dropRuns)
+    await expect(lamp(page, 'Связь')).toHaveText('Связь ответвления не обновляются')
+    await expect(await lampDetails(page, 'Связь')).toContainText(
+      'ответвления и названия связанных прогонов могут устареть',
+    )
+    await expect(forks).toHaveCount(1)
+    await page.unroute(runsRoute, dropRuns)
+    await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
     await forks.click()
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(fork)}$`))
   })

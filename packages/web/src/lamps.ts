@@ -139,7 +139,7 @@ const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
       detail('Демон не отвечает. Проверьте его командой aang status; данные на экране могут устареть.', 'warning'),
     ])
   }
-  if (runsFailing) {
+  if (runsFailing && focus === null) {
     return lamp('link', 'Связь', 'список не обновляется', 'warning', [
       detail('Демон не отдал список прогонов. aang повторяет запрос; список на экране может устареть.', 'warning'),
     ])
@@ -150,9 +150,17 @@ const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
     case 'loading':
       return lamp('link', 'Связь', 'подключение', 'normal')
     case 'live':
-      return lamp('link', 'Связь', 'поток подключён', 'normal', [
-        detail('Изменения прогона приходят по мере записи событий.'),
-      ])
+      return runsFailing
+        ? lamp('link', 'Связь', 'ответвления не обновляются', 'caution', [
+            detail('Изменения прогона приходят по мере записи событий.'),
+            detail(
+              'Демон не отдал список прогонов. aang повторяет запрос; ответвления и названия связанных прогонов могут устареть.',
+              'caution',
+            ),
+          ])
+        : lamp('link', 'Связь', 'поток подключён', 'normal', [
+            detail('Изменения прогона приходят по мере записи событий.'),
+          ])
     case 'reconnecting':
       return lamp('link', 'Связь', 'переподключение', 'caution', [
         detail('Поток изменений прерван. aang переподключится и дочитает пропущенное.', 'caution'),
@@ -237,9 +245,9 @@ const modelLamp = ({ summary }: FocusedRun, now: bigint): Lamp => {
       detail(`Версия карты ${String(version)}.`),
       ...(updated === null ? [] : [detail(`Последнее обновление: ${absoluteTime(updated)}.`)]),
       ...pending,
-      ...(updated === null || observer.deferred_facts === 0
+      ...(observer.deferred_facts === 0
         ? []
-        : [detail('Смысл ранних фактов восстановлен по сводке, с пониженной детализацией.', 'caution')]),
+        : [detail('Ранние факты карта учитывает только по сводке, с пониженной детализацией.', 'caution')]),
     ],
   )
 }
