@@ -75,3 +75,23 @@ export const textShown = async (scope: Locator, text: string): Promise<boolean> 
     return false
   }, text)
 }
+
+export const modes = (page: Page): Locator => page.getByRole('navigation', { name: 'Вид прогона' })
+
+export const sinceTab = (page: Page): Locator => modes(page).getByRole('link', { name: /^С последнего просмотра/ })
+
+export const traceTab = (page: Page): Locator => modes(page).getByRole('link', { name: 'Ход прогона', exact: true })
+
+export const markButton = (page: Page): Locator => page.getByRole('button', { name: 'Отметить просмотренным' })
+
+export const mark = (page: Page): Locator => page.getByRole('group', { name: 'Отметка просмотра', exact: true })
+
+export const since = (page: Page): Locator => page.getByRole('region', { name: 'С последнего просмотра', exact: true })
+
+export const sinceSection = (page: Page, title: string): Locator =>
+  since(page).getByRole('region', { name: title, exact: true })
+
+export const change = (page: Page, section: string, text: string): Locator =>
+  sinceSection(page, section)
+    .locator(':scope > ol > li, :scope > ul > li')
+    .filter({ hasText: text })
