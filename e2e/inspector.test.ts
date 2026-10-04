@@ -61,6 +61,8 @@ const stageTitled = (snapshot: RunSnapshot, title: (text: string) => boolean): S
 const liveSample = (): Promise<string> =>
   freshManifest(sampleScenarioManifest('claude-subagent'), test.info().outputPath('live-sample'))
 
+const jsonText = (value: string): string => JSON.stringify(value).slice(1, -1)
+
 const inspector = (page: Page): Locator => page.getByRole('complementary')
 
 const section = (page: Page, title: string): Locator =>
@@ -148,7 +150,7 @@ test('a report written by a Bash command becomes an output, its copy read later 
   const retained = `${written}${'all checks passed\n'.repeat(6_000)}end of report\n`
   await writeFile(report, retained)
   const sample = await freshManifest(sampleScenarioManifest('claude-subagent'), test.info().outputPath('report-sample'), [
-    ['/tmp/aang-spike/cc-transcripts/run', project],
+    ['/tmp/aang-spike/cc-transcripts/run', jsonText(project)],
     ['"command": "echo hi"', `"command": "echo ${written.trim()} > report.md"`],
   ])
   await (await player(sample, { timeScale: 0 })).play()
