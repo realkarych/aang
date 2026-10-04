@@ -1,5 +1,13 @@
-import { sampleScenarioManifest } from '@aang/testkit'
-import type { Page } from '@playwright/test'
+import { endpoints, type RunSnapshot } from '@aang/contract'
+import {
+  type ClaudeScenario,
+  continuationQuestionText,
+  continuedStageTitle,
+  mainStageTitle,
+  observerScenarios,
+  sampleScenarioManifest,
+} from '@aang/testkit'
+import type { APIRequestContext, Page } from '@playwright/test'
 import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
 import { claudeOriginal, hookFields, runOf } from './samples.js'
 import {
@@ -27,6 +35,22 @@ const nothingChanged = 'С отметки ничего не изменилось
 const run = runOf(claudeOriginal)
 
 const reportPath = `${claudeOriginal.cwd}/report.md`
+
+const observed = { timeout: 60_000 }
+
+const snapshotOf = async (request: APIRequestContext): Promise<RunSnapshot | null> => {
+  const response = await request.get(endpoints.run.path.replace(':run', run))
+  return response.status() === 200 ? endpoints.run.response.parse(await response.json()) : null
+}
+
+const mapped = async (request: APIRequestContext): Promise<boolean> => {
+  const snapshot = await snapshotOf(request)
+  return (
+    snapshot !== null &&
+    snapshot.model.stages.some(({ title }) => title === mainStageTitle) &&
+    snapshot.summary.observer.pending_facts === 0
+  )
+}
 
 const markedVersion = async (page: Page): Promise<string> =>
   /версия карты \d+/.exec((await mark(page).textContent()) ?? '')?.[0] ?? 'нет отметки'
@@ -299,5 +323,132 @@ test.describe('when the sign-in session ends', () => {
     await page.route('**/api/facts/**', (route) => route.fulfill({ status: 401, json: unauthorized }))
     await question.getByRole('button', { name: /^Основания: / }).click()
     await expect(page.getByRole('heading', { name: 'Вход не выполнен' })).toBeVisible()
+  })
+})
+
+test.describe('with the observer', () => {
+  test.skip(
+    process.platform === 'win32',
+    'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
+  )
+
+  test.describe('revising the map after the mark', () => {
+    test.use({ claudeScenario: observerScenarios['since-last-view'].before })
+
+    test('the since-last-view mode shows the replaced stage, the new stage and the observer question, and the cards open the original (E2E 4)', async ({
+      page,
+      player,
+      fakeClaude,
+    }) => {
+      const replay = await player(sampleScenarioManifest('claude-fork'), { timeScale: 0, recordTime: 'playback' })
+      await replay.play({ until: 'resume' })
+      await page.goto(`/?run=${run}&mode=changes`)
+      await expect.poll(() => mapped(page.request), observed).toBe(true)
+      await markButton(page).click()
+      await expect(since(page)).toContainText(nothingChanged)
+
+      fakeClaude.setScenario(observerScenarios['since-last-view'].after)
+      await replay.play({ until: 'fork' })
+
+      const replaced = change(page, 'Пересмотренные решения', `Этап «${mainStageTitle}»`)
+      await expect(replaced).toContainText('заменён', observed)
+      await expect(replaced).toContainText(`заменён этапом «${continuedStageTitle}»`)
+      await expect(replaced).toContainText('интерпретация aang')
+      await expect(replaced).toContainText(/журнал карты: верси/)
+
+      const continued = change(page, 'Этапы', `«${continuedStageTitle}»`)
+      await expect(continued).toContainText('новый')
+      await continued.getByRole('button', { name: /^Основания: / }).click()
+      await expect(continued).toContainText(/сырая запись № \d+/)
+      const more = continued.getByRole('button', { name: /^Показать все \d+ записей$/ })
+      await more.click()
+      await expect(more).toHaveCount(0)
+      await expect
+        .poll(() => continued.getByRole('listitem').filter({ hasText: /сырая запись № \d+/ }).count())
+        .toBeGreaterThan(6)
+
+      const question = change(page, 'Вопросы и запросы', continuationQuestionText)
+      await expect(question).toContainText('открыт', observed)
+      await expect(question).toContainText('от наблюдателя')
+
+      await expect(sinceSection(page, 'Итоги решателя')).toBeVisible(observed)
+      const [first] = (await snapshotOf(page.request))?.model.cards ?? []
+      expect(first).toBeDefined()
+      const card = change(page, 'Итоги решателя', first?.text ?? '')
+      await expect(card).toContainText('новая')
+      await expect(card).toContainText(`этап «${continuedStageTitle}»`)
+      await card.getByRole('button', { name: 'Показать в оригинале' }).click()
+      const original = card.getByRole('figure')
+      await expect(original.locator('mark')).toHaveText(first?.text ?? '')
+      await expect(original).toContainText('сообщение')
+      await expect(original).toContainText('решатель')
+      await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
+      await expect(original).toHaveCount(0)
+    })
+  })
+
+  test.describe('failing and recovering', () => {
+    test.use({ claudeScenario: observerScenarios['llm-failure'].healthy })
+
+    test('changes made while the observer is out are in the mode on return and are not announced again after a restart and the recovery (E2E 16)', async ({
+      page,
+      context,
+      player,
+      profile,
+      hook,
+      daemon,
+      config,
+      fakeClaude,
+    }) => {
+      const notesPath = `${claudeOriginal.cwd}/notes.md`
+      await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })).play()
+      await page.goto(`/?run=${run}`)
+      await expect.poll(() => mapped(page.request), observed).toBe(true)
+      await markButton(page).click()
+      await expect(mark(page)).toContainText('Просмотрен только что')
+
+      const failing: ClaudeScenario = {
+        replies: [{ kind: 'limit', resetsAt: Math.floor(Date.now() / 1000) + 20 }],
+        chatReplies: [],
+      }
+      fakeClaude.setScenario(failing)
+      const fields = hookFields(profile, claudeOriginal)
+      await hook.claude('UserPromptSubmit.json', fields)
+      await writeFile(hook, fields, notesPath, 'toolu_h7_notes')
+      await ask(hook, fields, 'Публиковать заметки?', 'toolu_h7_publish')
+      await expect(lamp(page, 'Наблюдатель')).toContainText('исчерпан лимит', observed)
+
+      await sinceTab(page).click()
+      await expect(change(page, 'Результаты', notesPath)).toContainText('новая версия')
+      await expect(change(page, 'Вопросы и запросы', 'Публиковать заметки?')).toContainText('по правилу aang')
+      await markButton(page).click()
+      await expect(since(page)).toContainText(nothingChanged)
+      const marked = await markedVersion(page)
+
+      fakeClaude.setScenario(observerScenarios['llm-failure'].recovered)
+      expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
+      await profile.configure({
+        ...config,
+        collector: { rootsScanIntervalMs: 250, spoolScanIntervalMs: 250 },
+        cli: { claude: fakeClaude.command },
+        api: { port: daemon.api.port },
+      })
+      const restarted = await profile.startDaemon({ entry: aangEntry })
+      await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
+      await expect(lamp(page, 'Наблюдатель')).toContainText('работает', { timeout: 90_000 })
+      await expect.poll(async () => (await snapshotOf(page.request))?.summary.observer.pending_facts, observed).toBe(0)
+
+      expect(await markedVersion(page)).toBe(marked)
+      await expect(since(page)).not.toContainText(notesPath)
+      await expect(since(page)).not.toContainText('Публиковать заметки?')
+      const returned = await context.newPage()
+      await returned.goto(`/?run=${run}&mode=changes`)
+      await expect(mark(returned)).toContainText(marked)
+      await expect(since(returned)).not.toContainText(notesPath)
+      await expect(since(returned)).not.toContainText('Публиковать заметки?')
+      await expect(zoneItem(returned, 'Публиковать заметки?')).toContainText('ждёт ответа')
+      await returned.close()
+      expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
+    })
   })
 })
