@@ -56,6 +56,7 @@ export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
 
 export const ClaudeScenario = z.strictObject({
   admissionFault: z.enum(['hook_missing', 'hook_leak', 'registry_missing', 'registry_marker', 'transcript', 'tool_execution']).optional(),
+  admissionMs: z.int().nonnegative().default(100),
   descendant: Descendant.optional(),
   groupEscape: GroupEscape.optional(),
   version: z.string().default('2.1.286'),
