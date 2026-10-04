@@ -365,13 +365,16 @@ const cliKey = (os: SupportKey['os'], placement: SupportKey['placement'] = 'loca
 
 const desktopOnWindows: SupportKey = { ...cliKey('windows'), surface: 'claude_desktop' }
 
-const contractScenarios = ['tools', 'subagents', 'resume', 'compaction', 'fork', 'approval', 'interrupt', 'reconnect', 'source-loss']
+const contractScenarios = ['tools', 'subagents', 'resume', 'compaction', 'fork', 'plan', 'approval', 'question', 'interrupt', 'reconnect', 'source-loss']
 
 describe('the support matrix generated from the contract run', () => {
   test('a row keeps its claimed status only while recordings of its own OS pass every scenario of the run', async () => {
     const { sessions, support } = await workspace()
-    for (const scenario of [...contractScenarios, 'plan', 'question']) {
+    for (const scenario of contractScenarios) {
       await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: hostOs, scenario })
+    }
+    for (const scenario of ['plan', 'question']) {
+      await placeRecording(recorded(codexToolDecisions), sessions, { os: hostOs, scenario })
     }
     await placeRecording(recorded(claudeSubagents), sessions, { os: otherOs, scenario: 'subagents' })
     const previous: SupportMatrix = {
@@ -410,6 +413,7 @@ describe('the support matrix generated from the contract run', () => {
     expect(await readdirNames(join(support, 'contract/claude/2.1.286/claude_cli', hostOs))).toEqual(
       contractScenarios.map((name) => `${name}.json`).sort(),
     )
+    expect(await readdirNames(join(support, 'contract'))).toEqual(['claude'])
   }, 180_000)
 
   test('a claimed full or limited row whose E2E 1 or 4 failed is not verified, even when every scenario of the run passes', async () => {

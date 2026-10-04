@@ -1,0 +1,4335 @@
+{
+  "records": [
+    {
+      "channel": "hook",
+      "type": "PermissionRequest",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "PostToolBatch",
+      "parse_state": "parsed",
+      "count": 7
+    },
+    {
+      "channel": "hook",
+      "type": "PostToolUse",
+      "parse_state": "parsed",
+      "count": 7
+    },
+    {
+      "channel": "hook",
+      "type": "PreToolUse",
+      "parse_state": "parsed",
+      "count": 7
+    },
+    {
+      "channel": "hook",
+      "type": "SessionEnd",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "SessionStart",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "Stop",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "TaskCompleted",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "TaskCreated",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "UserPromptSubmit",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "registry",
+      "type": "-",
+      "parse_state": "parsed",
+      "count": 6
+    },
+    {
+      "channel": "transcript",
+      "type": "assistant",
+      "parse_state": "parsed",
+      "count": 8
+    },
+    {
+      "channel": "transcript",
+      "type": "atis-latch",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "transcript",
+      "type": "attachment",
+      "parse_state": "parsed",
+      "count": 19
+    },
+    {
+      "channel": "transcript",
+      "type": "cost-state",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "transcript",
+      "type": "last-prompt",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "transcript",
+      "type": "queue-operation",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "transcript",
+      "type": "system:stop_hook_summary",
+      "parse_state": "unknown",
+      "count": 1
+    },
+    {
+      "channel": "transcript",
+      "type": "user",
+      "parse_state": "parsed",
+      "count": 8
+    }
+  ],
+  "facts": [
+    {
+      "id": "#1",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33869.json",
+        "removed": false,
+        "content": {
+          "pid": 33869,
+          "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+          "kind": "interactive",
+          "entrypoint": "sdk-ts",
+          "status": null,
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": null
+        }
+      }
+    },
+    {
+      "id": "#2",
+      "kind": "session_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "b6cee7820c2aef3043caf6375ecfc6cef0712440a63e45634ff5ffac42ff98b5",
+      "payload": {
+        "launch": "startup",
+        "surface": {
+          "surface": "claude_sdk",
+          "basis": "observed"
+        },
+        "cwd": "/fixture/project",
+        "forked_from": null,
+        "observer_marker": false
+      }
+    },
+    {
+      "id": "#3",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "b116fbb3eca5fd119bbb2ba8c5bad86b4a202ab4d54be9275cbb5d47e8f511c1",
+      "payload": {}
+    },
+    {
+      "id": "#4",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33869.json",
+        "removed": false,
+        "content": {
+          "pid": 33869,
+          "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+          "kind": "interactive",
+          "entrypoint": "sdk-ts",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#5",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "03711b18c3a099ea2afd10c815d7167fa6df2c1f2f5ec7e14fa174197f1efbfd",
+      "payload": {
+        "tool": "TaskCreate",
+        "action_kind": "plan",
+        "input": {
+          "subject": "Write checklist",
+          "description": "Create checklist.txt with both steps",
+          "activeForm": "Writing checklist"
+        },
+        "description": "Create checklist.txt with both steps",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#6",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "03711b18c3a099ea2afd10c815d7167fa6df2c1f2f5ec7e14fa174197f1efbfd",
+      "payload": {
+        "source": "task_tool",
+        "text": "Create checklist.txt with both steps",
+        "items": [
+          {
+            "id": null,
+            "text": "Write checklist",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#7",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "f3f72df1f23b568387fa2fc058a11d32dcdb5fa3c04fb1227b67622063c5774b",
+      "payload": {
+        "source": "task_hook",
+        "text": "Create checklist.txt with both steps",
+        "items": [
+          {
+            "id": "1",
+            "text": "Write checklist",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#8",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "bf3dd11e945a166a0fb763ee758a608f0fed33d4f8b18e8eceff546935841492",
+      "payload": {
+        "outcome": "ok",
+        "output": null,
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 5,
+        "result": {
+          "task": {
+            "id": "1",
+            "subject": "Write checklist"
+          }
+        }
+      }
+    },
+    {
+      "id": "#9",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "0caf3fe5e1cfb0bce967c003cdff28dcfd1482977850ed86360eafca1c40fbf3",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_0_0",
+            "tool": "TaskCreate",
+            "response": "Task #1 created successfully: Write checklist"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#10",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "212a69cfdcc2305f7433fa21e056ee22b8603d867fb2ebc6906195025ea00b3f",
+      "payload": {
+        "tool": "TaskCreate",
+        "action_kind": "plan",
+        "input": {
+          "subject": "Review checklist",
+          "description": "Check that checklist.txt lists both steps",
+          "activeForm": "Reviewing checklist"
+        },
+        "description": "Check that checklist.txt lists both steps",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#11",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "212a69cfdcc2305f7433fa21e056ee22b8603d867fb2ebc6906195025ea00b3f",
+      "payload": {
+        "source": "task_tool",
+        "text": "Check that checklist.txt lists both steps",
+        "items": [
+          {
+            "id": null,
+            "text": "Review checklist",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#12",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "844e21246cf9328646b793660224e71326905eb03b173004a3d410bf09ab05c8",
+      "payload": {
+        "source": "task_hook",
+        "text": "Check that checklist.txt lists both steps",
+        "items": [
+          {
+            "id": "2",
+            "text": "Review checklist",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#13",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "96f05bbc20e0bebe4ab3bba2862f8f39d14fa870ca627e7ff6e672a180910e31",
+      "payload": {
+        "outcome": "ok",
+        "output": null,
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 3,
+        "result": {
+          "task": {
+            "id": "2",
+            "subject": "Review checklist"
+          }
+        }
+      }
+    },
+    {
+      "id": "#14",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "9c384f11f882bc93eff4cb503b9b4b75b1fd449463ce90c2da81b7c76d74032a",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_1_0",
+            "tool": "TaskCreate",
+            "response": "Task #2 created successfully: Review checklist"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#15",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_2_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_2_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "d549a3c636e8045f09eb1a71d3aad3f67f862872a29f20acb7d8a0d817a86eee",
+      "payload": {
+        "tool": "Write",
+        "action_kind": "file_write",
+        "input": {
+          "file_path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md",
+          "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#16",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_2_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_2_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "f64665f7cf40954d25ca1b9fa83d34aeeca7199b97e3825367eed1788d8cfae5",
+      "payload": {
+        "outcome": "ok",
+        "output": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 2,
+        "result": {
+          "type": "create",
+          "filePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md",
+          "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "structuredPatch": [],
+          "originalFile": null,
+          "userModified": false
+        }
+      }
+    },
+    {
+      "id": "#17",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "f8df27d9fdaa6e4be92527ad725b6457b8602dafa3adec7af3fa9131136c3e07",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_2_0",
+            "tool": "Write",
+            "response": "File created successfully at: /Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md (file state is current in your context — no need to Read it back)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#18",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "55bce1ec3b11467966e17cdd7698dfec02d64fb3d030bc51d478d4bab2aa0124",
+      "payload": {
+        "tool": "ExitPlanMode",
+        "action_kind": "plan",
+        "input": {
+          "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "planFilePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#19",
+      "kind": "question_asked",
+      "entity_key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "toolu_aang_plan_3_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "55bce1ec3b11467966e17cdd7698dfec02d64fb3d030bc51d478d4bab2aa0124",
+      "payload": {
+        "source": "exit_plan_mode",
+        "blocking": true,
+        "questions": [
+          {
+            "header": null,
+            "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+            "options": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "#20",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "55bce1ec3b11467966e17cdd7698dfec02d64fb3d030bc51d478d4bab2aa0124",
+      "payload": {
+        "source": "exit_plan_mode",
+        "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+        "items": []
+      }
+    },
+    {
+      "id": "#21",
+      "kind": "permission_request",
+      "entity_key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "spool#15"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "91a6e0299bb7a0f7f7a17495b126a07133dab0ef50f6c40d0c1da57a2116383f",
+      "payload": {
+        "tool": "ExitPlanMode",
+        "input": {
+          "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "planFilePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+        }
+      }
+    },
+    {
+      "id": "#22",
+      "kind": "queue_operation",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "operation": "enqueue",
+        "content": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate."
+      }
+    },
+    {
+      "id": "#23",
+      "kind": "queue_operation",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "operation": "dequeue",
+        "content": null
+      }
+    },
+    {
+      "id": "#24",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "message": "4de4ef6d-f729-49c7-8db6-785d69bd99cc"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "4de4ef6d-f729-49c7-8db6-785d69bd99cc",
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+        "origin": "human",
+        "origin_raw": "sdk"
+      }
+    },
+    {
+      "id": "#25",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "4739b70c-5999-4f13-8951-8beaed8e6475",
+        "parent_uuid": "2afb66f7-150a-46a6-a1e6-d27e1f5121d2",
+        "message_id": "msg_aang_1",
+        "call_id": "toolu_aang_plan_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "TaskCreate",
+        "action_kind": "plan",
+        "input": {
+          "subject": "Write checklist",
+          "description": "Create checklist.txt with both steps",
+          "activeForm": "Writing checklist"
+        },
+        "description": "Create checklist.txt with both steps",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#26",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "4739b70c-5999-4f13-8951-8beaed8e6475",
+        "parent_uuid": "2afb66f7-150a-46a6-a1e6-d27e1f5121d2",
+        "message_id": "msg_aang_1",
+        "call_id": "toolu_aang_plan_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "task_tool",
+        "text": "Create checklist.txt with both steps",
+        "items": [
+          {
+            "id": null,
+            "text": "Write checklist",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#27",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_1"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "4739b70c-5999-4f13-8951-8beaed8e6475",
+        "parent_uuid": "2afb66f7-150a-46a6-a1e6-d27e1f5121d2",
+        "message_id": "msg_aang_1",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#28",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "795c057c-9e1a-4f85-a520-c34140a00611",
+        "parent_uuid": "4739b70c-5999-4f13-8951-8beaed8e6475",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "Task #1 created successfully: Write checklist",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "task": {
+            "id": "1",
+            "subject": "Write checklist"
+          }
+        }
+      }
+    },
+    {
+      "id": "#29",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "c3a96f16-9b20-4c0f-9167-1e94b54316f4",
+        "parent_uuid": "a41e4673-26e6-44a9-b840-b22ac0321384",
+        "message_id": "msg_aang_2",
+        "call_id": "toolu_aang_plan_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "TaskCreate",
+        "action_kind": "plan",
+        "input": {
+          "subject": "Review checklist",
+          "description": "Check that checklist.txt lists both steps",
+          "activeForm": "Reviewing checklist"
+        },
+        "description": "Check that checklist.txt lists both steps",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#30",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "c3a96f16-9b20-4c0f-9167-1e94b54316f4",
+        "parent_uuid": "a41e4673-26e6-44a9-b840-b22ac0321384",
+        "message_id": "msg_aang_2",
+        "call_id": "toolu_aang_plan_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "task_tool",
+        "text": "Check that checklist.txt lists both steps",
+        "items": [
+          {
+            "id": null,
+            "text": "Review checklist",
+            "status": "pending"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#31",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_2"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "c3a96f16-9b20-4c0f-9167-1e94b54316f4",
+        "parent_uuid": "a41e4673-26e6-44a9-b840-b22ac0321384",
+        "message_id": "msg_aang_2",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#32",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "3d9f201b-452f-4e8c-b73e-73a008b41b36",
+        "parent_uuid": "c3a96f16-9b20-4c0f-9167-1e94b54316f4",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "Task #2 created successfully: Review checklist",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "task": {
+            "id": "2",
+            "subject": "Review checklist"
+          }
+        }
+      }
+    },
+    {
+      "id": "#33",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_2_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "88719b34-183b-4d4d-9e10-ffb866f29855",
+        "parent_uuid": "70a8b113-685f-4b1d-a5d5-9df391b75c33",
+        "message_id": "msg_aang_3",
+        "call_id": "toolu_aang_plan_2_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "Write",
+        "action_kind": "file_write",
+        "input": {
+          "file_path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md",
+          "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#34",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_3"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "88719b34-183b-4d4d-9e10-ffb866f29855",
+        "parent_uuid": "70a8b113-685f-4b1d-a5d5-9df391b75c33",
+        "message_id": "msg_aang_3",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#35",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_2_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "daa0152c-f74d-4090-85f8-db7a79599b7e",
+        "parent_uuid": "88719b34-183b-4d4d-9e10-ffb866f29855",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_2_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "File created successfully at: /Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md (file state is current in your context — no need to Read it back)",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "type": "create",
+          "filePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md",
+          "content": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "structuredPatch": [],
+          "originalFile": null,
+          "userModified": false
+        }
+      }
+    },
+    {
+      "id": "#36",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "79f96307-f8d3-4632-9705-c56a738350ba",
+        "parent_uuid": "16095a7c-4de3-42f1-9e10-a4556f672002",
+        "message_id": "msg_aang_4",
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "ExitPlanMode",
+        "action_kind": "plan",
+        "input": {
+          "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "planFilePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#37",
+      "kind": "question_asked",
+      "entity_key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "toolu_aang_plan_3_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "79f96307-f8d3-4632-9705-c56a738350ba",
+        "parent_uuid": "16095a7c-4de3-42f1-9e10-a4556f672002",
+        "message_id": "msg_aang_4",
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "exit_plan_mode",
+        "blocking": true,
+        "questions": [
+          {
+            "header": null,
+            "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+            "options": []
+          }
+        ]
+      }
+    },
+    {
+      "id": "#38",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "79f96307-f8d3-4632-9705-c56a738350ba",
+        "parent_uuid": "16095a7c-4de3-42f1-9e10-a4556f672002",
+        "message_id": "msg_aang_4",
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "exit_plan_mode",
+        "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+        "items": []
+      }
+    },
+    {
+      "id": "#39",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "79f96307-f8d3-4632-9705-c56a738350ba",
+        "parent_uuid": "16095a7c-4de3-42f1-9e10-a4556f672002",
+        "message_id": "msg_aang_4",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#40",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33869.json",
+        "removed": false,
+        "content": {
+          "pid": 33869,
+          "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+          "kind": "interactive",
+          "entrypoint": "sdk-ts",
+          "status": "waiting",
+          "waiting_for": "permission prompt",
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#41",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "c4a027dfbda3891b4dc065b9a9f38981ff15bb8b85cfa78e4e9223c64f03a2a4",
+      "payload": {
+        "outcome": "ok",
+        "output": null,
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 3,
+        "result": {
+          "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "isAgent": false,
+          "filePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+        }
+      }
+    },
+    {
+      "id": "#42",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33869.json",
+        "removed": false,
+        "content": {
+          "pid": 33869,
+          "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+          "kind": "interactive",
+          "entrypoint": "sdk-ts",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#43",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "110ed1640dcc93cd95cded3bb4b9698bc73b24e430d0e787cfc3040f97a6098e",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_3_0",
+            "tool": "ExitPlanMode",
+            "response": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: /Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md\nYou can refer back to it if needed during implementation.\n\n## Approved Plan:\n# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#44",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_4_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_4_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "29c175b31071f06fdb28a29c75e08d250edeb01bb2b4c2735783ef18d598b21d",
+      "payload": {
+        "tool": "Write",
+        "action_kind": "file_write",
+        "input": {
+          "file_path": "/fixture/project/checklist.txt",
+          "content": "- Write checklist\n- Review checklist\n"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#45",
+      "kind": "permission_request",
+      "entity_key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "spool#19"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "6e804a4937720633fe0ebca01b96c057ab39610648836b673b6e894779772ce0",
+      "payload": {
+        "tool": "Write",
+        "input": {
+          "file_path": "/fixture/project/checklist.txt",
+          "content": "- Write checklist\n- Review checklist\n"
+        }
+      }
+    },
+    {
+      "id": "#46",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33869.json",
+        "removed": false,
+        "content": {
+          "pid": 33869,
+          "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+          "kind": "interactive",
+          "entrypoint": "sdk-ts",
+          "status": "waiting",
+          "waiting_for": "permission prompt",
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#47",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "4891b875-b93b-4549-9d41-7eb580f34e09",
+        "parent_uuid": "79f96307-f8d3-4632-9705-c56a738350ba",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_3_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "User has approved your plan. You can now start coding. Start with updating your todo list if applicable\n\nYour plan has been saved to: /Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md\nYou can refer back to it if needed during implementation.\n\n## Approved Plan:\n# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "plan": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+          "isAgent": false,
+          "filePath": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+        }
+      }
+    },
+    {
+      "id": "#48",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_4_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "c0c7b74b-ce41-417c-9b49-08405b6f0f54",
+        "parent_uuid": "09e200f6-7b3d-4e16-a55c-90d28840836c",
+        "message_id": "msg_aang_5",
+        "call_id": "toolu_aang_plan_4_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "Write",
+        "action_kind": "file_write",
+        "input": {
+          "file_path": "/fixture/project/checklist.txt",
+          "content": "- Write checklist\n- Review checklist\n"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#49",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_5"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "c0c7b74b-ce41-417c-9b49-08405b6f0f54",
+        "parent_uuid": "09e200f6-7b3d-4e16-a55c-90d28840836c",
+        "message_id": "msg_aang_5",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#50",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33869.json",
+        "removed": false,
+        "content": {
+          "pid": 33869,
+          "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+          "kind": "interactive",
+          "entrypoint": "sdk-ts",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#51",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_4_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_4_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "39581a89d1f4eeeaf7bef146be5fd4bcd4d584a192e92f79664b403eea13e775",
+      "payload": {
+        "outcome": "ok",
+        "output": "- Write checklist\n- Review checklist\n",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 7,
+        "result": {
+          "type": "create",
+          "filePath": "/fixture/project/checklist.txt",
+          "content": "- Write checklist\n- Review checklist\n",
+          "structuredPatch": [],
+          "originalFile": null,
+          "userModified": false
+        }
+      }
+    },
+    {
+      "id": "#52",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "3af6c3e2124b93698bd20156a782aff12694f949659149b85e94b931c212356f",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_4_0",
+            "tool": "Write",
+            "response": "File created successfully at: /fixture/project/checklist.txt (file state is current in your context — no need to Read it back)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#53",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_5_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "b68f2919a5444de4103f67fd4538ecfc9555a58b9fa0ea15ea8789efb1aadd93",
+      "payload": {
+        "tool": "TaskUpdate",
+        "action_kind": "plan",
+        "input": {
+          "taskId": "1",
+          "status": "completed"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#54",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_5_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "b68f2919a5444de4103f67fd4538ecfc9555a58b9fa0ea15ea8789efb1aadd93",
+      "payload": {
+        "source": "task_tool",
+        "text": null,
+        "items": [
+          {
+            "id": "1",
+            "text": "",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#55",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "7af241166830c4cccabe81214bf79ecea2ce3953ea27b4beed32b46a17182476",
+      "payload": {
+        "source": "task_hook",
+        "text": "Create checklist.txt with both steps",
+        "items": [
+          {
+            "id": "1",
+            "text": "Write checklist",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#56",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_5_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "fab986465ff0149be846c3b119912e5b6209e8f03d58538e09d77b8ff0603fe9",
+      "payload": {
+        "outcome": "ok",
+        "output": null,
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 5,
+        "result": {
+          "success": true,
+          "taskId": "1",
+          "updatedFields": [
+            "status"
+          ],
+          "statusChange": {
+            "from": "pending",
+            "to": "completed"
+          }
+        }
+      }
+    },
+    {
+      "id": "#57",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "d2959271b5831f7d02f3e31c4ed13b113e3ac73c766cdf4ff0aa139d947d2ce3",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_5_0",
+            "tool": "TaskUpdate",
+            "response": "Updated task #1 status"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#58",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_6_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "124745ac0c79ea06ff0b91a4771e81f24deab06ce977946902b29c3011318bef",
+      "payload": {
+        "tool": "TaskUpdate",
+        "action_kind": "plan",
+        "input": {
+          "taskId": "2",
+          "status": "completed"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#59",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_6_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "124745ac0c79ea06ff0b91a4771e81f24deab06ce977946902b29c3011318bef",
+      "payload": {
+        "source": "task_tool",
+        "text": null,
+        "items": [
+          {
+            "id": "2",
+            "text": "",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#60",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "9513208f8a31ae47e89db66e17c0bb5db2d9014959c3e697a2854c5c62a2a90c",
+      "payload": {
+        "source": "task_hook",
+        "text": "Check that checklist.txt lists both steps",
+        "items": [
+          {
+            "id": "2",
+            "text": "Review checklist",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#61",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_plan_6_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "bf673c77637437e15994cb5c234eda7643c20909f65350f0296610cce7ca3dff",
+      "payload": {
+        "outcome": "ok",
+        "output": null,
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 3,
+        "result": {
+          "success": true,
+          "taskId": "2",
+          "updatedFields": [
+            "status"
+          ],
+          "statusChange": {
+            "from": "pending",
+            "to": "completed"
+          }
+        }
+      }
+    },
+    {
+      "id": "#62",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "7bf12ef2bb1472a467ad269d3db40c3a646050d1aede592ad08e18f65baf3fad",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_plan_6_0",
+            "tool": "TaskUpdate",
+            "response": "Updated task #2 status"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#63",
+      "kind": "turn_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "33b25a76898b63e25a20c662543f80c204049165402a4cff730953d1eb269328",
+      "payload": {
+        "outcome": "completed",
+        "reason": null,
+        "final_message": "checklist.txt is written and both tasks are completed.",
+        "background_tasks": []
+      }
+    },
+    {
+      "id": "#64",
+      "kind": "session_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "bf16de12c623eafe65244ba8b4c330fd4dd311610ca7d196072f655597dedc5b",
+      "payload": {
+        "reason": "other"
+      }
+    },
+    {
+      "id": "#65",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_4_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "71135bbe-6eac-4d4a-8647-672993a882ae",
+        "parent_uuid": "c0c7b74b-ce41-417c-9b49-08405b6f0f54",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_4_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "File created successfully at: /fixture/project/checklist.txt (file state is current in your context — no need to Read it back)",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "type": "create",
+          "filePath": "/fixture/project/checklist.txt",
+          "content": "- Write checklist\n- Review checklist\n",
+          "structuredPatch": [],
+          "originalFile": null,
+          "userModified": false
+        }
+      }
+    },
+    {
+      "id": "#66",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "923de9b9-ae10-490d-8d6a-4951e11a6af7",
+        "parent_uuid": "2e4f3ba4-d281-426c-ae31-c262b53c5dfc",
+        "message_id": "msg_aang_6",
+        "call_id": "toolu_aang_plan_5_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "TaskUpdate",
+        "action_kind": "plan",
+        "input": {
+          "taskId": "1",
+          "status": "completed"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#67",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "923de9b9-ae10-490d-8d6a-4951e11a6af7",
+        "parent_uuid": "2e4f3ba4-d281-426c-ae31-c262b53c5dfc",
+        "message_id": "msg_aang_6",
+        "call_id": "toolu_aang_plan_5_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "task_tool",
+        "text": null,
+        "items": [
+          {
+            "id": "1",
+            "text": "",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#68",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_6"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "923de9b9-ae10-490d-8d6a-4951e11a6af7",
+        "parent_uuid": "2e4f3ba4-d281-426c-ae31-c262b53c5dfc",
+        "message_id": "msg_aang_6",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#69",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "bca51641-b753-41fd-977b-55c038c08574",
+        "parent_uuid": "923de9b9-ae10-490d-8d6a-4951e11a6af7",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_5_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "Updated task #1 status",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "success": true,
+          "taskId": "1",
+          "updatedFields": [
+            "status"
+          ],
+          "statusChange": {
+            "from": "pending",
+            "to": "completed"
+          }
+        }
+      }
+    },
+    {
+      "id": "#70",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "e71ec8f6-b3b2-4b4f-98d9-2501f506a1ad",
+        "parent_uuid": "ce02eb84-a187-466f-ad99-d38084935bce",
+        "message_id": "msg_aang_7",
+        "call_id": "toolu_aang_plan_6_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "TaskUpdate",
+        "action_kind": "plan",
+        "input": {
+          "taskId": "2",
+          "status": "completed"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#71",
+      "kind": "plan_update",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "e71ec8f6-b3b2-4b4f-98d9-2501f506a1ad",
+        "parent_uuid": "ce02eb84-a187-466f-ad99-d38084935bce",
+        "message_id": "msg_aang_7",
+        "call_id": "toolu_aang_plan_6_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "task_tool",
+        "text": null,
+        "items": [
+          {
+            "id": "2",
+            "text": "",
+            "status": "completed"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#72",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_7"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "e71ec8f6-b3b2-4b4f-98d9-2501f506a1ad",
+        "parent_uuid": "ce02eb84-a187-466f-ad99-d38084935bce",
+        "message_id": "msg_aang_7",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#73",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "1dd27df5-1305-4956-94d2-a361e93ea0ff",
+        "record_uuid": "de05a2fa-572b-447c-a40b-a6fcb9af9404",
+        "parent_uuid": "e71ec8f6-b3b2-4b4f-98d9-2501f506a1ad",
+        "message_id": null,
+        "call_id": "toolu_aang_plan_6_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "Updated task #2 status",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "success": true,
+          "taskId": "2",
+          "updatedFields": [
+            "status"
+          ],
+          "statusChange": {
+            "from": "pending",
+            "to": "completed"
+          }
+        }
+      }
+    },
+    {
+      "id": "#74",
+      "kind": "message",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "message": "0b8f8d6d-9fcb-492b-b438-ea76fce8b50b"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "0b8f8d6d-9fcb-492b-b438-ea76fce8b50b",
+        "parent_uuid": "031b1d31-ccdb-491e-a54f-0fdd7b4f96c6",
+        "message_id": "msg_aang_8",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "checklist.txt is written and both tasks are completed.",
+        "final": true,
+        "audience": "user",
+        "model": "claude-opus-5-5"
+      }
+    },
+    {
+      "id": "#75",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_8"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "0b8f8d6d-9fcb-492b-b438-ea76fce8b50b",
+        "parent_uuid": "031b1d31-ccdb-491e-a54f-0fdd7b4f96c6",
+        "message_id": "msg_aang_8",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "end_turn",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#76",
+      "kind": "cost_state",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "total_cost_usd": 0.0011168,
+        "total_duration_ms": 2409,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "tokens": {
+              "uncached_input_tokens": 96,
+              "cache_read_input_tokens": 64,
+              "cache_write_input_tokens": 16,
+              "output_tokens": 32,
+              "reasoning_output_tokens": 0
+            },
+            "cost_usd": 0.0011168
+          }
+        ]
+      }
+    }
+  ],
+  "sessions": [
+    {
+      "id": "#77",
+      "key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
+      },
+      "run": "#78",
+      "surface": {
+        "surface": "claude_sdk",
+        "basis": "observed"
+      },
+      "version": "2.1.289",
+      "cwd": "/fixture/project",
+      "git_branch": "HEAD",
+      "git_common_dir": null,
+      "launches": [
+        {
+          "launch": "startup",
+          "at": "<time>",
+          "fact": "#2"
+        }
+      ],
+      "state": "ended",
+      "execution": {
+        "state": "done"
+      },
+      "freshness": "ok",
+      "support_mode": "full",
+      "double_registration": false,
+      "unknown_records": 1,
+      "cost_state": {
+        "total_cost_usd": 0.0011168,
+        "total_duration_ms": 2409,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "tokens": {
+              "uncached_input_tokens": 96,
+              "cache_read_input_tokens": 64,
+              "cache_write_input_tokens": 16,
+              "output_tokens": 32,
+              "reasoning_output_tokens": 0
+            },
+            "cost_usd": 0.0011168
+          }
+        ]
+      },
+      "started_at": "<time>",
+      "last_event_at": "<time>"
+    }
+  ],
+  "agents": [
+    {
+      "id": "#79",
+      "key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "agent": {
+          "kind": "main"
+        }
+      },
+      "session": "#77",
+      "run": "#78",
+      "role": "main",
+      "service": null,
+      "agent_type": null,
+      "agent_role": null,
+      "name": null,
+      "description": null,
+      "parent": null,
+      "spawned_by": null,
+      "execution": {
+        "state": "done"
+      },
+      "thread_total": null,
+      "started_at": "<time>",
+      "ended_at": null
+    }
+  ],
+  "actions": [
+    {
+      "id": "#80",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_0_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "TaskCreate",
+      "action_kind": "plan",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#28"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#25",
+      "output_fact": "#28",
+      "inherited": false
+    },
+    {
+      "id": "#81",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_1_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "TaskCreate",
+      "action_kind": "plan",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#32"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#29",
+      "output_fact": "#32",
+      "inherited": false
+    },
+    {
+      "id": "#82",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_2_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "Write",
+      "action_kind": "file_write",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#35"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#33",
+      "output_fact": "#35",
+      "inherited": false
+    },
+    {
+      "id": "#83",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_3_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "ExitPlanMode",
+      "action_kind": "plan",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#47"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#36",
+      "output_fact": "#47",
+      "inherited": false
+    },
+    {
+      "id": "#84",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_4_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "Write",
+      "action_kind": "file_write",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#65"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#48",
+      "output_fact": "#65",
+      "inherited": false
+    },
+    {
+      "id": "#85",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_5_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "TaskUpdate",
+      "action_kind": "plan",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#69"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#66",
+      "output_fact": "#69",
+      "inherited": false
+    },
+    {
+      "id": "#86",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "call": "toolu_aang_plan_6_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "tool": "TaskUpdate",
+      "action_kind": "plan",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#73"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#70",
+      "output_fact": "#73",
+      "inherited": false
+    }
+  ],
+  "questions": [
+    {
+      "id": "#87",
+      "key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "spool#15"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "kind": "permission",
+      "blocking": true,
+      "text": null,
+      "asked_at": "<time>",
+      "answered_at": null,
+      "action": null,
+      "decision": {
+        "value": "unknown",
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-decision"
+          }
+        },
+        "evidence": [
+          "#21",
+          "#63"
+        ]
+      },
+      "redelivery_group": null
+    },
+    {
+      "id": "#88",
+      "key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "spool#19"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "kind": "permission",
+      "blocking": true,
+      "text": null,
+      "asked_at": "<time>",
+      "answered_at": null,
+      "action": null,
+      "decision": {
+        "value": "unknown",
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-decision"
+          }
+        },
+        "evidence": [
+          "#45",
+          "#63"
+        ]
+      },
+      "redelivery_group": null
+    },
+    {
+      "id": "#89",
+      "key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "question": "toolu_aang_plan_3_0"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "kind": "exit_plan_mode",
+      "blocking": true,
+      "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.\n",
+      "asked_at": "<time>",
+      "answered_at": "<time>",
+      "action": {
+        "action": "#83",
+        "ambiguous": false,
+        "basis": {
+          "kind": "observed"
+        }
+      },
+      "decision": {
+        "value": "approved",
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "plan-approval"
+          }
+        },
+        "evidence": [
+          "#37",
+          "#47"
+        ]
+      },
+      "redelivery_group": null
+    }
+  ],
+  "usage": [
+    {
+      "id": "#90",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_1"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#91",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_2"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#92",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_3"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#93",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_4"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#94",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_5"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#95",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_6"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#96",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_7"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#97",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
+        "usage": "msg_aang_8"
+      },
+      "session": "#77",
+      "agent": "#79",
+      "run": "#78",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "#98",
+      "key": {
+        "kind": "artifact_version",
+        "run": "#78",
+        "artifact": {
+          "kind": "file",
+          "path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+        },
+        "identity": {
+          "kind": "content",
+          "hash": "3a5c043b9c0a430e3b30e2ce88e2cea35e37aa69871010ac507d1ec6c9eeaf88"
+        }
+      },
+      "run": "#78",
+      "artifact": "#99",
+      "ref": {
+        "kind": "file",
+        "path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
+      },
+      "retention": {
+        "kind": "reference"
+      },
+      "produced_by": "#82",
+      "observed_at": "<time>"
+    },
+    {
+      "id": "#100",
+      "key": {
+        "kind": "artifact_version",
+        "run": "#78",
+        "artifact": {
+          "kind": "file",
+          "path": "/fixture/project/checklist.txt"
+        },
+        "identity": {
+          "kind": "content",
+          "hash": "3f5f7aad3aa6330f9cc833e088b2322eb4f1b90ed033d3789b060e15a11f5e2d"
+        }
+      },
+      "run": "#78",
+      "artifact": "#101",
+      "ref": {
+        "kind": "file",
+        "path": "/fixture/project/checklist.txt"
+      },
+      "retention": {
+        "kind": "reference"
+      },
+      "produced_by": "#84",
+      "observed_at": "<time>"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "#102",
+      "key": {
+        "kind": "gap",
+        "gap": "unknown_records",
+        "subject": "d094fb57f2fa50215174e4ffd759d2ae"
+      },
+      "kind": "unknown_records",
+      "run": "#78",
+      "session": "#77",
+      "stream": null,
+      "details": "1 unrecognised session records",
+      "detected_at": "<time>",
+      "closed_at": null
+    },
+    {
+      "id": "#103",
+      "key": {
+        "kind": "gap",
+        "gap": "unknown_records",
+        "subject": "record:[\"claude\",\"registry\",{\"kind\":\"file_removed\",\"last_content_hash\":\"8d529d934c9a66511aeac525be7854268a5fe551b444d410518094aece92402e\",\"path\":\"<base>/home/.claude/sessions/33869.json\"},\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]"
+      },
+      "kind": "unknown_records",
+      "run": null,
+      "session": null,
+      "stream": null,
+      "details": "claude registry record (parsed) discarded: it names no session",
+      "detected_at": "<time>",
+      "closed_at": null
+    }
+  ],
+  "removals": [],
+  "runs": [
+    {
+      "run": {
+        "id": "#78",
+        "runtime": "claude",
+        "root_session": "#77",
+        "goal": null,
+        "brief": null,
+        "start_pruned": false,
+        "version": 4,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "attention_item",
+          "value": {
+            "id": "#104",
+            "run": "#78",
+            "kind": "permission",
+            "author": "rule",
+            "text": "ExitPlanMode",
+            "stage": null,
+            "question": "#87",
+            "action": null,
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#21"
+            ],
+            "runtime_wait": "ended",
+            "resolution": "ended_without_answer",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": "<time>"
+          }
+        },
+        {
+          "kind": "attention_item",
+          "value": {
+            "id": "#105",
+            "run": "#78",
+            "kind": "permission",
+            "author": "rule",
+            "text": "Write: /fixture/project/checklist.txt",
+            "stage": null,
+            "question": "#88",
+            "action": null,
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#45"
+            ],
+            "runtime_wait": "ended",
+            "resolution": "ended_without_answer",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": "<time>"
+          }
+        },
+        {
+          "kind": "attention_item",
+          "value": {
+            "id": "#106",
+            "run": "#78",
+            "kind": "question",
+            "author": "rule",
+            "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.",
+            "stage": null,
+            "question": "#89",
+            "action": "#83",
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#37"
+            ],
+            "runtime_wait": "ended",
+            "resolution": "answered",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": "<time>"
+          }
+        },
+        {
+          "kind": "run",
+          "value": {
+            "id": "#78",
+            "runtime": "claude",
+            "root_session": "#77",
+            "goal": null,
+            "brief": null,
+            "start_pruned": false,
+            "version": 4,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#77",
+            "run": "#78"
+          }
+        }
+      ]
+    }
+  ]
+}
