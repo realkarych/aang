@@ -13,10 +13,17 @@ export {
 } from './fake-cli/scenario.js'
 export {
   agentStageTitle,
+  branchStageTitles,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
+  nestedStageTitles,
+  preparationStageTitle,
+  reportQuestionText,
+  reportStageTitle,
+  splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {
   type ObserverScenarioName,

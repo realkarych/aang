@@ -1049,8 +1049,10 @@ rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: the artifact versions
 and git snapshots of the snapshot and the feed, stage inputs and outputs and
-criterion snapshots (E.7b, E.7c); the CLI version, model, usage and error of
-observer calls (F.8, F.9). The usage records of a run come with its objects,
+criterion snapshots (E.7b, E.7c); the CLI version, model and error of observer calls
+(F.8, F.9). The usage of an observer call is what the CLI results of the call
+reported: a request for materials and its follow-up add up (Observer and chat
+usage). The usage records of a run come with its objects,
 and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
@@ -1153,6 +1155,57 @@ and the session facts; `source` is the store or a transaction:
   sum is not the duration of the run.
 - A transfer projects the session again with its new run, so both runs read the
   moved usage on the next query.
+
+## Observer and chat usage
+
+The observer and the chat keep their journals in `observer_calls`, apart from the
+solver journal and from each other (ADR-0009). The usage of a call is what its CLI
+result reported (`usage`, `modelUsage` and `total_cost_usd` of Claude,
+`turn.completed.usage` of Codex); a call is ephemeral, so nothing accumulates.
+
+- The observer journal of a run is its batch calls. A call that asked for materials
+  and its follow-up are one call, as in the observer calls of the run (Read
+  queries): it starts with the request, ends with the follow-up and spends the usage
+  of both. A call counts once it has ended: a call that still holds its batch is
+  running. The lag of a call is the delay of its accepted batch, from the reading of
+  its oldest fact to the model version (`delay_ms`, ADR-0007).
+- Probes on the synthetic input spend the observer usage of no run. Authorization
+  checks spend nothing.
+- The chat journal of a run is its chat calls (K.1 writes them with
+  `observerCalls.chat`). A follow-up that resolves `needs` names the call it
+  continues, and the chain is one call from the first start to the last end.
+
+`usage(query)` of the read queries gives the usage report of `aang usage` and the
+usage panel; `query` takes a run, a period from `from` (inclusive) to `to`
+(exclusive), or both, and an unknown run gives `null`:
+
+- A solver record counts in the period of its time and a call in the period of its
+  end. The activity of the solver counts in the period of its time, so the duration
+  of a run in the report runs from its first to its last activity in the period, and
+  the agents and stages of `solverUsage(source, run, { period })` take the same
+  records and activity.
+- Without a run the report lists every run with solver records, solver activity,
+  observer calls or chat calls in the period, the earliest activity first; a run
+  with only calls comes last. With a run it lists that run and has no probes,
+  which belong to no run.
+- `observer` and `chat` are the journals over the listed runs, `probes` the probes
+  of the period. The latency of calls and the lag of batches are the nearest-rank
+  50th and 95th percentiles and the maximum, in milliseconds. `records` of a call
+  journal counts the CLI results that reported usage; their output is never a lower
+  bound. `cost_usd` adds the money the CLI reported and is `null` when no call
+  reported any, as for Codex.
+- The sessions of a run come as `solverUsage` gives them: the Claude Code total
+  (`cost_state`) and whether it is final, whether the session is a fork, whose
+  Claude Code total includes the inherited usage, and the thread totals of Codex
+  threads without usage records. The Claude Code total and the thread totals are
+  cumulative over the whole session or thread, so a period does not cut them, and
+  they are never added to a journal.
+- `totals` sums each journal: the solver over the runs, the observer over the runs
+  and the probes, the chat over the runs. The journals are never added together.
+- An active hour is a clock hour of UTC in which the solver of a listed run was
+  active; the observer and the chat do not make an hour active. Two runs active in
+  the same hour count it once. `per_active_hour` divides each journal by the active
+  hours of the report and is `null` without them.
 
 ## Watch and prune
 

@@ -279,7 +279,7 @@ const modeLamp = ({ summary, sessions }: FocusedRun): Lamp => {
 }
 
 const installationLevel = (hooks: HookInstallation): Level =>
-  hooks === 'not_installed' || hooks === 'untrusted' ? 'caution' : 'normal'
+  hooks === 'not_installed' || hooks === 'untrusted' || hooks === 'disabled' ? 'caution' : 'normal'
 
 const runtimeHookDetails = ({
   runtime,

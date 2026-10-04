@@ -4,6 +4,7 @@ import { AttentionZone } from './attention-zone.js'
 import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { absoluteTime } from './format.js'
 import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
+import { MapSection } from './map-section.js'
 import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
 import { listHref, runHref, useNavigate } from './route.js'
@@ -161,6 +162,7 @@ export const RunPage = ({ feed, runs, now }: RunPageProps): ReactElement => {
         <Facts snapshot={snapshot} runs={runs} now={now} />
       </header>
       <AttentionZone snapshot={snapshot} now={now} />
+      <MapSection snapshot={snapshot} />
       <div className="run-body">
         <Trace snapshot={snapshot} now={now} />
         <PlanFacts snapshot={snapshot} now={now} />
