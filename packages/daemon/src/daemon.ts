@@ -166,6 +166,7 @@ const serve = async ({
       },
       streams,
       reparse: ingestion.reparse,
+      admin: ingestion.admin,
       onShutdown: () => {
         requestStop('shutdown')
       },

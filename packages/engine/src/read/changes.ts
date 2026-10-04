@@ -18,7 +18,7 @@ import type {
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
 import { compareText, grouped } from '../observations/evidence.js'
-import { InvalidPositionError, partsOf, planKinds, type ReadContext, runOf, stagesOfLink } from './context.js'
+import { InvalidPositionError, partsOf, planKinds, precedesPrune, type ReadContext, runOf, stagesOfLink } from './context.js'
 
 interface Transition<T> {
   readonly before: T | null
@@ -143,6 +143,11 @@ export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPositio
   if (from.version > head || from.change_seq > position) {
     throw new InvalidPositionError(
       `position ${String(from.version)}/${String(from.change_seq)} is ahead of ${String(head)}/${String(position)}`,
+    )
+  }
+  if (precedesPrune(store, from.change_seq)) {
+    throw new InvalidPositionError(
+      `position ${String(from.version)}/${String(from.change_seq)} precedes the latest prune`,
     )
   }
   const parts = partsOf(store.model.entities(run))
