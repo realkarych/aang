@@ -1,6 +1,5 @@
 import type { Fact, FactId, RawSeq, SessionKey, StreamKey } from '@aang/contract'
-import type { Transaction } from '@aang/store'
-import { agentKey, byContent, compareText, type Evidence, ofKind } from './evidence.js'
+import { agentKey, byContent, compareText, type Evidence, type ObservationSource, ofKind } from './evidence.js'
 
 export interface ForkOrigin {
   readonly session: SessionKey
@@ -38,12 +37,12 @@ const queueFacts = (items: readonly Evidence[]): Map<RawSeq, Fact> => {
   return queued
 }
 
-const copiedBlock = (transaction: Transaction, stream: StreamKey, queued: ReadonlyMap<RawSeq, Fact>): CopiedBlock => {
+const copiedBlock = (source: ObservationSource, stream: StreamKey, queued: ReadonlyMap<RawSeq, Fact>): CopiedBlock => {
   let launch: Fact | null = null
   const records = new Set<RawSeq>()
   let after: RawSeq | null = null
   for (;;) {
-    const page = transaction.rawRecords.ofStream(stream, after, pageSize)
+    const page = source.rawRecords.ofStream(stream, after, pageSize)
     if (page.length === 0) {
       return records.size === 0 ? noBlock : { launch, records }
     }
@@ -62,9 +61,9 @@ const copiedBlock = (transaction: Transaction, stream: StreamKey, queued: Readon
   }
 }
 
-export const lineageOf = (transaction: Transaction, key: SessionKey, items: readonly Evidence[]): Lineage => {
+export const lineageOf = (source: ObservationSource, key: SessionKey, items: readonly Evidence[]): Lineage => {
   const stream = transcriptStream(key, items)
-  const block = stream === null ? noBlock : copiedBlock(transaction, stream, queueFacts(items))
+  const block = stream === null ? noBlock : copiedBlock(source, stream, queueFacts(items))
   const starts = ofKind(items, 'session_start').toSorted(byContent)
   const origin = starts.find(({ fact }) => fact.payload.forked_from !== null)?.fact
   const forkedFrom = origin?.payload.forked_from ?? null

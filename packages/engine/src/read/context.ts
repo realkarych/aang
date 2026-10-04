@@ -8,12 +8,14 @@ import {
   type Link,
   type ModelEntity,
   type ObserverState,
+  type ResetReason,
   type Run,
   type RunId,
   type Stage,
   type StageId,
 } from '@aang/contract'
 import type { Store } from '@aang/store'
+import { pruneEpochSetting } from '../ingest/prune.js'
 import { compareText } from '../observations/evidence.js'
 
 export interface ObserverRunStatus {
@@ -37,6 +39,13 @@ export interface ModelParts {
 
 export class InvalidPositionError extends Error {
   override readonly name = 'InvalidPositionError'
+
+  constructor(
+    message: string,
+    readonly reason: ResetReason = 'stale_position',
+  ) {
+    super(message)
+  }
 }
 
 export const origin: ChangeSeq = ChangeSeq.parse(0)
@@ -48,6 +57,11 @@ export const byId = <T extends { readonly id: string }>(left: T, right: T): numb
 export const runOf = (store: Store, id: RunId): Run | null => {
   const entity = store.model.entity(id, { kind: 'run', id })
   return entity?.kind === 'run' ? entity.value : null
+}
+
+export const precedesPrune = (store: Store, position: ChangeSeq): boolean => {
+  const epoch = store.settings.get(pruneEpochSetting)
+  return epoch !== undefined && position < ChangeSeq.parse(epoch)
 }
 
 export const partsOf = (entities: readonly ModelEntity[]): ModelParts => {

@@ -18,10 +18,12 @@ import {
   type RunSnapshot,
   type RunsResponse,
   type Session,
+  type UsageRecord,
 } from '@aang/contract'
 import type { Observation, StoredObservationRemoval } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
-import { byId, InvalidPositionError, origin, partsOf, planKinds, type ReadContext, runOf } from './context.js'
+import { reparseBoundary } from '../reparse/boundary.js'
+import { byId, InvalidPositionError, origin, partsOf, planKinds, precedesPrune, type ReadContext, runOf } from './context.js'
 import { type RunState, summaryOf } from './summary.js'
 
 export type RunFeedEvent =
@@ -38,6 +40,7 @@ const isSession = (object: Observation): object is Session => object.key.kind ==
 const isAgent = (object: Observation): object is Agent => object.key.kind === 'agent'
 const isAction = (object: Observation): object is Action => object.key.kind === 'action'
 const isQuestion = (object: Observation): object is Question => object.key.kind === 'question'
+const isUsage = (object: Observation): object is UsageRecord => object.key.kind === 'usage'
 
 const objectsOf = (objects: readonly Observation[], gaps: readonly Gap[]): ObservationObjects => ({
   sessions: objects.filter(isSession),
@@ -46,7 +49,7 @@ const objectsOf = (objects: readonly Observation[], gaps: readonly Gap[]): Obser
   questions: objects.filter(isQuestion),
   artifact_versions: [],
   git_snapshots: [],
-  usage_records: [],
+  usage_records: objects.filter(isUsage),
   gaps: [...gaps],
 })
 
@@ -73,7 +76,7 @@ const summaryStateOf = (context: ReadContext, run: Run): RunState =>
 
 const runDelta = (context: ReadContext, state: RunState): RunDelta => ({
   summary: summaryOf(context, state),
-  view: { rules: [], mark: null, zone: [] },
+  view: { rules: [], placements: [], mark: null, zone: [] },
   bindings: state.parts.bindings,
 })
 
@@ -93,7 +96,7 @@ export const runSnapshot = (context: ReadContext, id: RunId): RunSnapshot | null
     objects: sortedObjects(objectsOf(objects, store.gaps.ofRun(id, origin))),
     plan_facts: store.facts.ofRun(id, origin, planKinds).map(({ fact }) => fact),
     attention: { items: parts.attention, views: [] },
-    view: { rules: [], mark: null, zone: [] },
+    view: { rules: [], placements: [], mark: null, zone: [] },
     bindings: parts.bindings,
     change_seq: store.changes.head(),
   }
@@ -169,9 +172,16 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
   if (after > position) {
     throw new InvalidPositionError(`position ${String(after)} is ahead of the change feed at ${String(position)}`)
   }
+  const reparsed = reparseBoundary(store.settings)
+  if (reparsed !== null && after < reparsed) {
+    throw new InvalidPositionError(`position ${String(after)} precedes the reparse at ${String(reparsed)}`, 'reparsed')
+  }
   const run = runOf(store, id)
   if (run === null) {
     return null
+  }
+  if (precedesPrune(store, after)) {
+    throw new InvalidPositionError(`position ${String(after)} precedes the latest prune`)
   }
   const versions = store.model.versions(id, after)
   const first = versions[0]

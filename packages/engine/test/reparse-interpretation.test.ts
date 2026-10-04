@@ -20,7 +20,7 @@ import { at } from './model.js'
 import { claudeHook, claudeTranscript, codexRollout } from './samples.js'
 
 const cwd = '/work/reparse-interpretation'
-const limits = { facts: 1_000, bytes: 10_000_000, textLength: 4_000 }
+const limits = { facts: 1_000, bytes: 10_000_000, textLength: 4_000, inputTokens: 10_000_000 }
 
 const adapterOf = (runtime: Runtime): Adapter => {
   const adapter = adapters.get(runtime)

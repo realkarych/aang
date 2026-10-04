@@ -12,15 +12,20 @@
     "lint:comments": "node tools/check-comments/dist/main.js",
     "lint:eslint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0",
     "test": "vitest run --tags-filter=!benchmark --tags-filter=!runtime --tags-filter=!package",
-    "coverage": "c8 vitest run --tags-filter=!benchmark --tags-filter=!runtime --tags-filter=!package && go tool covdata percent -i=coverage/hook",
+    "coverage": "pnpm coverage:test && pnpm coverage:e2e && pnpm coverage:report",
+    "coverage:test": "c8 --reporter=none vitest run --tags-filter=!benchmark --tags-filter=!runtime --tags-filter=!package",
+    "coverage:e2e": "c8 --clean=false --reporter=none playwright test",
+    "coverage:report": "c8 report && go tool covdata percent -i=coverage/hook",
     "benchmark": "vitest run --tags-filter=benchmark",
     "scenarios": "vitest run --project tools/record --tags-filter=runtime",
     "package": "node tools/npm-package/dist/main.js --out dist/npm",
     "test:package": "vitest run --project tools/npm-package --tags-filter=package",
-    "e2e": "playwright test --pass-with-no-tests"
+    "e2e": "playwright test"
   },
   "devDependencies": {
+    "@aang/contract": "workspace:*",
     "@aang/eslint-plugin": "workspace:*",
+    "@aang/testkit": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "~1.63.0",
     "@types/node": "^26.6.3",

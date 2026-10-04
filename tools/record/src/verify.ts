@@ -2,6 +2,7 @@ import { join, relative } from 'node:path'
 import { loadManifest } from '@aang/testkit'
 import { assertAnonymous } from './anonymize.js'
 import { filesIn, readUtf8 } from './files.js'
+import { assertNoMachineNames, machineIdentities } from './machine.js'
 import { RecordingManifest, validateReferences } from './schema.js'
 
 export const verifyRecording = async (directory: string): Promise<void> => {
@@ -9,6 +10,7 @@ export const verifyRecording = async (directory: string): Promise<void> => {
   const contents = new Map<string, string>()
   for (const file of files) contents.set(relative(directory, file).replaceAll('\\', '/'), await readUtf8(file))
   assertAnonymous([...contents].flat())
+  assertNoMachineNames(contents, await machineIdentities())
   const manifest = RecordingManifest.parse(JSON.parse(contents.get('manifest.json') ?? 'null'))
   validateReferences(manifest, JSON.parse(contents.get('playback.json') ?? 'null'))
   for (const artifact of manifest.artifacts) {
