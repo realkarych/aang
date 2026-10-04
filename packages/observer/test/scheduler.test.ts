@@ -530,7 +530,7 @@ test('facts of a run whose backend is down are deferred after 24 hours without a
 })
 
 test('the reasons of a rejected response survive a backend failure and a restart, and neither spends an attempt', { timeout: 60_000 }, async (context) => {
-  const scene = await createScene(context, { claude: [outdated, { kind: 'timeout' }, accepted], timeoutMs: 1_500 })
+  const scene = await createScene(context, { claude: [outdated, { kind: 'timeout' }, accepted], timeoutMs: 5_000 })
   const session = scene.claudeSession('session-reasons')
   const attempts = () => scene.statuses(session.run).map(({ status, attempts: count }) => [status, count])
   await session.start()

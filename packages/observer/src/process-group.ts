@@ -69,7 +69,7 @@ export const watchProcessGroup = (pgid: number): ProcessGroupWatch => {
   const loop = (async () => {
     while (!watching.signal.aborted) {
       await sample().catch(() => undefined)
-      await setTimeout(10)
+      await setTimeout(25)
     }
   })()
   return {
