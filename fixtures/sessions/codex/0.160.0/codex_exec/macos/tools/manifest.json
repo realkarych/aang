@@ -1,0 +1,192 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": null,
+  "surface": "codex_exec",
+  "os": "macos",
+  "scenario": "tools",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:18:57.945Z",
+  "expected_facts": [
+    "One codex exec turn runs exec_command `echo hi`, applies a patch that adds result.json, and runs `echo code` from a code-mode exec cell",
+    "Every model response has a token_usage_record and turn.completed reports cumulative usage",
+    "PreToolUse/PostToolUse hooks fire for Bash and apply_patch with tool_use_id equal to the rollout call_id"
+  ],
+  "control_events": [
+    {
+      "label": "result-written",
+      "step": 10,
+      "observed_at": "2026-10-04T01:18:58.102Z",
+      "expected_map_change": {
+        "description": "result.json appears as the output file of the running stage"
+      }
+    },
+    {
+      "label": "turn-complete",
+      "step": 17,
+      "observed_at": "2026-10-04T01:18:58.180Z",
+      "expected_map_change": {
+        "description": "The turn completes with three finished actions and its usage counted once per response"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.jsonl",
+      "observed_at": "2026-10-04T01:18:58.024Z",
+      "mtime_ns": "1791076738022586528"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-04T01:18:58.017Z",
+      "mtime_ns": "1791076738017367634"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-04T01:18:58.017Z",
+      "mtime_ns": "1791076738017367634"
+    },
+    {
+      "source": "spool/000004.spool",
+      "observed_at": "2026-10-04T01:18:58.021Z",
+      "mtime_ns": "1791076738021787756"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-04T01:18:58.021Z",
+      "mtime_ns": "1791076738021787756"
+    },
+    {
+      "source": "data/000006.jsonl",
+      "observed_at": "2026-10-04T01:18:58.050Z",
+      "mtime_ns": "1791076738026305297"
+    },
+    {
+      "source": "spool/000007.spool",
+      "observed_at": "2026-10-04T01:18:58.031Z",
+      "mtime_ns": "1791076738031037719"
+    },
+    {
+      "source": "data/000008.json",
+      "observed_at": "2026-10-04T01:18:58.031Z",
+      "mtime_ns": "1791076738031037719"
+    },
+    {
+      "source": "data/000009.jsonl",
+      "observed_at": "2026-10-04T01:18:58.076Z",
+      "mtime_ns": "1791076738073082254"
+    },
+    {
+      "source": "spool/000010.spool",
+      "observed_at": "2026-10-04T01:18:58.069Z",
+      "mtime_ns": "1791076738069401610"
+    },
+    {
+      "source": "data/000011.json",
+      "observed_at": "2026-10-04T01:18:58.069Z",
+      "mtime_ns": "1791076738069401610"
+    },
+    {
+      "source": "data/000012.jsonl",
+      "observed_at": "2026-10-04T01:18:58.102Z",
+      "mtime_ns": "1791076738086242366"
+    },
+    {
+      "source": "data/000013.json",
+      "observed_at": "2026-10-04T01:18:58.102Z",
+      "mtime_ns": "1791076738078120392"
+    },
+    {
+      "source": "spool/000014.spool",
+      "observed_at": "2026-10-04T01:18:58.077Z",
+      "mtime_ns": "1791076738077449707"
+    },
+    {
+      "source": "data/000015.json",
+      "observed_at": "2026-10-04T01:18:58.077Z",
+      "mtime_ns": "1791076738077449707"
+    },
+    {
+      "source": "spool/000016.spool",
+      "observed_at": "2026-10-04T01:18:58.082Z",
+      "mtime_ns": "1791076738082892524"
+    },
+    {
+      "source": "data/000017.json",
+      "observed_at": "2026-10-04T01:18:58.082Z",
+      "mtime_ns": "1791076738082892524"
+    },
+    {
+      "source": "spool/000018.spool",
+      "observed_at": "2026-10-04T01:18:58.119Z",
+      "mtime_ns": "1791076738119812709"
+    },
+    {
+      "source": "data/000019.json",
+      "observed_at": "2026-10-04T01:18:58.119Z",
+      "mtime_ns": "1791076738119812709"
+    },
+    {
+      "source": "data/000020.jsonl",
+      "observed_at": "2026-10-04T01:18:58.154Z",
+      "mtime_ns": "1791076738148538209"
+    },
+    {
+      "source": "spool/000021.spool",
+      "observed_at": "2026-10-04T01:18:58.153Z",
+      "mtime_ns": "1791076738153823688"
+    },
+    {
+      "source": "data/000022.json",
+      "observed_at": "2026-10-04T01:18:58.153Z",
+      "mtime_ns": "1791076738153823688"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-04T01:18:58.167Z",
+      "mtime_ns": "1791076738167000000"
+    },
+    {
+      "source": "data/000024.jsonl",
+      "observed_at": "2026-10-04T01:18:58.180Z",
+      "mtime_ns": "1791076738164031011"
+    },
+    {
+      "source": "spool/000025.spool",
+      "observed_at": "2026-10-04T01:18:58.163Z",
+      "mtime_ns": "1791076738163145987"
+    },
+    {
+      "source": "data/000026.json",
+      "observed_at": "2026-10-04T01:18:58.163Z",
+      "mtime_ns": "1791076738163145987"
+    },
+    {
+      "source": "spool/000027.spool",
+      "observed_at": "2026-10-04T01:18:58.172Z",
+      "mtime_ns": "1791076738172554663"
+    },
+    {
+      "source": "data/000028.json",
+      "observed_at": "2026-10-04T01:18:58.172Z",
+      "mtime_ns": "1791076738172554663"
+    },
+    {
+      "source": "data/000029.json",
+      "observed_at": "2026-10-04T01:18:58.365Z",
+      "mtime_ns": "1791076738365000000"
+    },
+    {
+      "source": "output/000030.txt",
+      "observed_at": "2026-10-04T01:18:58.776Z",
+      "mtime_ns": "1791076738776000000"
+    },
+    {
+      "source": "output/000031.txt",
+      "observed_at": "2026-10-04T01:18:58.776Z",
+      "mtime_ns": "1791076738776000000"
+    }
+  ],
+  "playback": "playback.json"
+}
