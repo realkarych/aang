@@ -31,7 +31,7 @@ export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOpt
   return true
 }
 
-export const claudeAdmissionArtifacts = async (sessionId: string, fault?: string): Promise<() => void> => {
+export const claudeAdmissionArtifacts = async (sessionId: string, durationMs: number, fault?: string): Promise<() => void> => {
   const root = join(process.env.HOME ?? process.env.USERPROFILE ?? homedir(), '.claude')
   const registry = join(root, 'sessions', `${String(process.pid)}.json`)
   mkdirSync(dirname(registry), { recursive: true })
@@ -42,7 +42,7 @@ export const claudeAdmissionArtifacts = async (sessionId: string, fault?: string
     writeFileSync(join(project, `${sessionId}.jsonl`), '{}\n')
   }
   if (fault === 'tool_execution') writeFileSync(join(process.cwd(), 'tool-ran'), 'executed')
-  await setTimeout(100)
+  await setTimeout(durationMs)
   return () => { rmSync(registry, { force: true }) }
 }
 

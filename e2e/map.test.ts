@@ -350,9 +350,12 @@ test.describe('with the observer building three levels', () => {
     await expect(toSign).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })
     await expect
-      .poll(async () => (await ownCard(bundle)).bottom < (await box(stage(page, sign))).y)
+      .poll(async () => {
+        const [releaseCard, bundleCard] = [await ownCard(release), await ownCard(bundle)]
+        const [bundleStage, signStage] = [await box(stage(page, bundle)), await box(stage(page, sign))]
+        return releaseCard.bottom < bundleStage.y && bundleCard.bottom < signStage.y
+      })
       .toBe(true)
-    expect((await ownCard(release)).bottom).toBeLessThan((await box(stage(page, bundle))).y)
     await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
     await expect.poll(async () => crossings(page)).toEqual([])
     await expect(edges(page)).toHaveCount(2)
