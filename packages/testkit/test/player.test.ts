@@ -155,6 +155,51 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
     },
   )
 
+  test('records played at playback time carry timestamps shifted to the playback moment with their intervals kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const lines = Buffer.from(
+      [
+        '{"timestamp":"2026-10-01T11:49:30.942Z","message":{"text":"at 2026-10-01T11:49:30.942Z"}}',
+        '{"timestamp":"2026-10-01T11:49:33.442Z","toolUseResult":{"at":"2026-10-01T11:49:34.000000Z"}}',
+        '',
+      ].join('\n'),
+    )
+    const meta = '{"agentType":"pinger","createdAt":"2026-10-01T11:49:35.000Z"}'
+    const target = { root: 'claude', path: 'projects/-tmp-p/live.jsonl' }
+    const file = await manifest('playback-time', {
+      sources: { 'lines.jsonl': lines, 'meta.json': meta },
+      steps: [
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', lines: 1 },
+        { at: 2_500, kind: 'append', target, source: 'lines.jsonl' },
+        { at: 4_058, kind: 'write', target: { root: 'claude', path: 'projects/-tmp-p/meta.json' }, source: 'meta.json' },
+      ],
+    })
+    const before = Date.now()
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0, recordTime: 'playback' })
+    const after = Date.now()
+    await player.play()
+
+    const [first, second] = (await readFile(join(profile.claude, ...target.path.split('/')), 'utf8'))
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => JSON.parse(line) as { timestamp: string; message?: { text: string }; toolUseResult?: { at: string } })
+    const start = Date.parse(first?.timestamp ?? '')
+    expect(start).toBeGreaterThanOrEqual(before)
+    expect(start).toBeLessThanOrEqual(after)
+    expect(first?.message?.text).toBe('at 2026-10-01T11:49:30.942Z')
+    expect(Date.parse(second?.timestamp ?? '') - start).toBe(2_500)
+    expect(Date.parse(second?.toolUseResult?.at ?? '') - start).toBe(3_058)
+    const written = JSON.parse(await readFile(join(profile.claude, 'projects', '-tmp-p', 'meta.json'), 'utf8')) as {
+      agentType: string
+      createdAt: string
+    }
+    expect(written.agentType).toBe('pinger')
+    expect(Date.parse(written.createdAt) - start).toBe(4_058)
+  })
+
   test('JSON files are written whole and rewritten, transcripts are moved and archived, and files are removed', async ({
     expect,
     onTestFinished,
