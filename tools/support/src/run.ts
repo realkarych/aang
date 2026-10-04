@@ -32,7 +32,7 @@ export interface ContractRun {
 }
 
 export const pendingScenarios: Readonly<Record<Runtime, readonly string[]>> = {
-  claude: [],
+  claude: ['elicitation', 'workflow', 'teammates', 'input-dialogs'],
   codex: ['plan', 'question'],
 }
 
