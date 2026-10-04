@@ -70,8 +70,10 @@ export const RawSeqText = z.codec(decimal, RawSeq, {
 
 export const ApiErrorCode = z.enum([
   'unauthorized',
+  'forbidden',
   'not_found',
   'invalid_request',
+  'unsupported_media_type',
   'conflict',
   'unavailable',
   'internal',
