@@ -632,6 +632,16 @@ export const DoctorReport = z.strictObject({
 })
 export type DoctorReport = z.infer<typeof DoctorReport>
 
+export const OtelConfigRequest = z.strictObject({
+  rotate: z.boolean(),
+})
+export type OtelConfigRequest = z.infer<typeof OtelConfigRequest>
+
+export const OtelConfigResponse = z.strictObject({
+  endpoint: name,
+})
+export type OtelConfigResponse = z.infer<typeof OtelConfigResponse>
+
 export const ShutdownResponse = z.strictObject({
   stopping: z.literal(true),
 })
@@ -840,6 +850,14 @@ export const endpoints = {
     query: null,
     body: DoctorRequest,
     response: DoctorReport,
+  },
+  otelConfig: {
+    method: 'POST',
+    path: '/api/admin/otel-config',
+    params: null,
+    query: null,
+    body: OtelConfigRequest,
+    response: OtelConfigResponse,
   },
   shutdown: {
     method: 'POST',
