@@ -648,7 +648,7 @@ const productRun = async (index) => {
   const begin = Date.now()
   let outcome
   try {
-    const state = await codexHooksState({ codexHome, codex: { command: values.codex } })
+    const state = await codexHooksState({ aangHome: process.env.AANG_HOME ?? join(home, '.aang'), codexHome, codex: { command: values.codex } })
     outcome = { status: state.status, aangHooks: describeHooks(state.hooks), warnings: state.warnings.map(redact) }
   } catch (error) {
     outcome = { error: redact(String(error?.message ?? error)) }

@@ -6,6 +6,7 @@ import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
 import type { z } from 'zod'
+import { serveAppServer } from './codex-app-server.js'
 import { bundledCatalog } from './codex-catalog.js'
 import { catalogEntry, codexExecOptions, codexViolations, readCatalog } from './codex-profile.js'
 import { appeared, emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
@@ -323,6 +324,11 @@ const main = async (): Promise<void> => {
   }
   if (command === 'debug' && subcommand === 'models' && rest.every((argument) => argument === '--bundled')) {
     debugModels()
+    return
+  }
+  if (command === 'app-server' && subcommand === undefined) {
+    record('app_server')
+    await serveAppServer(scenario.hooks)
     return
   }
   if (command !== 'exec') {

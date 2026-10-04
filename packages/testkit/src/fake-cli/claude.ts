@@ -178,6 +178,11 @@ const main = async (): Promise<void> => {
   const scenario = readScenario(state, ClaudeScenario)
   if (isPlugin(argv[0])) {
     record('plugin')
+    await startDescendant(scenario.pluginDescendant)
+    if (scenario.pluginHang) {
+      hang()
+      return
+    }
     emulatePluginCommand(state, argv.slice(1), scenario.pluginFailures)
     return
   }
