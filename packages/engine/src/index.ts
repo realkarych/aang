@@ -95,3 +95,4 @@ export {
   type ViewRuleErrorCode,
   type ViewRuleRevocation,
 } from './view/rules.js'
+export { createViewState, type ViewState, type ViewStateOptions } from './view/state.js'
