@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { z } from 'zod'
+import { claudeProjectName } from '../capture.js'
 
 const Block = z.looseObject({
   type: z.string(),
@@ -52,8 +53,14 @@ const readTranscript = async (claude: string, file: string): Promise<Transcript>
   }
 }
 
-export const transcriptFiles = async (claude: string): Promise<string[]> => {
-  const directories = await readdir(projects(claude)).catch(() => [])
+export interface ClaudeProfile {
+  readonly claude: string
+  readonly project: string
+}
+
+export const transcriptFiles = async ({ claude, project }: ClaudeProfile): Promise<string[]> => {
+  const name = claudeProjectName(project)
+  const directories = (await readdir(projects(claude)).catch(() => [])).filter((directory) => directory === name || directory.startsWith(`${name}-`))
   const files: string[] = []
   for (const directory of directories) {
     const names = await readdir(join(projects(claude), directory)).catch(() => [])
@@ -62,10 +69,10 @@ export const transcriptFiles = async (claude: string): Promise<string[]> => {
   return files
 }
 
-export const findTranscript = async (claude: string, sessionId: string): Promise<Transcript> => {
-  const file = (await transcriptFiles(claude)).find((path) => path.endsWith(`${sessionId}.jsonl`))
+export const findTranscript = async (profile: ClaudeProfile, sessionId: string): Promise<Transcript> => {
+  const file = (await transcriptFiles(profile)).find((path) => path.endsWith(`${sessionId}.jsonl`))
   if (file === undefined) throw new Error(`No transcript for session ${sessionId}`)
-  return readTranscript(claude, file)
+  return readTranscript(profile.claude, file)
 }
 
 export const subagentTranscripts = async (claude: string, transcript: Transcript): Promise<Transcript[]> => {

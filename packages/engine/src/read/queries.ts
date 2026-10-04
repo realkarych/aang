@@ -8,8 +8,11 @@ import type {
   RunsResponse,
   StageId,
   StageInspector,
+  UsageQuery,
+  UsageReport,
   ViewPosition,
 } from '@aang/contract'
+import { usageReport } from '../usage/report.js'
 import { runChanges } from './changes.js'
 import { type ReadContext, runOf } from './context.js'
 import { stageInspector } from './inspector.js'
@@ -26,6 +29,7 @@ export interface ReadQueries {
   readonly changes: (run: RunId, from: ViewPosition) => ChangesResponse | null
   readonly observerCalls: (run: RunId) => ObserverCallsResponse | null
   readonly chat: (run: RunId) => ChatHistoryResponse | null
+  readonly usage: (query: UsageQuery) => UsageReport | null
 }
 
 export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
@@ -42,5 +46,6 @@ export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
         return calls === null ? null : { calls }
       }),
     chat: (run) => store.read(() => (runOf(store, run) === null ? null : { messages: store.chat.messages(run) })),
+    usage: (query) => store.read(() => usageReport(store, query)),
   }
 }

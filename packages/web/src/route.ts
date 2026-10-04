@@ -1,4 +1,4 @@
-import { RunId } from '@aang/contract'
+import { RunId, StageId } from '@aang/contract'
 import { type MouseEvent, useCallback, useSyncExternalStore } from 'react'
 
 const navigated = 'aang:navigate'
@@ -22,6 +22,24 @@ export const useRoutedRun = (): RunId | null => {
   const search = useSyncExternalStore(subscribe, currentSearch)
   const parsed = RunId.safeParse(new URLSearchParams(search).get('run'))
   return parsed.success ? parsed.data : null
+}
+
+export const routedStage = (): StageId | null => {
+  const parsed = StageId.safeParse(new URLSearchParams(currentSearch()).get('stage'))
+  return parsed.success ? parsed.data : null
+}
+
+export const routeStage = (stage: StageId | null): void => {
+  const params = new URLSearchParams(currentSearch())
+  if (stage === null) {
+    params.delete('stage')
+  } else {
+    params.set('stage', stage)
+  }
+  const search = `?${params.toString()}`
+  if (search !== currentSearch()) {
+    window.history.replaceState(window.history.state, '', search)
+  }
 }
 
 const isPlainClick = (event: MouseEvent): boolean =>

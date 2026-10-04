@@ -34,7 +34,7 @@ import {
   ViewRuleId,
 } from './primitives.js'
 import { RawRecord } from './raw.js'
-import { SupportKey, SupportStatus } from './support.js'
+import { SupportStatus, VersionKey } from './support.js'
 import {
   AppliedViewRule,
   AttentionPlace,
@@ -94,7 +94,7 @@ export const Listener = z.strictObject({
 })
 export type Listener = z.infer<typeof Listener>
 
-export const HookInstallation = z.enum(['not_installed', 'untrusted', 'active', 'unknown'])
+export const HookInstallation = z.enum(['not_installed', 'untrusted', 'disabled', 'active', 'unknown'])
 export type HookInstallation = z.infer<typeof HookInstallation>
 
 export const RuntimeStatus = z.strictObject({
@@ -129,12 +129,17 @@ export const ObserverBackendStatus = z.strictObject({
 })
 export type ObserverBackendStatus = z.infer<typeof ObserverBackendStatus>
 
-export const VersionStatus = z.strictObject({
-  key: SupportKey,
-  status: SupportStatus,
-  sessions: count,
-  last_seen_at: EpochNs,
-})
+export const VersionStatus = z
+  .strictObject({
+    key: VersionKey,
+    status: SupportStatus,
+    sessions: count,
+    last_seen_at: EpochNs,
+  })
+  .refine(({ key, status }) => key.surface !== null || status === 'unverified', {
+    message: 'a version of an unknown surface is unverified',
+    path: ['status'],
+  })
 export type VersionStatus = z.infer<typeof VersionStatus>
 
 export const NotObservableSurface = z.enum(['claude_cowork', 'claude_cloud', 'codex_cloud', 'work_cloud'])
@@ -866,6 +871,14 @@ export const endpoints = {
     query: UsageQuery,
     body: null,
     response: UsageReport,
+  },
+  hooksCheck: {
+    method: 'POST',
+    path: '/api/admin/hooks-check',
+    params: null,
+    query: null,
+    body: empty,
+    response: StatusResponse,
   },
   doctor: {
     method: 'POST',
