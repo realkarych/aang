@@ -64,6 +64,7 @@ export const supportModeLabel: Readonly<Record<SupportMode, string>> = {
 export const hookInstallationLabel: Readonly<Record<HookInstallation, string>> = {
   not_installed: 'не установлены',
   untrusted: 'не доверены',
+  disabled: 'выключены',
   active: 'установлены',
   unknown: 'установка не проверена',
 }
