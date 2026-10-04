@@ -197,11 +197,7 @@ export const artifactVersionMaterial = (
   if (version === null) {
     return 'not_found'
   }
-  if (reader.model.objectRun('artifact_version', id) !== scope.run) {
-    return 'out_of_scope'
-  }
-  const producer = version.produced_by === null ? null : reader.observations.getAction(version.produced_by)
-  const exclusion = producer === null ? null : scope.action(producer)
+  const exclusion = scope.version(version)
   if (exclusion !== null) {
     return exclusion
   }

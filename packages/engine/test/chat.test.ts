@@ -7,14 +7,28 @@ import {
   failChat,
   failInterruptedChats,
   followUpChat,
+  inputScope,
   observerInputTokens,
+  resolveObserverNeeds,
+  startChat,
   verifyCitations,
 } from '@aang/engine'
+import { objectId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
 import { expect, test } from 'vitest'
-import { recordsOf } from './harness.js'
+import { recordsOf, sessionKey } from './harness.js'
 import { at } from './model.js'
-import { chatRun, observe, otherRun, reportAction, reportText, setupChat, stageTitled, testsAction } from './chat-fixtures.js'
+import {
+  chatRun,
+  chatSession,
+  observe,
+  otherRun,
+  reportAction,
+  reportText,
+  setupChat,
+  stageTitled,
+  testsAction,
+} from './chat-fixtures.js'
 
 const readsOf = (store: Store) =>
   createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
@@ -360,4 +374,51 @@ test('a question left pending by a stopped daemon fails, and the run feed and th
   expect(reads.chat(otherRun)).toEqual({ messages: [] })
   expect(reads.chat(RunId.parse('0'.repeat(32)))).toBeNull()
   expect(store.transaction((transaction) => failInterruptedChats(transaction, at(61)))).toEqual([])
+})
+
+test('a saved version whose producing action is gone is refused to the chat and to the observer, whatever the vendor scope', async (context) => {
+  const chat = await setupChat(context)
+  const { store, engine, version, reportStage } = chat
+  const need: ChatNeed = { kind: 'artifact_version', version: version.id }
+  const scopes = [
+    { backend: 'claude', crossVendor: false },
+    { backend: 'claude', crossVendor: true },
+    { backend: 'codex', crossVendor: false },
+    { backend: 'codex', crossVendor: true },
+  ] as const
+  const refusals = () =>
+    scopes.map((options) => {
+      const asked = started(
+        store.transaction((transaction) =>
+          startChat(transaction, {
+            run: chatRun,
+            stage: options.crossVendor ? reportStage : null,
+            question: 'What is in the report?',
+            ...options,
+            at: at(60),
+          }),
+        ),
+      )
+      const followed = followUpChat(store, { input: asked.input, needs: [need], ...options })
+      return {
+        focus: asked.input.focus.kind === 'stage' ? asked.input.focus.artifact_versions.map(({ id }) => id) : null,
+        chat: followed?.materials,
+        observer: resolveObserverNeeds(store, inputScope(store, { run: chatRun, ...options }), [need]),
+      }
+    })
+
+  expect(refusals()[1]).toMatchObject({
+    focus: [version.id],
+    chat: [{ kind: 'artifact_version', content: reportText }],
+    observer: [{ kind: 'artifact_version', content: reportText }],
+  })
+  await engine.bind({ kind: 'attach', session: objectId(sessionKey('claude', chatSession)), run: otherRun })
+  await engine.prune({ scope: 'run', run: otherRun }, () => Promise.resolve(null))
+  expect(store.artifacts.getVersion(version.id)?.produced_by).toBe(reportAction)
+  expect(store.observations.getAction(reportAction)).toBeNull()
+
+  const refused = { kind: 'unavailable', request: need, reason: 'out_of_scope' }
+  expect(refusals()).toEqual(
+    scopes.map(({ crossVendor }) => ({ focus: crossVendor ? [] : null, chat: [refused], observer: [refused] })),
+  )
 })

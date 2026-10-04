@@ -17,7 +17,7 @@ import {
   type Stage,
   type StageId,
 } from '@aang/contract'
-import type { ChatReader, Transaction, ViewReader } from '@aang/store'
+import type { ChatReader, ChatScope, Transaction, ViewReader } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
 import { origin, partsOf } from '../read/context.js'
 import { attentionZone } from '../view/zone.js'
@@ -186,11 +186,7 @@ const stageFocus = (source: ChatSource, scope: InputScope, stage: Stage, textLen
     ...new Set(links.flatMap((link) => (link.kind === 'artifact' && link.stage === stage.id ? [link.version] : []))),
   ].flatMap((id) => {
     const version = source.artifacts.getVersion(id)
-    if (version === null || source.model.objectRun('artifact_version', id) !== scope.run) {
-      return []
-    }
-    const producer = version.produced_by === null ? null : source.observations.getAction(version.produced_by)
-    if (producer !== null && scope.action(producer) !== null) {
+    if (version === null || scope.version(version) !== null) {
       return []
     }
     const { retention } = version
@@ -239,9 +235,14 @@ const runFocus = (source: ChatSource, scope: InputScope, limits: ChatLimits): Ch
   return { kind: 'run', attention, recent_changes: last(recent, limits.focus) }
 }
 
-const historyOf = (source: ChatSource, run: RunId, limit: number): ChatTurn[] =>
+const admitsAnswer = (scope: InputScope, asked: ChatScope): boolean =>
+  scope.crossVendor || (asked.backend === scope.backend && !asked.cross_vendor)
+
+const historyOf = (source: ChatSource, scope: InputScope, limit: number): ChatTurn[] =>
   last(
-    source.chat.messages(run).filter(({ status }) => status === 'answered'),
+    source.chat
+      .scoped(scope.run)
+      .flatMap(({ message, scope: asked }) => (message.status === 'answered' && admitsAnswer(scope, asked) ? [message] : [])),
     limit,
   ).map(({ question, answer, version, asked_at: askedAt }) => ({ question, answer, version, asked_at: isoTime(askedAt) }))
 
@@ -268,7 +269,7 @@ export const startChat = (transaction: Transaction, start: ChatStart): ChatTurnS
       : stageFocus(transaction, scope, stageOf(transaction, scope, start.stage), limits.textLength)
   const base = {
     question: start.question,
-    history: historyOf(transaction, run.id, limits.history),
+    history: historyOf(transaction, scope, limits.history),
     run: describeRun(transaction, scope, run),
     model: snapshotOf(transaction, scope),
     focus,
@@ -295,6 +296,7 @@ export const startChat = (transaction: Transaction, start: ChatStart): ChatTurnS
     stage: start.stage,
     question: start.question,
     version: input.model.version,
+    scope: { backend: start.backend, cross_vendor: start.crossVendor },
     asked_at: start.at,
   })
   return { message, input }

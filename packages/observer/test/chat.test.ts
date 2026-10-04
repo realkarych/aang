@@ -237,3 +237,59 @@ test('questions left pending by a stopped daemon fail, a run without a backend f
   expect(() => stopping.ask(session.run, { question: 'After close?', stage: null })).toThrow(ChatClosedError)
   expect(records.map(({ verdict, error }) => [verdict, error])).toEqual([['failed', null]])
 })
+
+test('an earlier answer reaches a later chat input only when the backend and crossVendor of the daemon admit the input it was built from', async (context) => {
+  const own = 'The review stage waits for a decision.'
+  const shared = 'One Claude session works in the run.'
+  const foreign = 'Codex sees no session of its own.'
+  const later = 'The decision is still pending.'
+  const scene = await createScene(context, {
+    admit: ['claude', 'codex'],
+    claude: [structured],
+    claudeChat: [reply(chatOutput({ answer: own })), reply(chatOutput({ answer: shared })), reply(chatOutput({ answer: later }))],
+    codexChat: [reply(chatOutput({ answer: foreign })), reply(chatOutput({ answer: 'All four answers are known.' }))],
+  })
+  const session = scene.claudeSession('session-vendors')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  const records: ChatCallRecord[] = []
+  const restarted = async (question: string, options: Partial<ChatOptions>): Promise<ChatInput> => {
+    const chat = chatOf(scene, records, options)
+    chat.ask(session.run, { question, stage: null })
+    await chat.close()
+    const input = records.at(-1)?.input
+    if (input === undefined) {
+      throw new Error('the chat must call its backend')
+    }
+    return input
+  }
+  const answersOf = (input: ChatInput): (string | null)[] => input.history.map(({ answer }) => answer)
+
+  await restarted('What waits?', {})
+  await restarted('Which sessions work?', { crossVendor: true })
+  const codexOnly = await restarted('What does Codex see?', { backend: 'codex' })
+  const claudeOnly = await restarted('Is it decided?', {})
+  const everyVendor = await restarted('What is known?', { backend: 'codex', crossVendor: true })
+
+  expect(answersOf(codexOnly)).toEqual([])
+  expect(JSON.stringify(codexOnly)).not.toContain(own)
+  expect(answersOf(claudeOnly)).toEqual([own])
+  expect(answersOf(everyVendor)).toEqual([own, shared, foreign, later])
+  expect(records.map(({ backend, verdict }) => [backend, verdict])).toEqual([
+    ['claude', 'accepted'],
+    ['claude', 'accepted'],
+    ['codex', 'accepted'],
+    ['claude', 'accepted'],
+    ['codex', 'accepted'],
+  ])
+  expect(messages(scene, session.run).map(({ status, answer }) => [status, answer])).toEqual([
+    ['answered', own],
+    ['answered', shared],
+    ['answered', foreign],
+    ['answered', later],
+    ['answered', 'All four answers are known.'],
+  ])
+  expect(scene.failure()).toBeNull()
+})
