@@ -3,6 +3,7 @@ import {
   type AgentId,
   type CriterionRef,
   type FactId,
+  type InputFact,
   type JsonValue,
   ObserverInput,
   type ObserverOp,
@@ -20,12 +21,17 @@ export const mainStageTitle = 'Main work'
 export const continuedStageTitle = 'Main work, continued'
 export const goalCriterionText = 'The goal of the run is reached'
 export const continuationQuestionText = 'Is the result of the continued run accepted?'
+export const preparationStageTitle = 'Preparation'
+export const reportStageTitle = 'Report'
+export const reportQuestionText = 'Is the report accepted?'
 
 const nonblank = z.string().refine((text) => text.trim() !== '')
 
 const FinalSolverText = z.object({ text: nonblank, final: z.literal(true), audience: z.literal('user') })
 
 const PromptText = z.object({ text: nonblank })
+
+const AgentCall = z.object({ action_kind: z.literal('agent') })
 
 const briefLength = 200
 
@@ -38,7 +44,15 @@ interface MapPlan {
   readonly ops: ObserverOp[]
   readonly root: StageRef
   readonly criterion: CriterionRef | null
+  readonly delegatedStages: StageRef[]
 }
+
+interface Layout {
+  readonly ops: ObserverOp[]
+  readonly place: (fact: InputFact) => StageRef | undefined
+}
+
+const byAgent = (): Layout => ({ ops: [], place: () => undefined })
 
 export const readObserverInput = (input: JsonValue | undefined): ObserverInput => {
   const parsed = ObserverInput.safeParse(input)
@@ -147,17 +161,13 @@ const createStage = (
   rationale: 'Work observed in the run',
 })
 
-const assignments = (
-  input: ObserverInput,
-  root: StageRef,
-  agentStages: ReadonlyMap<AgentId, StageRef>,
-): ObserverOpOf<'actions.assign'>[] => {
+const assignments = (input: ObserverInput, place: (fact: InputFact) => StageRef): ObserverOpOf<'actions.assign'>[] => {
   const groups = new Map<StageRef, { actions: Set<ActionId>; facts: FactId[] }>()
   for (const fact of input.batch.facts) {
     if (fact.action === null) {
       continue
     }
-    const stage = (fact.agent === null ? undefined : agentStages.get(fact.agent)) ?? root
+    const stage = place(fact)
     const group = groups.get(stage) ?? { actions: new Set(), facts: [] }
     group.actions.add(fact.action)
     group.facts.push(fact.id)
@@ -172,7 +182,11 @@ const assignments = (
   }))
 }
 
-const planMap = (input: ObserverInput, rootTitle: string): MapPlan => {
+const planMap = (
+  input: ObserverInput,
+  rootTitle: string,
+  arrange: (root: StageRef) => Layout = byAgent,
+): MapPlan => {
   const evidence = sentFacts(input)
   const ops: ObserverOp[] = []
   const existingRoot = stageTitled(input, rootTitle)
@@ -213,13 +227,17 @@ const planMap = (input: ObserverInput, rootTitle: string): MapPlan => {
     })
     agentStages.set(agent.id, stage)
   })
-  ops.push(...assignments(input, root, agentStages), ...briefUpdate(input))
+  const layout = arrange(root)
+  const stageOf = (fact: InputFact): StageRef =>
+    layout.place(fact) ?? (fact.agent === null ? undefined : agentStages.get(fact.agent)) ?? root
+  ops.push(...layout.ops, ...assignments(input, stageOf), ...briefUpdate(input))
+  const delegatedStages = [...agentStages.values()]
   const knownCriterion = input.model.criteria.find(({ text }) => text === goalCriterionText)
   if (knownCriterion !== undefined) {
-    return { ops, root, criterion: { kind: 'existing', id: knownCriterion.id } }
+    return { ops, root, criterion: { kind: 'existing', id: knownCriterion.id }, delegatedStages }
   }
   if (rootTitle !== mainStageTitle || existingRoot !== undefined) {
-    return { ops, root, criterion: null }
+    return { ops, root, criterion: null, delegatedStages }
   }
   ops.push({
     op: 'criterion.add',
@@ -230,7 +248,7 @@ const planMap = (input: ObserverInput, rootTitle: string): MapPlan => {
     evidence,
     rationale: 'The run is done when its goal is reached',
   })
-  return { ops, root, criterion: { kind: 'new', temp_id: temp('goal') } }
+  return { ops, root, criterion: { kind: 'new', temp_id: temp('goal') }, delegatedStages }
 }
 
 const output = (input: ObserverInput, ops: ObserverOp[]): ObserverOutput => ({
@@ -301,4 +319,98 @@ export const revisionScript = (input: ObserverInput): ObserverOutput => {
     })
   }
   return output(input, ops)
+}
+
+const ownedByMain = (input: ObserverInput, agent: AgentId | null): boolean =>
+  agent === null || input.run.agents.some(({ id, role }) => id === agent && role === 'main')
+
+const preparationFacts = (input: ObserverInput): InputFact[] => {
+  if (input.run.agents.some(delegated)) {
+    return []
+  }
+  const spawns = new Set(
+    input.batch.facts.flatMap(({ kind, action, payload }) =>
+      kind === 'action_start' && action !== null && AgentCall.safeParse(payload).success ? [action] : [],
+    ),
+  )
+  return input.batch.facts.filter(
+    ({ action, agent }) => action !== null && !spawns.has(action) && ownedByMain(input, agent),
+  )
+}
+
+const preparationDone = (
+  input: ObserverInput,
+  stage: StageRef,
+  preparing: readonly InputFact[],
+): ObserverOpOf<'stage.state'>[] => {
+  const actions = new Set(preparing.map(({ action }) => action))
+  const ends = input.batch.facts.filter(({ kind, action }) => kind === 'action_end' && actions.has(action))
+  return actions.size === 0 || new Set(ends.map(({ action }) => action)).size < actions.size
+    ? []
+    : [
+        {
+          op: 'stage.state',
+          stage,
+          execution: { state: 'done' },
+          evidence: ends.map(({ id }) => id),
+          rationale: 'Every preparation action has ended',
+        },
+      ]
+}
+
+const reportOps = (input: ObserverInput, root: StageRef, delegatedStages: readonly StageRef[]): ObserverOp[] => {
+  const claims = finalSolverTexts(input).map(({ fact }) => fact)
+  if (claims.length === 0 || stageTitled(input, reportStageTitle) !== undefined) {
+    return []
+  }
+  const evidence = sentFacts(input)
+  const report: StageRef = { kind: 'new', temp_id: temp('report') }
+  return [
+    createStage('report', reportStageTitle, null, root, evidence),
+    {
+      op: 'stage.state',
+      stage: report,
+      execution: { state: 'done' },
+      evidence: claims,
+      rationale: 'The solver reports the result',
+    },
+    ...delegatedStages.map(
+      (stage): ObserverOp => ({
+        op: 'stage.depends',
+        stage: report,
+        depends_on: stage,
+        via: null,
+        evidence,
+        rationale: 'The report builds on the delegated work',
+      }),
+    ),
+    {
+      op: 'question.add',
+      temp_id: temp('question'),
+      text: reportQuestionText,
+      stage: report,
+      evidence: claims,
+      rationale: 'The solver awaits acceptance of the report',
+    },
+  ]
+}
+
+export const mapLayoutScript = (input: ObserverInput): ObserverOutput => {
+  const preparing = preparationFacts(input)
+  const placed = new Set(preparing)
+  const known = stageTitled(input, preparationStageTitle)
+  const preparation: StageRef =
+    known === undefined ? { kind: 'new', temp_id: temp('preparation') } : { kind: 'existing', id: known.id }
+  const { ops, root, delegatedStages } = planMap(input, mainStageTitle, (parent) => ({
+    ops:
+      known === undefined && preparing.length > 0
+        ? [createStage('preparation', preparationStageTitle, null, parent, preparing.map(({ id }) => id))]
+        : [],
+    place: (fact) => (placed.has(fact) ? preparation : undefined),
+  }))
+  return output(input, [
+    ...ops,
+    ...preparationDone(input, preparation, preparing),
+    ...reportOps(input, root, delegatedStages),
+  ])
 }

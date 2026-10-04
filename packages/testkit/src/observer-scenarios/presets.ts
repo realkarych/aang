@@ -18,6 +18,7 @@ const phase = (replies: ObserverScenarioReply[], chatReplies: ObserverScenarioRe
 
 export const observerScenarios = {
   'live-map': { live: phase([script('map')]) },
+  'map-layout': { live: phase([script('map-layout')]) },
   'claimed-done': { live: phase([script('claimed-done')]) },
   'since-last-view': { before: phase([script('map')]), after: phase([script('revision')]) },
   chat: { live: phase([script('map')], [script('chat-answer'), script('chat-collapse-reviewers')]) },
