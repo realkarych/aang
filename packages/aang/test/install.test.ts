@@ -1,12 +1,12 @@
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@aang/testkit'
 import type { TestContext } from 'vitest'
 import { describe, test } from 'vitest'
-import { waitUntil } from './processes.js'
+import { isAlive, waitUntil } from './processes.js'
 import { createSandbox, type Sandbox } from './sandbox.js'
 
 const posix = process.platform !== 'win32'
@@ -96,17 +96,6 @@ const runs = async ({ sandbox }: Connected): Promise<RunListing['runs']> => {
 
 const pluginCalls = (claude: FakeCli<ClaudeScenario>): string[][] =>
   claude.calls().filter((call) => call.command === 'plugin').map((call) => call.argv)
-
-const profileFiles = async (directory: string): Promise<Record<string, string> | null> => {
-  const names = await readdir(directory).catch(() => null)
-  return names === null
-    ? null
-    : Object.fromEntries(
-        await Promise.all(
-          names.map(async (name): Promise<[string, string]> => [name, await readFile(join(directory, name), 'utf8')]),
-        ),
-      )
-}
 
 describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code and Codex to aang', () => {
   test('install registers the plugin and the Codex hooks, and their commands deliver events to the running daemon', async ({
@@ -221,65 +210,58 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
   })
 
   test.for([
-    { via: 'CODEX_HOME', config: { runtimes: { codex: { home: null } } }, linked: false, existing: false },
-    { via: 'a symlink in the aang config', config: {}, linked: true, existing: true },
-    { via: 'a dangling symlink in the aang config', config: {}, linked: true, existing: false },
+    { via: 'the home directory', variable: false, linked: false },
+    { via: 'CODEX_HOME', variable: true, linked: false },
+    { via: 'a symlink in the aang config', variable: true, linked: true },
   ])(
-    'install refuses the default Codex profile reached through $via before starting codex app-server and still installs Claude',
-    async ({ config, linked, existing }, { expect, onTestFinished }) => {
-      const { sandbox, claude, codex, codexHome, defaultCodexHome } = await connect(onTestFinished, config)
-      if (existing) {
-        await mkdir(defaultCodexHome)
-        await writeFile(join(defaultCodexHome, 'hooks.json'), JSON.stringify({ hooks: { Stop: [] } }))
+    'install connects the default Codex profile reached through $via, keeps its foreign hooks and leaves no codex app-server running',
+    async ({ variable, linked }, { expect, onTestFinished }) => {
+      const { sandbox, claude, codex, codexHome, defaultCodexHome, hookBinary } = await connect(
+        onTestFinished,
+        linked ? {} : { runtimes: { codex: { home: null } } },
+      )
+      if (!variable) {
+        delete sandbox.env.CODEX_HOME
       }
+      const foreign = { type: 'command', command: 'notify-done', timeout: 5 }
+      await mkdir(defaultCodexHome)
+      await writeFile(
+        join(defaultCodexHome, 'hooks.json'),
+        JSON.stringify({
+          hooks: {
+            Stop: [{ hooks: [foreign] }],
+            SessionStart: [{ hooks: [{ type: 'command', command: '/old/bin/aang hook', timeout: 2 }] }],
+          },
+        }),
+      )
       if (linked) {
         await symlink(defaultCodexHome, codexHome)
       }
-      const before = await profileFiles(defaultCodexHome)
+      const profile = linked ? codexHome : defaultCodexHome
 
       const installed = await sandbox.aang('install')
 
-      expect(installed.code).toBe(1)
-      expect(installed.stderr).toBe(
-        `aang install: codex: installing hooks into the default Codex profile ${linked ? codexHome : defaultCodexHome} is not enabled yet: the effects of codex app-server on it are not verified\n`,
-      )
+      expect(installed.code).toBe(0)
+      expect(installed.stderr).toBe('')
       expect(installed.stdout).toContain('claude: plugin aang@aang is enabled\n')
-      expect(pluginCalls(claude)).toHaveLength(3)
-      expect(codex.calls()).toEqual([])
-      expect(await profileFiles(defaultCodexHome)).toEqual(before)
-    },
-  )
-
-  test.for([
-    { via: 'CODEX_HOME', variable: true },
-    { via: 'the aang config', variable: false },
-  ])(
-    'install refuses a profile not created yet that differs from the default Codex profile only in case, reached through $via',
-    async ({ variable }, { expect, onTestFinished }) => {
-      const { sandbox, claude, codex, defaultCodexHome } = await connect(onTestFinished, {
-        runtimes: { codex: { home: null } },
-      })
-      const differentCase = join(dirname(defaultCodexHome), '.CODEX')
-      if (variable) {
-        sandbox.env.CODEX_HOME = differentCase
-      } else {
-        delete sandbox.env.CODEX_HOME
-        const configFile = join(sandbox.aangHome, 'config.json')
-        const config = JSON.parse(await readFile(configFile, 'utf8')) as Record<string, unknown>
-        await writeFile(configFile, JSON.stringify({ ...config, runtimes: { codex: { home: differentCase } } }))
-      }
-
-      const installed = await sandbox.aang('install')
-
-      expect(installed.code).toBe(1)
-      expect(installed.stderr).toBe(
-        `aang install: codex: installing hooks into the default Codex profile ${differentCase} is not enabled yet: the effects of codex app-server on it are not verified\n`,
+      expect(installed.stdout).toContain(
+        `codex: aang hooks registered in ${join(profile, 'hooks.json')}; the previous file is kept in `,
       )
-      expect(installed.stdout).toContain('claude: plugin aang@aang is enabled\n')
+      expect(installed.stdout).toContain('codex: aang hooks are not trusted yet; trust them in Codex with /hooks')
       expect(pluginCalls(claude)).toHaveLength(3)
-      expect(codex.calls()).toEqual([])
-      expect(await profileFiles(defaultCodexHome)).toBeNull()
-      expect(await profileFiles(differentCase)).toBeNull()
+      const registered = await readHooks(join(defaultCodexHome, 'hooks.json'))
+      const aangHandler = { type: 'command', command: `'${hookBinary}' codex user '${sandbox.spool}'`, timeout: 2 }
+      expect(handlersOf(registered, 'Stop')).toEqual([foreign, aangHandler])
+      expect(handlersOf(registered, 'SessionStart')).toEqual([
+        { type: 'command', command: 'true', timeout: 2 },
+        aangHandler,
+      ])
+      const appServers = codex.calls().filter((call) => call.command === 'app_server')
+      expect(codex.calls()).toEqual(appServers)
+      expect(appServers.map((call) => [call.env.CODEX_HOME, call.cwd])).toEqual(
+        Array(3).fill([profile, defaultCodexHome]),
+      )
+      expect(appServers.filter((call) => isAlive(call.pid))).toEqual([])
     },
   )
 
