@@ -177,12 +177,12 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       probe = context(request.signal)
       const version = versionOf(await probe.run(['--version']))
       if (record.version !== version) {
-        record = { ...record, version }
+        record = { ...record, version, isolationViolated: false }
         throw new LaunchError('version_not_admitted', 'CLI version changed; synthetic admission is required')
       }
       const result = await launcher.execute(request)
       stopped.push(result.stopped)
-      if (!result.ok && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
+      if (!result.ok && record.version === version && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
         fail(new LaunchError(result.error.class, result.error.message, result.usage))
         await save()
       }

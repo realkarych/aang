@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs'
 import { mkdtemp, realpath, mkdir, readFile, rm, writeFile, symlink } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
@@ -5,6 +6,7 @@ import { join, resolve } from 'node:path'
 import { expect, test, type TestContext } from 'vitest'
 import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
 import { installFakeClaude, installFakeCodex, type ClaudeScenario } from '@aang/testkit'
+import { until, wrapped } from './scene.js'
 
 const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'] }
 const input = { model: { version: 7 }, batch: { facts: [] }, private: 'working data must not reach admission' }
@@ -249,6 +251,29 @@ test('Codex admits the flat Responses inventory and after a working tool attempt
   expect(await backend.cliVersion()).toBe('0.159.4')
   expect(await backend.admit()).toMatchObject({ admitted: true, version: '0.159.4', isolationViolated: false })
   expect(await backend.execute({ input })).toMatchObject({ ok: true })
+})
+
+test('a violation on the old Codex version that overtakes a call finding the new one leaves the new version to admission', async (context) => {
+  const { root, options } = await sandbox(context)
+  const released = join(root, 'released')
+  const hold = join(root, 'hold')
+  const fake = installFakeCodex(root, { replies: [{ kind: 'answer', output, toolAttempts: ['exec'], gate: released }] })
+  const backend = createCodexBackend({ ...options, cli: wrapped('version-hold-wrapper.ts', root, fake.command, ...fake.args), model: 'gpt-5.5' })
+  expect(await backend.admit()).toMatchObject({ admitted: true, version: '0.159.3' })
+  const violating = backend.execute({ input })
+  await until(() => fake.calls().some((call) => call.prompt?.includes(input.private) === true))
+  await writeFile(hold, '')
+  const updated = backend.execute({ input })
+  await until(() => existsSync(join(root, 'holding')))
+  await writeFile(released, '')
+  expect(await violating).toMatchObject({ ok: false, error: { class: 'isolation' } })
+  expect(backend.admission()).toMatchObject({ admitted: false, version: '0.159.3', isolationViolated: true })
+  fake.setScenario({ version: '0.159.4', replies: [{ kind: 'answer', output }] })
+  await rm(hold)
+  expect(await updated).toMatchObject({ ok: false, error: { class: 'version_not_admitted' } })
+  expect(backend.admission()).toMatchObject({ admitted: false, version: '0.159.4', isolationViolated: false })
+  expect(await backend.admit()).toMatchObject({ admitted: true, version: '0.159.4', isolationViolated: false })
+  expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
 })
 
 for (const runtime of ['claude', 'codex'] as const) {

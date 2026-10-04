@@ -80,6 +80,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
     output: z.json(),
     usage: CodexUsage.optional(),
     toolAttempts: z.array(z.string()).default(() => []),
+    gate: z.string().optional(),
   }),
   z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: CodexUsage.optional() }),
   ...faults,

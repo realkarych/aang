@@ -15,6 +15,7 @@ import {
   briefed,
   configure,
   configuredPath,
+  heldToolAttempt,
   installLauncher,
   observerEnvironment,
   observerInputs,
@@ -293,17 +294,15 @@ test('the scheduler finds skills in the configured Claude directory and keeps ob
   ])
 })
 
-test('a new Codex version is admitted once the call running on the old one is over', { timeout: 90_000 }, async ({
+test('an isolation violation that a call on the old Codex version reports after the new version was found leaves the new version to admission', { timeout: 90_000 }, async ({
   expect,
   onTestFinished,
 }) => {
   const { home, workspace } = await watchedHome(onTestFinished)
-  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [{ kind: 'timeout' }] })
+  const released = join(home.root, 'released')
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [heldToolAttempt(released)] })
   await installLauncher(home)
-  await configure(home, workspace, {
-    cli: { codex: await configuredPath(codex) },
-    observer: { timeoutMs: { codex: 15_000 } },
-  })
+  await configure(home, workspace, { cli: { codex: await configuredPath(codex) } })
   const running = runId(codexKey('thread-g6-running'))
   const updated = runId(codexKey('thread-g6-updated'))
 
@@ -312,6 +311,8 @@ test('a new Codex version is admitted once the call running on the old one is ov
     await waitUntil(() => observerInputs(codex, running).length === 1)
     codex.setScenario({ version: '0.159.4', replies: [briefed] })
     await enqueue(home, 'updated', codexEvents('thread-g6-updated', workspace), 'codex')
+    await waitUntil(() => progressOf(home, updated).batches.length === 1)
+    await writeFile(released, '')
     await waitUntil(
       () =>
         [running, updated].every((observed) => {
@@ -326,7 +327,7 @@ test('a new Codex version is admitted once the call running on the old one is ov
     {
       statuses: ['interpreted', 'interpreted'],
       batches: [
-        { verdict: 'failed', error: 'timeout' },
+        { verdict: 'failed', error: 'isolation' },
         { verdict: 'accepted', error: null },
       ],
     },
@@ -338,7 +339,7 @@ test('a new Codex version is admitted once the call running on the old one is ov
       ],
     },
   ])
-  expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.4' })
+  expect(await admissionOf(home, 'codex')).toMatchObject({ admitted: true, version: '0.159.4', isolationViolated: false })
 })
 
 test(

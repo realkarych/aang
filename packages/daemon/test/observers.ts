@@ -35,6 +35,8 @@ export const briefed: ClaudeReply & CodexReply = { kind: 'answer', output: brief
 
 export const toolAttempt: CodexReply = { kind: 'answer', output: briefing, toolAttempts: ['exec'] }
 
+export const heldToolAttempt = (gate: string): CodexReply => ({ ...toolAttempt, gate })
+
 const dropped = /^(?:path|aang_.*|claude.*|codex_.*|ai_agent)$/i
 
 export const observerEnvironment = (home: Home): Record<string, string> => ({
