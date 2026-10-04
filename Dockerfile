@@ -17,7 +17,7 @@ RUN pnpm exec tsc -b packages/aang
 RUN pnpm --filter=@aang/aang --prod deploy /opt/aang && chmod 755 /opt/aang/dist/main.js
 
 FROM node:26-slim AS aang
-RUN apt-get update && apt-get install --yes --no-install-recommends tini && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install --yes --no-install-recommends git tini && rm -rf /var/lib/apt/lists/*
 COPY --from=build /opt/aang /opt/aang
 COPY --from=hook /out/aang-hook /usr/local/bin/aang-hook
 RUN ln -s /opt/aang/dist/main.js /usr/local/bin/aang

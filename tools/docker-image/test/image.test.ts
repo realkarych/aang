@@ -5,10 +5,10 @@ import { endpoints } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import { afterAll, beforeAll, describe, test } from 'vitest'
 import { docker, dockerOk } from './docker.js'
-import { aangHome, aangPaths, startSolver } from './solver.js'
+import { aangHome, aangPaths, type Solver, startSolver } from './solver.js'
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
-const sessionStartSample = new URL('../../../docs/research/samples/claude-code-hooks/SessionStart.startup.json', import.meta.url)
+const claudeHookSamples = new URL('../../../docs/research/samples/claude-code-hooks/', import.meta.url)
 const fakeSolver = '/opt/fake-solver/dist/main.js'
 const subagentSample = '/opt/samples/packages/testkit/sample-scenarios/claude-subagent/manifest.json'
 const subagentSession = { kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' } as const
@@ -23,8 +23,25 @@ const images = {
   solver: `aang-smoke-solver:${tag}`,
 }
 
+const work = { repository: '/home/node/work/repository', linked: '/home/node/work/linked', elsewhere: '/home/node/elsewhere' }
+const createRepository = [
+  'git init --quiet "$1"',
+  'git -C "$1" -c user.name=aang -c user.email=aang@localhost commit --quiet --allow-empty --message init',
+  'git -C "$1" worktree add --quiet "$2"',
+  'mkdir "$3"',
+].join('\n')
+
 const build = (image: string, args: readonly string[]): Promise<string> =>
   dockerOk(['build', '--progress=plain', '--tag', image, ...args, repository])
+
+const claudeHook = async (sample: string, session: string, cwd: string): Promise<string> => {
+  const payload = JSON.parse(await readFile(new URL(sample, claudeHookSamples), 'utf8')) as Record<string, unknown>
+  return JSON.stringify({ ...payload, session_id: session, cwd })
+}
+
+const claudeSession = () => ({ kind: 'session', runtime: 'claude', session: randomUUID() }) as const
+
+const deliver = (solver: Solver, payload: string) => solver.exec(['aang-hook', 'claude', 'plugin', aangPaths.spool], { input: payload })
 
 describe('the aang Docker image as the base of a solver image', { tags: ['docker'] }, () => {
   beforeAll(async () => {
@@ -90,11 +107,9 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
   }) => {
     const solver = await startSolver(images.solver, onTestFinished)
     const user = await solver.signIn()
-    const session = { kind: 'session', runtime: 'claude', session: randomUUID() } as const
-    const sample = JSON.parse(await readFile(sessionStartSample, 'utf8')) as Record<string, unknown>
-    const payload = JSON.stringify({ ...sample, session_id: session.session, cwd: '/home/node/work' })
+    const session = claudeSession()
 
-    const hooked = await solver.exec(['aang-hook', 'claude', 'plugin', aangPaths.spool], { input: payload })
+    const hooked = await deliver(solver, await claudeHook('SessionStart.startup.json', session.session, '/home/node/work'))
 
     expect(hooked).toEqual({ code: 0, stdout: '', stderr: '' })
     await expect
@@ -102,5 +117,30 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
         timeout: ingestTimeoutMs,
       })
       .toEqual([{ id: runId(session), support_modes: ['hooks_only'] }])
+  })
+
+  test('git of the image admits a session in a linked worktree of a watched repository outside its directory', { timeout: testTimeoutMs }, async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const solver = await startSolver(images.solver, onTestFinished, {
+      watch: { all: false, roots: [{ path: work.repository }] },
+      prepare: ['sh', '-ec', createRepository, 'sh', work.repository, work.linked, work.elsewhere],
+    })
+    const user = await solver.signIn()
+    const external = claudeSession()
+    const linked = claudeSession()
+
+    for (const [session, cwd] of [
+      [external, work.elsewhere],
+      [linked, work.linked],
+    ] as const) {
+      const hooked = await deliver(solver, await claudeHook('SessionStart.startup.json', session.session, cwd))
+      expect(hooked).toEqual({ code: 0, stdout: '', stderr: '' })
+    }
+
+    await expect
+      .poll(async () => (await user.runs()).map(({ id }) => id), { timeout: ingestTimeoutMs })
+      .toEqual([runId(linked)])
   })
 })

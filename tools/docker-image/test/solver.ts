@@ -1,21 +1,25 @@
 import { randomUUID } from 'node:crypto'
-import { join } from 'node:path'
+import { posix } from 'node:path'
 import { endpoints, type RunSummary } from '@aang/contract'
 import { configFileName } from '@aang/contract/config-file'
-import { aangHomePaths } from '@aang/contract/home'
+import { aangHomeLayout } from '@aang/contract/home'
 import type { ConfigInput } from '@aang/testkit'
 import { type Completed, docker, dockerOk, type RunOptions } from './docker.js'
 
 export const aangHome = '/home/node/.aang'
-export const aangPaths = aangHomePaths(aangHome)
+export const aangPaths = {
+  spool: posix.join(aangHome, aangHomeLayout.spool),
+  daemonLog: posix.join(aangHome, aangHomeLayout.daemonLog),
+}
 
 const apiPort = 4280
 const started = new RegExp(`^aang started: pid ([0-9]+), http://127\\.0\\.0\\.1:${String(apiPort)}$`, 'm')
 
-const config: ConfigInput = {
-  api: { port: apiPort },
-  watch: { all: true },
-  collector: { rootsScanIntervalMs: 250 },
+type Watch = NonNullable<ConfigInput['watch']>
+
+export interface SolverOptions {
+  readonly watch?: Watch
+  readonly prepare?: readonly string[]
 }
 
 export interface SignedIn {
@@ -31,7 +35,11 @@ export interface Solver {
 
 const outputOf = ({ code, stdout, stderr }: Completed): string => `exit ${String(code)}\n${stdout}${stderr}`
 
-export const startSolver = async (image: string, cleanup: (remove: () => Promise<void>) => void): Promise<Solver> => {
+export const startSolver = async (
+  image: string,
+  cleanup: (remove: () => Promise<void>) => void,
+  { watch = { all: true }, prepare = [] }: SolverOptions = {},
+): Promise<Solver> => {
   const name = `aang-smoke-${randomUUID()}`
   await dockerOk(['run', '--detach', '--name', name, '--publish', `127.0.0.1::${String(apiPort)}`, image, 'sleep', 'infinity'])
   cleanup(async () => {
@@ -47,9 +55,13 @@ export const startSolver = async (image: string, cleanup: (remove: () => Promise
     return result.stdout
   }
 
-  await execOk(['sh', '-c', 'umask 077 && mkdir -p "$1" && cat > "$2"', 'sh', aangHome, join(aangHome, configFileName)], {
+  const config: ConfigInput = { api: { port: apiPort }, watch, collector: { rootsScanIntervalMs: 250 } }
+  await execOk(['sh', '-c', 'umask 077 && mkdir -p "$1" && cat > "$2"', 'sh', aangHome, posix.join(aangHome, configFileName)], {
     input: JSON.stringify(config),
   })
+  if (prepare.length > 0) {
+    await execOk(prepare)
+  }
   const start = await exec(['aang', 'start', '--bind', '0.0.0.0'])
   const pid = started.exec(start.stdout)?.[1]
   if (start.code !== 0 || pid === undefined) {
