@@ -7,6 +7,7 @@ import {
   type ObserverBackendStatus,
   type ObserverState,
   type Run,
+  type RunId,
   type Runtime,
   runtimes,
 } from '@aang/contract'
@@ -27,6 +28,7 @@ export interface ObserverOptions {
   readonly aangHome: string
   readonly claudeConfigDir: string
   readonly environment: Readonly<Partial<Record<string, string>>>
+  readonly onAccepted: (run: RunId) => void
 }
 
 export interface Observer {
@@ -144,6 +146,7 @@ export const startObserver = (options: ObserverOptions): Observer => {
         claudeConfigDir,
         budgetTokensPerHour: config.observer.budgetTokensPerHour,
         limits: { inputTokens: config.observer.inputLimitTokens },
+        onAccepted: options.onAccepted,
       })
       running.scheduler = scheduler
       unsubscribes.push(scheduler.subscribe(changed))

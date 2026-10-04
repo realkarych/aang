@@ -74,6 +74,7 @@ export interface SchedulerOptions {
   readonly budgetTokensPerHour?: number | null
   readonly clock?: SchedulerClock
   readonly limits?: Partial<SchedulerLimits>
+  readonly onAccepted?: (run: RunId) => void
 }
 
 export interface ObserverScheduler {
@@ -180,6 +181,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     crossVendor = false,
     claudeConfigDir = null,
     budgetTokensPerHour: budget = null,
+    onAccepted = () => undefined,
   } = options
   const clock = options.clock ?? systemClock
   const limits: SchedulerLimits = { ...defaultLimits, ...options.limits }
@@ -405,14 +407,21 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     const started = recovery.generation
     const result = await executor.execute({ input, signal: controller.signal })
     stopped.push(result.stopped)
-    const { exchange, next } = store.transaction((transaction) => {
+    const { exchange, next, accepted } = store.transaction((transaction) => {
       const now = clock.now()
       const response = record(transaction, call, result, epoch(now))
       const health = transit(transaction, candidate, started, after(recovery.health, result.ok ? null : result.error, now), now)
       const needs = response?.status === 'needs_requested'
-      return { exchange: needs ? followUpOf(transaction, candidate, call, health ?? recovery.health, epoch(now)) : null, next: health }
+      return {
+        exchange: needs ? followUpOf(transaction, candidate, call, health ?? recovery.health, epoch(now)) : null,
+        next: health,
+        accepted: response?.status === 'accepted',
+      }
     })
     adopt(recovery, next)
+    if (accepted) {
+      onAccepted(candidate.run)
+    }
     return exchange
   }
 

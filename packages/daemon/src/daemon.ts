@@ -1,5 +1,5 @@
 import { rm } from 'node:fs/promises'
-import type { Config, Listener, Runtime, StatusResponse } from '@aang/contract'
+import type { Config, Listener, RunId, Runtime, StatusResponse } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
 import { createReadQueries } from '@aang/engine'
@@ -138,12 +138,16 @@ const serve = async ({
     settle({ reason })
   }
   const auth = createAuthenticator(paths)
+  const accepted: { retain: (runs: readonly RunId[]) => void } = { retain: () => undefined }
   const observer = startObserver({
     store,
     config,
     aangHome: paths.home,
     claudeConfigDir: runtimeRoots.claude,
     environment: options.environment.env,
+    onAccepted: (run) => {
+      accepted.retain([run])
+    },
   })
   void observer.failure.then((error) => {
     settle({ error })
@@ -172,6 +176,7 @@ const serve = async ({
     await observer.close()
     throw error
   })
+  accepted.retain = ingestion.retainBases
   void ingestion.failure.then((error) => {
     settle({ error })
   })
