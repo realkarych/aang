@@ -87,3 +87,11 @@ export { hookRedeliveries, type HookRedelivery } from './observations/redelivery
 export { InvalidPositionError, type ObserverRunStatus } from './read/context.js'
 export { createReadQueries, type ReadQueries, type ReadQueriesOptions } from './read/queries.js'
 export type { RunFeed, RunFeedEvent } from './read/snapshot.js'
+export {
+  addViewRule,
+  revokeViewRule,
+  ViewRuleError,
+  type ViewRuleAddition,
+  type ViewRuleErrorCode,
+  type ViewRuleRevocation,
+} from './view/rules.js'
