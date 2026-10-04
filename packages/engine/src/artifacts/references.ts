@@ -1,6 +1,6 @@
 import type { Fact, FactOf, JsonValue } from '@aang/contract'
 import { fieldOf, type ShellDialect, shellScripts } from '../checks/commands.js'
-import { actionDirectory, resolvedPath } from '../observations/directories.js'
+import { actionDirectory, isWindowsPath, resolvedPath } from '../observations/directories.js'
 import type { Hunk, Patch, Replacement } from './patches.js'
 import { shellWrites } from './shell.js'
 
@@ -206,11 +206,14 @@ const fileTool = (start: Start): Named[] => {
 
 const hostDialect: ShellDialect = process.platform === 'win32' ? 'powershell' : 'posix'
 
-const dialectOf = ({ entity_key, payload }: Start): ShellDialect =>
-  payload.tool === 'PowerShell' ? 'powershell' : entity_key.runtime === 'claude' ? 'posix' : hostDialect
+const sessionDialect = (directory: string | null): ShellDialect =>
+  directory === null ? hostDialect : isWindowsPath(directory) ? 'powershell' : 'posix'
+
+const dialectOf = ({ entity_key, payload }: Start, directory: string | null): ShellDialect =>
+  payload.tool === 'PowerShell' ? 'powershell' : entity_key.runtime === 'claude' ? 'posix' : sessionDialect(directory)
 
 const commandWrites = (start: Start, directory: string | null): { readonly paths: readonly string[]; readonly base: string | null } => {
-  const writes = shellScripts(start.payload.input, dialectOf(start)).map(shellWrites)
+  const writes = shellScripts(start.payload.input, dialectOf(start, directory)).map(shellWrites)
   return {
     paths: writes.flatMap(({ targets }) => targets),
     base: writes.some(({ changesDirectory }) => changesDirectory) ? null : directory,

@@ -131,6 +131,8 @@ const contextAttachmentTypes: ReadonlySet<string> = new Set([
   'credential_org',
   'remote_session_change',
   'prompt_snapshot',
+  'plan_mode',
+  'plan_mode_exit',
 ])
 
 const finalStopReason = 'end_turn'
@@ -264,7 +266,7 @@ const parseUser = lineParser('user line', UserLine, (line, { origin, sourceTs })
           result: toolResult ?? null,
         },
       },
-      { ids: { call_id: block.tool_use_id }, verified: outcome !== 'denied' },
+      { ids: { call_id: block.tool_use_id } },
     )
     return [
       end,
@@ -278,17 +280,13 @@ const parseUser = lineParser('user line', UserLine, (line, { origin, sourceTs })
   const source = promptSource(line, text)
   return parsed(sourceTs, [
     ...resultFacts,
-    fact(
-      origin,
-      {
-        kind: 'prompt',
-        entity_key: messageKey(line.sessionId, line.uuid),
-        speaker: source.speaker,
-        urgent: false,
-        payload: { text, origin: source.origin, origin_raw: source.raw },
-      },
-      { verified: source.origin !== 'task_notification' },
-    ),
+    fact(origin, {
+      kind: 'prompt',
+      entity_key: messageKey(line.sessionId, line.uuid),
+      speaker: source.speaker,
+      urgent: false,
+      payload: { text, origin: source.origin, origin_raw: source.raw },
+    }),
   ])
 })
 

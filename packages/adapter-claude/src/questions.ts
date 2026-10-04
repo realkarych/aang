@@ -56,17 +56,13 @@ export const questionsAsked = (call: ToolCall): FactDraft[] => {
   }
   const [source, read] = reader
   return [
-    callFact(
-      call,
-      {
-        kind: 'question_asked',
-        entity_key: questionKey(call.session, call.call),
-        speaker: 'solver',
-        urgent: true,
-        payload: { source, blocking: true, questions: read(call.input) },
-      },
-      false,
-    ),
+    callFact(call, {
+      kind: 'question_asked',
+      entity_key: questionKey(call.session, call.call),
+      speaker: 'solver',
+      urgent: true,
+      payload: { source, blocking: true, questions: read(call.input) },
+    }),
   ]
 }
 
@@ -76,19 +72,15 @@ export const questionsAnswered = (call: CallOrigin, result: JsonValue | undefine
   return answers.length === 0
     ? []
     : [
-        callFact(
-          call,
-          {
-            kind: 'question_answered',
-            entity_key: questionKey(call.session, call.call),
-            speaker: 'human',
-            urgent: false,
-            payload: {
-              outcome: 'answered',
-              answers: answers.map(([question, answer]) => ({ question, answer: answerText(answer) })),
-            },
+        callFact(call, {
+          kind: 'question_answered',
+          entity_key: questionKey(call.session, call.call),
+          speaker: 'human',
+          urgent: false,
+          payload: {
+            outcome: 'answered',
+            answers: answers.map(([question, answer]) => ({ question, answer: answerText(answer) })),
           },
-          false,
-        ),
+        }),
       ]
 }
