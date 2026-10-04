@@ -3,50 +3,29 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { endpoints, type RunId } from '@aang/contract'
 import { aangHomePaths } from '@aang/contract/home'
-import { runId } from '@aang/contract/ids'
-import { invokeHook, sampleScenarioManifest } from '@aang/testkit'
+import { sampleScenarioManifest } from '@aang/testkit'
 import type { Locator, Page, Route } from '@playwright/test'
-import { aangEntry, expect, hookBinary, test } from './fixtures.js'
+import { aangEntry, expect, test } from './fixtures.js'
+import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
+import { fact, lamp } from './screens.js'
 
-const claudeSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
-const claudeRun = runId({ kind: 'session', runtime: 'claude', session: claudeSession })
-const codexRun = runId({ kind: 'session', runtime: 'codex', session: '01a0f752-40a7-76b2-9df9-5b374f75f98f' })
+const claudeSession = claudeOriginal.session
+const claudeRun = runOf(claudeOriginal)
+const codexRun = runOf(codexThread)
 const claudeProject = 'projects/-tmp-aang-spike-cc-transcripts-run'
-const claudeTranscript = `${claudeProject}/${claudeSession}.jsonl`
-const claudeCwd = '/tmp/aang-spike/cc-transcripts/run'
 
 const watchAll = { watch: { all: true } }
 
 test.use({ config: watchAll })
 
-const strip = (page: Page): Locator => page.getByRole('region', { name: 'Состояние наблюдения' })
-
-const lamp = (page: Page, label: string): Locator =>
-  strip(page)
-    .getByRole('listitem')
-    .filter({ has: page.getByText(label, { exact: true }) })
-
-const fact = (page: Page, term: string): Locator =>
-  page
-    .getByRole('article')
-    .locator('dl > div')
-    .filter({ has: page.getByRole('term').getByText(term, { exact: true }) })
-    .getByRole('definition')
-
 const runRow = (page: Page, runtime: string): Locator =>
   page.getByRole('row').filter({ has: page.getByRole('link', { name: new RegExp(`^${runtime}, начат`) }) })
-
-const permissionSample = new URL('../docs/research/samples/claude-code-hooks/PermissionRequest.Bash.json', import.meta.url)
-
-const permissionPayload = async (transcript: string): Promise<string> => {
-  const sample = JSON.parse(await readFile(permissionSample, 'utf8')) as Record<string, unknown>
-  return JSON.stringify({ ...sample, session_id: claudeSession, cwd: claudeCwd, transcript_path: transcript })
-}
 
 test('a Claude session without hook events shows inactive hooks and the files-only mode until hooks arrive (E2E 9)', async ({
   page,
   player,
   profile,
+  hook,
 }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto('/')
@@ -74,11 +53,7 @@ test('a Claude session without hook events shows inactive hooks and the files-on
 
   await expect(fact(page, 'Внимание')).toHaveText('нет')
 
-  const payload = await permissionPayload(join(profile.claude, ...claudeTranscript.split('/')))
-  await invokeHook(
-    { binary: hookBinary, spool: profile.spool, env: profile.env },
-    { runtime: 'claude', registration: 'plugin', env: { CLAUDE_CODE_ENTRYPOINT: 'cli' }, payload },
-  )
+  await hook.claude('PermissionRequest.Bash.json', hookFields(profile, claudeOriginal))
 
   await expect(lamp(page, 'Режим')).toHaveText('Режим полный')
   await expect(fact(page, 'Режим')).toHaveText('полный')
@@ -128,7 +103,7 @@ test('the run page follows the stream live and re-reads the run when the stream 
   await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
   const claude = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })
   await claude.play({ until: 'subagent' })
-  const transcript = join(profile.claude, ...claudeTranscript.split('/'))
+  const transcript = sessionFile(profile, claudeOriginal)
   const beforeSubagent = await readFile(transcript)
   await expect.poll(async () => (await readRunSummary(daemon.request, claudeRun))?.agents).toBe(1)
 
@@ -221,8 +196,8 @@ test.describe('the status strip', () => {
     await expect(lamp(page, 'Источники')).toHaveText('Источники в порядке')
     await expect(lamp(page, 'Spool')).toHaveText('Spool пуст')
 
-    const transcript = join(profile.claude, ...claudeTranscript.split('/'))
-    const unknownRecord = { type: 'h1-future-record', sessionId: claudeSession, cwd: claudeCwd }
+    const transcript = sessionFile(profile, claudeOriginal)
+    const unknownRecord = { type: 'h1-future-record', sessionId: claudeSession, cwd: claudeOriginal.cwd }
     await appendFile(transcript, `${JSON.stringify(unknownRecord)}\n`)
     await expect(lamp(page, 'Записи')).toHaveText('Записи 1 нераспознанная')
     await lamp(page, 'Записи').getByRole('button').click()
