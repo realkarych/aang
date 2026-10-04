@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Runtime } from '@aang/contract'
 import { admitClaude, admitCodex, type ProbeContext } from './admission-probes.js'
-import { authenticate, LaunchError, requireSuccess, stoppedAll, type AuthResult, type BackendOptions, type LaunchErrorClass, type LaunchFailure, type ObserverOutcome, type ObserverRequest, type ObserverResult } from './backend.js'
+import { authenticate, chatProtocol, LaunchError, observerProtocol, requireSuccess, stoppedAll, type AuthResult, type BackendOptions, type CallOutcome, type CallProtocol, type CallResult, type ChatResult, type LaunchErrorClass, type LaunchFailure, type ObserverRequest, type ObserverResult } from './backend.js'
 import { createClaudeLauncher, type ClaudeBackendOptions, type ClaudeBuiltins } from './claude.js'
 import { createCodexLauncher } from './codex.js'
 import { cleanEnvironment, prepareWorkspace, resolveCli } from './environment.js'
@@ -112,7 +112,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     if (match?.[1] === undefined) throw new LaunchError('version_not_admitted', 'CLI did not report a recognizable version')
     return match[1]
   }
-  const fail = (error: unknown): ObserverOutcome => {
+  const fail = (error: unknown): CallOutcome<never> => {
     const problem = error instanceof LaunchError ? error : new LaunchError('invalid_output', String(error))
     record = { ...record, admitted: false, reason: problem.message, warning: null, isolationViolated: record.isolationViolated || problem.kind === 'isolation' }
     errorClass = problem.kind
@@ -168,7 +168,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     if (status().state.state === 'unavailable') return { class: 'process_stuck', message: 'Backend process tree has not stopped' }
     return null
   }
-  const attempt = async (request: ObserverRequest, stopped: Promise<void>[]): Promise<ObserverOutcome> => {
+  const attempt = async <T>(protocol: CallProtocol<T>, request: ObserverRequest, stopped: Promise<void>[]): Promise<CallOutcome<T>> => {
     const refused = refusal()
     if (refused !== null) return { ok: false, error: refused, usage: null }
     executing += 1
@@ -180,7 +180,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         record = { ...record, version, isolationViolated: false }
         throw new LaunchError('version_not_admitted', 'CLI version changed; synthetic admission is required')
       }
-      const result = await launcher.execute(request)
+      const result = await launcher.call(protocol, request)
       stopped.push(result.stopped)
       if (!result.ok && record.version === version && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
         fail(new LaunchError(result.error.class, result.error.message, result.usage))
@@ -196,10 +196,12 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       executing -= 1
     }
   }
-  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
+  const call = async <T>(protocol: CallProtocol<T>, request: ObserverRequest): Promise<CallResult<T>> => {
     const stopped: Promise<void>[] = []
-    return { ...(await attempt(request, stopped)), stopped: stoppedAll(stopped) }
+    return { ...(await attempt(protocol, request, stopped)), stopped: stoppedAll(stopped) }
   }
+  const execute = (request: ObserverRequest): Promise<ObserverResult> => call(observerProtocol, request)
+  const chat = (request: ObserverRequest): Promise<ChatResult> => call(chatProtocol, request)
   const cliVersion = async (signal?: AbortSignal): Promise<string | null> => {
     try { return versionOf(await context(signal).run(['--version'])) }
     catch { return null }
@@ -212,7 +214,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     finally { executing -= 1 }
   }
   return {
-    admit, execute, authStatus, status, cliVersion,
+    admit, execute, chat, authStatus, status, cliVersion,
     admission: (): AdmissionStatus => ({ ...record }),
     subscribe: (listener: (snapshot: LaunchStatus) => void): (() => void) => {
       listeners.add(listener)

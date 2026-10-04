@@ -1,6 +1,7 @@
 import type {
   ChangeSeq,
   ChangesResponse,
+  ChatHistoryResponse,
   ObserverCallsResponse,
   RunId,
   RunSnapshot,
@@ -10,7 +11,7 @@ import type {
   ViewPosition,
 } from '@aang/contract'
 import { runChanges } from './changes.js'
-import type { ReadContext } from './context.js'
+import { type ReadContext, runOf } from './context.js'
 import { stageInspector } from './inspector.js'
 import { runObserverCalls } from './observer-calls.js'
 import { listRuns, type RunFeed, runFeed, runSnapshot } from './snapshot.js'
@@ -24,6 +25,7 @@ export interface ReadQueries {
   readonly inspector: (run: RunId, stage: StageId) => StageInspector | null
   readonly changes: (run: RunId, from: ViewPosition) => ChangesResponse | null
   readonly observerCalls: (run: RunId) => ObserverCallsResponse | null
+  readonly chat: (run: RunId) => ChatHistoryResponse | null
 }
 
 export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
@@ -39,5 +41,6 @@ export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
         const calls = runObserverCalls(context, run)
         return calls === null ? null : { calls }
       }),
+    chat: (run) => store.read(() => (runOf(store, run) === null ? null : { messages: store.chat.messages(run) })),
   }
 }

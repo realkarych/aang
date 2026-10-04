@@ -2,15 +2,17 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type AgentId,
+  type ChatInput,
   CheckContract,
   type JsonValue,
   ModelVersion,
   type RunDescription,
   type RunId,
   type Stage,
+  type StageId,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { createEngine } from '@aang/engine'
+import { createEngine, startChat, verifyCitations } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
@@ -28,13 +30,10 @@ import { createHome } from './home.js'
 import { at } from './model.js'
 import {
   answerChat,
-  chatInput,
   type ObservedCall,
   observeBatch,
-  observerInput,
   pendingFacts,
   runDescription,
-  runFocus,
   valuesOf,
 } from './observer-scenario.js'
 import { playSample } from './scenarios.js'
@@ -329,18 +328,22 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     accepted(observeBatch(store, run, 'claude', chat.replies[0], at(10)))
     const permission = attentionOf(store, run).find(({ kind }) => kind === 'permission')
     expect(permission).toMatchObject({ author: 'rule', resolution: 'open' })
-    const asked = chatInput(store, run, 'What is going on in the run?', runFocus(store, run))
+    const ask = (question: string, stage: StageId | null = null): ChatInput => {
+      const started = store.transaction((transaction) =>
+        startChat(transaction, { run, stage, question, backend: 'claude', crossVendor: false, at: at(20) }),
+      )
+      if (started === null) {
+        throw new Error('the chat must start in the run')
+      }
+      return started.input
+    }
+    const asked = ask('What is going on in the run?')
     const answer = answerChat(chat.chatReplies[0], asked)
-    const collapse = answerChat(chat.chatReplies[1], chatInput(store, run, 'Сверни ревьюеров', runFocus(store, run)))
+    const collapse = answerChat(chat.chatReplies[1], ask('Сверни ревьюеров'))
 
     expect(answer).toMatchObject({ needs: [], insufficient_data: false, view_rule: null })
     expect(answer.answer).toContain(`By map version ${String(asked.model.version)}`)
-    const known = new Set<string>([
-      ...asked.model.stages.map(({ id }) => id),
-      ...asked.model.attention.map(({ id }) => id),
-      ...(asked.focus.kind === 'run' ? asked.focus.recent_changes.flatMap(({ evidence }) => evidence) : []),
-    ])
-    expect(answer.citations.filter(({ id }) => !known.has(id))).toEqual([])
+    expect(verifyCitations(asked, answer.citations)).toEqual({ citations: answer.citations, unconfirmed: false })
     expect(answer.citations).toEqual(
       expect.arrayContaining([
         { kind: 'stage', id: stageTitled(store, run, mainStageTitle).id },
@@ -353,21 +356,16 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     })
     const reviewing = stageTitled(store, run, agentStageTitle(agentTyped(store, run, 'code-reviewer')))
     expect(reviewing.parent).toBe(stageTitled(store, run, mainStageTitle).id)
-    const request = factsOf(store).filter(({ kind }) => kind === 'permission_request')
-    const focused = answerChat(
-      chat.chatReplies[0],
-      chatInput(store, run, 'What does the reviewer wait for?', {
-        kind: 'stage',
-        stage: reviewing.id,
-        facts: observerInput(store, run, { facts: request }).batch.facts,
-        actions: [],
-        artifact_versions: [],
-      }),
-    )
+    const focusedInput = ask('What does the reviewer wait for?', reviewing.id)
+    const focused = answerChat(chat.chatReplies[0], focusedInput)
+    const focus = focusedInput.focus.kind === 'stage' ? focusedInput.focus : null
+    expect(focus?.facts.length).toBeGreaterThan(0)
     expect(focused.citations).toEqual([
       { kind: 'stage', id: reviewing.id },
-      ...request.map(({ id }) => ({ kind: 'fact', id })),
+      ...(focus?.facts ?? []).slice(0, 3).map(({ id }) => ({ kind: 'fact', id })),
+      ...(focus?.actions ?? []).slice(0, 3).map(({ action }) => ({ kind: 'action', id: action })),
     ])
+    expect(verifyCitations(focusedInput, focused.citations).unconfirmed).toBe(false)
   })
 
   test('E2E 7: after the failing phase the catch-up batch with collapsed facts and a backlog summary is accepted', async () => {

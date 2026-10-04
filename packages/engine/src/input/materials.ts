@@ -1,12 +1,17 @@
 import type {
   Action,
+  ActionId,
   ActionMaterial,
+  ArtifactVersionId,
+  ArtifactVersionMaterial,
   EpochNs,
   Fact,
   JsonValue,
   MaterialUnavailableReason,
   ObserverMaterial,
   ObserverNeed,
+  RawRecordMaterial,
+  RawSeq,
   RunContext,
   Truncation,
 } from '@aang/contract'
@@ -40,7 +45,7 @@ const highSurrogate = (code: number): boolean => code >= 0xd8_00 && code <= 0xdb
 export const prefixOf = (text: string, limit: number): string =>
   text.slice(0, limit > 0 && highSurrogate(text.charCodeAt(limit - 1)) ? limit - 1 : limit)
 
-const clipText = (text: string, path: string, limit: number): Clipped<string> => {
+export const clipText = (text: string, path: string, limit: number): Clipped<string> => {
   if (text.length <= limit) {
     return { value: text, truncated: [] }
   }
@@ -113,7 +118,7 @@ const clipOutput = ({ text, result }: ActionOutput, limit: number): Clipped<stri
   }
 }
 
-const actionMaterial = (reader: ScopeReader, action: Action, limit: number): ActionMaterial => {
+export const actionMaterial = (reader: Pick<ScopeReader, 'facts'>, action: Action, limit: number): ActionMaterial => {
   const start = action.input_fact === null ? null : reader.facts.get(action.input_fact)
   const end = action.output_fact === null ? null : reader.facts.get(action.output_fact)
   const input = clipJson(start?.kind === 'action_start' ? start.payload.input : null, 'input', limit)
@@ -133,6 +138,96 @@ const actionMaterial = (reader: ScopeReader, action: Action, limit: number): Act
   }
 }
 
+export type Resolved<M> = M | MaterialUnavailableReason
+
+export const isUnavailable = <M>(resolved: Resolved<M>): resolved is MaterialUnavailableReason =>
+  typeof resolved === 'string'
+
+export const rawRecordMaterial = (
+  reader: ScopeReader,
+  scope: InputScope,
+  seq: RawSeq,
+  limit: number,
+): Resolved<RawRecordMaterial> => {
+  const record = reader.rawRecords.get(seq)
+  if (record === null) {
+    return 'not_found'
+  }
+  const exclusion = scope.record(record)
+  if (exclusion !== null) {
+    return exclusion
+  }
+  const stripped = withoutThinking(record)
+  if (stripped === null) {
+    return 'out_of_scope'
+  }
+  const payload = clipText(stripped, 'payload', limit)
+  return {
+    kind: 'raw_record',
+    seq: record.seq,
+    channel: record.channel,
+    observed_at: isoTime(record.observed_at),
+    payload: payload.value,
+    truncated: payload.truncated[0] ?? null,
+  }
+}
+
+export const requestedAction = (
+  reader: ScopeReader,
+  scope: InputScope,
+  id: ActionId,
+  limit: number,
+): Resolved<ActionMaterial> => {
+  const action = reader.observations.getAction(id)
+  if (action === null) {
+    return 'not_found'
+  }
+  return scope.action(action) ?? actionMaterial(reader, action, limit)
+}
+
+const contentDecoder = new TextDecoder()
+
+export const artifactVersionMaterial = (
+  reader: ScopeReader,
+  scope: InputScope,
+  id: ArtifactVersionId,
+  limit: number,
+): Resolved<ArtifactVersionMaterial> => {
+  const version = reader.artifacts.getVersion(id)
+  if (version === null) {
+    return 'not_found'
+  }
+  if (reader.model.objectRun('artifact_version', id) !== scope.run) {
+    return 'out_of_scope'
+  }
+  const producer = version.produced_by === null ? null : reader.observations.getAction(version.produced_by)
+  const exclusion = producer === null ? null : scope.action(producer)
+  if (exclusion !== null) {
+    return exclusion
+  }
+  const { retention } = version
+  if (retention.kind !== 'action_payload' && retention.kind !== 'file_read') {
+    return 'not_retained'
+  }
+  const stored = reader.artifacts.blob(retention.blob)
+  if (stored === null) {
+    return 'not_retained'
+  }
+  const content = clipText(contentDecoder.decode(stored), 'content', limit)
+  return {
+    kind: 'artifact_version',
+    version: version.id,
+    ref: version.ref,
+    retention: retention.kind,
+    read_at: retention.kind === 'file_read' ? isoTime(retention.read_at) : null,
+    content: content.value,
+    truncated: content.truncated[0] ?? null,
+  }
+}
+
+const materialOf = <M extends ObserverMaterial>(need: ObserverNeed, resolved: Resolved<M>): ObserverMaterial =>
+  isUnavailable(resolved) ? unavailable(need, resolved) : resolved
+
 const resolveNeed = (
   reader: ScopeReader,
   scope: InputScope,
@@ -140,37 +235,10 @@ const resolveNeed = (
   limit: number,
 ): ObserverMaterial => {
   switch (need.kind) {
-    case 'raw_record': {
-      const record = reader.rawRecords.get(need.seq)
-      if (record === null) {
-        return unavailable(need, 'not_found')
-      }
-      const exclusion = scope.record(record)
-      if (exclusion !== null) {
-        return unavailable(need, exclusion)
-      }
-      const stripped = withoutThinking(record)
-      if (stripped === null) {
-        return unavailable(need, 'out_of_scope')
-      }
-      const payload = clipText(stripped, 'payload', limit)
-      return {
-        kind: 'raw_record',
-        seq: record.seq,
-        channel: record.channel,
-        observed_at: isoTime(record.observed_at),
-        payload: payload.value,
-        truncated: payload.truncated[0] ?? null,
-      }
-    }
-    case 'action': {
-      const action = reader.observations.getAction(need.action)
-      if (action === null) {
-        return unavailable(need, 'not_found')
-      }
-      const exclusion = scope.action(action)
-      return exclusion === null ? actionMaterial(reader, action, limit) : unavailable(need, exclusion)
-    }
+    case 'raw_record':
+      return materialOf(need, rawRecordMaterial(reader, scope, need.seq, limit))
+    case 'action':
+      return materialOf(need, requestedAction(reader, scope, need.action, limit))
     case 'context': {
       const record = reader.rawRecords.get(need.seq)
       if (record?.channel !== 'context') {
@@ -184,7 +252,7 @@ const resolveNeed = (
       return { kind: 'context', context: clipEntries(context, limit) }
     }
     case 'artifact_version':
-      return unavailable(need, 'not_found')
+      return materialOf(need, artifactVersionMaterial(reader, scope, need.version, limit))
   }
 }
 

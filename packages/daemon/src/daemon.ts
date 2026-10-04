@@ -5,6 +5,7 @@ import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contr
 import { createReadQueries } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
+import { chatRoutes } from './chat.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
 import { startObserver } from './observer.js'
@@ -188,7 +189,7 @@ const serve = async ({
         const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
         const read = createStatus({ daemon, store, config, runtimeRoots, paths, observer: observer.backends })
         status.resolve(read)
-        return readRoutes({ store, reads, status: read })
+        return [...readRoutes({ store, reads, status: read }), ...chatRoutes({ reads, ask: observer.ask })]
       },
       streams,
       reparse: ingestion.reparse,

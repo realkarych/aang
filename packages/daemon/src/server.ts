@@ -220,8 +220,15 @@ export const startServer = async ({
       sendError(response, 'not_found', `no route for ${method} ${pathname}`)
       return
     }
+    const body = async (): Promise<unknown> => {
+      try {
+        return await readJson(request)
+      } catch (error) {
+        throw new ApiFailure('invalid_request', error instanceof Error ? error.message : String(error))
+      }
+    }
     try {
-      sendJson(response, 200, await match.route.serve({ pathname, params: match.params, search }))
+      sendJson(response, 200, await match.route.serve({ pathname, params: match.params, search, body }))
     } catch (error) {
       if (error instanceof ApiFailure) {
         sendError(response, error.code, error.message)

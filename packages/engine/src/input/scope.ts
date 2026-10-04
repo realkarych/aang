@@ -18,7 +18,14 @@ import {
   type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import type { FactReader, ModelReader, ObservationReader, ObserverCallReader, RawRecordReader } from '@aang/store'
+import type {
+  ArtifactReader,
+  FactReader,
+  ModelReader,
+  ObservationReader,
+  ObserverCallReader,
+  RawRecordReader,
+} from '@aang/store'
 
 export interface ScopeReader {
   readonly facts: FactReader
@@ -26,6 +33,7 @@ export interface ScopeReader {
   readonly observations: ObservationReader
   readonly model: ModelReader
   readonly observerCalls: ObserverCallReader
+  readonly artifacts: ArtifactReader
 }
 
 export interface InputScopeOptions {

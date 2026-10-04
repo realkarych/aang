@@ -530,9 +530,13 @@ such as an edit patch or an MCP result, the output is the JSON text
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
 and report their path and original length. A string is cut only when the cut text
 and its truncation entry together are shorter in JSON than the whole string, so a
-cut never lengthens a material, and a cut never splits a surrogate pair. Artifact
-versions answer `not_found`
-until E.7b provides their storage. A context request returns the stored run context
+cut never lengthens a material, and a cut never splits a surrogate pair. An
+artifact version of the run (E.7b) is sent with its retained content, decoded as
+UTF-8 and cut like a record payload, with its retention (`action_payload` or
+`file_read`) and the read time of a file read; a version produced by an action out
+of scope answers that exclusion, a version of another run `out_of_scope`, and a
+version whose content is not stored (a reference, a hash only or a missing blob)
+`not_retained`. A context request returns the stored run context
 of F.7a with its entries cut at `MaterialLimits.textLength`; a record of another
 channel answers `not_found`, a context out of scope its exclusion.
 
@@ -692,6 +696,62 @@ with them, so a summary rejected `attempts` times stops being sent.
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
 defers any, and returns the active queue. Deferred facts reach the observer only in
 the backlog summary of a later call.
+
+## Chat input and answers
+
+The chat (K.1, ADR-0008) answers on one version of the map. `startChat(transaction,
+{ run, stage, question, backend, crossVendor, at, limits? })` builds the input and
+records the question `pending` with the current version V in the same transaction;
+it returns `null` for an unknown run. The input passes the same scope as the
+observer input (`inputScope` with the backend and `crossVendor` of the call):
+
+- `history` — the latest answered questions of the run (`limits.history`, 10), with
+  the version each was answered on; failed and pending questions are left out;
+- `run` and `model` — the run description and the snapshot of version V, as in a
+  batch;
+- `focus` with a stage — the stage of the run in scope (any lifecycle) with its
+  current evidence and the input and output facts of the actions assigned to it,
+  ordered by time, these actions with their input and output, and the artifact
+  versions linked to it, `retained` when their content is stored. A stage outside
+  the run or out of scope is refused with `ChatError` `unknown_stage`;
+- `focus` without a stage — the attention zone in its order, with items in scope, and
+  the journal changes of stages, criteria, cards and attention items in scope of the
+  last `limits.focus` (20) versions, with their states and evidence.
+
+The first input is packed within seven eighths of `limits.inputTokens` like a batch:
+the strings of facts, actions and journal states are cut first, then the texts of the
+run, the snapshot and the history, then the focus keeps fewer entries (the first items
+of the zone, the latest facts, actions, versions and changes), down to none. A
+question that does not fit even so is refused with `ChatError` `input_limit` and
+nothing is recorded.
+
+`followUpChat(reader, { input, needs, backend, crossVendor, limits? })` builds the
+only follow-up: the same input of version V with the resolved materials, packed within
+`limits.inputTokens` with at least one material, or `null` when none fits. Up to
+`limits.needs` (8) distinct needs are answered in order. Stages and journals are
+answered as of version V: a stage with its state and lifecycle at V, including a
+replaced one, and the journal entries of a stage, criterion, card or attention item up
+to V; an entity created after V answers `not_found`. Facts, raw records, actions and
+artifact versions are answered as for the observer; facts and records keep the scope
+and thinking rules above. An entity, fact, action or version outside the run or out
+of scope answers its exclusion.
+
+`answerChat(transaction, { run, message, input, output, at })` stores the answer with
+version V. `verifyCitations(input, citations)` keeps a citation only when the input of
+the answer holds its id under its kind: stages of the snapshot, the focus, materials
+and journal targets; facts of the focus, materials and evidence lists; actions of
+facts, actions, materials and producers of versions; artifact versions of the focus
+and materials; attention items of the snapshot, the zone and journal targets.
+Repeated citations are kept once. Removed citations mark the answer
+`unconfirmed_citations`, and an answer without text or with `insufficient_data` is
+marked `insufficient_data`. `failChat` ends a question with an error, and
+`failInterruptedChats` ends the questions a stopped process left `pending`. Both and
+`answerChat` leave a question that is no longer pending alone and return `null`.
+
+The run feed carries the chat of the run: each question that changed after the
+position is a `chat` event with the message in its latest state and its
+`change_seq`. `reads.chat(run)` returns the history of the run, or `null` for an
+unknown run.
 
 ## Forks, bindings and session transfer
 
@@ -985,8 +1045,10 @@ counts come from the interpretation statuses.
   - consecutive changes of facts, observation objects, gaps and retractions form one
     `facts` event, consecutive views and dismissals of attention items one
     `attention` event with their views, every model version forms one `model`
-    event, and a new view mark forms one `run` event at the `change_seq` of the mark.
-    An event id is the last `change_seq` it contains, so ids grow and never repeat;
+    event, a new view mark forms one `run` event at the `change_seq` of the mark, and
+    every chat message changed after the position forms one `chat` event with the
+    message in its latest state. An event id is the last `change_seq` it contains, so
+    ids grow and never repeat;
   - objects and gaps arrive in their current state, `removed` names retracted agents
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
@@ -997,9 +1059,9 @@ counts come from the interpretation statuses.
   - a position ahead of the change feed is an `InvalidPositionError` with reason
     `stale_position`; a position before the reparse boundary is one with reason
     `reparsed`.
-- `inspector(run, stage)`, `changes(run, { version, change_seq })` and
-  `observerCalls(run)` serve the inspector, the changes since a view mark and the
-  observer calls.
+- `inspector(run, stage)`, `changes(run, { version, change_seq })`,
+  `observerCalls(run)` and `chat(run)` serve the inspector, the changes since a view
+  mark, the observer calls and the chat history.
 
 The run summary:
 
