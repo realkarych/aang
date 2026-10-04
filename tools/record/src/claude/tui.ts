@@ -129,6 +129,11 @@ const name = (text: string): string => {
 
 const defaultSeconds = 90
 
+const detachedTerminal = {
+  TMUX: '', TMUX_PANE: '', STY: '', ZELLIJ: '',
+  TERM_PROGRAM: '', TERM_PROGRAM_VERSION: '', ITERM_SESSION_ID: '', LC_TERMINAL: '', LC_TERMINAL_VERSION: '',
+}
+
 const tcl = (step: TuiStep): string => {
   if ('hook' in step) return `hooks hook_event_name ${name(step.hook)} ${String(step.count ?? 1)} ${String(step.seconds ?? defaultSeconds)}`
   if ('notification' in step) return `hooks notification_type ${name(step.notification)} 1 ${String(step.seconds ?? defaultSeconds)}`
@@ -166,7 +171,7 @@ export const driveTui = async (session: ScenarioSession, label: string, apiKey: 
       script, session.engine.executable, join(session.spool, spoolLayout.readyDirectory), session.claude, steps, screen,
       '--permission-mode', 'default', ...run.args,
     ], {
-      env: { CLAUDE_CODE_CHILD_SESSION: '', CLAUDECODE: '', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ...run.env },
+      env: { CLAUDE_CODE_CHILD_SESSION: '', CLAUDECODE: '', CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL: '1', ...detachedTerminal, ...run.env },
       timeoutMs: 300_000,
     })
   } catch (error) {

@@ -13,13 +13,15 @@ const executable = async (path: string, content: string): Promise<string> => {
   return path
 }
 
-const terminalTools = async (session: ScenarioSession): Promise<{ readonly path: string; readonly browser: string }> => {
+const terminalTools = async (session: ScenarioSession): Promise<{ readonly path: string; readonly shell: string; readonly browser: string }> => {
   const directory = join(session.work, 'bin')
   await mkdir(directory, { recursive: true })
   await executable(join(directory, 'tmux'), '#!/bin/sh\n[ "$1" = "-V" ] && echo "tmux 3.5a" && exit 0\nexit 1\n')
+  await executable(join(directory, 'it2'), '#!/bin/sh\nexit 1\n')
+  const shell = await executable(join(directory, 'login-shell'), '#!/bin/sh\nif [ "$1" = "-lc" ]; then shift; set -- -c "$@"; fi\nexec /bin/sh "$@"\n')
   const browser = await executable(join(directory, 'browser'),
     `#!/bin/sh\nexec '${process.execPath}' -e 'fetch(process.argv[1]).then((response) => response.text())' "$1"\n`)
-  return { path: `${directory}${delimiter}${process.env['PATH'] ?? ''}`, browser }
+  return { path: `${directory}${delimiter}${process.env['PATH'] ?? ''}`, shell, browser }
 }
 
 export const inputDialogs: Definition = {
@@ -41,10 +43,10 @@ export const inputDialogs: Definition = {
     ],
   }),
   run: async ({ session, tui }) => {
-    const { path, browser } = await terminalTools(session)
+    const { path, shell, browser } = await terminalTools(session)
     await tui('dialogs', {
       args: ['--teammate-mode', 'auto', '--allowedTools', `${greetingTool},${linkTool}`, '--mcp-config', elicitationConfig(session)],
-      env: { ...teamEnv, TERM_PROGRAM: 'iTerm.app', PATH: path, BROWSER: browser },
+      env: { ...teamEnv, TERM_PROGRAM: 'iTerm.app', PATH: path, SHELL: shell, BROWSER: browser },
       steps: [
         { hook: 'SessionStart' },
         { prompt: `[aang:dialogs] Call the choose_greeting tool of the ${elicitationServer} MCP server, then its confirm_link tool, then spawn the teammate helper with the Agent tool.` },
