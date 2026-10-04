@@ -40,7 +40,16 @@ const assignments = /((?:creator[._-]?)?(?:user[._-]?)?(?:account|organization|o
 const credentials = /([\w.-]*?(?:token|api[._-]?key|secret|password|authorization))(?:\\*["'])?\s*[:=]\s*(?:\\*["'])?(?:(?:bearer|basic|token)\s+)?([\w.~+/=-]{8,})/gi
 const bearer = /\bBearer\s+([\w.~+/-]+=*)/g
 
+const holdsCommandPrefixes = (key: string): boolean => normalize(key) === 'approvedcommandprefixes'
+const prefixPlaceholder = /^(?:COMMAND|ARG)_\d+$/
+const quoted = String.raw`"(?:[^"\\\n]|\\.)*"`
+const prefixItem = String.raw`- \[(?:${quoted}(?:, ${quoted})*)?\]`
+const approvedPrefixes = new RegExp(String.raw`(?<=The following prefix rules have already been approved: )${prefixItem}(?:\n${prefixItem})*`, 'g')
+const quotedParts = new RegExp(quoted, 'g')
+
 const isRecord = (value: Json | undefined): value is { [key: string]: Json } => value !== null && typeof value === 'object' && !Array.isArray(value)
+
+const isPrefixList = (value: Json): value is string[][] => Array.isArray(value) && value.every((prefix) => Array.isArray(prefix) && prefix.every((part) => typeof part === 'string'))
 
 const anyValue = /^(?:string|bool|int|double|bytes|array|kvlist)Value$/
 
@@ -192,7 +201,23 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map(),
     if (match === undefined || segment === undefined) return replaceText(value)
     return match.slice(0, -segment.length) + (machine(segment) ?? replaceText(segment)) + replaceText(value.slice(match.length))
   }
+  const prefixes = new Map<string, string[]>()
+  const commandPrefix = (parts: readonly string[]): string[] => {
+    if (parts.every((part) => prefixPlaceholder.test(part))) return [...parts]
+    const original = JSON.stringify(parts)
+    const masked = prefixes.get(original) ?? [`COMMAND_${String(prefixes.size + 1)}`, ...parts.slice(1).map((_, index) => `ARG_${String(index + 1)}`)]
+    prefixes.set(original, masked)
+    return masked
+  }
+  const unquote = (part: string): string => {
+    const value = parse(part)
+    return typeof value === 'string' ? value : part.slice(1, -1)
+  }
+  const prefixLists = (text: string): string => text.replaceAll(approvedPrefixes, (list) => list.split('\n')
+    .map((item) => `- [${commandPrefix(item.match(quotedParts)?.map(unquote) ?? []).map((part) => JSON.stringify(part)).join(', ')}]`)
+    .join('\n'))
   const field = (key: string, value: Json): Json => {
+    if (holdsCommandPrefixes(key) && isPrefixList(value)) return value.map(commandPrefix)
     const kind = identityKind(key)
     if (kind !== undefined) return identity(kind, value)
     if (normalize(key) === 'piddomain' && typeof value === 'string') return processDomainOf(value)
@@ -204,7 +229,7 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map(),
     return [kind === 'intValue' && masked !== content ? 'stringValue' : kind, masked]
   }))
   const mapValue = (value: Json): Json => {
-    if (typeof value === 'string') return lookup(value) ?? structured(value, mapValue, replaceText)
+    if (typeof value === 'string') return lookup(value) ?? structured(prefixLists(value), mapValue, replaceText)
     if (Array.isArray(value)) return value.map(mapValue)
     if (isRecord(value)) {
       const attribute = attributeKey(value)
@@ -219,7 +244,7 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map(),
   }
   return {
     discover: (texts) => { for (const text of texts) structured(text, discoverValue, discoverText) },
-    text: (text) => structured(text, mapValue, replaceText),
+    text: (text) => structured(prefixLists(text), mapValue, replaceText),
     path: replaceText,
   }
 }

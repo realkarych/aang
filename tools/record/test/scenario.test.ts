@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
@@ -110,6 +110,49 @@ test('the regular Codex home is passed to the runtime and keeps only new rollout
     expect(text).not.toMatch(/thread-foreign|someone-else|never-copy-authorization|later/)
     expect(text).not.toContain(homedir())
     await verifyRecording(recording)
+  } finally {
+    if (previous === undefined) delete process.env['CODEX_HOME']
+    else process.env['CODEX_HOME'] = previous
+  }
+})
+
+test('approved command prefixes of the regular Codex home become placeholders of the same shape that verification requires', async () => {
+  const config = await options()
+  const codexHome = join(await directory(), 'codex-home')
+  await mkdir(join(codexHome, 'sessions'), { recursive: true })
+  const previous = process.env['CODEX_HOME']
+  process.env['CODEX_HOME'] = codexHome
+  try {
+    const recording = await recordSession({ ...config, model: 'live', codexHome: 'regular' }, async (session) => {
+      await session.run(process.execPath, [script, 'rules', 'thread-rules-1'])
+    })
+    const entries = await readdir(recording, { recursive: true, withFileTypes: true })
+    const published = await Promise.all(entries.filter((entry) => entry.isFile()).map((entry) => readFile(join(entry.parentPath, entry.name), 'utf8')))
+    expect(published.join('\n')).not.toMatch(/owner-tools|private-project|private commit text/)
+    const playback = await loadManifest(join(recording, 'playback.json'))
+    const sources = playback.steps.flatMap((step) => 'target' in step && step.target.path === 'sessions/2026/10/04/rollout-rules.jsonl' && 'source' in step ? [step.source] : [])
+    const records = sources.map((source) => playback.sources.get(source)?.toString() ?? '').join('').trim().split('\n').map((line) => JSON.parse(line) as {
+      payload: { content?: { text: string }[]; state?: { permissions: { approved_command_prefixes: string[][] } }; proposed_execpolicy_amendment?: string[] }
+    })
+    expect(records[1]?.payload.content?.[0]?.text).toBe([
+      '<permissions instructions>',
+      '## Approved command prefixes',
+      'The following prefix rules have already been approved: - ["COMMAND_1", "ARG_1", "ARG_2", "ARG_3"]',
+      '- ["COMMAND_2", "ARG_1"]',
+      '',
+      'Approval policy is `on-request`.',
+      '</permissions instructions>',
+    ].join('\n'))
+    expect(records[2]?.payload.state?.permissions.approved_command_prefixes).toEqual([['COMMAND_2', 'ARG_1'], ['COMMAND_3', 'ARG_1', 'ARG_2'], ['COMMAND_1', 'ARG_1', 'ARG_2', 'ARG_3']])
+    expect(records[3]?.payload.proposed_execpolicy_amendment).toEqual(['touch', 'approved.txt'])
+    await verifyRecording(recording)
+    const rollout = join(recording, sources.at(-1) ?? '')
+    const anonymous = await readFile(rollout, 'utf8')
+    for (const [placeholders, command] of [['"COMMAND_3","ARG_1","ARG_2"', '"git","push","origin"'], [String.raw`[\"COMMAND_2\", \"ARG_1\"]`, String.raw`[\"git\", \"push\"]`]] as const) {
+      expect(anonymous).toContain(placeholders)
+      await writeFile(rollout, anonymous.replace(placeholders, command))
+      await expect(verifyRecording(recording)).rejects.toThrow(/anonymization is required/)
+    }
   } finally {
     if (previous === undefined) delete process.env['CODEX_HOME']
     else process.env['CODEX_HOME'] = previous
