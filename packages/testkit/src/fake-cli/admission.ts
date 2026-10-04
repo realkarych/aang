@@ -11,11 +11,11 @@ export const admissionHookPath = (runtime: 'claude' | 'codex'): string => runtim
   ? join(process.cwd(), '.claude', 'settings.json')
   : join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'hooks.json')
 
-export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOptions, fault?: string): void => {
+export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOptions, fault?: string): boolean => {
   const file = admissionHookPath(runtime)
-  if (!existsSync(file)) return
+  if (!existsSync(file)) return false
   const enabled = runtime === 'claude' ? lastValue(options, 'setting-sources') !== '' : !allValues(options, 'disable').includes('hooks') && options.flags.has('dangerously-bypass-hook-trust')
-  if (fault === 'hook_missing' || (!enabled && fault !== 'hook_leak')) return
+  if (fault === 'hook_missing' || (!enabled && fault !== 'hook_leak')) return false
   const config = parseJson(readFileSync(file, 'utf8'))
   const hooks = isJsonObject(config) && isJsonObject(config.hooks) ? config.hooks.SessionStart : undefined
   if (!Array.isArray(hooks)) throw new Error('Invalid SessionStart hook')
@@ -28,6 +28,7 @@ export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOpt
       if (result.status !== 0) throw new Error(`Control hook failed: ${result.stderr}`)
     }
   }
+  return true
 }
 
 export const claudeAdmissionArtifacts = async (sessionId: string, fault?: string): Promise<() => void> => {

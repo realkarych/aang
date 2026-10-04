@@ -1,4 +1,4 @@
-import type { Action, EpochNs, Evidence, Fact, FactOf } from '@aang/contract'
+import type { Action, EpochNs, Evidence, Fact, FactOf, RawSeq } from '@aang/contract'
 import type { Contract } from './catalog.js'
 import { commandLines, fieldOf } from './commands.js'
 
@@ -8,6 +8,8 @@ export interface CheckResult {
   readonly exitCode: number | null
   readonly at: EpochNs
   readonly evidence: Evidence
+  readonly started: RawSeq
+  readonly ended: RawSeq
 }
 
 type Start = FactOf<'action_start'>
@@ -58,15 +60,18 @@ const commandStarts = (facts: readonly Fact[]): Start[] =>
 export const matchedStarts = (facts: readonly Fact[], contract: Contract): Start[] =>
   commandStarts(facts).filter(({ payload }) => commandLines(payload.input).some((line) => contract.command.test(line)))
 
+const earliestSeq = (first: Fact, others: readonly Fact[]): RawSeq =>
+  others.reduce((earliest, { seq }) => (seq < earliest ? seq : earliest), first.seq)
+
 export const checkResult = ({ action, facts }: ActionFacts, contract: Contract): CheckResult | null => {
   const starts = commandStarts(facts)
-  const matched = matchedStarts(facts, contract)
-  if (matched.length === 0) {
+  const [start, ...matched] = matchedStarts(facts, contract)
+  if (start === undefined) {
     return null
   }
   const ends = facts.filter((fact): fact is End => fact.kind === 'action_end').sort(byTime)
   const verdict = verdictOf(contract, ends, starts.some(inBackground))
-  const settled = ends.find(settles)
+  const [settled, ...later] = ends.filter(settles)
   if (verdict === null || settled === undefined) {
     return null
   }
@@ -75,6 +80,8 @@ export const checkResult = ({ action, facts }: ActionFacts, contract: Contract):
     passed: verdict.passed,
     exitCode: verdict.exitCode,
     at: settled.at,
-    evidence: [...new Set([...matched.map(({ id }) => id), settled.id, verdict.fact.id])].sort(),
+    evidence: [...new Set([start.id, ...matched.map(({ id }) => id), settled.id, verdict.fact.id])].sort(),
+    started: earliestSeq(start, matched),
+    ended: earliestSeq(settled, later),
   }
 }

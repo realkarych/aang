@@ -10,16 +10,13 @@ import {
   type ModelEntity,
   ModelVersion,
   type RunId,
-  type Session,
-  type SessionId,
-  type SessionKey,
 } from '@aang/contract'
 import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
 import { applyChangeSet, type AttentionItemDraft, type ModelChangeDraft } from '../model/journal.js'
-import { rootSessionOf, sessionRun } from '../observations/runs.js'
-import type { Contract, ContractCatalog } from './catalog.js'
-import { type ActionFacts, type CheckResult, checkResult } from './results.js'
+import type { Contract } from './catalog.js'
+import type { RunChecks } from './history.js'
+import type { CheckResult } from './results.js'
 
 interface Streak {
   readonly failures: readonly [CheckResult, ...CheckResult[]]
@@ -53,11 +50,6 @@ interface StreakChanges {
 const observed: Basis = { kind: 'observed' }
 
 const itemIdLength = 32
-
-const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
-
-const byResultTime = (left: CheckResult, right: CheckResult): number =>
-  left.at < right.at ? -1 : left.at > right.at ? 1 : compareText(left.action.id, right.action.id)
 
 const streaksOf = (results: readonly CheckResult[]): Streak[] => {
   const streaks: Streak[] = []
@@ -244,28 +236,6 @@ const successChanges = ({ item, success }: SucceededItem): StreakChanges[] =>
       ]
     : []
 
-const runActions = (
-  transaction: Transaction,
-  run: RunId,
-  session: Session | null,
-  entities: readonly ModelEntity[],
-): ActionFacts[] => {
-  const members = new Set<SessionId>(session === null ? [] : [session.id])
-  for (const entity of entities) {
-    if (entity.kind !== 'session_membership') {
-      continue
-    }
-    const member = transaction.observations.getSession(entity.value.session)
-    if (member !== null && sessionRun(transaction, member.key) === run) {
-      members.add(member.id)
-    }
-  }
-  return [...members]
-    .flatMap((member) => transaction.observations.actions(member))
-    .filter((action) => action.action_kind === 'command' && !action.inherited)
-    .map((action) => ({ action, facts: transaction.facts.ofEntity(action.key) }))
-}
-
 const leaving = ({ id }: AttentionItem): ModelChangeDraft => ({
   op: 'session.move',
   remove: { kind: 'attention_item', id },
@@ -281,24 +251,9 @@ const closingFacts = (transaction: Transaction, run: RunId, item: AttentionItem)
 const latestOf = (times: readonly EpochNs[]): EpochNs | null =>
   times.reduce<EpochNs | null>((latest, time) => (latest === null || time > latest ? time : latest), null)
 
-const refreshRun = (
-  transaction: Transaction,
-  run: RunId,
-  session: Session | null,
-  catalog: ContractCatalog,
-  at: EpochNs,
-): void => {
-  const cwd = rootSessionOf(transaction, run, session)?.cwd ?? null
-  const contracts = cwd === null ? [] : catalog.contractsFor(cwd)
-  if (contracts.length === 0) {
-    return
-  }
+const refreshRun = (transaction: Transaction, { run, actions, contracts }: RunChecks, at: EpochNs): void => {
   const entities = transaction.model.entities(run)
-  const actions = runActions(transaction, run, session, entities)
-  const checks = contracts.map((contract) => ({
-    contract,
-    results: actions.flatMap((entry) => checkResult(entry, contract) ?? []).sort(byResultTime),
-  }))
+  const checks = contracts.map(({ contract, checks: entries }) => ({ contract, results: entries.map(({ result }) => result) }))
   const streaks = checks.flatMap(({ contract, results }) => streaksOf(results).map((streak) => ({ contract, streak })))
   const items = failedCheckItems(entities)
   const succeeded = succeededItems(run, checks, items)
@@ -327,37 +282,8 @@ const refreshRun = (
   }
 }
 
-export const refreshChecks = (
-  transaction: Transaction,
-  sessions: Iterable<SessionKey>,
-  catalog: ContractCatalog,
-  at: EpochNs,
-): void => {
-  if (catalog.empty) {
-    return
-  }
-  const runs = new Set<RunId>()
-  for (const key of sessions) {
-    const session = transaction.observations.getSession(objectId(key))
-    const run = sessionRun(transaction, key)
-    if (session === null || runs.has(run)) {
-      continue
-    }
-    runs.add(run)
-    refreshRun(transaction, run, session, catalog, at)
-  }
-}
-
-export const refreshRunChecks = (
-  transaction: Transaction,
-  runs: Iterable<RunId>,
-  catalog: ContractCatalog,
-  at: EpochNs,
-): void => {
-  if (catalog.empty) {
-    return
-  }
-  for (const run of new Set(runs)) {
-    refreshRun(transaction, run, null, catalog, at)
+export const refreshChecks = (transaction: Transaction, runs: readonly RunChecks[], at: EpochNs): void => {
+  for (const checks of runs) {
+    refreshRun(transaction, checks, at)
   }
 }

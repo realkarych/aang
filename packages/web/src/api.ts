@@ -1,4 +1,13 @@
-import { ApiError, endpoints, type RunId, type RunSnapshot, type RunsResponse, type StatusResponse } from '@aang/contract'
+import {
+  ApiError,
+  endpoints,
+  type Fact,
+  type FactId,
+  type RunId,
+  type RunSnapshot,
+  type RunsResponse,
+  type StatusResponse,
+} from '@aang/contract'
 
 export class SignedOut extends Error {
   override readonly name = 'SignedOut'
@@ -63,3 +72,6 @@ export const readRuns = (signal: AbortSignal): Promise<RunsResponse> =>
 
 export const readRun = (run: RunId, signal: AbortSignal): Promise<RunSnapshot> =>
   read(withRun(endpoints.run.path, run), endpoints.run.response, signal)
+
+export const readFact = async (id: FactId, signal: AbortSignal): Promise<Fact> =>
+  (await read(endpoints.fact.path.replace(':id', encodeURIComponent(id)), endpoints.fact.response, signal)).fact

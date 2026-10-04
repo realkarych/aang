@@ -9,6 +9,7 @@ export interface Contract {
   readonly command: RegExp
   readonly successExitCodes: readonly number[]
   readonly inputMasks: readonly string[]
+  readonly commitPattern: RegExp | null
 }
 
 export interface ContractCatalog {
@@ -21,13 +22,19 @@ interface Root {
   readonly contracts: readonly Contract[]
 }
 
-const compiled = (root: string, { name, command, successExitCodes, inputMasks }: CheckContract): Contract => ({
+const compiled = (
+  root: string,
+  { name, command, successExitCodes, inputMasks, commitPattern }: CheckContract,
+): Contract => ({
   name,
   root,
   command: compilePattern(command),
   successExitCodes,
   inputMasks,
+  commitPattern: commitPattern === null ? null : new RegExp(compilePattern(commitPattern).source, 'gu'),
 })
+
+export const resolvedMasks = ({ root, inputMasks }: Contract): string[] => inputMasks.map((mask) => resolve(root, mask))
 
 const canonicalPath = (path: string): string => {
   const absolute = resolve(path)

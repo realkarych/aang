@@ -141,17 +141,17 @@ export const openKnownRun = async (
 }
 
 const isFeedEvent = (event: SseEvent): event is FeedEvent & SseEvent =>
-  event.event === 'facts' || event.event === 'model'
+  event.event === 'facts' || event.event === 'model' || event.event === 'attention'
 
 export const segmentsOf = (events: readonly SseEvent[]): FeedSegment[] => {
   const segments: FeedSegment[] = []
   let pending: FeedEvent[] = []
   for (const event of events) {
-    if (isFeedEvent(event)) {
-      pending.push(event)
-    } else if (event.event === 'run') {
+    if (event.event === 'run') {
       segments.push({ position: event.id, events: pending, run: event.data })
       pending = []
+    } else if (isFeedEvent(event)) {
+      pending.push(event)
     } else {
       throw new Error(`the run stream carried an unexpected ${event.event} event`)
     }
