@@ -1,6 +1,12 @@
-import { appendFile } from 'node:fs/promises'
-import { endpoints, type RunId } from '@aang/contract'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { appendFile, readFile } from 'node:fs/promises'
+import { endpoints, type RunId, type Stage } from '@aang/contract'
+import {
+  checksBlockerText,
+  mainStageTitle,
+  observerScenarios,
+  reviewRequestText,
+  sampleScenarioManifest,
+} from '@aang/testkit'
 import type { Page } from '@playwright/test'
 import { expect, type HookFields, test } from './fixtures.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
@@ -311,5 +317,166 @@ test.describe('with a check contract on the sample directory', () => {
     await expect(history(page)).toHaveCount(1)
     await expect(history(page)).toContainText('Упавшая проверка')
     await expect(history(page)).toContainText('проверка прошла')
+  })
+})
+
+const observed = { timeout: 30_000 }
+
+const endTurnSample = new URL('../docs/research/samples/claude-code-transcripts/rec-assistant-text-end-turn.json', import.meta.url)
+
+const claudeFinalText = async (text: string): Promise<string> => {
+  const line = JSON.parse(await readFile(endTurnSample, 'utf8')) as Record<string, unknown> & {
+    readonly uuid: string
+    readonly message: Record<string, unknown>
+  }
+  return `${JSON.stringify({
+    ...line,
+    parentUuid: line.uuid,
+    uuid: 'b3a1f0c2-4d5e-4f60-8a71-92b3c4d5e6f7',
+    requestId: 'req_h3_final',
+    timestamp: new Date().toISOString(),
+    message: { ...line.message, id: 'msg_h3_final', content: [{ type: 'text', text }] },
+  })}\n`
+}
+
+const stageOf = async (page: Page, run: RunId, title: string): Promise<Stage | null> => {
+  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  expect(response.status(), await response.text()).toBe(200)
+  return endpoints.run.response.parse(await response.json()).model.stages.find((found) => found.title === title) ?? null
+}
+
+test.describe('with the observer of the attention zone', () => {
+  test.skip(
+    process.platform === 'win32',
+    'on Windows the fake CLI needs node with a script and cannot be the configured observer CLI',
+  )
+  test.use({
+    config: fastSpool,
+    claudeScenario: observerScenarios['attention-zone'].live,
+    codexScenario: observerScenarios['attention-zone'].live,
+  })
+
+  test('items the observer opens and an unanswered question outlive the Claude session, blocked stages order them, the recommendation does not (E2E 15)', async ({
+    page,
+    player,
+    profile,
+    hook,
+    fakeClaude,
+  }) => {
+    const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })
+    await played.play({ until: 'subagent-result' })
+    const run = runOf(claudeOriginal)
+    await page.goto(`/?run=${run}`)
+    const blocker = zoneItem(page, checksBlockerText)
+    const review = zoneItem(page, reviewRequestText)
+    await expect(blocker).toContainText('блокирует 2 этапа', observed)
+    await expect(blocker).toContainText('Препятствие')
+    await expect(blocker).toContainText('от наблюдателя')
+    await expect(blocker).not.toContainText('рекомендация')
+
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('UserPromptSubmit.json', fields)
+    await hook.claude('PreToolUse.Bash.json', askUser(fields, 'toolu_h3_observed_ask', choice))
+    const question = zoneItem(page, choice)
+    await expect(question).toContainText('ждёт ответа')
+    await expect(question).toContainText('рекомендация: высокий приоритет', observed)
+    await expect(openItems(page).nth(0)).toContainText(choice)
+    await expect(openItems(page).nth(1)).toContainText(checksBlockerText)
+
+    await appendFile(sessionFile(profile, claudeOriginal), await claudeFinalText('Готово, посмотрите результат.'))
+    await expect(review).toContainText('Запрос ревью', observed)
+    await expect(review).toContainText('от наблюдателя')
+    await expect(review).toContainText('блокирует 1 этап')
+
+    await hook.claude('SessionEnd.json', fields)
+    await expect(question).toContainText('сессия завершена')
+    await expect(question).not.toContainText('ждёт ответа')
+    await expect(openItems(page)).toHaveCount(3)
+    await expect(openItems(page).nth(0)).toContainText(checksBlockerText)
+    await expect(openItems(page).nth(1)).toContainText(choice)
+    await expect(openItems(page).nth(2)).toContainText(reviewRequestText)
+    await expect(question).toContainText('блокирует 1 этап')
+    await expect(question).toContainText('рекомендация: высокий приоритет')
+    await expect(sessionOf(page, claudeOriginal.session)).not.toContainText('ждёт человека')
+    expect((await stageOf(page, run, mainStageTitle))?.execution.value.state).not.toBe('waiting')
+
+    const calls = fakeClaude.calls().length
+    await hook.claude('SessionStart.resume.json', fields)
+    await hook.claude('UserPromptSubmit.json', { ...fields, prompt: 'Запусти линтер и покажи вывод' })
+    await expect.poll(() => fakeClaude.calls().length, observed).toBeGreaterThan(calls)
+    await expect(openItems(page)).toHaveCount(3)
+    await expect(question).not.toContainText('вероятно отвечен')
+    await expect(review).toBeVisible()
+
+    await review.getByRole('button', { name: 'Снять' }).click()
+    await expect(review).toHaveCount(0)
+    await historyToggle(page).click()
+    await expect(history(page).filter({ hasText: reviewRequestText })).toContainText('снят пользователем')
+    await expect(openItems(page)).toHaveCount(2)
+  })
+
+  test('a Codex async question answered in a later prompt is marked probably answered and stays open (E2E 15)', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(codexThread)}`)
+    await expect(zoneItem(page, checksBlockerText)).toContainText('блокирует 2 этапа', observed)
+    const fields = hookFields(profile, codexThread)
+    await appendFile(sessionFile(profile, codexThread), codexAsyncQuestion(asyncAsk))
+    const question = zoneItem(page, asyncAsk)
+    await expect(question).toContainText('рекомендация: высокий приоритет', observed)
+    await expect(question).not.toContainText('вероятно отвечен')
+
+    await hook.codex('UserPromptSubmit.json', { ...fields, prompt: `${asyncAsk} Yes, go ahead.` })
+    await expect(question).toContainText('вероятно отвечен', observed)
+    await expect(question).toContainText('интерпретация aang')
+    await expect(question).toContainText('по правилу aang')
+    await expect(question.getByRole('button', { name: 'Снять' })).toBeVisible()
+  })
+})
+
+test.describe('with the observer and a check contract', () => {
+  test.skip(
+    process.platform === 'win32',
+    'on Windows the fake CLI needs node with a script and cannot be the configured observer CLI',
+  )
+  test.use({
+    config: {
+      ...fastSpool,
+      watch: { all: true, roots: [{ path: claudeOriginal.cwd, contracts: [{ name: 'test', command: '^pnpm test' }] }] },
+    },
+    claudeScenario: observerScenarios['claimed-done'].live,
+  })
+
+  test('the solver claims done over a failed check, the item of the check stays in the zone (E2E 3)', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })
+    await played.play({ until: 'subagent-result' })
+    const run = runOf(claudeOriginal)
+    await page.goto(`/?run=${run}`)
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('PreToolUse.Bash.json', testRun(fields, 'toolu_h3_claimed_test'))
+    await hook.claude('PostToolUseFailure.Bash.json', {
+      ...testRun(fields, 'toolu_h3_claimed_test'),
+      error: 'Exit code 1\n1 test failed',
+    })
+    const failed = zoneItem(page, 'Упавшая проверка')
+    await expect(failed).toContainText('Check "test" failed')
+
+    await appendFile(sessionFile(profile, claudeOriginal), await claudeFinalText('All done.'))
+    await expect
+      .poll(async () => (await stageOf(page, run, mainStageTitle))?.execution.value.state ?? null, observed)
+      .toBe('done')
+    expect((await stageOf(page, run, mainStageTitle))?.execution.basis.kind).toBe('claimed')
+    await expect(failed).toContainText('Check "test" failed')
+    await expect(failed).toContainText('по правилу aang')
+    await expect(fact(page, 'Внимание')).toHaveText('открыто: 1')
   })
 })
