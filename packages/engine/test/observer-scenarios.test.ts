@@ -14,11 +14,16 @@ import { createEngine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
+  branchStageTitles,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  nestedStageTitles,
   observerScenarios,
+  preparationStageTitle,
+  reportQuestionText,
+  reportStageTitle,
 } from '@aang/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { codexHooks, millisecond, otelDecision } from './attention-fixtures.js'
@@ -143,6 +148,106 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     ])
     expect(runDescription(store, run).brief).toMatch(/^Working towards: Step 1: run `echo hi`/)
     expect(pendingFacts(store, run)).toEqual([])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the map layout holds a done preparation and a claimed report that depends on the subagent stage', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-layout'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const main = stageTitled(store, run, mainStageTitle)
+    const preparation = stageTitled(store, run, preparationStageTitle)
+    const report = stageTitled(store, run, reportStageTitle)
+    const pinger = agentStageTitle(agentTyped(store, run, 'pinger'))
+    const delegated = stageTitled(store, run, pinger)
+    expect(main.parent).toBeNull()
+    expect(stagesUnder(store, run, main).map(({ title }) => title).sort()).toEqual(
+      [preparationStageTitle, reportStageTitle, pinger].sort(),
+    )
+    const bash = claudeAction(original, 'toolu_017B7FeHZ4yDzFdvKQMwDJB8')
+    expect(
+      linksOf(store, run).flatMap((link) => (link.kind === 'assignment' && link.action === bash ? [link.stage] : [])),
+    ).toEqual([preparation.id])
+    expect(assignedTo(store, run, main)).toEqual([claudeAction(original, 'toolu_01D254DDPoZEYPvJBjampKox')])
+    expect(preparation.execution).toMatchObject({ value: { state: 'done' }, basis: { kind: 'interpreted' } })
+    expect(report.execution).toMatchObject({ value: { state: 'done' }, basis: { kind: 'claimed' } })
+    expect(linksOf(store, run).filter(({ kind }) => kind === 'dependency')).toMatchObject([
+      { stage: report.id, depends_on: delegated.id, via: null },
+    ])
+    expect(
+      attentionOf(store, run).filter(({ author, kind }) => author === 'observer' && kind === 'question'),
+    ).toMatchObject([{ text: reportQuestionText, stage: report.id, resolution: 'open' }])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the map branches put a dependency across two branches and one of a parent on its substage', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-branches'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const [build, compile, verify, check] = [
+      branchStageTitles.build,
+      branchStageTitles.compile,
+      branchStageTitles.verify,
+      branchStageTitles.test,
+    ].map((title) => stageTitled(store, run, title))
+    expect(valuesOf(store, run, 'stage')).toHaveLength(4)
+    expect([build?.parent, compile?.parent, verify?.parent, check?.parent]).toEqual([null, build?.id, null, verify?.id])
+    const dependencies = linksOf(store, run).flatMap((link) =>
+      link.kind === 'dependency' ? [[link.stage, link.depends_on]] : [],
+    )
+    expect(dependencies).toHaveLength(2)
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        [check?.id, compile?.id],
+        [verify?.id, check?.id],
+      ]),
+    )
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the nested map puts a stage over its substage over another and both lower ones on the top one', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-nested'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const [release, bundle, sign] = [nestedStageTitles.release, nestedStageTitles.bundle, nestedStageTitles.sign].map(
+      (title) => stageTitled(store, run, title),
+    )
+    expect(valuesOf(store, run, 'stage')).toHaveLength(3)
+    expect([release?.parent, bundle?.parent, sign?.parent]).toEqual([null, release?.id, bundle?.id])
+    const dependencies = linksOf(store, run).flatMap((link) =>
+      link.kind === 'dependency' ? [[link.stage, link.depends_on]] : [],
+    )
+    expect(dependencies).toHaveLength(2)
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        [bundle?.id, release?.id],
+        [sign?.id, release?.id],
+      ]),
+    )
     expectGroundedInRecords(store, run)
   })
 

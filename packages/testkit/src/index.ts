@@ -13,10 +13,15 @@ export {
 } from './fake-cli/scenario.js'
 export {
   agentStageTitle,
+  branchStageTitles,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  nestedStageTitles,
+  preparationStageTitle,
+  reportQuestionText,
+  reportStageTitle,
 } from './observer-scenarios/observer.js'
 export {
   type ObserverScenarioName,
@@ -54,6 +59,7 @@ export {
   type Target,
 } from './player/manifest.js'
 export { OtlpDeliveryError } from './player/otlp.js'
+export type { RecordTime } from './player/record-time.js'
 export { type SampleScenario, sampleScenarioManifest, sampleScenarios } from './player/sample-scenarios.js'
 export {
   createPlayer,

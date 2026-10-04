@@ -31,7 +31,7 @@ test('прогон из образца виден в API', async ({ player, page
 | `request` | встроенный анонимный `APIRequestContext`, для проверок 401 |
 | `aang(...args)` | команда собранного `aang` в окружении профиля; возвращает stdout |
 | `signInLink()` | новая неиспользованная одноразовая ссылка от `aang open` |
-| `player(manifest, { timeScale })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля |
+| `player(manifest, { timeScale, recordTime })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля; `recordTime: 'playback'` сдвигает время записей к моменту проигрывания |
 | `hook.claude(sample, fields)`, `hook.codex(sample, fields)` | вызов настоящего `aang-hook` с payload образца из `docs/research/samples/claude-code-hooks` или `codex-cli/hooks` (поле `stdin`), поля которого заменены на `fields` |
 
 Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`.
