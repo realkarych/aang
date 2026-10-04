@@ -14,15 +14,41 @@ const subscribe = (notify: () => void): (() => void) => {
 
 const currentSearch = (): string => window.location.search
 
+export const usagePeriods = ['all', 'day', 'week', 'month'] as const
+export type UsagePeriod = (typeof usagePeriods)[number]
+
+export type Route =
+  | { readonly screen: 'runs' }
+  | { readonly screen: 'run'; readonly run: RunId }
+  | { readonly screen: 'usage'; readonly run: RunId | null; readonly period: UsagePeriod }
+
+const usageView = 'usage'
+
+const isPeriod = (value: string | null): value is UsagePeriod => usagePeriods.some((period) => period === value)
+
+const routeOf = (search: string): Route => {
+  const params = new URLSearchParams(search)
+  const parsed = RunId.safeParse(params.get('run'))
+  const run = parsed.success ? parsed.data : null
+  if (params.get('view') === usageView) {
+    const period = params.get('period')
+    return { screen: 'usage', run, period: isPeriod(period) ? period : 'all' }
+  }
+  return run === null ? { screen: 'runs' } : { screen: 'run', run }
+}
+
 export const runHref = (run: RunId): string => `?${new URLSearchParams({ run }).toString()}`
+
+export const usageHref = (run: RunId | null, period: UsagePeriod = 'all'): string =>
+  `?${new URLSearchParams({
+    view: usageView,
+    ...(run === null ? {} : { run }),
+    ...(period === 'all' ? {} : { period }),
+  }).toString()}`
 
 export const listHref = '/'
 
-export const useRoutedRun = (): RunId | null => {
-  const search = useSyncExternalStore(subscribe, currentSearch)
-  const parsed = RunId.safeParse(new URLSearchParams(search).get('run'))
-  return parsed.success ? parsed.data : null
-}
+export const useRoute = (): Route => routeOf(useSyncExternalStore(subscribe, currentSearch))
 
 const isPlainClick = (event: MouseEvent): boolean =>
   event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey

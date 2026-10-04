@@ -6,7 +6,7 @@ import { absoluteTime } from './format.js'
 import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
 import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
-import { listHref, runHref, useNavigate } from './route.js'
+import { listHref, runHref, usageHref, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
 import { Trace } from './trace.js'
 import type { RunFeedState } from './use-run-feed.js'
@@ -60,6 +60,14 @@ const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now
           <Moment at={summary.last_event_at} now={now} />
         </dd>
       </div>
+      <div>
+        <dt>Расход</dt>
+        <dd>
+          <a href={usageHref(summary.id)} onClick={navigate}>
+            три журнала
+          </a>
+        </dd>
+      </div>
       {summary.forked_from === null ? null : (
         <div>
           <dt>Ответвление</dt>
@@ -80,7 +88,7 @@ const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now
   )
 }
 
-const Missing = (): ReactElement => {
+export const Missing = (): ReactElement => {
   const navigate = useNavigate()
   return (
     <div className="empty">
