@@ -14,7 +14,10 @@ const subscribe = (notify: () => void): (() => void) => {
 
 const currentSearch = (): string => window.location.search
 
-export const runHref = (run: RunId): string => `?${new URLSearchParams({ run }).toString()}`
+export type RunMode = 'trace' | 'changes'
+
+export const runHref = (run: RunId, mode: RunMode = 'trace'): string =>
+  `?${new URLSearchParams(mode === 'trace' ? { run } : { run, mode }).toString()}`
 
 export const listHref = '/'
 
@@ -22,6 +25,11 @@ export const useRoutedRun = (): RunId | null => {
   const search = useSyncExternalStore(subscribe, currentSearch)
   const parsed = RunId.safeParse(new URLSearchParams(search).get('run'))
   return parsed.success ? parsed.data : null
+}
+
+export const useRoutedMode = (): RunMode => {
+  const search = useSyncExternalStore(subscribe, currentSearch)
+  return new URLSearchParams(search).get('mode') === 'changes' ? 'changes' : 'trace'
 }
 
 const isPlainClick = (event: MouseEvent): boolean =>
@@ -36,4 +44,14 @@ export const useNavigate = (): ((event: MouseEvent<HTMLAnchorElement>) => void) 
     window.history.pushState(null, '', event.currentTarget.href)
     window.dispatchEvent(new Event(navigated))
     window.scrollTo(0, 0)
+  }, [])
+
+export const useSwitchMode = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>
+  useCallback((event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) {
+      return
+    }
+    event.preventDefault()
+    window.history.replaceState(null, '', event.currentTarget.href)
+    window.dispatchEvent(new Event(navigated))
   }, [])

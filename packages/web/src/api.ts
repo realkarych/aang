@@ -1,12 +1,15 @@
 import {
   ApiError,
+  type ChangesResponse,
   endpoints,
   type Fact,
   type FactId,
+  type MarkViewedResponse,
   type RunId,
   type RunSnapshot,
   type RunsResponse,
   type StatusResponse,
+  type ViewPosition,
 } from '@aang/contract'
 
 export class SignedOut extends Error {
@@ -42,10 +45,10 @@ export const ensureSignedIn = (response: Response): Response => {
   return response
 }
 
-const read = async <T>(path: string, decoder: Decoder<T>, signal: AbortSignal): Promise<T> => {
+const request = async <T>(path: string, init: RequestInit, decoder: Decoder<T>, signal: AbortSignal): Promise<T> => {
   let response: Response
   try {
-    response = await fetch(path, { headers: { accept: 'application/json' }, cache: 'no-store', signal })
+    response = await fetch(path, { ...init, cache: 'no-store', signal })
   } catch (error) {
     if (signal.aborted) {
       throw error
@@ -62,6 +65,21 @@ const read = async <T>(path: string, decoder: Decoder<T>, signal: AbortSignal): 
   return decoder.parse(await response.json())
 }
 
+const read = <T>(path: string, decoder: Decoder<T>, signal: AbortSignal): Promise<T> =>
+  request(path, { headers: { accept: 'application/json' } }, decoder, signal)
+
+const write = <T>(path: string, body: unknown, decoder: Decoder<T>, signal: AbortSignal): Promise<T> =>
+  request(
+    path,
+    {
+      method: 'POST',
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+    decoder,
+    signal,
+  )
+
 const withRun = (path: string, run: RunId): string => path.replace(':run', encodeURIComponent(run))
 
 export const readStatus = (signal: AbortSignal): Promise<StatusResponse> =>
@@ -75,3 +93,16 @@ export const readRun = (run: RunId, signal: AbortSignal): Promise<RunSnapshot> =
 
 export const readFact = async (id: FactId, signal: AbortSignal): Promise<Fact> =>
   (await read(endpoints.fact.path.replace(':id', encodeURIComponent(id)), endpoints.fact.response, signal)).fact
+
+export const readChanges = (run: RunId, from: ViewPosition, signal: AbortSignal): Promise<ChangesResponse> => {
+  const query = new URLSearchParams(endpoints.changes.query.encode({ version: from.version, seq: from.change_seq }))
+  return read(`${withRun(endpoints.changes.path, run)}?${query.toString()}`, endpoints.changes.response, signal)
+}
+
+export const markViewed = (run: RunId, position: ViewPosition, signal: AbortSignal): Promise<MarkViewedResponse> =>
+  write(
+    withRun(endpoints.markViewed.path, run),
+    endpoints.markViewed.body.encode(position),
+    endpoints.markViewed.response,
+    signal,
+  )

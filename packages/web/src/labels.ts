@@ -3,8 +3,11 @@ import type {
   AgentRole,
   AttentionAuthor,
   AttentionKind,
+  AttentionResolution,
   BasisKind,
+  CriterionStatus,
   Execution,
+  FactKind,
   Freshness,
   GapKind,
   HookInstallation,
@@ -17,10 +20,12 @@ import type {
   Runtime,
   ServiceAgent,
   SessionLaunch,
+  Speaker,
   Surface,
   SupportKey,
   SupportMode,
   SupportStatus,
+  VersionRetention,
 } from '@aang/contract'
 import { clockTime, plural } from './format.js'
 
@@ -240,3 +245,72 @@ export const versionForms = { one: 'версия', few: 'версии', many: '�
 export const stepForms = { one: 'ранний шаг', few: 'ранних шага', many: 'ранних шагов' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
+
+export const factKindLabel: Readonly<Record<FactKind, string>> = {
+  session_start: 'начало сессии',
+  session_end: 'конец сессии',
+  turn_start: 'начало хода',
+  turn_settings: 'настройки хода',
+  turn_end: 'конец хода',
+  prompt: 'промпт',
+  message: 'сообщение',
+  agent_start: 'запуск агента',
+  agent_end: 'завершение агента',
+  action_start: 'начало действия',
+  action_end: 'итог действия',
+  tool_batch_end: 'итог группы вызовов',
+  permission_request: 'запрос одобрения',
+  permission_denied: 'отказ в одобрении',
+  permission_decision: 'решение по одобрению',
+  notification: 'уведомление',
+  question_asked: 'вопрос',
+  question_answered: 'ответ на вопрос',
+  plan_update: 'план',
+  compaction: 'сжатие контекста',
+  usage: 'расход токенов',
+  usage_total: 'итог расхода',
+  cost_state: 'состояние стоимости',
+  instructions_loaded: 'загрузка инструкций',
+  queue_operation: 'очередь промптов',
+  runtime_error: 'ошибка рантайма',
+  runtime_event: 'событие рантайма',
+  json_snapshot: 'снимок файла',
+  git_snapshot: 'снимок git',
+  context: 'контекст',
+  source_lost: 'потеря источника',
+}
+
+export const speakerLabel: Readonly<Record<Speaker, string>> = {
+  human: 'человек',
+  solver: 'решатель',
+  tool: 'инструмент',
+  runtime: 'рантайм',
+}
+
+export const criterionStatusLabel: Readonly<Record<CriterionStatus, string>> = {
+  not_checked: 'не проверен',
+  confirmed: 'подтверждён',
+  passed_unversioned: 'пройден без версии',
+  partial: 'подтверждён частично',
+  failed: 'не выполнен',
+  stale: 'устарел',
+  reported_done: 'выполнен по словам решателя',
+}
+
+export const resolutionLabel: Readonly<Record<AttentionResolution, string>> = {
+  open: 'открыт',
+  answered: 'получен ответ',
+  resolved: 'решён',
+  ended_without_answer: 'ожидание прекращено без ответа',
+}
+
+export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> = {
+  action_payload: 'версия сохранена из действия',
+  file_read: 'версия сохранена при чтении файла',
+  commit: 'версия в коммите',
+  hash_only: 'сохранён только хэш содержимого',
+  reference: 'только ссылка',
+}
+
+export const changeForms = { one: 'изменение', few: 'изменения', many: 'изменений' } as const
+export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const

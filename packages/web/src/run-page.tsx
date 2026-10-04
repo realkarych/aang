@@ -8,6 +8,7 @@ import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
 import { listHref, runHref, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
+import { SinceLastView } from './since.js'
 import { Trace } from './trace.js'
 import type { RunFeedState } from './use-run-feed.js'
 
@@ -98,7 +99,13 @@ const Missing = (): ReactElement => {
   )
 }
 
-export const RunPage = ({ feed, now }: { readonly feed: RunFeedState; readonly now: bigint }): ReactElement => {
+export interface RunPageProps {
+  readonly feed: RunFeedState
+  readonly now: bigint
+  readonly onSignedOut: () => void
+}
+
+export const RunPage = ({ feed, now, onSignedOut }: RunPageProps): ReactElement => {
   const { snapshot, connection } = feed
   if (snapshot === null) {
     return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
@@ -121,10 +128,12 @@ export const RunPage = ({ feed, now }: { readonly feed: RunFeedState; readonly n
         <Facts snapshot={snapshot} now={now} />
       </header>
       <AttentionZone snapshot={snapshot} now={now} />
-      <div className="run-body">
-        <Trace snapshot={snapshot} now={now} />
-        <PlanFacts snapshot={snapshot} now={now} />
-      </div>
+      <SinceLastView snapshot={snapshot} now={now} onSignedOut={onSignedOut}>
+        <div className="run-body">
+          <Trace snapshot={snapshot} now={now} />
+          <PlanFacts snapshot={snapshot} now={now} />
+        </div>
+      </SinceLastView>
     </article>
   )
 }
