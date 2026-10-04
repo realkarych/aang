@@ -1,0 +1,153 @@
+{
+  "steps": [
+    {
+      "kind": "write",
+      "at": 3433,
+      "target": {
+        "root": "claude",
+        "path": "sessions/8068.json"
+      },
+      "source": "data/000001.json"
+    },
+    {
+      "kind": "hook",
+      "at": 3973,
+      "source": "data/000003.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CLAUDE_CODE_SESSION_ID": "c946829e-5856-44de-b7f2-cbd6ef5bc96e",
+        "CLAUDE_PID": "8068",
+        "CLAUDE_PROJECT_DIR": "C:\\fixture\\project",
+        "CLAUDE_PLUGIN_ROOT": "C:\\fixture\\recording\\plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "C:\\Users\\USER\\.codex"
+      }
+    },
+    {
+      "kind": "write",
+      "at": 4008,
+      "target": {
+        "root": "claude",
+        "path": "sessions/8068.json"
+      },
+      "source": "data/000004.json"
+    },
+    {
+      "kind": "write",
+      "at": 4036,
+      "target": {
+        "root": "claude",
+        "path": "sessions/8068.json"
+      },
+      "source": "data/000005.json"
+    },
+    {
+      "kind": "hook",
+      "at": 4087,
+      "source": "data/000007.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CLAUDE_CODE_SESSION_ID": "c946829e-5856-44de-b7f2-cbd6ef5bc96e",
+        "CLAUDE_PID": "8068",
+        "CLAUDE_PROJECT_DIR": "C:\\fixture\\project",
+        "CLAUDE_PLUGIN_ROOT": "C:\\fixture\\recording\\plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "C:\\Users\\USER\\.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 4208,
+      "source": "data/000010.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CLAUDE_CODE_SESSION_ID": "c946829e-5856-44de-b7f2-cbd6ef5bc96e",
+        "CLAUDE_PID": "8068",
+        "CLAUDE_PROJECT_DIR": "C:\\fixture\\project",
+        "CLAUDE_PLUGIN_ROOT": "C:\\fixture\\recording\\plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "C:\\Users\\USER\\.codex"
+      },
+      "label": "command-running"
+    },
+    {
+      "kind": "append",
+      "at": 4225,
+      "target": {
+        "root": "claude",
+        "path": "projects/-fixture-project/c946829e-5856-44de-b7f2-cbd6ef5bc96e.jsonl"
+      },
+      "source": "data/000008.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 6707,
+      "target": {
+        "root": "claude",
+        "path": "projects/-fixture-project/c946829e-5856-44de-b7f2-cbd6ef5bc96e.jsonl"
+      },
+      "source": "data/000011.jsonl",
+      "label": "interrupted"
+    },
+    {
+      "kind": "remove",
+      "at": 6708,
+      "target": {
+        "root": "claude",
+        "path": "sessions/8068.json"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 6740,
+      "target": {
+        "root": "claude",
+        "path": "projects/-fixture-project/c946829e-5856-44de-b7f2-cbd6ef5bc96e.jsonl"
+      },
+      "source": "data/000012.jsonl"
+    },
+    {
+      "kind": "write",
+      "at": 6740,
+      "target": {
+        "root": "claude",
+        "path": "sessions/8068.json"
+      },
+      "source": "data/000013.json"
+    },
+    {
+      "kind": "hook",
+      "at": 6929,
+      "source": "data/000015.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CLAUDE_CODE_SESSION_ID": "c946829e-5856-44de-b7f2-cbd6ef5bc96e",
+        "CLAUDE_PID": "8068",
+        "CLAUDE_PROJECT_DIR": "C:\\fixture\\project",
+        "CLAUDE_PLUGIN_ROOT": "C:\\fixture\\recording\\plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "C:\\Users\\USER\\.codex"
+      }
+    },
+    {
+      "kind": "remove",
+      "at": 6940,
+      "target": {
+        "root": "claude",
+        "path": "sessions/8068.json"
+      }
+    }
+  ]
+}

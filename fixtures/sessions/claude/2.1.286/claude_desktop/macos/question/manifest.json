@@ -1,0 +1,211 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "claude",
+  "engine_version": "2.1.286",
+  "app_version": "2.19675.0",
+  "surface": "claude_desktop",
+  "os": "macos",
+  "scenario": "question",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:18:46.187Z",
+  "expected_facts": [
+    "The session asks an explicit AskUserQuestion with the options Hello and Hi",
+    "The host answers Hello after ~1.5 s and the session writes the answer into greeting.txt"
+  ],
+  "control_events": [
+    {
+      "label": "question-asked",
+      "step": 6,
+      "observed_at": "2026-10-04T01:18:46.506Z",
+      "expected_map_change": {
+        "description": "The session asks an explicit question and waits for the user to answer it; the session needs attention"
+      }
+    },
+    {
+      "label": "question-answered",
+      "step": 9,
+      "observed_at": "2026-10-04T01:18:48.021Z",
+      "expected_map_change": {
+        "description": "The question is answered with Hello after ~1.5 s; the attention clears and the session continues"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.json",
+      "observed_at": "2026-10-04T01:18:46.450Z",
+      "mtime_ns": "1791076726435809211"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-04T01:18:46.438Z",
+      "mtime_ns": "1791076726438896220"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-04T01:18:46.438Z",
+      "mtime_ns": "1791076726438896220"
+    },
+    {
+      "source": "data/000004.jsonl",
+      "observed_at": "2026-10-04T01:18:46.476Z",
+      "mtime_ns": "1791076726474308399"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-04T01:18:46.476Z",
+      "mtime_ns": "1791076726465442395"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-04T01:18:46.472Z",
+      "mtime_ns": "1791076726472485295"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-04T01:18:46.472Z",
+      "mtime_ns": "1791076726472485295"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-04T01:18:46.499Z",
+      "mtime_ns": "1791076726499138685"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-04T01:18:46.499Z",
+      "mtime_ns": "1791076726499138685"
+    },
+    {
+      "source": "data/000010.json",
+      "observed_at": "2026-10-04T01:18:46.527Z",
+      "mtime_ns": "1791076726502665302"
+    },
+    {
+      "source": "spool/000011.spool",
+      "observed_at": "2026-10-04T01:18:46.506Z",
+      "mtime_ns": "1791076726506421599"
+    },
+    {
+      "source": "data/000012.json",
+      "observed_at": "2026-10-04T01:18:46.506Z",
+      "mtime_ns": "1791076726506421599"
+    },
+    {
+      "source": "data/000013.jsonl",
+      "observed_at": "2026-10-04T01:18:46.606Z",
+      "mtime_ns": "1791076726580366217"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:18:48.034Z",
+      "mtime_ns": "1791076728017082256"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-04T01:18:48.021Z",
+      "mtime_ns": "1791076728021423529"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-04T01:18:48.021Z",
+      "mtime_ns": "1791076728021423529"
+    },
+    {
+      "source": "spool/000017.spool",
+      "observed_at": "2026-10-04T01:18:48.028Z",
+      "mtime_ns": "1791076728028418818"
+    },
+    {
+      "source": "data/000018.json",
+      "observed_at": "2026-10-04T01:18:48.028Z",
+      "mtime_ns": "1791076728028418818"
+    },
+    {
+      "source": "data/000019.json",
+      "observed_at": "2026-10-04T01:18:48.060Z",
+      "mtime_ns": "1791076728046610078"
+    },
+    {
+      "source": "spool/000020.spool",
+      "observed_at": "2026-10-04T01:18:48.042Z",
+      "mtime_ns": "1791076728042557571"
+    },
+    {
+      "source": "data/000021.json",
+      "observed_at": "2026-10-04T01:18:48.042Z",
+      "mtime_ns": "1791076728042557571"
+    },
+    {
+      "source": "spool/000022.spool",
+      "observed_at": "2026-10-04T01:18:48.049Z",
+      "mtime_ns": "1791076728049241218"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-04T01:18:48.049Z",
+      "mtime_ns": "1791076728049241218"
+    },
+    {
+      "source": "data/000024.jsonl",
+      "observed_at": "2026-10-04T01:18:48.137Z",
+      "mtime_ns": "1791076728125703205"
+    },
+    {
+      "source": "data/000025.json",
+      "observed_at": "2026-10-04T01:18:48.577Z",
+      "mtime_ns": "1791076728553501004"
+    },
+    {
+      "source": "spool/000026.spool",
+      "observed_at": "2026-10-04T01:18:48.565Z",
+      "mtime_ns": "1791076728565234756"
+    },
+    {
+      "source": "data/000027.json",
+      "observed_at": "2026-10-04T01:18:48.565Z",
+      "mtime_ns": "1791076728565234756"
+    },
+    {
+      "source": "spool/000028.spool",
+      "observed_at": "2026-10-04T01:18:48.572Z",
+      "mtime_ns": "1791076728572803008"
+    },
+    {
+      "source": "data/000029.json",
+      "observed_at": "2026-10-04T01:18:48.572Z",
+      "mtime_ns": "1791076728572803008"
+    },
+    {
+      "source": "data/000030.jsonl",
+      "observed_at": "2026-10-04T01:18:48.603Z",
+      "mtime_ns": "1791076728594762895"
+    },
+    {
+      "source": "spool/000031.spool",
+      "observed_at": "2026-10-04T01:18:48.589Z",
+      "mtime_ns": "1791076728589237161"
+    },
+    {
+      "source": "data/000032.json",
+      "observed_at": "2026-10-04T01:18:48.589Z",
+      "mtime_ns": "1791076728589237161"
+    },
+    {
+      "source": "spool/000033.spool",
+      "observed_at": "2026-10-04T01:18:48.598Z",
+      "mtime_ns": "1791076728598361616"
+    },
+    {
+      "source": "data/000034.json",
+      "observed_at": "2026-10-04T01:18:48.598Z",
+      "mtime_ns": "1791076728598361616"
+    },
+    {
+      "source": "output/000035.txt",
+      "observed_at": "2026-10-04T01:18:48.629Z",
+      "mtime_ns": "1791076728629000000"
+    }
+  ],
+  "playback": "playback.json"
+}
