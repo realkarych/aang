@@ -1,4 +1,4 @@
-export { installFakeClaude, installFakeCodex, type FakeCli } from './fake-cli/install.js'
+export { installFakeClaude, installFakeCodex, type FakeCli, type FakeCliHold } from './fake-cli/install.js'
 export {
   fakeCliExitCodes,
   type ClaudeReply,

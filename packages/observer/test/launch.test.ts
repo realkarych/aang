@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join, resolve } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { test, expect, type TestContext } from 'vitest'
 import { createClaudeLauncher, createCodexLauncher, observerSystemPrompt } from '@aang/observer'
@@ -10,6 +10,10 @@ import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 const output = { base_version: 7, ops: [], needs: [] }
 const input = { model: { version: 7 }, batch: { facts: [] } }
 const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'] }
+
+const systemRoot = process.env.SystemRoot ?? 'C:\\Windows'
+
+const isolatedPath = process.platform === 'win32' ? [join(systemRoot, 'System32'), systemRoot, join(systemRoot, 'System32', 'Wbem')].join(';') : '/usr/bin:/bin'
 
 const sandbox = async ({ onTestFinished }: TestContext) => {
   const root = await realpath(await mkdtemp(join(tmpdir(), 'aang-observer-test-')))
@@ -261,12 +265,14 @@ test('instructions in the physical ancestor of a symlinked workdir prevent launc
   expect(cli.calls()).toEqual([])
 })
 
-test.skipIf(process.platform === 'win32')('CLI name is resolved before the inherited PATH is cleared', async (context) => {
+test('CLI name is resolved before the inherited PATH is cleared', async (context) => {
   const { root, options } = await sandbox(context)
   const cli = installFakeClaude(root, { replies: [{ kind: 'answer', output }] })
-  const backend = createClaudeLauncher({ ...options, environment: { ...options.environment, PATH: join(root, 'claude', 'bin') }, cli: 'claude', model: 'claude-opus-5-5', builtins })
+  const inherited = Object.fromEntries(Object.entries(options.environment).filter(([name]) => name.toLowerCase() !== 'path'))
+  const backend = createClaudeLauncher({ ...options, environment: { ...inherited, PATH: dirname(cli.path) }, cli: 'claude', model: 'claude-opus-5-5', builtins })
   expect(await backend.execute({ input })).toMatchObject({ ok: true })
-  expect(cli.calls().find((call) => call.command === 'print')?.env.PATH).toBe('/usr/bin:/bin')
+  const env = Object.entries(cli.calls().find((call) => call.command === 'print')?.env ?? {})
+  expect(env.find(([name]) => name.toLowerCase() === 'path')?.[1]).toBe(isolatedPath)
 })
 
 test('an already cancelled call does not spawn a CLI', async (context) => {
