@@ -3,14 +3,23 @@ import type {
   ActionOutcome,
   Assessed,
   Basis,
+  CriterionStatus,
   Execution,
   Freshness,
   HumanDecision,
   RunSummary,
 } from '@aang/contract'
 import type { ReactElement } from 'react'
-import { DecisionGlyph, ExecutionGlyph, FreshnessGlyph, LevelGlyph, OutcomeGlyph } from './glyphs.js'
+import {
+  CriterionGlyph,
+  DecisionGlyph,
+  ExecutionGlyph,
+  FreshnessGlyph,
+  LevelGlyph,
+  OutcomeGlyph,
+} from './glyphs.js'
 import { basisLabel, decisionLabel, executionLabel, freshnessLabel, outcomeLabel } from './labels.js'
+import { criterionStatusLabel } from './stage-labels.js'
 
 type Tone = 'go' | 'ask' | 'hold' | 'done' | 'fail' | 'idle'
 
@@ -111,5 +120,22 @@ export const DecisionBadge = ({ decision }: { readonly decision: Assessed<HumanD
     <DecisionGlyph decision={decision.value} />
     {decisionLabel[decision.value]}
     <BasisNote basis={decision.basis} />
+  </span>
+)
+
+const criterionTone: Readonly<Record<CriterionStatus, Tone>> = {
+  not_checked: 'idle',
+  confirmed: 'done',
+  passed_unversioned: 'hold',
+  partial: 'hold',
+  failed: 'fail',
+  stale: 'ask',
+  reported_done: 'idle',
+}
+
+export const CriterionBadge = ({ status }: { readonly status: CriterionStatus }): ReactElement => (
+  <span className="badge" data-tone={criterionTone[status]}>
+    <CriterionGlyph status={status} />
+    {criterionStatusLabel[status]}
   </span>
 )

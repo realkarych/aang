@@ -1,4 +1,13 @@
-import type { ActionOutcome, AttentionKind, Execution, Freshness, HumanDecision, PlanItemStatus } from '@aang/contract'
+import type {
+  ActionOutcome,
+  AttentionKind,
+  BasisKind,
+  CriterionStatus,
+  Execution,
+  Freshness,
+  HumanDecision,
+  PlanItemStatus,
+} from '@aang/contract'
 import type { ReactElement } from 'react'
 import type { Level } from './lamps.js'
 
@@ -174,5 +183,53 @@ export const PlanItemGlyph = ({ status }: { readonly status: PlanItemStatus }): 
       return <Glyph><Slash /></Glyph>
     case 'unknown':
       return <Glyph><Unknown /></Glyph>
+  }
+}
+
+const Quote = (): ReactElement => (
+  <path d="M1.8 2.2h8.4v5.6H5.6L3 10.2V7.8H1.8Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+)
+
+const Half = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M6 2a4 4 0 0 1 0 8Z" fill="currentColor" />
+  </>
+)
+
+const Pinless = (): ReactElement => (
+  <>
+    <Dashed />
+    <path d="M3.9 6.2 5.4 7.6 8.2 4.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </>
+)
+
+export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus }): ReactElement => {
+  switch (status) {
+    case 'confirmed':
+      return <Glyph><Check /></Glyph>
+    case 'passed_unversioned':
+      return <Glyph><Pinless /></Glyph>
+    case 'partial':
+      return <Glyph><Half /></Glyph>
+    case 'failed':
+      return <Glyph><Cross /></Glyph>
+    case 'stale':
+      return <Glyph><Triangle /></Glyph>
+    case 'reported_done':
+      return <Glyph><Quote /></Glyph>
+    case 'not_checked':
+      return <Glyph><Dashed /></Glyph>
+  }
+}
+
+export const BasisGlyph = ({ basis }: { readonly basis: BasisKind }): ReactElement => {
+  switch (basis) {
+    case 'observed':
+      return <Glyph><Dot /></Glyph>
+    case 'claimed':
+      return <Glyph><Quote /></Glyph>
+    case 'interpreted':
+      return <Glyph><Dashed /></Glyph>
   }
 }

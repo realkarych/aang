@@ -3,11 +3,13 @@ import { type ReactElement, useCallback, useEffect, useState } from 'react'
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
-import { listHref, useNavigate, useRoutedRun } from './route.js'
+import { listHref, selectStage, useNavigate, useRoutedRun, useRoutedStage } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
 import { RunPage } from './run-page.js'
+import { StageInspector } from './stage-inspector.js'
 import { StatusStrip } from './status-strip.js'
 import { type Polled, usePolled } from './use-polled.js'
+import { SignedOutContext } from './use-read.js'
 import { useRunFeed } from './use-run-feed.js'
 
 const useNow = (intervalMs = 1_000): bigint => {
@@ -89,6 +91,10 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
 
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
+  const stage = useRoutedStage()
+  const close = useCallback(() => {
+    selectStage(run, null)
+  }, [run])
   const snapshot = feed.snapshot
   const title = snapshot === null ? null : (runTitle(snapshot.summary) ?? untitledRun(snapshot.summary))
   useTitle(`${title ?? 'Прогон'} — aang`)
@@ -108,8 +114,20 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     <>
       <Masthead trail={title ?? 'Прогон'} />
       <StatusStrip lamps={lamps} />
-      <main className="page">
+      <main className="page run-screen" data-inspecting={stage !== null}>
         <RunPage feed={feed} now={now} />
+        {stage === null ? null : (
+          <SignedOutContext value={onSignedOut}>
+            <StageInspector
+              key={stage}
+              run={run}
+              stage={stage}
+              snapshot={feed.snapshot}
+              onSignedOut={onSignedOut}
+              onClose={close}
+            />
+          </SignedOutContext>
+        )}
       </main>
     </>
   )

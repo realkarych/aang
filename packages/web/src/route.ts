@@ -1,4 +1,4 @@
-import { RunId } from '@aang/contract'
+import { RunId, StageId } from '@aang/contract'
 import { type MouseEvent, useCallback, useSyncExternalStore } from 'react'
 
 const navigated = 'aang:navigate'
@@ -18,10 +18,27 @@ export const runHref = (run: RunId): string => `?${new URLSearchParams({ run }).
 
 export const listHref = '/'
 
+export const stageHref = (run: RunId, stage: StageId): string => `?${new URLSearchParams({ run, stage }).toString()}`
+
+const useSearch = (): URLSearchParams => new URLSearchParams(useSyncExternalStore(subscribe, currentSearch))
+
 export const useRoutedRun = (): RunId | null => {
-  const search = useSyncExternalStore(subscribe, currentSearch)
-  const parsed = RunId.safeParse(new URLSearchParams(search).get('run'))
+  const parsed = RunId.safeParse(useSearch().get('run'))
   return parsed.success ? parsed.data : null
+}
+
+export const useRoutedStage = (): StageId | null => {
+  const parsed = StageId.safeParse(useSearch().get('stage'))
+  return parsed.success ? parsed.data : null
+}
+
+const go = (href: string): void => {
+  window.history.pushState(null, '', href)
+  window.dispatchEvent(new Event(navigated))
+}
+
+export const selectStage = (run: RunId, stage: StageId | null): void => {
+  go(stage === null ? runHref(run) : stageHref(run, stage))
 }
 
 const isPlainClick = (event: MouseEvent): boolean =>
@@ -33,7 +50,15 @@ export const useNavigate = (): ((event: MouseEvent<HTMLAnchorElement>) => void) 
       return
     }
     event.preventDefault()
-    window.history.pushState(null, '', event.currentTarget.href)
-    window.dispatchEvent(new Event(navigated))
+    go(event.currentTarget.href)
     window.scrollTo(0, 0)
+  }, [])
+
+export const useSelect = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>
+  useCallback((event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) {
+      return
+    }
+    event.preventDefault()
+    go(event.currentTarget.href)
   }, [])
