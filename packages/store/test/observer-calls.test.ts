@@ -128,7 +128,7 @@ test('probes and authorization checks are recorded finished and stay apart from 
   expect(store.observerCalls.checks()).toEqual([limited, authorized, recovered])
   expect(store.observerCalls.get(id('limited'))).toBeNull()
   expect(store.observerCalls.unfinished()).toEqual([id('batch')])
-  expect(store.observerCalls.latestStart(run)).toBe(at(-20))
+  expect(store.observerCalls.latest(run)).toEqual({ id: id('batch'), started_at: at(-20) })
   expect(() => {
     store.transaction((transaction) => {
       transaction.observerCalls.finish({ id: id('recovered'), output: null, verdict: 'failed', reasons: [], at: at(30) })

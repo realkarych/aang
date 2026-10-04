@@ -551,7 +551,10 @@ the batch over to the follow-up without spending an attempt. The follow-up respo
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
-between calls of a run.
+between calls of a run. `skipObserverFollowUp` gives the follow-up up the same way
+at run time: the batch returns to `pending` and the summarized deferred facts are
+released, both with the attempt given back. The scheduler (F.9) does so when the
+backend is no longer `ok` by the time of the follow-up.
 
 ## Observer queue
 
@@ -564,7 +567,7 @@ A reparse queues the facts it adds the same way after it rebuilds the projection
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
 
-`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context })`
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context, catchUpMs? })`
 starts the next call of a run from its pending facts in the order of their records:
 
 - a queued `context` or `git_snapshot` fact leaves the queue without a status;
@@ -573,6 +576,17 @@ starts the next call of a run from its pending facts in the order of their recor
   an open gap `cross_vendor_excluded` or `not_interpreted`;
 - the candidates are the first facts up to `limits.facts` whose payload size in UTF-8
   bytes stays within `limits.bytes`; the first fact always goes;
+- catch-up (ADR-0007): when the oldest pending fact was observed more than `catchUpMs`
+  before `at`, the candidates are the latest facts that fit these limits instead, and
+  the earlier pending facts become `deferred` with the run gap `summarized_backlog`.
+  The packing then keeps the latest candidates as well, and the earlier candidates
+  it leaves out are deferred into the same summary instead of staying `pending`;
+- every `deferred` fact of the run that no accepted call has summarized yet goes into
+  `batch.backlog`: the time range, the number of facts and, per agent in scope, the
+  facts by tool (the fact kind when the fact has no action). A deferred fact outside
+  the input scope becomes `not_interpreted` like a pending one. The summary rides with
+  a batch; when no pending fact is eligible, the call carries the summary alone with
+  an empty batch, so a run whose whole queue was deferred still reaches the observer;
 - the input carries the run description with the sessions and agents in scope, the
   given run context when its record is in scope (otherwise `null`), the snapshot of
   the current version (active stages, criteria, open attention items), the batch
@@ -581,12 +595,19 @@ starts the next call of a run from its pending facts in the order of their recor
   goal and brief, stages, criteria and attention items enter only when their grounds
   are in scope; a reference to a stage left out becomes `null`. The reasons carry
   over calls that ended without a response, so a backend failure or a restart after
-  a rejection does not drop them. The backlog and artifact versions stay empty;
+  a rejection does not drop them. A summary takes them from the latest call of the
+  run when that call carried a summary and was not accepted, with or without batch
+  facts; the reasons of the batch and of the summary are joined without repeats. The
+  artifact versions stay empty;
 - the input is packed within the limit (see "Observer input" below);
-- the call is recorded by `beginObserverCall`. Without a run entity or an eligible
-  fact, or when the run description, the snapshot and the context leave no room
-  even for one fact without its payload, nothing starts, the facts stay `pending`
-  and the result is `null`.
+- the call is recorded by `beginObserverCall`, and the summarized deferred facts refer
+  to it. Without a run entity or an eligible fact or deferred fact, or when the run
+  description, the snapshot and the context leave no room even for one fact without
+  its payload, nothing starts, the facts stay `pending` and the result is `null`.
+
+`beginObserverCall` refuses a second call of a run while facts of the run are
+`in_call` or summarized by an unfinished call, and refuses a call with neither a fact
+nor a summary.
 
 ### Observer input
 
@@ -622,6 +643,11 @@ stops at the first input that fits:
    The observer can request the raw record by the `seq` of the fact. The other
    candidates stay `pending` for the next batch.
 
+In catch-up the steps keep the suffix of the candidates instead of the prefix, and
+step 5 takes the last candidate. The candidates left out become `deferred` and join
+`batch.backlog`; the summary is measured with each tried input, so the input with
+it stays within the limit.
+
 A string or a model text is cut only when the cut, together with its truncation
 entry or the `…` mark, is shorter in JSON than the whole text. The input size
 therefore never grows when the length goes down, and each length above is found by
@@ -636,22 +662,36 @@ least one. The batch, the snapshot version and the ids stay those of the first c
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a
 schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
-`pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
-store the usage of the call. A response that arrives after a session transfer ended
-its call is not applied: `chargeEndedObserverCall` stores its usage on the ended
-call, leaves its verdict, reasons and facts as they are, and returns `true`; for a
-call that is still running it returns `false`.
+`pending` and gives the attempt back. Both store the backend error class and message
+when the caller passes them. `applyObserverResponse` and `failObserverCall` store the
+usage of the call. An accepted response stores the delay of its batch: from the
+earliest `observed_at` of the batch records to the acceptance, so a `needs` follow-up
+counts the time of the first call. A call with the summary alone has no batch records
+and no delay. A response that arrives after a session transfer ended its call is not
+applied: `chargeEndedObserverCall` stores its usage on the ended call, leaves its
+verdict, reasons and facts as they are, and returns `true`; for a call that is still
+running it returns `false`.
+
+The summarized deferred facts stay with an accepted call. A rejected or failed call
+releases them, and the next batch summarizes them again; a `needs` follow-up takes
+them over with the batch. Attempts of a deferred fact count its summaries: deferral
+resets them, each summary spends one, a failed call gives it back, and a rejection
+keeps it.
 
 When the store opens, facts left `in_call` by a stopped process return to `pending`
 and get the attempt of the interrupted call back: a stop is not a content failure.
 They keep the reference to the interrupted call, which carries the reasons of the
-previous rejection.
+previous rejection. Deferred facts summarized by a call without an accepted response
+are released for the next summary and get the attempt back.
 
 `exhaustObserverCall` turns the facts of a rejected call that reached the attempt
-limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call. The
+released deferred facts of its run that reached the limit become `not_interpreted`
+with them, so a summary rejected `attempts` times stops being sent.
 `boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
-defers any, and returns the active queue.
+defers any, and returns the active queue. Deferred facts reach the observer only in
+the backlog summary of a later call.
 
 ## Forks, bindings and session transfer
 
@@ -717,15 +757,16 @@ binding's transaction:
 - the session's facts become `pending` in the target run and leave the pending
   queue of the source run. Its `context` and `git_snapshot` facts are not queued:
   they are run context and are never interpreted as facts;
-- an observer call of the source run whose batch holds any of these facts or
-  whose input describes the session is ended as `rejected` with a `scope` reason:
-  the rest of its batch returns to `pending` in the source run and gets its
-  attempt back, since a transfer is not a content failure, and a late
-  response to it is not applied, so neither a rejection nor a restart returns the
-  moved facts to the source run, and a session moved back gets its facts
-  `pending` again. A call that already ended as `needs_requested` keeps its
-  verdict: its batch returns to `pending` the same way, and its follow-up is
-  refused;
+- an observer call of the source run whose batch or summary holds any of these
+  facts or whose input describes the session is ended as `rejected` with a `scope`
+  reason, a call with the summary alone included: the rest of its batch returns to
+  `pending` in the source run, the rest of its summary is released for the next
+  summary, and both get their attempt back, since a transfer is not a content
+  failure. A late response to it is not applied, so neither a rejection nor a
+  restart returns the moved facts to the source run, and a session moved back gets
+  its facts `pending` again. A call that already ended as `needs_requested` keeps
+  its verdict: its batch and summary are released the same way, and its follow-up
+  is refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and
