@@ -991,7 +991,12 @@ counts come from the interpretation statuses.
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
   - a model event replaces the changed entities of the run; a removed
-    `session_membership` takes the objects of that session out of the run;
+    `session_membership` takes the objects and plan facts of that session out of the
+    run;
+  - a session that enters the run after the position, by a binding or a link found
+    later, arrives with its objects in their current state, and its plan facts and
+    gaps stored before the position come in the same `facts` event as its session
+    object, so the session moved in carries everything the next snapshot shows of it;
   - `run` is the current summary, view and bindings, which the transport delivers
     after the events; a `run` event carries the same current state;
   - a position ahead of the change feed is an `InvalidPositionError` with reason
