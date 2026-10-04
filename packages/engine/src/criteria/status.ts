@@ -9,7 +9,6 @@ import {
   type Fact,
   type FactId,
   type FactOf,
-  ModelVersion,
   type RunId,
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
@@ -63,13 +62,6 @@ const sameMasks = (left: readonly string[], right: readonly string[]): boolean =
 
 const cites = (criterion: Criterion | null, { result }: CriterionCheck): boolean =>
   criterion !== null && result.evidence.some((fact) => criterion.status.evidence.includes(fact))
-
-const journaledCarried = (transaction: Transaction, { run, contract }: CriterionCheck): Set<ActionId> =>
-  new Set(
-    transaction.model
-      .entityChanges(run, { kind: 'criterion', id: criterionId(run, contract.name) }, ModelVersion.parse(0))
-      .flatMap(({ after }) => (after?.kind === 'criterion' ? after.value.carried_checks : [])),
-  )
 
 const movedChecks = (check: CriterionCheck, stored: Criterion | null, moved: boolean): ActionId[] => [
   ...check.carried,
@@ -231,14 +223,15 @@ export const reconcileCriteria = (
 ): ReadonlyMap<RunId, readonly ResolvedCheck[]> => {
   const updates = new Map<RunId, Update[]>()
   const versioned = new Map<RunId, ResolvedCheck[]>()
+  const known = new Set(resolved.length === 0 ? [] : transaction.model.carriedChecks())
   for (const entry of resolved) {
     const { run } = entry.check
     const stored = storedCriterion(transaction, entry.check)
-    const known = journaledCarried(transaction, entry.check)
-    const added = movedChecks(entry.check, stored, moved).filter((action) => !known.has(action))
-    const carried = [...new Set([...known, ...added])].sort()
+    const marked = movedChecks(entry.check, stored, moved)
+    const carried = entry.check.actions.filter((action) => known.has(action) || marked.includes(action)).sort()
+    const added = marked.some((action) => !(stored?.carried_checks ?? []).includes(action))
     const verdict = verdictOf(transaction, entry, carried)
-    const update = updateOf(entry.check, verdict, stored, carried, added.length > 0)
+    const update = updateOf(entry.check, verdict, stored, carried, added)
     updates.set(run, [...(updates.get(run) ?? []), ...(update === null ? [] : [update])])
     versioned.set(run, [...(versioned.get(run) ?? []), ...(verdict.checkedCommit === null ? [] : [entry])])
   }

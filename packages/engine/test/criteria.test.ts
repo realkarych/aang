@@ -12,6 +12,7 @@ import {
   type GitSnapshot,
   type JsonValue,
   ModelVersion,
+  type RawRecord,
   type RunId,
   type SnapshotTrigger,
 } from '@aang/contract'
@@ -20,7 +21,7 @@ import { createEngine, type Engine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test, vi } from 'vitest'
 import { anotherVersion } from './another-normalizer.js'
-import { hookBatch, hookRecord, type JsonlFile, jsonlFile } from './batches.js'
+import { type HookDelivery, hookBatch, hookRecord, type JsonlFile, jsonlFile } from './batches.js'
 import {
   failedTool,
   passed,
@@ -548,6 +549,28 @@ test('a confirmation cites the transcript result that reported the commit after 
 
 const statusesOf = (store: Store, source: Source) => journalOf(store, source).map(({ op, status }) => [op, status])
 
+const resultOfAnotherVersion = async (
+  engine: Engine,
+  store: Store,
+  repository: Repository,
+  source: Source,
+  result: HookDelivery,
+): Promise<RawRecord> => {
+  const lines = [JSON.stringify({ type: 'future_record', sessionId: source.session, cwd: source.cwd })]
+  const future = jsonlFile({ runtime: 'claude', path: join(repository.path, '..', 'future.jsonl'), lines, ino: 42n })
+  await engine.ingest(future.batch(1, 1))
+  const record = recordsOf(store).at(-1)
+  const parsed = claudeAdapter.parse(hookRecord(result))
+  if (record === undefined || parsed.parse_state !== 'parsed') {
+    throw new Error('the session must have an unrecognised record and a parsed result')
+  }
+  store.transaction((transaction) => {
+    transaction.facts.replace(record.seq, anotherVersion, parsed.facts.filter(({ kind }) => kind === 'action_end'))
+    transaction.rawRecords.setParse(record.seq, 'parsed', record.observed_at)
+  })
+  return record
+}
+
 test.for(['detach', 'revoke'] as const)(
   'a binding brings the confirmed check of a moved session as passed_unversioned, and %s takes it home unversioned',
   async (move, { onTestFinished }) => {
@@ -788,18 +811,7 @@ test('a check carried behind a later check stays passed_unversioned when a repar
   const target = { session: 'hidden-target-session', cwd: second }
   const carried = { session: 'hidden-carried-session', cwd: repository.path }
   await engine.ingest(hookBatch(started(target), started(carried), preTool(carried, 'carried-verify', 10)))
-  const lines = [JSON.stringify({ type: 'future_record', sessionId: carried.session, cwd: carried.cwd })]
-  const future = jsonlFile({ runtime: 'claude', path: join(repository.path, '..', 'future.jsonl'), lines, ino: 42n })
-  await engine.ingest(future.batch(1, 1))
-  const record = recordsOf(store).at(-1)
-  const parsed = claudeAdapter.parse(hookRecord(postTool(carried, 'carried-verify', passed(head), 11)))
-  if (record === undefined || parsed.parse_state !== 'parsed') {
-    throw new Error('the carried session must have an unrecognised record and a parsed result')
-  }
-  store.transaction((transaction) => {
-    transaction.facts.replace(record.seq, anotherVersion, parsed.facts.filter(({ kind }) => kind === 'action_end'))
-    transaction.rawRecords.setParse(record.seq, 'parsed', record.observed_at)
-  })
+  const record = await resultOfAnotherVersion(engine, store, repository, carried, postTool(carried, 'carried-verify', passed(head), 11))
   await writeFiles(repository.path, { 'src/app.ts': 'export const app = 20\n' })
   await engine.ingest(hookBatch(stopped(carried, 1, 12)))
   expect(criterionOf(store, carried)).toMatchObject({ status: { value: 'stale' }, checked_commit: head })
@@ -839,6 +851,53 @@ test('a check carried behind a later check stays passed_unversioned when a repar
   await engine.ingest(hookBatch(preTool(target, 'target-repeat', 50), postTool(target, 'target-repeat', passed(head), 51)))
   expect(criterionOf(store, target)).toMatchObject({
     status: { value: 'confirmed', evidence: callFacts(store, 'target-repeat') },
+    checked_commit: head,
+    carried_checks: [action],
+  })
+})
+
+test('a carried check stays passed_unversioned when its session goes home without a result after a reparse and the result comes back after a restart', async ({
+  onTestFinished,
+}) => {
+  const { home, store, engine, repository, start } = await setup(onTestFinished)
+  const target = { session: 'returned-target-session', cwd: repository.path }
+  const carried = { session: 'returned-carried-session', cwd: repository.path }
+  const session = objectId(sessionKey('claude', carried.session))
+  const head = await git(repository.path, 'rev-parse', 'HEAD')
+  await engine.ingest(hookBatch(started(target), started(carried), preTool(carried, 'carried-verify', 10)))
+  await resultOfAnotherVersion(engine, store, repository, carried, postTool(carried, 'carried-verify', passed(head), 11))
+  await engine.ingest(hookBatch(stopped(carried, 1, 12)))
+  expect(criterionOf(store, carried)).toMatchObject({ status: { value: 'confirmed' }, checked_commit: head })
+
+  await engine.bind({ kind: 'attach', session, run: runOf(target) })
+  const action = objectId({ kind: 'action', runtime: 'claude', session: carried.session, call: 'carried-verify' })
+  expect(criterionOf(store, target)).toMatchObject({
+    status: { value: 'passed_unversioned' },
+    checked_commit: null,
+    carried_checks: [action],
+  })
+  expect(await engine.reparse()).toMatchObject({ facts_missing: 1 })
+  expect(criteriaOf(store, target)).toEqual([])
+  await engine.bind({ kind: 'detach', session })
+  expect(criteriaOf(store, carried)).toEqual([])
+
+  const reopened = await reopen(home, store, engine)
+  const restarted = start(reopened)
+  await restarted.ingest(hookBatch(postTool(carried, 'carried-verify', passed(head), 40)))
+  const unversioned = {
+    status: { value: 'passed_unversioned', evidence: callFacts(reopened, 'carried-verify') },
+    checked_commit: null,
+    clean_tree_commit: null,
+    carried_checks: [action],
+  }
+  expect(criterionOf(reopened, carried)).toMatchObject(unversioned)
+  await restarted.ingest(hookBatch(stopped(carried, 2, 45)))
+  await restarted.refreshCriteria()
+  expect(criterionOf(reopened, carried)).toMatchObject(unversioned)
+
+  await restarted.ingest(hookBatch(preTool(carried, 'carried-repeat', 50), postTool(carried, 'carried-repeat', passed(head), 51)))
+  expect(criterionOf(reopened, carried)).toMatchObject({
+    status: { value: 'confirmed', evidence: callFacts(reopened, 'carried-repeat') },
     checked_commit: head,
     carried_checks: [action],
   })

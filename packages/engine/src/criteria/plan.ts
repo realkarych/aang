@@ -16,6 +16,7 @@ export interface CriterionCheck {
   readonly result: CheckResult
   readonly directory: string | null
   readonly commit: ReportedCommit | null
+  readonly actions: readonly ActionId[]
   readonly carried: readonly ActionId[]
 }
 
@@ -44,6 +45,7 @@ const criterionCheck = (
   { run, root }: RunChecks,
   contract: Contract,
   entry: CheckEntry,
+  actions: readonly ActionId[],
   carried: readonly ActionId[],
 ): CriterionCheck => {
   const ends = entry.facts.filter(isEnd)
@@ -55,6 +57,7 @@ const criterionCheck = (
     result: entry.result,
     directory: checkDirectory(transaction, entry, root),
     commit: entry.result.passed && commitPattern !== null ? reportedCommit(commitPattern, ends) : null,
+    actions,
     carried,
   }
 }
@@ -67,7 +70,8 @@ export const latestChecks = (
   runs.flatMap((checks) =>
     checks.contracts.flatMap(({ contract, checks: entries }) => {
       const latest = entries.at(-1)
+      const actions = entries.map(({ action }) => action.id)
       const carried = entries.flatMap(({ action }) => (moved.has(action.session) ? [action.id] : []))
-      return latest === undefined ? [] : [criterionCheck(transaction, checks, contract, latest, carried)]
+      return latest === undefined ? [] : [criterionCheck(transaction, checks, contract, latest, actions, carried)]
     }),
   )

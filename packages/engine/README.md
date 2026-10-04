@@ -261,7 +261,7 @@ in the run they were taken for, and an evaluation reads only the snapshots of it
 run, so a binding never confirms on snapshots of another run. A passing check that a
 binding moves or brings forward gives `passed_unversioned` without `checked_commit`
 and without the note, with a `session.move` rule change as its reason, and keeps it
-for good. The criterion keeps these checks in `carried_checks`, by the id of the
+for good. A criterion lists its carried checks in `carried_checks`, by the id of the
 check action, and the binding transaction adds them with a `session.move` change of
 the criterion even when another check still covers it:
 
@@ -271,14 +271,18 @@ the criterion even when another check still covers it:
 - a check brought forward is the latest check of a criterion in the binding
   transaction that the criterion did not cite before, such as an earlier check of
   the run the session left that a later check of the moved session covered;
-- a check is carried for good once any state of the criterion in its journal has
-  listed it, including a state before the criterion was removed and created again.
-  The status holds whichever check covers the criterion in between and however the
-  results of the action change later: a transcript read after a check of another
-  session can put the moved check in front again, a detach can uncover it, a reparse
-  can remove its first result while a later result of the same action stays, and
-  turn end snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it
-  the same way. Only a check of another action confirms the criterion again;
+- a check is carried for good once any state of a criterion of any run has listed
+  its action in the journal; every evaluation reads these actions with one query
+  over the journals of all criteria. The status holds in whichever run the action
+  has a result later, whichever check covers the criterion in between and however
+  the results of the action change: a transcript read after a check of another
+  session can put the moved check in front again, a detach can uncover it, a
+  reparse can remove its result, a binding can take its session to another run
+  while it has no result, the criterion can be removed and created again, and turn
+  end snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it the
+  same way, before and after a restart. `carried_checks` of a criterion lists the
+  carried actions among its checks that have a result in the run. Only a check of
+  another action confirms the criterion again;
 - a check that the moved session runs after the binding is not affected, since its
   action has no result at the binding and every snapshot after it belongs to the run
   it joined.
