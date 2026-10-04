@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
+import { hookInstallPaths } from '@aang/hook'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -13,6 +14,7 @@ import {
   type FakeCli,
   installFakeClaude,
   installFakeCodex,
+  invokeHook,
   loadManifest,
   type Player,
   type PlayerOptions,
@@ -21,7 +23,14 @@ import {
 } from '@aang/testkit'
 import { test as base, expect } from '@playwright/test'
 
-export type PlayerSettings = Pick<PlayerOptions, 'timeScale'>
+export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime'>
+
+export type HookFields = Readonly<Record<string, unknown>>
+
+export interface HookSamples {
+  readonly claude: (sample: string, fields: HookFields) => Promise<void>
+  readonly codex: (sample: string, fields: HookFields) => Promise<void>
+}
 
 export interface AangOptions {
   readonly config: ConfigInput
@@ -38,6 +47,7 @@ export interface AangFixtures {
   readonly aang: (...args: readonly string[]) => Promise<string>
   readonly signInLink: () => Promise<string>
   readonly player: (manifest: string, settings?: PlayerSettings) => Promise<Player>
+  readonly hook: HookSamples
 }
 
 const runFile = promisify(execFile)
@@ -49,6 +59,12 @@ export const aangEntry = repository('packages/aang/dist/main.js')
 export const hookBinary = repository(`packages/hook/bin/aang-hook${process.platform === 'win32' ? '.exe' : ''}`)
 
 const webAssets = repository('packages/web/dist/')
+
+const hookSample = async (directory: string, sample: string): Promise<Record<string, unknown>> =>
+  JSON.parse(await readFile(repository(`docs/research/samples/${directory}/${sample}`), 'utf8')) as Record<
+    string,
+    unknown
+  >
 
 const webAsset = (url: string, daemon: string): string | null => {
   const prefix = `${daemon}/`
@@ -62,8 +78,11 @@ const withScannedRoots = (config: ConfigInput): ConfigInput => ({
   collector: { rootsScanIntervalMs, ...config.collector },
 })
 
-const configuredPath = ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): string | null =>
-  args.length === 0 ? command : null
+const installLauncher = async (profile: Profile): Promise<void> => {
+  const { binary } = hookInstallPaths(profile.aangHome)
+  await mkdir(dirname(binary), { recursive: true })
+  await copyFile(hookBinary, binary)
+}
 
 export const test = base.extend<AangOptions & AangFixtures>({
   config: [{}, { option: true }],
@@ -86,9 +105,10 @@ export const test = base.extend<AangOptions & AangFixtures>({
   },
 
   daemon: async ({ profile, config, fakeClaude, fakeCodex }, use) => {
+    await installLauncher(profile)
     await profile.configure({
       ...withScannedRoots(config),
-      cli: { claude: configuredPath(fakeClaude), codex: configuredPath(fakeCodex), ...config.cli },
+      cli: { claude: fakeClaude.path, codex: fakeCodex.path, ...config.cli },
     })
     const daemon = await profile.startDaemon({ entry: aangEntry })
     await use(daemon)
@@ -153,6 +173,26 @@ export const test = base.extend<AangOptions & AangFixtures>({
         hook: { binary: hookBinary, spool: profile.spool, env: profile.env },
       }),
     )
+  },
+
+  hook: async ({ profile }, use) => {
+    const target = { binary: hookBinary, spool: profile.spool, env: profile.env }
+    await use({
+      claude: async (sample, fields) => {
+        const payload = { ...(await hookSample('claude-code-hooks', sample)), ...fields }
+        await invokeHook(target, {
+          runtime: 'claude',
+          registration: 'plugin',
+          env: { CLAUDE_CODE_ENTRYPOINT: 'cli' },
+          payload: JSON.stringify(payload),
+        })
+      },
+      codex: async (sample, fields) => {
+        const { stdin } = await hookSample('codex-cli/hooks', sample)
+        const payload = { ...(stdin as Record<string, unknown>), ...fields }
+        await invokeHook(target, { runtime: 'codex', registration: 'user', payload: JSON.stringify(payload) })
+      },
+    })
   },
 })
 

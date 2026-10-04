@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { ObserverOutput } from '@aang/contract'
 import { events, json, LaunchError, object, requireSuccess, type BackendOptions } from './backend.js'
-import { claudeArguments, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
+import { claudeArguments, initPlugins, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
 import { codexArguments, codexCatalog } from './codex.js'
 import type { ProcessResult } from './process.js'
 import { startResponsesProbe } from './responses-probe.js'
@@ -38,7 +38,7 @@ const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Prom
   return marker
 }
 
-export const admitClaude = async (context: ProbeContext, options: ClaudeBackendOptions): Promise<void> => {
+export const admitClaude = async (context: ProbeContext, options: ClaudeBackendOptions): Promise<string[]> => {
   const { directory, env, run } = context
   const marker = await controlHook(directory, 'claude')
   const toolMarker = join(directory, 'tool-ran')
@@ -63,6 +63,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
     }
   }
   const timer = setInterval(inspect, 10)
+  let plugins: string[] = []
   try {
     for (const positive of [true, false]) {
       registryMarkers.clear()
@@ -70,7 +71,8 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       if (positive) branch[branch.indexOf('--setting-sources') + 1] = 'project'
       const result = await run(branch, prompt, directory)
       inspect()
-      parseClaudeResult(result, options)
+      parseClaudeResult(result, options, { anyBuiltinPlugin: true, hooks: positive })
+      plugins = initPlugins(result.stdout)
       reject(registryMarkers.size !== 1 || !registryMarkers.has('aang-observer'), 'Claude registry marker was not observed or was incorrect')
       reject(existsSync(marker) !== positive, positive ? 'Claude control hook did not execute' : 'Claude hooks executed with settings disabled')
       reject(existsSync(toolMarker), 'Claude executed the synthetic tool instruction')
@@ -78,6 +80,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       await rm(marker, { force: true })
     }
   } finally { clearInterval(timer) }
+  return plugins
 }
 
 const verifyCodexPersistence = (directory: string): void => {

@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process'
-import { rmSync, writeFileSync } from 'node:fs'
+import { readFileSync, rmSync, writeFileSync } from 'node:fs'
 
 const [mode = '', command = '', ...args] = process.argv.slice(2)
 const modelCall = args.includes('-p') || args.includes('exec')
@@ -16,6 +16,10 @@ child.on('close', (code) => {
     if (mode === 'mcp') init.mcp_servers = [{ name: 'user-server' }]
     if (mode === 'skills') init.skills = ['user-skill']
     if (mode === 'plugin') init.plugins = [{ name: 'cc-plugin-agents-md', path: '/user/plugin', source: 'cc-plugin-agents-md@builtin' }]
+    if (mode === 'recorded-init') {
+      const recorded = JSON.parse(readFileSync(new URL('../../../docs/research/samples/observer/claude-init-b-full-isolation.json', import.meta.url), 'utf8')) as Record<string, unknown>
+      Object.assign(init, { ...recorded, cwd: init.cwd, session_id: init.session_id, uuid: init.uuid })
+    }
   }
   if (result !== undefined && mode === 'error') result.is_error = true
   if (result !== undefined && mode === 'schema') result.structured_output = { base_version: 0 }

@@ -1,15 +1,29 @@
 import type {
+  ActionOutcome,
+  AgentRole,
+  AttentionAuthor,
+  AttentionKind,
+  BasisKind,
   Execution,
   Freshness,
   GapKind,
   HookInstallation,
+  HumanDecision,
+  Interpreter,
   NotObservableSurface,
   ObserverState,
+  PlanItemStatus,
+  PlanSource,
+  QuestionKind,
   Runtime,
+  ServiceAgent,
+  SessionLaunch,
+  StageLifecycle,
+  StageOrigin,
   Surface,
-  SupportKey,
   SupportMode,
   SupportStatus,
+  VersionKey,
 } from '@aang/contract'
 import { clockTime, plural } from './format.js'
 
@@ -53,6 +67,7 @@ export const supportModeLabel: Readonly<Record<SupportMode, string>> = {
 export const hookInstallationLabel: Readonly<Record<HookInstallation, string>> = {
   not_installed: 'не установлены',
   untrusted: 'не доверены',
+  disabled: 'выключены',
   active: 'установлены',
   unknown: 'установка не проверена',
 }
@@ -84,7 +99,7 @@ export const supportStatusLabel: Readonly<Record<SupportStatus, string>> = {
   unverified: 'не проверена',
 }
 
-const surfaceLabel: Readonly<Record<Surface, string>> = {
+export const surfaceLabel: Readonly<Record<Surface, string>> = {
   claude_cli: 'Claude Code CLI',
   claude_desktop: 'Claude Desktop',
   claude_sdk: 'Claude Agent SDK',
@@ -94,8 +109,10 @@ const surfaceLabel: Readonly<Record<Surface, string>> = {
   codex_sdk: 'Codex SDK',
 }
 
-export const supportKeyLabel = (key: SupportKey): string =>
-  `${surfaceLabel[key.surface]} ${key.engine_version}, ${key.os}, ${key.placement}`
+export const supportKeyLabel = ({ runtime, surface, engine_version: version, os, placement }: VersionKey): string =>
+  surface === null
+    ? `${runtimeLabel[runtime]} ${version} (поверхность не определена), ${os}, ${placement}`
+    : `${surfaceLabel[surface]} ${version}, ${os}, ${placement}`
 
 const unavailableReason: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
   auth: 'нет авторизации CLI',
@@ -135,6 +152,102 @@ export const observerStateLabel = (state: ObserverState): string => {
   }
 }
 
+export const basisLabel: Readonly<Record<BasisKind, string>> = {
+  observed: 'наблюдаемое событие',
+  claimed: 'заявление решателя',
+  interpreted: 'интерпретация aang',
+}
+
+export const interpreterLabel = (interpreter: Interpreter): string =>
+  interpreter.kind === 'rule' ? `правило ${interpreter.rule}` : `наблюдатель, вызов ${interpreter.call}`
+
+export const attentionKindLabel: Readonly<Record<AttentionKind, string>> = {
+  question: 'Вопрос',
+  permission: 'Запрос одобрения',
+  review_request: 'Запрос ревью',
+  blocker: 'Препятствие',
+  failed_check: 'Упавшая проверка',
+}
+
+export const attentionAuthorLabel: Readonly<Record<AttentionAuthor, string>> = {
+  rule: 'по правилу aang',
+  observer: 'от наблюдателя',
+}
+
+export const questionKindLabel: Readonly<Record<QuestionKind, string>> = {
+  permission: 'Запрос одобрения',
+  ask_user_question: 'Вопрос',
+  exit_plan_mode: 'План на одобрение',
+  elicitation: 'Запрос данных',
+  notification: 'Запрос из уведомления',
+  agent_message: 'Вопрос агента',
+}
+
+export const decisionLabel: Readonly<Record<HumanDecision, string>> = {
+  none: 'решения нет',
+  requested: 'ждёт решения',
+  approved: 'одобрено',
+  rejected: 'отклонено',
+  answered: 'отвечен',
+  unknown: 'решение не видно',
+}
+
+export const outcomeLabel: Readonly<Record<ActionOutcome, string>> = {
+  ok: 'успешно',
+  error: 'ошибка',
+  denied: 'отказ',
+  interrupted: 'прервано',
+  unknown: 'исход неизвестен',
+}
+
+export const planSourceLabel: Readonly<Record<PlanSource, string>> = {
+  task_tool: 'Задачи решателя',
+  task_hook: 'Задачи из hooks',
+  exit_plan_mode: 'План на одобрение',
+  thread_goal: 'Цель треда',
+  rollout_plan: 'План Codex',
+}
+
+export const planItemLabel: Readonly<Record<PlanItemStatus, string>> = {
+  pending: 'ожидает',
+  in_progress: 'в работе',
+  completed: 'выполнен',
+  cancelled: 'отменён',
+  unknown: 'статус неизвестен',
+}
+
+export const launchLabel: Readonly<Record<SessionLaunch, string>> = {
+  startup: 'запуск',
+  resume: 'продолжение',
+  clear: 'после /clear',
+  fork: 'ответвление',
+  unknown: 'запуск без источника',
+}
+
+export const agentRoleLabel: Readonly<Record<AgentRole, string>> = {
+  main: 'основной',
+  subagent: 'субагент',
+  teammate: 'teammate',
+  service: 'служебный',
+}
+
+export const serviceAgentLabel: Readonly<Record<ServiceAgent, string>> = {
+  guardian: 'guardian',
+  compaction: 'сжатие контекста',
+  desktop_summary: 'сводки Desktop',
+}
+
+export const stageOriginLabel: Readonly<Record<StageOrigin, string>> = {
+  plan: 'из плана',
+  inferred: 'восстановлен aang',
+}
+
+export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state'], 'active'>, string>> = {
+  replaced: 'заменён',
+  merged: 'объединён с другими',
+  split: 'разделён',
+}
+
 export const sessionForms = { one: 'сессия', few: 'сессии', many: 'сессий' } as const
 export const sessionInForms = { one: 'сессии', few: 'сессиях', many: 'сессиях' } as const
 export const agentForms = { one: 'агент', few: 'агента', many: 'агентов' } as const
@@ -144,5 +257,9 @@ export const factForms = { one: 'факт', few: 'факта', many: 'факто
 export const fileForms = { one: 'файл', few: 'файла', many: 'файлов' } as const
 export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
 export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const
+export const stepForms = { one: 'ранний шаг', few: 'ранних шага', many: 'ранних шагов' } as const
+export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
+export const substageForms = { one: 'подэтап', few: 'подэтапа', many: 'подэтапов' } as const
+export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)

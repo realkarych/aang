@@ -1,4 +1,12 @@
-import type { Execution, Freshness } from '@aang/contract'
+import type {
+  ActionOutcome,
+  AttentionKind,
+  BasisKind,
+  Execution,
+  Freshness,
+  HumanDecision,
+  PlanItemStatus,
+} from '@aang/contract'
 import type { ReactElement } from 'react'
 import type { Level } from './lamps.js'
 
@@ -101,3 +109,126 @@ export const FreshnessGlyph = ({ freshness }: { readonly freshness: Freshness })
       return <Glyph><Triangle /></Glyph>
   }
 }
+
+const Lock = (): ReactElement => (
+  <>
+    <path d="M3.8 5.2V3.9a2.2 2.2 0 0 1 4.4 0v1.3" fill="none" stroke="currentColor" strokeWidth="1.4" />
+    <rect x="2.2" y="5.2" width="7.6" height="5.6" rx="1" fill="currentColor" />
+  </>
+)
+
+const Eye = (): ReactElement => (
+  <>
+    <path d="M1 6c1.4-2.4 3.1-3.6 5-3.6S9.6 3.6 11 6c-1.4 2.4-3.1 3.6-5 3.6S2.4 8.4 1 6Z" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <circle cx="6" cy="6" r="1.5" fill="currentColor" />
+  </>
+)
+
+export const AttentionGlyph = ({ kind }: { readonly kind: AttentionKind }): ReactElement => {
+  switch (kind) {
+    case 'permission':
+      return <Glyph><Lock /></Glyph>
+    case 'question':
+      return <Glyph><Unknown /></Glyph>
+    case 'review_request':
+      return <Glyph><Eye /></Glyph>
+    case 'blocker':
+      return <Glyph><Octagon /></Glyph>
+    case 'failed_check':
+      return <Glyph><Cross /></Glyph>
+  }
+}
+
+export const OutcomeGlyph = ({ outcome }: { readonly outcome: ActionOutcome }): ReactElement => {
+  switch (outcome) {
+    case 'ok':
+      return <Glyph><Check /></Glyph>
+    case 'error':
+      return <Glyph><Cross /></Glyph>
+    case 'denied':
+      return <Glyph><Octagon /></Glyph>
+    case 'interrupted':
+      return <Glyph><Slash /></Glyph>
+    case 'unknown':
+      return <Glyph><Unknown /></Glyph>
+  }
+}
+
+export const DecisionGlyph = ({ decision }: { readonly decision: HumanDecision }): ReactElement => {
+  switch (decision) {
+    case 'requested':
+      return <Glyph><Pause /></Glyph>
+    case 'approved':
+    case 'answered':
+      return <Glyph><Check /></Glyph>
+    case 'rejected':
+      return <Glyph><Cross /></Glyph>
+    case 'none':
+      return <Glyph><Ring /></Glyph>
+    case 'unknown':
+      return <Glyph><Unknown /></Glyph>
+  }
+}
+
+export const PlanItemGlyph = ({ status }: { readonly status: PlanItemStatus }): ReactElement => {
+  switch (status) {
+    case 'pending':
+      return <Glyph><Dashed /></Glyph>
+    case 'in_progress':
+      return <Glyph><Dot /></Glyph>
+    case 'completed':
+      return <Glyph><Check /></Glyph>
+    case 'cancelled':
+      return <Glyph><Slash /></Glyph>
+    case 'unknown':
+      return <Glyph><Unknown /></Glyph>
+  }
+}
+
+const Said = (): ReactElement => (
+  <path d="M1.8 2.2h8.4v5.6H5.4L2.8 10V7.8h-1Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+)
+
+const Derived = (): ReactElement => (
+  <>
+    <path d="M6 1.4 10.6 6 6 10.6 1.4 6Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <circle cx="6" cy="6" r="1.3" fill="currentColor" />
+  </>
+)
+
+export const BasisGlyph = ({ basis }: { readonly basis: BasisKind }): ReactElement => {
+  switch (basis) {
+    case 'observed':
+      return <Glyph><Eye /></Glyph>
+    case 'claimed':
+      return <Glyph><Said /></Glyph>
+    case 'interpreted':
+      return <Glyph><Derived /></Glyph>
+  }
+}
+
+export const DisclosureGlyph = ({ open }: { readonly open: boolean }): ReactElement => (
+  <Glyph>
+    <path
+      d={open ? 'M2.5 4.2 6 7.8l3.5-3.6' : 'M4.2 2.5 7.8 6l-3.6 3.5'}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)
+
+export const HandoverGlyph = (): ReactElement => (
+  <Glyph>
+    <path
+      d="M1.5 3.5h6.5M6 1.5l2 2-2 2M10.5 8.5H4M6 6.5l-2 2 2 2"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)
