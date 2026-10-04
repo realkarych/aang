@@ -551,7 +551,10 @@ the batch over to the follow-up without spending an attempt. The follow-up respo
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
-between calls of a run.
+between calls of a run. `skipObserverFollowUp` gives the follow-up up the same way
+at run time: the batch returns to `pending` and the summarized deferred facts are
+released, both with the attempt given back. The scheduler (F.9) does so when the
+backend is no longer `ok` by the time of the follow-up.
 
 ## Observer queue
 
@@ -564,7 +567,7 @@ A reparse queues the facts it adds the same way after it rebuilds the projection
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
 
-`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context })`
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context, catchUpMs? })`
 starts the next call of a run from its pending facts in the order of their records:
 
 - a queued `context` or `git_snapshot` fact leaves the queue without a status;
@@ -573,6 +576,17 @@ starts the next call of a run from its pending facts in the order of their recor
   an open gap `cross_vendor_excluded` or `not_interpreted`;
 - the candidates are the first facts up to `limits.facts` whose payload size in UTF-8
   bytes stays within `limits.bytes`; the first fact always goes;
+- catch-up (ADR-0007): when the oldest pending fact was observed more than `catchUpMs`
+  before `at`, the candidates are the latest facts that fit these limits instead, and
+  the earlier pending facts become `deferred` with the run gap `summarized_backlog`.
+  The packing then keeps the latest candidates as well, and the earlier candidates
+  it leaves out are deferred into the same summary instead of staying `pending`;
+- every `deferred` fact of the run that no accepted call has summarized yet goes into
+  `batch.backlog`: the time range, the number of facts and, per agent in scope, the
+  facts by tool (the fact kind when the fact has no action). A deferred fact outside
+  the input scope becomes `not_interpreted` like a pending one. The summary rides with
+  a batch; when no pending fact is eligible, the call carries the summary alone with
+  an empty batch, so a run whose whole queue was deferred still reaches the observer;
 - the input carries the run description with the sessions and agents in scope, the
   given run context when its record is in scope (otherwise `null`), the snapshot of
   the current version (active stages, criteria, open attention items), the batch
@@ -581,12 +595,19 @@ starts the next call of a run from its pending facts in the order of their recor
   goal and brief, stages, criteria and attention items enter only when their grounds
   are in scope; a reference to a stage left out becomes `null`. The reasons carry
   over calls that ended without a response, so a backend failure or a restart after
-  a rejection does not drop them. The backlog and artifact versions stay empty;
+  a rejection does not drop them. A summary takes them from the latest call of the
+  run when that call carried a summary and was not accepted, with or without batch
+  facts; the reasons of the batch and of the summary are joined without repeats. The
+  artifact versions stay empty;
 - the input is packed within the limit (see "Observer input" below);
-- the call is recorded by `beginObserverCall`. Without a run entity or an eligible
-  fact, or when the run description, the snapshot and the context leave no room
-  even for one fact without its payload, nothing starts, the facts stay `pending`
-  and the result is `null`.
+- the call is recorded by `beginObserverCall`, and the summarized deferred facts refer
+  to it. Without a run entity or an eligible fact or deferred fact, or when the run
+  description, the snapshot and the context leave no room even for one fact without
+  its payload, nothing starts, the facts stay `pending` and the result is `null`.
+
+`beginObserverCall` refuses a second call of a run while facts of the run are
+`in_call` or summarized by an unfinished call, and refuses a call with neither a fact
+nor a summary.
 
 ### Observer input
 
@@ -622,6 +643,11 @@ stops at the first input that fits:
    The observer can request the raw record by the `seq` of the fact. The other
    candidates stay `pending` for the next batch.
 
+In catch-up the steps keep the suffix of the candidates instead of the prefix, and
+step 5 takes the last candidate. The candidates left out become `deferred` and join
+`batch.backlog`; the summary is measured with each tried input, so the input with
+it stays within the limit.
+
 A string or a model text is cut only when the cut, together with its truncation
 entry or the `…` mark, is shorter in JSON than the whole text. The input size
 therefore never grows when the length goes down, and each length above is found by
@@ -636,22 +662,36 @@ least one. The batch, the snapshot version and the ids stay those of the first c
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a
 schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
-`pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
-store the usage of the call. A response that arrives after a session transfer ended
-its call is not applied: `chargeEndedObserverCall` stores its usage on the ended
-call, leaves its verdict, reasons and facts as they are, and returns `true`; for a
-call that is still running it returns `false`.
+`pending` and gives the attempt back. Both store the backend error class and message
+when the caller passes them. `applyObserverResponse` and `failObserverCall` store the
+usage of the call. An accepted response stores the delay of its batch: from the
+earliest `observed_at` of the batch records to the acceptance, so a `needs` follow-up
+counts the time of the first call. A call with the summary alone has no batch records
+and no delay. A response that arrives after a session transfer ended its call is not
+applied: `chargeEndedObserverCall` stores its usage on the ended call, leaves its
+verdict, reasons and facts as they are, and returns `true`; for a call that is still
+running it returns `false`.
+
+The summarized deferred facts stay with an accepted call. A rejected or failed call
+releases them, and the next batch summarizes them again; a `needs` follow-up takes
+them over with the batch. Attempts of a deferred fact count its summaries: deferral
+resets them, each summary spends one, a failed call gives it back, and a rejection
+keeps it.
 
 When the store opens, facts left `in_call` by a stopped process return to `pending`
 and get the attempt of the interrupted call back: a stop is not a content failure.
 They keep the reference to the interrupted call, which carries the reasons of the
-previous rejection.
+previous rejection. Deferred facts summarized by a call without an accepted response
+are released for the next summary and get the attempt back.
 
 `exhaustObserverCall` turns the facts of a rejected call that reached the attempt
-limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call. The
+released deferred facts of its run that reached the limit become `not_interpreted`
+with them, so a summary rejected `attempts` times stops being sent.
 `boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
-defers any, and returns the active queue.
+defers any, and returns the active queue. Deferred facts reach the observer only in
+the backlog summary of a later call.
 
 ## Forks, bindings and session transfer
 
@@ -717,15 +757,16 @@ binding's transaction:
 - the session's facts become `pending` in the target run and leave the pending
   queue of the source run. Its `context` and `git_snapshot` facts are not queued:
   they are run context and are never interpreted as facts;
-- an observer call of the source run whose batch holds any of these facts or
-  whose input describes the session is ended as `rejected` with a `scope` reason:
-  the rest of its batch returns to `pending` in the source run and gets its
-  attempt back, since a transfer is not a content failure, and a late
-  response to it is not applied, so neither a rejection nor a restart returns the
-  moved facts to the source run, and a session moved back gets its facts
-  `pending` again. A call that already ended as `needs_requested` keeps its
-  verdict: its batch returns to `pending` the same way, and its follow-up is
-  refused;
+- an observer call of the source run whose batch or summary holds any of these
+  facts or whose input describes the session is ended as `rejected` with a `scope`
+  reason, a call with the summary alone included: the rest of its batch returns to
+  `pending` in the source run, the rest of its summary is released for the next
+  summary, and both get their attempt back, since a transfer is not a content
+  failure. A late response to it is not applied, so neither a rejection nor a
+  restart returns the moved facts to the source run, and a session moved back gets
+  its facts `pending` again. A call that already ended as `needs_requested` keeps
+  its verdict: its batch and summary are released the same way, and its follow-up
+  is refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and
@@ -936,20 +977,23 @@ counts come from the interpretation statuses.
 
 - `runs()` lists run summaries, the latest activity first.
 - `snapshot(run)` returns the run, its summary, the semantic model, the observation
-  objects and gaps of its sessions, its plan facts, attention items and bindings.
+  objects and gaps of its sessions, its plan facts, attention items with their views,
+  the view mark and the attention zone, and bindings.
 - `feed(run, after)` returns the changes of that snapshot after a position as the
   contract deltas. Applying them to the snapshot taken at `after` gives the snapshot
   taken at `position`:
   - consecutive changes of facts, observation objects, gaps and retractions form one
-    `facts` event, and every model version forms one `model` event. An event id is
-    the last `change_seq` it contains, so ids grow and never repeat;
+    `facts` event, consecutive views and dismissals of attention items one
+    `attention` event with their views, every model version forms one `model`
+    event, and a new view mark forms one `run` event at the `change_seq` of the mark.
+    An event id is the last `change_seq` it contains, so ids grow and never repeat;
   - objects and gaps arrive in their current state, `removed` names retracted agents
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
   - a model event replaces the changed entities of the run; a removed
     `session_membership` takes the objects of that session out of the run;
   - `run` is the current summary, view and bindings, which the transport delivers
-    after the events;
+    after the events; a `run` event carries the same current state;
   - a position ahead of the change feed is an `InvalidPositionError` with reason
     `stale_position`; a position before the reparse boundary is one with reason
     `reparsed`.
@@ -964,13 +1008,13 @@ The run summary:
   failed, cancelled, unknown, planned and done. A run without sessions is unknown;
 - `freshness` takes the sessions in the order of a single session: lost, hooks
   inactive, quiet, ok;
-- open attention items are those with resolution `open`; an item waits for a human
-  while its runtime wait is active;
+- open attention items are the items of the attention zone: resolution `open` and
+  not dismissed; an item waits for a human while its runtime wait is active;
 - `pending_facts` counts pending facts and facts in a call, `oldest_pending_at` is
   the time of the oldest of them, `last_success_at` the end of the last accepted
   call;
 - `change_seq` is the last change of these inputs: the model version, the sessions,
-  the agents and the observer calls.
+  the agents, the observer calls and the attention views.
 
 The stage inspector shows the assigned actions that still belong to the run, the
 participating agents together with the agents of those actions, the items of the
@@ -985,9 +1029,9 @@ while naming the stage.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
-entries in between, cards added after the version, plan facts and new actions after
-the position, and attention items opened after the version and still open or closed
-after it. An action is new when every fact of it came after the position; inherited
+entries in between, cards added after the version, plan facts, new actions and the
+artifact versions created after the position in their current state, and attention
+items opened after the version and still open or closed after it. An action is new when every fact of it came after the position; inherited
 actions are not new. A change of a link changes every stage the link names before or
 after it, so a dependency changes both of its stages. A stage changed only through its
 links has the same state before and after, and its journal entries are those link
@@ -1003,10 +1047,10 @@ recorded as `failed`. The result
 version of an accepted call is the last version of its transaction, including the
 rule changes that follow its operations, as returned by `applyObserverResponse`.
 
-Some parts of the contract have no source yet and stay empty: view rules, the view
-mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
-and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
-error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+Some parts of the contract have no source yet and stay empty: the artifact versions
+and git snapshots of the snapshot and the feed, stage inputs and outputs and
+criterion snapshots (E.7b, E.7c); the CLI version, model, usage and error of
+observer calls (F.8, F.9). The usage records of a run come with its objects,
 and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
@@ -1173,3 +1217,124 @@ calls, view state, chat and bindings, and saves a boundary per stream in
   with that gap open gets the empty prefix as its new boundary, the gap goes with
   the other layers of the run, and the collector rereads the stopped files from
   the start.
+
+## View rules
+
+View rules change what the map shows and nothing else: the model, the journal, the
+usage and the attention zone stay as they are (ADR-0008). A rule belongs to one run.
+
+- `addViewRule(transaction, { run, rule, source, at })` checks a `ViewRuleSpec`
+  from the chat or the UI, stores it and returns it with the elements its selector
+  selects now, which is the count shown to the user. Text in a selector and the
+  group name are trimmed. A rule the run cannot hold is a `ViewRuleError` that
+  explains it and stores nothing: `invalid_rule` when it does not match the schema,
+  `invalid_selector` for an empty text, an empty stage list or a stage the run does
+  not have, `invalid_params` for an empty group name. An unknown run gives `null`.
+  The caller's transaction lets a chat answer and its rule commit together.
+- `revokeViewRule(transaction, { run, id, at })` records the revocation once, with
+  a new `change_seq`, and returns the rule; a revocation is never before the
+  creation of its rule. A revoked rule stays in the store. An unknown rule or a rule
+  of another run gives `null`.
+
+Rules apply when a view is read, never when it is written, so a rule selects
+elements that appear after it and a revocation restores the view. The snapshot and
+every `run` delta of the feed carry `view.rules`, the active rules in creation
+order with the elements they select, and `view.placements`. Rules survive a
+restart with the store.
+
+Selectors are deterministic. Agent type, name and role and a tool name match a
+whole value without regard to case or surrounding spaces; the role is the runtime
+role (`agent_role`) or the role in aang (`main`, `subagent`, `teammate`,
+`service`). Service agents are the agents with the service role. A stage title
+matches a fragment, and stage ids and action kinds match exactly. Stage selectors
+see every stage of the run, replaced ones included.
+
+The tree of an element is what a rule on it covers:
+
+- a stage covers its substages, the actions assigned to any of them that still
+  belong to the run, the participating agents and the agents of those actions;
+- an agent covers the agents spawned under it and the actions of all of them;
+- an action covers the actions of its code cell.
+
+A placement is the effect of the rules on one selected element. On each aspect of
+it the latest rule wins:
+
+- visibility: `collapse` shows the element as one node with the totals of its tree,
+  `hide` leaves it out together with its tree;
+- `group` names the node the element is shown under;
+- `detail` sets the level of its tree: only stages, stages and agents, or every
+  action. The element itself stays shown.
+
+The default rule collapses service agents (ADR-0006); its placements name the rule
+`null`. It comes before every stored rule, so a later rule overrides it until that
+rule is revoked.
+
+The totals of a collapsed element count the agents and actions of its tree, the
+running actions and the finished ones by outcome, the versions its actions produced
+and, for a stage, the outputs linked to its tree. Usage is that of the solver
+journal: the records of the agents of the tree, or for a stage the records that
+belong to its tree, as `solverUsage` attributes them. An action has no usage of its
+own. A hidden or collapsed element keeps its share in every total outside the view:
+the run, its sessions, stages and agents and the inspector count it as before.
+
+No rule removes an open attention item from the zone. A placement lists, in
+`attention`, the open items its element takes off the map: those of its whole tree
+when it is hidden or collapsed, and those of the agents and actions below the level
+of a detail rule. An item belongs to the action it names or its question names, to
+the agent of the question or of that action, and to its stage. The UI marks these
+items as coming from a hidden element.
+
+## Since the last view and the attention zone
+
+`createViewState({ store, now })` records the explicit view actions of the user
+(ADR-0008). They are view state: they change neither the model nor the journal and
+send nothing to the solver, and "viewed" never means "approved".
+
+- `markViewed(run, { version, change_seq })` sets the one view mark of the run
+  (ADR-0005). The pair must describe one state: `version` is the model version of the
+  run at `change_seq`, the last version committed at or before that position, and
+  the position is not ahead of the change feed. The client sends the position of the
+  snapshot it shows together with the events it applied; any other pair is an
+  `InvalidPositionError`, and the previous mark stays. A later mark replaces the
+  mark, even with an earlier position. Only this call sets the mark: ingestion, the
+  observer and reads never move it. A new mark is a visible change with its own
+  `change_seq`, after the position it marks; the marked pair stays as sent. The
+  snapshot and the `run` delta carry the mark, and the feed delivers it as a `run`
+  event at its `change_seq`. Repeating the same mark at the same time changes
+  nothing.
+- `viewItem(run, item)` and `dismissItem(run, item)` record that the user viewed or
+  dismissed an attention item of the run, with a new `change_seq`. The first time
+  of each is kept, so repeating either changes nothing. A dismissed item leaves the
+  attention zone and stays among the items of the snapshot with its view, which is
+  its history entry "dismissed by the user"; its resolution, runtime wait and the
+  stage state stay as they are. Viewing does not dismiss. An unknown run or an item
+  of another run gives `null`.
+
+The changes since the mark are `changes(run, mark)`: the model journal after the
+mark version and the observation layer after the mark position. Rule items, such as
+a question asked or a check failed while the observer was unavailable, are journal
+entries of the author `rule`, so they are in the changes without the observer. Later
+observer changes of such an item, a priority or a likely resolution, do not open it
+again, so after a new mark it is not announced a second time. An artifact version
+written while the observer was unavailable is in the changes as well: a version is
+new when it was created after the mark position. The store keeps the position at
+which a version was first stored, so storing it again when its base is retained,
+when an earlier producer is found or after a restart does not announce it again.
+
+The attention zone (`view.zone`) lists the open items that are not dismissed, in the
+order of ADR-0008. Each place explains itself:
+
+1. items not viewed come before viewed ones: viewing lowers an item, which stays in
+   the zone until it is closed or dismissed;
+2. `waiting_for_human`: the solver waits for the human on a known request, the
+   runtime wait of the item is active;
+3. `dependent_stages`: the active stages that depend on the item, more first. They
+   are the stage of the item, or for an action-level item the stages its action is
+   assigned to while the action belongs to the run, together with every stage that
+   depends on them through dependency links, directly or through other stages.
+   Dependency links pass through replaced, merged and split stages, but such stages
+   do not count;
+4. age: the older `opened_at` first; then the item id.
+
+The priority of the observer (`attention.priority`) is a recommendation shown with
+the item and never changes the order.

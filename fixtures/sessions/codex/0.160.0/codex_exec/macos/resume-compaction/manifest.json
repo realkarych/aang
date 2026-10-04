@@ -1,0 +1,131 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": null,
+  "surface": "codex_exec",
+  "os": "macos",
+  "scenario": "resume-compaction",
+  "model": "live",
+  "recorded_at": "2026-10-04T01:08:27.944Z",
+  "expected_facts": [
+    "A real-model codex exec turn in the regular CODEX_HOME without hooks runs `echo hi` and replies OK",
+    "codex exec resume <id> with model_auto_compact_token_limit 10000 (scope total) runs a remote compaction before the resumed turn: compacted with an empty message and an encrypted compaction item, then item_completed ContextCompaction",
+    "The resumed turn and the compaction are appended to the same rollout; the thread id is unchanged",
+    "token_usage_record and thread_token_usage include the compaction call; turn.completed usage and token_count totals do not"
+  ],
+  "control_events": [
+    {
+      "label": "first-turn",
+      "step": 7,
+      "observed_at": "2026-10-04T01:08:35.450Z",
+      "expected_map_change": {
+        "description": "The first turn of a real session completes and its usage is counted"
+      }
+    },
+    {
+      "label": "compacted",
+      "step": 9,
+      "observed_at": "2026-10-04T01:08:43.239Z",
+      "expected_map_change": {
+        "description": "The session is compacted in place; usage includes the compaction call once"
+      }
+    },
+    {
+      "label": "resumed",
+      "step": 13,
+      "observed_at": "2026-10-04T01:08:45.886Z",
+      "expected_map_change": {
+        "description": "The resumed turn after the compaction completes in the same session"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.jsonl",
+      "observed_at": "2026-10-04T01:08:28.710Z",
+      "mtime_ns": "1791076108701182592"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-04T01:08:30.324Z",
+      "mtime_ns": "1791076110319612261"
+    },
+    {
+      "source": "data/000003.jsonl",
+      "observed_at": "2026-10-04T01:08:30.347Z",
+      "mtime_ns": "1791076110334067911"
+    },
+    {
+      "source": "data/000004.jsonl",
+      "observed_at": "2026-10-04T01:08:33.123Z",
+      "mtime_ns": "1791076113099213460"
+    },
+    {
+      "source": "data/000005.jsonl",
+      "observed_at": "2026-10-04T01:08:33.479Z",
+      "mtime_ns": "1791076113462843289"
+    },
+    {
+      "source": "data/000006.jsonl",
+      "observed_at": "2026-10-04T01:08:33.608Z",
+      "mtime_ns": "1791076113593964513"
+    },
+    {
+      "source": "data/000007.jsonl",
+      "observed_at": "2026-10-04T01:08:35.426Z",
+      "mtime_ns": "1791076115423401562"
+    },
+    {
+      "source": "data/000008.jsonl",
+      "observed_at": "2026-10-04T01:08:35.450Z",
+      "mtime_ns": "1791076115428479764"
+    },
+    {
+      "source": "output/000009.txt",
+      "observed_at": "2026-10-04T01:08:36.739Z",
+      "mtime_ns": "1791076116739000000"
+    },
+    {
+      "source": "output/000010.txt",
+      "observed_at": "2026-10-04T01:08:36.739Z",
+      "mtime_ns": "1791076116739000000"
+    },
+    {
+      "source": "data/000011.jsonl",
+      "observed_at": "2026-10-04T01:08:36.805Z",
+      "mtime_ns": "1791076116804111756"
+    },
+    {
+      "source": "data/000012.jsonl",
+      "observed_at": "2026-10-04T01:08:43.239Z",
+      "mtime_ns": "1791076123238243642"
+    },
+    {
+      "source": "data/000013.jsonl",
+      "observed_at": "2026-10-04T01:08:43.262Z",
+      "mtime_ns": "1791076123243133553"
+    },
+    {
+      "source": "data/000014.jsonl",
+      "observed_at": "2026-10-04T01:08:43.727Z",
+      "mtime_ns": "1791076123720995709"
+    },
+    {
+      "source": "data/000015.jsonl",
+      "observed_at": "2026-10-04T01:08:45.861Z",
+      "mtime_ns": "1791076125850245994"
+    },
+    {
+      "source": "data/000016.jsonl",
+      "observed_at": "2026-10-04T01:08:45.886Z",
+      "mtime_ns": "1791076125867874807"
+    },
+    {
+      "source": "output/000017.txt",
+      "observed_at": "2026-10-04T01:08:46.867Z",
+      "mtime_ns": "1791076126867000000"
+    }
+  ],
+  "playback": "playback.json"
+}

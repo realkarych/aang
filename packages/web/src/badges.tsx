@@ -1,7 +1,16 @@
-import type { Execution, Freshness, RunSummary } from '@aang/contract'
+import type {
+  Action,
+  ActionOutcome,
+  Assessed,
+  Basis,
+  Execution,
+  Freshness,
+  HumanDecision,
+  RunSummary,
+} from '@aang/contract'
 import type { ReactElement } from 'react'
-import { ExecutionGlyph, FreshnessGlyph, LevelGlyph } from './glyphs.js'
-import { executionLabel, freshnessLabel } from './labels.js'
+import { DecisionGlyph, ExecutionGlyph, FreshnessGlyph, LevelGlyph, OutcomeGlyph } from './glyphs.js'
+import { basisLabel, decisionLabel, executionLabel, freshnessLabel, outcomeLabel } from './labels.js'
 
 type Tone = 'go' | 'ask' | 'hold' | 'done' | 'fail' | 'idle'
 
@@ -62,3 +71,45 @@ export const AttentionBadge = ({ attention }: { readonly attention: RunSummary['
   }
   return <span className="quiet">нет</span>
 }
+
+const BasisNote = ({ basis }: { readonly basis: Basis }): ReactElement | null =>
+  basis.kind === 'observed' ? null : <span className="badge-basis">{basisLabel[basis.kind]}</span>
+
+const outcomeTone: Readonly<Record<ActionOutcome, Tone>> = {
+  ok: 'done',
+  error: 'fail',
+  denied: 'fail',
+  interrupted: 'idle',
+  unknown: 'idle',
+}
+
+export const ActionBadge = ({ action }: { readonly action: Pick<Action, 'execution' | 'outcome'> }): ReactElement => {
+  const { outcome } = action
+  if (outcome === null) {
+    return <ExecutionBadge execution={action.execution} />
+  }
+  return (
+    <span className="badge" data-tone={outcomeTone[outcome.value]}>
+      <OutcomeGlyph outcome={outcome.value} />
+      <span className={outcome.value === 'ok' ? 'visually-hidden' : undefined}>{outcomeLabel[outcome.value]}</span>
+      <BasisNote basis={outcome.basis} />
+    </span>
+  )
+}
+
+const decisionTone: Readonly<Record<HumanDecision, Tone>> = {
+  none: 'idle',
+  requested: 'ask',
+  approved: 'done',
+  rejected: 'fail',
+  answered: 'done',
+  unknown: 'idle',
+}
+
+export const DecisionBadge = ({ decision }: { readonly decision: Assessed<HumanDecision> }): ReactElement => (
+  <span className="badge" data-tone={decisionTone[decision.value]}>
+    <DecisionGlyph decision={decision.value} />
+    {decisionLabel[decision.value]}
+    <BasisNote basis={decision.basis} />
+  </span>
+)
