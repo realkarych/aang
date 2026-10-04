@@ -147,7 +147,8 @@ test('a view mark, the continued run and the since-last-view mode with a new res
   await expect(answered).toContainText('закрыт')
   await expect(answered).toContainText('получен ответ')
 
-  const report = change(page, 'Результаты', reportPath)
+  const report = change(page, 'Результаты', 'report.md')
+  await expect(report.locator('code')).toHaveText(/[\\/]cc-transcripts[\\/]run[\\/]report\.md$/)
   await expect(report).toContainText('новая версия')
   await expect(report).toContainText('записал Write')
   await expect(report).toContainText('Сессия 86f93ed5, основной агент')
@@ -216,7 +217,7 @@ test.describe('with the LLM unavailable', () => {
     await expect(lamp(page, 'Модель')).toHaveText('Модель не строилась')
     await expect(sinceTab(page)).toHaveAccessibleName(/^С последнего просмотра, \d+ изменени/)
     await sinceTab(page).click()
-    await expect(change(page, 'Результаты', notesPath)).toContainText('новая версия')
+    await expect(change(page, 'Результаты', 'notes.md')).toContainText('новая версия')
     await expect(change(page, 'Вопросы и запросы', 'Публиковать заметки?')).toContainText('открыт')
 
     await markButton(page).click()
@@ -419,7 +420,7 @@ test.describe('with the observer', () => {
       await expect(lamp(page, 'Наблюдатель')).toContainText('исчерпан лимит', observed)
 
       await sinceTab(page).click()
-      await expect(change(page, 'Результаты', notesPath)).toContainText('новая версия')
+      await expect(change(page, 'Результаты', 'notes.md')).toContainText('новая версия')
       await expect(change(page, 'Вопросы и запросы', 'Публиковать заметки?')).toContainText('по правилу aang')
       await markButton(page).click()
       await expect(since(page)).toContainText(nothingChanged)
@@ -439,12 +440,12 @@ test.describe('with the observer', () => {
       await expect.poll(async () => (await snapshotOf(page.request))?.summary.observer.pending_facts, observed).toBe(0)
 
       expect(await markedVersion(page)).toBe(marked)
-      await expect(since(page)).not.toContainText(notesPath)
+      await expect(since(page)).not.toContainText('notes.md')
       await expect(since(page)).not.toContainText('Публиковать заметки?')
       const returned = await context.newPage()
       await returned.goto(`/?run=${run}&mode=changes`)
       await expect(mark(returned)).toContainText(marked)
-      await expect(since(returned)).not.toContainText(notesPath)
+      await expect(since(returned)).not.toContainText('notes.md')
       await expect(since(returned)).not.toContainText('Публиковать заметки?')
       await expect(zoneItem(returned, 'Публиковать заметки?')).toContainText('ждёт ответа')
       await returned.close()
