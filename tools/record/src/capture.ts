@@ -6,7 +6,7 @@ import type { Artifact, ControlEvent } from './schema.js'
 
 export type ControlTarget = (
   | (Target & { readonly contains?: string })
-  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string } }
+  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string; readonly notificationType?: string } }
 ) & { readonly occurrence?: 'first' | 'last' }
 
 export interface CapturedArtifact extends Artifact {
@@ -162,7 +162,8 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
         return payload !== null && typeof payload === 'object' &&
           'hook_event_name' in payload && payload.hook_event_name === target.hook.event &&
           (target.hook.sessionId === undefined || ('session_id' in payload && payload.session_id === target.hook.sessionId)) &&
-          (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId))
+          (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId)) &&
+          (target.hook.notificationType === undefined || ('notification_type' in payload && payload.notification_type === target.hook.notificationType))
       }
       const index = target.occurrence === 'first' ? steps.findIndex(matches) : steps.findLastIndex(matches)
       const step = steps[index]

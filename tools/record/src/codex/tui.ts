@@ -1,11 +1,13 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { spoolLayout } from '@aang/contract'
+import { resolveExpect } from '../expect.js'
+import { hookRecords, hooksNamed } from '../hooks.js'
 import type { Scenario } from '../scenario.js'
+import { plainText } from '../terminal.js'
 import { exists, patch, shell } from './calls.js'
-import { resolveExpect } from './engine.js'
 import { type StubContext, stubScenario } from './harness.js'
-import { check, completedItems, containing, events, finished, hookRecords, hooksNamed, readRollout, responseItems, type Rollout, rolloutFiles } from './rollout.js'
+import { check, completedItems, containing, events, finished, readRollout, responseItems, type Rollout, rolloutFiles } from './rollout.js'
 import { logRecords } from './telemetry.js'
 
 const surface = 'codex_tui'
@@ -108,14 +110,6 @@ exit [lindex $status 3]
 `
 
 type Mode = 'tools' | 'approval' | 'interrupt'
-
-const escape = String.fromCharCode(27)
-const bell = String.fromCharCode(7)
-const terminalSequence = new RegExp(`${escape}\\[[0-9;?<>]*[ -/]*[@-~]|${escape}\\][^${bell}${escape}]*(?:${bell}|${escape}\\\\)`, 'g')
-
-const blank = new RegExp(`[\\s${String.fromCharCode(0)}-${String.fromCharCode(31)}]+`, 'g')
-
-const plainText = (screen: string): string => screen.replaceAll(terminalSequence, ' ').replaceAll(blank, ' ')
 
 const tuiFlags: readonly string[] = ['--dangerously-bypass-hook-trust', '--no-alt-screen', '-a', 'on-request']
 

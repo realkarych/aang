@@ -1,0 +1,5 @@
+const escape = String.fromCharCode(27)
+const bell = String.fromCharCode(7)
+const terminalSequence = new RegExp(`${escape}\\[[0-9;?<>]*[ -/]*[@-~]|${escape}\\][^${bell}${escape}]*(?:${bell}|${escape}\\\\)`, 'g')
+const blank = new RegExp(`[\\s${String.fromCharCode(0)}-${String.fromCharCode(31)}]+`, 'g')
+export const plainText = (screen: string): string => screen.replaceAll(terminalSequence, ' ').replaceAll(blank, ' ')
