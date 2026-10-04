@@ -89,6 +89,7 @@ const ListScreen = ({ status, now, onSignedOut }: ScreenProps): ReactElement => 
 
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
+  const runs = usePolled(readRuns, onSignedOut)
   const snapshot = feed.snapshot
   const title = snapshot === null ? null : (runTitle(snapshot.summary) ?? untitledRun(snapshot.summary))
   useTitle(`${title ?? 'Прогон'} — aang`)
@@ -109,7 +110,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <Masthead trail={title ?? 'Прогон'} />
       <StatusStrip lamps={lamps} />
       <main className="page">
-        <RunPage feed={feed} now={now} />
+        <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} />
       </main>
     </>
   )

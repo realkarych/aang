@@ -1,9 +1,11 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
+import { DatabaseSync } from 'node:sqlite'
 import { promisify } from 'node:util'
+import { endpoints } from '@aang/contract'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -14,6 +16,7 @@ import {
   installFakeClaude,
   installFakeCodex,
   invokeHook,
+  type LoadedManifest,
   loadManifest,
   type Player,
   type PlayerOptions,
@@ -22,7 +25,7 @@ import {
 } from '@aang/testkit'
 import { test as base, expect } from '@playwright/test'
 
-export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime'>
+export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime' | 'otlp'>
 
 export type HookFields = Readonly<Record<string, unknown>>
 
@@ -45,7 +48,8 @@ export interface AangFixtures {
   readonly daemon: RunningDaemon
   readonly aang: (...args: readonly string[]) => Promise<string>
   readonly signInLink: () => Promise<string>
-  readonly player: (manifest: string, settings?: PlayerSettings) => Promise<Player>
+  readonly player: (manifest: string | LoadedManifest, settings?: PlayerSettings) => Promise<Player>
+  readonly otelEndpoint: () => Promise<string>
   readonly hook: HookSamples
 }
 
@@ -77,8 +81,48 @@ const withScannedRoots = (config: ConfigInput): ConfigInput => ({
   collector: { rootsScanIntervalMs, ...config.collector },
 })
 
+const otelTokenSetting = 'otel_token'
+
+const savedOtelToken = (database: string): string => {
+  const store = new DatabaseSync(database, { readOnly: true })
+  try {
+    const row = store.prepare('SELECT value FROM settings WHERE key = ?').get(otelTokenSetting)
+    const token: unknown = typeof row?.value === 'string' ? JSON.parse(row.value) : null
+    if (typeof token !== 'string') {
+      throw new Error(`the daemon has not saved its OTel token in ${database}`)
+    }
+    return token
+  } finally {
+    store.close()
+  }
+}
+
 const configuredPath = ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): string | null =>
   args.length === 0 ? command : null
+
+const npmCodex = async ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): Promise<string | null> => {
+  const [script, state] = args
+  if (script === undefined || state === undefined) {
+    return configuredPath({ command, args })
+  }
+  const directory = join(dirname(state), 'npm')
+  const bin = join(directory, 'node_modules', '@openai', 'codex', 'bin')
+  await mkdir(bin, { recursive: true })
+  await writeFile(join(dirname(bin), 'package.json'), '{"type":"module"}\n')
+  await writeFile(
+    join(bin, 'codex.js'),
+    `process.argv.splice(2, 0, ${JSON.stringify(state)})\nawait import(${JSON.stringify(pathToFileURL(script).href)})\n`,
+  )
+  const shim = join(directory, 'codex.cmd')
+  await writeFile(shim, '')
+  return shim
+}
+
+const installLauncher = async (aangHome: string): Promise<void> => {
+  const launcher = join(aangHome, 'bin', 'aang-hook.exe')
+  await mkdir(dirname(launcher), { recursive: true })
+  await copyFile(hookBinary, launcher)
+}
 
 export const test = base.extend<AangOptions & AangFixtures>({
   config: [{}, { option: true }],
@@ -101,9 +145,12 @@ export const test = base.extend<AangOptions & AangFixtures>({
   },
 
   daemon: async ({ profile, config, fakeClaude, fakeCodex }, use) => {
+    if (process.platform === 'win32') {
+      await installLauncher(profile.aangHome)
+    }
     await profile.configure({
       ...withScannedRoots(config),
-      cli: { claude: configuredPath(fakeClaude), codex: configuredPath(fakeCodex), ...config.cli },
+      cli: { claude: configuredPath(fakeClaude), codex: await npmCodex(fakeCodex), ...config.cli },
     })
     const daemon = await profile.startDaemon({ entry: aangEntry })
     await use(daemon)
@@ -162,12 +209,21 @@ export const test = base.extend<AangOptions & AangFixtures>({
 
   player: async ({ profile }, use) => {
     await use(async (manifest, settings = {}) =>
-      createPlayer(await loadManifest(manifest), {
+      createPlayer(typeof manifest === 'string' ? await loadManifest(manifest) : manifest, {
         ...settings,
         roots: { home: profile.home, claude: profile.claude, codex: profile.codex },
         hook: { binary: hookBinary, spool: profile.spool, env: profile.env },
       }),
     )
+  },
+
+  otelEndpoint: async ({ daemon }, use) => {
+    await use(async () => {
+      const response = await daemon.request(endpoints.status.path)
+      expect(response.status).toBe(200)
+      const { daemon: running, database } = endpoints.status.response.parse(await response.json())
+      return `http://${running.otel.host}:${String(running.otel.port)}/otel/${savedOtelToken(database.path)}/v1/logs`
+    })
   },
 
   hook: async ({ profile }, use) => {
