@@ -29,7 +29,7 @@ Steps play one at a time. The next step starts only after the collector has refl
 | `append` or `write` of a transcript or rollout | the collector's cursor for the file reaches its size |
 | `write` of a registry, team, subagent meta or workflow JSON | the collector has emitted the file's current content hash |
 | `remove` of a JSON snapshot | the collector has emitted the removal |
-| `remove` of a transcript or rollout | the stream is lost, or the same stream is collected at another path |
+| `remove` of a transcript or rollout | the stream is lost, or the collector has re-read the same stream from another path since the step |
 | a file the collector does not collect | immediately |
 
 Which files count as collected mirrors the collector's roots (`packages/collector/src/roots.ts`). A step that is never reflected fails the run after 30 seconds instead of producing a different snapshot.
@@ -62,4 +62,4 @@ A key outside the matrix reads as `unverified` through `supportStatusOf` from `@
 
 ## Tests
 
-`tools/support/test/run.test.ts` records sessions from the spike samples with the real recorder (`spike-runtime.ts` plays the testkit sample scenarios and fires hooks built from the spike hook samples), places copies under several OS directories and runs the CLI. `test/portable/` holds two such recordings made on macOS with their snapshots, so every CI runner checks that a recording of another OS replays to the same snapshot.
+`tools/support/test/run.test.ts` records sessions from the spike samples with the real recorder: `spike-runtime.ts` plays the testkit sample scenarios, fires hooks built from the spike hook samples, writes and removes a session registry entry from the spike sample, moves and deletes the transcript, and sends the spike OTLP requests. The tests place copies under several OS directories and run the CLI. `test/portable/` holds four such recordings made on macOS with their snapshots, so every CI runner checks that a recording of another OS replays to the same snapshot.
