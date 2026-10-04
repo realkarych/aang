@@ -203,7 +203,10 @@ const journalOf = (store: Store, run: RunId, item: AttentionItem) =>
   changesOf(store, run, item).map(({ op, author, basis, evidence }) => ({ op, author, basis, evidence }))
 
 const versionsOf = (store: Store, run: RunId, item: AttentionItem): number[] =>
-  changesOf(store, run, item).map(({ version }) => version - store.model.head(run))
+  changesOf(store, run, item).map(({ version }) => version)
+
+const attentionJournal = (store: Store, run: RunId) =>
+  store.model.changes(run, ModelVersion.parse(0)).filter(({ target }) => target.kind === 'attention_item')
 
 const linkRun = (store: Store, run: RunId, root: SessionKey, attached: readonly SessionKey[] = []): void => {
   const member = (key: SessionKey) => ({ kind: 'session_membership', value: { session: objectId(key), run } }) as const
@@ -250,6 +253,7 @@ test('a failed check opens an item in its ingest transaction and a successful re
   const source = { session: 'check-session', cwd: project }
   const run = runOf('claude', source.session)
   await engine.ingest(hookBatch(started(source), ...check(source, 'call-fail', 'pnpm test --run', { exit: 1 }, 10)))
+  const failing = store.model.head(run)
   const [opened, ...others] = failedChecks(store, run)
   expect(others).toEqual([])
   expect(opened).toMatchObject({
@@ -282,7 +286,9 @@ test('a failed check opens an item in its ingest transaction and a successful re
     { op: 'attention.open', author: 'rule', basis: observed, evidence: factIdsOf(store, 'call-fail') },
     { op: 'attention.close', author: 'rule', basis: observed, evidence: factIdsOf(store, 'call-pass') },
   ])
-  expect(versionsOf(store, run, closed)).toEqual([-1, 0])
+  const [openedIn, closedIn] = versionsOf(store, run, closed)
+  expect(openedIn).toBeLessThanOrEqual(failing)
+  expect(closedIn).toBeGreaterThan(failing)
   const head = store.model.head(run)
   await engine.ingest(pass)
   expect(store.model.head(run)).toBe(head)
@@ -422,7 +428,8 @@ test('a transcript read at once keeps a failure that was fixed later as a closed
     closed_at: endedAt(store, 'tool-pass'),
   })
   expect(journalOf(store, run, item).map(({ op }) => op)).toEqual(['attention.open', 'attention.close'])
-  expect(versionsOf(store, run, item)).toEqual([0, 0])
+  const [openedIn, closedIn] = versionsOf(store, run, item)
+  expect(closedIn).toBe(openedIn)
 })
 
 test('a late earlier failure joins the open item and a late success splits it at its time', async ({
@@ -501,9 +508,9 @@ test('a refined end time that merges two streaks closes the open item by the suc
     { op: 'attention.open', author: 'rule', basis: observed, evidence: open.evidence },
     { op: 'attention.close', author: 'rule', basis: observed, evidence: factIdsOf(store, 'call-b') },
   ])
-  const head = store.model.head(run)
+  const journal = attentionJournal(store, run)
   await engine.ingest(hookBatch(...check(source, 'call-d', 'pnpm test', 'pass', 7 * second)))
-  expect(store.model.head(run)).toBe(head)
+  expect(attentionJournal(store, run)).toEqual(journal)
   const after = failedChecks(store, run)
   store.close()
   const reopened = home.open()

@@ -14,6 +14,7 @@ import { type AangHomePaths, readSpoolState } from '@aang/contract/home'
 import type { Store } from '@aang/store'
 import { ignoreMissing } from './missing.js'
 import { type OverThreshold, recordedOverThreshold } from './spool.js'
+import { loadWatch } from './watch.js'
 
 export interface StatusSources {
   readonly daemon: StatusResponse['daemon']
@@ -86,6 +87,7 @@ export const createStatus =
       sessions: store.observations.sessions(),
       gaps: GapKind.options.flatMap((kind) => store.gaps.open(kind)),
       overThreshold: recordedOverThreshold(store),
+      watch: loadWatch(store, config),
     }))
     const [databaseBytes, logBytes, runtimeStatuses, spool] = await Promise.all([
       sizeOf(store.file.path),
@@ -102,11 +104,7 @@ export const createStatus =
         change_seq: recorded.changeSeq,
       },
       runtimes: runtimeStatuses,
-      watch: {
-        all: config.watch.all,
-        lookback_days: config.watch.lookbackDays,
-        roots: config.watch.roots.map(({ path }) => path),
-      },
+      watch: recorded.watch,
       spool,
       observer: { cross_vendor: config.observer.crossVendor, backends: [] },
       versions: [],

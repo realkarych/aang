@@ -58,10 +58,17 @@ const streamOf = (session: string, agent: string | null): StreamKey =>
 const firstString = (records: readonly JsonValue[], field: string): string | null =>
   records.map((record) => stringField(record, field)).find((value) => value !== null) ?? null
 
+const hookStream = (record: JsonValue | undefined): StreamKey | null => {
+  const session = stringField(record, 'session_id')
+  return session === null || stringField(record, 'hook_event_name') === null
+    ? null
+    : streamOf(session, stringField(record, 'agent_id'))
+}
+
 export const streamKey = (firstLines: readonly string[]): StreamKey | null => {
   const records = firstLines.map(parseJson).filter(isJsonObject)
   const session = firstString(records, 'sessionId')
-  return session === null ? null : streamOf(session, firstString(records, 'agentId'))
+  return session === null ? hookStream(records[0]) : streamOf(session, firstString(records, 'agentId'))
 }
 
 const dedupe = (parts: readonly JsonValue[]): DedupeKey => DedupeKey.parse(composite(parts))

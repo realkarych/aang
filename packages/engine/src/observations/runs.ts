@@ -66,7 +66,7 @@ const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract
   evidence: [...new Set(evidence)].sort(compareText),
 })
 
-const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks): RunDraft | null => {
+const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks, startPruned: boolean): RunDraft | null => {
   const session = objectId(key)
   if (current === null) {
     return {
@@ -75,7 +75,7 @@ const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks
       root_session: session,
       goal: null,
       brief: null,
-      start_pruned: false,
+      start_pruned: startPruned,
       created_at: root.at,
     }
   }
@@ -90,7 +90,8 @@ const rootChanges = (transaction: Transaction, links: SessionLinks): ModelChange
   const { key, run, root } = links
   const session = objectId(key)
   const grounds = { op: 'run.create', basis: observed, evidence: [root.id] } satisfies Omit<ModelChangeDraft, 'put'>
-  const draft = runUpdate(transaction.model.entity(run, { kind: 'run', id: run }), links)
+  const startPruned = run === runId(key) && transaction.pruned.ofSession(key).length > 0
+  const draft = runUpdate(transaction.model.entity(run, { kind: 'run', id: run }), links, startPruned)
   const member = transaction.model.entity(run, { kind: 'session_membership', id: session }) !== null
   return [
     ...(draft === null ? [] : [{ ...grounds, put: { kind: 'run', value: draft } } as const]),

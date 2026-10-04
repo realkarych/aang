@@ -487,6 +487,10 @@ test('applies the failed check rule to a failure and its successful repeat that 
     ['attention.open', 'rule'],
     ['attention.close', 'rule'],
   ])
+  const criteriaOf = (owner: RunId) =>
+    store.model.entities(owner).flatMap(({ kind, value }) => (kind === 'criterion' ? [[value.contract, value.status.value]] : []))
+  expect(criteriaOf(checkRun(failing))).toEqual([['test', 'failed']])
+  expect(criteriaOf(checkRun(repaired))).toEqual([['test', 'passed_unversioned']])
   expect((await engine.reparse()).head).toBe(result.head)
 })
 
