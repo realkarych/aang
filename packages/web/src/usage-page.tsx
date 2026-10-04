@@ -16,7 +16,7 @@ import {
   type UsageReport,
   type UsageTotals,
 } from '@aang/contract'
-import { type ReactElement, type ReactNode, useId } from 'react'
+import { Fragment, type ReactElement, type ReactNode, useId } from 'react'
 import { absoluteTime, elapsed, type Forms, money, plural, rate, wait, whole } from './format.js'
 import { LevelGlyph } from './glyphs.js'
 import { runtimeLabel } from './labels.js'
@@ -542,27 +542,31 @@ const costStateNotes = ({ cost_state: state, cost_state_final: final, fork }: Se
     final
       ? 'Итог окончательный: Claude Code записал его, когда запуск завершился.'
       : 'Итог промежуточный: сессия продолжилась после его записи, Claude Code обновит итог при выходе.',
-    ...(fork
-      ? ['Итог Claude Code включает историю, унаследованную при ответвлении; aang учитывает её в исходном прогоне.']
-      : []),
+    ...(fork ? ['Итог Claude Code включает историю, унаследованную при ответвлении; в «Учтено aang» её нет.'] : []),
   ]
 }
 
 const threadNote =
   'Итог треда — накопительный итог Codex для треда без записей usage; журнал решателя его не включает.'
 
+const desktopNote =
+  'Расход вспомогательной модели сводок Claude Desktop недоступен: её вызовы видны только в потоке движка Desktop, который aang не читает. Входит ли этот расход в итог Claude Code, не установлено.'
+
 const SessionLedger = ({
   usage,
   session,
-  claude,
 }: {
   readonly usage: SessionUsage
   readonly session: Session | undefined
-  readonly claude: boolean
 }): ReactElement => {
   const name = shortSession(session, usage)
   const threads = usage.thread_totals
-  const notes = [...(claude ? costStateNotes(usage) : []), ...(threads.length === 0 ? [] : [threadNote])]
+  const claude = usage.cost_state !== null || session?.key.runtime === 'claude'
+  const notes = [
+    ...(claude ? costStateNotes(usage) : []),
+    ...(session?.surface?.surface === 'claude_desktop' ? [desktopNote] : []),
+    ...(threads.length === 0 ? [] : [threadNote]),
+  ]
   return (
     <li className="usage-session">
       <h3 className="usage-session-title">
@@ -572,7 +576,7 @@ const SessionLedger = ({
         caption={`Сессия ${name}: расход`}
         columns={[
           { label: 'Учтено aang', amounts: usage.totals, format: whole, responses: usage.totals.records },
-          ...(claude && usage.cost_state !== null
+          ...(usage.cost_state !== null
             ? [{ label: 'Итог Claude Code', amounts: summed(usage.cost_state.models.map(({ tokens }) => tokens), usage.cost_state.total_cost_usd), format: whole }]
             : []),
           ...(threads.length === 0 ? [] : [{ label: 'Итог треда', amounts: summed(threads.map(({ tokens }) => tokens), null), format: whole }]),
@@ -609,28 +613,67 @@ const SessionUsages = ({
       </p>
       <ul className="usage-sessions">
         {usage.solver.sessions.map((session) => (
-          <SessionLedger
-            key={session.session}
-            usage={session}
-            session={sessions.get(session.session)}
-            claude={snapshot.summary.runtime === 'claude'}
-          />
+          <SessionLedger key={session.session} usage={session} session={sessions.get(session.session)} />
         ))}
       </ul>
     </section>
   )
 }
 
-const isCommonOrigin = (link: Link): link is Extract<Link, { readonly kind: 'common_origin' }> =>
-  link.kind === 'common_origin'
+type CommonOrigin = Extract<Link, { readonly kind: 'common_origin' }>
 
-const originOf = (snapshot: RunSnapshot, runs: readonly RunSummary[]): RunSummary | null | undefined => {
+const isCommonOrigin = (link: Link): link is CommonOrigin => link.kind === 'common_origin'
+
+const OriginLead = ({
+  snapshot,
+  common,
+  runs,
+  period,
+}: {
+  readonly snapshot: RunSnapshot
+  readonly common: CommonOrigin | undefined
+  readonly runs: readonly RunSummary[]
+  readonly period: UsagePeriod
+}): ReactNode => {
+  const navigate = useNavigate()
+  const runLink = (run: RunSummary): ReactElement => (
+    <a href={usageHref(run.id, period)} onClick={navigate}>
+      {runTitle(run) ?? untitledRun(run)}
+    </a>
+  )
   const forked = snapshot.summary.forked_from
-  const parents = snapshot.model.links.filter(isCommonOrigin).map(({ parent_candidate: parent }) => parent)
-  if (forked === null && parents.length === 0) {
-    return undefined
+  if (forked !== null) {
+    const parent = runs.find(({ id }) => id === forked)
+    return parent === undefined ? 'Ответвлён от другого прогона.' : <>Ответвлён от прогона {runLink(parent)}.</>
   }
-  return runs.find(({ id, root_session: root }) => id === forked || parents.includes(root)) ?? null
+  if (common === undefined || common.sessions.length === 0) {
+    return 'Общее происхождение: сессий с той же историей aang пока не видит.'
+  }
+  const relatives = common.sessions.flatMap((session) => runs.find(({ root_session: root }) => root === session) ?? [])
+  const [candidate] = relatives
+  if (candidate === undefined) {
+    return 'Общее происхождение с другими сессиями.'
+  }
+  if (common.parent_candidate !== null) {
+    return (
+      <>
+        Общее происхождение. Предположительный источник — прогон {runLink(candidate)}: из видимых сессий ту же
+        историю содержит только он, но и он может оказаться ответвлением.
+      </>
+    )
+  }
+  return (
+    <>
+      Общее происхождение с {relatives.length === 1 ? 'прогоном' : 'прогонами'}{' '}
+      {relatives.map((run, index) => (
+        <Fragment key={run.id}>
+          {index === 0 ? null : ', '}
+          {runLink(run)}
+        </Fragment>
+      ))}
+      ; источник не установлен.
+    </>
+  )
 }
 
 const Origin = ({
@@ -642,24 +685,14 @@ const Origin = ({
   readonly runs: readonly RunSummary[]
   readonly period: UsagePeriod
 }): ReactElement | null => {
-  const navigate = useNavigate()
-  const origin = originOf(snapshot, runs)
-  if (origin === undefined) {
+  const common = snapshot.model.links.find(isCommonOrigin)
+  if (snapshot.summary.forked_from === null && common === undefined) {
     return null
   }
   return (
     <p className="usage-origin">
-      {origin === null ? (
-        'Общее происхождение с другими сессиями: унаследованная история здесь не учитывается.'
-      ) : (
-        <>
-          Общее происхождение с прогоном{' '}
-          <a href={usageHref(origin.id, period)} onClick={navigate}>
-            {runTitle(origin) ?? untitledRun(origin)}
-          </a>
-          : унаследованная история учтена там и здесь не повторяется.
-        </>
-      )}
+      <OriginLead snapshot={snapshot} common={common} runs={runs} period={period} />
+      {common === undefined ? null : ' Унаследованная история здесь не учитывается.'}
     </p>
   )
 }

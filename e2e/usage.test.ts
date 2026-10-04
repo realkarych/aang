@@ -1,18 +1,44 @@
-import { appendFile, readFile } from 'node:fs/promises'
+import { randomUUID } from 'node:crypto'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { endpoints, type RunId, type UsageReport } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { claudeAdapter } from '@aang/adapter-claude'
+import { codexAdapter } from '@aang/adapter-codex'
+import {
+  type ActionId,
+  type Adapter,
+  type CreateBindingRequest,
+  EpochNs,
+  endpoints,
+  LinkId,
+  type RunId,
+  type Runtime,
+  StageId,
+  type SurfaceClaim,
+  type UsageReport,
+} from '@aang/contract'
+import { objectId, runId } from '@aang/contract/ids'
+import { applyChangeSet, createEngine } from '@aang/engine'
+import { openStore } from '@aang/store'
+import { type Profile, type RunningDaemon, sampleScenarioManifest } from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 
 const originalSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const forkSession = 'cdfb3544-67c1-4590-a4d9-280593b6ed55'
+const secondForkSession = 'f2f2f2f2-67c1-4590-a4d9-280593b6ed55'
+const codexSession = '01a0f752-40a7-76b2-9df9-5b374f75f98f'
 const originalRun = runId({ kind: 'session', runtime: 'claude', session: originalSession })
 const forkRun = runId({ kind: 'session', runtime: 'claude', session: forkSession })
-const codexRun = runId({ kind: 'session', runtime: 'codex', session: '01a0f752-40a7-76b2-9df9-5b374f75f98f' })
+const secondForkRun = runId({ kind: 'session', runtime: 'claude', session: secondForkSession })
+const codexRun = runId({ kind: 'session', runtime: 'codex', session: codexSession })
 const claudeProject = 'projects/-tmp-aang-spike-cc-transcripts-run'
+const claudeCwd = '/tmp/aang-spike/cc-transcripts/run'
+const transcriptOf = (session: string): string => `${claudeProject}/${session}.jsonl`
+const originalSample = new URL(
+  '../docs/research/samples/claude-code-transcripts/session-86f93ed5-main-full.jsonl',
+  import.meta.url,
+)
 const forkSample = new URL(
   '../docs/research/samples/claude-code-transcripts/session-cdfb3544-fork-full.jsonl',
   import.meta.url,
@@ -26,12 +52,151 @@ const legacyThread = '019a0000-0000-7000-8000-000000000009'
 
 const watchAll = { watch: { all: true } }
 
+const usageLink = (run: RunId): string => `?view=usage&run=${run}`
+
+const finalTotal = 'Итог окончательный: Claude Code записал его, когда запуск завершился.'
+const continuedTotal = 'Итог промежуточный: сессия продолжилась после его записи, Claude Code обновит итог при выходе.'
+const inheritedTotal = 'Итог Claude Code включает историю, унаследованную при ответвлении; в «Учтено aang» её нет.'
+const desktopSummaries =
+  'Расход вспомогательной модели сводок Claude Desktop недоступен: её вызовы видны только в потоке движка Desktop, который aang не читает. Входит ли этот расход в итог Claude Code, не установлено.'
+const guessedSource =
+  /^Общее происхождение\. Предположительный источник — прогон .+: из видимых сессий ту же историю содержит только он, но и он может оказаться ответвлением\. Унаследованная история здесь не учитывается\.$/
+const unsettledSource =
+  /^Общее происхождение с прогонами .+, .+; источник не установлен\. Унаследованная история здесь не учитывается\.$/
+
 test.use({ config: watchAll })
 
 const reportOf = async (request: APIRequestContext, run?: RunId): Promise<UsageReport> => {
   const response = await request.get(`${endpoints.usage.path}${run === undefined ? '' : `?run=${run}`}`)
   expect(response.status(), await response.text()).toBe(200)
   return endpoints.usage.response.parse(await response.json())
+}
+
+const surfacesOf = async (request: APIRequestContext, run: RunId): Promise<(SurfaceClaim | null)[] | null> => {
+  const response = await request.get(endpoints.run.path.replace(':run', run))
+  return response.ok()
+    ? endpoints.run.response.parse(await response.json()).objects.sessions.map(({ surface }) => surface)
+    : null
+}
+
+const restart = async (daemon: RunningDaemon, profile: Profile): Promise<RunningDaemon> => {
+  await profile.configure({ ...watchAll, collector: { rootsScanIntervalMs: 250 }, api: { port: daemon.api.port } })
+  const restarted = await profile.startDaemon({ entry: aangEntry })
+  expect(restarted.url).toBe(daemon.url)
+  return restarted
+}
+
+const stopped = async (daemon: RunningDaemon): Promise<void> => {
+  expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
+}
+
+const adapters = new Map<Runtime, Adapter>([
+  ['claude', claudeAdapter],
+  ['codex', codexAdapter],
+])
+
+const bindSessions = async (aangHome: string, requests: readonly CreateBindingRequest[]): Promise<void> => {
+  const store = openStore({ home: aangHome })
+  const engine = createEngine({ store, adapters, watch: { all: true, roots: [] }, fsWatch: false })
+  try {
+    for (const request of requests) {
+      await engine.bind(request)
+    }
+  } finally {
+    await engine.close()
+    store.close()
+  }
+}
+
+const assignStage = (aangHome: string, run: RunId, title: string, actions: readonly ActionId[]): void => {
+  const store = openStore({ home: aangHome })
+  const stage = StageId.parse(`stage-${randomUUID()}`)
+  const observed = { kind: 'observed' } as const
+  try {
+    store.transaction((transaction) =>
+      applyChangeSet(transaction, {
+        run,
+        author: 'rule',
+        at: EpochNs.parse(BigInt(Date.now()) * 1_000_000n),
+        changes: [
+          {
+            op: 'stage.create',
+            put: {
+              kind: 'stage',
+              value: {
+                id: stage,
+                run,
+                title,
+                expected_result: null,
+                summary: null,
+                parent: null,
+                origin: 'inferred',
+                lifecycle: { state: 'active' },
+                execution: { value: { state: 'running' }, basis: observed, evidence: [] },
+                execution_claim: null,
+                decision: { value: 'none', basis: observed, evidence: [] },
+                session_moved: false,
+                basis: observed,
+                evidence: [],
+              },
+            },
+            basis: observed,
+            evidence: [],
+          },
+          ...actions.map((action) => ({
+            op: 'actions.assign' as const,
+            put: {
+              kind: 'link' as const,
+              value: {
+                id: LinkId.parse(`assign-${action}-${stage}`),
+                run,
+                kind: 'assignment' as const,
+                action,
+                stage,
+                basis: observed,
+                evidence: [],
+              },
+            },
+            basis: observed,
+            evidence: [],
+          })),
+        ],
+      }),
+    )
+  } finally {
+    store.close()
+  }
+}
+
+const desktopStart = async (directory: string, profile: Profile, session: string): Promise<string> => {
+  await mkdir(directory, { recursive: true })
+  await writeFile(
+    join(directory, 'session-start.json'),
+    JSON.stringify({
+      hook_event_name: 'SessionStart',
+      session_id: session,
+      transcript_path: join(profile.claude, transcriptOf(session)),
+      cwd: claudeCwd,
+      source: 'resume',
+    }),
+  )
+  const manifest = join(directory, 'manifest.json')
+  await writeFile(
+    manifest,
+    JSON.stringify({
+      steps: [
+        {
+          at: 0,
+          kind: 'hook',
+          runtime: 'claude',
+          registration: 'plugin',
+          env: { CLAUDE_CODE_ENTRYPOINT: 'claude-desktop' },
+          source: 'session-start.json',
+        },
+      ],
+    }),
+  )
+  return manifest
 }
 
 const ledger = (page: Page, title: string): Locator => page.getByRole('region', { name: title, exact: true })
@@ -216,6 +381,27 @@ const threadWithoutRecords = async (): Promise<string> =>
     .map((line) => `${line}\n`)
     .join('')
 
+const secondFork = async (): Promise<string> => {
+  const lines = (await readFile(forkSample, 'utf8')).trimEnd().split('\n')
+  const records = lines.map(
+    (line) => JSON.parse(line) as { readonly type: string; readonly uuid?: string; readonly timestamp?: string },
+  )
+  const launch = records.find(({ type }) => type === 'queue-operation')?.timestamp ?? ''
+  const ownFrom = records.findIndex(({ uuid, timestamp }) => uuid !== undefined && (timestamp ?? '') >= launch)
+  if (launch === '' || ownFrom < 0) {
+    throw new Error('the fork sample has no records of its own launch')
+  }
+  const renamed = new Map(records.slice(ownFrom).flatMap(({ uuid }) => (uuid === undefined ? [] : [[uuid, randomUUID()]])))
+  return lines
+    .map((line, index) =>
+      index < ownFrom
+        ? line
+        : [...renamed].reduce((text, [from, to]) => text.replaceAll(from, to), line).replaceAll('"msg_', '"msg_h9_'),
+    )
+    .map((line) => `${line.replaceAll(forkSession, secondForkSession)}\n`)
+    .join('')
+}
+
 const unfinishedReply = async (): Promise<string> => {
   const lines = (await readFile(forkSample, 'utf8')).trimEnd().split('\n')
   const last = lines
@@ -278,12 +464,13 @@ test('a Claude fork shares its origin without doubling usage, and the usage pane
   await runRows(page).nth(1).getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
   await expect(page.getByText('Расход прогона', { exact: true })).toBeVisible()
-  await expect(page.getByText(/^Общее происхождение/)).toHaveText(
-    'Общее происхождение с другими сессиями: унаследованная история здесь не учитывается.',
+  const origin = page.getByText(/^Общее происхождение/)
+  await expect(origin).toHaveText(
+    'Общее происхождение с другими сессиями. Унаследованная история здесь не учитывается.',
   )
   await page.unroute(runsRoute)
-  const origin = page.getByText(/^Общее происхождение с прогоном/)
-  await expect(origin).toContainText('унаследованная история учтена там и здесь не повторяется')
+  await expect(origin).toHaveText(guessedSource)
+  await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(originalRun))
   await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
   const fork = session(page, 'cdfb3544')
   await expect(fork.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
@@ -295,10 +482,7 @@ test('a Claude fork shares its origin without doubling usage, and the usage pane
     'Ответов модели': ['1', '—'],
     Деньги: ['—', '0,1026 $'],
   })
-  await expect(fork.getByRole('listitem')).toHaveText([
-    'Итог окончательный: Claude Code записал его, когда запуск завершился.',
-    'Итог Claude Code включает историю, унаследованную при ответвлении; aang учитывает её в исходном прогоне.',
-  ])
+  await expect(fork.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
   const stages = page.getByRole('table', { name: 'Решатель по этапам' })
   await expect(page.getByText(/пока карты нет, весь расход решателя не привязан\.$/)).toBeVisible()
   await expect(amounts(stages, 'Не привязано к этапам')).toHaveText(['2', '18 341', '427', '5', '1'])
@@ -315,22 +499,18 @@ test('a Claude fork shares its origin without doubling usage, and the usage pane
     'Ответов модели': ['6', '—'],
     Деньги: ['—', '0,0954 $'],
   })
-  await expect(original.getByRole('listitem')).toHaveText([
-    'Итог окончательный: Claude Code записал его, когда запуск завершился.',
-  ])
+  await expect(original.getByRole('listitem')).toHaveText([finalTotal])
   await expect(page.getByText(/^Деньги — по прейскуранту/)).toHaveText(
     'Деньги — по прейскуранту, как их сообщает рантайм; при подписке это не списание. Codex сообщает только токены.',
   )
 
-  expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
+  await stopped(daemon)
   await expect(page.getByRole('status')).toHaveText(
     'Не удалось обновить отчёт о расходе. Показаны прежние данные, они могут устареть.',
     { timeout: 15_000 },
   )
   recordCalls(profile.aangHome)
-  await profile.configure({ ...watchAll, collector: { rootsScanIntervalMs: 250 }, api: { port: daemon.api.port } })
-  const restarted = await profile.startDaemon({ entry: aangEntry })
-  expect(restarted.url).toBe(daemon.url)
+  const restarted = await restart(daemon, profile)
 
   await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
   const observer = ledger(page, 'Наблюдатель')
@@ -379,7 +559,7 @@ test('a Claude fork shares its origin without doubling usage, and the usage pane
   )
   await expect(ledger(page, 'Чат').getByText('1 вызов', { exact: true })).toBeVisible()
   await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
-  expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
+  await stopped(restarted)
 })
 
 test('a Claude total waits for the exit, and a reply without its closing record makes the output a lower bound', async ({
@@ -416,9 +596,7 @@ test('a Claude total waits for the exit, and a reply without its closing record 
   await expect(amounts(fork, 'Вывод')).toHaveText(['5', '228'])
   await appendFile(join(profile.claude, claudeProject, `${forkSession}.jsonl`), `${await unfinishedReply()}\n`)
   await expect(amounts(fork, 'Вывод')).toHaveText(['не меньше 12', '228'], { timeout: 15_000 })
-  await expect(fork.getByRole('listitem').first()).toHaveText(
-    'Итог промежуточный: сессия продолжилась после его записи, Claude Code обновит итог при выходе.',
-  )
+  await expect(fork.getByRole('listitem').first()).toHaveText(continuedTotal)
   await expect(amounts(ledger(page, 'Решатель'), 'Вывод').first()).toHaveText('не меньше 12')
   await expect(page.getByText(/^«Не меньше»/)).toHaveText(
     '«Не меньше» — нижняя оценка вывода: у части ответов нет завершающей записи, и модель могла вывести больше.',
@@ -474,4 +652,167 @@ test('a Codex run reports tokens only and a thread without usage records its thr
   await expect(legacy.getByRole('listitem')).toHaveText([
     'Итог треда — накопительный итог Codex для треда без записей usage; журнал решателя его не включает.',
   ])
+})
+
+test('two Claude forks of an unseen session name each other only as a guessed source, and the original arriving later leaves the source open', async ({
+  page,
+  profile,
+}) => {
+  await profile.write('claude', transcriptOf(forkSession), await readFile(forkSample, 'utf8'))
+  await expect
+    .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
+    .toBe(1)
+
+  await page.goto(`/${usageLink(forkRun)}`)
+  const origin = page.getByText(/^Общее происхождение/)
+  await expect(origin).toHaveText(
+    'Общее происхождение: сессий с той же историей aang пока не видит. Унаследованная история здесь не учитывается.',
+  )
+
+  await profile.write('claude', transcriptOf(secondForkSession), await secondFork())
+  await expect(origin).toHaveText(guessedSource, { timeout: 15_000 })
+  await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(secondForkRun))
+  await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
+  const fork = session(page, 'cdfb3544')
+  await expect(amounts(fork, 'Вывод')).toHaveText(['5', '228'])
+  await expect(fork.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
+
+  await origin.getByRole('link').click()
+  await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${secondForkRun}$`))
+  await expect(origin).toHaveText(guessedSource)
+  await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(forkRun))
+  const second = session(page, secondForkSession.slice(0, 8))
+  await expect(amounts(second, 'Вывод')).toHaveText(['5', '228'])
+  await expect(second.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
+
+  await profile.write('claude', transcriptOf(originalSession), await readFile(originalSample, 'utf8'))
+  await expect(origin).toHaveText(unsettledSource, { timeout: 15_000 })
+  await expect(origin.getByRole('link')).toHaveCount(2)
+  for (const relative of [forkRun, originalRun]) {
+    await expect(origin.locator(`a[href="${usageLink(relative)}"]`)).toHaveCount(1)
+  }
+  await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
+  await expect(amounts(second, 'Вывод')).toHaveText(['5', '228'])
+})
+
+test('a fork parent named by the user takes precedence over the guessed source', async ({
+  page,
+  player,
+  profile,
+  daemon,
+}) => {
+  await (await player(sampleScenarioManifest('claude-fork'), { timeScale: 0 })).play()
+  await expect
+    .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
+    .toBe(7)
+
+  await stopped(daemon)
+  await bindSessions(profile.aangHome, [
+    {
+      kind: 'fork_parent',
+      run: forkRun,
+      parent: objectId({ kind: 'session', runtime: 'claude', session: originalSession }),
+    },
+  ])
+  const restarted = await restart(daemon, profile)
+
+  const runsRoute = `**${endpoints.runs.path}`
+  await page.route(runsRoute, (route) => route.abort('connectionfailed'))
+  await page.goto(`/${usageLink(forkRun)}`)
+  const origin = page.getByText(/^Ответвлён/)
+  await expect(origin).toHaveText('Ответвлён от другого прогона. Унаследованная история здесь не учитывается.')
+  await page.unroute(runsRoute)
+  await expect(origin).toHaveText(/^Ответвлён от прогона .+\. Унаследованная история здесь не учитывается\.$/)
+  await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(originalRun))
+  await expect(page.getByText(/^Общее происхождение/)).toHaveCount(0)
+  await stopped(restarted)
+})
+
+test('session notes follow the runtime and surface of the session itself: Claude and Codex sessions attached across runtimes, a Claude Desktop session', async ({
+  page,
+  player,
+  profile,
+  daemon,
+}) => {
+  await (await player(sampleScenarioManifest('claude-fork'), { timeScale: 0 })).play()
+  await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
+  await (await player(await desktopStart(test.info().outputPath('desktop'), profile, forkSession))).play()
+  await expect
+    .poll(async () => surfacesOf(page.request, forkRun), { timeout: 30_000 })
+    .toEqual([{ surface: 'claude_desktop', basis: 'observed' }])
+  await expect
+    .poll(
+      async () => {
+        const { runs } = await reportOf(page.request)
+        return [originalRun, forkRun, codexRun].filter((run) =>
+          runs.some((usage) => usage.run === run && usage.solver.totals.records > 0),
+        )
+      },
+      { timeout: 30_000 },
+    )
+    .toEqual([originalRun, forkRun, codexRun])
+
+  await stopped(daemon)
+  await bindSessions(profile.aangHome, [
+    { kind: 'attach', session: objectId({ kind: 'session', runtime: 'claude', session: originalSession }), run: codexRun },
+    { kind: 'attach', session: objectId({ kind: 'session', runtime: 'codex', session: codexSession }), run: forkRun },
+  ])
+  const restarted = await restart(daemon, profile)
+
+  await page.goto(`/${usageLink(codexRun)}`)
+  await expect(page.getByRole('article').locator('header').getByText('Codex', { exact: true })).toBeVisible()
+  const original = session(page, '86f93ed5')
+  await expect(original.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
+  await expectSolverTokens(original, {
+    Вывод: ['223', '223'],
+    'Ответов модели': ['6', '—'],
+    Деньги: ['—', '0,0954 $'],
+  })
+  await expect(original.getByRole('listitem')).toHaveText([finalTotal])
+  await expect(session(page, codexSession.slice(0, 8))).toHaveCount(0)
+
+  await page.getByRole('navigation', { name: 'Навигация' }).getByRole('link', { name: 'Расход', exact: true }).click()
+  await page.locator(`a[href="${usageLink(forkRun)}"]`).click()
+  await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
+  const codex = session(page, codexSession.slice(0, 8))
+  await expect(codex.getByRole('columnheader')).toHaveText(['Учтено aang'])
+  await expect(codex.getByRole('listitem')).toHaveCount(0)
+  const fork = session(page, 'cdfb3544')
+  await expect(fork.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
+  await expect(fork.getByRole('listitem')).toHaveText([continuedTotal, inheritedTotal, desktopSummaries])
+  await stopped(restarted)
+})
+
+test('the solver journal of a run splits into the exact usage of its stages and the unassigned rest', async ({
+  page,
+  player,
+  profile,
+  daemon,
+}) => {
+  await (await player(sampleScenarioManifest('claude-fork'), { timeScale: 0 })).play()
+  await expect
+    .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
+    .toBe(7)
+
+  await stopped(daemon)
+  assignStage(profile.aangHome, originalRun, 'Проверка окружения', [
+    objectId({ kind: 'action', runtime: 'claude', session: originalSession, call: 'toolu_017B7FeHZ4yDzFdvKQMwDJB8' }),
+  ])
+  const restarted = await restart(daemon, profile)
+
+  await page.goto(`/${usageLink(originalRun)}`)
+  await expect(ledger(page, 'Решатель').getByText('6 ответов модели', { exact: true })).toBeVisible()
+  const stages = page.getByRole('table', { name: 'Решатель по этапам' })
+  await expect(stages.getByRole('columnheader')).toHaveText([
+    'Этап',
+    'Ввод без кэша',
+    'Чтение кэша',
+    'Запись в кэш',
+    'Вывод',
+    'Ответов модели',
+  ])
+  await expect(stages.getByRole('rowheader')).toHaveText(['Проверка окружения', 'Не привязано к этапам'])
+  await expect(amounts(stages, 'Проверка окружения')).toHaveText(['2', '10 341', '7 337', '74', '1'])
+  await expect(amounts(stages, 'Не привязано к этапам')).toHaveText(['10', '71 943', '2 651', '149', '5'])
+  await stopped(restarted)
 })
