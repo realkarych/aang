@@ -273,7 +273,7 @@ describe.concurrent(
 
       const written = JSON.parse(readFileSync(join(profile.codex, ...rollout.path.split('/')), 'utf8')) as typeof line
       const shift = Date.parse(written.timestamp) - Date.parse(line.timestamp)
-      expect(Date.parse(written.timestamp)).toBeGreaterThanOrEqual(before)
+      expect(Date.parse(written.timestamp)).toBeGreaterThan(before - 1_000)
       expect(written.payload).toEqual({
         create_time: line.payload.create_time + Math.trunc(shift / 1_000),
         started_at_ms: line.payload.started_at_ms + shift,
