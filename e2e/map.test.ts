@@ -11,6 +11,7 @@ import {
   observerScenarios,
   preparationStageTitle,
   reportStageTitle,
+  type RunningDaemon,
   sampleScenarioManifest,
   splitStageTitles,
 } from '@aang/testkit'
@@ -87,6 +88,35 @@ const crossings = async (page: Page): Promise<string[]> =>
     })
   })
 
+const stacked = async (page: Page, titles: ReadonlyArray<string | RegExp>): Promise<boolean> =>
+  map(page).evaluate((region, wanted) => {
+    const nodes = [...region.querySelectorAll('.react-flow__node')]
+    const placed = wanted.map((title) => {
+      const node = nodes.find((candidate) => {
+        const label = candidate.getAttribute('aria-label') ?? ''
+        return typeof title === 'string' ? label === `Этап «${title}»` : title.test(label)
+      })
+      const card = node?.querySelector('.stage-card') ?? null
+      return node === undefined || card === null
+        ? null
+        : { top: node.getBoundingClientRect().top, bottom: card.getBoundingClientRect().bottom }
+    })
+    return placed.every((upper, index) => {
+      const lower = placed[index + 1]
+      return upper !== null && lower !== null && (lower === undefined || upper.bottom < lower.top)
+    })
+  }, titles)
+
+const claudeAdmission = async (daemon: RunningDaemon) => {
+  const { observer } = endpoints.status.response.parse(await (await daemon.request(endpoints.status.path)).json())
+  return observer.backends.find(({ vendor }) => vendor === 'claude')?.admission ?? null
+}
+
+const admitted = async ({ daemon }: { readonly daemon: RunningDaemon }): Promise<void> => {
+  await expect.poll(async () => (await claudeAdmission(daemon))?.outcome ?? 'pending', observed).not.toBe('pending')
+  expect(await claudeAdmission(daemon)).toMatchObject({ outcome: 'admitted', failure: null })
+}
+
 const bashCall = 'toolu_017B7FeHZ4yDzFdvKQMwDJB8'
 
 const stampOf = (line: string | undefined): string | undefined => /"timestamp": "([^"]+)"/.exec(line ?? '')?.[1]
@@ -146,6 +176,7 @@ test.describe('with the observer building the map', () => {
     'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
   )
   test.use({ claudeScenario: observerScenarios['map-layout'].live })
+  test.beforeEach(admitted)
 
   test('the live map nests stages, tells result dependencies from time order and labels every axis (E2E 1, map)', async ({
     page,
@@ -245,12 +276,7 @@ test.describe('with the observer building the map', () => {
     await expect.poll(fitted).toBe(true)
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect
-      .poll(async () => {
-        const [first, second, third] = [await box(preparation), await box(pinger), await box(report)]
-        return first.bottom < second.y && second.bottom < third.y
-      })
-      .toBe(true)
+    await expect.poll(async () => stacked(page, [preparationStageTitle, pingerTitle, reportStageTitle])).toBe(true)
     await expect.poll(fitted).toBe(true)
   })
 
@@ -282,6 +308,7 @@ test.describe('with the observer building two branches', () => {
     'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
   )
   test.use({ claudeScenario: observerScenarios['map-branches'].live })
+  test.beforeEach(admitted)
 
   test('lines between open branches and from a substage to its own stage go around every card (E2E 1, map)', async ({
     page,
@@ -321,9 +348,7 @@ test.describe('with the observer building two branches', () => {
     await expect(edges(page)).toHaveCount(2)
 
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect
-      .poll(async () => (await box(stage(page, compile))).bottom < (await box(stage(page, check))).y)
-      .toBe(true)
+    await expect.poll(async () => stacked(page, [compile, check])).toBe(true)
     await expect.poll(async () => crossings(page)).toEqual([])
     await expect(edges(page)).toHaveCount(2)
   })
@@ -335,6 +360,7 @@ test.describe('with the observer building three levels', () => {
     'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
   )
   test.use({ claudeScenario: observerScenarios['map-nested'].live })
+  test.beforeEach(admitted)
 
   test('a stage whose result a substage and its own substage use opens into a whole map with both lines (E2E 1, map)', async ({
     page,
@@ -374,10 +400,7 @@ test.describe('with the observer building three levels', () => {
     await stage(page, bundle).getByRole('button', { name: `Развернуть «${bundle}»` }).click()
     await expect(toSign).toHaveCount(1)
     await page.setViewportSize({ width: 390, height: 844 })
-    await expect
-      .poll(async () => (await ownCard(bundle)).bottom < (await box(stage(page, sign))).y)
-      .toBe(true)
-    expect((await ownCard(release)).bottom).toBeLessThan((await box(stage(page, bundle))).y)
+    await expect.poll(async () => stacked(page, [release, bundle, sign])).toBe(true)
     await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
     await expect.poll(async () => crossings(page)).toEqual([])
     await expect(edges(page)).toHaveCount(2)

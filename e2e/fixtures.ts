@@ -98,6 +98,10 @@ const savedOtelToken = (database: string): string => {
   }
 }
 
+const admissionMs = 1000
+
+const withLongAdmission = (scenario: ClaudeScenario): ClaudeScenario => ({ admissionMs, ...scenario })
+
 const installLauncher = async (profile: Profile): Promise<void> => {
   const { binary } = hookInstallPaths(profile.aangHome)
   await mkdir(dirname(binary), { recursive: true })
@@ -117,7 +121,13 @@ export const test = base.extend<AangOptions & AangFixtures>({
   },
 
   fakeClaude: async ({ profile, claudeScenario }, use) => {
-    await use(installFakeClaude(join(profile.root, 'fake-cli'), claudeScenario))
+    const fake = installFakeClaude(join(profile.root, 'fake-cli'), withLongAdmission(claudeScenario))
+    await use({
+      ...fake,
+      setScenario: (scenario) => {
+        fake.setScenario(withLongAdmission(scenario))
+      },
+    })
   },
 
   fakeCodex: async ({ profile, codexScenario }, use) => {

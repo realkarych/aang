@@ -28,6 +28,7 @@ import {
   threadEntity,
 } from './facts.js'
 import { readJson, withinNestingLimit } from './json.js'
+import { planTool } from './plan.js'
 import { observerOriginator } from './session.js'
 import { isRoot, type ThreadStream } from './stream.js'
 import { surfaceOf } from './surface.js'
@@ -78,6 +79,7 @@ const hookToolKinds: ReadonlyMap<string, ActionKind> = new Map([
   ['apply_patch', 'file_write'],
   ['request_user_input', 'question'],
   ['request_user_input_async', 'question'],
+  [planTool, 'plan'],
 ])
 
 const hookActionKind = (tool: string): ActionKind => {
