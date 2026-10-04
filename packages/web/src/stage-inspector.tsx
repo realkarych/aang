@@ -25,13 +25,14 @@ import { StageCriteria } from './stage-criteria.js'
 import { RejectedCalls, StageHistory } from './stage-history.js'
 import { priorityLabel, resolutionLabel, stageOriginLabel } from './stage-labels.js'
 import { useRead } from './use-read.js'
+import type { RunFeedState } from './use-run-feed.js'
 import { useStage } from './use-stage.js'
 import './inspector.css'
 
 export interface StageInspectorProps {
   readonly run: RunId
   readonly stage: StageId
-  readonly snapshot: RunSnapshot | null
+  readonly feed: RunFeedState
   readonly onSignedOut: () => void
   readonly onClose: () => void
 }
@@ -511,8 +512,9 @@ const Body = ({
   )
 }
 
-export const StageInspector = ({ run, stage, snapshot, onSignedOut, onClose }: StageInspectorProps): ReactElement => {
-  const load = useStage(run, stage, snapshot?.change_seq ?? null, onSignedOut)
+export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: StageInspectorProps): ReactElement => {
+  const { snapshot, generation } = feed
+  const load = useStage(run, stage, { generation, seq: snapshot?.change_seq ?? null }, onSignedOut)
   const heading = useRef<HTMLHeadingElement>(null)
   const titleId = useId()
   const stages = snapshot?.model.stages ?? []

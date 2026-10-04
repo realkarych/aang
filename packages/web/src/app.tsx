@@ -122,7 +122,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
               key={stage}
               run={run}
               stage={stage}
-              snapshot={feed.snapshot}
+              feed={feed}
               onSignedOut={onSignedOut}
               onClose={close}
             />

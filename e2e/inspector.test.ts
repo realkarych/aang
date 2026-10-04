@@ -6,7 +6,14 @@ import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { endpoints, type RunId, type RunSnapshot, type StageId } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
-import { goalCriterionText, mainStageTitle, observerScenarios, type Profile, sampleScenarioManifest } from '@aang/testkit'
+import {
+  goalCriterionText,
+  mainStageTitle,
+  observerScenarios,
+  type Profile,
+  type RunningDaemon,
+  sampleScenarioManifest,
+} from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 import { freshManifest } from './fresh.js'
@@ -432,5 +439,149 @@ test.describe('a passing check by a contract without a reported commit', () => {
     await expect(snapshotRows(contract, shortSha(second))).toHaveCount(2)
     await expect(snapshotRows(contract, 'чисто')).toHaveCount(2)
     await expect(await statusGrounds(contract)).toContainText('pnpm test --filter app')
+  })
+})
+
+const resetProject = projectAt('reset')
+
+const markerTranscript = async (profile: Profile, session: string): Promise<Transcript> => {
+  await mkdir(resetProject, { recursive: true })
+  const transcript = transcriptOf(profile, resetProject, session)
+  await transcript.append(
+    prompt('Print a marker.'),
+    command('toolu_marker', 'echo review-reset'),
+    passedWith('toolu_marker', 'review-reset\n'),
+    reply('message-marker', 'Printed the marker.'),
+  )
+  return transcript
+}
+
+const transcriptFile = (profile: Profile, session: string): string =>
+  join(profile.claude, 'projects', 'e2e-inspector', `${session}.jsonl`)
+
+const stageReads = (page: Page): readonly string[] => {
+  const reads: string[] = []
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname.includes('/stages/')) {
+      reads.push(request.url())
+    }
+  })
+  return reads
+}
+
+const openMarkerStage = async (page: Page, run: RunId, stage: StageId): Promise<void> => {
+  await page.goto(`/?run=${run}&stage=${stage}`)
+  await expect(inspector(page).getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
+  const actions = section(page, 'Участники и действия').getByRole('list', { name: 'Действия этапа' })
+  await expect(actions).toContainText('echo review-reset')
+}
+
+const restartedWithoutObserver = async (
+  profile: Profile,
+  daemon: RunningDaemon,
+  rewrite: () => Promise<void>,
+): Promise<RunningDaemon> => {
+  expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
+  for (const file of ['aang.db', 'aang.db-wal', 'aang.db-shm']) {
+    await rm(join(profile.aangHome, file), { force: true })
+  }
+  await rewrite()
+  await profile.configure({
+    watch: { all: true },
+    collector: { rootsScanIntervalMs: 250 },
+    api: { port: daemon.api.port },
+  })
+  const restarted = await profile.startDaemon({ entry: aangEntry })
+  expect(restarted.url).toBe(daemon.url)
+  return restarted
+}
+
+const goneStage = (stage: StageId): string =>
+  `В этом прогоне нет этапа ${stage.slice(0, 8)}: ссылка устарела или прогон собран заново.`
+
+const quietMs = 2_000
+
+test.describe('a database replaced under the open inspector', () => {
+  test.afterEach(async () => {
+    await rm(resetProject, { recursive: true, force: true })
+  })
+
+  test('the open inspector reads its stage again when the stream resets to a lower position and says the stage is gone, without a read loop', async ({
+    page,
+    context,
+    profile,
+    daemon,
+    fakeClaude,
+  }) => {
+    fakeClaude.setScenario(observerScenarios['live-map'].live)
+    const session = 'e2e-reset-lower'
+    const transcript = await markerTranscript(profile, session)
+    const before = await interpreted(page.request, transcript.run)
+    const main = stageTitled(before, (title) => title === mainStageTitle)
+    const reads = stageReads(page)
+    await openMarkerStage(page, transcript.run, main)
+
+    await context.setOffline(true)
+    const restarted = await restartedWithoutObserver(profile, daemon, async () => {
+      const file = transcriptFile(profile, session)
+      const [first] = (await readFile(file, 'utf8')).split('\n')
+      await writeFile(file, `${first ?? ''}\n`)
+    })
+    try {
+      await expect.poll(async () => (await snapshotOf(page.request, transcript.run)) !== null).toBe(true)
+      const after = await snapshotOf(page.request, transcript.run)
+      expect(after?.model.stages).toEqual([])
+      expect(after?.change_seq).toBeLessThan(before.change_seq)
+      const stagePath = endpoints.stage.path.replace(':run', transcript.run).replace(':stage', main)
+      expect((await page.request.get(stagePath)).status()).toBe(404)
+      const offline = reads.length
+
+      await context.setOffline(false)
+      const panel = inspector(page)
+      await expect(panel).toContainText(goneStage(main))
+      await expect(panel.getByRole('heading', { level: 2 })).toHaveText(`Этап ${main.slice(0, 8)}`)
+      await expect(panel).not.toContainText('echo review-reset')
+      expect(reads.length).toBeGreaterThan(offline)
+      const settled = reads.length
+      await page.waitForTimeout(quietMs)
+      expect(reads).toHaveLength(settled)
+    } finally {
+      expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
+    }
+  })
+
+  test('the open inspector reads its stage again when its run vanishes from the replaced database and says the stage is gone, without a read loop', async ({
+    page,
+    context,
+    profile,
+    daemon,
+    fakeClaude,
+  }) => {
+    fakeClaude.setScenario(observerScenarios['live-map'].live)
+    const session = 'e2e-reset-vanished'
+    const transcript = await markerTranscript(profile, session)
+    const main = stageTitled(await interpreted(page.request, transcript.run), (title) => title === mainStageTitle)
+    const reads = stageReads(page)
+    await openMarkerStage(page, transcript.run, main)
+
+    await context.setOffline(true)
+    const restarted = await restartedWithoutObserver(profile, daemon, () => rm(transcriptFile(profile, session)))
+    try {
+      expect(await snapshotOf(page.request, transcript.run)).toBeNull()
+      const offline = reads.length
+
+      await context.setOffline(false)
+      await expect(page.getByRole('heading', { name: 'Прогон не найден' })).toBeVisible()
+      const panel = inspector(page)
+      await expect(panel).toContainText(goneStage(main))
+      await expect(panel.getByRole('heading', { level: 2 })).toHaveText(`Этап ${main.slice(0, 8)}`)
+      await expect(panel).not.toContainText('echo review-reset')
+      expect(reads.length).toBeGreaterThan(offline)
+      const settled = reads.length
+      await page.waitForTimeout(quietMs)
+      expect(reads).toHaveLength(settled)
+    } finally {
+      expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
+    }
   })
 })

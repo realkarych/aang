@@ -10,6 +10,7 @@ export type FeedConnection = 'loading' | 'live' | 'reconnecting' | 'missing'
 export interface RunFeedState {
   readonly snapshot: RunSnapshot | null
   readonly connection: FeedConnection
+  readonly generation: number
 }
 
 type FeedAction =
@@ -19,20 +20,22 @@ type FeedAction =
   | { readonly kind: 'connection'; readonly connection: FeedConnection }
   | { readonly kind: 'missing' }
 
-const initial: RunFeedState = { snapshot: null, connection: 'loading' }
+const initial: RunFeedState = { snapshot: null, connection: 'loading', generation: 0 }
+
+const nextGeneration = (state: RunFeedState): number => (state.snapshot === null ? state.generation : state.generation + 1)
 
 const reduce = (state: RunFeedState, action: FeedAction): RunFeedState => {
   switch (action.kind) {
     case 'start':
-      return initial
+      return { ...initial, generation: nextGeneration(state) }
     case 'snapshot':
-      return { ...state, snapshot: action.snapshot }
+      return { ...state, snapshot: action.snapshot, generation: nextGeneration(state) }
     case 'event':
       return state.snapshot === null ? state : { ...state, snapshot: applyEvent(state.snapshot, action.event) }
     case 'connection':
       return state.connection === action.connection ? state : { ...state, connection: action.connection }
     case 'missing':
-      return { snapshot: null, connection: 'missing' }
+      return { snapshot: null, connection: 'missing', generation: nextGeneration(state) }
   }
 }
 

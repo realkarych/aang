@@ -13,12 +13,15 @@ const refreshGapMs = 400
 
 const retryMs = 1_000
 
-interface Loaded {
+export interface FeedPosition {
+  readonly generation: number
   readonly seq: ChangeSeq | null
 }
 
-const changed = (wanted: ChangeSeq | null, loaded: Loaded | null): boolean =>
-  loaded === null || (wanted !== null && (loaded.seq === null || wanted > loaded.seq))
+const changed = (wanted: FeedPosition, loaded: FeedPosition | null): boolean =>
+  loaded === null ||
+  wanted.generation !== loaded.generation ||
+  (wanted.seq !== null && (loaded.seq === null || wanted.seq > loaded.seq))
 
 const nextChange = (wake: { current: (() => void) | null }, signal: AbortSignal): Promise<void> =>
   new Promise((resolve) => {
@@ -31,22 +34,27 @@ const nextChange = (wake: { current: (() => void) | null }, signal: AbortSignal)
     signal.addEventListener('abort', done, { once: true })
   })
 
-export const useStage = (run: RunId, stage: StageId, seq: ChangeSeq | null, onSignedOut: () => void): StageLoad => {
+export const useStage = (
+  run: RunId,
+  stage: StageId,
+  { generation, seq }: FeedPosition,
+  onSignedOut: () => void,
+): StageLoad => {
   const [load, setLoad] = useState<StageLoad>({ kind: 'loading' })
-  const wanted = useRef(seq)
+  const wanted = useRef<FeedPosition>({ generation, seq })
   const wake = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    wanted.current = seq
+    wanted.current = { generation, seq }
     wake.current?.()
-  }, [seq])
+  }, [generation, seq])
 
   useEffect(() => {
     const controller = new AbortController()
     const { signal } = controller
     const stopped = (): boolean => signal.aborted
     const follow = async (): Promise<void> => {
-      let loaded: Loaded | null = null
+      let loaded: FeedPosition | null = null
       while (!signal.aborted) {
         if (!changed(wanted.current, loaded)) {
           await nextChange(wake, signal)
@@ -55,7 +63,10 @@ export const useStage = (run: RunId, stage: StageId, seq: ChangeSeq | null, onSi
         const target = wanted.current
         try {
           const inspector = await readStage(run, stage, signal)
-          loaded = { seq: target === null || inspector.change_seq > target ? inspector.change_seq : target }
+          loaded = {
+            generation: target.generation,
+            seq: target.seq === null || inspector.change_seq > target.seq ? inspector.change_seq : target.seq,
+          }
           setLoad({ kind: 'ready', inspector, failing: false })
           await pause(refreshGapMs, signal)
         } catch (error) {
@@ -67,7 +78,7 @@ export const useStage = (run: RunId, stage: StageId, seq: ChangeSeq | null, onSi
             return
           }
           if (error instanceof NotFound) {
-            loaded = { seq: target }
+            loaded = target
             setLoad({ kind: 'missing' })
             await pause(refreshGapMs, signal)
             continue
