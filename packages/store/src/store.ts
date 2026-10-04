@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { ChangeSeq } from '@aang/contract'
 import { type ArtifactReader, type ArtifactWriter, createArtifacts } from './artifacts.js'
 import { type ChangeFeed, createChangeFeed } from './changes.js'
+import { type ChatReader, type ChatWriter, createChat } from './chat.js'
 import { prepareStatement, type WriteContext } from './context.js'
 import { createCursors, type CursorReader, type CursorWriter } from './cursors.js'
 import { createFacts, type FactReader, type FactWriter } from './facts.js'
@@ -47,6 +48,7 @@ export interface Transaction {
   readonly observerCalls: ObserverCallWriter
   readonly interpretations: InterpretationWriter
   readonly views: ViewWriter
+  readonly chat: ChatWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
@@ -73,6 +75,7 @@ export interface Store {
   readonly observerCalls: ObserverCallReader
   readonly interpretations: InterpretationReader
   readonly views: ViewReader
+  readonly chat: ChatReader
   readonly changes: ChangeFeed
   readonly vacuum: () => void
   readonly close: () => void
@@ -94,6 +97,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
   const observerCalls = createObserverCalls(database)
   const interpretations = createInterpretations(database)
   const views = createViews(database)
+  const chat = createChat(database)
   inTransaction(database, () => {
     recoverInterpretations(database)
   })
@@ -129,6 +133,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
         observerCalls: observerCalls.writer(context),
         interpretations: interpretations.writer(context),
         views: views.writer(context),
+        chat: chat.writer(context),
       },
       finish: () => {
         active = false
@@ -161,6 +166,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
     observerCalls: observerCalls.reader,
     interpretations: interpretations.reader,
     views: views.reader,
+    chat: chat.reader,
     changes: createChangeFeed(database),
     vacuum: pruning.vacuum,
     close: () => {

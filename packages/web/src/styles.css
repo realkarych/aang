@@ -403,6 +403,11 @@ button.lamp[data-level='warning']:hover {
   --tone: var(--tone-idle);
 }
 
+.badge[data-tone='basis'] {
+  --tone: var(--ink-soft);
+  font-weight: 400;
+}
+
 .number {
   text-align: right;
 }

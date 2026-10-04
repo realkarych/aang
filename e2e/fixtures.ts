@@ -23,7 +23,7 @@ import {
 } from '@aang/testkit'
 import { test as base, expect } from '@playwright/test'
 
-export type PlayerSettings = Pick<PlayerOptions, 'timeScale'>
+export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime'>
 
 export type HookFields = Readonly<Record<string, unknown>>
 
