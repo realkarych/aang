@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { expect, test, type TestContext } from 'vitest'
 import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
 import { installFakeClaude, installFakeCodex } from '@aang/testkit'
+import { failNextProcessTableRead } from './process-table.js'
 
 const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'] }
 const input = { model: { version: 7 }, batch: { facts: [] }, private: 'working data must not reach admission' }
@@ -196,6 +197,20 @@ test.skipIf(process.platform === 'win32')('Codex fails admission when its profil
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
   expect(fake.calls().filter((call) => call.prompt !== null)).toHaveLength(1)
 })
+
+for (const runtime of ['claude', 'codex'] as const) {
+  test.skipIf(process.platform === 'win32')(`${runtime} fails admission when the process table cannot be read during a call even if the final read succeeds`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const cli = runtime === 'claude' ? installFakeClaude(root, { replies: [{ kind: 'answer', output }] }) : installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
+    const backend = runtime === 'claude' ? createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins }) : createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+    context.onTestFinished(failNextProcessTableRead())
+    expect(await backend.admit()).toMatchObject({ admitted: false, reason: expect.stringMatching(/^CLI process group could not be checked: .*process table is unavailable/) as unknown })
+    expect(backend.status()).toEqual({ activeCalls: 0, state: { state: 'disabled', reason: 'isolation' } })
+    const count = cli.calls().length
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
+    expect(cli.calls()).toHaveLength(count)
+  })
+}
 
 test('Codex cannot reuse the positive control output when the negative branch omits last.json', async (context) => {
   const { root, options } = await sandbox(context)
