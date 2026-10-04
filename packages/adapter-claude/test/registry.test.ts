@@ -130,7 +130,7 @@ describe.concurrent('Claude session registry', () => {
     })
   })
 
-  test('a session waiting for the human names what it waits for, unverified', ({ expect }) => {
+  test('a session waiting for the human names what it waits for', ({ expect }) => {
     const [snapshot] = factsOf(
       parseEntry({
         pid: 7002,
@@ -143,7 +143,7 @@ describe.concurrent('Claude session registry', () => {
     )
 
     expect(snapshot).toMatchObject({
-      format_verified: false,
+      format_verified: true,
       runtime_env: { cwd: null, version: null, entrypoint: null },
       payload: {
         content: {
