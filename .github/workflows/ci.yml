@@ -49,15 +49,29 @@ jobs:
         run: pnpm exec playwright install chromium
       - run: pnpm coverage:test
         env:
+          NODE_OPTIONS: --max-old-space-size=6144
           AANG_ISOLATION_CODEX: codex
       - if: ${{ !cancelled() }}
         run: pnpm coverage:e2e
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - run: pnpm coverage:report
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
           name: e2e-results-${{ matrix.os }}
           path: test-results/
+          if-no-files-found: ignore
+      - if: failure()
+        run: node tools/support/dist/main.js isolation codex --support "$RUNNER_TEMP/support-isolation"
+        shell: bash
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-isolation-${{ matrix.os }}
+          path: ${{ runner.temp }}/support-isolation
           if-no-files-found: ignore
 
   hook-targets:

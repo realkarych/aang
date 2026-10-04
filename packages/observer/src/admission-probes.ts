@@ -25,10 +25,12 @@ const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Prom
   const marker = join(directory, 'hook-ran')
   const script = join(directory, 'control-hook.cjs')
   await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},'control')\n`, { mode: 0o600 })
-  const quote = (value: string): string => process.platform === 'win32' ? `"${value.replaceAll('"', '\\"')}"` : `'${value.replaceAll("'", "'\\''")}'`
+  const command = process.platform === 'win32'
+    ? `& ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "''")}'`).join(' ')}`
+    : [process.execPath, script].map((value) => `'${value.replaceAll("'", "'\\''")}'`).join(' ')
   const hook = runtime === 'claude'
     ? { type: 'command', command: process.execPath, args: [script], timeout: 10 }
-    : { type: 'command', command: [process.execPath, script].map(quote).join(' '), timeout: 10 }
+    : { type: 'command', command, timeout: 10 }
   const config = { hooks: { SessionStart: [{ hooks: [hook] }] } }
   const path = runtime === 'claude' ? join(directory, '.claude', 'settings.json') : join(directory, 'codex-home', 'hooks.json')
   await mkdir(runtime === 'claude' ? join(directory, '.claude') : join(directory, 'codex-home'), { recursive: true, mode: 0o700 })

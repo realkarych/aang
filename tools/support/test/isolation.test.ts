@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
@@ -171,14 +171,11 @@ test.skipIf(installedCodex === undefined)(
   async () => {
     const support = await directory('aang-isolation-contract-')
     const result = await isolation(support, installedCodex ?? 'codex')
-    const runner = resolve('test-results', 'support-isolation', hostOs)
-    await mkdir(runner, { recursive: true })
-    await cp(matrixPath(support), join(runner, 'matrix.json'))
 
     expect(result.code, result.stdout + result.stderr).toBe(0)
     const [row] = (await readSupportMatrix(matrixPath(support))).rows
     const recorded = row === undefined ? null : supportRowOf(await readSupportMatrix(resolve('support', 'matrix.json')), row)
-    expect(recorded?.observer, `support/matrix.json does not record ${result.stdout.trim()}: import ${join(runner, 'matrix.json')}`).toEqual(row?.observer)
+    expect(recorded?.observer, `support/matrix.json does not record ${result.stdout.trim()}`).toEqual(row?.observer)
   },
   300_000,
 )
