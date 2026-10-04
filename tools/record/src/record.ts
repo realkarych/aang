@@ -2,13 +2,14 @@ import { constants } from 'node:fs'
 import { access, mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
-import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
+import { type OperatingSystem, type Runtime, spoolFormat, type Surface } from '@aang/contract'
 import { writeClaudePlugin } from '@aang/hook'
 import { createProcessRunner } from '@aang/observer'
 import { leaseSpool } from '@aang/testkit'
 import { createAnonymizer } from './anonymize.js'
 import { createCapture, type ControlTarget } from './capture.js'
 import { isMissing } from './files.js'
+import { machineIdentities } from './machine.js'
 import { startOtlpReceiver } from './otlp.js'
 import { type CodexHome, type ModelMode, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
 import { verifyRecording } from './verify.js'
@@ -186,17 +187,27 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     for (const [before, after] of [...paths]) {
       paths.set(before.replaceAll('\\', '/'), after.replaceAll('\\', '/'))
     }
-    const files = new Map(capture.artifacts.map((artifact) => [artifact.source, artifact.content]))
+    const anonymizer = createAnonymizer(paths, await machineIdentities())
+    anonymizer.discover([...capture.artifacts.map(({ content }) => content), json({ steps: capture.steps })])
+    const anonymous = (source: string, content: string): string => {
+      const header = source.startsWith('spool/') ? content.indexOf(spoolFormat.headerLineTerminator) + spoolFormat.headerLineTerminator.length : 0
+      return content.slice(0, header) + anonymizer.text(content.slice(header))
+    }
+    const files = new Map(capture.artifacts.map(({ source, content }) => [source, anonymous(source, content)]))
     files.set('manifest.json', json(manifest))
-    files.set('playback.json', json({ steps: capture.steps }))
-    const anonymizer = createAnonymizer(paths)
-    anonymizer.discover(files.values())
+    files.set('playback.json', json({
+      steps: capture.steps.map((step) => ({
+        ...step,
+        ...'target' in step ? { target: { ...step.target, path: anonymizer.path(step.target.path) } } : {},
+        ...'env' in step ? { env: Object.fromEntries(Object.entries(step.env).map(([key, value]) => [key, anonymizer.text(value)])) } : {},
+      })),
+    }))
     await mkdir(dirname(destination), { recursive: true })
     staging = await mkdtemp(join(dirname(destination), '.record-'))
     for (const [file, content] of files) {
       const path = join(staging, file)
       await mkdir(dirname(path), { recursive: true })
-      await writeFile(path, anonymizer.text(content), { mode: 0o600 })
+      await writeFile(path, content, { mode: 0o600 })
     }
     await verifyRecording(staging)
     await rename(staging, destination)
