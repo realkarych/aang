@@ -13,6 +13,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  CODEX_VERSION: 0.160.0
+
 jobs:
   check:
     strategy:
@@ -34,6 +37,8 @@ jobs:
           cache: false
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
+      - run: npm install --global "@openai/codex@${CODEX_VERSION}"
+        shell: bash
       - run: pnpm typecheck
       - run: pnpm lint
         env:
@@ -43,6 +48,8 @@ jobs:
       - if: runner.os != 'Linux'
         run: pnpm exec playwright install chromium
       - run: pnpm coverage:test
+        env:
+          AANG_ISOLATION_CODEX: codex
       - if: ${{ !cancelled() }}
         run: pnpm coverage:e2e
       - run: pnpm coverage:report

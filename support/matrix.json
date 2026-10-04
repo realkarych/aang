@@ -1,4 +1,36 @@
 {
   "format": "aang-support-matrix/1",
-  "rows": []
+  "rows": [
+    {
+      "runtime": "codex",
+      "surface": "codex_exec",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "no reference recordings on this OS",
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "not_run",
+        "child_sessions": "not_run",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "passed",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    }
+  ]
 }

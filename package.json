@@ -20,6 +20,7 @@
     "scenarios": "vitest run --project tools/record --tags-filter=runtime",
     "support:check": "node tools/support/dist/main.js check",
     "support:update": "node tools/support/dist/main.js update",
+    "support:isolation": "node tools/support/dist/main.js isolation",
     "e2e": "playwright test"
   },
   "devDependencies": {
