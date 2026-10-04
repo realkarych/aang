@@ -1,20 +1,40 @@
 import { randomUUID } from 'node:crypto'
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, relative } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
-import { createProfile, leaseSpool, type Profile, readSpool } from '@aang/testkit'
+import {
+  type ClaudeScenario,
+  type CodexScenario,
+  type ConfigInput,
+  createProfile,
+  type FakeCli,
+  installFakeClaude,
+  installFakeCodex,
+  leaseSpool,
+  type Profile,
+  readSpool,
+} from '@aang/testkit'
 import { afterAll, beforeAll, describe, test, type TestContext } from 'vitest'
-import { buildNpmPackages, hookBinaryName, hookPackageName, type HookPlatform, hookPlatforms, type PackedPackage } from '../dist/index.js'
+import {
+  buildNpmPackages,
+  hookBinaryName,
+  hookPackageName,
+  type HookPlatform,
+  hookPlatforms,
+  type PackedPackage,
+  run,
+} from '../dist/index.js'
 import { executableTarget } from './executable.js'
 import { type Installation, install } from './installation.js'
 import { type Registry, startRegistry } from './registry.js'
 
 const hostPlatform = `${process.platform}-${process.arch}`
+const windows = process.platform === 'win32'
 const started = /^aang started: pid ([0-9]+), (http:\/\/127\.0\.0\.1:[0-9]+)$/m
 const webRoot = dirname(fileURLToPath(import.meta.resolve('@aang/web')))
-const sessionStartSample = new URL('../../../docs/research/samples/claude-code-hooks/SessionStart.startup.json', import.meta.url)
+const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const commandTimeoutMs = 180_000
 
 const isAlive = (pid: number): boolean => {
@@ -47,11 +67,14 @@ interface WatchedProfile {
   readonly workspace: string
 }
 
-const watchedProfile = async (onTestFinished: TestContext['onTestFinished']): Promise<WatchedProfile> => {
+const watchedProfile = async (
+  onTestFinished: TestContext['onTestFinished'],
+  config: ConfigInput = {},
+): Promise<WatchedProfile> => {
   const profile = await createProfile()
   const workspace = join(profile.root, 'work')
   await mkdir(workspace)
-  await profile.configure({ collector: { rootsScanIntervalMs: 200 }, watch: { roots: [{ path: workspace }] } })
+  await profile.configure({ collector: { rootsScanIntervalMs: 200 }, watch: { roots: [{ path: workspace }] }, ...config })
   onTestFinished(async () => {
     const state = await readFile(join(profile.aangHome, 'daemon.json'), 'utf8').catch(() => null)
     const pid = state === null ? null : (JSON.parse(state) as { readonly pid: number }).pid
@@ -63,9 +86,63 @@ const watchedProfile = async (onTestFinished: TestContext['onTestFinished']): Pr
   return { profile, workspace }
 }
 
-const sessionStart = async (workspace: string): Promise<string> => {
-  const sample: unknown = JSON.parse(await readFile(sessionStartSample, 'utf8'))
-  return JSON.stringify({ ...(sample as Record<string, unknown>), session_id: randomUUID(), cwd: workspace })
+const sample = async (path: string): Promise<Record<string, unknown>> =>
+  JSON.parse(await readFile(new URL(path, samples), 'utf8')) as Record<string, unknown>
+
+const sessionStart = async (workspace: string): Promise<string> =>
+  JSON.stringify({ ...(await sample('claude-code-hooks/SessionStart.startup.json')), session_id: randomUUID(), cwd: workspace })
+
+const codexSessionStart = async (workspace: string): Promise<string> => {
+  const { stdin } = (await sample('codex-cli/hooks/SessionStart.startup.json')) as { readonly stdin: Record<string, unknown> }
+  return JSON.stringify({ ...stdin, cwd: workspace })
+}
+
+interface CommandHandler {
+  readonly type: string
+  readonly command: string
+  readonly args?: readonly string[]
+  readonly timeout: number
+}
+
+interface HooksDocument {
+  readonly hooks: Readonly<Record<string, readonly { readonly hooks: readonly CommandHandler[] }[]>>
+}
+
+const sessionStartHandlers = async (hooksFile: string): Promise<CommandHandler[]> =>
+  ((JSON.parse(await readFile(hooksFile, 'utf8')) as HooksDocument).hooks.SessionStart ?? []).flatMap(
+    (group) => group.hooks,
+  )
+
+interface Connected extends WatchedProfile {
+  readonly claude: FakeCli<ClaudeScenario>
+  readonly codex: FakeCli<CodexScenario>
+  readonly codexHome: string
+}
+
+const connectedProfile = async (onTestFinished: TestContext['onTestFinished']): Promise<Connected> => {
+  const fakes = await realpath(await mkdtemp(join(tmpdir(), 'aang-npm-fakes-')))
+  onTestFinished(() => rm(fakes, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }))
+  const claude = installFakeClaude(fakes)
+  const codex = installFakeCodex(fakes)
+  const codexHome = join(fakes, 'codex-profile')
+  const watched = await watchedProfile(onTestFinished, {
+    cli: { claude: claude.command, codex: codex.command },
+    runtimes: { codex: { home: codexHome } },
+  })
+  return { ...watched, claude, codex, codexHome }
+}
+
+const exists = (path: string): Promise<boolean> =>
+  stat(path).then(
+    () => true,
+    () => false,
+  )
+
+const runtimesOfRuns = async (url: string, aangHome: string): Promise<string[]> => {
+  const token = (await readFile(join(aangHome, 'token'), 'utf8')).trim()
+  const response = await fetch(`${url}/api/runs`, { headers: { authorization: `Bearer ${token}` } })
+  const { runs } = (await response.json()) as { readonly runs: readonly { readonly runtime: string }[] }
+  return runs.map(({ runtime }) => runtime).sort()
 }
 
 describe('the packed aang package installs from a registry and runs', { tags: ['package'] }, () => {
@@ -163,7 +240,88 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(isAlive(Number(pid))).toBe(false)
   })
 
-  test('installed into a project without optional dependencies, aang-hook names the missing binary and aang still runs', { timeout: commandTimeoutMs }, async ({
+  test.runIf(!windows)('in a temporary HOME the installed aang install deploys the binary of the aang-hook package and registers hooks whose commands deliver events to the running daemon', { timeout: commandTimeoutMs }, async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, workspace, claude, codex, codexHome } = await connectedProfile(onTestFinished)
+    const env = profile.env
+    const pluginDirectory = join(profile.aangHome, 'claude-plugin')
+    const codexHooks = join(codexHome, 'hooks.json')
+    const hookBinary = join(profile.aangHome, 'bin', 'aang-hook')
+    const packagedBinary = join(installed().packageDirectory, 'node_modules', `aang-hook-${hostPlatform}`, 'aang-hook')
+    const start = await installed().run('aang', ['start'], { env })
+    const [, pid = '', url = ''] = started.exec(start.stdout) ?? []
+    expect(start.code, start.stderr).toBe(0)
+
+    const connected = await installed().run('aang', ['install'], { env })
+
+    expect(connected).toEqual({
+      code: 0,
+      stdout: [
+        `claude: plugin aang@aang installed from ${pluginDirectory}`,
+        'claude: plugin aang@aang is enabled',
+        `codex: aang hooks registered in ${codexHooks}`,
+        'codex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
+        '',
+      ].join('\n'),
+      stderr: '',
+    })
+    expect(claude.calls().filter((call) => call.command === 'plugin').map((call) => call.argv)).toEqual([
+      ['plugin', 'marketplace', 'add', pluginDirectory, '--scope', 'user', '--json'],
+      ['plugin', 'install', 'aang@aang', '--scope', 'user', '--json'],
+      ['plugin', 'list', '--json'],
+    ])
+    expect(codex.calls().filter((call) => call.command === 'app_server').map((call) => call.env.CODEX_HOME)).toEqual(
+      Array(3).fill(codexHome),
+    )
+    expect((await readFile(hookBinary)).equals(await readFile(packagedBinary))).toBe(true)
+    const [pluginHandler] = await sessionStartHandlers(join(pluginDirectory, 'hooks', 'hooks.json'))
+    expect(pluginHandler).toEqual({ type: 'command', command: hookBinary, args: ['claude', 'plugin', profile.spool], timeout: 2 })
+    const codexHandlers = await sessionStartHandlers(codexHooks)
+    expect(codexHandlers).toEqual([{ type: 'command', command: `'${hookBinary}' codex user '${profile.spool}'`, timeout: 2 }])
+
+    const fromClaude = await run(pluginHandler?.command ?? '', pluginHandler?.args ?? [], {
+      env,
+      input: await sessionStart(workspace),
+    })
+    const fromCodex = await run('/bin/sh', ['-c', codexHandlers[0]?.command ?? ''], {
+      env,
+      input: await codexSessionStart(workspace),
+    })
+
+    expect(fromClaude).toEqual({ code: 0, stdout: '', stderr: '' })
+    expect(fromCodex).toEqual({ code: 0, stdout: '', stderr: '' })
+    await waitUntil(async () => (await runtimesOfRuns(url, profile.aangHome)).length === 2)
+    expect(await runtimesOfRuns(url, profile.aangHome)).toEqual(['claude', 'codex'])
+    const stop = await installed().run('aang', ['stop'], { env })
+    expect(stop).toMatchObject({ code: 0, stdout: `aang stopped: pid ${pid}\n` })
+  })
+
+  test.runIf(windows)('on Windows the installed aang install finds the aang-hook binary and refuses to install hooks until it is enabled there', { timeout: commandTimeoutMs }, async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, claude, codex, codexHome } = await connectedProfile(onTestFinished)
+
+    const connected = await installed().run('aang', ['install'], { env: profile.env })
+
+    expect(connected).toEqual({
+      code: 1,
+      stdout: '',
+      stderr: ['claude', 'codex']
+        .map(
+          (runtime) =>
+            `aang install: ${runtime}: installing hooks on Windows is not enabled yet: the hook command form for Windows runtimes is unverified\n`,
+        )
+        .join(''),
+    })
+    expect([...claude.calls(), ...codex.calls()]).toEqual([])
+    expect(await exists(join(profile.aangHome, 'bin'))).toBe(false)
+    expect(await exists(join(codexHome, 'hooks.json'))).toBe(false)
+  })
+
+  test('installed into a project without optional dependencies, aang-hook and aang install name the missing binary and aang still runs', { timeout: commandTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
@@ -180,6 +338,12 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(hooked).toMatchObject({ code: 1, stdout: '' })
     expect(hooked.stderr).toContain(`no aang-hook binary is installed for ${hostPlatform}`)
     expect(await readSpool(profile.spool)).toEqual([])
+
+    const connected = await bare.run('aang', ['install'], { env: profile.env })
+
+    expect(connected).toMatchObject({ code: 1, stdout: '' })
+    expect(connected.stderr).toMatch(new RegExp(`^aang install: no aang-hook binary is installed for ${hostPlatform};`))
+    expect(await exists(join(profile.aangHome, 'bin'))).toBe(false)
     const status = await bare.run('aang', ['status'], { env: profile.env })
     expect(status.code).toBe(0)
     expect(status.stdout).toContain('daemon: not running\nspool: 0 files')
