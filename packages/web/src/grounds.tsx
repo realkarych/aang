@@ -2,10 +2,10 @@ import type { Basis, Evidence, Fact, FactId, ObservationObjects, RawPosition, Ra
 import { createContext, type ReactElement, type ReactNode, useContext, useId, useState } from 'react'
 import { factExcerpt } from './fact-excerpt.js'
 import { absoluteTime, bytes, clockTime, plural } from './format.js'
+import { useGeneration } from './generation.js'
 import { BasisGlyph } from './glyphs.js'
 import { basisLabel, factForms, runtimeLabel } from './labels.js'
 import { factPlace } from './objects.js'
-import { factSource, rawSource } from './sources.js'
 import { factKindLabel, parseStateLabel, rawChannelLabel, speakerLabel } from './stage-labels.js'
 import { type Read, useRead } from './use-read.js'
 
@@ -173,7 +173,8 @@ const RawBody = ({ raw }: { readonly raw: RawRecord }): ReactElement => (
 )
 
 const RawView = ({ seq, label }: { readonly seq: RawSeq; readonly label: string }): ReactElement => {
-  const read = useRead(rawSource, String(seq))
+  const { raws } = useGeneration()
+  const read = useRead(raws, String(seq))
   return (
     <div className="rung" data-level="raw" role="region" aria-label={label}>
       {read.kind === 'ready' ? (
@@ -225,7 +226,8 @@ const FactView = ({ fact }: { readonly fact: Fact }): ReactElement => {
 }
 
 const LazyFact = ({ id }: { readonly id: FactId }): ReactElement => {
-  const read = useRead(factSource, id)
+  const { facts } = useGeneration()
+  const read = useRead(facts, id)
   return read.kind === 'ready' ? (
     <FactView fact={read.value} />
   ) : (

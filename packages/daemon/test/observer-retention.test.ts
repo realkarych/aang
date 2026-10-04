@@ -5,7 +5,7 @@ import { runId } from '@aang/contract/ids'
 import { installFakeCodex, mainStageTitle } from '@aang/testkit'
 import { test } from 'vitest'
 import { bearer, type Home, startDaemon } from './daemon.js'
-import { configure, configuredPath, installLauncher, observerEnvironment } from './observers.js'
+import { configure, installLauncher, observerEnvironment } from './observers.js'
 import { claudeHook, claudeSession, enqueue, waitUntil, watchedHome } from './sessions.js'
 
 const session = 'session-h6-retention'
@@ -47,7 +47,7 @@ test('the daemon keeps the files an accepted observer answer links, and after a 
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [{ kind: 'script', script: 'report' }] })
   await installLauncher(home)
   await configure(home, workspace, {
-    cli: { codex: await configuredPath(codex) },
+    cli: { codex: codex.path },
     observer: { backend: 'codex', crossVendor: true },
   })
   const workCalls = (): number =>

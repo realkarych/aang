@@ -2,6 +2,7 @@ import type { RunId, StatusResponse } from '@aang/contract'
 import { type ReactElement, useCallback, useEffect, useState } from 'react'
 import { readRuns, readStatus } from './api.js'
 import { nowNs } from './format.js'
+import { GenerationContext } from './generation.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
 import { listHref, selectStage, useNavigate, useRoutedRun, useRoutedStage } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
@@ -115,19 +116,21 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <Masthead trail={title ?? 'Прогон'} />
       <StatusStrip lamps={lamps} />
       <main className="page run-screen" data-inspecting={stage !== null}>
-        <RunPage feed={feed} now={now} />
-        {stage === null ? null : (
-          <SignedOutContext value={onSignedOut}>
-            <StageInspector
-              key={stage}
-              run={run}
-              stage={stage}
-              feed={feed}
-              onSignedOut={onSignedOut}
-              onClose={close}
-            />
-          </SignedOutContext>
-        )}
+        <GenerationContext value={feed.generation}>
+          <RunPage feed={feed} now={now} />
+          {stage === null ? null : (
+            <SignedOutContext value={onSignedOut}>
+              <StageInspector
+                key={stage}
+                run={run}
+                stage={stage}
+                feed={feed}
+                onSignedOut={onSignedOut}
+                onClose={close}
+              />
+            </SignedOutContext>
+          )}
+        </GenerationContext>
       </main>
     </>
   )

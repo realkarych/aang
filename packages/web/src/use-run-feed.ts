@@ -2,6 +2,7 @@ import type { RunId, RunSnapshot } from '@aang/contract'
 import { useEffect, useReducer } from 'react'
 import { NotFound, readRun, SignedOut } from './api.js'
 import { applyEvent } from './feed.js'
+import { type Generation, generationAfter } from './generation.js'
 import { pause } from './pause.js'
 import { type FeedEvent, followRun } from './stream.js'
 
@@ -10,7 +11,7 @@ export type FeedConnection = 'loading' | 'live' | 'reconnecting' | 'missing'
 export interface RunFeedState {
   readonly snapshot: RunSnapshot | null
   readonly connection: FeedConnection
-  readonly generation: number
+  readonly generation: Generation
 }
 
 type FeedAction =
@@ -20,14 +21,15 @@ type FeedAction =
   | { readonly kind: 'connection'; readonly connection: FeedConnection }
   | { readonly kind: 'missing' }
 
-const initial: RunFeedState = { snapshot: null, connection: 'loading', generation: 0 }
+const initial = (): RunFeedState => ({ snapshot: null, connection: 'loading', generation: generationAfter(null) })
 
-const nextGeneration = (state: RunFeedState): number => (state.snapshot === null ? state.generation : state.generation + 1)
+const nextGeneration = (state: RunFeedState): Generation =>
+  state.snapshot === null ? state.generation : generationAfter(state.generation)
 
 const reduce = (state: RunFeedState, action: FeedAction): RunFeedState => {
   switch (action.kind) {
     case 'start':
-      return { ...initial, generation: nextGeneration(state) }
+      return { snapshot: null, connection: 'loading', generation: nextGeneration(state) }
     case 'snapshot':
       return { ...state, snapshot: action.snapshot, generation: nextGeneration(state) }
     case 'event':
@@ -79,7 +81,7 @@ const follow = async (
 }
 
 export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeedState => {
-  const [state, dispatch] = useReducer(reduce, initial)
+  const [state, dispatch] = useReducer(reduce, undefined, initial)
   useEffect(() => {
     const controller = new AbortController()
     dispatch({ kind: 'start' })

@@ -14,12 +14,12 @@ import { type ReactElement, type ReactNode, useEffect, useId, useRef, useState }
 import { ActionBadge, DecisionBadge, ExecutionBadge } from './badges.js'
 import { inputDetail } from './fact-excerpt.js'
 import { absoluteTime, clockTime, plural } from './format.js'
+import { useGeneration } from './generation.js'
 import { AttentionGlyph, LevelGlyph } from './glyphs.js'
 import { BasisLine, Grounds, Groundwork, shortId } from './grounds.js'
 import { agentRoleLabel, attentionAuthorLabel, attentionKindLabel, executionLabel } from './labels.js'
 import { agentTitle } from './objects.js'
 import { stageHref, useSelect } from './route.js'
-import { factSource } from './sources.js'
 import { StageArtifacts } from './stage-artifacts.js'
 import { StageCriteria } from './stage-criteria.js'
 import { RejectedCalls, StageHistory } from './stage-history.js'
@@ -282,7 +282,8 @@ const TimeAndUsage = ({ inspected }: { readonly inspected: Inspected }): ReactEl
 }
 
 const ActionDetail = ({ fact }: { readonly fact: FactId }): ReactElement | null => {
-  const read = useRead(factSource, fact)
+  const { facts } = useGeneration()
+  const read = useRead(facts, fact)
   if (read.kind !== 'ready' || read.value.kind !== 'action_start') {
     return null
   }
@@ -512,14 +513,48 @@ const Body = ({
   )
 }
 
+const Inspection = ({
+  run,
+  stage,
+  snapshot,
+  onSignedOut,
+}: {
+  readonly run: RunId
+  readonly stage: StageId
+  readonly snapshot: RunSnapshot | null
+  readonly onSignedOut: () => void
+}): ReactElement => {
+  const load = useStage(run, stage, snapshot?.change_seq ?? null, onSignedOut)
+  const titles = new Map((snapshot?.model.stages ?? []).map(({ id, title }) => [id, title]))
+  return (
+    <>
+      {load.kind === 'ready' && load.failing ? (
+        <p className="inspector-trouble" role="status">
+          Связь с демоном прервалась: показано последнее полученное состояние, обновление повторяется.
+        </p>
+      ) : null}
+      {load.kind === 'ready' ? (
+        <Body run={run} inspected={load.inspector} titles={titles} objects={snapshot?.objects ?? null} />
+      ) : load.kind === 'missing' ? (
+        <p className="inspector-trouble">
+          В этом прогоне нет этапа <code>{shortId(stage)}</code>: ссылка устарела или прогон собран заново.
+        </p>
+      ) : load.kind === 'failing' ? (
+        <p className="inspector-trouble" role="status">
+          Не удалось загрузить этап, повтор через секунду.
+        </p>
+      ) : (
+        <p className="loading">Загрузка этапа…</p>
+      )}
+    </>
+  )
+}
+
 export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: StageInspectorProps): ReactElement => {
   const { snapshot, generation } = feed
-  const load = useStage(run, stage, { generation, seq: snapshot?.change_seq ?? null }, onSignedOut)
   const heading = useRef<HTMLHeadingElement>(null)
   const titleId = useId()
-  const stages = snapshot?.model.stages ?? []
-  const titles = new Map(stages.map(({ id, title }) => [id, title]))
-  const known = load.kind === 'ready' ? load.inspector.stage : (stages.find(({ id }) => id === stage) ?? null)
+  const known = snapshot?.model.stages.find(({ id }) => id === stage) ?? null
 
   useEffect(() => {
     heading.current?.focus()
@@ -550,24 +585,7 @@ export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: Stage
           Закрыть
         </button>
       </header>
-      {load.kind === 'ready' && load.failing ? (
-        <p className="inspector-trouble" role="status">
-          Связь с демоном прервалась: показано последнее полученное состояние, обновление повторяется.
-        </p>
-      ) : null}
-      {load.kind === 'ready' ? (
-        <Body run={run} inspected={load.inspector} titles={titles} objects={snapshot?.objects ?? null} />
-      ) : load.kind === 'missing' ? (
-        <p className="inspector-trouble">
-          В этом прогоне нет этапа <code>{shortId(stage)}</code>: ссылка устарела или прогон собран заново.
-        </p>
-      ) : load.kind === 'failing' ? (
-        <p className="inspector-trouble" role="status">
-          Не удалось загрузить этап, повтор через секунду.
-        </p>
-      ) : (
-        <p className="loading">Загрузка этапа…</p>
-      )}
+      <Inspection key={generation.ordinal} run={run} stage={stage} snapshot={snapshot} onSignedOut={onSignedOut} />
     </aside>
   )
 }

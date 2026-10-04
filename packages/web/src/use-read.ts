@@ -29,7 +29,9 @@ const cached = <T>(source: ReadSource<T>, key: string): Settled<T> | null => {
 export const useRead = <T>(source: ReadSource<T>, key: string): Read<T> => {
   const onSignedOut = useContext(SignedOutContext)
   const [attempt, setAttempt] = useState(0)
-  const [settled, setSettled] = useState<{ readonly attempt: number; readonly result: Settled<T> } | null>(null)
+  const [settled, setSettled] = useState<{ readonly key: string; readonly attempt: number; readonly result: Settled<T> } | null>(
+    null,
+  )
   const known = cached(source, key)
 
   useEffect(() => {
@@ -39,8 +41,11 @@ export const useRead = <T>(source: ReadSource<T>, key: string): Read<T> => {
     const controller = new AbortController()
     source.load(key, controller.signal).then(
       (value) => {
+        if (controller.signal.aborted) {
+          return
+        }
         source.cache.set(key, value)
-        setSettled({ attempt, result: { kind: 'ready', value } })
+        setSettled({ key, attempt, result: { kind: 'ready', value } })
       },
       (error: unknown) => {
         if (controller.signal.aborted) {
@@ -50,7 +55,7 @@ export const useRead = <T>(source: ReadSource<T>, key: string): Read<T> => {
           onSignedOut()
           return
         }
-        setSettled({ attempt, result: error instanceof NotFound ? { kind: 'missing' } : { kind: 'failed' } })
+        setSettled({ key, attempt, result: error instanceof NotFound ? { kind: 'missing' } : { kind: 'failed' } })
       },
     )
     return () => {
@@ -58,7 +63,7 @@ export const useRead = <T>(source: ReadSource<T>, key: string): Read<T> => {
     }
   }, [source, key, attempt, onSignedOut])
 
-  const result = known ?? (settled?.attempt === attempt ? settled.result : null)
+  const result = known ?? (settled !== null && settled.key === key && settled.attempt === attempt ? settled.result : null)
   if (result === null) {
     return { kind: 'loading' }
   }

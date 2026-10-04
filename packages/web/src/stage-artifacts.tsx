@@ -9,8 +9,8 @@ import type {
 } from '@aang/contract'
 import { type ReactElement, useId, useState } from 'react'
 import { absoluteTime, bytes } from './format.js'
+import { useGeneration } from './generation.js'
 import { Clipped, Grounds, ReadNote } from './grounds.js'
-import { versionSource } from './sources.js'
 import { useRead } from './use-read.js'
 
 const shortSha = (sha: string): string => sha.slice(0, 12)
@@ -135,7 +135,8 @@ const SavedBody = ({ response }: { readonly response: ArtifactVersionResponse })
 }
 
 const SavedVersion = ({ version, label }: { readonly version: ArtifactVersion; readonly label: string }): ReactElement => {
-  const read = useRead(versionSource, version.id)
+  const { versions } = useGeneration()
+  const read = useRead(versions, version.id)
   return (
     <div className="saved" role="region" aria-label={label}>
       {read.kind === 'ready' ? (

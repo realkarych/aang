@@ -4,7 +4,7 @@ import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { endpoints, type RunId, type RunSnapshot, type StageId } from '@aang/contract'
+import { endpoints, type RunId, type RunSnapshot, type StageId, type StageInspector } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import {
   goalCriterionText,
@@ -17,13 +17,12 @@ import {
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 import { freshManifest } from './fresh.js'
+import { trace } from './screens.js'
 
 const claudeSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: claudeSession })
 
 test.use({ config: { watch: { all: true } } })
-
-test.skip(process.platform === 'win32', 'the fake claude observer runs from one configured path only on macOS and Linux')
 
 const snapshotOf = async (request: APIRequestContext, run: RunId): Promise<RunSnapshot | null> => {
   const response = await request.get(endpoints.run.path.replace(':run', run))
@@ -476,10 +475,11 @@ const openMarkerStage = async (page: Page, run: RunId, stage: StageId): Promise<
   await expect(actions).toContainText('echo review-reset')
 }
 
-const restartedWithoutObserver = async (
+const restartedOnNewDatabase = async (
   profile: Profile,
   daemon: RunningDaemon,
   rewrite: () => Promise<void>,
+  observer: string | null = null,
 ): Promise<RunningDaemon> => {
   expect(await daemon.stop(), daemon.output()).toEqual({ code: 0, signal: null })
   for (const file of ['aang.db', 'aang.db-wal', 'aang.db-shm']) {
@@ -490,11 +490,86 @@ const restartedWithoutObserver = async (
     watch: { all: true },
     collector: { rootsScanIntervalMs: 250 },
     api: { port: daemon.api.port },
+    ...(observer === null ? {} : { cli: { claude: observer } }),
   })
   const restarted = await profile.startDaemon({ entry: aangEntry })
   expect(restarted.url).toBe(daemon.url)
   return restarted
 }
+
+const reportTranscript = async (profile: Profile, session: string, marker: string, notes = 0): Promise<Transcript> => {
+  await mkdir(resetProject, { recursive: true })
+  await writeFile(join(resetProject, 'report.md'), `${marker} report\n`)
+  const transcript = transcriptOf(profile, resetProject, session)
+  await transcript.append(
+    prompt(`Write the ${marker} report.`),
+    command('toolu_report', `echo ${marker} report > report.md`),
+    passedWith('toolu_report', 'ok\n'),
+    reply('message-report', `Wrote the ${marker} report.`),
+    ...Array.from({ length: notes }, (_, note) => reply(`message-note-${String(note)}`, `Note ${String(note)} on the report.`)),
+  )
+  return transcript
+}
+
+const inspectedStage = async (request: APIRequestContext, run: RunId, stage: StageId): Promise<StageInspector> => {
+  const response = await request.get(endpoints.stage.path.replace(':run', run).replace(':stage', stage))
+  expect(response.ok()).toBe(true)
+  return endpoints.stage.response.parse(await response.json())
+}
+
+const reported = async (request: APIRequestContext, run: RunId): Promise<{ stage: StageId; inspected: StageInspector }> => {
+  const stage = stageTitled(await interpreted(request, run), (title) => title === mainStageTitle)
+  await expect.poll(async () => (await inspectedStage(request, run, stage)).outputs.length, { timeout: 45_000 }).toBe(1)
+  return { stage, inspected: await inspectedStage(request, run, stage) }
+}
+
+const cacheKeys = ({ evidence, actions }: StageInspector): { prompt: number | undefined; input: string | null | undefined } => ({
+  prompt: evidence.find(({ kind }) => kind === 'prompt')?.seq,
+  input: actions[0]?.input_fact,
+})
+
+const expandAll = async (panel: Locator): Promise<void> => {
+  for (const name of [/: \d+ факт/, /^Сырая запись$/, /^Открыть сохранённую версию$/]) {
+    const closed = panel.getByRole('button', { name, expanded: false })
+    const count = await closed.count()
+    for (let opened = 0; opened < count; opened += 1) {
+      await closed.first().click()
+    }
+  }
+  await expect(panel.getByText(/^Загрузка/)).toHaveCount(0)
+}
+
+const shows = async (page: Page, marker: string, stale: string): Promise<void> => {
+  const panel = inspector(page)
+  await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
+  await expandAll(panel)
+  await expect(section(page, 'Критерии')).toContainText(goalCriterionText)
+  const outputs = section(page, 'Входы и выходы')
+  await expect(outputs.getByRole('list', { name: 'Выходы' })).toContainText(join(resetProject, 'report.md'))
+  await expect(outputs.getByRole('region', { name: /^Сохранённая версия/ }).locator('pre')).toHaveText(`${marker} report\n`)
+  await expect(outputs.getByRole('region', { name: /^Сырая запись/ }).filter({ hasText: `echo ${marker} report` })).not.toHaveCount(0)
+  await expect(section(page, 'Время и расход')).toContainText('Расход решателя, токены')
+  await expect(section(page, 'Участники и действия').getByRole('list', { name: 'Действия этапа' })).toContainText(
+    `echo ${marker} report > report.md`,
+  )
+  await expect(section(page, 'Связи')).toContainText('Связей с другими этапами нет.')
+  const grounds = section(page, 'Основания')
+  const promptFact = grounds.getByRole('listitem').filter({ hasText: /^Промпт/ }).first()
+  await expect(promptFact).toContainText(`Write the ${marker} report.`)
+  await expect(promptFact.getByRole('region', { name: /^Сырая запись: Промпт/ }).locator('pre')).toContainText(
+    `Write the ${marker} report.`,
+  )
+  await expect(section(page, 'История')).toContainText('создание этапа')
+  await expect(panel).not.toContainText(stale)
+  await expect(trace(page)).toContainText(`echo ${marker} report > report.md`)
+  await expect(trace(page)).not.toContainText(stale)
+}
+
+const selectByAddress = (page: Page, run: RunId, stage: StageId): Promise<void> =>
+  page.evaluate((href) => {
+    window.history.pushState(null, '', href)
+    window.dispatchEvent(new PopStateEvent('popstate'))
+  }, `/?run=${run}&stage=${stage}`)
 
 const goneStage = (stage: StageId): string =>
   `В этом прогоне нет этапа ${stage.slice(0, 8)}: ссылка устарела или прогон собран заново.`
@@ -522,7 +597,7 @@ test.describe('a database replaced under the open inspector', () => {
     await openMarkerStage(page, transcript.run, main)
 
     await context.setOffline(true)
-    const restarted = await restartedWithoutObserver(profile, daemon, async () => {
+    const restarted = await restartedOnNewDatabase(profile, daemon, async () => {
       const file = transcriptFile(profile, session)
       const [first] = (await readFile(file, 'utf8')).split('\n')
       await writeFile(file, `${first ?? ''}\n`)
@@ -550,6 +625,55 @@ test.describe('a database replaced under the open inspector', () => {
     }
   })
 
+  test('after the database is replaced under the open inspector, no section of it or of the trace shows the old base, and a stage of the new base grounds its facts to its own raw records without a page reload', async ({
+    page,
+    context,
+    profile,
+    daemon,
+    fakeClaude,
+  }) => {
+    fakeClaude.setScenario(observerScenarios.report.live)
+    const session = 'e2e-replaced-base'
+    const transcript = await reportTranscript(profile, session, 'old-marker', 6)
+    const before = await reported(page.request, transcript.run)
+
+    await page.goto(`/?run=${transcript.run}&stage=${before.stage}`)
+    await page.evaluate(() => Reflect.set(window, 'aangDocument', 'kept'))
+    await shows(page, 'old-marker', 'new-marker')
+
+    await context.setOffline(true)
+    const restarted = await restartedOnNewDatabase(
+      profile,
+      daemon,
+      async () => {
+        await reportTranscript(profile, session, 'new-marker')
+      },
+      fakeClaude.path,
+    )
+    try {
+      const after = await reported(page.request, transcript.run)
+      expect(after.stage).not.toBe(before.stage)
+      expect(after.inspected.change_seq).toBeLessThan(before.inspected.change_seq)
+      expect(cacheKeys(after.inspected)).toEqual(cacheKeys(before.inspected))
+      expect(cacheKeys(after.inspected).prompt).toBeDefined()
+      expect(cacheKeys(after.inspected).input).toEqual(expect.any(String))
+
+      await context.setOffline(false)
+      const panel = inspector(page)
+      await expect(panel).toContainText(goneStage(before.stage))
+      await expect(panel.getByRole('region')).toHaveCount(0)
+      await expect(panel).not.toContainText('old-marker')
+      await expect(trace(page)).toContainText('echo new-marker report > report.md')
+      await expect(trace(page)).not.toContainText('old-marker')
+
+      await selectByAddress(page, transcript.run, after.stage)
+      await shows(page, 'new-marker', 'old-marker')
+      expect(await page.evaluate(() => Reflect.get(window, 'aangDocument') as unknown)).toBe('kept')
+    } finally {
+      expect(await restarted.stop(), restarted.output()).toEqual({ code: 0, signal: null })
+    }
+  })
+
   test('the open inspector reads its stage again when its run vanishes from the replaced database and says the stage is gone, without a read loop', async ({
     page,
     context,
@@ -565,7 +689,7 @@ test.describe('a database replaced under the open inspector', () => {
     await openMarkerStage(page, transcript.run, main)
 
     await context.setOffline(true)
-    const restarted = await restartedWithoutObserver(profile, daemon, () => rm(transcriptFile(profile, session)))
+    const restarted = await restartedOnNewDatabase(profile, daemon, () => rm(transcriptFile(profile, session)))
     try {
       expect(await snapshotOf(page.request, transcript.run)).toBeNull()
       const offline = reads.length
