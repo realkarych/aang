@@ -218,7 +218,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
       root_session: objectId(claudeSession(session)),
       sessions: 1,
       attention: { open: 1, waiting_for_human: 1 },
-      observer: { state: { state: 'disabled', reason: 'version_not_admitted' }, isolation_unverified: false },
+      observer: { state: { state: 'disabled', reason: 'cli_missing' }, isolation_unverified: false },
     })
     expect(listed.change_seq).toBeGreaterThan(empty.change_seq)
 
@@ -365,12 +365,27 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     })
     expect(initial.spool.lease_expires_at).toBeGreaterThan(initial.daemon.started_at)
     expect(initial).toMatchObject({
-      observer: { cross_vendor: false, backends: [] },
+      observer: { cross_vendor: false },
       versions: [],
       unknown_records: 0,
       gaps: [],
       not_observable: [],
     })
+
+    const admitted = await api.until('/api/status', endpoints.status.response, ({ observer }) =>
+      observer.backends.every(({ state }) => state.state === 'disabled' && state.reason === 'cli_missing'),
+    )
+    expect(admitted.observer.backends).toEqual(
+      (['claude', 'codex'] as const).map((vendor) => ({
+        vendor,
+        state: { state: 'disabled', reason: 'cli_missing' },
+        cli_path: null,
+        cli_version: null,
+        model: vendor === 'claude' ? 'claude-opus-5-5' : 'gpt-6.1-sol',
+        effort: null,
+        admission: null,
+      })),
+    )
 
     const session = 'g4-status'
     const unrecognized = JSON.stringify({ type: 'g4-future-record', sessionId: session, cwd: workspace })
