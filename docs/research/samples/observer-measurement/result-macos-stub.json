@@ -1,0 +1,4597 @@
+{
+  "tool": "docs/research/samples/observer-measurement/run.mjs",
+  "mode": "stub",
+  "platform": {
+    "os": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "cpu": "Apple M4 Pro",
+    "cpus": 12,
+    "node": "v26.10.0",
+    "loadAverageAtStart": [
+      3.837890625,
+      4.8310546875,
+      5.93994140625
+    ]
+  },
+  "startedAt": "2026-10-04T00:08:18.872Z",
+  "runsPerVariant": 10,
+  "variants": {
+    "claude": {
+      "runtime": "claude",
+      "model": "claude-opus-5-5",
+      "effort": "CLI default",
+      "timeoutMs": 90000
+    },
+    "codex": {
+      "runtime": "codex",
+      "model": "gpt-6.1-sol",
+      "effort": "CLI default",
+      "timeoutMs": 150000
+    },
+    "codex-no-snapshot": {
+      "runtime": "codex",
+      "model": "gpt-6.1-sol",
+      "effort": "CLI default",
+      "timeoutMs": 150000,
+      "extraArgs": [
+        "--disable",
+        "shell_snapshot"
+      ]
+    }
+  },
+  "profile": "argv from claudeArguments/codexArguments (@aang/observer F.2/F.5) with the spike schema and system prompt; environment from cleanEnvironment; cwd from prepareWorkspace",
+  "sampleMs": 5,
+  "strace": false,
+  "auxiliary": [
+    {
+      "label": "claude --version",
+      "exitCode": 0,
+      "wallMs": 13,
+      "stopMs": 34,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 24,
+            "lastAtMs": 24,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "2.1.289 (Claude Code)"
+    },
+    {
+      "label": "claude --version",
+      "exitCode": 0,
+      "wallMs": 8,
+      "stopMs": 28,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 22,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "2.1.289 (Claude Code)"
+    },
+    {
+      "label": "claude --version",
+      "exitCode": 0,
+      "wallMs": 7,
+      "stopMs": 27,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 20,
+            "lastAtMs": 20,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "2.1.289 (Claude Code)"
+    },
+    {
+      "label": "claude auth status",
+      "exitCode": 0,
+      "wallMs": 96,
+      "stopMs": 117,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 6,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 104,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 49,
+            "lastAtMs": 49,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 49,
+            "lastAtMs": 49,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "loggedIn": true,
+      "authMethod": "api_key"
+    },
+    {
+      "label": "codex --version",
+      "exitCode": 0,
+      "wallMs": 40,
+      "stopMs": 62,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "codex-cli 0.160.0"
+    },
+    {
+      "label": "codex --version",
+      "exitCode": 0,
+      "wallMs": 10,
+      "stopMs": 31,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 22,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "codex-cli 0.160.0"
+    },
+    {
+      "label": "codex --version",
+      "exitCode": 0,
+      "wallMs": 10,
+      "stopMs": 32,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 23,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "codex-cli 0.160.0"
+    },
+    {
+      "label": "codex login status",
+      "exitCode": 1,
+      "wallMs": 56,
+      "stopMs": 79,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "label": "codex debug models --bundled",
+      "exitCode": 0,
+      "wallMs": 17,
+      "stopMs": 39,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 22,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    }
+  ],
+  "versions": {
+    "claude": "2.1.289 (Claude Code)",
+    "codex": "codex-cli 0.160.0"
+  },
+  "calls": [
+    {
+      "variant": "claude",
+      "index": 0,
+      "at": "2026-10-04T00:08:19.708Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 497,
+      "stopMs": 519,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 476,
+        "firstAssistantMs": 487,
+        "resultMs": 491
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 318,
+        "durationApiMs": 17
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 21,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 493,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 132,
+            "lastAtMs": 185,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 185,
+            "lastAtMs": 185,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 185,
+            "lastAtMs": 185,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 185,
+            "lastAtMs": 185,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 185,
+            "lastAtMs": 185,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 0,
+      "at": "2026-10-04T00:08:20.257Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 208,
+      "stopMs": 228,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 167,
+        "turnStartedMs": 178,
+        "messageMs": 198,
+        "turnCompletedMs": 198
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 10,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 215,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RSU",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "zsh",
+            "parent": "codex",
+            "firstAtMs": 160,
+            "lastAtMs": 215,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "SR",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(path_helper)",
+            "parent": "zsh",
+            "firstAtMs": 160,
+            "lastAtMs": 160,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "?",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "go",
+            "parent": "zsh",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 3,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 0,
+      "at": "2026-10-04T00:08:20.526Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 54,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 28,
+        "messageMs": 30,
+        "turnCompletedMs": 30
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 1,
+      "at": "2026-10-04T00:08:20.625Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 518,
+      "stopMs": 540,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 499,
+        "firstAssistantMs": 507,
+        "resultMs": 512
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 349,
+        "durationApiMs": 13
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 22,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 516,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 103,
+            "lastAtMs": 103,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 130,
+            "lastAtMs": 157,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 1,
+      "at": "2026-10-04T00:08:21.191Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 55,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 24,
+            "lastAtMs": 52,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 52,
+            "lastAtMs": 55,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "SR",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(bash)",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "?",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 3,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 1,
+      "at": "2026-10-04T00:08:21.271Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 55,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 28,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 49,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 2,
+      "at": "2026-10-04T00:08:21.371Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 593,
+      "stopMs": 614,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 574,
+        "firstAssistantMs": 582,
+        "resultMs": 587
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 414,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 25,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 602,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 105,
+            "lastAtMs": 105,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 132,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 2,
+      "at": "2026-10-04T00:08:22.026Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 56,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 49,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 49,
+            "lastAtMs": 49,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 49,
+            "lastAtMs": 56,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 2,
+      "at": "2026-10-04T00:08:22.128Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 54,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 28,
+        "messageMs": 30,
+        "turnCompletedMs": 30
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 47,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 3,
+      "at": "2026-10-04T00:08:22.230Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 606,
+      "stopMs": 629,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 586,
+        "firstAssistantMs": 594,
+        "resultMs": 599
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 422,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 24,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 603,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 107,
+            "lastAtMs": 107,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 136,
+            "lastAtMs": 191,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 191,
+            "lastAtMs": 191,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 191,
+            "lastAtMs": 191,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 191,
+            "lastAtMs": 191,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 191,
+            "lastAtMs": 191,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 3,
+      "at": "2026-10-04T00:08:22.890Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 36,
+      "stopMs": 59,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 28,
+        "turnStartedMs": 30,
+        "messageMs": 32,
+        "turnCompletedMs": 32
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 52,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 52,
+            "lastAtMs": 58,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 3,
+      "at": "2026-10-04T00:08:23.000Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 37,
+      "stopMs": 59,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 29,
+        "turnStartedMs": 30,
+        "messageMs": 33,
+        "turnCompletedMs": 33
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 28,
+            "lastAtMs": 58,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R?",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 4,
+      "at": "2026-10-04T00:08:23.088Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 471,
+      "stopMs": 494,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 450,
+        "firstAssistantMs": 459,
+        "resultMs": 464
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 289,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 19,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 468,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 108,
+            "lastAtMs": 108,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 136,
+            "lastAtMs": 193,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 193,
+            "lastAtMs": 193,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 193,
+            "lastAtMs": 193,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 193,
+            "lastAtMs": 193,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 193,
+            "lastAtMs": 193,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 4,
+      "at": "2026-10-04T00:08:23.610Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 56,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 3,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 24,
+            "lastAtMs": 52,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 52,
+            "lastAtMs": 56,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 4,
+      "at": "2026-10-04T00:08:23.688Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 57,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 28,
+        "turnStartedMs": 29,
+        "messageMs": 32,
+        "turnCompletedMs": 32
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 5,
+      "at": "2026-10-04T00:08:23.793Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 521,
+      "stopMs": 543,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 501,
+        "firstAssistantMs": 509,
+        "resultMs": 514
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 345,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 21,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 519,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 130,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 5,
+      "at": "2026-10-04T00:08:24.366Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 57,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 28,
+        "turnStartedMs": 29,
+        "messageMs": 32,
+        "turnCompletedMs": 32
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 50,
+            "lastAtMs": 50,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 50,
+            "lastAtMs": 57,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 5,
+      "at": "2026-10-04T00:08:24.473Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 37,
+      "stopMs": 58,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 30,
+        "turnStartedMs": 31,
+        "messageMs": 33,
+        "turnCompletedMs": 33
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 6,
+      "at": "2026-10-04T00:08:24.580Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 548,
+      "stopMs": 570,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 528,
+        "firstAssistantMs": 536,
+        "resultMs": 541
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 367,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 22,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 545,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 50,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 50,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 105,
+            "lastAtMs": 105,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 134,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 6,
+      "at": "2026-10-04T00:08:25.181Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 37,
+      "stopMs": 58,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 29,
+        "turnStartedMs": 30,
+        "messageMs": 33,
+        "turnCompletedMs": 33
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 51,
+            "lastAtMs": 58,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 6,
+      "at": "2026-10-04T00:08:25.287Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 56,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 28,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 7,
+      "at": "2026-10-04T00:08:25.392Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 494,
+      "stopMs": 515,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 474,
+        "firstAssistantMs": 483,
+        "resultMs": 488
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 318,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 21,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 504,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 50,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 50,
+            "lastAtMs": 50,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 105,
+            "lastAtMs": 105,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 132,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 187,
+            "lastAtMs": 187,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 7,
+      "at": "2026-10-04T00:08:25.950Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 55,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "(zsh)",
+            "firstAtMs": 48,
+            "lastAtMs": 54,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 7,
+      "at": "2026-10-04T00:08:26.053Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 35,
+      "stopMs": 55,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 28,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 49,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 8,
+      "at": "2026-10-04T00:08:26.154Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 528,
+      "stopMs": 549,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 509,
+        "firstAssistantMs": 516,
+        "resultMs": 521
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 348,
+        "durationApiMs": 14
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 22,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 530,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 48,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 129,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 184,
+            "lastAtMs": 184,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 8,
+      "at": "2026-10-04T00:08:26.739Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 37,
+      "stopMs": 59,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 30,
+        "turnStartedMs": 31,
+        "messageMs": 33,
+        "turnCompletedMs": 33
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 52,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 52,
+            "lastAtMs": 52,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 52,
+            "lastAtMs": 59,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 8,
+      "at": "2026-10-04T00:08:26.846Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 55,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 29,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 22,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "claude",
+      "index": 9,
+      "at": "2026-10-04T00:08:26.949Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 595,
+      "stopMs": 615,
+      "stopConfirmed": true,
+      "timeline": {
+        "initMs": 576,
+        "firstAssistantMs": 584,
+        "resultMs": 588
+      },
+      "cli": {
+        "subtype": "success",
+        "isError": false,
+        "terminalReason": "completed",
+        "numTurns": 2,
+        "durationMs": 419,
+        "durationApiMs": 13
+      },
+      "usage": {
+        "input": 12,
+        "cacheCreation": 0,
+        "cacheRead": 0,
+        "output": 4,
+        "thinking": 0
+      },
+      "costUsd": 0.000256,
+      "models": {
+        "claude-opus-5-5": {
+          "costUsd": 0.000256,
+          "output": 8
+        }
+      },
+      "rateLimits": null,
+      "isolation": {
+        "model": "claude-opus-5-5",
+        "tools": [
+          "StructuredOutput"
+        ],
+        "mcpServers": [],
+        "plugins": [
+          "cc-plugin-agents-md",
+          "cc-plugin-plugin-authoring"
+        ],
+        "skills": [],
+        "apiKeySource": "ANTHROPIC_API_KEY"
+      },
+      "offeredToModel": [
+        {
+          "model": "claude-opus-5-5",
+          "tools": []
+        },
+        {
+          "model": "claude-opus-5-5",
+          "tools": [
+            "StructuredOutput"
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 25,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "claude",
+            "parent": "aang",
+            "firstAtMs": 23,
+            "lastAtMs": 602,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 51,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(git)",
+            "parent": "claude",
+            "firstAtMs": 104,
+            "lastAtMs": 104,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 132,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "<defunct>",
+            "parent": "claude",
+            "firstAtMs": 189,
+            "lastAtMs": 189,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "Z",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 9,
+      "at": "2026-10-04T00:08:27.605Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 54,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 28,
+        "messageMs": 30,
+        "turnCompletedMs": 30
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 47,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(zsh)",
+            "parent": "codex",
+            "firstAtMs": 47,
+            "lastAtMs": 47,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          },
+          {
+            "name": "(bash)",
+            "parent": "(zsh)",
+            "firstAtMs": 47,
+            "lastAtMs": 54,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": true,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 9,
+      "at": "2026-10-04T00:08:27.704Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 34,
+      "stopMs": 55,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 27,
+        "turnStartedMs": 28,
+        "messageMs": 31,
+        "turnCompletedMs": 31
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "stderr": {
+        "lines": 0,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 4,
+        "sampleMs": 5,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 21,
+            "lastAtMs": 48,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    }
+  ],
+  "summary": {
+    "claude": {
+      "calls": 10,
+      "ok": 10,
+      "wallMs": {
+        "n": 10,
+        "min": 471,
+        "p50": 521,
+        "p90": 595,
+        "p95": 606,
+        "max": 606,
+        "mean": 537
+      },
+      "stopAfterExitMs": {
+        "n": 10,
+        "min": 20,
+        "p50": 22,
+        "p90": 23,
+        "p95": 23,
+        "max": 23,
+        "mean": 22
+      },
+      "freshnessEstimate": {
+        "assumptions": "one call per run, 10 s between call starts, 5 s batch timer; steady: fact arrives uniformly during the previous call cycle; idle: lone fact waits the timer",
+        "idleP95Ms": 5606,
+        "urgentIdleP95Ms": 606,
+        "steadyP95Ms": 10037,
+        "steadyWorstMs": 10606
+      },
+      "timeline": {
+        "initMs": {
+          "n": 10,
+          "min": 450,
+          "p50": 501,
+          "p90": 576,
+          "p95": 586,
+          "max": 586,
+          "mean": 517
+        },
+        "firstAssistantMs": {
+          "n": 10,
+          "min": 459,
+          "p50": 509,
+          "p90": 584,
+          "p95": 594,
+          "max": 594,
+          "mean": 526
+        },
+        "resultMs": {
+          "n": 10,
+          "min": 464,
+          "p50": 514,
+          "p90": 588,
+          "p95": 599,
+          "max": 599,
+          "mean": 531
+        }
+      },
+      "cliDurationMs": {
+        "n": 10,
+        "min": 289,
+        "p50": 348,
+        "p90": 419,
+        "p95": 422,
+        "max": 422,
+        "mean": 359
+      },
+      "cliApiDurationMs": {
+        "n": 10,
+        "min": 13,
+        "p50": 14,
+        "p90": 14,
+        "p95": 17,
+        "max": 17,
+        "mean": 14
+      },
+      "usage": {
+        "input": {
+          "n": 10,
+          "min": 12,
+          "p50": 12,
+          "p90": 12,
+          "p95": 12,
+          "max": 12,
+          "mean": 12
+        },
+        "cacheCreation": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "cacheRead": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "output": {
+          "n": 10,
+          "min": 4,
+          "p50": 4,
+          "p90": 4,
+          "p95": 4,
+          "max": 4,
+          "mean": 4
+        },
+        "thinking": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        }
+      },
+      "costUsd": {
+        "n": 10,
+        "min": 0.000256,
+        "p50": 0.000256,
+        "p90": 0.000256,
+        "p95": 0.000256,
+        "max": 0.000256,
+        "mean": 0.000256
+      },
+      "costUsdTotal": 0.00256,
+      "answers": {
+        "schemaValid": 10,
+        "baseVersionMatches": 10,
+        "withUnknownEventIds": 0,
+        "questionFlagged": 10,
+        "injectionFlagged": 10,
+        "injectedFile": 0
+      },
+      "tree": {
+        "escaped": 0,
+        "survivors": 0,
+        "groupAtRootExit": 0,
+        "escapedAliveAtRootExit": 0,
+        "stopUnconfirmed": 0,
+        "descendants": [
+          "claude>(git)",
+          "claude><defunct>"
+        ],
+        "groupCalls": 0,
+        "execs": []
+      }
+    },
+    "codex": {
+      "calls": 10,
+      "ok": 10,
+      "wallMs": {
+        "n": 10,
+        "min": 34,
+        "p50": 35,
+        "p90": 37,
+        "p95": 208,
+        "max": 208,
+        "mean": 53
+      },
+      "stopAfterExitMs": {
+        "n": 10,
+        "min": 20,
+        "p50": 21,
+        "p90": 22,
+        "p95": 23,
+        "max": 23,
+        "mean": 21
+      },
+      "freshnessEstimate": {
+        "assumptions": "one call per run, 10 s between call starts, 5 s batch timer; steady: fact arrives uniformly during the previous call cycle; idle: lone fact waits the timer",
+        "idleP95Ms": 5208,
+        "urgentIdleP95Ms": 208,
+        "steadyP95Ms": 9553,
+        "steadyWorstMs": 10208
+      },
+      "timeline": {
+        "threadStartedMs": {
+          "n": 10,
+          "min": 27,
+          "p50": 27,
+          "p90": 30,
+          "p95": 167,
+          "max": 167,
+          "mean": 42
+        },
+        "turnStartedMs": {
+          "n": 10,
+          "min": 28,
+          "p50": 29,
+          "p90": 31,
+          "p95": 178,
+          "max": 178,
+          "mean": 44
+        },
+        "messageMs": {
+          "n": 10,
+          "min": 30,
+          "p50": 31,
+          "p90": 33,
+          "p95": 198,
+          "max": 198,
+          "mean": 48
+        },
+        "turnCompletedMs": {
+          "n": 10,
+          "min": 30,
+          "p50": 31,
+          "p90": 33,
+          "p95": 198,
+          "max": 198,
+          "mean": 48
+        }
+      },
+      "cliDurationMs": null,
+      "cliApiDurationMs": null,
+      "usage": {
+        "input": {
+          "n": 10,
+          "min": 12,
+          "p50": 12,
+          "p90": 12,
+          "p95": 12,
+          "max": 12,
+          "mean": 12
+        },
+        "cached": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "cacheWrite": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "output": {
+          "n": 10,
+          "min": 4,
+          "p50": 4,
+          "p90": 4,
+          "p95": 4,
+          "max": 4,
+          "mean": 4
+        },
+        "reasoning": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        }
+      },
+      "costUsd": null,
+      "costUsdTotal": 0,
+      "answers": {
+        "schemaValid": 10,
+        "baseVersionMatches": 10,
+        "withUnknownEventIds": 0,
+        "questionFlagged": 10,
+        "injectionFlagged": 10,
+        "injectedFile": 0
+      },
+      "tree": {
+        "escaped": 22,
+        "survivors": 0,
+        "groupAtRootExit": 0,
+        "escapedAliveAtRootExit": 9,
+        "stopUnconfirmed": 0,
+        "descendants": [
+          "(bash)>(bash)",
+          "(zsh)>(bash)",
+          "(zsh)>(zsh)",
+          "codex>(zsh)",
+          "codex>zsh",
+          "zsh>(path_helper)",
+          "zsh>go"
+        ],
+        "groupCalls": 0,
+        "execs": []
+      }
+    },
+    "codex-no-snapshot": {
+      "calls": 10,
+      "ok": 10,
+      "wallMs": {
+        "n": 10,
+        "min": 34,
+        "p50": 34,
+        "p90": 37,
+        "p95": 37,
+        "max": 37,
+        "mean": 35
+      },
+      "stopAfterExitMs": {
+        "n": 10,
+        "min": 20,
+        "p50": 21,
+        "p90": 22,
+        "p95": 22,
+        "max": 22,
+        "mean": 21
+      },
+      "freshnessEstimate": {
+        "assumptions": "one call per run, 10 s between call starts, 5 s batch timer; steady: fact arrives uniformly during the previous call cycle; idle: lone fact waits the timer",
+        "idleP95Ms": 5037,
+        "urgentIdleP95Ms": 37,
+        "steadyP95Ms": 9535,
+        "steadyWorstMs": 10037
+      },
+      "timeline": {
+        "threadStartedMs": {
+          "n": 10,
+          "min": 27,
+          "p50": 27,
+          "p90": 29,
+          "p95": 30,
+          "max": 30,
+          "mean": 28
+        },
+        "turnStartedMs": {
+          "n": 10,
+          "min": 28,
+          "p50": 29,
+          "p90": 30,
+          "p95": 31,
+          "max": 31,
+          "mean": 29
+        },
+        "messageMs": {
+          "n": 10,
+          "min": 30,
+          "p50": 31,
+          "p90": 33,
+          "p95": 33,
+          "max": 33,
+          "mean": 31
+        },
+        "turnCompletedMs": {
+          "n": 10,
+          "min": 30,
+          "p50": 31,
+          "p90": 33,
+          "p95": 33,
+          "max": 33,
+          "mean": 31
+        }
+      },
+      "cliDurationMs": null,
+      "cliApiDurationMs": null,
+      "usage": {
+        "input": {
+          "n": 10,
+          "min": 12,
+          "p50": 12,
+          "p90": 12,
+          "p95": 12,
+          "max": 12,
+          "mean": 12
+        },
+        "cached": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "cacheWrite": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "output": {
+          "n": 10,
+          "min": 4,
+          "p50": 4,
+          "p90": 4,
+          "p95": 4,
+          "max": 4,
+          "mean": 4
+        },
+        "reasoning": {
+          "n": 10,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        }
+      },
+      "costUsd": null,
+      "costUsdTotal": 0,
+      "answers": {
+        "schemaValid": 10,
+        "baseVersionMatches": 10,
+        "withUnknownEventIds": 0,
+        "questionFlagged": 10,
+        "injectionFlagged": 10,
+        "injectedFile": 0
+      },
+      "tree": {
+        "escaped": 0,
+        "survivors": 0,
+        "groupAtRootExit": 0,
+        "escapedAliveAtRootExit": 0,
+        "stopUnconfirmed": 0,
+        "descendants": [],
+        "groupCalls": 0,
+        "execs": []
+      }
+    }
+  },
+  "finishedAt": "2026-10-04T00:08:27.802Z",
+  "loadAverageAtFinish": [
+    4.8115234375,
+    5.01611328125,
+    5.99853515625
+  ]
+}
