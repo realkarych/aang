@@ -1,3 +1,4 @@
+import { rm } from 'node:fs/promises'
 import {
   ApiError,
   type ApiErrorCode,
@@ -14,7 +15,7 @@ import { describe, type TestContext, test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 import { claudeHook, claudeSession, hookEvent, type LiveTranscript, liveTranscript, watchedHome } from './sessions.js'
-import { endsWithRun, type EventStream, openStream, segmentsOf } from './stream-client.js'
+import { endsWithRun, type EventStream, lastId, openStream, segmentsOf } from './stream-client.js'
 
 interface Answer {
   readonly status: number
@@ -148,6 +149,51 @@ const comparable = (snapshot: RunSnapshot): RunSnapshot => ({
   plan_facts: snapshot.plan_facts.toSorted((left, right) => (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)),
   change_seq: ChangeSeq.parse(0),
 })
+
+const resumedAt = (snapshot: RunSnapshot, events: readonly SseEvent[], index: number): RunSnapshot => {
+  const received = events.slice(0, index + 1)
+  const settled = received.findLastIndex(({ event }) => event === 'run') + 1
+  const state = replayed(snapshot, received.slice(0, settled))
+  const last = received.at(-1)
+  if (last === undefined || last.id === null) {
+    throw new Error(`the stream has no event with an id at ${String(index)}`)
+  }
+  return replayed(state, [
+    ...received.slice(settled),
+    { event: 'run', id: last.id, data: { summary: state.summary, view: state.view, bindings: state.bindings } },
+  ])
+}
+
+interface Resumption {
+  readonly current: RunSnapshot
+  readonly events: readonly SseEvent[]
+}
+
+const resumes = async (scene: Scene, before: RunSnapshot, expect: TestContext['expect']): Promise<Resumption> => {
+  const whole = await follow(scene, before)
+  await whole.until(endsWithRun)
+  await whole.close()
+  const current = await scene.api.get(runPath(before.run.id), endpoints.run.response)
+  expect(lastId(whole.events)).toBe(current.change_seq)
+  expect(comparable(replayed(before, whole.events))).toEqual(comparable(current))
+  for (const [index, event] of whole.events.entries()) {
+    const resumed = await openStream(scene.daemon.base, scene.home.token, {
+      run: before.run.id,
+      lastEventId: String(event.id),
+    })
+    await resumed.until(endsWithRun)
+    await resumed.close()
+    expect(comparable(replayed(resumedAt(before, whole.events, index), resumed.events))).toEqual(comparable(current))
+  }
+  return { current, events: whole.events }
+}
+
+const entersAt = (events: readonly SseEvent[], session: string): number =>
+  events.findIndex(
+    (event) =>
+      event.event === 'model' &&
+      event.data.changes.some(({ after }) => after?.kind === 'session_membership' && after.value.session === session),
+  )
 
 const permission = (session: string, workspace: string, command: string): string =>
   claudeHook('PermissionRequest.Bash', session, workspace, { tool_input: { command, description: command } })
@@ -510,6 +556,77 @@ describe.concurrent('the daemon writes the view state of a run and the explicit 
     await movedStream.close()
     expect(comparable(replayed(targetBefore, targetStream.events))).toEqual(comparable(targetAfter))
     expect(comparable(replayed(movedBefore, movedStream.events))).toEqual(comparable(movedAfter))
+  })
+
+  test('a client resumes a transfer and its revocation from any event, from a snapshot taken before a new plan of the moved session', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const scene = await openScene(onTestFinished)
+    const { api } = scene
+    const target = await scene.transcript('g8-resume-target')
+    const moved = await scene.transcript('g8-resume-moved')
+    await target.append([...target.plan('toolu_g8_resume_target_plan', ['design']), ...target.call('toolu_g8_resume_target')])
+    await moved.append([...moved.plan('toolu_g8_resume_moved_plan', ['review']), ...moved.call('toolu_g8_resume_moved')])
+    const targetBefore = await api.until(runPath(target.run), endpoints.run.response, settledRun(2))
+    const movedBefore = await api.until(runPath(moved.run), endpoints.run.response, settledRun(2))
+    await moved.append(moved.plan('toolu_g8_resume_moved_replan', ['review', 'ship']))
+    const replanned = await api.until(
+      runPath(moved.run),
+      endpoints.run.response,
+      (snapshot) => settledRun(3)(snapshot) && snapshot.plan_facts.length === 2,
+    )
+    const session = objectId(claudeSession('g8-resume-moved'))
+
+    const { binding } = await api.sent('POST', '/api/bindings', endpoints.createBinding.response, {
+      kind: 'attach',
+      session,
+      run: target.run,
+    })
+    const targetBound = await resumes(scene, targetBefore, expect)
+    const entry = entersAt(targetBound.events, session)
+    expect(entry).toBeGreaterThanOrEqual(0)
+    expect(targetBound.events[entry + 1]?.event).toBe('facts')
+    expect(targetBound.current.plan_facts.map(({ id }) => id).sort()).toEqual(
+      [...targetBefore.plan_facts, ...replanned.plan_facts].map(({ id }) => id).sort(),
+    )
+    expect((await resumes(scene, movedBefore, expect)).current.plan_facts).toEqual([])
+
+    await api.sent('DELETE', `/api/bindings/${binding.id}`, endpoints.revokeBinding.response)
+    expect((await resumes(scene, targetBefore, expect)).current.plan_facts).toEqual(targetBefore.plan_facts)
+    const movedBack = await resumes(scene, movedBefore, expect)
+    expect(entersAt(movedBack.events, session)).toBeGreaterThanOrEqual(0)
+    expect(comparable(movedBack.current).plan_facts).toEqual(comparable(replanned).plan_facts)
+    expect(movedBack.current.objects.actions.map(({ id }) => id)).toEqual(replanned.objects.actions.map(({ id }) => id))
+  })
+
+  test('a session moved back to its run brings back the gaps that its run kept for it while it was away', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const scene = await openScene(onTestFinished)
+    const { api } = scene
+    const target = await scene.transcript('g8-gap-target')
+    const moved = await scene.transcript('g8-gap-moved')
+    await target.append(target.call('toolu_g8_gap_target'))
+    await moved.append(moved.call('toolu_g8_gap_moved'))
+    await api.until(runPath(target.run), endpoints.run.response, settledRun(1))
+    await api.until(runPath(moved.run), endpoints.run.response, settledRun(1))
+    await rm(moved.file)
+    const lost = ({ objects }: RunSnapshot) => objects.gaps.filter(({ kind }) => kind === 'source_lost')
+    const movedBefore = await api.until(runPath(moved.run), endpoints.run.response, (snapshot) => lost(snapshot).length === 1)
+    const session = objectId(claudeSession('g8-gap-moved'))
+    expect(lost(movedBefore)).toMatchObject([{ session, run: moved.run, closed_at: null }])
+
+    const { binding } = await api.sent('POST', '/api/bindings', endpoints.createBinding.response, {
+      kind: 'attach',
+      session,
+      run: target.run,
+    })
+    await api.sent('DELETE', `/api/bindings/${binding.id}`, endpoints.revokeBinding.response)
+    const { current } = await resumes(scene, movedBefore, expect)
+    expect(current.objects.sessions.map(({ id }) => id)).toEqual([session])
+    expect(lost(current).map(({ id }) => id)).toEqual(lost(movedBefore).map(({ id }) => id))
   })
 
   test('a binding is refused for an unknown session, run or binding, and a fork parent only binds a fork', async ({

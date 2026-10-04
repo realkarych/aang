@@ -8,7 +8,7 @@ import type { JsonValue } from '@aang/contract'
 import type { z } from 'zod'
 import { bundledCatalog } from './codex-catalog.js'
 import { catalogEntry, codexExecOptions, codexViolations, readCatalog } from './codex-profile.js'
-import { emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
+import { appeared, emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
 import { allValues, lastValue, parseOptions, type ParsedOptions } from './options.js'
 import { invocation, purposeOf, runEntry } from './invocation.js'
 import { isolationMessage } from './profile.js'
@@ -280,6 +280,9 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     return
   }
   await startDescendant(scenario.descendant)
+  if (reply.kind === 'answer' && reply.gate !== undefined) {
+    await appeared(reply.gate)
+  }
   respond(turn, reply, input)
 }
 

@@ -42,6 +42,7 @@ export interface FactRevision {
 export interface FactWriter extends FactReader {
   readonly insert: (seq: RawSeq, normalizerVersion: NormalizerVersion, drafts: readonly FactDraft[]) => Fact[]
   readonly replace: (seq: RawSeq, normalizerVersion: NormalizerVersion, drafts: readonly FactDraft[]) => FactRevision
+  readonly resequence: (key: SessionKey, kinds: readonly FactKind[]) => void
 }
 
 export interface FactRepository {
@@ -166,12 +167,17 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
        )
      ORDER BY f.change_seq`,
   )
+  const selectSessionKinds = prepareStatement(database,
+    `SELECT id FROM facts WHERE json_extract(entity_key, '$.runtime') = :runtime AND json_extract(entity_key, '$.session') = :session
+     AND kind IN (SELECT value FROM json_each(:kinds)) ORDER BY change_seq`,
+  )
   const selectSessions = prepareStatement(database,
     "SELECT DISTINCT json_extract(entity_key, '$.runtime') AS runtime, json_extract(entity_key, '$.session') AS session FROM facts ORDER BY runtime, session",
   )
   const selectDedupeKey = prepareStatement(database, 'SELECT dedupe_key FROM raw_records WHERE seq = ?')
   const insertFact = prepareStatement(database, insertInto('facts', columns))
   const deleteByRecord = prepareStatement(database, 'DELETE FROM facts WHERE seq = ?')
+  const updateChangeSeq = prepareStatement(database, 'UPDATE facts SET change_seq = ? WHERE id = ?')
 
   const reader: FactReader = {
     get: (id) => {
@@ -247,6 +253,17 @@ export const createFacts = (database: DatabaseSync): FactRepository => {
         kept: facts.filter(({ id }) => previous.has(id)),
         added: facts.filter(({ id }) => !previous.has(id)),
         removed,
+      }
+    },
+    resequence: (key, kinds) => {
+      context.assertActive()
+      const rows = selectSessionKinds.all({
+        runtime: key.runtime,
+        session: key.session,
+        kinds: JSON.stringify(kinds),
+      }) as { readonly id: string }[]
+      for (const { id } of rows) {
+        updateChangeSeq.run(context.nextChangeSeq(), id)
       }
     },
   })
