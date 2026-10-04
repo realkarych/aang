@@ -457,7 +457,9 @@ starts the next call of a run from its pending facts in the order of their recor
   bytes stays within `limits.bytes`; the first fact always goes;
 - catch-up (ADR-0007): when the oldest pending fact was observed more than `catchUpMs`
   before `at`, the candidates are the latest facts that fit these limits instead, and
-  the earlier pending facts become `deferred` with the run gap `summarized_backlog`;
+  the earlier pending facts become `deferred` with the run gap `summarized_backlog`.
+  The packing then keeps the latest candidates as well, and the earlier candidates
+  it leaves out are deferred into the same summary instead of staying `pending`;
 - every `deferred` fact of the run that no accepted call has summarized yet goes into
   `batch.backlog`: the time range, the number of facts and, per agent in scope, the
   facts by tool (the fact kind when the fact has no action). A deferred fact outside
@@ -519,6 +521,11 @@ stops at the first input that fits:
    only truncation entry has the path `payload` and the length of the payload JSON.
    The observer can request the raw record by the `seq` of the fact. The other
    candidates stay `pending` for the next batch.
+
+In catch-up the steps keep the suffix of the candidates instead of the prefix, and
+step 5 takes the last candidate. The candidates left out become `deferred` and join
+`batch.backlog`; the summary is measured with each tried input, so the input with
+it stays within the limit.
 
 A string or a model text is cut only when the cut, together with its truncation
 entry or the `…` mark, is shorter in JSON than the whole text. The input size
@@ -629,15 +636,16 @@ binding's transaction:
 - the session's facts become `pending` in the target run and leave the pending
   queue of the source run. Its `context` and `git_snapshot` facts are not queued:
   they are run context and are never interpreted as facts;
-- an observer call of the source run whose batch holds any of these facts or
-  whose input describes the session is ended as `rejected` with a `scope` reason:
-  the rest of its batch returns to `pending` in the source run and gets its
-  attempt back, since a transfer is not a content failure, and a late
-  response to it is not applied, so neither a rejection nor a restart returns the
-  moved facts to the source run, and a session moved back gets its facts
-  `pending` again. A call that already ended as `needs_requested` keeps its
-  verdict: its batch returns to `pending` the same way, and its follow-up is
-  refused;
+- an observer call of the source run whose batch or summary holds any of these
+  facts or whose input describes the session is ended as `rejected` with a `scope`
+  reason, a call with the summary alone included: the rest of its batch returns to
+  `pending` in the source run, the rest of its summary is released for the next
+  summary, and both get their attempt back, since a transfer is not a content
+  failure. A late response to it is not applied, so neither a rejection nor a
+  restart returns the moved facts to the source run, and a session moved back gets
+  its facts `pending` again. A call that already ended as `needs_requested` keeps
+  its verdict: its batch and summary are released the same way, and its follow-up
+  is refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and

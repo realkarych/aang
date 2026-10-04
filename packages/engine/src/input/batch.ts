@@ -26,6 +26,7 @@ import { objectId } from '@aang/contract/ids'
 import type { PendingFact, StoredObserverCall, Transaction } from '@aang/store'
 import { interpretable } from '../ingest/queue.js'
 import { beginObserverCall } from '../model/observer.js'
+import { batchFacts } from '../model/observer-context.js'
 import { deferFacts } from '../model/observer-queue.js'
 import { compareText } from '../observations/evidence.js'
 import { collapseRoutine } from './collapse.js'
@@ -73,6 +74,17 @@ interface Prepared {
 
 interface Excluded {
   readonly fact: Fact
+}
+
+interface Summarized {
+  readonly fact: Fact
+  readonly agent: AgentId | null
+  readonly tool: string
+}
+
+interface Selection {
+  readonly batch: Queued[]
+  readonly deferral: string | null
 }
 
 const nanosecondsPerMillisecond = 1_000_000n
@@ -282,19 +294,22 @@ const admittedContext = (transaction: Transaction, scope: InputScope, context: R
   return record !== null && scope.record(record) === null ? context : null
 }
 
-const backlogOf = (transaction: Transaction, scope: InputScope, facts: readonly Fact[]): BacklogSummary | null => {
-  const [first] = facts
+const summarizedOf = (fact: Fact, action: Action | null, agent: AgentId | null): Summarized => ({
+  fact,
+  agent,
+  tool: action?.tool ?? fact.kind,
+})
+
+const backlogOf = (entries: readonly Summarized[]): BacklogSummary | null => {
+  const [first] = entries
   if (first === undefined) {
     return null
   }
   const agents = new Map<AgentId | null, Map<string, number>>()
-  let from = first.at
-  let to = first.at
-  for (const fact of facts) {
-    const action = actionOf(transaction, scope, fact)
-    const agent = agentOf(scope, fact, action)
+  let from = first.fact.at
+  let to = first.fact.at
+  for (const { fact, agent, tool } of entries) {
     const tools = agents.get(agent) ?? new Map<string, number>()
-    const tool = action?.tool ?? fact.kind
     tools.set(tool, (tools.get(tool) ?? 0) + 1)
     agents.set(agent, tools)
     from = fact.at < from ? fact.at : from
@@ -303,7 +318,7 @@ const backlogOf = (transaction: Transaction, scope: InputScope, facts: readonly 
   return {
     from: isoTime(from),
     to: isoTime(to),
-    facts: facts.length,
+    facts: entries.length,
     agents: [...agents]
       .toSorted(([left], [right]) => compareText(left ?? '', right ?? ''))
       .map(([agent, tools]) => ({
@@ -362,25 +377,21 @@ const catchUp = (
   transaction: Transaction,
   { run, at, limits, catchUpMs }: ObserverBatchStart,
   queued: readonly Queued[],
-): Queued[] => {
+): Selection => {
   const oldest = queued.reduce((earliest, { pending }) => (pending.observed_at < earliest ? pending.observed_at : earliest), at)
   if (catchUpMs === undefined || at - oldest <= BigInt(catchUpMs) * nanosecondsPerMillisecond) {
-    return select(queued, limits)
+    return { batch: select(queued, limits), deferral: null }
   }
   const batch = select(queued.toReversed(), limits).toReversed()
   const earlier = queued.slice(0, queued.length - batch.length).map(({ fact }) => fact.id)
+  const deferral = `facts that waited longer than ${String(catchUpMs)} ms for the observer are summarized`
   if (earlier.length > 0) {
-    deferFacts(transaction, {
-      run,
-      facts: earlier,
-      at,
-      details: `facts that waited longer than ${String(catchUpMs)} ms for the observer are summarized`,
-    })
+    deferFacts(transaction, { run, facts: earlier, at, details: deferral })
   }
-  return batch
+  return { batch, deferral }
 }
 
-const summaryOf = (transaction: Transaction, scope: InputScope, at: EpochNs): Fact[] =>
+const summaryOf = (transaction: Transaction, scope: InputScope, at: EpochNs): Summarized[] =>
   exclude(
     transaction,
     scope,
@@ -389,7 +400,10 @@ const summaryOf = (transaction: Transaction, scope: InputScope, at: EpochNs): Fa
       return fact === null ? [] : [{ fact }]
     }),
     at,
-  ).map(({ fact }) => fact)
+  ).map(({ fact }) => {
+    const action = actionOf(transaction, scope, fact)
+    return summarizedOf(fact, action, agentOf(scope, fact, action))
+  })
 
 export const startObserverBatch = (transaction: Transaction, start: ObserverBatchStart): ObserverInput | null => {
   const { run, backend, crossVendor, id, at, limits, catchUpMs } = start
@@ -406,23 +420,32 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     return fact === null ? [] : [{ pending, fact }]
   })
   transaction.interpretations.withdraw(run, queued.flatMap(({ fact }) => (interpretable(fact) ? [] : [fact.id])))
-  const batch = catchUp(transaction, start, exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at))
+  const { batch, deferral } = catchUp(transaction, start, exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at))
   const summarized = summaryOf(transaction, scope, at)
   if (batch.length === 0 && summarized.length === 0) {
     return null
   }
-  const backlog = backlogOf(transaction, scope, summarized)
-  const retried = summarized.length > 0 ? summaryAttempt(transaction, run) : null
-  const attempt = (queued: readonly Queued[]): ObserverInput['previous_attempt'] =>
-    joinAttempts([previousAttempt(transaction, queued), retried])
+  const retried = summaryAttempt(transaction, run)
   const description = describeRun(transaction, scope, entity.value)
   const model = snapshotOf(transaction, scope)
   const context = admittedContext(transaction, scope, start.context ?? null)
   const prepared = batch.map((queued) => prepare(transaction, scope, queued))
+  const behind = deferral !== null
+  const chosenOf = (count: number): Prepared[] => (behind ? prepared.slice(prepared.length - count) : prepared.slice(0, count))
+  const backlogFor = (count: number): BacklogSummary | null =>
+    backlogOf([
+      ...summarized,
+      ...(behind ? prepared.slice(0, prepared.length - count) : []).map(({ queued: { fact }, action, agent }) =>
+        summarizedOf(fact, action, agent),
+      ),
+    ])
+  const attempt = (chosen: readonly Queued[], backlog: BacklogSummary | null): ObserverInput['previous_attempt'] =>
+    joinAttempts([previousAttempt(transaction, chosen), backlog === null ? null : retried])
   const render =
     (omitted: boolean) =>
     ({ count, batchText, stateText }: Packing): ObserverInput => {
-      const chosen = prepared.slice(0, count)
+      const chosen = chosenOf(count)
+      const backlog = backlogFor(count)
       const { facts, collapsed } = collapseRoutine(
         chosen.map((entry) => ({ fact: entry.queued.fact, input: inputFact(entry, batchText, omitted), action: entry.action })),
       )
@@ -432,10 +455,10 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
         model: clipSnapshot(model, stateText),
         batch: { facts: facts.map(({ input }) => input), collapsed, backlog, artifact_versions: [] },
         materials: [],
-        previous_attempt: clipAttempt(attempt(chosen.map(({ queued }) => queued)), stateText),
+        previous_attempt: clipAttempt(attempt(chosen.map(({ queued }) => queued), backlog), stateText),
       }
     }
-  const longest = longestStateText({ run: description, model, previous_attempt: attempt(batch) })
+  const longest = longestStateText({ run: description, model, previous_attempt: joinAttempts([previousAttempt(transaction, batch), retried]) })
   const pack = (count: number, omitted: boolean): ObserverInput | null =>
     packObserverInput(
       { count, minimumCount: 1, batchText: limits.textLength, stateText: longest },
@@ -446,11 +469,12 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
   if (input === null) {
     return null
   }
+  const sent = new Set(batchFacts(input))
+  const left = behind ? batch.flatMap(({ fact }) => (sent.has(fact.id) ? [] : [fact.id])) : []
+  if (behind && left.length > 0) {
+    deferFacts(transaction, { run, facts: left, at, details: deferral })
+  }
   beginObserverCall(transaction, { id, backend, crossVendor, input, at })
-  transaction.interpretations.summarize(
-    run,
-    id,
-    summarized.map(({ id: fact }) => fact),
-  )
+  transaction.interpretations.summarize(run, id, [...summarized.map(({ fact }) => fact.id), ...left])
   return input
 }

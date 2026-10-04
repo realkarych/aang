@@ -196,13 +196,21 @@ export interface EndedCallUsage {
 
 export const endObserverCalls = (transaction: Transaction, { run, session, facts, at, message }: CallEnding): void => {
   const leaving = new Set(facts)
-  const active = transaction.interpretations
+  const linked = transaction.interpretations
     .ofRun(run)
-    .flatMap(({ fact, status, observer_call: call }) => (status === 'in_call' && call !== null ? [{ fact, call }] : []))
-  const owning = new Set(active.flatMap(({ fact, call }) => (leaving.has(fact) ? [call] : [])))
+    .flatMap(({ fact, status, observer_call: call }) =>
+      call !== null && (status === 'in_call' || status === 'deferred') ? [{ fact, call }] : [],
+    )
+  const open = new Set(
+    [...new Set(linked.map(({ call }) => call))].filter((call) => {
+      const stored = transaction.observerCalls.get(call)
+      return stored !== null && (stored.finished_at === null || stored.verdict === 'needs_requested')
+    }),
+  )
+  const owning = new Set(linked.flatMap(({ fact, call }) => (leaving.has(fact) && open.has(call) ? [call] : [])))
   const describes = (call: ObserverCallId): boolean =>
     transaction.observerCalls.get(call)?.input.run.sessions.some(({ id }) => id === session) === true
-  const calls = [...new Set(active.map(({ call }) => call))].filter((call) => owning.has(call) || describes(call))
+  const calls = [...open].filter((call) => owning.has(call) || describes(call))
   for (const call of calls) {
     transaction.interpretations.release(call)
     if (transaction.observerCalls.get(call)?.finished_at !== null) {

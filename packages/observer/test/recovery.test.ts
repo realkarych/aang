@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ObserverCallId, type ObserverState, RunId } from '@aang/contract'
-import { startObserverBatch } from '@aang/engine'
+import { observerInputTokens, startObserverBatch } from '@aang/engine'
 import { createObserverScheduler } from '@aang/observer'
 import type { ClaudeReply, CodexReply } from '@aang/testkit'
 import { expect, test } from 'vitest'
@@ -725,6 +725,105 @@ test('when the observer falls behind, the earlier facts go as a summary and the 
   ])
   expect(scene.scheduler.state(session.run)).toEqual({ state: 'ok' })
   expect(states.at(-1)).toEqual({ state: 'ok' })
+})
+
+test('a lagging run whose batch outgrows the input limit sends the latest fact in detail and summarizes the earlier large one', async (context) => {
+  const scene = await createScene(context, { claude: [accepted, accepted] })
+  const session = scene.claudeSession('session-behind-large')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  await session.actions([{ many: Array.from({ length: 22_000 }, () => 'x') }])
+  scene.advance(296_000)
+  await session.command('ls')
+  scene.advance(5_001)
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+
+  const [, behind] = scene.prompts('claude')
+  const [, large, small] = scene.store.facts
+    .ofSession({ kind: 'session', runtime: 'claude', session: 'session-behind-large' })
+    .filter(({ kind }) => kind === 'action_start' || kind === 'session_start')
+  expect(behind?.batch.facts.map(({ id, payload }) => [id, payload === null])).toEqual([[small?.id, false]])
+  expect(behind?.batch.backlog).toMatchObject({ facts: 1, agents: [{ facts: 1, tools: [{ tool: 'Bash', count: 1 }] }] })
+  expect(behind === undefined ? Infinity : observerInputTokens(behind)).toBeLessThanOrEqual(24_000)
+  const [, call] = scene.calls(session.run)
+  expect(scene.statuses(session.run).filter(({ fact }) => fact === large?.id || fact === small?.id)).toEqual(
+    expect.arrayContaining([
+      expect.objectContaining({ fact: large?.id, status: 'deferred', observer_call: call?.id }),
+      expect.objectContaining({ fact: small?.id, status: 'interpreted', observer_call: call?.id }),
+    ]),
+  )
+  expect(scene.store.interpretations.pending(session.run)).toEqual([])
+  expect(scene.scheduler.state(session.run)).toEqual({ state: 'ok' })
+})
+
+test('a session moved away during a summary-only call ends it, and its late needs response keeps the usage without a follow-up', async (context) => {
+  let gate = ''
+  const scene = await createScene(context, {
+    limits: { queueAgeMs: minute },
+    executors: ({ root, claude, launcher }) => {
+      gate = join(root, 'gate')
+      return { claude: launcher(gated(gate, claude)) }
+    },
+  })
+  const [staying, moving] = [scene.claudeSession('session-summary-staying'), scene.claudeSession('session-summary-moving')]
+  for (const session of [staying, moving]) {
+    await session.start(-2 * minute)
+    await session.permission(-2 * minute)
+  }
+  const session = scene.store.observations.sessions().find(({ key }) => key.session === 'session-summary-moving')
+  const [record] = scene.store.facts.ofSession({ kind: 'session', runtime: 'claude', session: 'session-summary-staying' })
+  if (session === undefined || record === undefined) {
+    throw new Error('both sessions must be observed')
+  }
+  await scene.engine.bind({ kind: 'attach', session: session.id, run: staying.run })
+  scene.fakeClaude.setScenario({
+    replies: [
+      { kind: 'answer', output: { base_version: { $input: '/model/version' }, ops: [], needs: [{ kind: 'raw_record', seq: record.seq }] } },
+      accepted,
+      accepted,
+    ],
+  })
+  scene.scheduler.wake()
+  const [call] = scene.calls(staying.run)
+  if (call === undefined) {
+    throw new Error('the summary must be in a call')
+  }
+  expect([call.input.batch.facts.length, call.input.batch.backlog?.facts]).toEqual([0, 4])
+
+  await scene.engine.bind({ kind: 'detach', session: session.id })
+  expect(scene.store.observerCalls.get(call.id)).toMatchObject({
+    verdict: 'rejected',
+    reasons: [{ op_index: null, cause: 'scope', message: expect.stringContaining(session.id) as unknown }],
+    usage: null,
+  })
+  expect(scene.statuses(staying.run).map(({ status, attempts, observer_call: owner }) => [status, attempts, owner])).toEqual([
+    ['deferred', 0, null],
+    ['deferred', 0, null],
+  ])
+  expect(scene.scheduler.state(staying.run)).toEqual({ state: 'lagging', reason: 'backlog' })
+
+  await writeFile(gate, '')
+  await until(() => scene.prompts('claude').length === 2)
+  await scene.scheduler.idle()
+  expect(scene.failure()).toBeNull()
+  expect(scene.store.observerCalls.get(call.id)).toMatchObject({
+    verdict: 'rejected',
+    output: null,
+    usage: { model: 'claude-opus-5-5' },
+  })
+  expect(scene.calls(staying.run)).toHaveLength(1)
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  expect(scene.calls(staying.run).map(({ verdict }) => verdict)).toEqual(['rejected', 'accepted'])
+  const resumed = scene.prompts('claude').find(({ run }) => run.id === staying.run && run.sessions.length === 1)
+  expect([resumed?.batch.facts.length, resumed?.batch.backlog?.facts]).toEqual([0, 2])
+  expect(scene.tally(staying.run)).toEqual({ deferred: 2 })
+  expect(scene.calls(moving.run).map(({ verdict }) => verdict)).toEqual(['accepted'])
+  expect(scene.scheduler.state(staying.run)).toEqual({ state: 'ok' })
 })
 
 test('an exceeded hourly budget lengthens the batch timer to 60 seconds and makes the observer lag without stopping it', async (context) => {
