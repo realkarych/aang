@@ -54,31 +54,27 @@ export const parseRegistry = (record: CollectedRecord): ParseResult => {
   }
   const statusUpdatedAt = entry.statusUpdatedAt ?? null
   return parsed(null, [
-    fact(
-      origin,
-      {
-        kind: 'json_snapshot',
-        entity_key: sessionKey(entry.sessionId),
-        speaker: 'runtime',
-        urgent: false,
-        payload: {
-          file: 'registry',
-          path: position.path,
-          removed: false,
-          content: {
-            pid: entry.pid,
-            session_id: entry.sessionId,
-            kind: entry.kind ?? null,
-            entrypoint: entry.entrypoint ?? null,
-            status: entry.status ?? null,
-            waiting_for: entry.waitingFor ?? null,
-            cwd: entry.cwd ?? null,
-            version: entry.version ?? null,
-            status_updated_at: statusUpdatedAt === null ? null : epochFromMilliseconds(statusUpdatedAt),
-          },
+    fact(origin, {
+      kind: 'json_snapshot',
+      entity_key: sessionKey(entry.sessionId),
+      speaker: 'runtime',
+      urgent: false,
+      payload: {
+        file: 'registry',
+        path: position.path,
+        removed: false,
+        content: {
+          pid: entry.pid,
+          session_id: entry.sessionId,
+          kind: entry.kind ?? null,
+          entrypoint: entry.entrypoint ?? null,
+          status: entry.status ?? null,
+          waiting_for: entry.waitingFor ?? null,
+          cwd: entry.cwd ?? null,
+          version: entry.version ?? null,
+          status_updated_at: statusUpdatedAt === null ? null : epochFromMilliseconds(statusUpdatedAt),
         },
       },
-      { verified: (entry.waitingFor ?? null) === null },
-    ),
+    }),
   ])
 }

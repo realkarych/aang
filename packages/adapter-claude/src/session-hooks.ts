@@ -136,21 +136,18 @@ const backgroundTask = (task: z.infer<typeof BackgroundTaskEntry>): BackgroundTa
   agent_type: task.agent_type ?? null,
 })
 
-const taskOwner = (event: Task) => {
-  const { teammate_name: teammate, team_name: team } = event
-  return typeof teammate === 'string' && typeof team === 'string'
-    ? teammateKey(event.session_id, teammate, team)
-    : ownerOf(event)
-}
+const teammateOf = ({ teammate_name: teammate, team_name: team }: Task) =>
+  typeof teammate === 'string' && typeof team === 'string' ? { name: teammate, team } : null
 
 const taskParser = (status: PlanItemStatus): HookParser =>
-  hookParser(Task, (event, { origin }) =>
-    facts(
+  hookParser(Task, (event, { origin }) => {
+    const teammate = teammateOf(event)
+    return facts(
       fact(
         origin,
         {
           kind: 'plan_update',
-          entity_key: taskOwner(event),
+          entity_key: teammate === null ? ownerOf(event) : teammateKey(event.session_id, teammate.name, teammate.team),
           speaker: 'solver',
           urgent: true,
           payload: {
@@ -159,10 +156,10 @@ const taskParser = (status: PlanItemStatus): HookParser =>
             items: [{ id: event.task_id, text: event.task_subject, status }],
           },
         },
-        { verified: false },
+        { verified: teammate === null },
       ),
-    ),
-  )
+    )
+  })
 
 const elicitationAnswers = (content: JsonValue | null | undefined) => {
   if (content === null || content === undefined) {
