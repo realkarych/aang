@@ -1,0 +1,67 @@
+{
+  "format": "aang-support-matrix/1",
+  "rows": [
+    {
+      "runtime": "claude",
+      "surface": "claude_cli",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "2.1.286",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "no reference recordings of: approval, compaction, fork, interrupt, plan, question, reconnect, resume, tools",
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "not_run",
+        "child_sessions": "passed",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_exec",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "0.159.2",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "no reference recordings of: compaction, fork, reconnect, source-loss, subagents",
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "not_run",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    }
+  ]
+}

@@ -116,7 +116,7 @@ const Axes = ({ stage }: { readonly stage: Stage }): ReactElement => (
     <div>
       <dt>Решение человека</dt>
       <dd>
-        <DecisionBadge decision={stage.decision} />
+        <DecisionBadge decision={stage.decision.value} basis={stage.decision.basis} />
       </dd>
     </div>
   </dl>

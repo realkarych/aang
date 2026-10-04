@@ -86,7 +86,7 @@ describe.concurrent('Claude questions: AskUserQuestion', () => {
         entity_key: { kind: 'question', runtime: 'claude', session, question: call },
         speaker: 'solver',
         urgent: true,
-        format_verified: false,
+        format_verified: true,
         runtime_ids: { call_id: call },
         payload: { source: 'ask_user_question', blocking: true, questions: askedQuestions },
       })
@@ -102,7 +102,7 @@ describe.concurrent('Claude questions: AskUserQuestion', () => {
       entity_key: { kind: 'question', question: call },
       speaker: 'human',
       urgent: false,
-      format_verified: false,
+      format_verified: true,
       runtime_ids: { call_id: call },
       payload: {
         outcome: 'answered',
@@ -160,7 +160,7 @@ describe.concurrent('Claude questions: AskUserQuestion', () => {
 })
 
 describe.concurrent('Claude plan: ExitPlanMode', () => {
-  test('ExitPlanMode asks the human to approve the plan and is an urgent unverified plan of its call', async ({
+  test('ExitPlanMode asks the human to approve the plan and is an urgent plan of its call', async ({
     expect,
   }) => {
     const input = { plan, planFilePath: '/home/user/.claude/plans/plan.md' }
@@ -177,14 +177,14 @@ describe.concurrent('Claude plan: ExitPlanMode', () => {
         entity_key: { kind: 'question', session, question: call },
         speaker: 'solver',
         urgent: true,
-        format_verified: false,
+        format_verified: true,
         payload: { source: 'exit_plan_mode', blocking: true, questions: [{ header: null, text: plan, options: [] }] },
       })
       expect(facts[2], channel).toMatchObject({
         entity_key: { kind: 'action', runtime: 'claude', session, call },
         speaker: 'solver',
         urgent: true,
-        format_verified: false,
+        format_verified: true,
         runtime_ids: { call_id: call },
         payload: { source: 'exit_plan_mode', text: plan, items: [] },
       })
@@ -200,7 +200,7 @@ describe.concurrent('Claude plan: ExitPlanMode', () => {
 })
 
 describe.concurrent('Claude plan: task tools', () => {
-  test('TaskCreate, TaskUpdate and TodoWrite are unverified plan updates of their call', async ({ expect }) => {
+  test('TaskCreate and TaskUpdate are plan updates of their call, TodoWrite is an unverified one', async ({ expect }) => {
     const planOf = async (tool: string, input: JsonValue) => ofKind(await toolUse(tool, input), 'plan_update')
     const [created] = await planOf('TaskCreate', {
       subject: 'Write the parser',
@@ -222,7 +222,7 @@ describe.concurrent('Claude plan: task tools', () => {
       entity_key: { kind: 'action', session: mainSession, call },
       speaker: 'solver',
       urgent: true,
-      format_verified: false,
+      format_verified: true,
       runtime_ids: { call_id: call, message_id: 'msg_011CfbTzJhEoJe1pZ3Wdd3xK' },
       payload: {
         source: 'task_tool',
@@ -230,6 +230,7 @@ describe.concurrent('Claude plan: task tools', () => {
         items: [{ id: null, text: 'Write the parser', status: 'pending' }],
       },
     })
+    expect([started, renamed, deleted].map((update) => update?.format_verified)).toEqual([true, true, true])
     expect(started?.payload).toEqual({ source: 'task_tool', text: null, items: [{ id: '3', text: '', status: 'in_progress' }] })
     expect(renamed?.payload).toEqual({
       source: 'task_tool',
@@ -237,6 +238,7 @@ describe.concurrent('Claude plan: task tools', () => {
       items: [{ id: '3', text: 'Write both parsers', status: 'unknown' }],
     })
     expect(deleted?.payload).toMatchObject({ items: [{ id: '3', text: '', status: 'cancelled' }] })
+    expect(todos?.format_verified).toBe(false)
     expect(todos?.payload).toEqual({
       source: 'task_tool',
       text: null,
@@ -274,7 +276,7 @@ describe.concurrent('Claude plan: task tools', () => {
 })
 
 describe.concurrent('Claude prompts: background task notifications', () => {
-  test('a task notification is the runtime speaking, unverified, while a typed prompt stays verified', async ({
+  test('a task notification is the runtime speaking, a typed prompt is the human', async ({
     expect,
   }) => {
     const sample = await readJsonSample('claude-code-transcripts/rec-user-prompt.json')
@@ -293,7 +295,7 @@ describe.concurrent('Claude prompts: background task notifications', () => {
     expect(notified).toMatchObject({
       kind: 'prompt',
       speaker: 'runtime',
-      format_verified: false,
+      format_verified: true,
       payload: { text: notification, origin: 'task_notification', origin_raw: 'task-notification' },
     })
     expect(typed).toMatchObject({ speaker: 'human', format_verified: true, payload: { origin: 'human' } })

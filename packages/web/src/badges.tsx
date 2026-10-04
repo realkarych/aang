@@ -1,7 +1,6 @@
 import type {
   Action,
   ActionOutcome,
-  Assessed,
   Basis,
   CriterionStatus,
   Execution,
@@ -11,6 +10,7 @@ import type {
 } from '@aang/contract'
 import type { ReactElement } from 'react'
 import {
+  BasisGlyph,
   CriterionGlyph,
   DecisionGlyph,
   ExecutionGlyph,
@@ -18,12 +18,19 @@ import {
   LevelGlyph,
   OutcomeGlyph,
 } from './glyphs.js'
-import { basisLabel, decisionLabel, executionLabel, freshnessLabel, outcomeLabel } from './labels.js'
+import {
+  basisLabel,
+  decisionLabel,
+  executionLabel,
+  freshnessLabel,
+  interpreterLabel,
+  outcomeLabel,
+} from './labels.js'
 import { criterionStatusLabel } from './stage-labels.js'
 
 type Tone = 'go' | 'ask' | 'hold' | 'done' | 'fail' | 'idle'
 
-const executionTone = (execution: Execution): Tone => {
+export const executionTone = (execution: Execution): Tone => {
   switch (execution.state) {
     case 'running':
       return 'go'
@@ -115,11 +122,28 @@ const decisionTone: Readonly<Record<HumanDecision, Tone>> = {
   unknown: 'idle',
 }
 
-export const DecisionBadge = ({ decision }: { readonly decision: Assessed<HumanDecision> }): ReactElement => (
-  <span className="badge" data-tone={decisionTone[decision.value]}>
-    <DecisionGlyph decision={decision.value} />
-    {decisionLabel[decision.value]}
-    <BasisNote basis={decision.basis} />
+export const DecisionBadge = ({
+  decision,
+  basis,
+}: {
+  readonly decision: HumanDecision
+  readonly basis?: Basis
+}): ReactElement => (
+  <span className="badge" data-tone={decisionTone[decision]}>
+    <DecisionGlyph decision={decision} />
+    {decisionLabel[decision]}
+    {basis === undefined ? null : <BasisNote basis={basis} />}
+  </span>
+)
+
+export const BasisBadge = ({ basis }: { readonly basis: Basis }): ReactElement => (
+  <span
+    className="badge"
+    data-tone="basis"
+    title={basis.kind === 'interpreted' ? interpreterLabel(basis.interpreter) : undefined}
+  >
+    <BasisGlyph basis={basis.kind} />
+    {basisLabel[basis.kind]}
   </span>
 )
 

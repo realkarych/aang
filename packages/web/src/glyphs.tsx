@@ -186,8 +186,15 @@ export const PlanItemGlyph = ({ status }: { readonly status: PlanItemStatus }): 
   }
 }
 
-const Quote = (): ReactElement => (
-  <path d="M1.8 2.2h8.4v5.6H5.6L3 10.2V7.8H1.8Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+const Said = (): ReactElement => (
+  <path d="M1.8 2.2h8.4v5.6H5.4L2.8 10V7.8h-1Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+)
+
+const Derived = (): ReactElement => (
+  <>
+    <path d="M6 1.4 10.6 6 6 10.6 1.4 6Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <circle cx="6" cy="6" r="1.3" fill="currentColor" />
+  </>
 )
 
 const Half = (): ReactElement => (
@@ -217,7 +224,7 @@ export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus })
     case 'stale':
       return <Glyph><Triangle /></Glyph>
     case 'reported_done':
-      return <Glyph><Quote /></Glyph>
+      return <Glyph><Said /></Glyph>
     case 'not_checked':
       return <Glyph><Dashed /></Glyph>
   }
@@ -226,10 +233,36 @@ export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus })
 export const BasisGlyph = ({ basis }: { readonly basis: BasisKind }): ReactElement => {
   switch (basis) {
     case 'observed':
-      return <Glyph><Dot /></Glyph>
+      return <Glyph><Eye /></Glyph>
     case 'claimed':
-      return <Glyph><Quote /></Glyph>
+      return <Glyph><Said /></Glyph>
     case 'interpreted':
-      return <Glyph><Dashed /></Glyph>
+      return <Glyph><Derived /></Glyph>
   }
 }
+
+export const DisclosureGlyph = ({ open }: { readonly open: boolean }): ReactElement => (
+  <Glyph>
+    <path
+      d={open ? 'M2.5 4.2 6 7.8l3.5-3.6' : 'M4.2 2.5 7.8 6l-3.6 3.5'}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)
+
+export const HandoverGlyph = (): ReactElement => (
+  <Glyph>
+    <path
+      d="M1.5 3.5h6.5M6 1.5l2 2-2 2M10.5 8.5H4M6 6.5l-2 2 2 2"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)

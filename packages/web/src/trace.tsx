@@ -178,7 +178,7 @@ const QuestionStep = ({
 }): ReactElement => (
   <li className="step" data-kind="question">
     <span className="step-state">
-      <DecisionBadge decision={question.decision} />
+      <DecisionBadge decision={question.decision.value} basis={question.decision.basis} />
     </span>
     <span className="step-tool">{questionKindLabel[question.kind]}</span>
     <span className="step-body">{text === null ? null : <LongText text={text} className="step-question" />}</span>

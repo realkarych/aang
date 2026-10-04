@@ -9,9 +9,12 @@ import type {
   RunsResponse,
   StageId,
   StageInspector,
+  UsageQuery,
+  UsageReport,
   ViewPosition,
 } from '@aang/contract'
 import { artifactVersion } from './artifact-version.js'
+import { usageReport } from '../usage/report.js'
 import { runChanges } from './changes.js'
 import type { ReadContext } from './context.js'
 import { stageInspector } from './inspector.js'
@@ -28,6 +31,7 @@ export interface ReadQueries {
   readonly changes: (run: RunId, from: ViewPosition) => ChangesResponse | null
   readonly observerCalls: (run: RunId) => ObserverCallsResponse | null
   readonly artifactVersion: (id: ArtifactVersionId) => Promise<ArtifactVersionResponse | null>
+  readonly usage: (query: UsageQuery) => UsageReport | null
 }
 
 export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
@@ -44,5 +48,6 @@ export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
         return calls === null ? null : { calls }
       }),
     artifactVersion: (id) => artifactVersion(context, id),
+    usage: (query) => store.read(() => usageReport(store, query)),
   }
 }

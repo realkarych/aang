@@ -37,8 +37,18 @@ const go = (href: string): void => {
   window.dispatchEvent(new Event(navigated))
 }
 
+const stageLocation = (run: RunId, stage: StageId | null): string => (stage === null ? runHref(run) : stageHref(run, stage))
+
 export const selectStage = (run: RunId, stage: StageId | null): void => {
-  go(stage === null ? runHref(run) : stageHref(run, stage))
+  go(stageLocation(run, stage))
+}
+
+export const replaceStage = (run: RunId, stage: StageId | null): void => {
+  const href = stageLocation(run, stage)
+  if (href !== currentSearch()) {
+    window.history.replaceState(window.history.state, '', href)
+    window.dispatchEvent(new Event(navigated))
+  }
 }
 
 const isPlainClick = (event: MouseEvent): boolean =>
