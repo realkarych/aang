@@ -176,7 +176,8 @@ export const claudeHooks = (session: string) => {
 
 export const codexHooks = (session: string) => {
   const source = { session, cwd }
-  const request = JSON.parse(codexHook('PermissionRequest.json', source)) as { readonly tool_input: JsonValue }
+  const request = JSON.parse(codexHook('PermissionRequest.json', source)) as { readonly tool_input: { readonly command: string } }
+  const input = { command: request.tool_input.command }
   const hook = (file: string, arrival: number, name: string, changes: Record<string, JsonValue> = {}): HookDelivery => ({
     runtime: 'codex',
     registration: 'user',
@@ -185,13 +186,13 @@ export const codexHooks = (session: string) => {
     payload: codexHook(name, source, changes),
   })
   return {
-    input: request.tool_input,
+    input,
     start: (arrival = 0) => hook('start.evt', arrival, 'SessionStart.startup.json'),
     pre: (file: string, call: string, arrival: number) =>
-      hook(file, arrival, 'PreToolUse.Bash.json', { tool_use_id: call, tool_input: request.tool_input }),
+      hook(file, arrival, 'PreToolUse.Bash.json', { tool_use_id: call, tool_input: input }),
     request: (file: string, arrival: number) => hook(file, arrival, 'PermissionRequest.json'),
     post: (file: string, call: string, arrival: number) =>
-      hook(file, arrival, 'PostToolUse.Bash.json', { tool_use_id: call, tool_input: request.tool_input }),
+      hook(file, arrival, 'PostToolUse.Bash.json', { tool_use_id: call, tool_input: input }),
     interrupt: (file: string, arrival: number) => hook(file, arrival, 'Interrupt.json'),
     prompt: (file: string, arrival: number) => hook(file, arrival, 'UserPromptSubmit.json'),
     end: (file: string, arrival: number) => hook(file, arrival, 'SessionEnd.json'),

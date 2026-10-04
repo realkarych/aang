@@ -192,10 +192,19 @@ const postToolUse = hookParser(PostToolUse, (event, context) => {
   ]
 })
 
+const shellTool = 'Bash'
+
+const escalationJustification = 'description'
+
+const requestedInput = (tool: string, input: JsonValue): JsonValue =>
+  tool !== shellTool || typeof input !== 'object' || input === null || Array.isArray(input)
+    ? input
+    : Object.fromEntries(Object.entries(input).filter(([field]) => field !== escalationJustification))
+
 const permissionRequest = hookParser(PermissionRequest, (event, context) => [
   fact('permission_request', spec(context, questionEntity(context.stream, context.file), 'runtime', true), {
     tool: event.tool_name,
-    input: event.tool_input,
+    input: requestedInput(event.tool_name, event.tool_input),
   }),
 ])
 
