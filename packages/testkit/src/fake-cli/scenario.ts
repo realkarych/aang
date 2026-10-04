@@ -14,6 +14,7 @@ const faults = [
   z.strictObject({ kind: z.literal('auth') }),
   z.strictObject({ kind: z.literal('limit'), resetsAt: epochSeconds.optional() }),
   z.strictObject({ kind: z.literal('timeout') }),
+  z.strictObject({ kind: z.literal('network') }),
   z.strictObject({ kind: z.literal('invalid_json'), text: z.string() }),
 ] as const
 
@@ -60,6 +61,10 @@ export const ClaudeScenario = z.strictObject({
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
+  builtinPlugins: z.array(z.string()).default(() => ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring']),
+  pluginHooks: z.array(z.string()).default(() => []),
+  pluginMcpServers: z.array(z.string()).default(() => []),
+  userPlugins: z.array(z.string()).default(() => []),
   replies: z.array(ClaudeReply).default(() => []),
   chatReplies: z.array(ClaudeReply).default(() => []),
   pluginFailures: z.array(ClaudePluginCommand).default(() => []),
@@ -81,6 +86,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
     output: z.json(),
     usage: CodexUsage.optional(),
     toolAttempts: z.array(z.string()).default(() => []),
+    gate: z.string().optional(),
   }),
   z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: CodexUsage.optional() }),
   ...faults,

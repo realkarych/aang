@@ -9,6 +9,7 @@ import {
   answerEvents,
   defaultClaudeUsage,
   errorResultEvent,
+  hookEvents,
   initEvent,
   rateLimitEvent,
   textResultEvent,
@@ -65,6 +66,7 @@ const limitMessage = (resetsAt: number | undefined): string =>
     : `You've hit your limit · resets ${new Date(resetsAt * 1000).toISOString()}`
 
 const respond = (session: ClaudeSession, reply: Reply, input: JsonValue | undefined): void => {
+  hookEvents(session).forEach(emit)
   switch (reply.kind) {
     case 'answer':
     case 'script': {
@@ -88,6 +90,11 @@ const respond = (session: ClaudeSession, reply: Reply, input: JsonValue | undefi
     case 'timeout':
       emit(initEvent(session))
       hang()
+      return
+    case 'network':
+      emit(initEvent(session))
+      emit(errorResultEvent(session, 'API Error: Connection error.', null))
+      finish(1)
       return
     case 'invalid_json':
       emit(initEvent(session))
@@ -137,6 +144,10 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     version: scenario.version,
     cwd: process.cwd(),
     tools: ['StructuredOutput', ...scenario.leakedTools],
+    plugins: scenario.builtinPlugins,
+    userPlugins: scenario.userPlugins,
+    mcpServers: scenario.pluginMcpServers,
+    hooks: options.flags.has('include-hook-events') ? scenario.pluginHooks.map(() => 'SessionStart:startup') : [],
     permissionMode: lastValue(options, 'permission-mode') ?? 'default',
     startedAt,
   }
@@ -151,8 +162,8 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
   if (admission) {
     const cleanup = await claudeAdmissionArtifacts(session.sessionId, scenario.admissionFault)
     try {
-      runAdmissionHook('claude', options, scenario.admissionFault)
-      respond(session, reply, input)
+      const controlled = runAdmissionHook('claude', options, scenario.admissionFault) && options.flags.has('include-hook-events')
+      respond(controlled ? { ...session, hooks: [...session.hooks, 'SessionStart:startup'] } : session, reply, input)
     } finally { cleanup() }
     return
   }

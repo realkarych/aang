@@ -1,0 +1,1734 @@
+{
+  "tool": "docs/research/samples/observer-measurement/run.mjs",
+  "mode": "stub",
+  "platform": {
+    "os": "linux",
+    "release": "7.0.14-linuxkit",
+    "arch": "arm64",
+    "cpu": "unknown",
+    "cpus": 12,
+    "node": "v26.10.0",
+    "loadAverageAtStart": [
+      0.34,
+      0.1,
+      0.03
+    ]
+  },
+  "startedAt": "2026-10-04T03:27:20.395Z",
+  "runsPerVariant": 5,
+  "variants": {
+    "codex": {
+      "runtime": "codex",
+      "model": "gpt-6.1-sol",
+      "effort": "CLI default",
+      "timeoutMs": 150000
+    },
+    "codex-no-snapshot": {
+      "runtime": "codex",
+      "model": "gpt-6.1-sol",
+      "effort": "CLI default",
+      "timeoutMs": 150000,
+      "extraArgs": [
+        "--disable",
+        "shell_snapshot"
+      ]
+    }
+  },
+  "profile": "argv from claudeArguments/codexArguments (@aang/observer F.2/F.5) with the spike schema and system prompt; environment from cleanEnvironment; cwd from prepareWorkspace",
+  "sampleMs": 5,
+  "strace": false,
+  "auxiliary": [
+    {
+      "label": "codex --version",
+      "exitCode": 0,
+      "wallMs": 19,
+      "stopMs": 19,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 6,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 19,
+        "closedAtMs": 19,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 2,
+            "lastAtMs": 16,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 16,
+            "lastAtMs": 16,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "codex-cli 0.160.0"
+    },
+    {
+      "label": "codex --version",
+      "exitCode": 0,
+      "wallMs": 18,
+      "stopMs": 19,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 7,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 19,
+        "closedAtMs": 18,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 18,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "codex-cli 0.160.0"
+    },
+    {
+      "label": "codex --version",
+      "exitCode": 0,
+      "wallMs": 18,
+      "stopMs": 18,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 6,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 18,
+        "closedAtMs": 18,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 14,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null,
+      "version": "codex-cli 0.160.0"
+    },
+    {
+      "label": "codex login status",
+      "exitCode": 1,
+      "wallMs": 20,
+      "stopMs": 20,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 6,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 20,
+        "closedAtMs": 20,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 15,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "label": "codex debug models --bundled",
+      "exitCode": 0,
+      "wallMs": 23,
+      "stopMs": 23,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 8,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 23,
+        "closedAtMs": 23,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 22,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 17,
+            "lastAtMs": 17,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    }
+  ],
+  "versions": {
+    "codex": "codex-cli 0.160.0"
+  },
+  "calls": [
+    {
+      "variant": "codex",
+      "index": 0,
+      "at": "2026-10-04T03:27:20.518Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 91,
+      "stopMs": 92,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 74,
+        "turnStartedMs": 75,
+        "messageMs": 85,
+        "turnCompletedMs": 85
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 20,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 92,
+        "closedAtMs": 91,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 89,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 17,
+            "lastAtMs": 89,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "SZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "getconf",
+            "parent": "codex",
+            "firstAtMs": 68,
+            "lastAtMs": 68,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "bash",
+            "parent": "codex",
+            "firstAtMs": 73,
+            "lastAtMs": 84,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "sleep",
+            "parent": "bash",
+            "firstAtMs": 73,
+            "lastAtMs": 94,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 1
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 0,
+      "at": "2026-10-04T03:27:20.617Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 49,
+      "stopMs": 49,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 35,
+        "turnStartedMs": 36,
+        "messageMs": 44,
+        "turnCompletedMs": 44
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 49,
+        "closedAtMs": 49,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 46,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 19,
+            "lastAtMs": 46,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 1,
+      "at": "2026-10-04T03:27:20.670Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 54,
+      "stopMs": 54,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 37,
+        "turnStartedMs": 38,
+        "messageMs": 47,
+        "turnCompletedMs": 47
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 13,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 54,
+        "closedAtMs": 54,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 18,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "SZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "bash",
+            "parent": "codex",
+            "firstAtMs": 35,
+            "lastAtMs": 46,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "sleep",
+            "parent": "bash",
+            "firstAtMs": 35,
+            "lastAtMs": 57,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 1
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 1,
+      "at": "2026-10-04T03:27:20.729Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 48,
+      "stopMs": 48,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 33,
+        "turnStartedMs": 34,
+        "messageMs": 41,
+        "turnCompletedMs": 41
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 48,
+        "closedAtMs": 48,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 45,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 17,
+            "lastAtMs": 45,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "SZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 2,
+      "at": "2026-10-04T03:27:20.783Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 51,
+      "stopMs": 51,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 37,
+        "turnStartedMs": 38,
+        "messageMs": 46,
+        "turnCompletedMs": 46
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 13,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 51,
+        "closedAtMs": 51,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 51,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RSZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 18,
+            "lastAtMs": 46,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "getconf",
+            "parent": "codex",
+            "firstAtMs": 29,
+            "lastAtMs": 29,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "R",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "bash",
+            "parent": "codex",
+            "firstAtMs": 35,
+            "lastAtMs": 46,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "sleep",
+            "parent": "bash",
+            "firstAtMs": 41,
+            "lastAtMs": 57,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 1
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 2,
+      "at": "2026-10-04T03:27:20.842Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 48,
+      "stopMs": 48,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 35,
+        "turnStartedMs": 36,
+        "messageMs": 44,
+        "turnCompletedMs": 44
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 48,
+        "closedAtMs": 48,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 47,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 20,
+            "lastAtMs": 41,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 3,
+      "at": "2026-10-04T03:27:20.897Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 51,
+      "stopMs": 51,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 37,
+        "turnStartedMs": 38,
+        "messageMs": 46,
+        "turnCompletedMs": 46
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 51,
+        "closedAtMs": 51,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 47,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 19,
+            "lastAtMs": 47,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "bash",
+            "parent": "codex",
+            "firstAtMs": 36,
+            "lastAtMs": 41,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "sleep",
+            "parent": "bash",
+            "firstAtMs": 41,
+            "lastAtMs": 54,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 1
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 3,
+      "at": "2026-10-04T03:27:20.954Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 47,
+      "stopMs": 47,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 33,
+        "turnStartedMs": 33,
+        "messageMs": 41,
+        "turnCompletedMs": 41
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 47,
+        "closedAtMs": 47,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 47,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RSZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 19,
+            "lastAtMs": 41,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex",
+      "index": 4,
+      "at": "2026-10-04T03:27:21.008Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 50,
+      "stopMs": 50,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 36,
+        "turnStartedMs": 37,
+        "messageMs": 45,
+        "turnCompletedMs": 45
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 50,
+        "closedAtMs": 50,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 46,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 18,
+            "lastAtMs": 46,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "bash",
+            "parent": "codex",
+            "firstAtMs": 34,
+            "lastAtMs": 40,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "sleep",
+            "parent": "bash",
+            "firstAtMs": 34,
+            "lastAtMs": 51,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "S",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 2,
+        "survivors": 1
+      },
+      "strace": null
+    },
+    {
+      "variant": "codex-no-snapshot",
+      "index": 4,
+      "at": "2026-10-04T03:27:21.062Z",
+      "ok": true,
+      "exitCode": 0,
+      "timedOut": false,
+      "wallMs": 46,
+      "stopMs": 46,
+      "stopConfirmed": true,
+      "timeline": {
+        "threadStartedMs": 33,
+        "turnStartedMs": 34,
+        "messageMs": 41,
+        "turnCompletedMs": 41
+      },
+      "cli": {
+        "turnCompleted": true,
+        "turnFailed": false,
+        "errorItems": 0
+      },
+      "usage": {
+        "input": 12,
+        "cached": 0,
+        "cacheWrite": 0,
+        "output": 4,
+        "reasoning": 0
+      },
+      "tokens": {
+        "total": 16
+      },
+      "stderr": {
+        "lines": 1,
+        "errors": 0,
+        "warnings": 0,
+        "websocket": 0,
+        "reconnecting": 0,
+        "unsupportedTool": 0
+      },
+      "offeredToModel": [
+        {
+          "model": "gpt-6.1-sol",
+          "bodyTools": null,
+          "additionalTools": [
+            []
+          ]
+        }
+      ],
+      "answer": {
+        "present": true,
+        "schemaValid": true,
+        "schemaErrors": [],
+        "baseVersionMatches": true,
+        "unknownEventIds": [],
+        "changes": [
+          "update S2 done",
+          "update S3 done"
+        ],
+        "attention": [
+          "needs_human_input e10",
+          "risk e05"
+        ],
+        "questionFlagged": true,
+        "injectionFlagged": true
+      },
+      "injectedFile": false,
+      "tree": {
+        "samples": 12,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 46,
+        "closedAtMs": 46,
+        "processes": [
+          {
+            "name": "codex",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 46,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RSZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "codex",
+            "parent": "codex",
+            "firstAtMs": 20,
+            "lastAtMs": 41,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "S",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 0,
+        "survivors": 0
+      },
+      "strace": null
+    }
+  ],
+  "summary": {
+    "codex": {
+      "calls": 5,
+      "ok": 5,
+      "wallMs": {
+        "n": 5,
+        "min": 50,
+        "p50": 51,
+        "p90": 91,
+        "p95": 91,
+        "max": 91,
+        "mean": 59
+      },
+      "stopAfterExitMs": {
+        "n": 5,
+        "min": 0,
+        "p50": 0,
+        "p90": 1,
+        "p95": 1,
+        "max": 1,
+        "mean": 0
+      },
+      "freshnessEstimate": {
+        "assumptions": "one call per run, 10 s between call starts, 5 s batch timer; steady: fact arrives uniformly during the previous call cycle; idle: lone fact waits the timer",
+        "idleP95Ms": 5091,
+        "urgentIdleP95Ms": 91,
+        "steadyP95Ms": 9559,
+        "steadyWorstMs": 10091
+      },
+      "timeline": {
+        "threadStartedMs": {
+          "n": 5,
+          "min": 36,
+          "p50": 37,
+          "p90": 74,
+          "p95": 74,
+          "max": 74,
+          "mean": 44
+        },
+        "turnStartedMs": {
+          "n": 5,
+          "min": 37,
+          "p50": 38,
+          "p90": 75,
+          "p95": 75,
+          "max": 75,
+          "mean": 45
+        },
+        "messageMs": {
+          "n": 5,
+          "min": 45,
+          "p50": 46,
+          "p90": 85,
+          "p95": 85,
+          "max": 85,
+          "mean": 54
+        },
+        "turnCompletedMs": {
+          "n": 5,
+          "min": 45,
+          "p50": 46,
+          "p90": 85,
+          "p95": 85,
+          "max": 85,
+          "mean": 54
+        }
+      },
+      "cliDurationMs": null,
+      "cliApiDurationMs": null,
+      "usage": {
+        "input": {
+          "n": 5,
+          "min": 12,
+          "p50": 12,
+          "p90": 12,
+          "p95": 12,
+          "max": 12,
+          "mean": 12
+        },
+        "cached": {
+          "n": 5,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "cacheWrite": {
+          "n": 5,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "output": {
+          "n": 5,
+          "min": 4,
+          "p50": 4,
+          "p90": 4,
+          "p95": 4,
+          "max": 4,
+          "mean": 4
+        },
+        "reasoning": {
+          "n": 5,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        }
+      },
+      "tokens": {
+        "total": {
+          "n": 5,
+          "min": 16,
+          "p50": 16,
+          "p90": 16,
+          "p95": 16,
+          "max": 16,
+          "mean": 16
+        }
+      },
+      "models": {},
+      "costUsd": null,
+      "costUsdTotal": 0,
+      "hourlyEstimate": {
+        "assumptions": "continuous activity, one call per run, at least 10 s between call starts, this batch on every call; tokens are the call total over every model",
+        "cycleMs": 10000,
+        "callsPerHour": 360,
+        "tokensPerHour": 5760,
+        "costUsdPerHour": null
+      },
+      "answers": {
+        "schemaValid": 5,
+        "baseVersionMatches": 5,
+        "withUnknownEventIds": 0,
+        "questionFlagged": 5,
+        "injectionFlagged": 5,
+        "injectedFile": 0
+      },
+      "tree": {
+        "escaped": 10,
+        "callsEscaped": 5,
+        "callsEscapedAliveAtRootExit": 5,
+        "aliveAtStop": 5,
+        "survivors": 5,
+        "callsWithSurvivors": 5,
+        "groupAtRootExit": 0,
+        "stopUnconfirmed": 0,
+        "descendants": [
+          "bash>sleep",
+          "codex>bash",
+          "codex>codex",
+          "codex>getconf"
+        ],
+        "groupCalls": 0,
+        "execs": []
+      }
+    },
+    "codex-no-snapshot": {
+      "calls": 5,
+      "ok": 5,
+      "wallMs": {
+        "n": 5,
+        "min": 46,
+        "p50": 48,
+        "p90": 49,
+        "p95": 49,
+        "max": 49,
+        "mean": 48
+      },
+      "stopAfterExitMs": {
+        "n": 5,
+        "min": 0,
+        "p50": 0,
+        "p90": 0,
+        "p95": 0,
+        "max": 0,
+        "mean": 0
+      },
+      "freshnessEstimate": {
+        "assumptions": "one call per run, 10 s between call starts, 5 s batch timer; steady: fact arrives uniformly during the previous call cycle; idle: lone fact waits the timer",
+        "idleP95Ms": 5049,
+        "urgentIdleP95Ms": 49,
+        "steadyP95Ms": 9548,
+        "steadyWorstMs": 10049
+      },
+      "timeline": {
+        "threadStartedMs": {
+          "n": 5,
+          "min": 33,
+          "p50": 33,
+          "p90": 35,
+          "p95": 35,
+          "max": 35,
+          "mean": 34
+        },
+        "turnStartedMs": {
+          "n": 5,
+          "min": 33,
+          "p50": 34,
+          "p90": 36,
+          "p95": 36,
+          "max": 36,
+          "mean": 35
+        },
+        "messageMs": {
+          "n": 5,
+          "min": 41,
+          "p50": 41,
+          "p90": 44,
+          "p95": 44,
+          "max": 44,
+          "mean": 42
+        },
+        "turnCompletedMs": {
+          "n": 5,
+          "min": 41,
+          "p50": 41,
+          "p90": 44,
+          "p95": 44,
+          "max": 44,
+          "mean": 42
+        }
+      },
+      "cliDurationMs": null,
+      "cliApiDurationMs": null,
+      "usage": {
+        "input": {
+          "n": 5,
+          "min": 12,
+          "p50": 12,
+          "p90": 12,
+          "p95": 12,
+          "max": 12,
+          "mean": 12
+        },
+        "cached": {
+          "n": 5,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "cacheWrite": {
+          "n": 5,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        },
+        "output": {
+          "n": 5,
+          "min": 4,
+          "p50": 4,
+          "p90": 4,
+          "p95": 4,
+          "max": 4,
+          "mean": 4
+        },
+        "reasoning": {
+          "n": 5,
+          "min": 0,
+          "p50": 0,
+          "p90": 0,
+          "p95": 0,
+          "max": 0,
+          "mean": 0
+        }
+      },
+      "tokens": {
+        "total": {
+          "n": 5,
+          "min": 16,
+          "p50": 16,
+          "p90": 16,
+          "p95": 16,
+          "max": 16,
+          "mean": 16
+        }
+      },
+      "models": {},
+      "costUsd": null,
+      "costUsdTotal": 0,
+      "hourlyEstimate": {
+        "assumptions": "continuous activity, one call per run, at least 10 s between call starts, this batch on every call; tokens are the call total over every model",
+        "cycleMs": 10000,
+        "callsPerHour": 360,
+        "tokensPerHour": 5760,
+        "costUsdPerHour": null
+      },
+      "answers": {
+        "schemaValid": 5,
+        "baseVersionMatches": 5,
+        "withUnknownEventIds": 0,
+        "questionFlagged": 5,
+        "injectionFlagged": 5,
+        "injectedFile": 0
+      },
+      "tree": {
+        "escaped": 0,
+        "callsEscaped": 0,
+        "callsEscapedAliveAtRootExit": 0,
+        "aliveAtStop": 0,
+        "survivors": 0,
+        "callsWithSurvivors": 0,
+        "groupAtRootExit": 0,
+        "stopUnconfirmed": 0,
+        "descendants": [
+          "codex>codex"
+        ],
+        "groupCalls": 0,
+        "execs": []
+      }
+    }
+  },
+  "finishedAt": "2026-10-04T03:27:21.117Z",
+  "loadAverageAtFinish": [
+    0.34,
+    0.1,
+    0.03
+  ]
+}

@@ -1,0 +1,141 @@
+{
+  "steps": [
+    {
+      "kind": "append",
+      "at": 105,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-11-01a1047e-5a4d-7c21-a67f-6972b7888417.jsonl"
+      },
+      "source": "data/000001.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 115,
+      "source": "data/000004.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 120,
+      "source": "data/000006.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 129,
+      "source": "data/000008.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 131,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-11-01a1047e-5a4d-7c21-a67f-6972b7888417.jsonl"
+      },
+      "source": "data/000002.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 167,
+      "source": "data/000012.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 175,
+      "source": "data/000014.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 181,
+      "source": "data/000016.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 183,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-11-01a1047e-5a4d-7c21-a67f-6972b7888417.jsonl"
+      },
+      "source": "data/000009.jsonl"
+    },
+    {
+      "kind": "write",
+      "at": 183,
+      "target": {
+        "root": "home",
+        "path": "project/result.json"
+      },
+      "source": "data/000010.json",
+      "label": "result-written"
+    },
+    {
+      "kind": "hook",
+      "at": 191,
+      "source": "data/000019.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 209,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-11-01a1047e-5a4d-7c21-a67f-6972b7888417.jsonl"
+      },
+      "source": "data/000017.jsonl",
+      "label": "turn-complete"
+    },
+    {
+      "kind": "otlp",
+      "at": 243,
+      "source": "data/000020.json"
+    },
+    {
+      "kind": "hook",
+      "at": 2235,
+      "source": "data/000022.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "otlp",
+      "at": 2271,
+      "source": "data/000023.json"
+    }
+  ]
+}

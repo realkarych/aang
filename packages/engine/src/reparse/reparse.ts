@@ -12,8 +12,6 @@ import {
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Observation, Store, Transaction } from '@aang/store'
-import { refreshChecks } from '../checks/attention.js'
-import type { ContractCatalog } from '../checks/catalog.js'
 import { normalizeOtel } from '../ingest/otel.js'
 import { queueFacts } from '../ingest/queue.js'
 import { type Adapters, collectedFields, sessionName } from '../ingest/records.js'
@@ -170,21 +168,23 @@ const rebuildProjections = (
   return rebuilt
 }
 
+export type RefreshSessions = (transaction: Transaction, sessions: Iterable<SessionKey>, at: EpochNs) => void
+
 export const reparse = (
   store: Store,
   adapters: Adapters,
-  contracts: ContractCatalog,
   quiet: QuietWatch,
   now: EpochNs,
   quietAfterMs: number,
+  refresh: RefreshSessions,
 ): ReparseResult => {
   const tally = store.transaction((transaction) => {
     const before = store.changes.head()
     const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map(), added: [] }
     const counted = reparseRecords(transaction, adapters, reparsed)
-    const rebuilt = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
+    const sessions = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
     queueFacts(transaction, reparsed.added)
-    refreshChecks(transaction, rebuilt, contracts, now)
+    refresh(transaction, sessions, now)
     settleQuiet(transaction, quiet, now, quietAfterMs)
     const after = store.changes.head()
     if (after > before) {

@@ -7,7 +7,6 @@ export interface SnapshotRequest {
   readonly run: RunId
   readonly root: SessionKey
   readonly cwd: string
-  readonly maskRoot: string
   readonly masks: readonly string[]
   readonly trigger: SnapshotTrigger
 }
@@ -20,8 +19,8 @@ export interface TakenSnapshot {
 
 type StatusEntry = GitSnapshotPayload['entries'][number]
 
-const pathspecOf = (top: string, maskRoot: string, mask: string): string | null => {
-  const target = resolve(maskRoot, mask)
+const pathspecOf = (top: string, mask: string): string | null => {
+  const target = resolve(mask)
   if (contains(top, target)) {
     const relation = relative(top, target)
     return relation === '' ? '.' : relation.split(sep).join('/')
@@ -72,7 +71,7 @@ export const takeSnapshot = async (request: SnapshotRequest, now: () => EpochNs)
   let payload: GitSnapshotPayload
   try {
     const top = resolve((await readGit(request.cwd, ['rev-parse', '--show-toplevel'])).trim())
-    const pathspecs = request.masks.flatMap((mask) => pathspecOf(top, request.maskRoot, mask) ?? [])
+    const pathspecs = request.masks.flatMap((mask) => pathspecOf(top, mask) ?? [])
     if (pathspecs.length === 0) {
       return null
     }

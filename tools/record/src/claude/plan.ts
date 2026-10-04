@@ -16,6 +16,9 @@ const Turn = z.strictObject({
   interrupt: z.strictObject({ tool: z.string().min(1), delayMs: z.int().nonnegative() }).optional(),
 })
 
+export const SettingSource = z.enum(['user', 'project', 'local'])
+export type SettingSource = z.infer<typeof SettingSource>
+
 export const HostPlan = z.strictObject({
   engine: z.string().min(1),
   args: z.array(z.string()).default([]),
@@ -64,6 +67,15 @@ export const pluginDirectory = (argv: readonly string[]): string => {
   const directory = argv[index + 1]
   if (index < 0 || directory === undefined) throw new Error('The recorder did not pass --plugin-dir')
   return directory
+}
+
+export const forwardedSettings = (argv: readonly string[]): { readonly settingSources?: SettingSource[]; readonly strictMcpConfig: boolean } => {
+  const index = argv.lastIndexOf('--setting-sources')
+  const sources = index < 0 ? undefined : argv[index + 1]
+  return {
+    ...sources === undefined ? {} : { settingSources: z.array(SettingSource).min(1).parse(sources.split(',')) },
+    strictMcpConfig: argv.includes('--strict-mcp-config'),
+  }
 }
 
 const answersFor = (input: Readonly<Record<string, unknown>>, choice: number): Record<string, string> => {
