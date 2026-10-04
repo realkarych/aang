@@ -156,6 +156,47 @@ for (const runtime of ['claude', 'codex'] as const) {
   })
 }
 
+const alive = (pid: number): boolean => {
+  try { process.kill(pid, 0); return true }
+  catch (error) { return error instanceof Error && 'code' in error && error.code !== 'ESRCH' }
+}
+
+for (const runtime of ['claude', 'codex'] as const) {
+  for (const ending of ['exits during the call', 'outlives the stopped group'] as const) {
+    test.skipIf(process.platform === 'win32')(`${runtime} fails admission when a descendant leaves the process group and ${ending}`, async (context) => {
+      const { root, options } = await sandbox(context)
+      const pidFile = join(root, 'escaped.pid')
+      context.onTestFinished(async () => {
+        const pid = Number(await readFile(pidFile, 'utf8').catch(() => '0'))
+        if (pid > 0 && alive(pid)) process.kill(pid, 'SIGKILL')
+      })
+      const scenario = { groupEscape: { pidFile, lifetimeMs: ending === 'exits during the call' ? 200 : 20_000 }, replies: [{ kind: 'answer' as const, output }] }
+      const cli = runtime === 'claude' ? installFakeClaude(root, scenario) : installFakeCodex(root, scenario)
+      const backend = runtime === 'claude' ? createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins }) : createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+      expect(await backend.admit()).toMatchObject({ admitted: false, reason: expect.stringMatching(/^CLI descendant left its process group: /) as unknown })
+      expect(backend.status()).toEqual({ activeCalls: 0, state: { state: 'disabled', reason: 'isolation' } })
+      expect(alive(Number(await readFile(pidFile, 'utf8')))).toBe(ending === 'outlives the stopped group')
+      expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toMatchObject({ admitted: false, reason: expect.stringMatching(/^CLI descendant left its process group: /) as unknown })
+      const count = cli.calls().length
+      expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
+      expect(cli.calls()).toHaveLength(count)
+      cli.setScenario({ replies: [{ kind: 'answer', output }] })
+      expect(await backend.admit()).toMatchObject({ admitted: true })
+      expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
+    })
+  }
+}
+
+test.skipIf(process.platform === 'win32')('Codex fails admission when its profile leaves the shell snapshot enabled', async (context) => {
+  const { root, options } = await sandbox(context)
+  const fake = installFakeCodex(root)
+  const cli = { command: process.execPath, args: [fileURLToPath(new URL('snapshot-wrapper.ts', import.meta.url)), fake.command, ...fake.args] }
+  const backend = createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+  expect(await backend.admit()).toMatchObject({ admitted: false, reason: expect.stringMatching(/^CLI descendant left its process group: /) as unknown })
+  expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
+  expect(fake.calls().filter((call) => call.prompt !== null)).toHaveLength(1)
+})
+
 test('Codex cannot reuse the positive control output when the negative branch omits last.json', async (context) => {
   const { root, options } = await sandbox(context)
   const cli = installFakeCodex(root, { admissionFault: 'missing_last' })

@@ -38,6 +38,11 @@ const Descendant = z.strictObject({
   inheritStdio: z.boolean().default(false),
 })
 
+const GroupEscape = z.strictObject({
+  pidFile: z.string().optional(),
+  lifetimeMs: z.int().positive().default(300),
+})
+
 export const ClaudePluginCommand = z.enum([
   'marketplace-add',
   'marketplace-remove',
@@ -51,6 +56,7 @@ export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
 export const ClaudeScenario = z.strictObject({
   admissionFault: z.enum(['hook_missing', 'hook_leak', 'registry_missing', 'registry_marker', 'transcript', 'tool_execution']).optional(),
   descendant: Descendant.optional(),
+  groupEscape: GroupEscape.optional(),
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
@@ -84,6 +90,7 @@ export type CodexReply = z.input<typeof CodexReply>
 export const CodexScenario = z.strictObject({
   admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last']).optional(),
   descendant: Descendant.optional(),
+  groupEscape: GroupEscape.optional(),
   version: z.string().default('0.159.3'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),

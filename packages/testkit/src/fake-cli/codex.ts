@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { admissionHookPath, codexAdmissionArtifacts, runAdmissionHook } from './admission.js'
 import { randomUUID } from 'node:crypto'
-import { startDescendant } from './process-tree.js'
+import { leaveProcessGroup, startDescendant } from './process-tree.js'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
@@ -242,6 +242,9 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     say(process.stderr, isolationMessage('codex', violations))
     finish(fakeCliExitCodes.isolation)
     return
+  }
+  if (scenario.groupEscape !== undefined || !allValues(options, 'disable').includes('shell_snapshot')) {
+    await leaveProcessGroup(scenario.groupEscape ?? { lifetimeMs: 300 })
   }
   const lastMessage = lastValue(options, 'output-last-message')
   const turn: Turn = {

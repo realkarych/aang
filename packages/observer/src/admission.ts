@@ -9,6 +9,7 @@ import { createClaudeLauncher, type ClaudeBackendOptions } from './claude.js'
 import { createCodexLauncher } from './codex.js'
 import { cleanEnvironment, prepareWorkspace, resolveCli } from './environment.js'
 import { createProcessRunner, type LaunchStatus, type ProcessResult } from './process.js'
+import { watchProcessGroup, type ProcessGroupWatch } from './process-group.js'
 
 export interface AdmissionOptions {
   readonly admissionStatusPath?: string
@@ -33,7 +34,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     cli: typeof source.cli === 'string' ? source.cli : { command: source.cli.command, args: [...(source.cli.args ?? [])] },
     ...(source.builtins === undefined ? {} : { builtins: structuredClone(source.builtins) }),
   }
-  const profile = createHash('sha256').update(JSON.stringify({ revision: 1, runtime, cli: options.cli, model: options.model, effort: options.effort, builtins: options.builtins })).digest('hex')
+  const profile = createHash('sha256').update(JSON.stringify({ revision: 2, runtime, cli: options.cli, model: options.model, effort: options.effort, builtins: options.builtins })).digest('hex')
   const verified = [...(source.verifiedClaudeVersions ?? [])]
   const statusPath = source.admissionStatusPath ?? join(options.environment.HOME ?? options.environment.USERPROFILE ?? homedir(), '.aang', 'support', `${runtime}-observer.json`)
   const runner = createProcessRunner(options)
@@ -65,7 +66,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       await rename(staged, statusPath)
     } finally { await rm(staged, { force: true }) }
   }
-  const context = (signal?: AbortSignal) => {
+  const context = (signal?: AbortSignal, watchGroups = false) => {
     let cwd: string
     try { cwd = prepareWorkspace(options.temporaryDirectory) }
     catch (error) { throw new LaunchError('unsafe_workdir', String(error)) }
@@ -75,8 +76,17 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     const env = cleanEnvironment(runtime, options.environment)
     const stopped: Promise<void>[] = []
     const run: ProbeContext['run'] = async (args, input = '', directory = cwd, environment = env) => {
-      const result = await runner.run({ command: cli.command, args: [...(cli.args ?? []), ...args], input, cwd: directory, env: environment, timeoutMs: options.timeoutMs ?? (runtime === 'claude' ? 90_000 : 150_000), ...(signal === undefined ? {} : { signal }) })
+      const groups: ProcessGroupWatch[] = []
+      const result = await runner.run({
+        command: cli.command, args: [...(cli.args ?? []), ...args], input, cwd: directory, env: environment, timeoutMs: options.timeoutMs ?? (runtime === 'claude' ? 90_000 : 150_000),
+        ...(signal === undefined ? {} : { signal }),
+        ...(watchGroups ? { onProcessGroup: (pgid: number) => { groups.push(watchProcessGroup(pgid)) } } : {}),
+      })
       stopped.push(result.stopped)
+      let departed: string[]
+      try { departed = (await Promise.all(groups.map((group) => group.finish()))).flat() }
+      catch (error) { throw new LaunchError('isolation', `CLI process group could not be checked: ${String(error)}`) }
+      if (departed.length > 0) throw new LaunchError('isolation', `CLI descendant left its process group: ${departed.join(', ')}`)
       return result
     }
     return { cwd, env, run, stopped }
@@ -105,7 +115,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     let directory: string | undefined
     try {
       await save()
-      probe = context(signal)
+      probe = context(signal, true)
       const version = versionOf(await probe.run(['--version']))
       record = { ...record, version }
       directory = await realpath(await mkdtemp(join(dirname(probe.cwd), 'admission-')))
