@@ -167,6 +167,8 @@ const setUp = async (
     '-C',
     workspace.cwd,
     ...parts.flatMap((part) => part.args ?? []),
+    '--disable',
+    'shell_snapshot',
     ...extra,
     '-',
   ]

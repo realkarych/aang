@@ -1,0 +1,12 @@
+{
+  "name": "@aang/docker-image",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "fake-solver": "./dist/main.js"
+  },
+  "dependencies": {
+    "@aang/contract": "workspace:*",
+    "@aang/testkit": "workspace:*"
+  }
+}

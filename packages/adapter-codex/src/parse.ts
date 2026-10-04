@@ -7,6 +7,7 @@ import { parseHook } from './hooks.js'
 import { itemCompleted } from './items.js'
 import { readLine } from './line.js'
 import { parseOtel } from './otel.js'
+import { threadGoalUpdated } from './plan.js'
 import { compacted, sessionMeta, taskComplete, taskStarted, turnAborted, turnContext } from './session.js'
 import { decodeStream } from './stream.js'
 import { tokenCount, tokenUsageRecord } from './usage.js'
@@ -29,6 +30,8 @@ const eventMessage = byPayloadType(
     ['turn_aborted', turnAborted],
     ['item_completed', itemCompleted],
     ['token_count', tokenCount],
+    ['thread_goal_updated', threadGoalUpdated],
+    ['thread_settings_applied', ignored],
   ]),
 )
 
@@ -52,6 +55,7 @@ const lineParsers: ReadonlyMap<string, LineParser> = new Map([
   ['token_usage_record', tokenUsageRecord],
   ['compacted', compacted],
   ['inter_agent_communication_metadata', ignored],
+  ['world_state', ignored],
 ])
 
 const parseLine = (context: LineContext): LineFacts => lineParsers.get(context.line.type)?.(context) ?? null

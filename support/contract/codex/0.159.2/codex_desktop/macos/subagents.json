@@ -75,7 +75,7 @@
     {
       "channel": "rollout",
       "type": "event_msg:thread_settings_applied",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 2
     },
     {
@@ -135,7 +135,7 @@
     {
       "channel": "rollout",
       "type": "world_state",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 6
     }
   ],
@@ -3980,7 +3980,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 8,
+      "unknown_records": 0,
       "cost_state": null,
       "started_at": "<time>",
       "last_event_at": "<time>"
@@ -4410,23 +4410,7 @@
     }
   ],
   "artifacts": [],
-  "gaps": [
-    {
-      "id": "#106",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "66ca6eb5adb2e9b9dfcb5f347b267bf9"
-      },
-      "kind": "unknown_records",
-      "run": "#90",
-      "session": "#89",
-      "stream": null,
-      "details": "8 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
-    }
-  ],
+  "gaps": [],
   "removals": [],
   "runs": [
     {
@@ -4444,7 +4428,7 @@
         {
           "kind": "link",
           "value": {
-            "id": "#107",
+            "id": "#106",
             "run": "#90",
             "basis": {
               "kind": "observed"
@@ -4462,7 +4446,7 @@
         {
           "kind": "link",
           "value": {
-            "id": "#108",
+            "id": "#107",
             "run": "#90",
             "basis": {
               "kind": "observed"

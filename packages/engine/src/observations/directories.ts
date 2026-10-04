@@ -7,15 +7,19 @@ type Start = FactOf<'action_start'>
 
 const present = (path: string | null): string | null => (path === '' ? null : path)
 
-const windowsAbsolute = /^(?:[A-Za-z]:[\\/]|\\\\)/
+const windowsAbsolute = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/
+
+const windowsDrive = /^\/[A-Za-z](?::|%3A)/i
 
 export const isWindowsPath = (path: string): boolean => windowsAbsolute.test(path)
+
+const driveOf = (path: string): string | undefined => /^[A-Za-z]:/.exec(path)?.[0].toUpperCase()
 
 const fileUrlPath = (value: string): string | null => {
   try {
     const url = new URL(value)
     const remote = url.hostname !== '' && url.hostname !== 'localhost'
-    return fileURLToPath(url, { windows: remote || /^\/[A-Za-z]:/.test(url.pathname) })
+    return fileURLToPath(url, { windows: remote || windowsDrive.test(url.pathname) })
   } catch {
     return null
   }
@@ -36,7 +40,8 @@ export const resolvedPath = (path: string, base: string | null): string | null =
     return win32.resolve(path)
   }
   if (base !== null && isWindowsPath(base)) {
-    return win32.resolve(base, path)
+    const drive = driveOf(path)
+    return drive === undefined || drive === driveOf(base) ? win32.resolve(base, path) : null
   }
   if (posix.isAbsolute(path)) {
     return posix.resolve(path)
