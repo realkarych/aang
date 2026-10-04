@@ -229,8 +229,12 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       basis: { kind: 'claimed' },
       evidence: [done?.id],
     })
-    expect(valuesOf(store, run, 'criterion')).toMatchObject([
+    const criteria = valuesOf(store, run, 'criterion')
+    expect(criteria.filter(({ source }) => source !== 'contract')).toMatchObject([
       { text: goalCriterionText, status: { value: 'reported_done', basis: { kind: 'claimed' }, evidence: [done?.id] } },
+    ])
+    expect(criteria.filter(({ source }) => source === 'contract')).toMatchObject([
+      { contract: 'test', status: { value: 'failed', basis: { kind: 'observed' } } },
     ])
     expect(failedCheck()).toMatchObject([{ author: 'rule', resolution: 'open', closed_at: null }])
     expect(assignedTo(store, run, stageTitled(store, run, mainStageTitle))).toContain(claudeAction(session, 'toolu_check'))

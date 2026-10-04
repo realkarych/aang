@@ -27,16 +27,19 @@ import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { GapDraft, SessionDecision, Store, Transaction } from '@aang/store'
 import { retainBases } from '../artifacts/retention.js'
 import { projectVersions } from '../artifacts/versions.js'
-import { refreshChecks, refreshRunChecks } from '../checks/attention.js'
+import { refreshChecks } from '../checks/attention.js'
 import { createContractCatalog } from '../checks/catalog.js'
+import { changedRunChecks, type RunChecks, storedRunChecks } from '../checks/history.js'
+import { createCriteriaMonitor, UnresolvedChecks, versionedSnapshots } from '../criteria/monitor.js'
+import type { CriterionCheck } from '../criteria/plan.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
 import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
+import { sessionRun } from '../observations/runs.js'
 import { reparse, type ReparseResult } from '../reparse/reparse.js'
-import { checkSnapshots } from '../snapshots/checks.js'
-import { recordSnapshot } from '../snapshots/record.js'
-import { type SnapshotRequest, takeSnapshot, type TakenSnapshot } from '../snapshots/take.js'
+import { checkSnapshots, distinctRequests } from '../snapshots/checks.js'
+import type { SnapshotRequest } from '../snapshots/take.js'
 import { normalizeOtel } from './otel.js'
 import { type PrefixHash, pruneBoundaries, pruneEpochSetting, type PruneOutcome, pruneRuns, pruneTarget } from './prune.js'
 import { queueFacts } from './queue.js'
@@ -77,6 +80,7 @@ export interface EngineOptions {
   readonly now?: () => EpochNsType
   readonly quietAfterMs?: number
   readonly maxBlobBytes?: number
+  readonly fsWatch?: boolean
 }
 
 export interface IngestResult {
@@ -104,6 +108,8 @@ export interface Engine {
   readonly retainBases: (runs?: Iterable<RunId>) => Promise<readonly ArtifactVersion[]>
   readonly rewatch: (watch: WatchedRoots, persist: (transaction: Transaction) => void) => Promise<WatchChange>
   readonly prune: (request: PruneRequest, prefixHash: PrefixHash) => Promise<PruneOutcome>
+  readonly refreshCriteria: () => Promise<ChangeSeq>
+  readonly close: () => Promise<void>
 }
 
 interface HeldHook {
@@ -145,6 +151,7 @@ interface Committed {
   readonly rescan: readonly StreamKey[]
   readonly quiet: QuietWatch
   readonly snapshots: readonly SnapshotRequest[]
+  readonly criteria: readonly CriterionCheck[]
 }
 
 const mebibyte = 1024 ** 2
@@ -209,6 +216,7 @@ const heldLines = (files: ReadonlyMap<string, TrackedFile>): number =>
 export const createEngine = ({
   store, adapters: registry, watch, holding = {},
   now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000, maxBlobBytes = 5 * mebibyte,
+  fsWatch = true,
 }: EngineOptions): Engine => {
   if (!Number.isSafeInteger(quietAfterMs) || quietAfterMs < 1) {
     throw new RangeError('quiet interval must be a positive safe integer in milliseconds')
@@ -223,6 +231,32 @@ export const createEngine = ({
   let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
   let quiet = quietWatchOf(store.observations.sessions())
   let queue: Promise<unknown> = Promise.resolve()
+  let failure: { readonly error: unknown } | null = null
+
+  const enqueue = <T>(work: () => T | Promise<T>): Promise<T> => {
+    const result = queue.then(() => {
+      const pending = failure
+      if (pending !== null) {
+        failure = null
+        throw pending.error
+      }
+      return work()
+    })
+    queue = result.then(() => undefined, () => undefined)
+    return result
+  }
+
+  const criteria = createCriteriaMonitor({
+    store,
+    catalog: () => contracts,
+    now,
+    fsWatch,
+    onTreeChange: (runs) => {
+      enqueue(() => criteria.recheck(runs, 'fs_watch')).catch((error: unknown) => {
+        failure ??= { error }
+      })
+    },
+  })
 
   const sessionScopes = (): SessionScopes => {
     const known = new Map<string, ScopeDecision | null>()
@@ -337,6 +371,7 @@ export const createEngine = ({
   ): Committed =>
     store.transaction((transaction: Transaction) => {
       const changedSessions = new Map<string, SessionKey>()
+      const endedSessions = new Map<string, SessionKey>()
       const changedActions = new Map<string, ActionKey>()
       const sourceRecords = new Map<string, SourceRecord[]>()
       const tally: Tally = { inserted: 0, duplicates: 0, discarded: 0, deferred: 0 }
@@ -350,6 +385,9 @@ export const createEngine = ({
         for (const { kind, entity_key } of facts) {
           const key: SessionKey = { kind: 'session', runtime: entity_key.runtime, session: entity_key.session }
           changedSessions.set(sessionName(key), key)
+          if (kind === 'turn_end') {
+            endedSessions.set(sessionName(key), key)
+          }
           if (entity_key.kind === 'action' && (kind === 'action_start' || kind === 'action_end')) {
             changedActions.set(canonicalJson(entity_key), entity_key)
           }
@@ -564,11 +602,17 @@ export const createEngine = ({
         if (projection !== null) { watchQuiet(watch, projection.session) }
       }
       queueFacts(transaction, inserted)
-      refreshChecks(transaction, changedSessions.values(), contracts, instant)
+      const checked = changedRunChecks(transaction, changedSessions.values(), contracts)
+      refreshChecks(transaction, checked, instant)
       projectVersions(transaction, changedActions.values())
-      const snapshots = checkSnapshots(transaction, changedActions.values(), contracts)
+      const latest = criteria.reconcile(transaction, checked, instant, new Set())
+      const ended = new Set([...endedSessions.values()].map((key) => sessionRun(transaction, key)))
+      const snapshots = distinctRequests([
+        ...versionedSnapshots(transaction, latest.filter(({ run }) => ended.has(run)), 'turn_end'),
+        ...checkSnapshots(transaction, changedActions.values(), contracts),
+      ])
       settleQuiet(transaction, watch, instant, quietAfterMs)
-      return { tally, files, hooks, rescan: [...rescan], quiet: watch, snapshots }
+      return { tally, files, hooks, rescan: [...rescan], quiet: watch, snapshots, criteria: latest }
     })
 
   const withinLimits = (committed: Committed) => {
@@ -609,20 +653,15 @@ export const createEngine = ({
     return { files, hooks, abandoned, deferred }
   }
 
-  const recordSnapshots = async (requests: readonly SnapshotRequest[]): Promise<void> => {
-    const taken: TakenSnapshot[] = []
-    for (const request of requests) {
-      const snapshot = await takeSnapshot(request, now)
-      if (snapshot !== null) {
-        taken.push(snapshot)
+  const prepared = async <T>(work: () => T): Promise<T> => {
+    try {
+      return work()
+    } catch (error) {
+      if (!(error instanceof UnresolvedChecks)) {
+        throw error
       }
-    }
-    if (taken.length > 0) {
-      store.transaction((transaction) => {
-        for (const snapshot of taken) {
-          recordSnapshot(transaction, snapshot)
-        }
-      })
+      await criteria.prepare(error.checks)
+      return work()
     }
   }
 
@@ -633,7 +672,7 @@ export const createEngine = ({
     const scopes = sessionScopes()
     const evidence = gatherEvidence(steps, items, scopes)
     const decided = await decideSessions(evidence, scopes)
-    const committed = commit(batch, items, steps, decided, scopes)
+    const committed = await prepared(() => commit(batch, items, steps, decided, scopes))
     quiet = committed.quiet
     const kept = withinLimits(committed)
     const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))
@@ -644,7 +683,7 @@ export const createEngine = ({
       evidence,
       open: candidates.filter((open) => holdingBatches.has(open) && !kept.abandoned.has(open)),
     }
-    await recordSnapshots(committed.snapshots)
+    await criteria.settle(committed.snapshots, committed.criteria)
     return {
       head: store.changes.head(),
       ...committed.tally,
@@ -655,28 +694,41 @@ export const createEngine = ({
     }
   }
 
-  const enqueue = <T>(work: () => T | Promise<T>): Promise<T> => {
-    const result = queue.then(work)
-    queue = result.then(() => undefined, () => undefined)
-    return result
+  const refreshRuns = (
+    transaction: Transaction,
+    runs: readonly RunChecks[],
+    at: EpochNsType,
+    moved: ReadonlySet<SessionId>,
+  ): CriterionCheck[] => {
+    const distinct = [...new Map(runs.map((checks) => [checks.run, checks])).values()]
+    refreshChecks(transaction, distinct, at)
+    return criteria.reconcile(transaction, distinct, at, moved)
   }
 
-  const settleBinding = (change: (transaction: Transaction, at: EpochNsType) => BindingOutcome): BindingResult => {
-    const { binding, watch } = store.transaction((transaction) => {
-      const instant = now()
-      const outcome = change(transaction, instant)
-      const moved = outcome.moved.map(({ session }) => session)
-      const watch = new Map(quiet)
-      const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
-      for (const key of moved) {
-        const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
-        if (projection !== null) { watchQuiet(watch, projection.session) }
-      }
-      refreshChecks(transaction, moved, contracts, instant)
-      refreshRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts, instant)
-      return { binding: outcome.binding, watch }
-    })
+  const settleBinding = async (
+    change: (transaction: Transaction, at: EpochNsType) => BindingOutcome,
+  ): Promise<BindingResult> => {
+    const { binding, watch, latest } = await prepared(() =>
+      store.transaction((transaction) => {
+        const instant = now()
+        const outcome = change(transaction, instant)
+        const moved = outcome.moved.map(({ session }) => session)
+        const watch = new Map(quiet)
+        const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
+        for (const key of moved) {
+          const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
+          if (projection !== null) { watchQuiet(watch, projection.session) }
+        }
+        const runs = [
+          ...changedRunChecks(transaction, moved, contracts),
+          ...storedRunChecks(transaction, outcome.moved.map(({ from }) => from), contracts),
+        ]
+        const sessions = new Set(moved.map((key) => objectId(key)))
+        return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant, sessions) }
+      }),
+    )
     quiet = watch
+    await criteria.settle([], latest)
     return { binding, head: store.changes.head() }
   }
 
@@ -720,10 +772,17 @@ export const createEngine = ({
       }),
     ingest: (batch) => enqueue(() => ingestBatch(batch)),
     reparse: () =>
-      enqueue(() => {
-        const watch = new Map(quiet)
-        const result = reparse(store, adapters, contracts, watch, now(), quietAfterMs)
+      enqueue(async () => {
+        const { result, watch, latest } = await prepared(() => {
+          const watch = new Map(quiet)
+          let latest: CriterionCheck[] = []
+          const result = reparse(store, adapters, watch, now(), quietAfterMs, (transaction, sessions, at) => {
+            latest = refreshRuns(transaction, changedRunChecks(transaction, sessions, contracts), at, new Set())
+          })
+          return { result, watch, latest }
+        })
         quiet = watch
+        await criteria.settle([], latest)
         return result
       }),
     bind: (request) =>
@@ -735,5 +794,14 @@ export const createEngine = ({
       enqueue(() => retainBases(store, { maxBlobBytes, now }, runs === undefined ? null : new Set(runs))),
     rewatch: (next, persist) => enqueue(() => rewatch(next, persist)),
     prune: (request, prefixHash) => enqueue(() => prune(request, prefixHash)),
+    refreshCriteria: () =>
+      enqueue(async () => {
+        await criteria.recheck(null, 'restart')
+        return store.changes.head()
+      }),
+    close: async () => {
+      criteria.close()
+      await queue
+    },
   }
 }
