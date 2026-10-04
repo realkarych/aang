@@ -246,7 +246,8 @@ for (const runtime of ['claude', 'codex'] as const) {
       expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
       expect(cli.calls()).toHaveLength(count)
       cli.setScenario({ replies: [{ kind: 'answer', output }] })
-      expect(await backend.admit()).toMatchObject({ admitted: true })
+      expect(await backend.admit()).toMatchObject({ admitted: false, isolationViolated: true })
+      expect(await backend.admit(undefined, { manual: true })).toMatchObject({ admitted: true, isolationViolated: false })
       expect(await backend.execute({ input })).toMatchObject({ ok: true, output })
     })
   }
