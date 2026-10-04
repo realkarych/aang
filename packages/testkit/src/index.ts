@@ -1,4 +1,4 @@
-export { installFakeClaude, installFakeCodex, type FakeCli } from './fake-cli/install.js'
+export { installFakeClaude, installFakeCodex, type FakeCli, type FakeCliHold } from './fake-cli/install.js'
 export {
   fakeCliExitCodes,
   type ClaudeReply,
@@ -13,10 +13,17 @@ export {
 } from './fake-cli/scenario.js'
 export {
   agentStageTitle,
+  branchStageTitles,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
+  nestedStageTitles,
+  preparationStageTitle,
+  reportQuestionText,
+  reportStageTitle,
+  splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {
   type ObserverScenarioName,
@@ -54,6 +61,7 @@ export {
   type Target,
 } from './player/manifest.js'
 export { OtlpDeliveryError } from './player/otlp.js'
+export type { RecordTime } from './player/record-time.js'
 export { type SampleScenario, sampleScenarioManifest, sampleScenarios } from './player/sample-scenarios.js'
 export {
   createPlayer,
