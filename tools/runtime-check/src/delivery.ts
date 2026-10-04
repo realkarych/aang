@@ -262,7 +262,7 @@ export const codexInstallation = async (context: CheckContext, hookSource: strin
   const hashBefore = await fileHash(hooksFile)
   const repeated = await attempt(() => isolated(context, () => installCodexHooks(options)))
   const hashAfter = await fileHash(hooksFile)
-  const state = await attempt(() => isolated(context, () => codexHooksState({ codexHome: home, codex: options.codex })))
+  const state = await attempt(() => isolated(context, () => codexHooksState({ aangHome: profile.aangHome, codexHome: home, codex: options.codex })))
   const patch = newPatch(context, 'installed')
   const session = await delivered(context, () => runCodex(context, { home, steps: [patch.step] }))
   const { entry, probeCommand } = await codexShellProbe(context)

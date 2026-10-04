@@ -1,6 +1,7 @@
-import type { EpochNs } from '@aang/contract'
+import { endpoints, type EpochNs, type HookInstallation, type StatusResponse } from '@aang/contract'
 import { loadConfig, processEnvironment, resolveAangHome } from '@aang/contract/config-file'
 import { aangHomePaths, type DaemonState, readDaemonState, readSpoolState, type SpoolState } from '@aang/contract/home'
+import { callDaemon } from './admin.js'
 import { daemonUrl, isAlive } from './daemon-process.js'
 import { describeError, type Output } from './output.js'
 
@@ -41,6 +42,37 @@ const thresholdLines = async (output: Output, state: DaemonState | null, spool: 
       ]
 }
 
+const connectionTimeoutMs = 30_000
+
+const hookNotes: Readonly<Record<HookInstallation, string>> = {
+  not_installed: 'not installed',
+  untrusted: 'not trusted; trust them in Codex with /hooks',
+  disabled: 'disabled',
+  active: 'active',
+  unknown: 'unknown, the check did not succeed',
+}
+
+const sessionCount = (count: number): string => `${String(count)} ${count === 1 ? 'session' : 'sessions'}`
+
+const connectionLines = ({ runtimes, versions, not_observable: unobservable }: StatusResponse): string[] => [
+  ...runtimes.flatMap(({ runtime, hooks, hooks_inactive_sessions: inactive, double_registration_sessions: twice }) => [
+    `${runtime} hooks: ${hookNotes[hooks]}`,
+    ...(inactive.length === 0 ? [] : [`${runtime}: hooks inactive in ${sessionCount(inactive.length)}`]),
+    ...(twice.length === 0 ? [] : [`${runtime}: hooks registered twice in ${sessionCount(twice.length)}`]),
+  ]),
+  ...versions.map(
+    ({ key, status: support, sessions }) =>
+      `version ${key.surface} ${key.engine_version} on ${key.os} (${key.placement}): ${support}, ${sessionCount(sessions)}`,
+  ),
+  `not observable: ${unobservable.join(', ')}`,
+]
+
+const connection = (output: Output): Promise<string[]> =>
+  callDaemon(endpoints.hooksCheck, {}, connectionTimeoutMs).then(connectionLines, (error: unknown) => {
+    output.error(`aang status: ${describeError(error)}`)
+    return []
+  })
+
 export const status = async (output: Output): Promise<number> => {
   const paths = aangHomePaths(resolveAangHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
@@ -53,6 +85,7 @@ export const status = async (output: Output): Promise<number> => {
     leaseLine(spool),
     `stop marker: ${spool.stopped ? 'set' : 'not set'}`,
     ...(await thresholdLines(output, alive ? state : null, spool)),
+    ...(alive ? await connection(output) : []),
   ]
   for (const line of lines) {
     output.out(line)

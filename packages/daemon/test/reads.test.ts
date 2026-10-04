@@ -369,7 +369,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
       versions: [],
       unknown_records: 0,
       gaps: [],
-      not_observable: [],
+      not_observable: ['claude_cowork', 'claude_cloud', 'codex_cloud', 'work_cloud'],
     })
 
     const session = 'g4-status'

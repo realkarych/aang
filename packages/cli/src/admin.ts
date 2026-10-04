@@ -15,9 +15,10 @@ interface AdminSpec<B extends z.ZodType, R extends z.ZodType> {
   readonly response: R
 }
 
-const callDaemon = async <B extends z.ZodType, R extends z.ZodType>(
+export const callDaemon = async <B extends z.ZodType, R extends z.ZodType>(
   spec: AdminSpec<B, R>,
   body: z.output<B>,
+  timeoutMs = requestTimeoutMs,
 ): Promise<z.output<R>> => {
   const paths = aangHomePaths(resolveAangHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
@@ -32,7 +33,7 @@ const callDaemon = async <B extends z.ZodType, R extends z.ZodType>(
     method: spec.method,
     headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
     body: JSON.stringify(spec.body.encode(body)),
-    signal: AbortSignal.timeout(requestTimeoutMs),
+    signal: AbortSignal.timeout(timeoutMs),
   })
   const answer: unknown = await response.json().catch(() => null)
   if (!response.ok) {

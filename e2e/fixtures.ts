@@ -62,8 +62,8 @@ const withScannedRoots = (config: ConfigInput): ConfigInput => ({
   collector: { rootsScanIntervalMs, ...config.collector },
 })
 
-const configuredPath = ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): string | null =>
-  args.length === 0 ? command : null
+const configuredPaths = (fakes: readonly Pick<FakeCli<never>, 'runtime' | 'command' | 'args'>[]): Record<string, string> =>
+  Object.fromEntries(fakes.flatMap(({ runtime, command, args }) => (args.length === 0 ? [[runtime, command]] : [])))
 
 export const test = base.extend<AangOptions & AangFixtures>({
   config: [{}, { option: true }],
@@ -88,7 +88,7 @@ export const test = base.extend<AangOptions & AangFixtures>({
   daemon: async ({ profile, config, fakeClaude, fakeCodex }, use) => {
     await profile.configure({
       ...withScannedRoots(config),
-      cli: { claude: configuredPath(fakeClaude), codex: configuredPath(fakeCodex), ...config.cli },
+      cli: { ...configuredPaths([fakeClaude, fakeCodex]), ...config.cli },
     })
     const daemon = await profile.startDaemon({ entry: aangEntry })
     await use(daemon)

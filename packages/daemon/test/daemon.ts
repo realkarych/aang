@@ -6,6 +6,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { fileURLToPath } from 'node:url'
+import type { Placement } from '@aang/contract'
 import { type AangHomePaths, aangHomePaths } from '@aang/contract/home'
 import { type DaemonReady, type DaemonStopReason, runDaemon } from '@aang/daemon'
 import type { TestContext } from 'vitest'
@@ -27,9 +28,18 @@ export interface DaemonSettings {
   readonly config?: Record<string, unknown>
   readonly bind?: string | null
   readonly staticRoot?: string | null
+  readonly supportMatrix?: string
+  readonly placement?: Placement
 }
 
 export const testVersion = '0.0.0-test'
+
+export const repositoryMatrix = fileURLToPath(new URL('../../../support/matrix.json', import.meta.url))
+
+export const missingCli = (root: string): Record<string, string> => ({
+  claude: join(root, 'no-cli', 'claude'),
+  codex: join(root, 'no-cli', 'codex'),
+})
 
 export const createHome = async (
   onTestFinished: TestContext['onTestFinished'],
@@ -40,7 +50,10 @@ export const createHome = async (
   const paths = aangHomePaths(join(root, '.aang'))
   const token = randomBytes(32).toString('base64url')
   await mkdir(paths.home, { recursive: true })
-  await writeFile(join(paths.home, 'config.json'), JSON.stringify({ otel: { port: 0 }, ...config, api: { port: 0 } }))
+  await writeFile(
+    join(paths.home, 'config.json'),
+    JSON.stringify({ otel: { port: 0 }, cli: missingCli(root), ...config, api: { port: 0 } }),
+  )
   await writeFile(paths.uiToken, `${token}\n`)
   return { root, paths, token }
 }
@@ -48,7 +61,7 @@ export const createHome = async (
 export const startDaemon = async (
   home: Home,
   onTestFinished: TestContext['onTestFinished'],
-  { bind = null, staticRoot = null }: DaemonSettings = {},
+  { bind = null, staticRoot = null, supportMatrix = repositoryMatrix, placement = 'local' }: DaemonSettings = {},
 ): Promise<RunningDaemon> => {
   const controller = new AbortController()
   const ready = Promise.withResolvers<DaemonReady>()
@@ -57,6 +70,8 @@ export const startDaemon = async (
     environment: { env: { AANG_HOME: home.paths.home }, homedir: home.root },
     bind,
     staticRoot,
+    supportMatrix,
+    placement,
     signal: controller.signal,
     onReady: ready.resolve,
   })

@@ -31,7 +31,11 @@ export interface Profile {
   readonly dispose: () => Promise<void>
 }
 
-const testDefaults: ConfigInput = { api: { port: 0 }, otel: { port: 0 } }
+const testDefaults = (root: string): ConfigInput => ({
+  api: { port: 0 },
+  otel: { port: 0 },
+  cli: { claude: join(root, 'no-cli', 'claude'), codex: join(root, 'no-cli', 'codex') },
+})
 
 type Plain = Record<string, unknown>
 
@@ -48,17 +52,17 @@ const merge = (base: Plain, override: Plain): Plain =>
 const removeTree = (path: string): Promise<void> =>
   rm(path, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 
-const serializeConfig = (config: ConfigInput): string => {
-  const merged = merge(testDefaults, config)
+const serializeConfig = (root: string, config: ConfigInput): string => {
+  const merged = merge(testDefaults(root), config)
   Config.parse(merged)
   return `${JSON.stringify(merged, null, 2)}\n`
 }
 
 export const createProfile = async ({ homeName = 'home', config = {} }: ProfileOptions = {}): Promise<Profile> => {
-  const initialConfig = serializeConfig(config)
   const temporary = await mkdtemp(join(tmpdir(), 'aang-profile-'))
   try {
     const root = await realpath(temporary)
+    const initialConfig = serializeConfig(root, config)
     const home = join(root, homeName)
     const claude = join(home, '.claude')
     const codex = join(home, '.codex')
@@ -82,7 +86,7 @@ export const createProfile = async ({ homeName = 'home', config = {} }: ProfileO
     }
 
     const configure = async (next: ConfigInput): Promise<void> => {
-      await write('aang', configFileName, serializeConfig(next))
+      await write('aang', configFileName, serializeConfig(root, next))
     }
 
     const stopOrKill = async (daemon: RunningDaemon): Promise<void> => {

@@ -8,6 +8,7 @@ import {
   type Listener,
   type ReparseResponse,
   type ShutdownResponse,
+  type StatusResponse,
   streamPath,
 } from '@aang/contract'
 import { z } from 'zod'
@@ -26,6 +27,7 @@ export interface ServerOptions {
   readonly streams: Streams
   readonly reparse: () => Promise<ReparseResponse | null>
   readonly admin: Admin
+  readonly hooksCheck: () => Promise<StatusResponse>
   readonly onShutdown: () => void
 }
 
@@ -97,6 +99,7 @@ export const startServer = async ({
   streams,
   reparse,
   admin,
+  hooksCheck,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
   const acceptsBody = async (
@@ -182,6 +185,7 @@ export const startServer = async ({
     adminRoute(endpoints.watch, admin.watch),
     adminRoute(endpoints.unwatch, admin.unwatch),
     adminRoute(endpoints.prune, admin.prune),
+    adminRoute(endpoints.hooksCheck, hooksCheck),
   ]
 
   const routeApi = async (

@@ -89,6 +89,7 @@ export const CodexScenario = z.strictObject({
   leakedTools: z.array(z.string()).default(() => []),
   replies: z.array(CodexReply).default(() => []),
   chatReplies: z.array(CodexReply).default(() => []),
+  hooks: z.enum(['untrusted', 'trusted', 'disabled', 'unlisted']).default('untrusted'),
 })
 export type CodexScenario = z.input<typeof CodexScenario>
 
@@ -100,6 +101,7 @@ export const FakeCommand = z.enum([
   'debug_models',
   'version',
   'plugin',
+  'app_server',
   'unknown',
 ])
 export type FakeCommand = z.infer<typeof FakeCommand>

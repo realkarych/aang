@@ -165,6 +165,7 @@ test('the config builder writes the config the daemon runs with and rejects an i
   expect(JSON.parse(await readFile(join(profile.aangHome, 'config.json'), 'utf8'))).toEqual({
     api: { port: 0 },
     otel: { port: 0 },
+    cli: { claude: join(profile.root, 'no-cli', 'claude'), codex: join(profile.root, 'no-cli', 'codex') },
     spool: { leaseTtlMs: 600_000 },
   })
   const settings = await profile.write('claude', 'settings.json', '{"enabledPlugins":{}}')
