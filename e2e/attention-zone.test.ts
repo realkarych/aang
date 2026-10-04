@@ -230,6 +230,45 @@ test.describe('with a fast spool scan', () => {
     await expect(approval).toContainText('ждёт ответа')
   })
 
+  test('while the live stream is down a viewed item goes below the unviewed one and a dismissed one moves to the history', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    const run = runOf(claudeOriginal)
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('UserPromptSubmit.json', fields)
+    await hook.claude('PreToolUse.Bash.json', askUser(fields, 'toolu_h3_offline', choice))
+    await hook.claude('PreToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h3_offline_probe', tool_input: probe })
+    await hook.claude('PermissionRequest.Bash.json', fields)
+    await expect.poll(() => zoneSize(page, run)).toBe(2)
+
+    await page.route('**/api/stream?**', (route) => route.abort('connectionfailed'))
+    await page.goto(`/?run=${run}`)
+    const question = zoneItem(page, choice)
+    const approval = zoneItem(page, 'Bash: touch probe-perm.txt')
+    await expect(openItems(page)).toHaveCount(2)
+    await expect(openItems(page).nth(0)).toContainText(choice)
+    await expect(openItems(page).nth(1)).toContainText('Bash: touch probe-perm.txt')
+
+    await question.getByRole('button', { name: 'Отметить просмотренным' }).click()
+    await expect(question).toContainText('просмотрен')
+    await expect(openItems(page).nth(0)).toContainText('Bash: touch probe-perm.txt')
+    await expect(openItems(page).nth(1)).toContainText(choice)
+    await expect(approval.getByRole('button', { name: 'Отметить просмотренным' })).toBeVisible()
+    await question.getByRole('button', { name: 'Снять' }).click()
+    await expect(question).toHaveCount(0)
+    await expect(zone(page).getByRole('status')).toHaveText(`Пункт «${choice}» снят из зоны и сохранён в истории.`)
+    await historyToggle(page).click()
+    await expect(history(page)).toContainText('снят пользователем')
+  })
+})
+
+test.describe('with a fast spool scan and the LLM unavailable', () => {
+  test.use({ config: fastSpool, claudeScenario: { loggedIn: false }, codexScenario: { loggedIn: false } })
+
   test('a failed mark or dismissal keeps the item and says why, a rotated token shows the sign-in screen', async ({
     page,
     player,
@@ -268,41 +307,6 @@ test.describe('with a fast spool scan', () => {
 
     await aang('stop')
     expect(await daemon.exited, daemon.output()).toEqual({ code: 0, signal: null })
-  })
-
-  test('while the live stream is down a viewed item goes below the unviewed one and a dismissed one moves to the history', async ({
-    page,
-    player,
-    profile,
-    hook,
-  }) => {
-    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
-    const run = runOf(claudeOriginal)
-    const fields = hookFields(profile, claudeOriginal)
-    await hook.claude('UserPromptSubmit.json', fields)
-    await hook.claude('PreToolUse.Bash.json', askUser(fields, 'toolu_h3_offline', choice))
-    await hook.claude('PreToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h3_offline_probe', tool_input: probe })
-    await hook.claude('PermissionRequest.Bash.json', fields)
-    await expect.poll(() => zoneSize(page, run)).toBe(2)
-
-    await page.route('**/api/stream?**', (route) => route.abort('connectionfailed'))
-    await page.goto(`/?run=${run}`)
-    const question = zoneItem(page, choice)
-    const approval = zoneItem(page, 'Bash: touch probe-perm.txt')
-    await expect(openItems(page)).toHaveCount(2)
-    await expect(openItems(page).nth(0)).toContainText(choice)
-    await expect(openItems(page).nth(1)).toContainText('Bash: touch probe-perm.txt')
-
-    await question.getByRole('button', { name: 'Отметить просмотренным' }).click()
-    await expect(question).toContainText('просмотрен')
-    await expect(openItems(page).nth(0)).toContainText('Bash: touch probe-perm.txt')
-    await expect(openItems(page).nth(1)).toContainText(choice)
-    await expect(approval.getByRole('button', { name: 'Отметить просмотренным' })).toBeVisible()
-    await question.getByRole('button', { name: 'Снять' }).click()
-    await expect(question).toHaveCount(0)
-    await expect(zone(page).getByRole('status')).toHaveText(`Пункт «${choice}» снят из зоны и сохранён в истории.`)
-    await historyToggle(page).click()
-    await expect(history(page)).toContainText('снят пользователем')
   })
 })
 
