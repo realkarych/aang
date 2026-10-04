@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process'
-import { readFile } from 'node:fs/promises'
-import { join, resolve } from 'node:path'
+import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
+import { dirname, join, resolve } from 'node:path'
 import { createPlayer, loadManifest, type SampleScenario, sampleScenarioManifest } from '@aang/testkit'
 
 const required = (name: string): string => {
@@ -11,16 +11,24 @@ const required = (name: string): string => {
   return value
 }
 
+const optionValue = (args: readonly string[], name: string): string | null => {
+  const index = args.indexOf(name)
+  return index < 0 ? null : (args[index + 1] ?? null)
+}
+
 const [sample, ...actions] = process.argv.slice(2)
-const pluginIndex = actions.indexOf('--plugin-dir')
-const plugin = pluginIndex < 0 ? null : (actions[pluginIndex + 1] ?? null)
-const steps = pluginIndex < 0 ? actions : actions.slice(0, pluginIndex)
+const plugin = optionValue(actions, '--plugin-dir')
+const otlp = optionValue(actions, '--otlp')
+const optionStart = actions.findIndex((action) => action.startsWith('--'))
+const steps = optionStart < 0 ? actions : actions.slice(0, optionStart)
 const roots = { home: required('HOME'), claude: required('CLAUDE_CONFIG_DIR'), codex: required('CODEX_HOME') }
-const samples = resolve(import.meta.dirname, '../../../docs/research/samples/claude-code-hooks')
+const samples = resolve(import.meta.dirname, '../../../docs/research/samples')
 const session = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const bashCall = 'toolu_017B7FeHZ4yDzFdvKQMwDJB8'
 const cwd = '/tmp/aang-spike/cc-transcripts/run'
 const transcript = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run', `${session}.jsonl`)
+const movedTranscript = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run-moved', `${session}.jsonl`)
+const registry = join(roots.claude, 'sessions', '60263.json')
 
 const sessionVariables: readonly string[] = [
   'AI_AGENT',
@@ -52,7 +60,7 @@ const fireHook = async (event: string): Promise<void> => {
   if (hook === undefined) {
     throw new Error(`The recording plugin has no ${event} hook`)
   }
-  const payload = JSON.parse(await readFile(join(samples, file), 'utf8')) as Record<string, unknown>
+  const payload = JSON.parse(await readFile(join(samples, 'claude-code-hooks', file), 'utf8')) as Record<string, unknown>
   const input = JSON.stringify({
     ...payload,
     session_id: session,
@@ -74,13 +82,36 @@ const fireHook = async (event: string): Promise<void> => {
   })
 }
 
-const player = createPlayer(await loadManifest(sampleScenarioManifest(sample as SampleScenario)), { roots, timeScale: 0 })
+const register = async (status: string): Promise<void> => {
+  const entry = JSON.parse(await readFile(join(samples, 'claude-code-transcripts', 'sessions-registry-pid-at-start.json'), 'utf8')) as Record<string, unknown>
+  await mkdir(dirname(registry), { recursive: true })
+  await writeFile(registry, JSON.stringify({ ...entry, status: status === 'null' ? null : status, statusUpdatedAt: 1790856640000 }))
+}
+
+const relocate = async (): Promise<void> => {
+  await mkdir(dirname(movedTranscript), { recursive: true })
+  await rename(transcript, movedTranscript)
+}
+
+const player = createPlayer(await loadManifest(sampleScenarioManifest(sample as SampleScenario)), {
+  roots,
+  timeScale: 0,
+  ...(otlp === null ? {} : { otlp }),
+})
 
 for (const step of steps) {
   if (step === 'play') {
     await player.play()
   } else if (step.startsWith('until:')) {
     await player.play({ until: step.slice('until:'.length) })
+  } else if (step.startsWith('registry:')) {
+    await register(step.slice('registry:'.length))
+  } else if (step === 'unregister') {
+    await rm(registry)
+  } else if (step === 'relocate') {
+    await relocate()
+  } else if (step === 'delete') {
+    await rm(movedTranscript)
   } else {
     await fireHook(step)
   }

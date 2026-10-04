@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -14,13 +14,16 @@ import { readSupportMatrix } from '@aang/contract/support-file'
 import { beforeAll, describe, expect, onTestFinished, test } from 'vitest'
 import { findRecordings, matrixPath, snapshotFile, supportGaps } from '../dist/index.js'
 import {
+  claudeSourceLoss,
   claudeSubagents,
   cliOptions,
   codexResumeCompaction,
+  codexToolDecisions,
   hostOs,
   otherOs,
   placeRecording,
   recordSpike,
+  type SpikeRecording,
   supportCli,
   temporaryDirectory,
   thirdOs,
@@ -28,19 +31,29 @@ import {
 
 interface Snapshot {
   readonly facts: readonly { readonly kind: string }[]
+  readonly gaps: readonly { readonly kind: string; readonly closed_at: string | null }[]
   readonly agents: readonly { readonly role: string; readonly agent_type: string | null; readonly parent: string | null }[]
   readonly records: readonly { readonly channel: string; readonly parse_state: string; readonly count: number }[]
   readonly questions: readonly { readonly kind: string; readonly key: { readonly question: string } }[]
 }
 
-const generated = { claude: '', codex: '' }
+const generated = new Map<SpikeRecording, string>()
+
+const recorded = (recording: SpikeRecording): string => {
+  const directory = generated.get(recording)
+  if (directory === undefined) {
+    throw new Error(`${recording.scenario} is not recorded`)
+  }
+  return directory
+}
 
 beforeAll(async () => {
   const root = await mkdtemp(join(tmpdir(), 'aang-support-generated-'))
-  generated.claude = await recordSpike(join(root, 'sessions'), claudeSubagents)
-  generated.codex = await recordSpike(join(root, 'sessions'), codexResumeCompaction)
+  for (const recording of [claudeSubagents, claudeSourceLoss, codexResumeCompaction, codexToolDecisions]) {
+    generated.set(recording, await recordSpike(join(root, 'sessions'), recording))
+  }
   return () => rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
-}, 120_000)
+}, 180_000)
 
 const workspace = async (): Promise<{ readonly sessions: string; readonly support: string }> => {
   const root = await temporaryDirectory((cleanup) => { onTestFinished(cleanup) }, 'aang-support-run-')
@@ -52,29 +65,29 @@ const readSnapshot = async (path: string): Promise<Snapshot> => JSON.parse(await
 describe('the contract run over recordings generated from the spike samples', () => {
   test('update stores one snapshot per recording and OS, and check reproduces them', async () => {
     const { sessions, support } = await workspace()
-    await placeRecording(generated.claude, sessions, { os: hostOs })
-    await placeRecording(generated.claude, sessions, { os: otherOs })
-    await placeRecording(generated.codex, sessions)
+    await placeRecording(recorded(claudeSubagents), sessions, { os: hostOs })
+    await placeRecording(recorded(claudeSubagents), sessions, { os: otherOs })
+    await placeRecording(recorded(claudeSourceLoss), sessions)
+    await placeRecording(recorded(codexResumeCompaction), sessions)
+    await placeRecording(recorded(codexToolDecisions), sessions)
 
     const update = await supportCli(['update', ...cliOptions(sessions, support)])
     expect(update.stderr).toBe('')
     expect(update.code).toBe(0)
 
-    const recordings = await findRecordings(sessions)
-    expect(recordings.map(({ name }) => name).sort()).toEqual(
+    expect((await findRecordings(sessions)).map(({ name }) => name).sort()).toEqual(
       [
+        `claude/2.1.286/claude_cli/${hostOs}/source-loss`,
         `claude/2.1.286/claude_cli/${hostOs}/subagents`,
         `claude/2.1.286/claude_cli/${otherOs}/subagents`,
         `codex/0.159.2/codex_exec/${hostOs}/resume-compaction`,
+        `codex/0.159.2/codex_exec/${hostOs}/tools`,
       ].sort(),
     )
-    const [host, other, codex] = await Promise.all(
-      [hostOs, otherOs].map((os) => readFile(join(support, 'contract/claude/2.1.286/claude_cli', os, 'subagents.json'), 'utf8')).concat(
-        readFile(join(support, 'contract/codex/0.159.2/codex_exec', hostOs, 'resume-compaction.json'), 'utf8'),
-      ),
-    )
-    expect(other).toBe(host)
-    const claude = JSON.parse(host ?? 'null') as Snapshot
+    const snapshotText = (path: string): Promise<string> => readFile(join(support, 'contract', `${path}.json`), 'utf8')
+    const host = await snapshotText(`claude/2.1.286/claude_cli/${hostOs}/subagents`)
+    expect(await snapshotText(`claude/2.1.286/claude_cli/${otherOs}/subagents`)).toBe(host)
+    const claude = JSON.parse(host) as Snapshot
     expect(claude.agents).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ role: 'main', parent: null }),
@@ -85,12 +98,16 @@ describe('the contract run over recordings generated from the spike samples', ()
     expect(claude.questions.map(({ kind }) => kind)).toEqual(['permission'])
     expect(claude.questions[0]?.key.question).toMatch(/^spool#\d+$/)
     expect(host).not.toMatch(/[0-9]{19}-[A-Z0-9]{26}/)
-    expect((JSON.parse(codex ?? 'null') as Snapshot).facts.map(({ kind }) => kind)).toEqual(
-      expect.arrayContaining(['compaction', 'usage', 'usage_total']),
-    )
+    const lost = JSON.parse(await snapshotText(`claude/2.1.286/claude_cli/${hostOs}/source-loss`)) as Snapshot
+    expect(lost.gaps).toEqual(expect.arrayContaining([expect.objectContaining({ kind: 'source_lost', closed_at: null })]))
+    expect(lost.records).toEqual(expect.arrayContaining([expect.objectContaining({ channel: 'registry', parse_state: 'parsed', count: 3 })]))
+    const resumed = JSON.parse(await snapshotText(`codex/0.159.2/codex_exec/${hostOs}/resume-compaction`)) as Snapshot
+    expect(resumed.facts.map(({ kind }) => kind)).toEqual(expect.arrayContaining(['compaction', 'usage', 'usage_total']))
+    const decisions = JSON.parse(await snapshotText(`codex/0.159.2/codex_exec/${hostOs}/tools`)) as Snapshot
+    expect(decisions.records).toEqual([expect.objectContaining({ channel: 'otel', count: 15 })])
 
     const check = await supportCli(['check', ...cliOptions(sessions, support)])
-    expect(check.stdout).toBe('3 recordings, 0 problems\n')
+    expect(check.stdout).toBe('5 recordings, 0 problems\n')
     expect(check.code).toBe(0)
   }, 120_000)
 
@@ -99,14 +116,33 @@ describe('the contract run over recordings generated from the spike samples', ()
 
     const check = await supportCli(['check', ...cliOptions(join(portable, 'sessions'), join(portable, 'support'))])
 
-    expect(check.stdout).toBe('2 recordings, 0 problems\n')
+    expect(check.stdout).toBe('4 recordings, 0 problems\n')
     expect(check.code).toBe(0)
+  }, 120_000)
+
+  test('the run refuses an unknown command, a recording outside its own directory and a missing hook binary', async () => {
+    const { sessions, support } = await workspace()
+    const usage = await supportCli(['verify'])
+    expect(usage.code).toBe(2)
+    expect(usage.stderr).toMatch(/^Usage:/)
+
+    const placed = await placeRecording(recorded(claudeSubagents), sessions, { os: hostOs })
+    const misplaced = join(dirname(placed), 'tools')
+    await cp(placed, misplaced, { recursive: true })
+    const mismatch = await supportCli(['check', ...cliOptions(sessions, support)])
+    expect(mismatch.code).toBe(1)
+    expect(mismatch.stderr).toContain(`the manifest describes claude/2.1.286/claude_cli/${hostOs}/subagents`)
+    await rm(misplaced, { recursive: true })
+
+    const noHook = await supportCli(['check', '--fixtures', sessions, '--support', support, '--hook', join(support, 'aang-hook-missing')])
+    expect(noHook.code).toBe(1)
+    expect(noHook.stderr).toMatch(/step \d+ \(hook "contract-step-\d+"\) failed: spawn .*aang-hook-missing/)
   }, 120_000)
 
   test('a changed snapshot, a missing or stale snapshot and an outdated matrix fail the check', async () => {
     const { sessions, support } = await workspace()
-    await placeRecording(generated.claude, sessions, { os: hostOs })
-    await placeRecording(generated.codex, sessions)
+    await placeRecording(recorded(claudeSubagents), sessions, { os: hostOs })
+    await placeRecording(recorded(codexResumeCompaction), sessions)
     expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
     const [claude, codex] = await findRecordings(sessions)
     if (claude === undefined || codex === undefined) {
@@ -136,7 +172,7 @@ describe('the contract run over recordings generated from the spike samples', ()
 
   test('a thread whose usage records do not add up to its thread total breaks an invariant, and update refuses to write', async () => {
     const { sessions, support } = await workspace()
-    const placed = await placeRecording(generated.codex, sessions)
+    const placed = await placeRecording(recorded(codexResumeCompaction), sessions)
     const [recording] = await findRecordings(sessions)
     const playback = JSON.parse(await readFile(join(placed, 'playback.json'), 'utf8')) as {
       steps: { kind: string; source?: string }[]
@@ -190,9 +226,9 @@ describe('the support matrix generated from the contract run', () => {
   test('a row keeps its claimed status only while recordings of its own OS pass every scenario of the run', async () => {
     const { sessions, support } = await workspace()
     for (const scenario of [...contractScenarios, 'plan', 'question']) {
-      await placeRecording(generated.claude, sessions, { os: hostOs, scenario })
+      await placeRecording(recorded(claudeSubagents), sessions, { os: hostOs, scenario })
     }
-    await placeRecording(generated.claude, sessions, { os: otherOs, scenario: 'subagents' })
+    await placeRecording(recorded(claudeSubagents), sessions, { os: otherOs, scenario: 'subagents' })
     const previous: SupportMatrix = {
       format: supportMatrixFormat,
       rows: [
@@ -233,8 +269,8 @@ describe('the support matrix generated from the contract run', () => {
 
   test('Desktop rows on Windows are listed as not verified, whatever was claimed for them', async () => {
     const { sessions, support } = await workspace()
-    await placeRecording(generated.claude, sessions, { os: 'macos' })
-    await placeRecording(generated.claude, sessions, { os: 'macos', surface: 'claude_desktop', appVersion: '1.3.9' })
+    await placeRecording(recorded(claudeSubagents), sessions, { os: 'macos' })
+    await placeRecording(recorded(claudeSubagents), sessions, { os: 'macos', surface: 'claude_desktop', appVersion: '1.3.9' })
     await mkdir(support, { recursive: true })
     await writeFile(matrixPath(support), `${JSON.stringify({ format: supportMatrixFormat, rows: [claimed(desktopOnWindows, 'full')] }, null, 2)}\n`)
 

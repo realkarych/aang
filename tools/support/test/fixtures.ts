@@ -24,7 +24,8 @@ export interface SpikeRecording {
   readonly surface: Surface
   readonly scenario: string
   readonly sample: SampleScenario
-  readonly actions: readonly string[]
+  readonly commands: readonly (readonly string[])[]
+  readonly otlp?: boolean
   readonly expectedFacts: readonly [string, ...string[]]
 }
 
@@ -34,8 +35,18 @@ export const claudeSubagents: SpikeRecording = {
   surface: 'claude_cli',
   scenario: 'subagents',
   sample: 'claude-subagent',
-  actions: ['SessionStart', 'PermissionRequest', 'PreToolUse', 'until:subagent', 'PostToolUse', 'play', 'Stop'],
+  commands: [['SessionStart', 'PermissionRequest', 'PreToolUse', 'until:subagent', 'PostToolUse', 'play', 'Stop']],
   expectedFacts: ['The root session runs Bash, then the pinger subagent through the Agent tool'],
+}
+
+export const claudeSourceLoss: SpikeRecording = {
+  runtime: 'claude',
+  engineVersion: '2.1.286',
+  surface: 'claude_cli',
+  scenario: 'source-loss',
+  sample: 'claude-subagent',
+  commands: [['registry:null'], ['SessionStart', 'registry:busy', 'play'], ['registry:idle', 'Stop'], ['relocate'], ['delete', 'unregister']],
+  expectedFacts: ['The session registry entry goes busy, idle and away; the transcript moves, then disappears'],
 }
 
 export const codexResumeCompaction: SpikeRecording = {
@@ -44,9 +55,22 @@ export const codexResumeCompaction: SpikeRecording = {
   surface: 'codex_exec',
   scenario: 'resume-compaction',
   sample: 'codex-resume-compaction',
-  actions: ['play'],
+  commands: [['play']],
   expectedFacts: ['The resumed exec turn carries an automatic compaction'],
 }
+
+export const codexToolDecisions: SpikeRecording = {
+  runtime: 'codex',
+  engineVersion: '0.159.2',
+  surface: 'codex_exec',
+  scenario: 'tools',
+  sample: 'codex-otel',
+  commands: [['play']],
+  otlp: true,
+  expectedFacts: ['Every codex.tool_decision log record reaches the OTLP receiver'],
+}
+
+export const spikeRecordings: readonly SpikeRecording[] = [claudeSubagents, claudeSourceLoss, codexResumeCompaction, codexToolDecisions]
 
 export type Register = (cleanup: () => Promise<void>) => void
 
@@ -68,7 +92,9 @@ export const recordSpike = async (fixturesRoot: string, recording: SpikeRecordin
       hookBinary,
     },
     async (session) => {
-      await session.run(process.execPath, [spikeRuntime, recording.sample, ...recording.actions])
+      for (const command of recording.commands) {
+        await session.run(process.execPath, [spikeRuntime, recording.sample, ...command, ...(recording.otlp === true ? ['--otlp', session.otlp] : [])])
+      }
     },
   )
 

@@ -37,10 +37,16 @@ type Collected = 'tail' | 'snapshot' | null
 
 interface Observed {
   otel: number
+  readonly reads: Map<string, number>
   readonly offsets: Map<string, number>
   readonly streams: Map<string, string>
   readonly files: Map<string, string | null>
   readonly lost: Set<string>
+}
+
+interface Before {
+  readonly otel: number
+  readonly reads: ReadonlyMap<string, number>
 }
 
 const scanIntervalMs = 10
@@ -137,7 +143,9 @@ const observe = (observed: Observed, batch: CollectorBatch): void => {
     }
   }
   for (const { position } of batch.records) {
-    if (position.kind === 'otel') {
+    if (position.kind === 'line' && position.offset === 0) {
+      observed.reads.set(position.path, (observed.reads.get(position.path) ?? 0) + 1)
+    } else if (position.kind === 'otel') {
       observed.otel += 1
     } else if (position.kind === 'file') {
       observed.files.set(position.path, position.content_hash)
@@ -192,7 +200,7 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     config: Config.parse({ collector: { spoolScanIntervalMs: scanIntervalMs, rootsScanIntervalMs: scanIntervalMs } }),
     adapters,
   })
-  const observed: Observed = { otel: 0, offsets: new Map(), streams: new Map(), files: new Map(), lost: new Set() }
+  const observed: Observed = { otel: 0, reads: new Map(), offsets: new Map(), streams: new Map(), files: new Map(), lost: new Set() }
   const state = { failure: null as Error | null }
   const loop = (async () => {
     for await (const batch of collector.start(store.cursors.list())) {
@@ -211,22 +219,18 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
   const emptyDirectory = async (directory: string, matches: (name: string) => boolean): Promise<boolean> =>
     (await namesIn(directory)).every((name) => !matches(name))
 
-  const relocated = async (path: string, stream: string): Promise<boolean> => {
-    for (const [other, otherStream] of observed.streams) {
-      if (other !== path && otherStream === stream && (await sizeOf(other)) !== null) {
-        return true
-      }
-    }
-    return false
-  }
+  const reread = (path: string, stream: string, before: Before): boolean =>
+    [...observed.streams].some(
+      ([other, otherStream]) => other !== path && otherStream === stream && (observed.reads.get(other) ?? 0) > (before.reads.get(other) ?? 0),
+    )
 
-  const reflected = async (target: Target, removed: boolean): Promise<boolean> => {
+  const reflected = async (target: Target, removed: boolean, before: Before): Promise<boolean> => {
     const path = pathOf(target)
     switch (collectedAs(target)) {
       case 'tail': {
         if (removed) {
           const stream = observed.streams.get(path)
-          return stream === undefined || observed.lost.has(stream) || (await relocated(path, stream))
+          return stream === undefined || observed.lost.has(stream) || reread(path, stream, before)
         }
         return observed.offsets.get(path) === (await sizeOf(path))
       }
@@ -237,34 +241,34 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     }
   }
 
-  const settled = async (step: PlayerStep, otelBefore: number): Promise<boolean> => {
+  const settled = async (step: PlayerStep, before: Before): Promise<boolean> => {
     switch (step.kind) {
       case 'hook':
         return emptyDirectory(join(spool, spoolLayout.readyDirectory), () => true)
       case 'otlp':
         return (
-          observed.otel >= otelBefore + toolDecisions(manifest.sources.get(step.source)) &&
+          observed.otel >= before.otel + toolDecisions(manifest.sources.get(step.source)) &&
           emptyDirectory(join(spool, otelDirectory), (name) => name.endsWith('.json'))
         )
       case 'append':
       case 'write':
-        return reflected(step.target, false)
+        return reflected(step.target, false, before)
       case 'remove':
-        return reflected(step.target, true)
+        return reflected(step.target, true, before)
       case 'move':
-        return (await reflected(step.target, true)) && (await reflected(step.to, false))
+        return (await reflected(step.target, true, before)) && (await reflected(step.to, false, before))
       case 'archive':
-        return reflected({ root: 'codex', path: `archived_sessions/${basename(step.target.path)}` }, false)
+        return reflected({ root: 'codex', path: `archived_sessions/${basename(step.target.path)}` }, false, before)
     }
   }
 
-  const awaitStep = async (index: number, step: PlayerStep, otelBefore: number): Promise<void> => {
+  const awaitStep = async (index: number, step: PlayerStep, before: Before): Promise<void> => {
     const deadline = performance.now() + (options.stepTimeoutMs ?? defaultStepTimeoutMs)
     for (;;) {
       if (state.failure !== null) {
         throw state.failure
       }
-      if (await settled(step, otelBefore)) {
+      if (await settled(step, before)) {
         return
       }
       if (performance.now() > deadline) {
@@ -285,9 +289,9 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     })
     for (const [index, step] of manifest.steps.entries()) {
       const next = index + 1
-      const otelBefore = observed.otel
+      const before: Before = { otel: observed.otel, reads: new Map(observed.reads) }
       await player.play(next < manifest.steps.length ? { until: stepLabel(next) } : {})
-      await awaitStep(index, step, otelBefore)
+      await awaitStep(index, step, before)
     }
   } catch (error) {
     failure = error instanceof Error ? error : new Error(String(error))
