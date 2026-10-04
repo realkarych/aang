@@ -2,14 +2,135 @@
   "format": "aang-support-matrix/1",
   "rows": [
     {
-      "runtime": "codex",
-      "surface": "codex_exec",
+      "runtime": "claude",
+      "surface": "claude_cli",
       "os": "linux",
       "placement": "local",
-      "engine_version": "0.160.0",
+      "engine_version": "2.1.289",
       "app_version": null,
       "status": "unverified",
       "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_cli",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "2.1.289",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_cli",
+      "os": "windows",
+      "placement": "local",
+      "engine_version": "2.1.289",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_desktop",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "2.1.286",
+      "app_version": "2.19675.0",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_desktop",
+      "os": "windows",
+      "placement": "local",
+      "engine_version": "2.1.286",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "Desktop on Windows is not verified in the MVP (ADR-0013, decision 3)",
         "no reference recordings on this OS",
         "user scenarios are not verified (E2E 1 and 4)"
       ],
@@ -20,6 +141,189 @@
         "compaction": "not_run",
         "child_sessions": "not_run",
         "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_sdk",
+      "os": "linux",
+      "placement": "local",
+      "engine_version": "2.1.289",
+      "app_version": "0.3.289",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_sdk",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "2.1.289",
+      "app_version": "0.3.289",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "claude",
+      "surface": "claude_sdk",
+      "os": "windows",
+      "placement": "local",
+      "engine_version": "2.1.289",
+      "app_version": "0.3.289",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_desktop",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "0.159.2",
+      "app_version": "26.928.21956",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "not_run",
+        "child_sessions": "passed",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_desktop",
+      "os": "windows",
+      "placement": "local",
+      "engine_version": "0.159.2",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "Desktop on Windows is not verified in the MVP (ADR-0013, decision 3)",
+        "no reference recordings on this OS",
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "not_run",
+        "child_sessions": "not_run",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_exec",
+      "os": "linux",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "no reference recordings of: resume-compaction",
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
       },
       "observer": {
         "admission": "passed",
@@ -41,16 +345,15 @@
       "app_version": null,
       "status": "unverified",
       "gaps": [
-        "no reference recordings on this OS",
         "user scenarios are not verified (E2E 1 and 4)"
       ],
       "scenarios": {
         "during_work": "not_run",
         "after_iteration": "not_run",
-        "resume": "not_run",
-        "compaction": "not_run",
-        "child_sessions": "not_run",
-        "reconnect": "not_run"
+        "resume": "passed",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
       },
       "observer": {
         "admission": "passed",
@@ -72,7 +375,127 @@
       "app_version": null,
       "status": "unverified",
       "gaps": [
-        "no reference recordings on this OS",
+        "no reference recordings of: resume-compaction",
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "passed",
+        "child_sessions": "passed",
+        "reconnect": "passed"
+      },
+      "observer": {
+        "admission": "passed",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_sdk",
+      "os": "linux",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": "0.160.0",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "not_run",
+        "child_sessions": "passed",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_sdk",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": "0.160.0",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "not_run",
+        "child_sessions": "passed",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_sdk",
+      "os": "windows",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": "0.160.0",
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "passed",
+        "compaction": "not_run",
+        "child_sessions": "passed",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_tui",
+      "os": "linux",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
         "user scenarios are not verified (E2E 1 and 4)"
       ],
       "scenarios": {
@@ -84,7 +507,37 @@
         "reconnect": "not_run"
       },
       "observer": {
-        "admission": "passed",
+        "admission": "not_run",
+        "cross_session_inbound": "not_run",
+        "builtins": {
+          "mcp_servers": [],
+          "plugins": [],
+          "skills": []
+        }
+      },
+      "verified_on": null
+    },
+    {
+      "runtime": "codex",
+      "surface": "codex_tui",
+      "os": "macos",
+      "placement": "local",
+      "engine_version": "0.160.0",
+      "app_version": null,
+      "status": "unverified",
+      "gaps": [
+        "user scenarios are not verified (E2E 1 and 4)"
+      ],
+      "scenarios": {
+        "during_work": "not_run",
+        "after_iteration": "not_run",
+        "resume": "not_run",
+        "compaction": "not_run",
+        "child_sessions": "not_run",
+        "reconnect": "not_run"
+      },
+      "observer": {
+        "admission": "not_run",
         "cross_session_inbound": "not_run",
         "builtins": {
           "mcp_servers": [],
