@@ -1,5 +1,5 @@
 import type { AttentionView, RunId, RunSnapshot } from '@aang/contract'
-import { useCallback, useEffect, useReducer } from 'react'
+import { type RefObject, useCallback, useEffect, useReducer, useRef } from 'react'
 import { NotFound, readRun, SignedOut } from './api.js'
 import { applyAttentionView, applyEvent } from './feed.js'
 import { pause } from './pause.js'
@@ -49,8 +49,11 @@ const follow = async (
   run: RunId,
   dispatch: (action: FeedAction) => void,
   signal: AbortSignal,
+  resync: RefObject<AbortController | null>,
 ): Promise<void> => {
   while (!signal.aborted) {
+    const pass = new AbortController()
+    resync.current = pass
     let snapshot: RunSnapshot
     try {
       snapshot = await readRun(run, signal)
@@ -77,17 +80,18 @@ const follow = async (
           dispatch({ kind: 'connection', connection: 'reconnecting' })
         },
       },
-      signal,
+      AbortSignal.any([signal, pass.signal]),
     )
   }
 }
 
 export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
   const [state, dispatch] = useReducer(reduce, initial)
+  const resync = useRef<AbortController | null>(null)
   useEffect(() => {
     const controller = new AbortController()
     dispatch({ kind: 'start' })
-    follow(run, dispatch, controller.signal).catch((error: unknown) => {
+    follow(run, dispatch, controller.signal, resync).catch((error: unknown) => {
       if (error instanceof SignedOut) {
         onSignedOut()
       } else if (!controller.signal.aborted) {
@@ -100,6 +104,7 @@ export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
   }, [run, onSignedOut])
   const noteView = useCallback((view: AttentionView) => {
     dispatch({ kind: 'view', view })
+    resync.current?.abort()
   }, [])
   return { ...state, noteView }
 }
