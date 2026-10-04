@@ -93,28 +93,23 @@ const KeepPlace = ({ layout, following, selection }: KeepPlaceProps): null => {
   const seen = useRef({ width, height })
   useEffect(() => {
     const before = shown.current
+    const area = seen.current
     shown.current = layout
-    if (following || before === layout) {
+    seen.current = { width, height }
+    if (following) {
       return
     }
+    const lineage = selection?.lineage ?? []
     const viewport = getViewport()
-    const kept = keptViewport(before, layout, selection?.lineage ?? [], { ...viewport, width, height })
-    if (kept !== null && (kept.x !== viewport.x || kept.y !== viewport.y)) {
-      void setViewport({ ...kept, zoom: viewport.zoom })
+    const kept = before === layout ? null : keptViewport(before, layout, lineage, { ...viewport, ...area })
+    const place = kept ?? viewport
+    const resized = area.width !== width || area.height !== height
+    const revealed = resized ? revealedViewport(layout, lineage, { ...viewport, ...place, width, height }, area) : null
+    const next = revealed ?? place
+    if (next.x !== viewport.x || next.y !== viewport.y) {
+      void setViewport({ x: next.x, y: next.y, zoom: viewport.zoom })
     }
   }, [layout, following, selection, width, height, getViewport, setViewport])
-  useEffect(() => {
-    const before = seen.current
-    seen.current = { width, height }
-    if (following || (before.width === width && before.height === height)) {
-      return
-    }
-    const viewport = getViewport()
-    const revealed = revealedViewport(layout, selection?.lineage ?? [], { ...viewport, width, height }, before)
-    if (revealed !== null) {
-      void setViewport({ ...revealed, zoom: viewport.zoom })
-    }
-  }, [width, height, following, layout, selection, getViewport, setViewport])
   return null
 }
 
