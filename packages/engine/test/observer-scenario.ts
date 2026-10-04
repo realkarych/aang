@@ -20,7 +20,13 @@ import {
   type SessionId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import { applyObserverResponse, beginObserverCall, type ObserverResponseResult } from '@aang/engine'
+import {
+  applyObserverResponse,
+  type BatchLimits,
+  beginObserverCall,
+  type ObserverResponseResult,
+  startObserverBatch,
+} from '@aang/engine'
 import type { Store } from '@aang/store'
 import { type ObserverScenarioReply, runScenarioScript } from '@aang/testkit'
 import { factsOf } from './harness.js'
@@ -187,6 +193,28 @@ export const observeBatch = (
   store.transaction((transaction) => {
     beginObserverCall(transaction, { id, backend, crossVendor: false, input, at })
   })
+  const output = runScenarioScript(scriptOf(reply), jsonOf(input))
+  const result = store.transaction((transaction) => applyObserverResponse(transaction, { call: id, output, at }))
+  return { input, output: ObserverOutput.parse(output), result }
+}
+
+const queuedLimits: BatchLimits = { facts: 1_000, bytes: 10_000_000, textLength: 4_000, inputTokens: 1_000_000 }
+
+export const observeQueued = (
+  store: Store,
+  run: RunId,
+  backend: Runtime,
+  reply: ObserverScenarioReply | undefined,
+  at: EpochNs,
+  facts = queuedLimits.facts,
+): ObservedCall => {
+  const id = ObserverCallId.parse(randomUUID())
+  const input = store.transaction((transaction) =>
+    startObserverBatch(transaction, { run, backend, crossVendor: false, id, at, limits: { ...queuedLimits, facts } }),
+  )
+  if (input === null) {
+    throw new Error(`run ${run} has no pending facts to observe`)
+  }
   const output = runScenarioScript(scriptOf(reply), jsonOf(input))
   const result = store.transaction((transaction) => applyObserverResponse(transaction, { call: id, output, at }))
   return { input, output: ObserverOutput.parse(output), result }
