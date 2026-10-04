@@ -18,9 +18,9 @@ import type {
   ServiceAgent,
   SessionLaunch,
   Surface,
-  SupportKey,
   SupportMode,
   SupportStatus,
+  VersionKey,
 } from '@aang/contract'
 import { clockTime, plural } from './format.js'
 
@@ -106,8 +106,10 @@ export const surfaceLabel: Readonly<Record<Surface, string>> = {
   codex_sdk: 'Codex SDK',
 }
 
-export const supportKeyLabel = (key: SupportKey): string =>
-  `${surfaceLabel[key.surface]} ${key.engine_version}, ${key.os}, ${key.placement}`
+export const supportKeyLabel = ({ runtime, surface, engine_version: version, os, placement }: VersionKey): string =>
+  surface === null
+    ? `${runtimeLabel[runtime]} ${version} (поверхность не определена), ${os}, ${placement}`
+    : `${surfaceLabel[surface]} ${version}, ${os}, ${placement}`
 
 const unavailableReason: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
   auth: 'нет авторизации CLI',
