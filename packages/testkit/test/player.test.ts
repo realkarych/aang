@@ -200,6 +200,35 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
     expect(Date.parse(written.createdAt) - start).toBe(4_058)
   })
 
+  test('records played from a given moment start at that moment with their intervals kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const lines = [
+      '{"timestamp":"2026-10-01T11:49:30.942Z","started_at_ms":1790855370942}',
+      '{"timestamp":"2026-10-01T11:49:33.442Z","started_at_ms":1790855373442}',
+      '',
+    ].join('\n')
+    const target = { root: 'codex', path: 'sessions/2026/10/01/rollout-moment.jsonl' }
+    const file = await manifest('moment', {
+      sources: { 'lines.jsonl': lines },
+      steps: [{ at: 0, kind: 'append', target, source: 'lines.jsonl' }],
+    })
+    const startsAt = Date.parse('2026-10-03T08:00:00.000Z')
+
+    await createPlayer(await loadManifest(file), { roots: profile, timeScale: 0, recordTime: { startsAt } }).play()
+
+    const played = (await readFile(join(profile.codex, ...target.path.split('/')), 'utf8'))
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => JSON.parse(line) as { timestamp: string; started_at_ms: number })
+    expect(played).toEqual([
+      { timestamp: '2026-10-03T08:00:00.000Z', started_at_ms: startsAt },
+      { timestamp: '2026-10-03T08:00:02.500Z', started_at_ms: startsAt + 2_500 },
+    ])
+  })
+
   test('JSON files are written whole and rewritten, transcripts are moved and archived, and files are removed', async ({
     expect,
     onTestFinished,

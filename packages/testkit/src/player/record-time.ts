@@ -1,4 +1,4 @@
-export type RecordTime = 'original' | 'playback'
+export type RecordTime = 'original' | 'playback' | { readonly startsAt: number }
 
 export interface RecordShift {
   readonly ms: number

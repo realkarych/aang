@@ -70,7 +70,10 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     throw new PlaybackError(`${file} has OTLP steps, but the player has no OTLP endpoint`)
   }
 
-  const shift = recordTime === 'playback' ? playbackShift(manifest.sources.values(), Date.now()) : unshifted
+  const shift =
+    recordTime === 'original'
+      ? unshifted
+      : playbackShift(manifest.sources.values(), recordTime === 'playback' ? Date.now() : recordTime.startsAt)
   const offsets = new Map<string, number>()
   const state = { next: 0, playing: false, lastHookEnd: Number.NEGATIVE_INFINITY }
 
