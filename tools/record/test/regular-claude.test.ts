@@ -32,7 +32,7 @@ const settingsOf = async (home: string): Promise<Readonly<Record<string, unknown
   }
 }
 
-test('a regular Claude home recording runs no user hook or MCP server and leaves the settings files unchanged', { tags: ['runtime'], timeout: 600_000 }, async (context) => {
+test('a regular Claude home recording attaches the recorder, runs no user hook or MCP server, even after --, and leaves the settings files unchanged', { tags: ['runtime'], timeout: 600_000 }, async (context) => {
   const driver = drivers.find(({ surface }) => surface === 'claude_cli')
   const engine = await driver?.resolve({ claude: process.env['AANG_RECORD_CLAUDE'] }).catch((error: unknown) => {
     if (error instanceof EngineUnavailableError) return undefined
@@ -74,14 +74,16 @@ test('a regular Claude home recording runs no user hook or MCP server and leaves
     vi.stubEnv('HOME', home)
     vi.stubEnv('USERPROFILE', home)
     vi.stubEnv('CLAUDE_CONFIG_DIR', undefined)
-    for (const scenario of ['first', 'second']) {
+    const runs = [['first', ['-p', 'hello', '--setting-sources', 'user,project,local']], ['second', ['-p', '--', 'hello']]] as const
+    for (const [scenario, args] of runs) {
       const recording = await recordSession({
         runtime: 'claude', engineVersion: engine.version, surface: 'claude_cli', scenario, model: 'live', claudeHome: 'regular',
         expectedFacts: ['A session runs in the regular Claude home'], fixturesRoot: join(root, 'sessions'), hookBinary: binary,
       }, async (session) => {
-        await session.run(engine.executable, ['-p', 'hello', '--setting-sources', 'user,project,local'], { env: model })
+        await session.run(engine.executable, args, { env: model })
       })
       await verifyRecording(recording)
+      expect(await readdir(join(recording, 'spool')), scenario).not.toEqual([])
     }
     expect(await controls()).toEqual([])
     expect(await settingsOf(home)).toEqual(before)

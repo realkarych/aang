@@ -56,6 +56,10 @@ export interface RecordContext {
 }
 
 const regularClaudeArgs = ['--setting-sources', 'project,local', '--strict-mcp-config']
+const beforeOperands = (args: readonly string[], options: readonly string[]): string[] => {
+  const operands = args.indexOf('--')
+  return operands < 0 ? [...args, ...options] : [...args.slice(0, operands), ...options, ...args.slice(operands)]
+}
 const removeTree = (directory: string): Promise<void> => rm(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
 const isExecutable = async (path: string): Promise<boolean> => {
@@ -136,7 +140,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
         const commandRun = async (): Promise<RunOutput> => {
           if (execution.running) throw new Error('Recording commands must be awaited sequentially')
           execution.running = true
-          const runtimeArgs = metadata.runtime === 'claude' ? [...args, '--plugin-dir', plugin, ...regularClaude ? regularClaudeArgs : []] : [...args]
+          const runtimeArgs = metadata.runtime === 'claude' ? beforeOperands(args, ['--plugin-dir', plugin, ...regularClaude ? regularClaudeArgs : []]) : [...args]
           const request = runner.run({ command, args: runtimeArgs, cwd: project, env: { ...env, ...runOptions.env }, input: '', timeoutMs: runOptions.timeoutMs ?? 300_000, signal: controller.signal })
           const scanState: { error?: Error } = {}
           let scan = Promise.resolve()
