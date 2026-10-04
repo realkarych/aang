@@ -11,31 +11,35 @@ const windowsAbsolute = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/
 
 const windowsDrive = /^\/[A-Za-z](?::|%3A)/i
 
+export const isWindowsPath = (path: string): boolean => windowsAbsolute.test(path)
+
 const driveOf = (path: string): string | undefined => /^[A-Za-z]:/.exec(path)?.[0].toUpperCase()
+
+const fileUrlPath = (value: string): string | null => {
+  try {
+    const url = new URL(value)
+    const remote = url.hostname !== '' && url.hostname !== 'localhost'
+    return fileURLToPath(url, { windows: remote || windowsDrive.test(url.pathname) })
+  } catch {
+    return null
+  }
+}
 
 const pathOf = (value: JsonValue | undefined): string | null => {
   if (typeof value !== 'string' || value === '') {
     return null
   }
-  if (!value.startsWith('file:')) {
-    return value
-  }
-  try {
-    const url = new URL(value)
-    return fileURLToPath(url, { windows: url.hostname !== '' || windowsDrive.test(url.pathname) })
-  } catch {
-    return null
-  }
+  return value.startsWith('file:') ? fileUrlPath(value) : value
 }
 
 const explicitOf = ({ payload }: Start): string | null =>
   pathOf(fieldOf(payload.input, 'workdir')) ?? pathOf(fieldOf(payload.input, 'cwd'))
 
 export const resolvedPath = (path: string, base: string | null): string | null => {
-  if (windowsAbsolute.test(path)) {
+  if (isWindowsPath(path)) {
     return win32.resolve(path)
   }
-  if (base !== null && windowsAbsolute.test(base)) {
+  if (base !== null && isWindowsPath(base)) {
     const drive = driveOf(path)
     return drive === undefined || drive === driveOf(base) ? win32.resolve(base, path) : null
   }

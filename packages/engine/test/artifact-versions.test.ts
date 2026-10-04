@@ -702,6 +702,50 @@ test.for([
   },
 )
 
+test('the paths of a session recorded on another OS keep the style of that OS on every host', async ({ onTestFinished }) => {
+  const { store, engine } = await setup(onTestFinished)
+  const windows = { session: 'windows-session', cwd: 'C:\\fixture\\project' }
+  const unix = { session: 'unix-session', cwd: '/fixture/project' }
+  await ingestCalls(engine, windows, [
+    write('toolu_windows_write', 'C:\\fixture\\project\\checklist.txt', 'steps\n'),
+    write('toolu_windows_plan', 'C:/Users/USER/.claude/plans/plan.md', '# Plan\n'),
+    bash('toolu_windows_bash', 'echo hi > notes.txt; echo root > /root.txt'),
+  ])
+  await ingestCalls(
+    engine,
+    unix,
+    [write('toolu_unix_write', '/fixture/project/checklist.txt', 'steps\n'), bash('toolu_unix_bash', 'echo hi > ../notes.txt')],
+    8n,
+  )
+  expect(pathsOf(store, windows)).toEqual([
+    'C:\\Users\\USER\\.claude\\plans\\plan.md',
+    'C:\\fixture\\project\\checklist.txt',
+    'C:\\fixture\\project\\notes.txt',
+    'C:\\root.txt',
+  ])
+  expect(pathsOf(store, unix)).toEqual(['/fixture/notes.txt', '/fixture/project/checklist.txt'])
+
+  await ingestCodex(engine, windows.cwd, [
+    codexExec(1, 'call_windows', { cmd: 'echo x > out\\file.txt' }),
+    codexLine(2, 'response_item', { type: 'function_call_output', call_id: 'call_windows', output: 'done' }),
+    codexItem(3, {
+      type: 'CommandExecution',
+      id: 'exec-windows',
+      command: ['C:\\Windows\\System32\\cmd.exe', '/c', 'echo x > cmd.txt'],
+      cwd: 'file:///C:/fixture/project/sub',
+      status: 'completed',
+      aggregated_output: '',
+      exit_code: 0,
+    }),
+  ])
+  expect(
+    store.artifacts
+      .versions(runId(codexKey))
+      .flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : []))
+      .sort(),
+  ).toEqual(['C:\\fixture\\project\\out\\file.txt', 'C:\\fixture\\project\\sub\\cmd.txt'])
+})
+
 type Shell = 'Bash' | 'PowerShell' | 'cmd' | 'exec_command'
 
 const runShell = async (engine: Engine, project: string, shell: Shell, command: string): Promise<RunId> => {

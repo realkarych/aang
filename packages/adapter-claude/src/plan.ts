@@ -7,7 +7,11 @@ import { actionKey } from './keys.js'
 
 type PlanContent = Omit<PlanUpdatePayload, 'source'>
 
-type PlanReader = readonly [PlanSource, (input: JsonValue) => PlanContent | null]
+interface PlanReader {
+  readonly source: PlanSource
+  readonly verified: boolean
+  readonly read: (input: JsonValue) => PlanContent | null
+}
 
 const itemStatuses: ReadonlyMap<string, PlanItemStatus> = new Map([
   ['pending', 'pending'],
@@ -40,36 +44,42 @@ const readWith =
   }
 
 const planReaders: ReadonlyMap<string, PlanReader> = new Map<string, PlanReader>([
-  ['ExitPlanMode', ['exit_plan_mode', (input) => ({ text: stringField(input, 'plan'), items: [] })]],
+  [
+    'ExitPlanMode',
+    { source: 'exit_plan_mode', verified: true, read: (input) => ({ text: stringField(input, 'plan'), items: [] }) },
+  ],
   [
     'TaskCreate',
-    [
-      'task_tool',
-      readWith(TaskCreateInput, (task) => ({
+    {
+      source: 'task_tool',
+      verified: true,
+      read: readWith(TaskCreateInput, (task) => ({
         text: task.description ?? null,
         items: [{ id: null, text: task.subject, status: 'pending' }],
       })),
-    ],
+    },
   ],
   [
     'TaskUpdate',
-    [
-      'task_tool',
-      readWith(TaskUpdateInput, (task) => ({
+    {
+      source: 'task_tool',
+      verified: true,
+      read: readWith(TaskUpdateInput, (task) => ({
         text: task.description ?? null,
         items: [{ id: task.taskId, text: task.subject ?? '', status: itemStatus(task.status) }],
       })),
-    ],
+    },
   ],
   [
     'TodoWrite',
-    [
-      'task_tool',
-      readWith(TodoWriteInput, ({ todos }) => ({
+    {
+      source: 'task_tool',
+      verified: false,
+      read: readWith(TodoWriteInput, ({ todos }) => ({
         text: null,
         items: todos.map((todo) => ({ id: todo.id ?? null, text: todo.content, status: itemStatus(todo.status) })),
       })),
-    ],
+    },
   ],
 ])
 
@@ -78,8 +88,7 @@ export const planUpdates = (call: ToolCall): FactDraft[] => {
   if (reader === undefined) {
     return []
   }
-  const [source, read] = reader
-  const plan = read(call.input)
+  const plan = reader.read(call.input)
   return plan === null
     ? []
     : [
@@ -90,9 +99,9 @@ export const planUpdates = (call: ToolCall): FactDraft[] => {
             entity_key: actionKey(call.session, call.call),
             speaker: 'solver',
             urgent: true,
-            payload: { source, ...plan },
+            payload: { source: reader.source, ...plan },
           },
-          false,
+          reader.verified,
         ),
       ]
 }

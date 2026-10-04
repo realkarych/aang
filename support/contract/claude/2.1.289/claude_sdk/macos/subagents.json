@@ -4826,7 +4826,7 @@
         "originator": null,
         "git_branch": "HEAD"
       },
-      "format_verified": false,
+      "format_verified": true,
       "redelivery_key": null,
       "payload": {
         "text": "<task-notification>\n<task-id>a8292c0885ede2538</task-id>\n<tool-use-id>toolu_aang_subagents_2_0</tool-use-id>\n<output-file>/private/tmp/claude-501/-fixture-project/0f86177f-995d-4ac7-8e9c-b68cb0a77883/tasks/a8292c0885ede2538.output</output-file>\n<status>completed</status>\n<summary>Agent \"Echo back later\" finished</summary>\n<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>\n<result>back</result>\n<usage><subagent_tokens>31</subagent_tokens><tool_uses>1</tool_uses><duration_ms>2080</duration_ms></usage>\n</task-notification>",
