@@ -1,4 +1,4 @@
-import type { ChangesResponse, RunSnapshot, ViewMark } from '@aang/contract'
+import type { ChangesResponse, RunId, RunSnapshot, ViewMark, ViewPosition } from '@aang/contract'
 import { type ReactElement, type ReactNode, useState } from 'react'
 import { markViewed, RequestFailed, SignedOut } from './api.js'
 import { ChangesView, changeCount } from './changes.js'
@@ -25,19 +25,19 @@ type Saving =
   | { readonly state: 'failed'; readonly refusal: string | null }
 
 interface MarkControlProps {
-  readonly snapshot: RunSnapshot
+  readonly run: RunId
+  readonly shown: ViewPosition | null
   readonly mark: ViewMark | null
   readonly now: bigint
   readonly onMarked: (mark: ViewMark) => void
   readonly onSignedOut: () => void
 }
 
-const MarkControl = ({ snapshot, mark, now, onMarked, onSignedOut }: MarkControlProps): ReactElement => {
+const MarkControl = ({ run, shown, mark, now, onMarked, onSignedOut }: MarkControlProps): ReactElement => {
   const [saving, setSaving] = useState<Saving>({ state: 'idle' })
-  const save = (): void => {
+  const save = (position: ViewPosition): void => {
     setSaving({ state: 'saving' })
-    const position = { version: snapshot.summary.version, change_seq: snapshot.change_seq }
-    markViewed(snapshot.run.id, position, AbortSignal.timeout(markTimeoutMs)).then(
+    markViewed(run, position, AbortSignal.timeout(markTimeoutMs)).then(
       (saved) => {
         onMarked(saved.mark)
         setSaving({ state: 'idle' })
@@ -63,7 +63,18 @@ const MarkControl = ({ snapshot, mark, now, onMarked, onSignedOut }: MarkControl
           </span>
         )}
       </p>
-      <button type="button" className="mark-button" disabled={saving.state === 'saving'} onClick={save}>
+      <button
+        type="button"
+        className="mark-button"
+        disabled={shown === null || saving.state === 'saving'}
+        onClick={
+          shown === null
+            ? undefined
+            : () => {
+                save(shown)
+              }
+        }
+      >
         Отметить просмотренным
       </button>
       {saving.state === 'failed' ? (
@@ -127,11 +138,22 @@ export const SinceLastView = ({ snapshot, now, onSignedOut, children }: SinceLas
   const [saved, setSaved] = useState<ViewMark | null>(null)
   const mark = latest(snapshot.view.mark, saved)
   const { changes, failing } = useChanges(snapshot.run.id, mark, snapshot.change_seq, onSignedOut)
+  const shown =
+    mode === 'changes' && mark !== null
+      ? (changes?.to ?? null)
+      : { version: snapshot.summary.version, change_seq: snapshot.change_seq }
   return (
     <>
       <div className="since-bar">
         <Modes snapshot={snapshot} mode={mode} changes={changes} />
-        <MarkControl snapshot={snapshot} mark={mark} now={now} onMarked={setSaved} onSignedOut={onSignedOut} />
+        <MarkControl
+          run={snapshot.run.id}
+          shown={shown}
+          mark={mark}
+          now={now}
+          onMarked={setSaved}
+          onSignedOut={onSignedOut}
+        />
       </div>
       {mode === 'changes' ? (
         <ChangesView

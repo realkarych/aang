@@ -1,13 +1,21 @@
-import { endpoints, type RunSnapshot } from '@aang/contract'
+import { execFileSync } from 'node:child_process'
+import { mkdir, writeFile as writeText } from 'node:fs/promises'
+import { join } from 'node:path'
+import { endpoints, type FactId, type RunSnapshot, type StageId } from '@aang/contract'
 import {
+  checkedCriterionText,
   type ClaudeScenario,
   continuationQuestionText,
   continuedStageTitle,
+  goalCriterionText,
   mainStageTitle,
   observerScenarios,
+  outlineStageTitles,
+  renamedStageTitle,
+  reshapedStageTitles,
   sampleScenarioManifest,
 } from '@aang/testkit'
-import type { APIRequestContext, Page } from '@playwright/test'
+import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
 import { claudeOriginal, hookFields, runOf } from './samples.js'
 import {
@@ -43,13 +51,54 @@ const snapshotOf = async (request: APIRequestContext): Promise<RunSnapshot | nul
   return response.status() === 200 ? endpoints.run.response.parse(await response.json()) : null
 }
 
-const mapped = async (request: APIRequestContext): Promise<boolean> => {
+const mapped = async (request: APIRequestContext, title = mainStageTitle): Promise<boolean> => {
   const snapshot = await snapshotOf(request)
   return (
     snapshot !== null &&
-    snapshot.model.stages.some(({ title }) => title === mainStageTitle) &&
+    snapshot.model.stages.some((stage) => stage.title === title) &&
     snapshot.summary.observer.pending_facts === 0
   )
+}
+
+const settled = async (request: APIRequestContext): Promise<number | null> =>
+  (await snapshotOf(request))?.summary.observer.pending_facts ?? null
+
+const stageId = async (request: APIRequestContext, title: string): Promise<StageId> => {
+  const stage = (await snapshotOf(request))?.model.stages.find((candidate) => candidate.title === title)
+  if (stage === undefined) {
+    throw new Error(`the run has no stage ${title}`)
+  }
+  return stage.id
+}
+
+const recordOf = async (request: APIRequestContext, id: FactId): Promise<string> => {
+  const response = await request.get(endpoints.fact.path.replace(':id', id))
+  return `сырая запись № ${String(endpoints.fact.response.parse(await response.json()).fact.seq)}`
+}
+
+const journalRecords = async (request: APIRequestContext, title: string, op: string): Promise<string[]> => {
+  const response = await request.get(
+    endpoints.stage.path.replace(':run', run).replace(':stage', await stageId(request, title)),
+  )
+  const { history } = endpoints.stage.response.parse(await response.json())
+  const evidence = history.filter((change) => change.op === op).flatMap((change) => change.evidence)
+  return (await Promise.all([...new Set(evidence)].map((id) => recordOf(request, id)))).sort()
+}
+
+const shownRecords = async (item: Locator): Promise<string[]> =>
+  (await item.getByRole('listitem').filter({ hasText: /сырая запись № \d+/ }).allTextContents())
+    .map((text) => /сырая запись № \d+/.exec(text)?.[0] ?? text)
+    .sort()
+
+const expectGrounds = async (item: Locator, records: readonly string[]): Promise<void> => {
+  expect(records.length).toBeGreaterThan(0)
+  await item.getByRole('button', { name: /^Основания: / }).click()
+  const more = item.getByRole('button', { name: /^Показать все / })
+  if (records.length > 6) {
+    await more.click()
+  }
+  await expect(more).toHaveCount(0)
+  await expect.poll(() => shownRecords(item)).toEqual(records)
 }
 
 const markedVersion = async (page: Page): Promise<string> =>
@@ -76,6 +125,31 @@ const ask = async (hook: HookSamples, fields: HookFields, question: string, id: 
     tool_name: 'AskUserQuestion',
     tool_use_id: id,
     tool_input: askUser(question),
+  })
+}
+
+const committed = async (directory: string): Promise<string> => {
+  await mkdir(directory, { recursive: true })
+  const git = (...args: string[]): string => execFileSync('git', args, { cwd: directory, encoding: 'utf8' }).trim()
+  git('init', '--quiet')
+  await writeText(join(directory, 'answer.md'), 'Ответ\n')
+  git('add', 'answer.md')
+  git('-c', 'user.name=aang', '-c', 'user.email=aang@example.invalid', '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'Answer')
+  return git('rev-parse', 'HEAD')
+}
+
+const runCheck = async (
+  hook: HookSamples,
+  fields: HookFields,
+  id: string,
+  input: Readonly<Record<string, string>>,
+  stdout: string,
+): Promise<void> => {
+  const call = { ...fields, tool_name: 'Bash', tool_use_id: id, tool_input: { ...input, description: 'Run the check' } }
+  await hook.claude('PreToolUse.Bash.json', call)
+  await hook.claude('PostToolUse.Bash.json', {
+    ...call,
+    tool_response: { stdout, stderr: '', interrupted: false, isImage: false, noOutputExpected: false },
   })
 }
 
@@ -185,6 +259,67 @@ test('a view mark, the continued run and the since-last-view mode with a new res
   await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
 })
 
+test.describe('with check contracts', () => {
+  test.use({
+    config: {
+      ...watched,
+      watch: {
+        all: true,
+        roots: [
+          {
+            path: claudeOriginal.cwd,
+            contracts: [
+              { name: 'tests', command: '^pnpm test$', commitPattern: 'tested commit ([0-9a-f]{40})' },
+              { name: 'lint', command: '^pnpm lint$' },
+            ],
+          },
+        ],
+      },
+    },
+  })
+
+  test('criteria the checks revise after the mark are in the changes, a pass without a version apart from a confirmation (E2E 4, rules)', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }, testInfo) => {
+    const repository = testInfo.outputPath('repository')
+    const commit = await committed(repository)
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${run}&mode=changes`)
+    await markButton(page).click()
+    await expect(since(page)).toContainText(nothingChanged)
+
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('UserPromptSubmit.json', fields)
+    await runCheck(hook, fields, 'toolu_h7_tests', { command: 'pnpm test' }, 'all tests passed')
+    const tests = change(page, 'Пересмотренные решения', 'Критерий «Check "tests" passes»')
+    await expect(tests).toContainText('новый')
+    await expect(tests).toContainText('пройден без версии')
+    await expect(tests).not.toContainText('подтверждён')
+    await markButton(page).click()
+    await expect(since(page)).toContainText(nothingChanged)
+
+    await runCheck(hook, fields, 'toolu_h7_tests_commit', { command: 'pnpm test', cwd: repository }, `tested commit ${commit}`)
+    await runCheck(hook, fields, 'toolu_h7_lint', { command: 'pnpm lint' }, 'no problems')
+    await expect(tests).toContainText('изменён')
+    await expect(tests).toContainText('было: пройден без версии')
+    await expect(tests).toContainText('стало: подтверждён')
+    await expect(tests).toContainText('наблюдаемое событие')
+    await tests.getByRole('button', { name: /^Основания: / }).click()
+    await expect(tests).toContainText('Bash: pnpm test')
+    await expect(tests).toContainText(/сырая запись № \d+/)
+    const lint = change(page, 'Пересмотренные решения', 'Критерий «Check "lint" passes»')
+    await expect(lint).toContainText('новый')
+    await expect(lint).toContainText('пройден без версии')
+    await expect(lint).not.toContainText('подтверждён')
+
+    await markButton(page).click()
+    await expect(since(page)).toContainText(nothingChanged)
+  })
+})
+
 test.describe('with the LLM unavailable', () => {
   test.use({ claudeScenario: { loggedIn: false } })
 
@@ -248,6 +383,66 @@ test.describe('with the LLM unavailable', () => {
 })
 
 const changesRead = (url: URL): boolean => url.pathname.endsWith('/changes')
+
+test('a mark in the changes mode keeps a change the page has not shown yet', async ({
+  page,
+  context,
+  player,
+  profile,
+  hook,
+}) => {
+  const question = 'Сверить отчёт с источниками?'
+  await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+  await page.goto(`/?run=${run}&mode=changes`)
+  await markButton(page).click()
+  await expect(since(page)).toContainText(nothingChanged)
+
+  const held = Promise.withResolvers<undefined>()
+  await page.route(changesRead, async (route) => {
+    await held.promise
+    await route.continue().catch(() => undefined)
+  })
+  const fields = hookFields(profile, claudeOriginal)
+  await hook.claude('UserPromptSubmit.json', fields)
+  await ask(hook, fields, question, 'toolu_h7_unseen')
+  await expect(zoneItem(page, question)).toContainText('ждёт ответа')
+  await expect(since(page)).toContainText(nothingChanged)
+  const saved = page.waitForResponse((response) => response.url().endsWith('/viewed'))
+  await markButton(page).click()
+  expect((await saved).status()).toBe(200)
+
+  held.resolve(undefined)
+  await page.unroute(changesRead)
+  await expect(change(page, 'Вопросы и запросы', question)).toContainText('открыт')
+  const returned = await context.newPage()
+  await returned.goto(`/?run=${run}&mode=changes`)
+  await expect(change(returned, 'Вопросы и запросы', question)).toContainText('открыт')
+  await returned.close()
+})
+
+test('a changes read that hangs times out, says so and recovers without a reload', async ({
+  page,
+  player,
+  profile,
+  hook,
+}) => {
+  const question = 'Отложить публикацию?'
+  await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+  await page.goto(`/?run=${run}&mode=changes`)
+  await markButton(page).click()
+  await expect(since(page)).toContainText(nothingChanged)
+
+  await page.route(changesRead, () => undefined)
+  const fields = hookFields(profile, claudeOriginal)
+  await hook.claude('UserPromptSubmit.json', fields)
+  await ask(hook, fields, question, 'toolu_h7_hang')
+  await expect(zoneItem(page, question)).toContainText('ждёт ответа')
+  await expect(since(page)).toContainText('Изменения не обновляются: демон не ответил.', { timeout: 20_000 })
+  await expect(since(page)).toContainText(nothingChanged)
+  await page.unroute(changesRead)
+  await expect(change(page, 'Вопросы и запросы', question)).toContainText('открыт')
+  await expect(since(page)).not.toContainText('Изменения не обновляются')
+})
 
 test('a failed mark, changes read or grounds read says so and recovers', async ({ page, player, profile, hook }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
@@ -355,7 +550,12 @@ test.describe('with the observer', () => {
       await expect(replaced).toContainText('заменён', observed)
       await expect(replaced).toContainText(`заменён этапом «${continuedStageTitle}»`)
       await expect(replaced).toContainText('интерпретация aang')
-      await expect(replaced).toContainText(/журнал карты: верси/)
+      await expect(replaced).toContainText(/журнал карты: версия \d+/)
+      await expect.poll(() => settled(page.request), observed).toBe(0)
+      const replacement = await journalRecords(page.request, mainStageTitle, 'stage.replace')
+      const creation = await journalRecords(page.request, mainStageTitle, 'stage.create')
+      expect(replacement.filter((record) => creation.includes(record))).toEqual([])
+      await expectGrounds(replaced, replacement)
 
       const continued = change(page, 'Этапы', `«${continuedStageTitle}»`)
       await expect(continued).toContainText('новый')
@@ -385,6 +585,86 @@ test.describe('with the observer', () => {
       await expect(original).toContainText('решатель')
       await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
       await expect(original).toHaveCount(0)
+    })
+  })
+
+  test.describe('merging and splitting after the mark', () => {
+    test.use({ claudeScenario: observerScenarios['revised-decisions'].before })
+
+    test('the since-last-view mode shows merged and split stages with their successors, a new dependency and revised criteria, each on the grounds of its own change (E2E 4)', async ({
+      page,
+      context,
+      player,
+      fakeClaude,
+    }) => {
+      const replay = await player(sampleScenarioManifest('claude-fork'), { timeScale: 0, recordTime: 'playback' })
+      await replay.play({ until: 'resume' })
+      await page.goto(`/?run=${run}&mode=changes`)
+      await expect.poll(() => mapped(page.request, outlineStageTitles.publish), observed).toBe(true)
+      await markButton(page).click()
+      await expect(since(page)).toContainText(nothingChanged)
+
+      fakeClaude.setScenario(observerScenarios['revised-decisions'].after)
+      await replay.play({ until: 'fork' })
+      const sources = change(page, 'Пересмотренные решения', `Этап «${outlineStageTitles.sources}»`)
+      await expect(sources).toContainText('объединён', observed)
+      await expect.poll(() => settled(page.request), observed).toBe(0)
+
+      const prepared = `«${reshapedStageTitles.prepared}»`
+      await expect(sources).toContainText(`объединён в этап ${prepared}`)
+      const draft = change(page, 'Пересмотренные решения', `Этап «${outlineStageTitles.draft}»`)
+      await expect(draft).toContainText(`объединён в этап ${prepared}`)
+      const check = change(page, 'Пересмотренные решения', `Этап «${outlineStageTitles.check}»`)
+      await expect(check).toContainText('разделён')
+      await expect(check).toContainText(
+        `разделён на этапы «${reshapedStageTitles.facts}», «${reshapedStageTitles.wording}»`,
+      )
+      await expect(check).toContainText('интерпретация aang')
+      const merge = await journalRecords(page.request, outlineStageTitles.sources, 'stage.merge')
+      const creation = await journalRecords(page.request, outlineStageTitles.sources, 'stage.create')
+      expect(merge.filter((record) => creation.includes(record))).toEqual([])
+      await expectGrounds(sources, merge)
+      await expectGrounds(check, await journalRecords(page.request, outlineStageTitles.check, 'stage.split'))
+
+      const goal = change(page, 'Пересмотренные решения', `Критерий «${goalCriterionText}»`)
+      await expect(goal).toContainText('изменён')
+      await expect(goal).toContainText('было: не проверен')
+      await expect(goal).toContainText('стало: подтверждён частично')
+      await expect(goal).toContainText('интерпретация aang')
+      await goal.getByRole('button', { name: /^Основания: / }).click()
+      await expect(goal).toContainText(/сырая запись № \d+/)
+      const checked = change(page, 'Пересмотренные решения', `Критерий «${checkedCriterionText}»`)
+      await expect(checked).toContainText('новый')
+      await expect(checked).toContainText('не проверен')
+      await expect(checked).not.toContainText('было:')
+
+      for (const title of Object.values(reshapedStageTitles)) {
+        await expect(change(page, 'Этапы', `«${title}»`)).toContainText('новый')
+      }
+      const notify = change(page, 'Этапы', `«${renamedStageTitle}»`)
+      await expect(notify).toContainText('изменён')
+      await expect(notify).toContainText(`было: «${outlineStageTitles.notify}»`)
+      await expect(notify).toContainText(`стало: «${renamedStageTitle}»`)
+      await expectGrounds(notify, await journalRecords(page.request, renamedStageTitle, 'stage.update'))
+      const publish = change(page, 'Этапы', `«${outlineStageTitles.publish}»`)
+      await expect(publish).toContainText('изменён')
+      await expect(publish).toContainText(/журнал карты: версия \d+/)
+      await expectGrounds(publish, await journalRecords(page.request, outlineStageTitles.publish, 'stage.depends'))
+
+      const returned = await context.newPage()
+      const inspector = '**/api/runs/*/stages/*'
+      await returned.route(inspector, (route) => route.abort('connectionfailed'))
+      await returned.goto(`/?run=${run}&mode=changes`)
+      const failed = change(returned, 'Этапы', `«${outlineStageTitles.publish}»`)
+      await expect(failed).toContainText('Основания не загружены: демон не ответил.')
+      await returned.unroute(inspector)
+      await failed.getByRole('button', { name: 'Повторить' }).click()
+      await expect(failed.getByRole('button', { name: /^Основания: / })).toBeVisible()
+      await returned.close()
+
+      await markButton(page).click()
+      await expect(since(page)).toContainText(nothingChanged)
+      await expect(since(page)).not.toContainText(outlineStageTitles.sources)
     })
   })
 

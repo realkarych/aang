@@ -17,6 +17,8 @@ const refreshMs = 500
 
 const retryMs = 2_000
 
+const readTimeoutMs = 10_000
+
 const idle = (): void => undefined
 
 const awaken = (wake: { current: () => void }, signal: AbortSignal): Promise<void> =>
@@ -63,7 +65,11 @@ export const useChanges = (
           continue
         }
         try {
-          const changes = await readChanges(run, { version, change_seq: seq }, signal)
+          const changes = await readChanges(
+            run,
+            { version, change_seq: seq },
+            AbortSignal.any([signal, AbortSignal.timeout(readTimeoutMs)]),
+          )
           fetched = target
           setLoaded({ changes, failing: false })
           await pause(refreshMs, signal)

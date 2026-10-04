@@ -1,7 +1,17 @@
-import type { Basis, CardSource, Fact, FactId, ModelChangeRef, ObservationObjects } from '@aang/contract'
+import type {
+  Basis,
+  CardSource,
+  Fact,
+  FactId,
+  ModelChange,
+  ModelChangeRef,
+  ObservationObjects,
+  RunId,
+  StageId,
+} from '@aang/contract'
 import { type ReactElement, useEffect, useId, useRef, useState } from 'react'
 import { detailOf } from './action-input.js'
-import { readFact, SignedOut } from './api.js'
+import { readFact, readStage, SignedOut } from './api.js'
 import { plural } from './format.js'
 import { basisLabel, factKindLabel, outcomeLabel, speakerLabel } from './labels.js'
 import { Moment } from './moment.js'
@@ -168,26 +178,31 @@ const journalText = (journal: readonly ModelChangeRef[]): string | null => {
 const journalTitle = (journal: readonly ModelChangeRef[]): string =>
   journal.map(({ version, index }) => `версия ${String(version)}, изменение ${String(index + 1)}`).join('; ')
 
-export interface GroundsProps {
+export interface Grounding {
   readonly basis: Basis | null
   readonly evidence: readonly FactId[]
+}
+
+export interface GroundsProps {
+  readonly grounds: readonly Grounding[]
   readonly journal: readonly ModelChangeRef[]
   readonly objects: ObservationObjects
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-export const Grounds = ({ basis, evidence, journal, objects, now, onSignedOut }: GroundsProps): ReactElement => {
+export const Grounds = ({ grounds, journal, objects, now, onSignedOut }: GroundsProps): ReactElement => {
   const id = useId()
   const [open, setOpen] = useState(false)
   const [all, setAll] = useState(false)
-  const facts = [...new Set(evidence)]
+  const bases = [...new Set(grounds.flatMap(({ basis }) => (basis === null ? [] : [basisLabel[basis.kind]])))]
+  const facts = [...new Set(grounds.flatMap(({ evidence }) => evidence))]
   const shown = all ? facts : facts.slice(0, shownFacts)
   const journalLine = journalText(journal)
   return (
     <div className="grounds">
       <p className="grounds-line">
-        {basis === null ? null : <span>{basisLabel[basis.kind]}</span>}
+        {bases.length === 0 ? null : <span>{bases.join(', ')}</span>}
         {journalLine === null ? null : <span title={journalTitle(journal)}>{journalLine}</span>}
         {facts.length === 0 ? null : (
           <button
@@ -221,6 +236,42 @@ export const Grounds = ({ basis, evidence, journal, objects, now, onSignedOut }:
       ) : null}
     </div>
   )
+}
+
+const refKey = ({ version, index }: ModelChangeRef): string => `${String(version)}:${String(index)}`
+
+export const journalKey = (journal: readonly ModelChangeRef[]): string => journal.map(refKey).join(' ')
+
+export interface JournalGroundsProps {
+  readonly run: RunId
+  readonly stage: StageId
+  readonly journal: readonly ModelChangeRef[]
+  readonly select: (change: ModelChange) => boolean
+  readonly objects: ObservationObjects
+  readonly now: bigint
+  readonly onSignedOut: () => void
+}
+
+export const JournalGrounds = ({
+  run,
+  stage,
+  journal,
+  select,
+  objects,
+  now,
+  onSignedOut,
+}: JournalGroundsProps): ReactElement => {
+  const [load] = useState(() => async (signal: AbortSignal) => (await readStage(run, stage, signal)).history)
+  const { reading, retry } = useRead(load, onSignedOut)
+  if (reading.state === 'loading') {
+    return <p className="grounds-loading">Загрузка оснований…</p>
+  }
+  if (reading.state === 'failed') {
+    return <Failed what="Основания" retry={retry} />
+  }
+  const wanted = new Set(journal.map(refKey))
+  const changes = reading.value.filter((change) => wanted.has(refKey(change)) && select(change))
+  return <Grounds grounds={changes} journal={changes} objects={objects} now={now} onSignedOut={onSignedOut} />
 }
 
 interface OriginalProps {

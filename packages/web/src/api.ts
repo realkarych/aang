@@ -8,6 +8,8 @@ import {
   type RunId,
   type RunSnapshot,
   type RunsResponse,
+  type StageId,
+  type StageInspector,
   type StatusResponse,
   type ViewPosition,
 } from '@aang/contract'
@@ -90,6 +92,13 @@ export const readRuns = (signal: AbortSignal): Promise<RunsResponse> =>
 
 export const readRun = (run: RunId, signal: AbortSignal): Promise<RunSnapshot> =>
   read(withRun(endpoints.run.path, run), endpoints.run.response, signal)
+
+export const readStage = (run: RunId, stage: StageId, signal: AbortSignal): Promise<StageInspector> =>
+  read(
+    withRun(endpoints.stage.path, run).replace(':stage', encodeURIComponent(stage)),
+    endpoints.stage.response,
+    signal,
+  )
 
 export const readFact = async (id: FactId, signal: AbortSignal): Promise<Fact> =>
   (await read(endpoints.fact.path.replace(':id', encodeURIComponent(id)), endpoints.fact.response, signal)).fact

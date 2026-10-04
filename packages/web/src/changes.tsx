@@ -8,10 +8,13 @@ import type {
   CriterionStatus,
   CriterionTransition,
   Execution,
+  ModelChange,
   ObservationObjects,
+  RunId,
   RunSnapshot,
   Stage,
   StageId,
+  StageLifecycle,
   StageTransition,
   ViewMark,
 } from '@aang/contract'
@@ -19,7 +22,7 @@ import { type ReactElement, type ReactNode, useId } from 'react'
 import { DecisionBadge, ExecutionBadge } from './badges.js'
 import { plural } from './format.js'
 import { AttentionGlyph, type ChangeKind, ChangeGlyph, CriterionGlyph } from './glyphs.js'
-import { Grounds, Original } from './grounds.js'
+import { type Grounding, Grounds, JournalGrounds, journalKey, Original } from './grounds.js'
 import {
   actionForms,
   attentionAuthorLabel,
@@ -34,6 +37,7 @@ import { agentTitle, attentionPlace, placeOf } from './objects.js'
 import { isPlan, newestFirst, PlanUpdate } from './plan-facts.js'
 
 interface Context {
+  readonly run: RunId
   readonly objects: ObservationObjects
   readonly stages: ReadonlyMap<StageId, Stage>
   readonly now: bigint
@@ -44,8 +48,14 @@ const observed = { kind: 'observed' } as const
 
 const sameExecution = (left: Execution, right: Execution): boolean => JSON.stringify(left) === JSON.stringify(right)
 
-const revised = ({ before, after }: StageTransition): boolean =>
-  after.lifecycle.state !== 'active' && before?.lifecycle.state !== after.lifecycle.state
+type Revised = Exclude<StageLifecycle, { readonly state: 'active' }>
+
+const revisionOf = ({ before, after }: StageTransition): Revised | null =>
+  after.lifecycle.state !== 'active' && before?.lifecycle.state !== after.lifecycle.state ? after.lifecycle : null
+
+const revisions: ReadonlySet<ModelChange['op']> = new Set(['stage.replace', 'stage.merge', 'stage.split'])
+
+const anyChange = (): boolean => true
 
 export const changeCount = (changes: ChangesResponse): number =>
   changes.stages.length +
@@ -118,8 +128,7 @@ const AttentionChange = ({
           )}
         </p>
         <Grounds
-          basis={item.basis}
-          evidence={item.evidence}
+          grounds={[item]}
           journal={[]}
           objects={context.objects}
           now={context.now}
@@ -136,8 +145,7 @@ interface Revision {
   readonly by: string
 }
 
-const lifecycleChange = (stage: Stage): Revision => {
-  const { lifecycle } = stage
+const lifecycleChange = (lifecycle: Revised): Revision => {
   switch (lifecycle.state) {
     case 'replaced':
       return {
@@ -149,13 +157,10 @@ const lifecycleChange = (stage: Stage): Revision => {
       return { change: 'merged', label: 'объединён', by: 'объединён в этап' }
     case 'split':
       return { change: 'split', label: 'разделён', by: 'разделён на этапы' }
-    case 'active':
-      return { change: 'changed', label: 'изменён', by: '' }
   }
 }
 
-const successors = (stage: Stage): readonly StageId[] => {
-  const { lifecycle } = stage
+const successors = (lifecycle: Revised): readonly StageId[] => {
   switch (lifecycle.state) {
     case 'replaced':
       return lifecycle.by
@@ -163,32 +168,34 @@ const successors = (stage: Stage): readonly StageId[] => {
       return [lifecycle.into]
     case 'split':
       return lifecycle.into
-    case 'active':
-      return []
   }
 }
 
 const RevisedStage = ({
   transition,
+  lifecycle,
   context,
 }: {
   readonly transition: StageTransition
+  readonly lifecycle: Revised
   readonly context: Context
 }): ReactElement => {
   const { after } = transition
-  const { change, label, by } = lifecycleChange(after)
+  const { change, label, by } = lifecycleChange(lifecycle)
   return (
     <li className="change" data-change={change}>
       <Mark change={change} label={label} />
       <div className="change-body">
         <p className="change-title">Этап «{after.title}»</p>
         <p className="change-line">
-          {by} {successors(after).map((id) => stageName(context, id)).join(', ')}
+          {by} {successors(lifecycle).map((id) => stageName(context, id)).join(', ')}
         </p>
-        <Grounds
-          basis={after.basis}
-          evidence={after.evidence}
+        <JournalGrounds
+          key={journalKey(transition.changes)}
+          run={context.run}
+          stage={after.id}
           journal={transition.changes}
+          select={({ op, target }) => revisions.has(op) && target.kind === 'stage' && target.id === after.id}
           objects={context.objects}
           now={context.now}
           onSignedOut={context.onSignedOut}
@@ -256,8 +263,7 @@ const CriterionChange = ({
           />
         </p>
         <Grounds
-          basis={after.status.basis}
-          evidence={after.status.evidence}
+          grounds={[after.status]}
           journal={transition.changes}
           objects={context.objects}
           now={context.now}
@@ -267,6 +273,36 @@ const CriterionChange = ({
     </li>
   )
 }
+
+const StageGrounds = ({
+  transition,
+  grounds,
+  context,
+}: {
+  readonly transition: StageTransition
+  readonly grounds: readonly Grounding[]
+  readonly context: Context
+}): ReactElement =>
+  grounds.length === 0 ? (
+    <JournalGrounds
+      key={journalKey(transition.changes)}
+      run={context.run}
+      stage={transition.after.id}
+      journal={transition.changes}
+      select={anyChange}
+      objects={context.objects}
+      now={context.now}
+      onSignedOut={context.onSignedOut}
+    />
+  ) : (
+    <Grounds
+      grounds={grounds}
+      journal={transition.changes}
+      objects={context.objects}
+      now={context.now}
+      onSignedOut={context.onSignedOut}
+    />
+  )
 
 const StageChange = ({
   transition,
@@ -278,9 +314,16 @@ const StageChange = ({
   const { before, after } = transition
   const fresh = before === null
   const renamed = before !== null && before.title !== after.title
+  const described =
+    fresh || renamed || before.summary !== after.summary || before.expected_result !== after.expected_result
   const moved = before !== null && !sameExecution(before.execution.value, after.execution.value)
   const decided = after.decision.value !== 'none' && before?.decision.value !== after.decision.value
   const detail = after.summary ?? after.expected_result
+  const grounds = [
+    ...(described ? [after] : []),
+    ...(fresh || moved ? [after.execution] : []),
+    ...(decided ? [after.decision] : []),
+  ]
   return (
     <li className="change" data-change={fresh ? 'new' : 'changed'}>
       <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'новый' : 'изменён'} />
@@ -300,14 +343,7 @@ const StageChange = ({
           {decided ? <DecisionBadge decision={after.decision} /> : null}
         </p>
         {detail === null ? null : <p className="change-detail">{detail}</p>}
-        <Grounds
-          basis={after.basis}
-          evidence={after.evidence}
-          journal={transition.changes}
-          objects={context.objects}
-          now={context.now}
-          onSignedOut={context.onSignedOut}
-        />
+        <StageGrounds transition={transition} grounds={grounds} context={context} />
       </div>
     </li>
   )
@@ -328,8 +364,7 @@ const CardChange = ({ card, context }: { readonly card: Card; readonly context: 
         </p>
       )}
       <Grounds
-        basis={card.basis}
-        evidence={card.evidence}
+        grounds={[card]}
         journal={[]}
         objects={context.objects}
         now={context.now}
@@ -376,8 +411,7 @@ const ArtifactChange = ({
           <span>{retentionLabel[version.retention.kind]}</span>
         </p>
         <Grounds
-          basis={observed}
-          evidence={evidence}
+          grounds={[{ basis: observed, evidence }]}
           journal={[]}
           objects={context.objects}
           now={context.now}
@@ -418,8 +452,11 @@ const ChangeList = ({
   readonly context: Context
 }): ReactElement => {
   const { opened, closed } = changes.attention
-  const decisions = changes.stages.filter(revised)
-  const stages = changes.stages.filter((transition) => !revised(transition))
+  const decisions = changes.stages.flatMap((transition) => {
+    const lifecycle = revisionOf(transition)
+    return lifecycle === null ? [] : [{ transition, lifecycle }]
+  })
+  const stages = changes.stages.filter((transition) => revisionOf(transition) === null)
   const plans = changes.plan_facts.filter(isPlan).toSorted(newestFirst)
   return (
     <>
@@ -438,8 +475,13 @@ const ChangeList = ({
       {decisions.length + changes.criteria.length === 0 ? null : (
         <Section title="Пересмотренные решения">
           <ol className="changes">
-            {decisions.map((transition) => (
-              <RevisedStage key={transition.after.id} transition={transition} context={context} />
+            {decisions.map(({ transition, lifecycle }) => (
+              <RevisedStage
+                key={transition.after.id}
+                transition={transition}
+                lifecycle={lifecycle}
+                context={context}
+              />
             ))}
             {changes.criteria.map((transition) => (
               <CriterionChange key={transition.after.id} transition={transition} context={context} />
@@ -541,7 +583,13 @@ const Body = ({ snapshot, mark, changes, failing, now, onSignedOut }: ChangesVie
       </p>
     )
   }
-  const context: Context = { objects: snapshot.objects, stages: stagesOf(snapshot, changes), now, onSignedOut }
+  const context: Context = {
+    run: snapshot.run.id,
+    objects: snapshot.objects,
+    stages: stagesOf(snapshot, changes),
+    now,
+    onSignedOut,
+  }
   return <ChangeList changes={changes} context={context} />
 }
 
