@@ -5,6 +5,7 @@ import {
   GapKind,
   type HookInstallation,
   NotObservableSurface,
+  type ObserverBackendStatus,
   type OperatingSystem,
   type Placement,
   type Runtime,
@@ -39,6 +40,7 @@ export interface StatusSources {
   readonly hooks: () => Readonly<Record<Runtime, HookInstallation>>
   readonly matrix: SupportMatrix
   readonly host: SupportHost
+  readonly observer: () => ObserverBackendStatus[]
 }
 
 const sizeOf = (path: string): Promise<number> =>
@@ -122,7 +124,7 @@ const spoolStatus = async (
 }
 
 export const createStatus =
-  ({ daemon, store, config, runtimeRoots, paths, hooks, matrix, host }: StatusSources) =>
+  ({ daemon, store, config, runtimeRoots, paths, hooks, matrix, host, observer }: StatusSources) =>
   async (): Promise<StatusResponse> => {
     const installations = hooks()
     const recorded = store.read(() => ({
@@ -153,7 +155,7 @@ export const createStatus =
       runtimes: runtimeStatuses,
       watch: recorded.watch,
       spool,
-      observer: { cross_vendor: config.observer.crossVendor, backends: [] },
+      observer: { cross_vendor: config.observer.crossVendor, backends: observer() },
       versions: versionsOf(recorded.sessions, matrix, host),
       unknown_records: recorded.sessions.reduce((total, { unknown_records: unknown }) => total + unknown, 0),
       gaps: recorded.gaps.filter(isSourceGap).sort(byDetection),

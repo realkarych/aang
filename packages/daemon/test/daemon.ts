@@ -30,6 +30,7 @@ export interface DaemonSettings {
   readonly staticRoot?: string | null
   readonly supportMatrix?: string
   readonly placement?: Placement
+  readonly env?: Readonly<Record<string, string>>
 }
 
 export const testVersion = '0.0.0-test'
@@ -61,13 +62,19 @@ export const createHome = async (
 export const startDaemon = async (
   home: Home,
   onTestFinished: TestContext['onTestFinished'],
-  { bind = null, staticRoot = null, supportMatrix = repositoryMatrix, placement = 'local' }: DaemonSettings = {},
+  {
+    bind = null,
+    staticRoot = null,
+    supportMatrix = repositoryMatrix,
+    placement = 'local',
+    env = {},
+  }: DaemonSettings = {},
 ): Promise<RunningDaemon> => {
   const controller = new AbortController()
   const ready = Promise.withResolvers<DaemonReady>()
   const stopped = runDaemon({
     version: testVersion,
-    environment: { env: { AANG_HOME: home.paths.home }, homedir: home.root },
+    environment: { env: { ...env, AANG_HOME: home.paths.home }, homedir: home.root },
     bind,
     staticRoot,
     supportMatrix,

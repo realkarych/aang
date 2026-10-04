@@ -5,6 +5,7 @@ export { codexHookCommand } from './codex-command.js'
 export { codexHooksState, type CodexHooksState, type CodexHooksStateOptions } from './codex-state.js'
 export {
   claudePluginId,
+  claudePluginName,
   claudePluginState,
   claudePluginStateOf,
   installClaudePlugin,

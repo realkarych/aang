@@ -9,6 +9,7 @@ import type {
   GapKind,
   HookInstallation,
   HumanDecision,
+  Interpreter,
   NotObservableSurface,
   ObserverState,
   PlanItemStatus,
@@ -17,6 +18,8 @@ import type {
   Runtime,
   ServiceAgent,
   SessionLaunch,
+  StageLifecycle,
+  StageOrigin,
   Surface,
   SupportMode,
   SupportStatus,
@@ -155,6 +158,9 @@ export const basisLabel: Readonly<Record<BasisKind, string>> = {
   interpreted: 'интерпретация aang',
 }
 
+export const interpreterLabel = (interpreter: Interpreter): string =>
+  interpreter.kind === 'rule' ? `правило ${interpreter.rule}` : `наблюдатель, вызов ${interpreter.call}`
+
 export const attentionKindLabel: Readonly<Record<AttentionKind, string>> = {
   question: 'Вопрос',
   permission: 'Запрос одобрения',
@@ -231,6 +237,17 @@ export const serviceAgentLabel: Readonly<Record<ServiceAgent, string>> = {
   desktop_summary: 'сводки Desktop',
 }
 
+export const stageOriginLabel: Readonly<Record<StageOrigin, string>> = {
+  plan: 'из плана',
+  inferred: 'восстановлен aang',
+}
+
+export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state'], 'active'>, string>> = {
+  replaced: 'заменён',
+  merged: 'объединён с другими',
+  split: 'разделён',
+}
+
 export const sessionForms = { one: 'сессия', few: 'сессии', many: 'сессий' } as const
 export const sessionInForms = { one: 'сессии', few: 'сессиях', many: 'сессиях' } as const
 export const agentForms = { one: 'агент', few: 'агента', many: 'агентов' } as const
@@ -241,5 +258,8 @@ export const fileForms = { one: 'файл', few: 'файла', many: 'файло
 export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
 export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const
 export const stepForms = { one: 'ранний шаг', few: 'ранних шага', many: 'ранних шагов' } as const
+export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
+export const substageForms = { one: 'подэтап', few: 'подэтапа', many: 'подэтапов' } as const
+export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)

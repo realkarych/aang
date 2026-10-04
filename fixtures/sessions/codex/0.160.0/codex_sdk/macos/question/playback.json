@@ -1,0 +1,171 @@
+{
+  "steps": [
+    {
+      "kind": "append",
+      "at": 322,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-25-01a1047e-8ff8-7b23-9cb6-5e19ea6a144f.jsonl"
+      },
+      "source": "data/000002.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 331,
+      "source": "data/000005.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 336,
+      "source": "data/000007.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 345,
+      "source": "data/000009.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 348,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-25-01a1047e-8ff8-7b23-9cb6-5e19ea6a144f.jsonl"
+      },
+      "source": "data/000003.jsonl",
+      "label": "question-asked"
+    },
+    {
+      "kind": "hook",
+      "at": 350,
+      "source": "data/000012.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 359,
+      "source": "data/000014.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 368,
+      "source": "data/000016.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 374,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-25-01a1047e-8ff8-7b23-9cb6-5e19ea6a144f.jsonl"
+      },
+      "source": "data/000010.jsonl"
+    },
+    {
+      "kind": "otlp",
+      "at": 508,
+      "source": "data/000017.json"
+    },
+    {
+      "kind": "append",
+      "at": 1038,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-25-01a1047e-8ff8-7b23-9cb6-5e19ea6a144f.jsonl"
+      },
+      "source": "data/000018.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 1046,
+      "source": "data/000021.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 1051,
+      "source": "data/000023.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 1061,
+      "source": "data/000025.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 1063,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-25-01a1047e-8ff8-7b23-9cb6-5e19ea6a144f.jsonl"
+      },
+      "source": "data/000019.jsonl",
+      "label": "question-reply"
+    },
+    {
+      "kind": "hook",
+      "at": 1070,
+      "source": "data/000027.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "codex_sdk_ts"
+      }
+    },
+    {
+      "kind": "otlp",
+      "at": 1208,
+      "source": "data/000028.json"
+    }
+  ]
+}

@@ -3,12 +3,13 @@ import type { Config, Listener, OperatingSystem, Placement, Runtime, StatusRespo
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
 import { readSupportMatrix } from '@aang/contract/support-file'
-import { createReadQueries, type ObserverRunStatus } from '@aang/engine'
+import { createReadQueries } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
 import { type HookChecks, startHookChecks } from './hooks.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
+import { startObserver } from './observer.js'
 import { otelToken } from './otel-token.js'
 import { readRoutes } from './reads.js'
 import { type RunningServer, startServer } from './server.js'
@@ -54,16 +55,13 @@ const openExclusive = (home: string): Store => {
 const hostOs = (): OperatingSystem =>
   process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux'
 
-const observerOfRun = (): ObserverRunStatus => ({
-  state: { state: 'disabled', reason: 'version_not_admitted' },
-  isolation_unverified: false,
-})
-
-const notifying = (store: Store, changed: () => void): Store => ({
+const notifying = (store: Store, listeners: ReadonlySet<() => void>): Store => ({
   ...store,
   transaction: (work) => {
     const result = store.transaction(work)
-    changed()
+    for (const listener of listeners) {
+      listener()
+    }
     return result
   },
 })
@@ -133,9 +131,8 @@ const serve = async ({
   matrix,
 }: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
-  const reads = createReadQueries({ store: opened, observer: observerOfRun })
-  const streams = createStreams({ reads, head: opened.changes.head, onError: report })
-  const store = notifying(opened, streams.changed)
+  const committed = new Set<() => void>()
+  const store = notifying(opened, committed)
   const stop = Promise.withResolvers<StopCause>()
   const stopRequest = { made: false }
   const settle = (cause: StopCause): void => {
@@ -150,12 +147,39 @@ const serve = async ({
     settle({ reason })
   }
   const auth = createAuthenticator(paths)
+  const observer = startObserver({
+    store,
+    config,
+    aangHome: paths.home,
+    claudeConfigDir: runtimeRoots.claude,
+    environment: options.environment.env,
+  })
+  void observer.failure.then((error) => {
+    settle({ error })
+  })
+  const reads = createReadQueries({ store: opened, observer: observer.run })
+  const status = Promise.withResolvers<() => Promise<StatusResponse>>()
+  const streams = createStreams({
+    reads,
+    head: opened.changes.head,
+    status: () => status.promise.then((read) => read()),
+    onError: report,
+  })
+  committed.add(streams.changed)
+  observer.subscribe(() => {
+    streams.changed()
+    streams.statusChanged()
+  })
   const ingestion = await startIngestion({
     store,
     config,
     spool: paths.spool,
     runtimeRoots,
     otelToken: otelToken(store),
+    onIngested: observer.wake,
+  }).catch(async (error: unknown) => {
+    await observer.close()
+    throw error
   })
   void ingestion.failure.then((error) => {
     settle({ error })
@@ -169,7 +193,6 @@ const serve = async ({
   }
   const startedAt = epochNow()
   const host: SupportHost = { os: hostOs(), placement: config.placement ?? options.placement }
-  const status = Promise.withResolvers<() => Promise<StatusResponse>>()
   try {
     const hooks = startHookChecks({ aangHome: paths.home, config, runtimeRoots })
     running.hooks = hooks
@@ -179,7 +202,17 @@ const serve = async ({
       staticRoot: options.staticRoot,
       routes: (api) => {
         const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
-        const read = createStatus({ daemon, store, config, runtimeRoots, paths, hooks: hooks.installations, matrix, host })
+        const read = createStatus({
+          daemon,
+          store,
+          config,
+          runtimeRoots,
+          paths,
+          hooks: hooks.installations,
+          matrix,
+          host,
+          observer: observer.backends,
+        })
         status.resolve(read)
         return readRoutes({ store, reads, status: read })
       },
@@ -244,6 +277,7 @@ const serve = async ({
     }
     await runAll([
       ingestion.stop,
+      observer.close,
       async () => {
         await worker.drained()
         await running.spool?.release()

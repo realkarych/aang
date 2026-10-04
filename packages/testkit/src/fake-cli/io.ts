@@ -1,4 +1,5 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
+import { setTimeout } from 'node:timers/promises'
 import type { JsonValue } from '@aang/contract'
 
 export const readStdin = async (): Promise<string> => {
@@ -23,6 +24,12 @@ export const finish = (code: number): void => {
 
 export const hang = (): void => {
   setInterval(() => undefined, 60_000)
+}
+
+export const appeared = async (path: string): Promise<void> => {
+  while (!existsSync(path)) {
+    await setTimeout(20)
+  }
 }
 
 export type TextRead =

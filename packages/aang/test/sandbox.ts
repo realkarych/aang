@@ -88,10 +88,14 @@ export const createSandbox = async (
   const spool = join(aangHome, 'spool')
   const daemonStateFile = join(aangHome, 'daemon.json')
   await mkdir(aangHome, { recursive: true })
-  const missingCli = { claude: join(root, 'no-cli', 'claude'), codex: join(root, 'no-cli', 'codex') }
   await writeFile(
     join(aangHome, 'config.json'),
-    JSON.stringify({ cli: missingCli, ...config, api: { port: 0 }, otel: { port: 0 } }),
+    JSON.stringify({
+      cli: { claude: join(root, 'absent', 'claude'), codex: join(root, 'absent', 'codex') },
+      ...config,
+      api: { port: 0 },
+      otel: { port: 0 },
+    }),
   )
   const env: NodeJS.ProcessEnv = {
     ...process.env,
