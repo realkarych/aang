@@ -1,6 +1,7 @@
 import aang from '@aang/eslint-plugin'
 import js from '@eslint/js'
 import { defineConfig } from 'eslint/config'
+import reactHooks from 'eslint-plugin-react-hooks'
 import tseslint from 'typescript-eslint'
 
 export default defineConfig(
@@ -29,6 +30,10 @@ export default defineConfig(
         tsconfigRootDir: import.meta.dirname,
       },
     },
+  },
+  {
+    files: ['packages/web/src/**/*.{ts,tsx}'],
+    extends: [reactHooks.configs.flat['recommended-latest']],
   },
   {
     plugins: { aang },

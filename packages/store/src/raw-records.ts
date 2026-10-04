@@ -20,6 +20,7 @@ export interface RawInsertResult {
 export interface RawRecordReader {
   readonly ofStream: (stream: StreamKey, after: RawSeq | null, limit: number) => RawRecord[]
   readonly pendingOtel: (after: RawSeq | null, limit: number) => RawRecord[]
+  readonly hooksWithoutFacts: (after: RawSeq | null, limit: number) => RawRecord[]
   readonly outdated: (runtime: Runtime, version: NormalizerVersion, after: RawSeq | null, limit: number) => RawRecord[]
   readonly get: (seq: RawSeq) => RawRecord | null
 }
@@ -89,6 +90,7 @@ export const createRawRecords = (database: DatabaseSync): RawRecordRepository =>
   const insertRecord = prepareStatement(database, `${insertInto('raw_records', insertedColumns)} RETURNING seq`)
 
   const selectPending = prepareStatement(database, `SELECT ${rawRecordColumns} FROM raw_records WHERE channel = 'otel' AND parse_state = 'unknown' AND seq > ? ORDER BY seq LIMIT ?`)
+  const selectHooksWithoutFacts = prepareStatement(database, `SELECT ${rawRecordColumns} FROM raw_records WHERE channel = 'hook' AND seq > ? AND NOT EXISTS (SELECT 1 FROM facts WHERE facts.seq = raw_records.seq) ORDER BY seq LIMIT ?`)
   const markParsed = prepareStatement(database, "UPDATE raw_records SET parse_state = 'parsed', stream = ?, source_ts = ?, change_seq = ? WHERE seq = ? AND parse_state = 'unknown'")
   const discard = prepareStatement(database, "DELETE FROM raw_records WHERE seq = ? AND parse_state = 'unknown' AND NOT EXISTS (SELECT 1 FROM facts WHERE facts.seq = raw_records.seq)")
   const selectOutdated = prepareStatement(database, `SELECT ${rawRecordColumns} FROM raw_records WHERE runtime = ? AND channel NOT IN ('snapshot', 'context') AND seq > ? AND NOT EXISTS (SELECT 1 FROM facts WHERE facts.seq = raw_records.seq AND facts.normalizer_version = ?) ORDER BY seq LIMIT ?`)
@@ -100,6 +102,8 @@ export const createRawRecords = (database: DatabaseSync): RawRecordRepository =>
   const reader: RawRecordReader = {
     ofStream: (stream, after, limit) => (selectStream.all(stream, after ?? 0, pageLimit(limit)) as RawRecordRow[]).map(toRawRecord),
     pendingOtel: (after, limit) => (selectPending.all(after ?? 0, pageLimit(limit)) as RawRecordRow[]).map(toRawRecord),
+    hooksWithoutFacts: (after, limit) =>
+      (selectHooksWithoutFacts.all(after ?? 0, pageLimit(limit)) as RawRecordRow[]).map(toRawRecord),
     outdated: (runtime, version, after, limit) =>
       (selectOutdated.all(runtime, after ?? 0, version, pageLimit(limit)) as RawRecordRow[]).map(toRawRecord),
     get: (seq) => {

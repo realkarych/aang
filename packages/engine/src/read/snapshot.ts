@@ -23,7 +23,7 @@ import {
 import type { Observation, StoredObservationRemoval } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
 import { reparseBoundary } from '../reparse/boundary.js'
-import { byId, InvalidPositionError, origin, partsOf, planKinds, type ReadContext, runOf } from './context.js'
+import { byId, InvalidPositionError, origin, partsOf, planKinds, precedesPrune, type ReadContext, runOf } from './context.js'
 import { type RunState, summaryOf } from './summary.js'
 
 export type RunFeedEvent =
@@ -76,7 +76,7 @@ const summaryStateOf = (context: ReadContext, run: Run): RunState =>
 
 const runDelta = (context: ReadContext, state: RunState): RunDelta => ({
   summary: summaryOf(context, state),
-  view: { rules: [], mark: null, zone: [] },
+  view: { rules: [], placements: [], mark: null, zone: [] },
   bindings: state.parts.bindings,
 })
 
@@ -96,7 +96,7 @@ export const runSnapshot = (context: ReadContext, id: RunId): RunSnapshot | null
     objects: sortedObjects(objectsOf(objects, store.gaps.ofRun(id, origin))),
     plan_facts: store.facts.ofRun(id, origin, planKinds).map(({ fact }) => fact),
     attention: { items: parts.attention, views: [] },
-    view: { rules: [], mark: null, zone: [] },
+    view: { rules: [], placements: [], mark: null, zone: [] },
     bindings: parts.bindings,
     change_seq: store.changes.head(),
   }
@@ -179,6 +179,9 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
   const run = runOf(store, id)
   if (run === null) {
     return null
+  }
+  if (precedesPrune(store, after)) {
+    throw new InvalidPositionError(`position ${String(after)} precedes the latest prune`)
   }
   const versions = store.model.versions(id, after)
   const first = versions[0]

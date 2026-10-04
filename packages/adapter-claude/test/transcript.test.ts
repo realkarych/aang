@@ -647,6 +647,19 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
     expect(claudeAdapter.streamKey(['not json', '{"type":"summary"}', '[]'])).toBeNull()
   })
 
+  test('a hook event names the stream of its transcript: the main one, or the subagent one for an event inside a subagent', async ({
+    expect,
+  }) => {
+    const prompt = await readJsonSample('claude-code-hooks/UserPromptSubmit.json')
+    const inside = await readJsonSample('claude-code-hooks/PreToolUse.Bash.inside-subagent.json')
+
+    expect(claudeAdapter.streamKey([JSON.stringify(prompt)])).toBe(JSON.stringify(['claude', prompt['session_id'], 'main']))
+    expect(claudeAdapter.streamKey([JSON.stringify(inside)])).toBe(
+      JSON.stringify(['claude', inside['session_id'], 'agent', inside['agent_id']]),
+    )
+    expect(claudeAdapter.streamKey([JSON.stringify({ ...prompt, hook_event_name: null })])).toBeNull()
+  })
+
   test('a record with a uuid is keyed by session and uuid, so a fork copy is a record of its own stream', async ({
     expect,
   }) => {
