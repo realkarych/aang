@@ -4,12 +4,15 @@ import { endpoints, type RunId, type RunSnapshot, type Stage } from '@aang/contr
 import { runId } from '@aang/contract/ids'
 import {
   branchStageTitles,
+  continuedStageTitle,
   mainStageTitle,
+  mergedStageTitle,
   nestedStageTitles,
   observerScenarios,
   preparationStageTitle,
   reportStageTitle,
   sampleScenarioManifest,
+  splitStageTitles,
 } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures.js'
@@ -38,6 +41,28 @@ const box = async (locator: Locator): Promise<{ x: number; y: number; right: num
   }
   return { x: found.x, y: found.y, right: found.x + found.width, bottom: found.y + found.height }
 }
+
+const pick = (locator: Locator, title: string | RegExp): Locator => locator.getByRole('button', { name: title, exact: true })
+
+const drag = async (page: Page, from: { x: number; y: number }, by: { x: number; y: number }): Promise<void> => {
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(from.x + by.x, from.y + by.y, { steps: 8 })
+  await page.mouse.up()
+}
+
+const near = (actual: { x: number; y: number }, expected: { x: number; y: number }): void => {
+  expect(Math.abs(actual.x - expected.x), `x ${String(actual.x)} near ${String(expected.x)}`).toBeLessThanOrEqual(1)
+  expect(Math.abs(actual.y - expected.y), `y ${String(actual.y)} near ${String(expected.y)}`).toBeLessThanOrEqual(1)
+}
+
+const versionShown = async (page: Page): Promise<number> =>
+  Number(
+    await page
+      .locator('.facts > div', { has: page.getByRole('term').filter({ hasText: 'Версия карты' }) })
+      .getByRole('definition')
+      .textContent(),
+  )
 
 const crossings = async (page: Page): Promise<string[]> =>
   map(page).evaluate((region) => {
@@ -356,5 +381,166 @@ test.describe('with the observer building three levels', () => {
     await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
     await expect.poll(async () => crossings(page)).toEqual([])
     await expect(edges(page)).toHaveCount(2)
+  })
+})
+
+test.describe('with the observer revising the map', () => {
+  test.use({ claudeScenario: observerScenarios['stage-succession'].live })
+
+  test('new model versions keep the selected stage and the reading place, a replaced, split or merged stage hands the selection to its successor (E2E 14)', async ({
+    page,
+    player,
+    fakeClaude,
+  }) => {
+    test.slow()
+    const played = await player(sampleScenarioManifest('claude-compaction'), { timeScale: 0, recordTime: 'playback' })
+    await page.setViewportSize({ width: 1280, height: 640 })
+    await page.goto(`/?run=${claudeRun}&stage=gone`)
+    await played.play({ until: 'subagent' })
+
+    const main = stage(page, mainStageTitle)
+    await expect(main).toBeVisible(observed)
+    await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
+    const stageInAddress = (): string | null => new URL(page.url()).searchParams.get('stage')
+    await expect.poll(stageInAddress).toBeNull()
+
+    const canvas = map(page).getByRole('application')
+    const placeOf = async (locator: Locator): Promise<{ x: number; y: number }> => {
+      const [frame, card] = [await box(canvas), await box(locator.getByRole('article'))]
+      return { x: card.x - frame.x, y: card.y - frame.y }
+    }
+    const settled = async (locator: Locator): Promise<{ x: number; y: number }> => {
+      let last = await placeOf(locator)
+      await expect
+        .poll(async () => {
+          const next = await placeOf(locator)
+          const still = next.x === last.x && next.y === last.y
+          last = next
+          return still
+        })
+        .toBe(true)
+      return last
+    }
+    await map(page).getByRole('button', { name: 'Приблизить' }).click()
+    const fitted = await settled(main)
+    const frame = await box(canvas)
+    await drag(page, { x: frame.right - 24, y: frame.y + 24 }, { x: -60 - fitted.x, y: 0 })
+    const read = await settled(main)
+    near(read, { x: -60, y: fitted.y })
+    await page.evaluate(() => {
+      window.scrollTo(0, 96)
+    })
+    const scrolled = await page.evaluate(() => window.scrollY)
+    expect(scrolled).toBeGreaterThan(0)
+    const notice = map(page).getByRole('status')
+
+    await played.play({ until: 'subagent-result' })
+    const pinger = stage(page, pingerTitle)
+    await expect(pinger).toBeVisible(observed)
+    near(await settled(main), read)
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+    await expect(notice).toBeEmpty()
+
+    await pick(main, mainStageTitle).click()
+    await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
+    await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
+    expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
+
+    const nested = await versionShown(page)
+    await played.play({ until: 'resume' })
+    await expect.poll(async () => versionShown(page), observed).toBeGreaterThan(nested)
+    await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
+    near(await settled(main), read)
+    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+
+    fakeClaude.setScenario(observerScenarios['stage-succession'].revised)
+    await played.play({ until: 'continue' })
+    const continued = stage(page, continuedStageTitle)
+    await expect(continued).toBeVisible(observed)
+    await expect(main).toHaveCount(0)
+    await expect(pick(continued, continuedStageTitle)).toHaveAttribute('aria-pressed', 'true')
+    await expect(notice).toHaveText(
+      `Этап «${mainStageTitle}» заменён. Выбор перешёл к преемнику «${continuedStageTitle}».`,
+    )
+    const revised = await snapshotOf(page, claudeRun)
+    expect(stageTitled(revised, mainStageTitle).lifecycle).toEqual({
+      state: 'replaced',
+      by: [stageTitled(revised, continuedStageTitle).id],
+    })
+    expect(stageInAddress()).toBe(stageTitled(revised, continuedStageTitle).id)
+    const handed = await settled(continued)
+    near(handed, read)
+
+    fakeClaude.setScenario(observerScenarios['stage-succession'].split)
+    await played.play({ until: 'compaction' })
+    const [changesTitle, checksTitle] = splitStageTitles
+    const changes = stage(page, changesTitle)
+    const checks = stage(page, checksTitle)
+    await expect(changes).toBeVisible(observed)
+    await expect(checks).toBeVisible()
+    await expect(continued).toHaveCount(0)
+    await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'true')
+    await expect(pick(checks, checksTitle)).toHaveAttribute('aria-pressed', 'false')
+    await expect(notice).toHaveText(
+      `Этап «${mainStageTitle}» заменён, затем разделён. Выбор перешёл к преемнику «${changesTitle}», другие преемники: «${checksTitle}».`,
+    )
+    expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), changesTitle).id)
+    near(await settled(changes), handed)
+
+    await map(page).getByRole('button', { name: 'Скрыть' }).click()
+    await expect(notice).toBeEmpty()
+    await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'true')
+
+    const reopened = await page.context().newPage()
+    await reopened.goto(page.url())
+    await expect(pick(stage(reopened, changesTitle), changesTitle)).toHaveAttribute('aria-pressed', 'true', observed)
+    await expect(map(reopened).getByRole('status')).toBeEmpty()
+    await reopened.close()
+
+    await pick(changes, changesTitle).press('Enter')
+    await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
+    expect(stageInAddress()).toBeNull()
+    await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
+    await pinger.getByRole('list').click()
+    await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
+
+    const pan = async (by: { x: number; y: number }): Promise<void> => {
+      const frame = await box(canvas)
+      const top = Math.max(frame.y, 0)
+      const bottom = Math.min(frame.bottom, page.viewportSize()?.height ?? frame.bottom)
+      await drag(page, { x: frame.x + 70, y: by.y < 0 ? bottom - 30 : top + 30 }, by)
+    }
+    await pan({ x: 40, y: 0 })
+    await pick(checks, checksTitle).click()
+    await expect(pick(checks, checksTitle)).toHaveAttribute('aria-pressed', 'true')
+    const changesPlace = await settled(changes)
+    const checksPlace = await settled(checks)
+    expect(Math.hypot(changesPlace.x - checksPlace.x, changesPlace.y - checksPlace.y)).toBeGreaterThan(100)
+
+    fakeClaude.setScenario(observerScenarios['stage-succession'].merged)
+    await played.play({ until: 'compact-boundary' })
+    const merged = stage(page, mergedStageTitle)
+    await expect(merged).toBeVisible(observed)
+    await expect(changes).toHaveCount(0)
+    await expect(checks).toHaveCount(0)
+    await expect(pick(merged, mergedStageTitle)).toHaveAttribute('aria-pressed', 'true')
+    await expect(notice).toHaveText(
+      `Этап «${checksTitle}» объединён с другими. Выбор перешёл к преемнику «${mergedStageTitle}».`,
+    )
+    expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mergedStageTitle).id)
+    near(await settled(merged), checksPlace)
+
+    await pan({ x: 500, y: 40 - checksPlace.y })
+    const aside = await settled(merged)
+    near(aside, { x: checksPlace.x + 500, y: 40 })
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect
+      .poll(async () => {
+        const [narrow, card] = [await box(canvas), await box(merged.getByRole('article'))]
+        return Math.round(narrow.right - card.right)
+      })
+      .toBe(16)
+    const revealed = await settled(merged)
+    expect(Math.abs(revealed.y - aside.y)).toBeLessThanOrEqual(1)
   })
 })

@@ -8,11 +8,15 @@ import { DisclosureGlyph } from './glyphs.js'
 import { actionForms, agentRoleLabel, serviceAgentLabel, stageOriginLabel, substageForms } from './labels.js'
 import type { EdgeKind, MapStage } from './map-graph.js'
 
+export type Selection = 'self' | 'inside' | 'none'
+
 type StageNodeData = {
   readonly node: MapStage
   readonly open: boolean
   readonly card?: ElkPoint
+  readonly selection: Selection
   readonly onToggle: (stage: StageId, open: boolean) => void
+  readonly onSelect: (stage: StageId | null) => void
 }
 
 export type StageFlowNode = Node<StageNodeData, 'stage'>
@@ -30,15 +34,20 @@ const agentLabel = (agent: Agent): string =>
   agent.name ??
   (agent.service === null ? agentRoleLabel[agent.role] : serviceAgentLabel[agent.service])
 
-const StageCard = ({ node, open, card, onToggle }: StageNodeData): ReactElement => {
+const StageCard = ({ node, open, card, selection, onToggle, onSelect }: StageNodeData): ReactElement => {
   const { stage, children, actions, agents } = node
   const team = agents.map(agentLabel).join(', ')
+  const selected = selection === 'self'
   return (
     <article
       className="stage-card"
       data-tone={executionTone(stage.execution.value)}
       data-stacked={!open && children.length > 0}
+      data-selection={selection}
       style={card === undefined ? undefined : { left: card.x, top: card.y }}
+      onClick={() => {
+        onSelect(selected ? null : stage.id)
+      }}
     >
       <header className="stage-head">
         {children.length === 0 ? null : (
@@ -47,7 +56,8 @@ const StageCard = ({ node, open, card, onToggle }: StageNodeData): ReactElement 
             className="stage-toggle nodrag nopan"
             aria-expanded={open}
             aria-label={`${open ? 'Свернуть' : 'Развернуть'} «${stage.title}»`}
-            onClick={() => {
+            onClick={(event) => {
+              event.stopPropagation()
               onToggle(stage.id, !open)
             }}
           >
@@ -55,7 +65,9 @@ const StageCard = ({ node, open, card, onToggle }: StageNodeData): ReactElement 
           </button>
         )}
         <h3 className="stage-title" title={stage.title}>
-          {stage.title}
+          <button type="button" className="stage-pick" aria-pressed={selected}>
+            {stage.title}
+          </button>
         </h3>
       </header>
       <ul className="stage-axes">
