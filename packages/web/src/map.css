@@ -1,0 +1,278 @@
+.map {
+  --map-grid: color-mix(in srgb, var(--ink) 16%, transparent);
+  --map-enclosure: color-mix(in srgb, var(--ink) 3.5%, var(--paper));
+  --map-dependency: var(--ink-soft);
+  --map-order: var(--ink-faint);
+  margin-top: 12px;
+  background: var(--sheet);
+  border: 1px solid var(--rule);
+}
+
+.map-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 12px 20px 10px;
+  border-bottom: 1px solid var(--rule);
+}
+
+.map-title {
+  font-size: 15px;
+}
+
+.map-count {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.map-note {
+  max-width: 72ch;
+  margin: 0;
+  padding: 14px 20px 16px;
+  color: var(--ink-soft);
+}
+
+.map-canvas {
+  --xy-background-color: var(--paper);
+  --xy-attribution-background-color: color-mix(in srgb, var(--paper) 80%, transparent);
+  position: relative;
+  background: var(--paper);
+}
+
+.map-canvas .react-flow__attribution a {
+  color: var(--ink-faint);
+}
+
+.map-markers {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.map-stage {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.map-stage[data-open='true'] {
+  background: var(--map-enclosure);
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
+}
+
+.map-stage[data-open='true'] > .stage-card {
+  position: absolute;
+}
+
+.map-handle.react-flow__handle {
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.stage-card {
+  --tone: var(--tone-idle);
+  display: flex;
+  flex-direction: column;
+  width: 248px;
+  height: 156px;
+  padding: 9px 12px 9px 12px;
+  overflow: hidden;
+  background: var(--sheet);
+  border: 1px solid var(--rule-strong);
+  border-left: 4px solid var(--tone);
+  color: var(--ink);
+  pointer-events: auto;
+  cursor: default;
+}
+
+.stage-card[data-tone='go'] {
+  --tone: var(--tone-go);
+}
+
+.stage-card[data-tone='ask'] {
+  --tone: var(--tone-ask);
+}
+
+.stage-card[data-tone='hold'] {
+  --tone: var(--tone-hold);
+}
+
+.stage-card[data-tone='done'] {
+  --tone: var(--tone-done);
+}
+
+.stage-card[data-tone='fail'] {
+  --tone: var(--tone-fail);
+}
+
+.stage-card[data-stacked='true'] {
+  overflow: visible;
+  box-shadow:
+    4px 4px 0 -1px var(--sheet),
+    4px 4px 0 0 var(--rule-strong),
+    8px 8px 0 -1px var(--sheet),
+    8px 8px 0 0 var(--rule-strong);
+}
+
+.stage-head {
+  display: flex;
+  flex: none;
+  align-items: flex-start;
+  gap: 2px;
+  height: 36px;
+}
+
+.stage-toggle {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  margin: -1px 0 0 -5px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.stage-toggle:hover {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  color: var(--ink);
+}
+
+.stage-title {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.stage-axes {
+  display: grid;
+  gap: 1px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12.5px;
+  line-height: 17px;
+}
+
+.stage-axes li {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stage-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 10px;
+  max-height: 32px;
+  margin: auto 0 0;
+  overflow: hidden;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.stage-team {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.map-route {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.map-route[data-kind='dependency'] {
+  stroke: var(--map-dependency);
+  stroke-width: 1.6px;
+}
+
+.map-route[data-kind='order'] {
+  stroke: var(--map-order);
+  stroke-width: 1.4px;
+  stroke-dasharray: 0.1 5;
+}
+
+#map-arrow-dependency path {
+  fill: var(--map-dependency);
+}
+
+#map-arrow-order path {
+  fill: none;
+  stroke: var(--map-order);
+  stroke-width: 1.6px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.map-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 20px;
+  margin: 0;
+  padding: 7px 20px;
+  list-style: none;
+  border-bottom: 1px solid var(--rule);
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.map-canvas .react-flow__controls {
+  border: 1px solid var(--rule-strong);
+  box-shadow: none;
+}
+
+.map-canvas .react-flow__controls-button {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-bottom: 1px solid var(--rule);
+  background: var(--sheet);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.map-canvas .react-flow__controls-button:last-child {
+  border-bottom: 0;
+}
+
+.map-canvas .react-flow__controls-button:hover {
+  background: color-mix(in srgb, var(--ink) 7%, var(--sheet));
+}
+
+@media (max-width: 760px) {
+  .map-head,
+  .map-note,
+  .map-legend {
+    padding-inline: 12px;
+  }
+}
