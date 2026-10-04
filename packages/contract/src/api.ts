@@ -92,7 +92,7 @@ export const Listener = z.strictObject({
 })
 export type Listener = z.infer<typeof Listener>
 
-export const HookInstallation = z.enum(['not_installed', 'untrusted', 'active', 'unknown'])
+export const HookInstallation = z.enum(['not_installed', 'untrusted', 'disabled', 'active', 'unknown'])
 export type HookInstallation = z.infer<typeof HookInstallation>
 
 export const RuntimeStatus = z.strictObject({
@@ -842,6 +842,14 @@ export const endpoints = {
     query: UsageQuery,
     body: null,
     response: UsageReport,
+  },
+  hooksCheck: {
+    method: 'POST',
+    path: '/api/admin/hooks-check',
+    params: null,
+    query: null,
+    body: empty,
+    response: StatusResponse,
   },
   doctor: {
     method: 'POST',
