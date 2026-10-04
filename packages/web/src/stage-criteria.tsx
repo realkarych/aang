@@ -89,6 +89,9 @@ const CriterionItem = ({ checked }: { readonly checked: CheckedCriterion }): Rea
           )}
         </span>
       </p>
+      {criterion.stage === null ? (
+        <p className="criterion-scope">Критерий всего прогона: здесь он показан, потому что к этапу привязана его проверка.</p>
+      ) : null}
       <VersionNote criterion={criterion} />
       {snapshots.length === 0 ? null : <Snapshots snapshots={snapshots} label={`Снимки рабочего дерева: ${criterion.text}`} />}
       <Grounds basis={criterion.status.basis} evidence={criterion.status.evidence} label={`Статус критерия «${criterion.text}»`} />

@@ -1047,8 +1047,11 @@ the attention items it shows. Its observer calls made these entries or were reje
 while naming the stage. Its inputs and outputs are its artifact links of that
 direction with the stored version of the run, by the time the version was observed,
 then by version and link id; a link whose version is missing or belongs to another
-run is left out. Each criterion of the stage comes with the git snapshots of the run
-that its status cites as evidence, by the time they were taken.
+run is left out. Its criteria are those of the stage and the contract criteria of
+the run (no stage) whose checks are assigned to the stage: an action of a fact that
+the status cites, or a carried check, like a failed check item of an assigned
+action. Each comes with the git snapshots of the run that its status cites as
+evidence, by the time they were taken, and its journal entries join the history.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
