@@ -1,6 +1,7 @@
-import { extname } from 'node:path'
+import { basename, extname } from 'node:path'
 import ts from 'typescript'
 import { scanCss } from './css.js'
+import { scanDockerfile, scanDockerignore } from './docker.js'
 import { scanGo } from './go.js'
 import type { ScanResult } from './scan.js'
 import { scanSql } from './sql.js'
@@ -15,6 +16,8 @@ export interface Language {
 const typeScript = (scriptKind: ts.ScriptKind): Language => ({ name: 'TypeScript', scan: scanTypeScript(scriptKind) })
 const javaScript = (scriptKind: ts.ScriptKind): Language => ({ name: 'JavaScript', scan: scanTypeScript(scriptKind) })
 const yaml: Language = { name: 'YAML', scan: scanYaml }
+const dockerfile: Language = { name: 'Dockerfile', scan: scanDockerfile }
+const dockerignore: Language = { name: 'dockerignore', scan: scanDockerignore }
 
 const languages: ReadonlyMap<string, Language> = new Map([
   ['.ts', typeScript(ts.ScriptKind.TS)],
@@ -31,6 +34,14 @@ const languages: ReadonlyMap<string, Language> = new Map([
   ['.yaml', yaml],
   ['.css', { name: 'CSS', scan: scanCss }],
   ['.json', { name: 'JSON', scan: scanJson }],
+  ['.dockerfile', dockerfile],
+  ['.dockerignore', dockerignore],
 ])
 
-export const languageOf = (path: string): Language | undefined => languages.get(extname(path).toLowerCase())
+const namedFiles: ReadonlyMap<string, Language> = new Map([
+  ['dockerfile', dockerfile],
+  ['.dockerignore', dockerignore],
+])
+
+export const languageOf = (path: string): Language | undefined =>
+  languages.get(extname(path).toLowerCase()) ?? namedFiles.get(basename(path).toLowerCase())
