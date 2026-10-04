@@ -556,11 +556,19 @@ export const ObserverUsage = z.strictObject({
 })
 export type ObserverUsage = z.infer<typeof ObserverUsage>
 
+export const ThreadTotal = z.strictObject({
+  agent: AgentId,
+  tokens: TokenUsage,
+})
+export type ThreadTotal = z.infer<typeof ThreadTotal>
+
 export const SessionUsage = z.strictObject({
   session: SessionId,
+  fork: z.boolean(),
   totals: UsageTotals,
   cost_state: CostStatePayload.nullable(),
   cost_state_final: z.boolean(),
+  thread_totals: z.array(ThreadTotal),
 })
 export type SessionUsage = z.infer<typeof SessionUsage>
 
