@@ -4,6 +4,6 @@
     "noEmit": true,
     "lib": ["es2025", "dom"]
   },
-  "include": ["*.config.ts", "vitest.setup.ts"],
+  "include": ["*.config.ts", "vitest.setup.ts", "packages/web/vite.config.ts"],
   "references": [{ "path": "tools/eslint-plugin" }]
 }

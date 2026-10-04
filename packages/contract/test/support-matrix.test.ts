@@ -1,6 +1,16 @@
-import { readFile } from 'node:fs/promises'
-import { SupportMatrix, supportMatrixFormat, type SupportRow } from '@aang/contract'
-import { describe, test } from 'vitest'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import {
+  type SupportKey,
+  SupportMatrix,
+  supportMatrixFormat,
+  type SupportRow,
+  supportRowOf,
+  supportStatusOf,
+} from '@aang/contract'
+import { readSupportMatrix, SupportMatrixError } from '@aang/contract/support-file'
+import { describe, test, type TestContext } from 'vitest'
 import { z } from 'zod'
 
 const ClaudeInit = z.object({
@@ -55,5 +65,70 @@ describe.concurrent('support matrix', () => {
       'cc-plugin-agents-md@builtin',
       'cc-plugin-plugin-authoring@builtin',
     ])
+  })
+})
+
+const key: SupportKey = {
+  runtime: 'codex',
+  surface: 'codex_exec',
+  os: 'linux',
+  placement: 'local',
+  engine_version: '0.160.0',
+}
+
+const limitedRow: SupportRow = {
+  ...key,
+  app_version: null,
+  status: 'limited',
+  gaps: ['compaction'],
+  scenarios: {
+    during_work: 'passed',
+    after_iteration: 'passed',
+    resume: 'passed',
+    compaction: 'failed',
+    child_sessions: 'passed',
+    reconnect: 'passed',
+  },
+  observer: { admission: 'passed', cross_session_inbound: 'not_run', builtins: { mcp_servers: [], plugins: [], skills: [] } },
+  verified_on: '2026-10-04',
+}
+
+const matrixDirectory = async ({ onTestFinished }: TestContext): Promise<string> => {
+  const directory = await mkdtemp(join(tmpdir(), 'aang-support-matrix-'))
+  onTestFinished(() => rm(directory, { recursive: true, force: true }))
+  return directory
+}
+
+describe.concurrent('reading the support matrix', () => {
+  test('a listed key reads its row; a version, OS or placement outside the matrix is unverified', async (context) => {
+    const { expect } = context
+    const directory = await matrixDirectory(context)
+    const path = join(directory, 'matrix.json')
+    await writeFile(path, `${JSON.stringify({ format: supportMatrixFormat, rows: [limitedRow] }, null, 2)}\n`)
+
+    const matrix = await readSupportMatrix(path)
+
+    expect(supportRowOf(matrix, key)).toEqual(limitedRow)
+    expect(supportStatusOf(matrix, key)).toBe('limited')
+    expect(supportStatusOf(matrix, { ...key, engine_version: '0.160.1' })).toBe('unverified')
+    expect(supportStatusOf(matrix, { ...key, os: 'windows' })).toBe('unverified')
+    expect(supportStatusOf(matrix, { ...key, placement: 'docker' })).toBe('unverified')
+    expect(supportRowOf(matrix, { ...key, surface: 'codex_tui' })).toBeNull()
+  })
+
+  test('a matrix file with a repeated key or broken JSON is rejected with its path', async (context) => {
+    const { expect } = context
+    const directory = await matrixDirectory(context)
+    const repeated = join(directory, 'repeated.json')
+    const broken = join(directory, 'broken.json')
+    await writeFile(repeated, JSON.stringify({ format: supportMatrixFormat, rows: [limitedRow, limitedRow] }))
+    await writeFile(broken, '{"format":')
+
+    await expect(readSupportMatrix(repeated)).rejects.toThrow(SupportMatrixError)
+    await expect(readSupportMatrix(repeated)).rejects.toThrow(/duplicate support key/)
+    const failure: unknown = await readSupportMatrix(broken).catch((error: unknown) => error)
+    expect(failure).toBeInstanceOf(SupportMatrixError)
+    expect(failure).toMatchObject({ path: broken })
+    expect((failure as SupportMatrixError).reason).toMatch(/^invalid JSON/)
   })
 })

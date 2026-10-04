@@ -15,6 +15,7 @@ import {
 import { z } from 'zod'
 import { AdminError } from './admin-error.js'
 import type { Authenticator } from './auth.js'
+import { type CookieWriteCheck, cookieWriteCheck } from './cookie-writes.js'
 import type { Admin } from './ingestion.js'
 import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
@@ -42,8 +43,10 @@ const closeGraceMs = 1_000
 
 const statuses: Readonly<Record<ApiErrorCode, number>> = {
   unauthorized: 401,
+  forbidden: 403,
   not_found: 404,
   invalid_request: 400,
+  unsupported_media_type: 415,
   conflict: 409,
   unavailable: 503,
   internal: 500,
@@ -251,6 +254,7 @@ export const startServer = async ({
 
   const handle = async (
     table: readonly ApiRoute[],
+    checkCookieWrite: CookieWriteCheck,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> => {
@@ -261,11 +265,21 @@ export const startServer = async ({
       return
     }
     const api = isApiPath(pathname)
-    if (!(await auth.authorized(request))) {
+    const credential = await auth.credential(request)
+    if (credential === null) {
       if (api) {
         sendError(response, 'unauthorized', 'a bearer token or the aang session cookie is required')
       } else {
         sendText(response, 401, 'Not signed in. Run `aang open` to get a sign-in link.')
+      }
+      return
+    }
+    const refusal = credential === 'cookie' ? checkCookieWrite(request) : null
+    if (refusal !== null) {
+      if (api) {
+        sendError(response, refusal.code, refusal.message)
+      } else {
+        sendText(response, statuses[refusal.code], refusal.message)
       }
       return
     }
@@ -282,9 +296,10 @@ export const startServer = async ({
   const { port } = server.address() as AddressInfo
   const address: Listener = { host: listener.host, port }
   const table = routes(address)
+  const checkCookieWrite = cookieWriteCheck(port)
   server.on('request', (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader('x-content-type-options', 'nosniff')
-    handle(table, request, response).catch((error: unknown) => {
+    handle(table, checkCookieWrite, request, response).catch((error: unknown) => {
       process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
       if (response.headersSent) {
         response.destroy()

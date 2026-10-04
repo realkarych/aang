@@ -1,0 +1,150 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": null,
+  "surface": "codex_tui",
+  "os": "macos",
+  "scenario": "approval",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:19:14.758Z",
+  "expected_facts": [
+    "With -a on-request -s read-only the model requests require_escalated for `touch approved.txt`; the TUI asks \"Would you like to run the following command?\"",
+    "The PermissionRequest hook is spooled while the request waits; the rollout has no record of the wait",
+    "The user approves with y; OTel codex.tool_decision reports decision approved, source User, call_id equal to the PreToolUse tool_use_id"
+  ],
+  "control_events": [
+    {
+      "label": "approval-requested",
+      "step": 5,
+      "observed_at": "2026-10-04T01:19:14.891Z",
+      "expected_map_change": {
+        "description": "The action waits for the user to approve the command"
+      }
+    },
+    {
+      "label": "approval-granted",
+      "step": 7,
+      "observed_at": "2026-10-04T01:19:15.977Z",
+      "expected_map_change": {
+        "description": "The approved command completes and the wait for approval ends"
+      }
+    },
+    {
+      "label": "turn-complete",
+      "step": 11,
+      "observed_at": "2026-10-04T01:19:16.005Z",
+      "expected_map_change": {
+        "description": "The turn completes after the approved command"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.jsonl",
+      "observed_at": "2026-10-04T01:19:14.863Z",
+      "mtime_ns": "1791076754859415190"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-04T01:19:14.890Z",
+      "mtime_ns": "1791076754877180303"
+    },
+    {
+      "source": "spool/000003.spool",
+      "observed_at": "2026-10-04T01:19:14.867Z",
+      "mtime_ns": "1791076754867542969"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-04T01:19:14.867Z",
+      "mtime_ns": "1791076754867542969"
+    },
+    {
+      "source": "spool/000005.spool",
+      "observed_at": "2026-10-04T01:19:14.872Z",
+      "mtime_ns": "1791076754872871308"
+    },
+    {
+      "source": "data/000006.json",
+      "observed_at": "2026-10-04T01:19:14.872Z",
+      "mtime_ns": "1791076754872871308"
+    },
+    {
+      "source": "spool/000007.spool",
+      "observed_at": "2026-10-04T01:19:14.882Z",
+      "mtime_ns": "1791076754882501808"
+    },
+    {
+      "source": "data/000008.json",
+      "observed_at": "2026-10-04T01:19:14.882Z",
+      "mtime_ns": "1791076754882501808"
+    },
+    {
+      "source": "spool/000009.spool",
+      "observed_at": "2026-10-04T01:19:14.891Z",
+      "mtime_ns": "1791076754891202634"
+    },
+    {
+      "source": "data/000010.json",
+      "observed_at": "2026-10-04T01:19:14.891Z",
+      "mtime_ns": "1791076754891202634"
+    },
+    {
+      "source": "data/000011.json",
+      "observed_at": "2026-10-04T01:19:14.993Z",
+      "mtime_ns": "1791076754993000000"
+    },
+    {
+      "source": "data/000012.jsonl",
+      "observed_at": "2026-10-04T01:19:15.981Z",
+      "mtime_ns": "1791076755979589965"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-04T01:19:15.977Z",
+      "mtime_ns": "1791076755977616324"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:19:15.977Z",
+      "mtime_ns": "1791076755977616324"
+    },
+    {
+      "source": "data/000015.json",
+      "observed_at": "2026-10-04T01:19:16.004Z",
+      "mtime_ns": "1791076756004000000"
+    },
+    {
+      "source": "data/000016.jsonl",
+      "observed_at": "2026-10-04T01:19:16.005Z",
+      "mtime_ns": "1791076755993958207"
+    },
+    {
+      "source": "spool/000017.spool",
+      "observed_at": "2026-10-04T01:19:15.992Z",
+      "mtime_ns": "1791076755992713822"
+    },
+    {
+      "source": "data/000018.json",
+      "observed_at": "2026-10-04T01:19:15.992Z",
+      "mtime_ns": "1791076755992713822"
+    },
+    {
+      "source": "spool/000019.spool",
+      "observed_at": "2026-10-04T01:19:18.040Z",
+      "mtime_ns": "1791076758040463182"
+    },
+    {
+      "source": "data/000020.json",
+      "observed_at": "2026-10-04T01:19:18.040Z",
+      "mtime_ns": "1791076758040463182"
+    },
+    {
+      "source": "data/000021.json",
+      "observed_at": "2026-10-04T01:19:18.066Z",
+      "mtime_ns": "1791076758066000000"
+    }
+  ],
+  "playback": "playback.json"
+}

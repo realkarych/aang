@@ -1,13 +1,15 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": "src",
-    "outDir": "dist",
-    "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
-    "lib": ["es2025", "dom"],
-    "types": []
+    "noEmit": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "lib": ["es2025", "dom", "dom.iterable"],
+    "types": ["vite/client"],
+    "skipLibCheck": true
   },
-  "include": ["src"],
+  "include": ["src", "test"],
   "references": [
     { "path": "../contract" }
   ]
