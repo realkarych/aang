@@ -60,12 +60,34 @@ const codexAsyncQuestion = (text: string): string => {
   })}\n`
 }
 
+const zoneSize = async (page: Page, run: RunId): Promise<number> => {
+  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  return response.ok() ? endpoints.run.response.parse(await response.json()).view.zone.length : 0
+}
+
+const fromPage = async (page: Page, method: 'POST' | 'DELETE', path: string, body: unknown): Promise<unknown> => {
+  const { status, text } = await page.evaluate(
+    async ([verb, target, payload]) => {
+      const response = await fetch(target, {
+        method: verb,
+        headers: { 'content-type': 'application/json' },
+        body: payload === null ? null : JSON.stringify(payload),
+      })
+      return { status: response.status, text: await response.text() }
+    },
+    [method, path, body] as const,
+  )
+  expect(status, text).toBe(200)
+  return JSON.parse(text)
+}
+
 const hideBash = async (page: Page, run: RunId): Promise<string> => {
-  const response = await page.request.post(endpoints.createViewRule.path.replace(':run', run), {
-    data: { action: 'hide', selector: { kind: 'action_tool', tool: 'Bash' }, params: null },
+  const created = await fromPage(page, 'POST', endpoints.createViewRule.path.replace(':run', run), {
+    action: 'hide',
+    selector: { kind: 'action_tool', tool: 'Bash' },
+    params: null,
   })
-  expect(response.status(), await response.text()).toBe(200)
-  return endpoints.createViewRule.response.parse(await response.json()).rule.rule.id
+  return endpoints.createViewRule.response.parse(created).rule.rule.id
 }
 
 test.describe('with a fast spool scan', () => {
@@ -198,26 +220,34 @@ test.describe('with a fast spool scan', () => {
     await expect(approval).toContainText('из скрытого элемента')
     await expect(approval).toContainText('ждёт ответа')
 
-    const revoked = await page.request.delete(
+    await fromPage(
+      page,
+      'DELETE',
       endpoints.revokeViewRule.path.replace(':run', run).replace(':id', encodeURIComponent(rule)),
+      null,
     )
-    expect(revoked.status(), await revoked.text()).toBe(200)
     await expect(approval).not.toContainText('из скрытого элемента')
     await expect(approval).toContainText('ждёт ответа')
   })
 
-  test('a failed mark or dismissal keeps the item and says why, a lost sign-in shows the sign-in screen', async ({
+  test('a failed mark or dismissal keeps the item and says why, a rotated token shows the sign-in screen', async ({
     page,
     player,
     profile,
     hook,
+    aang,
+    daemon,
   }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
-    await page.goto(`/?run=${runOf(claudeOriginal)}`)
-    await expect(fact(page, 'Агенты')).toHaveText('2')
+    const run = runOf(claudeOriginal)
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)
     await hook.claude('PreToolUse.Bash.json', askUser(fields, 'toolu_h3_failing', choice))
+    await expect.poll(() => zoneSize(page, run)).toBe(1)
+
+    await page.route('**/api/stream?**', (route) => route.abort('connectionfailed'))
+    await page.route('**/api/status', (route) => route.abort('connectionfailed'))
+    await page.goto(`/?run=${run}`)
     const question = zoneItem(page, choice)
     await expect(question).toContainText('ждёт ответа')
 
@@ -226,22 +256,21 @@ test.describe('with a fast spool scan', () => {
     await expect(question.getByRole('alert')).toHaveText('Не удалось отметить пункт: нет связи с демоном')
     await expect(question.getByRole('button', { name: 'Отметить просмотренным' })).toBeEnabled()
 
-    await page.route('**/attention/*/dismiss', (route) =>
-      route.fulfill({ status: 409, json: { error: { code: 'conflict', message: 'the item changed' } } }),
-    )
+    await aang('prune', '--run', run)
     await question.getByRole('button', { name: 'Снять' }).click()
-    await expect(question.getByRole('alert')).toHaveText('Не удалось снять пункт: the item changed')
+    await expect(question.getByRole('alert')).toHaveText('Не удалось снять пункт: пункт или его прогон удалён')
     await expect(question).toContainText('ждёт ответа')
     await expect(historyToggle(page)).toHaveCount(0)
 
-    await page.unroute('**/attention/*/dismiss')
-    await page.route('**/attention/*/dismiss', (route) =>
-      route.fulfill({ status: 401, json: { error: { code: 'unauthorized', message: 'signed out' } } }),
-    )
+    await aang('token', 'rotate')
     await question.getByRole('button', { name: 'Снять' }).click()
     await expect(page.getByRole('heading', { name: 'Вход не выполнен' })).toBeVisible()
+
+    await aang('stop')
+    expect(await daemon.exited, daemon.output()).toEqual({ code: 0, signal: null })
   })
-  test('a mark and a dismissal take effect from the answer of the daemon while the live stream is down', async ({
+
+  test('while the live stream is down a viewed item goes below the unviewed one and a dismissed one moves to the history', async ({
     page,
     player,
     profile,
@@ -254,21 +283,21 @@ test.describe('with a fast spool scan', () => {
     await hook.claude('PreToolUse.Bash.json', askUser(fields, 'toolu_h3_offline', choice))
     await hook.claude('PreToolUse.Bash.json', { ...fields, tool_use_id: 'toolu_h3_offline_probe', tool_input: probe })
     await hook.claude('PermissionRequest.Bash.json', fields)
-    await expect
-      .poll(async () => {
-        const response = await page.request.get(endpoints.run.path.replace(':run', run))
-        return response.ok() ? endpoints.run.response.parse(await response.json()).view.zone.length : 0
-      })
-      .toBe(2)
+    await expect.poll(() => zoneSize(page, run)).toBe(2)
 
     await page.route('**/api/stream?**', (route) => route.abort('connectionfailed'))
     await page.goto(`/?run=${run}`)
     const question = zoneItem(page, choice)
     const approval = zoneItem(page, 'Bash: touch probe-perm.txt')
     await expect(openItems(page)).toHaveCount(2)
+    await expect(openItems(page).nth(0)).toContainText(choice)
+    await expect(openItems(page).nth(1)).toContainText('Bash: touch probe-perm.txt')
 
-    await approval.getByRole('button', { name: 'Отметить просмотренным' }).click()
-    await expect(approval).toContainText('просмотрен')
+    await question.getByRole('button', { name: 'Отметить просмотренным' }).click()
+    await expect(question).toContainText('просмотрен')
+    await expect(openItems(page).nth(0)).toContainText('Bash: touch probe-perm.txt')
+    await expect(openItems(page).nth(1)).toContainText(choice)
+    await expect(approval.getByRole('button', { name: 'Отметить просмотренным' })).toBeVisible()
     await question.getByRole('button', { name: 'Снять' }).click()
     await expect(question).toHaveCount(0)
     await expect(zone(page).getByRole('status')).toHaveText(`Пункт «${choice}» снят из зоны и сохранён в истории.`)
@@ -356,10 +385,6 @@ const stageOf = async (page: Page, run: RunId, title: string): Promise<Stage | n
 }
 
 test.describe('with the observer of the attention zone', () => {
-  test.skip(
-    process.platform === 'win32',
-    'on Windows the fake CLI needs node with a script and cannot be the configured observer CLI',
-  )
   test.use({
     config: fastSpool,
     claudeScenario: observerScenarios['attention-zone'].live,
@@ -451,10 +476,6 @@ test.describe('with the observer of the attention zone', () => {
 })
 
 test.describe('with the observer and a check contract', () => {
-  test.skip(
-    process.platform === 'win32',
-    'on Windows the fake CLI needs node with a script and cannot be the configured observer CLI',
-  )
   test.use({
     config: {
       ...fastSpool,

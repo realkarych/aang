@@ -9,7 +9,7 @@ import type {
   SessionId,
 } from '@aang/contract'
 import { type ReactElement, type RefObject, useEffect, useId, useRef, useState } from 'react'
-import { dismissAttention, markAttentionViewed, SignedOut, Unreachable } from './api.js'
+import { dismissAttention, markAttentionViewed, NotFound, SignedOut, Unreachable } from './api.js'
 import { plural } from './format.js'
 import { AttentionGlyph, LevelGlyph, ZoneGlyph } from './glyphs.js'
 import {
@@ -114,7 +114,13 @@ const sessionEnded = (objects: ObservationObjects, item: AttentionItem): boolean
 }
 
 const failureReason = (error: unknown): string =>
-  error instanceof Unreachable ? 'нет связи с демоном' : error instanceof Error ? error.message : String(error)
+  error instanceof Unreachable
+    ? 'нет связи с демоном'
+    : error instanceof NotFound
+      ? 'пункт или его прогон удалён'
+      : error instanceof Error
+        ? error.message
+        : String(error)
 
 const clipped = (text: string): string => {
   const [line = text] = text.split('\n')
