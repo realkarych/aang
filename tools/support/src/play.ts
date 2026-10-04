@@ -4,8 +4,17 @@ import { basename, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
-import { createCollector } from '@aang/collector'
-import { type Adapter, type AdapterRegistry, type CollectorBatch, Config, type Runtime, spoolLayout } from '@aang/contract'
+import { createCollector, type CollectorService } from '@aang/collector'
+import {
+  type Adapter,
+  type AdapterRegistry,
+  type CollectedGap,
+  type CollectorBatch,
+  Config,
+  type Gap,
+  type Runtime,
+  spoolLayout,
+} from '@aang/contract'
 import { contentHash } from '@aang/contract/ids'
 import { createEngine } from '@aang/engine'
 import { openStore, type Store } from '@aang/store'
@@ -31,6 +40,14 @@ export interface PlaybackRoots {
 export interface Played {
   readonly store: Store
   readonly roots: PlaybackRoots
+  readonly restarts: number
+}
+
+interface Ingestion {
+  readonly store: Store
+  readonly collector: CollectorService
+  readonly stop: () => Promise<void>
+  readonly close: () => Promise<void>
 }
 
 type Collected = 'tail' | 'snapshot' | null
@@ -56,11 +73,21 @@ const otelToken = 'contract-run-otel-token-0123456789'
 const otelDirectory = 'otel'
 const toolDecisionEvent = 'codex.tool_decision'
 
+export const restartLabel = 'daemon-restart'
+
 const stepLabel = (index: number): string => `contract-step-${String(index)}`
 
 const stepwise = (manifest: LoadedManifest): LoadedManifest => ({
   ...manifest,
   steps: manifest.steps.map((step, index) => ({ ...step, label: stepLabel(index) })),
+})
+
+const collectedGap = ({ key, stream, details, detected_at, closed_at }: Gap): CollectedGap => ({
+  key,
+  stream,
+  details,
+  detected_at,
+  closed_at,
 })
 
 const collectedAs = ({ root, path }: Target): Collected => {
@@ -79,14 +106,14 @@ const collectedAs = ({ root, path }: Target): Collected => {
   if (top === 'teams') {
     return segments.length === 3 && name === 'config.json' ? 'snapshot' : null
   }
-  if (top !== 'projects') {
+  if (top !== 'projects' || segments.slice(3, -1).includes('tool-results')) {
     return null
   }
-  if (name.endsWith('.jsonl')) {
+  if (name.endsWith('.jsonl') || path.includes('.jsonl.superseded-')) {
     return 'tail'
   }
   const workflow = name.endsWith('.json') && segments.at(-2) === 'workflows'
-  return !segments.slice(3, -1).includes('tool-results') && (name.endsWith('.meta.json') || workflow) ? 'snapshot' : null
+  return name.endsWith('.meta.json') || workflow ? 'snapshot' : null
 }
 
 const createRoots = async (): Promise<PlaybackRoots> => {
@@ -192,27 +219,45 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
   const roots = await createRoots()
   const spool = join(roots.base, 'spool')
   await leaseSpool(spool)
-  const store = openStore({ home: join(roots.base, 'aang') })
-  const engine = createEngine({ store, adapters, watch: { all: true, roots: [] } })
-  const collector = createCollector({
-    spool,
-    runtimeRoots: { claude: roots.claude, codex: roots.codex },
-    config: Config.parse({ collector: { spoolScanIntervalMs: scanIntervalMs, rootsScanIntervalMs: scanIntervalMs } }),
-    adapters,
-  })
   const observed: Observed = { otel: 0, reads: new Map(), offsets: new Map(), streams: new Map(), files: new Map(), lost: new Set() }
   const state = { failure: null as Error | null }
-  const loop = (async () => {
-    for await (const batch of collector.start(store.cursors.list())) {
-      const result = await engine.ingest(batch)
-      for (const settled of result.settled) {
-        await collector.ack(settled)
+
+  const startIngestion = (): Ingestion => {
+    const store = openStore({ home: join(roots.base, 'aang') })
+    const engine = createEngine({ store, adapters, watch: { all: true, roots: [] } })
+    const collector = createCollector({
+      spool,
+      runtimeRoots: { claude: roots.claude, codex: roots.codex },
+      config: Config.parse({ collector: { spoolScanIntervalMs: scanIntervalMs, rootsScanIntervalMs: scanIntervalMs } }),
+      adapters,
+      openGaps: store.gaps.open('source_lost').map(collectedGap),
+    })
+    const loop = (async () => {
+      for await (const batch of collector.start(store.cursors.list())) {
+        const { settled, rescan } = await engine.ingest(batch)
+        for (const acknowledged of settled) {
+          await collector.ack(acknowledged)
+        }
+        if (rescan.length > 0) {
+          collector.rescan(rescan)
+        }
+        observe(observed, batch)
       }
-      observe(observed, batch)
+    })().catch((error: unknown) => {
+      state.failure = error instanceof Error ? error : new Error(String(error))
+    })
+    let stopping: Promise<void> | null = null
+    let closed = false
+    const stop = (): Promise<void> => (stopping ??= collector.close().then(() => loop))
+    const close = async (): Promise<void> => {
+      await stop()
+      if (!closed) {
+        closed = true
+        store.close()
+      }
     }
-  })().catch((error: unknown) => {
-    state.failure = error instanceof Error ? error : new Error(String(error))
-  })
+    return { store, collector, stop, close }
+  }
 
   const pathOf = (target: Target): string => join(roots[target.root], ...target.path.split('/'))
 
@@ -278,9 +323,11 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     }
   }
 
+  let ingestion = startIngestion()
+  let restarts = 0
   let failure: Error | null = null
   try {
-    const listener = await collector.listenOtel({ port: 0, token: otelToken })
+    const listener = await ingestion.collector.listenOtel({ port: 0, token: otelToken })
     const player = createPlayer(stepwise(manifest), {
       roots,
       hook: { binary: options.hookBinary, spool },
@@ -292,17 +339,22 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
       const before: Before = { otel: observed.otel, reads: new Map(observed.reads) }
       await player.play(next < manifest.steps.length ? { until: stepLabel(next) } : {})
       await awaitStep(index, step, before)
+      if (step.label === restartLabel) {
+        await ingestion.close()
+        ingestion = startIngestion()
+        await ingestion.collector.listenOtel({ port: listener.port, token: otelToken })
+        restarts += 1
+      }
     }
   } catch (error) {
     failure = error instanceof Error ? error : new Error(String(error))
   }
-  await collector.close()
-  await loop
+  await ingestion.stop()
   failure ??= state.failure
   if (failure !== null) {
-    store.close()
+    await ingestion.close()
     await removeRoots(roots)
     throw failure
   }
-  return { store, roots }
+  return { store: ingestion.store, roots, restarts }
 }

@@ -1,6 +1,6 @@
 export { invariantViolations } from './invariants.js'
 export { generateMatrix, type MatrixOptions, type RecordingOutcome, serializeMatrix, supportGaps } from './matrix.js'
-export { playRecording, type Played, type PlaybackRoots, type PlayOptions, removeRoots } from './play.js'
+export { playRecording, type Played, type PlaybackRoots, type PlayOptions, removeRoots, restartLabel } from './play.js'
 export { findRecordings, type Recording, recordingName } from './recordings.js'
 export {
   checkRecording,
@@ -10,6 +10,7 @@ export {
   inContractRun,
   matrixOf,
   matrixPath,
+  notRestarted,
   passed,
   pendingScenarios,
   readMatrix,

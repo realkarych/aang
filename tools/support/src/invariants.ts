@@ -1,11 +1,24 @@
-import { ChangeSeq, type Fact, type FactOf, type TokenUsage } from '@aang/contract'
+import {
+  Action,
+  Agent,
+  ArtifactVersion,
+  ChangeSeq,
+  type Fact,
+  type FactOf,
+  Gap,
+  GitSnapshot,
+  ModelEntity,
+  Question,
+  Run,
+  Session,
+  type TokenUsage,
+  UsageRecord,
+} from '@aang/contract'
 import type { Store } from '@aang/store'
+import type { z } from 'zod'
+import { mapIds } from './references.js'
 
 const everything = 1_000_000_000
-
-const derivedId = /^[0-9a-f]{32}$/
-
-const notReferences = new Set(['id', 'artifact'])
 
 const tokenFields = [
   'uncached_input_tokens',
@@ -34,55 +47,46 @@ const duplicateFacts = (facts: readonly Fact[]): string[] => {
   return problems
 }
 
-const referencesIn = (value: unknown, path: string, found: (path: string, id: string) => void): void => {
-  if (typeof value === 'string') {
-    if (derivedId.test(value)) {
-      found(path, value)
-    }
-  } else if (Array.isArray(value)) {
-    value.forEach((item: unknown) => { referencesIn(item, `${path}[]`, found) })
-  } else if (typeof value === 'object' && value !== null) {
-    for (const [key, member] of Object.entries(value)) {
-      if (!notReferences.has(key)) {
-        referencesIn(member, `${path}.${key}`, found)
-      }
-    }
-  }
-}
-
 const unresolvedReferences = (store: Store, facts: readonly Fact[]): string[] => {
   const sessions = store.observations.sessions()
-  const objects = sessions.flatMap(({ id }) => [
-    ...store.observations.agents(id),
-    ...store.observations.actions(id),
-    ...store.observations.questions(id),
-    ...store.observations.usageRecords(id),
-  ])
+  const ofSessions = <T>(read: (session: (typeof sessions)[number]['id']) => T[]): T[] => sessions.flatMap(({ id }) => read(id))
+  const agents = ofSessions(store.observations.agents)
+  const actions = ofSessions(store.observations.actions)
+  const questions = ofSessions(store.observations.questions)
+  const usage = ofSessions(store.observations.usageRecords)
   const runs = store.model.runs()
-  const artifacts = runs.flatMap(({ id }) => [...store.artifacts.versions(id), ...store.artifacts.snapshots(id)])
+  const versions = runs.flatMap(({ id }) => store.artifacts.versions(id))
+  const snapshots = runs.flatMap(({ id }) => store.artifacts.snapshots(id))
   const entities = runs.flatMap(({ id }) => store.model.entities(id))
-  const known = new Set<string>([
-    ...facts.map(({ id }) => id),
-    ...[...sessions, ...objects, ...artifacts, ...runs].map(({ id }) => id),
-    ...entities.flatMap(({ value }) => (typeof value === 'object' && 'id' in value ? [String(value.id)] : [])),
-  ])
+  const calls = runs.flatMap(({ id }) => store.observerCalls.ofRun(id))
   const gaps = store.changes.after(ChangeSeq.parse(0), everything).flatMap((change) => (change.layer === 'gap' ? [change.gap] : []))
+  const known = new Set<string>([
+    ...[...facts, ...sessions, ...agents, ...actions, ...questions, ...usage, ...versions, ...snapshots, ...gaps, ...runs, ...calls].map(({ id }) => id),
+    ...versions.map(({ artifact }) => artifact),
+    ...entities.flatMap(({ value }) => ('id' in value ? [value.id] : [])),
+  ])
   const problems = new Set<string>()
-  const check = (owner: string, value: unknown): void => {
-    referencesIn(value, owner, (path, id) => {
-      if (!known.has(id)) {
-        problems.add(`${path} refers to ${id}, which is not stored`)
-      }
-    })
+  const check = (owner: string, schema: z.ZodType, items: readonly unknown[]): void => {
+    for (const item of items) {
+      mapIds(schema, item, (id, path) => {
+        if (!known.has(id)) {
+          problems.add(`${path} refers to ${id}, which is not stored`)
+        }
+        return id
+      }, owner)
+    }
   }
-  for (const item of [...sessions, ...objects, ...artifacts, ...gaps]) {
-    check(item.key.kind, item)
-  }
-  for (const run of runs) {
-    check('run', run)
-  }
+  check('session', Session, sessions)
+  check('agent', Agent, agents)
+  check('action', Action, actions)
+  check('question', Question, questions)
+  check('usage', UsageRecord, usage)
+  check('artifact_version', ArtifactVersion, versions)
+  check('git_snapshot', GitSnapshot, snapshots)
+  check('gap', Gap, gaps)
+  check('run', Run, runs)
   for (const entity of entities) {
-    check(entity.kind, entity.value)
+    check(entity.kind, ModelEntity, [entity])
   }
   return [...problems].sort()
 }

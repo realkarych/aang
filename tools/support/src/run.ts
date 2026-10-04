@@ -6,7 +6,7 @@ import { type RecordingManifest, verifyRecording } from '@aang/record'
 import { loadManifest } from '@aang/testkit'
 import { invariantViolations } from './invariants.js'
 import { generateMatrix, type RecordingOutcome, serializeMatrix } from './matrix.js'
-import { playRecording, removeRoots } from './play.js'
+import { playRecording, removeRoots, restartLabel } from './play.js'
 import { findRecordings, type Recording } from './recordings.js'
 import { takeSnapshot } from './snapshot.js'
 
@@ -21,6 +21,7 @@ export interface RecordingCheck {
   readonly snapshot: string
   readonly expected: string | null
   readonly violations: readonly string[]
+  readonly restarts: number
 }
 
 export interface ContractRun {
@@ -37,6 +38,10 @@ export const pendingScenarios: Readonly<Record<Runtime, readonly string[]>> = {
 
 export const inContractRun = ({ runtime, scenario }: Pick<RecordingManifest, 'runtime' | 'scenario'>): boolean =>
   !pendingScenarios[runtime].includes(scenario)
+
+const reconnectScenario = 'reconnect'
+
+export const notRestarted = `the recording has no ${restartLabel} step, so the daemon is never restarted`
 
 const snapshotsDirectory = 'contract'
 const matrixFile = 'matrix.json'
@@ -67,13 +72,14 @@ export const passed = (check: RecordingCheck): boolean => check.violations.lengt
 export const checkRecording = async (recording: Recording, options: ContractRunOptions): Promise<RecordingCheck> => {
   await verifyRecording(recording.directory)
   const manifest = await loadManifest(join(recording.directory, 'playback.json'))
-  const { store, roots } = await playRecording(manifest, { hookBinary: options.hookBinary })
+  const { store, roots, restarts } = await playRecording(manifest, { hookBinary: options.hookBinary })
   try {
     return {
       recording,
       snapshot: `${JSON.stringify(takeSnapshot(store, roots.base), null, 2)}\n`,
       expected: await readOptional(snapshotFile(options.support, recording)),
-      violations: invariantViolations(store),
+      violations: [...(recording.manifest.scenario === reconnectScenario && restarts === 0 ? [notRestarted] : []), ...invariantViolations(store)],
+      restarts,
     }
   } finally {
     store.close()

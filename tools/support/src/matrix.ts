@@ -40,7 +40,13 @@ export const supportGaps = {
   failed: (names: readonly string[]) => `the contract run fails on: ${names.join(', ')}`,
   missing: (names: readonly string[]) => `no reference recordings of: ${names.join(', ')}`,
   userScenarios: 'user scenarios are not verified (E2E 1 and 4)',
+  userScenariosFail: (names: readonly string[]) => `user scenarios fail: ${names.join(', ')}`,
 } as const
+
+const userScenarios: readonly (readonly [Exclude<keyof SupportScenarios, ContractField>, string])[] = [
+  ['during_work', 'E2E 1'],
+  ['after_iteration', 'E2E 4'],
+]
 
 const notRun: SupportScenarios = {
   during_work: 'not_run',
@@ -103,6 +109,7 @@ const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOpt
     child_sessions: fieldResult(own, contractFields.child_sessions),
     reconnect: fieldResult(own, contractFields.reconnect),
   }
+  const failedUser = userScenarios.filter(([field]) => scenarios[field] === 'failed').map(([, name]) => name)
   const recorded = new Set(own.map(({ manifest }) => manifest.scenario))
   const failed = [...new Set(own.filter(({ passed }) => !passed).map(({ manifest }) => manifest.scenario))].sort()
   const missing = requiredScenarios(key.surface, key.os, options.contractScenarios).filter((name) => !recorded.has(name)).sort()
@@ -112,7 +119,8 @@ const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOpt
     ...(own.length === 0 ? [supportGaps.noRecordings] : []),
     ...(failed.length === 0 ? [] : [supportGaps.failed(failed)]),
     ...(own.length === 0 || missing.length === 0 ? [] : [supportGaps.missing(missing)]),
-    ...(scenarios.during_work === 'not_run' || scenarios.after_iteration === 'not_run' ? [supportGaps.userScenarios] : []),
+    ...(failedUser.length === 0 ? [] : [supportGaps.userScenariosFail(failedUser)]),
+    ...(userScenarios.some(([field]) => scenarios[field] === 'not_run') ? [supportGaps.userScenarios] : []),
   ]
   const claimed = previous !== null && previous.status !== 'unverified' && reasons.length === 0 ? previous : null
   return {

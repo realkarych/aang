@@ -1,5 +1,23 @@
-import { ChangeSeq, type Fact, type RawRecord } from '@aang/contract'
+import {
+  Action,
+  Agent,
+  ArtifactVersion,
+  ChangeSeq,
+  Fact,
+  Gap,
+  GitSnapshot,
+  ModelEntity,
+  ObservationRemoval,
+  Question,
+  type RawRecord,
+  Run,
+  RunId,
+  Session,
+  UsageRecord,
+} from '@aang/contract'
 import type { Store } from '@aang/store'
+import { z } from 'zod'
+import { mapIds } from './references.js'
 
 export type SnapshotValue = null | boolean | number | string | readonly SnapshotValue[] | { readonly [key: string]: SnapshotValue }
 
@@ -26,9 +44,23 @@ export interface ContractSnapshot {
 
 const everything = 1_000_000_000
 
-const derivedId = /^[0-9a-f]{32}$/
-
 const timeMarker = '<time>'
+
+const StoredRemoval = z.intersection(ObservationRemoval, z.strictObject({ run: RunId.nullable() }))
+
+class Reference {
+  readonly id: string
+
+  constructor(id: string) {
+    this.id = id
+  }
+}
+
+const isObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const marked = (schema: z.ZodType, items: readonly unknown[]): unknown[] =>
+  items.map((item) => mapIds(schema, item, (id) => new Reference(id), ''))
 
 const omittedKeys = new Set(['change_seq'])
 
@@ -89,18 +121,18 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
     return result
   }
 
-  const text = (value: string): string => {
-    if (derivedId.test(value)) {
-      const label = labels.get(value) ?? `#${String(labels.size + 1)}`
-      labels.set(value, label)
-      return label
-    }
-    return stable(value)
+  const label = (id: string): string => {
+    const assigned = labels.get(id) ?? `#${String(labels.size + 1)}`
+    labels.set(id, assigned)
+    return assigned
   }
 
   const labelOrder = (label: SnapshotValue): number => (typeof label === 'string' ? Number(label.slice(1)) : 0)
 
   const value = (input: unknown): SnapshotValue => {
+    if (input instanceof Reference) {
+      return label(input.id)
+    }
     if (typeof input === 'bigint') {
       return timeMarker
     }
@@ -108,11 +140,11 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
       return input
     }
     if (typeof input === 'string') {
-      return text(input)
+      return stable(input)
     }
     if (Array.isArray(input)) {
       const items = input.map(value)
-      const ids = input.every((item) => typeof item === 'string' && derivedId.test(item))
+      const ids = input.every((item) => item instanceof Reference)
       return ids ? items.toSorted((left, right) => labelOrder(left) - labelOrder(right)) : items
     }
     if (typeof input === 'object') {
@@ -127,7 +159,7 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
 
   const orderText = (item: unknown): string =>
     JSON.stringify(item, (_, member: unknown) =>
-      typeof member === 'bigint' ? timeMarker : typeof member === 'string' ? (derivedId.test(member) ? '#' : stable(member)) : member,
+      member instanceof Reference ? '#' : typeof member === 'bigint' ? timeMarker : typeof member === 'string' ? stable(member) : member,
     )
 
   const sorted = <T>(items: readonly T[], by: (item: T) => unknown = (item) => item): T[] =>
@@ -156,7 +188,7 @@ const factView = ({ id, kind, entity_key, speaker, urgent, at, runtime_ids, runt
   payload,
 })
 
-const byKey = ({ key }: { readonly key: unknown }): unknown => key
+const byKey = (item: unknown): unknown => (isObject(item) ? item.key : undefined)
 
 export const takeSnapshot = (store: Store, base: string): ContractSnapshot => {
   const changes = store.changes.after(ChangeSeq.parse(0), everything)
@@ -169,15 +201,22 @@ export const takeSnapshot = (store: Store, base: string): ContractSnapshot => {
   const runs = store.model.runs()
   return {
     records: recordCounts(records),
-    facts: value(facts.toSorted((left, right) => left.seq - right.seq).map(factView)),
-    sessions: value(sorted(sessions, byKey)),
-    agents: value(sorted(ofSessions(store.observations.agents), byKey)),
-    actions: value(sorted(ofSessions(store.observations.actions), byKey)),
-    questions: value(sorted(ofSessions(store.observations.questions), byKey)),
-    usage: value(sorted(ofSessions(store.observations.usageRecords), byKey)),
-    artifacts: value(sorted(runs.flatMap(({ id }) => [...store.artifacts.versions(id), ...store.artifacts.snapshots(id)]), byKey)),
-    gaps: value(sorted(changes.flatMap((change) => (change.layer === 'gap' ? [change.gap] : [])), byKey)),
-    removals: value(sorted(changes.flatMap((change) => (change.layer === 'removal' ? [change.removal] : [])))),
-    runs: value(sorted(runs).map((run) => ({ run, entities: sorted(store.model.entities(run.id)) }))),
+    facts: value(marked(Fact, facts.toSorted((left, right) => left.seq - right.seq).map(factView))),
+    sessions: value(sorted(marked(Session, sessions), byKey)),
+    agents: value(sorted(marked(Agent, ofSessions(store.observations.agents)), byKey)),
+    actions: value(sorted(marked(Action, ofSessions(store.observations.actions)), byKey)),
+    questions: value(sorted(marked(Question, ofSessions(store.observations.questions)), byKey)),
+    usage: value(sorted(marked(UsageRecord, ofSessions(store.observations.usageRecords)), byKey)),
+    artifacts: value(
+      sorted(
+        runs.flatMap(({ id }) => [...marked(ArtifactVersion, store.artifacts.versions(id)), ...marked(GitSnapshot, store.artifacts.snapshots(id))]),
+        byKey,
+      ),
+    ),
+    gaps: value(sorted(marked(Gap, changes.flatMap((change) => (change.layer === 'gap' ? [change.gap] : []))), byKey)),
+    removals: value(sorted(marked(StoredRemoval, changes.flatMap((change) => (change.layer === 'removal' ? [change.removal] : []))))),
+    runs: value(
+      sorted(runs.map((run) => ({ run: marked(Run, [run])[0], entities: sorted(marked(ModelEntity, store.model.entities(run.id))) }))),
+    ),
   }
 }

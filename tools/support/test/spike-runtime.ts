@@ -1,6 +1,7 @@
 import { execFileSync } from 'node:child_process'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { createPlayer, loadManifest, type SampleScenario, sampleScenarioManifest } from '@aang/testkit'
 
 const required = (name: string): string => {
@@ -29,6 +30,8 @@ const cwd = '/tmp/aang-spike/cc-transcripts/run'
 const transcript = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run', `${session}.jsonl`)
 const movedTranscript = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run-moved', `${session}.jsonl`)
 const registry = join(roots.claude, 'sessions', '60263.json')
+const capturePauseMs = 250
+const toolResult = join(roots.claude, 'projects', '-tmp-aang-spike-cc-transcripts-run', session, 'tool-results', 'output.jsonl')
 
 const sessionVariables: readonly string[] = [
   'AI_AGENT',
@@ -88,6 +91,11 @@ const register = async (status: string): Promise<void> => {
   await writeFile(registry, JSON.stringify({ ...entry, status: status === 'null' ? null : status, statusUpdatedAt: 1790856640000 }))
 }
 
+const writeToolResult = async (): Promise<void> => {
+  await mkdir(dirname(toolResult), { recursive: true })
+  await writeFile(toolResult, `${JSON.stringify({ type: 'tool_result', content: 'probe' })}\n`)
+}
+
 const relocate = async (): Promise<void> => {
   await mkdir(dirname(movedTranscript), { recursive: true })
   await rename(transcript, movedTranscript)
@@ -110,6 +118,10 @@ for (const step of steps) {
     await rm(registry)
   } else if (step === 'relocate') {
     await relocate()
+  } else if (step === 'tool-result') {
+    await writeToolResult()
+  } else if (step === 'pause') {
+    await sleep(capturePauseMs)
   } else if (step === 'delete') {
     await rm(movedTranscript)
   } else {

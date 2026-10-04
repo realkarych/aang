@@ -3,6 +3,12 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
+  ActionId,
+  EpochNs,
+  type Link,
+  LinkId,
+  ModelVersion,
+  StageId,
   type SupportKey,
   type SupportMatrix,
   supportMatrixFormat,
@@ -11,14 +17,29 @@ import {
   supportStatusOf,
 } from '@aang/contract'
 import { readSupportMatrix } from '@aang/contract/support-file'
+import { loadManifest } from '@aang/testkit'
 import { beforeAll, describe, expect, onTestFinished, test } from 'vitest'
-import { findRecordings, matrixPath, snapshotFile, supportGaps } from '../dist/index.js'
 import {
+  checkRecording,
+  findRecordings,
+  invariantViolations,
+  matrixPath,
+  notRestarted,
+  playRecording,
+  type RecordingCheck,
+  removeRoots,
+  snapshotFile,
+  supportGaps,
+  takeSnapshot,
+} from '../dist/index.js'
+import {
+  claudeReconnect,
   claudeSourceLoss,
   claudeSubagents,
   cliOptions,
   codexResumeCompaction,
   codexToolDecisions,
+  hookBinary,
   hostOs,
   otherOs,
   placeRecording,
@@ -27,12 +48,22 @@ import {
   supportCli,
   temporaryDirectory,
   thirdOs,
+  withoutCheckpoints,
 } from './fixtures.js'
 
 interface Snapshot {
   readonly facts: readonly { readonly kind: string }[]
+  readonly sessions: readonly { readonly id: string }[]
   readonly gaps: readonly { readonly kind: string; readonly closed_at: string | null }[]
-  readonly agents: readonly { readonly role: string; readonly agent_type: string | null; readonly parent: string | null }[]
+  readonly agents: readonly {
+    readonly id: string
+    readonly session: string
+    readonly role: string
+    readonly agent_type: string | null
+    readonly description: string | null
+    readonly parent: string | null
+  }[]
+  readonly actions: readonly { readonly tool: string; readonly session: string; readonly execution: { readonly state: string } }[]
   readonly records: readonly { readonly channel: string; readonly parse_state: string; readonly count: number }[]
   readonly questions: readonly { readonly kind: string; readonly key: { readonly question: string } }[]
 }
@@ -49,7 +80,7 @@ const recorded = (recording: SpikeRecording): string => {
 
 beforeAll(async () => {
   const root = await mkdtemp(join(tmpdir(), 'aang-support-generated-'))
-  for (const recording of [claudeSubagents, claudeSourceLoss, codexResumeCompaction, codexToolDecisions]) {
+  for (const recording of [claudeSubagents, claudeReconnect, claudeSourceLoss, codexResumeCompaction, codexToolDecisions]) {
     generated.set(recording, await recordSpike(join(root, 'sessions'), recording))
   }
   return () => rm(root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
@@ -170,6 +201,117 @@ describe('the contract run over recordings generated from the spike samples', ()
     ])
   }, 120_000)
 
+  test('a reconnect recording restarts the collector, the engine and the store at its daemon-restart step, and the restart changes nothing in the snapshot', async () => {
+    const { sessions, support } = await workspace()
+    await placeRecording(recorded(claudeReconnect), sessions)
+    await withoutCheckpoints(await placeRecording(recorded(claudeReconnect), sessions, { scenario: 'tools' }))
+    const recordings = await findRecordings(sessions)
+    const run = (scenario: string): Promise<RecordingCheck> => {
+      const recording = recordings.find(({ manifest }) => manifest.scenario === scenario)
+      if (recording === undefined) {
+        throw new Error(`${scenario} is not placed`)
+      }
+      return checkRecording(recording, { sessions, support, hookBinary })
+    }
+
+    const restarted = await run('reconnect')
+    const continuous = await run('tools')
+
+    expect(restarted).toMatchObject({ restarts: 1, violations: [] })
+    expect(continuous).toMatchObject({ restarts: 0, violations: [] })
+    expect(restarted.snapshot).toBe(continuous.snapshot)
+    const snapshot = JSON.parse(restarted.snapshot) as Snapshot
+    const [session] = snapshot.sessions
+    expect(snapshot.sessions).toHaveLength(1)
+    const main = snapshot.agents.find(({ role }) => role === 'main')
+    expect(snapshot.agents).toEqual([
+      expect.objectContaining({ role: 'main', session: session?.id, parent: null }),
+      expect.objectContaining({ role: 'subagent', session: session?.id, agent_type: 'pinger', parent: main?.id }),
+    ])
+    expect(snapshot.actions.filter(({ tool }) => tool === 'Bash')).toEqual([
+      expect.objectContaining({ session: session?.id, execution: { state: 'done' } }),
+    ])
+  }, 120_000)
+
+  test('a reconnect recording without a daemon-restart step fails the run, and update refuses to write', async () => {
+    const { sessions, support } = await workspace()
+    await placeRecording(recorded(claudeSubagents), sessions, { scenario: 'reconnect' })
+
+    const update = await supportCli(['update', ...cliOptions(sessions, support)])
+
+    expect(update.code).toBe(1)
+    expect(update.stderr).toContain(`claude/2.1.286/claude_cli/${hostOs}/reconnect: ${notRestarted}`)
+    await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+  }, 120_000)
+
+  test('a JSONL file under tool-results, which the collector leaves out, does not hold up the run', async () => {
+    const { sessions, support } = await workspace()
+    const placed = await placeRecording(recorded(claudeSubagents), sessions)
+    const playback = JSON.parse(await readFile(join(placed, 'playback.json'), 'utf8')) as { steps: unknown[] }
+    expect(playback.steps).toContainEqual(
+      expect.objectContaining({ kind: 'append', target: { root: 'claude', path: expect.stringMatching(/\/tool-results\/output\.jsonl$/) as unknown } }),
+    )
+
+    const update = await supportCli(['update', ...cliOptions(sessions, support)])
+
+    expect(update.stderr).toBe('')
+    expect(update.code).toBe(0)
+  }, 120_000)
+
+  test('text shaped like an id stays content, while a model entity that refers to a missing derived or assigned id breaks an invariant', async () => {
+    const { sessions } = await workspace()
+    const placed = await placeRecording(recorded(claudeSubagents), sessions)
+    const hashLike = 'd41d8cd98f00b204e9800998ecf8427e'
+    for (const name of await readdir(join(placed, 'data'))) {
+      const path = join(placed, 'data', name)
+      await writeFile(path, (await readFile(path, 'utf8')).replaceAll('Ping the pinger agent', hashLike))
+    }
+    const { store, roots } = await playRecording(await loadManifest(join(placed, 'playback.json')), { hookBinary })
+    onTestFinished(async () => {
+      store.close()
+      await removeRoots(roots)
+    })
+
+    expect(invariantViolations(store)).toEqual([])
+    expect(takeSnapshot(store, roots.base).agents).toContainEqual(expect.objectContaining({ role: 'subagent', description: hashLike }))
+
+    const [run] = store.model.runs()
+    if (run === undefined) {
+      throw new Error('the recording has no run')
+    }
+    const missingAction = ActionId.parse('0123456789abcdef0123456789abcdef')
+    const missingStage = StageId.parse('stage:missing')
+    const link: Link = {
+      id: LinkId.parse('link:dangling'),
+      run: run.id,
+      basis: { kind: 'observed' },
+      evidence: [],
+      kind: 'assignment',
+      action: missingAction,
+      stage: missingStage,
+    }
+    store.transaction((transaction) => {
+      const version = ModelVersion.parse(transaction.model.head(run.id) + 1)
+      transaction.model.commit(
+        {
+          run: run.id,
+          version,
+          base_version: ModelVersion.parse(version - 1),
+          author: 'rule',
+          observer_call: null,
+          created_at: EpochNs.parse(1n),
+          change_seq: transaction.nextChangeSeq(),
+        },
+        [{ op: 'link.add', target: { kind: 'link', id: link.id }, before: null, after: { kind: 'link', value: link }, basis: link.basis, evidence: [] }],
+      )
+    })
+
+    expect(invariantViolations(store)).toEqual([
+      `link.value.action refers to ${missingAction}, which is not stored`,
+      `link.value.stage refers to ${missingStage}, which is not stored`,
+    ])
+  }, 120_000)
+
   test('a thread whose usage records do not add up to its thread total breaks an invariant, and update refuses to write', async () => {
     const { sessions, support } = await workspace()
     const placed = await placeRecording(recorded(codexResumeCompaction), sessions)
@@ -177,16 +319,20 @@ describe('the contract run over recordings generated from the spike samples', ()
     const playback = JSON.parse(await readFile(join(placed, 'playback.json'), 'utf8')) as {
       steps: { kind: string; source?: string }[]
     }
-    const rollout = playback.steps.find((step) => step.kind === 'append')?.source
-    if (recording === undefined || rollout === undefined) {
+    const rollouts = playback.steps.flatMap((step) => (step.kind === 'append' && step.source !== undefined ? [step.source] : []))
+    if (recording === undefined || rollouts.length === 0) {
       throw new Error('the Codex rollout is not recorded')
     }
-    const lines = (await readFile(join(placed, rollout), 'utf8')).split('\n')
-    const inflated = lines.map((line) =>
-      line.includes('"token_usage_record"') ? line.replace(/"output_tokens":\s*(\d+)/, (_, tokens: string) => `"output_tokens":${String(Number(tokens) + 1000)}`) : line,
-    )
-    expect(inflated).not.toEqual(lines)
-    await writeFile(join(placed, rollout), inflated.join('\n'))
+    let inflatedRecords = 0
+    for (const rollout of rollouts) {
+      const lines = (await readFile(join(placed, rollout), 'utf8')).split('\n')
+      const inflated = lines.map((line) =>
+        line.includes('"token_usage_record"') ? line.replace(/"output_tokens":\s*(\d+)/, (_, tokens: string) => `"output_tokens":${String(Number(tokens) + 1000)}`) : line,
+      )
+      inflatedRecords += inflated.filter((line, index) => line !== lines[index]).length
+      await writeFile(join(placed, rollout), inflated.join('\n'))
+    }
+    expect(inflatedRecords).toBeGreaterThan(0)
 
     const update = await supportCli(['update', ...cliOptions(sessions, support)])
 
@@ -226,7 +372,7 @@ describe('the support matrix generated from the contract run', () => {
   test('a row keeps its claimed status only while recordings of its own OS pass every scenario of the run', async () => {
     const { sessions, support } = await workspace()
     for (const scenario of [...contractScenarios, 'plan', 'question']) {
-      await placeRecording(recorded(claudeSubagents), sessions, { os: hostOs, scenario })
+      await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: hostOs, scenario })
     }
     await placeRecording(recorded(claudeSubagents), sessions, { os: otherOs, scenario: 'subagents' })
     const previous: SupportMatrix = {
@@ -265,6 +411,42 @@ describe('the support matrix generated from the contract run', () => {
     expect(await readdirNames(join(support, 'contract/claude/2.1.286/claude_cli', hostOs))).toEqual(
       contractScenarios.map((name) => `${name}.json`).sort(),
     )
+  }, 180_000)
+
+  test('a claimed full or limited row whose E2E 1 or 4 failed is not verified, even when every scenario of the run passes', async () => {
+    const { sessions, support } = await workspace()
+    const tuiKey = (engine_version: string): SupportKey => ({ runtime: 'codex', surface: 'codex_tui', os: hostOs, placement: 'local', engine_version })
+    const variants = [
+      { key: tuiKey('0.200.1'), status: 'full', failed: 'during_work', gap: 'E2E 1' },
+      { key: tuiKey('0.200.2'), status: 'full', failed: 'after_iteration', gap: 'E2E 4' },
+      { key: tuiKey('0.200.3'), status: 'limited', failed: 'during_work', gap: 'E2E 1' },
+      { key: tuiKey('0.200.4'), status: 'limited', failed: 'after_iteration', gap: 'E2E 4' },
+    ] as const
+    for (const { key } of variants) {
+      for (const scenario of ['tools', 'approval', 'interrupt']) {
+        await placeRecording(recorded(codexResumeCompaction), sessions, { surface: key.surface, engineVersion: key.engine_version, scenario })
+      }
+    }
+    const previous: SupportMatrix = {
+      format: supportMatrixFormat,
+      rows: variants.map(({ key, status, failed }) => {
+        const row = claimed(key, status)
+        return { ...row, scenarios: { ...row.scenarios, [failed]: 'failed' } }
+      }),
+    }
+    await mkdir(support, { recursive: true })
+    await writeFile(matrixPath(support), `${JSON.stringify(previous, null, 2)}\n`)
+
+    expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
+    const matrix = await readSupportMatrix(matrixPath(support))
+
+    for (const { key, failed, gap } of variants) {
+      expect(supportRowOf(matrix, key)).toMatchObject({
+        status: 'unverified',
+        gaps: [supportGaps.userScenariosFail([gap])],
+        scenarios: { [failed]: 'failed' },
+      })
+    }
   }, 180_000)
 
   test('Desktop rows on Windows are listed as not verified, whatever was claimed for them', async () => {
