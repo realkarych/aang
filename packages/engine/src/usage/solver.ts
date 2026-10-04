@@ -12,6 +12,7 @@ import {
   type StageId,
   type StageInspector,
   type StreamKey,
+  type ThreadTotal,
   type TokenUsage,
   type UsageRecord,
   type UsageTotals,
@@ -242,16 +243,24 @@ const costStateFinal = (rawRecords: RawRecordReader, own: readonly Evidence[]): 
   return !continued && launchedBy(starts, ended.slice(1))
 }
 
+const threadTotals = (agents: readonly Agent[], session: SessionId): ThreadTotal[] =>
+  agents.flatMap(({ id, session: owner, thread_total: tokens }) =>
+    owner === session && tokens !== null ? [{ agent: id, tokens }] : [],
+  )
+
 const sessionUsage = (
   rawRecords: RawRecordReader,
   session: Session,
   records: readonly UsageRecord[],
+  agents: readonly Agent[],
   reading: SessionReading | undefined,
 ): SessionUsage => ({
   session: session.id,
+  fork: reading?.fork ?? false,
   totals: usageTotals(records.filter((record) => record.session === session.id)),
   cost_state: session.cost_state,
   cost_state_final: session.cost_state !== null && costStateFinal(rawRecords, reading?.own ?? []),
+  thread_totals: threadTotals(agents, session.id),
 })
 
 const agentFacts = (readings: ReadonlyMap<string, SessionReading>): Map<string, Evidence[]> => {
@@ -307,7 +316,9 @@ export const solverUsage = (
         .flatMap(([stage, members]) => (stage === null ? [] : [{ stage, totals: usageTotals(members) }]))
         .sort((left, right) => compareText(left.stage, right.stage)),
       unassigned: usageTotals(stages.get(null) ?? []),
-      sessions: sessions.map((session) => sessionUsage(source.rawRecords, session, records, readings.get(session.id))),
+      sessions: sessions.map((session) =>
+        sessionUsage(source.rawRecords, session, records, agents, readings.get(session.id)),
+      ),
     },
     agents: agents.map((agent) => agentUsage(agent, records, facts.get(agent.id) ?? [])),
     time: runTime(
