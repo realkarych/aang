@@ -13,6 +13,7 @@ import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
 import { createStatus } from './status.js'
 import { createStreams } from './stream.js'
+import { writeRoutes } from './writes.js'
 
 export interface DaemonReady {
   readonly pid: number
@@ -162,7 +163,10 @@ const serve = async ({
       staticRoot: options.staticRoot,
       routes: (api) => {
         const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
-        return readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
+        return [
+          ...readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) }),
+          ...writeRoutes({ store, bindings: ingestion.bindings }),
+        ]
       },
       streams,
       reparse: ingestion.reparse,
