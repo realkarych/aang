@@ -1,0 +1,1632 @@
+{
+  "records": [
+    {
+      "channel": "rollout",
+      "type": "compacted",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "rollout",
+      "type": "event_msg:item_completed",
+      "parse_state": "parsed",
+      "count": 6
+    },
+    {
+      "channel": "rollout",
+      "type": "event_msg:task_complete",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "rollout",
+      "type": "event_msg:task_started",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "rollout",
+      "type": "event_msg:thread_settings_applied",
+      "parse_state": "unknown",
+      "count": 3
+    },
+    {
+      "channel": "rollout",
+      "type": "event_msg:token_count",
+      "parse_state": "parsed",
+      "count": 4
+    },
+    {
+      "channel": "rollout",
+      "type": "response_item:custom_tool_call",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "rollout",
+      "type": "response_item:custom_tool_call_output",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "rollout",
+      "type": "response_item:message",
+      "parse_state": "parsed",
+      "count": 12
+    },
+    {
+      "channel": "rollout",
+      "type": "session_meta",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "rollout",
+      "type": "token_usage_record",
+      "parse_state": "parsed",
+      "count": 4
+    },
+    {
+      "channel": "rollout",
+      "type": "turn_context",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "rollout",
+      "type": "world_state",
+      "parse_state": "unknown",
+      "count": 2
+    }
+  ],
+  "facts": [
+    {
+      "id": "#1",
+      "kind": "session_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 0
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/codex-cli/run1",
+        "version": "0.159.2",
+        "entrypoint": null,
+        "originator": "codex_exec",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "launch": "startup",
+        "surface": {
+          "surface": "codex_exec",
+          "basis": "observed"
+        },
+        "cwd": "/tmp/aang-spike/codex-cli/run1",
+        "forked_from": null,
+        "observer_marker": false
+      }
+    },
+    {
+      "id": "#2",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 1
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {}
+    },
+    {
+      "id": "#3",
+      "kind": "turn_settings",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 7
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/codex-cli/run1",
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "effort": null,
+        "approval_policy": "never",
+        "sandbox": "read-only"
+      }
+    },
+    {
+      "id": "#4",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "message": "01a0f752-40a7-76b2-9df9-5b374f75f98f:9"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "01a0f752-8de7-7e31-8ee4-75d13bfd0f0b",
+        "call_id": null,
+        "ordinal": 9
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "Run the shell command `echo hi` exactly once, then reply with just: OK",
+        "origin": "human",
+        "origin_raw": null
+      }
+    },
+    {
+      "id": "#5",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "call": "call_MxHF39QIUjLqImvlqfhdfE2y"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "call_MxHF39QIUjLqImvlqfhdfE2y",
+        "ordinal": 10
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "exec",
+        "action_kind": "code_cell",
+        "input": "text(await tools.exec_command({cmd:\"echo hi\",max_output_tokens:100}));\n",
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#6",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4a6679b887d29972f57cdb348c7b"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "resp_00a7ba1502c50863016abe4a6679b887d29972f57cdb348c7b",
+        "call_id": null,
+        "ordinal": 11
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": null,
+        "tokens": {
+          "uncached_input_tokens": 1990,
+          "cache_read_input_tokens": 12288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 27,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": null,
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#7",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 11
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "thread_token_usage",
+        "tokens": {
+          "uncached_input_tokens": 1990,
+          "cache_read_input_tokens": 12288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 27,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#8",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "call": "exec-a8b47079-66cf-4c58-ba7c-268717fda6fb"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "exec-a8b47079-66cf-4c58-ba7c-268717fda6fb",
+        "ordinal": 12
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "CommandExecution",
+        "action_kind": "command",
+        "input": {
+          "command": [
+            "/bin/zsh",
+            "-lc",
+            "echo hi"
+          ],
+          "cwd": "file:///tmp/aang-spike/codex-cli/run1"
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#9",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "call": "exec-a8b47079-66cf-4c58-ba7c-268717fda6fb"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "exec-a8b47079-66cf-4c58-ba7c-268717fda6fb",
+        "ordinal": 12
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "hi\n",
+        "persisted_output_path": null,
+        "exit_code": 0,
+        "duration_ms": 0,
+        "result": null
+      }
+    },
+    {
+      "id": "#10",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "call": "call_MxHF39QIUjLqImvlqfhdfE2y"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "call_MxHF39QIUjLqImvlqfhdfE2y",
+        "ordinal": 13
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "unknown",
+        "output": "Script completed\nWall time 0.1 seconds\nOutput:\n{\"chunk_id\":\"a84880\",\"wall_time_seconds\":0.000002625,\"exit_code\":0,\"original_token_count\":1,\"output\":\"hi\\n\"}",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": null
+      }
+    },
+    {
+      "id": "#11",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 14
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "token_count",
+        "tokens": {
+          "uncached_input_tokens": 1990,
+          "cache_read_input_tokens": 12288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 27,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#12",
+      "kind": "message",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "message": "01a0f752-40a7-76b2-9df9-5b374f75f98f:15"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "msg_00a7ba1502c50863016abe4a6b53bc87d29075b5116fc1dd4c",
+        "call_id": null,
+        "ordinal": 15
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "OK",
+        "final": true,
+        "audience": "user",
+        "model": null
+      }
+    },
+    {
+      "id": "#13",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4a699a4c87d2a35bc9e5febceb48"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "resp_00a7ba1502c50863016abe4a699a4c87d2a35bc9e5febceb48",
+        "call_id": null,
+        "ordinal": 17
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": null,
+        "tokens": {
+          "uncached_input_tokens": 282,
+          "cache_read_input_tokens": 14080,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": null,
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#14",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 17
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "thread_token_usage",
+        "tokens": {
+          "uncached_input_tokens": 2272,
+          "cache_read_input_tokens": 26368,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 32,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#15",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 18
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "token_count",
+        "tokens": {
+          "uncached_input_tokens": 2272,
+          "cache_read_input_tokens": 26368,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 32,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#16",
+      "kind": "turn_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f752-4102-7740-9432-0533263c2dc1",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 19
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "completed",
+        "reason": null,
+        "final_message": "OK",
+        "background_tasks": []
+      }
+    },
+    {
+      "id": "#17",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 22
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {}
+    },
+    {
+      "id": "#18",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4b4bc1f087d2acc7b2af71c3c2a4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "resp_00a7ba1502c50863016abe4b4bc1f087d2acc7b2af71c3c2a4",
+        "call_id": null,
+        "ordinal": 23
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": null,
+        "tokens": {
+          "uncached_input_tokens": 179,
+          "cache_read_input_tokens": 14208,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 92,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": null,
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#19",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 23
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "thread_token_usage",
+        "tokens": {
+          "uncached_input_tokens": 2451,
+          "cache_read_input_tokens": 40576,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 124,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#20",
+      "kind": "compaction",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 24
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "phase": "boundary",
+        "trigger": "unknown",
+        "summary": null,
+        "tokens_before": null
+      }
+    },
+    {
+      "id": "#21",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 26
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "token_count",
+        "tokens": {
+          "uncached_input_tokens": 2272,
+          "cache_read_input_tokens": 26368,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 32,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#22",
+      "kind": "compaction",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 27
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "phase": "started",
+        "trigger": "unknown",
+        "summary": null,
+        "tokens_before": null
+      }
+    },
+    {
+      "id": "#23",
+      "kind": "compaction",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 27
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "phase": "completed",
+        "trigger": "unknown",
+        "summary": null,
+        "tokens_before": null
+      }
+    },
+    {
+      "id": "#24",
+      "kind": "turn_settings",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 33
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/codex-cli/run1",
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "effort": null,
+        "approval_policy": "never",
+        "sandbox": "read-only"
+      }
+    },
+    {
+      "id": "#25",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "message": "01a0f752-40a7-76b2-9df9-5b374f75f98f:35"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "01a0f756-4c73-7f93-ac17-c4304092a1ae",
+        "call_id": null,
+        "ordinal": 35
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "Reply with just: OK2",
+        "origin": "human",
+        "origin_raw": null
+      }
+    },
+    {
+      "id": "#26",
+      "kind": "message",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "message": "01a0f752-40a7-76b2-9df9-5b374f75f98f:36"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "msg_00a7ba1502c50863016abe4b5ec90887d297df8dc023ab7835",
+        "call_id": null,
+        "ordinal": 36
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "OK2",
+        "final": true,
+        "audience": "user",
+        "model": null
+      }
+    },
+    {
+      "id": "#27",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4b5c169887d2ac1d510229c04358"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "resp_00a7ba1502c50863016abe4b5c169887d2ac1d510229c04358",
+        "call_id": null,
+        "ordinal": 38
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": null,
+        "tokens": {
+          "uncached_input_tokens": 2094,
+          "cache_read_input_tokens": 12288,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 6,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": null,
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#28",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 38
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "thread_token_usage",
+        "tokens": {
+          "uncached_input_tokens": 4545,
+          "cache_read_input_tokens": 52864,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 130,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#29",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 39
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "source": "token_count",
+        "tokens": {
+          "uncached_input_tokens": 4366,
+          "cache_read_input_tokens": 38656,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 38,
+          "reasoning_output_tokens": 0
+        }
+      }
+    },
+    {
+      "id": "#30",
+      "kind": "turn_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent_id": null,
+        "thread_id": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "turn_id": "01a0f755-c3a7-75a1-acf1-7d0839bc2d5c",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 40
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "completed",
+        "reason": null,
+        "final_message": "OK2",
+        "background_tasks": []
+      }
+    }
+  ],
+  "sessions": [
+    {
+      "id": "#31",
+      "key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f"
+      },
+      "run": "#32",
+      "surface": {
+        "surface": "codex_exec",
+        "basis": "observed"
+      },
+      "version": "0.159.2",
+      "cwd": "/tmp/aang-spike/codex-cli/run1",
+      "git_branch": null,
+      "git_common_dir": null,
+      "launches": [
+        {
+          "launch": "startup",
+          "at": "<time>",
+          "fact": "#1"
+        }
+      ],
+      "state": "turn_done",
+      "execution": {
+        "state": "waiting",
+        "reason": "idle"
+      },
+      "freshness": "hooks_inactive",
+      "support_mode": "files_only",
+      "double_registration": false,
+      "unknown_records": 5,
+      "cost_state": null,
+      "started_at": "<time>",
+      "last_event_at": "<time>"
+    }
+  ],
+  "agents": [
+    {
+      "id": "#33",
+      "key": {
+        "kind": "agent",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "agent": {
+          "kind": "main"
+        }
+      },
+      "session": "#31",
+      "run": "#32",
+      "role": "main",
+      "service": null,
+      "agent_type": null,
+      "agent_role": null,
+      "name": null,
+      "description": null,
+      "parent": null,
+      "spawned_by": null,
+      "execution": {
+        "state": "waiting",
+        "reason": "idle"
+      },
+      "thread_total": null,
+      "started_at": "<time>",
+      "ended_at": null
+    }
+  ],
+  "actions": [
+    {
+      "id": "#34",
+      "key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "call": "call_MxHF39QIUjLqImvlqfhdfE2y"
+      },
+      "session": "#31",
+      "agent": "#33",
+      "run": "#32",
+      "tool": "exec",
+      "action_kind": "code_cell",
+      "container": null,
+      "is_container": true,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "unknown",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#10"
+        ]
+      },
+      "execution": {
+        "state": "unknown"
+      },
+      "input_fact": "#5",
+      "output_fact": "#10",
+      "inherited": false
+    },
+    {
+      "id": "#35",
+      "key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "call": "exec-a8b47079-66cf-4c58-ba7c-268717fda6fb"
+      },
+      "session": "#31",
+      "agent": "#33",
+      "run": "#32",
+      "tool": "CommandExecution",
+      "action_kind": "command",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#9"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#8",
+      "output_fact": "#9",
+      "inherited": false
+    }
+  ],
+  "questions": [],
+  "usage": [
+    {
+      "id": "#36",
+      "key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4a6679b887d29972f57cdb348c7b"
+      },
+      "session": "#31",
+      "agent": "#33",
+      "run": "#32",
+      "model": null,
+      "tokens": {
+        "uncached_input_tokens": 1990,
+        "cache_read_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 27,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#37",
+      "key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4a699a4c87d2a35bc9e5febceb48"
+      },
+      "session": "#31",
+      "agent": "#33",
+      "run": "#32",
+      "model": null,
+      "tokens": {
+        "uncached_input_tokens": 282,
+        "cache_read_input_tokens": 14080,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#38",
+      "key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4b4bc1f087d2acc7b2af71c3c2a4"
+      },
+      "session": "#31",
+      "agent": "#33",
+      "run": "#32",
+      "model": null,
+      "tokens": {
+        "uncached_input_tokens": 179,
+        "cache_read_input_tokens": 14208,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 92,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#39",
+      "key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a0f752-40a7-76b2-9df9-5b374f75f98f",
+        "usage": "01a0f752-40a7-76b2-9df9-5b374f75f98f:resp_00a7ba1502c50863016abe4b5c169887d2ac1d510229c04358"
+      },
+      "session": "#31",
+      "agent": "#33",
+      "run": "#32",
+      "model": null,
+      "tokens": {
+        "uncached_input_tokens": 2094,
+        "cache_read_input_tokens": 12288,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 6,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    }
+  ],
+  "artifacts": [],
+  "gaps": [
+    {
+      "id": "#40",
+      "key": {
+        "kind": "gap",
+        "gap": "hooks_inactive",
+        "subject": "#31"
+      },
+      "kind": "hooks_inactive",
+      "run": "#32",
+      "session": "#31",
+      "stream": null,
+      "details": "Session files are available without hook events",
+      "detected_at": "<time>",
+      "closed_at": null
+    },
+    {
+      "id": "#41",
+      "key": {
+        "kind": "gap",
+        "gap": "unknown_records",
+        "subject": "#31"
+      },
+      "kind": "unknown_records",
+      "run": "#32",
+      "session": "#31",
+      "stream": null,
+      "details": "5 unrecognised session records",
+      "detected_at": "<time>",
+      "closed_at": null
+    }
+  ],
+  "removals": [],
+  "runs": [
+    {
+      "run": {
+        "id": "#32",
+        "runtime": "codex",
+        "root_session": "#31",
+        "goal": null,
+        "brief": null,
+        "start_pruned": false,
+        "version": 1,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#32",
+            "runtime": "codex",
+            "root_session": "#31",
+            "goal": null,
+            "brief": null,
+            "start_pruned": false,
+            "version": 1,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#31",
+            "run": "#32"
+          }
+        }
+      ]
+    }
+  ]
+}

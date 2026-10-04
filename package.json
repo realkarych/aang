@@ -18,6 +18,8 @@
     "coverage:report": "c8 report && go tool covdata percent -i=coverage/hook",
     "benchmark": "vitest run --tags-filter=benchmark",
     "scenarios": "vitest run --project tools/record --tags-filter=runtime",
+    "support:check": "node tools/support/dist/main.js check",
+    "support:update": "node tools/support/dist/main.js update",
     "e2e": "playwright test"
   },
   "devDependencies": {

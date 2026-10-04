@@ -1,0 +1,28 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.159.2",
+  "app_version": null,
+  "surface": "codex_exec",
+  "os": "macos",
+  "scenario": "resume-compaction",
+  "model": null,
+  "recorded_at": "2026-10-04T00:19:23.446Z",
+  "expected_facts": [
+    "The resumed exec turn carries an automatic compaction"
+  ],
+  "control_events": [],
+  "artifacts": [
+    {
+      "source": "data/000001.jsonl",
+      "observed_at": "2026-10-04T00:19:23.605Z",
+      "mtime_ns": "1791073163605658873"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-04T00:19:23.633Z",
+      "mtime_ns": "1791073163608034870"
+    }
+  ],
+  "playback": "playback.json"
+}
