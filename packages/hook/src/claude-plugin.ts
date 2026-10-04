@@ -43,12 +43,12 @@ const runtime: Runtime = 'claude'
 const registration: RegistrationTag = 'plugin'
 const hookTimeoutSeconds = 2
 const scope = 'user'
-const pluginName = 'aang'
+export const claudePluginName = 'aang'
 const marketplaceName = 'aang'
 const author = { name: 'aang' }
 const description = 'Records Claude Code hook events into the aang spool'
 
-export const claudePluginId = `${pluginName}@${marketplaceName}`
+export const claudePluginId = `${claudePluginName}@${marketplaceName}`
 
 export interface ClaudePluginFiles {
   readonly directory: string
@@ -91,14 +91,14 @@ const hooksDocument = (hookBinary: string, spool: string): unknown => ({
 })
 
 const pluginFiles = ({ directory, hookBinary, spool }: ClaudePluginFiles): readonly (readonly [string, unknown])[] => [
-  [join(directory, '.claude-plugin', 'plugin.json'), { name: pluginName, version: '1.0.0', description, author }],
+  [join(directory, '.claude-plugin', 'plugin.json'), { name: claudePluginName, version: '1.0.0', description, author }],
   [
     join(directory, '.claude-plugin', 'marketplace.json'),
     {
       name: marketplaceName,
       owner: author,
       description,
-      plugins: [{ name: pluginName, source: './', description }],
+      plugins: [{ name: claudePluginName, source: './', description }],
     },
   ],
   [join(directory, 'hooks', 'hooks.json'), hooksDocument(hookBinary, spool)],

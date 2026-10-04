@@ -1,5 +1,5 @@
-import { appendFile, mkdir, readdir, utimes } from 'node:fs/promises'
-import { join } from 'node:path'
+import { appendFile, mkdir, readdir, rename, utimes } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { expect, test, vi } from 'vitest'
 import { createSandbox, daysAgo, preventListing, runCollector, sleep } from './sandbox.js'
 import { sessions, writeSession } from './sessions.js'
@@ -80,4 +80,71 @@ test('rescan rereads only requested streams from the beginning and resets line p
     expect(running.records()).toHaveLength(13)
   })
   expect(running.records().slice(9).map(({ payload }) => payload)).toEqual([...session.lines, session.lines[2]])
+})
+
+test('rescan with a lookback rereads only the requested files modified within it', async ({ onTestFinished }) => {
+  const sandbox = await createSandbox(onTestFinished)
+  for (const session of sessions) {
+    await writeSession(session.path(sandbox), session.lines)
+  }
+  const running = runCollector(sandbox, { fsWatch: false, rootsScanIntervalMs: 60_000 })
+  await vi.waitFor(() => {
+    expect(running.records()).toHaveLength(6)
+  })
+  const [fresh, stale] = sessions
+  await utimes(stale.path(sandbox), daysAgo(30), daysAgo(30))
+  running.collector.rescan([fresh.stream, stale.stream], 7)
+  await vi.waitFor(() => {
+    expect(running.records()).toHaveLength(9)
+  })
+  await sleep(200)
+  const replayed = running.records().slice(6)
+  expect(replayed).toHaveLength(3)
+  expect(replayed.map(({ payload }) => payload)).toEqual(fresh.lines)
+  expect(replayed.map(({ position }) => position.kind === 'line' ? position.line : null)).toEqual([1, 2, 3])
+})
+
+interface Transcript {
+  readonly path: string
+  readonly lines: readonly string[]
+}
+
+test('backfill reads files without a cursor modified within its lookback and keeps the collector lookback', async ({ onTestFinished }) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const transcript = (name: string): Transcript => ({
+    path: join(sandbox.claude, 'projects', '-project', `${name}.jsonl`),
+    lines: [JSON.stringify({ type: 'user', sessionId: name, uuid: `${name}-1`, message: { role: 'user', content: name } })],
+  })
+  const place = async ({ path, lines }: Transcript, age: number): Promise<void> => {
+    const staging = join(sandbox.root, 'staging.jsonl')
+    await writeSession(staging, lines)
+    await utimes(staging, daysAgo(age), daysAgo(age))
+    await mkdir(dirname(path), { recursive: true })
+    await rename(staging, path)
+  }
+  const fresh = transcript('fresh')
+  const recent = transcript('recent')
+  const old = transcript('old')
+  const later = transcript('later')
+  await place(fresh, 0)
+  await place(recent, 20)
+  await place(old, 40)
+  const running = runCollector(sandbox, { fsWatch: false, rootsScanIntervalMs: 50, lookbackDays: 7 })
+  await vi.waitFor(() => {
+    expect(running.payloads()).toEqual(fresh.lines)
+  })
+  await sleep(200)
+  expect(running.payloads()).toEqual(fresh.lines)
+
+  await utimes(fresh.path, daysAgo(20), daysAgo(20))
+  running.collector.backfill(30)
+  await vi.waitFor(() => {
+    expect(running.payloads()).toEqual([...fresh.lines, ...recent.lines])
+  })
+  expect(running.cursor(recent.path)).toMatchObject({ offset: Buffer.byteLength(`${recent.lines.join('\n')}\n`), line: 1 })
+  await place(later, 20)
+  await sleep(300)
+  expect(running.payloads()).toEqual([...fresh.lines, ...recent.lines])
+  expect(running.cursor(old.path)).toBeUndefined()
+  expect(running.cursor(later.path)).toBeUndefined()
 })

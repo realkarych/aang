@@ -1,0 +1,237 @@
+{
+  "tool": "docs/research/samples/observer-measurement/run.mjs",
+  "mode": "check",
+  "platform": {
+    "os": "darwin",
+    "release": "27.0.0",
+    "arch": "arm64",
+    "node": "v26.10.0"
+  },
+  "sampleMs": 5,
+  "checks": [
+    {
+      "name": "escaped child holds the pipes",
+      "detached": true,
+      "stdio": "inherit",
+      "childMs": 1200,
+      "expected": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "observed": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "pass": true,
+      "exitMs": 240,
+      "stopMs": 269,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 46,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 269,
+        "closedAtMs": 1374,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 207,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node",
+            "parent": "root",
+            "firstAtMs": 107,
+            "lastAtMs": 1342,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 1,
+        "survivors": 1
+      }
+    },
+    {
+      "name": "escaped child without the pipes",
+      "detached": true,
+      "stdio": "ignore",
+      "childMs": 1200,
+      "expected": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "observed": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "pass": true,
+      "exitMs": 239,
+      "stopMs": 265,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 13,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 265,
+        "closedAtMs": 239,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 0,
+            "lastAtMs": 216,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node",
+            "parent": "root",
+            "firstAtMs": 94,
+            "lastAtMs": 312,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 1,
+        "survivors": 1
+      }
+    },
+    {
+      "name": "group child holds the pipes",
+      "detached": false,
+      "stdio": "inherit",
+      "childMs": 5000,
+      "expected": {
+        "escaped": 0,
+        "survivors": 0
+      },
+      "observed": {
+        "escaped": 0,
+        "survivors": 0
+      },
+      "pass": true,
+      "exitMs": 239,
+      "stopMs": 271,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 13,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 271,
+        "closedAtMs": 266,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 0,
+            "lastAtMs": 224,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node",
+            "parent": "root",
+            "firstAtMs": 97,
+            "lastAtMs": 256,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [
+          {
+            "name": "node",
+            "state": "S"
+          }
+        ],
+        "escaped": 0,
+        "survivors": 0
+      }
+    },
+    {
+      "name": "stale snapshot returns after the stop",
+      "detached": true,
+      "stdio": "ignore",
+      "childMs": 1200,
+      "holdMs": 2000,
+      "expected": {
+        "escaped": 1,
+        "survivors": 1,
+        "staleAfterStop": true
+      },
+      "observed": {
+        "escaped": 1,
+        "survivors": 1,
+        "staleAfterStop": true
+      },
+      "pass": true,
+      "exitMs": 239,
+      "stopMs": 264,
+      "stopConfirmed": true,
+      "staleSnapshot": {
+        "readAtMs": 121,
+        "deliveredAtMs": 2123
+      },
+      "tree": {
+        "samples": 7,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 264,
+        "closedAtMs": 239,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 0,
+            "lastAtMs": 96,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node",
+            "parent": "root",
+            "firstAtMs": 96,
+            "lastAtMs": 264,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 1,
+        "survivors": 1
+      }
+    }
+  ]
+}

@@ -1,0 +1,172 @@
+{
+  "steps": [
+    {
+      "kind": "append",
+      "at": 259,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T01-21-41-01a10480-a0f9-7e20-9d61-fe0876aaac42.jsonl"
+      },
+      "source": "data/000001.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 266,
+      "source": "data/000004.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 269,
+      "source": "data/000006.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 282,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T01-21-41-01a10480-a0f9-7e20-9d61-fe0876aaac42.jsonl"
+      },
+      "source": "data/000002.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 292,
+      "source": "data/000009.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 308,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T01-21-41-01a10480-a0f9-7e20-9d61-fe0876aaac42.jsonl"
+      },
+      "source": "data/000007.jsonl"
+    },
+    {
+      "kind": "otlp",
+      "at": 331,
+      "source": "data/000010.json"
+    },
+    {
+      "kind": "hook",
+      "at": 345,
+      "source": "data/000013.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 359,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T01-21-41-01a10480-a0f9-7e20-9d61-fe0876aaac42.jsonl"
+      },
+      "source": "data/000011.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 365,
+      "source": "data/000017.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 370,
+      "source": "data/000019.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 384,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T01-21-41-01a10480-a0f9-7e20-9d61-fe0876aaac42.jsonl"
+      },
+      "source": "data/000014.jsonl"
+    },
+    {
+      "kind": "write",
+      "at": 384,
+      "target": {
+        "root": "home",
+        "path": "project/result.json"
+      },
+      "source": "data/000015.json",
+      "label": "result-written"
+    },
+    {
+      "kind": "hook",
+      "at": 389,
+      "source": "data/000022.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 407,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T01-21-41-01a10480-a0f9-7e20-9d61-fe0876aaac42.jsonl"
+      },
+      "source": "data/000020.jsonl",
+      "label": "turn-complete"
+    },
+    {
+      "kind": "otlp",
+      "at": 515,
+      "source": "data/000023.json"
+    },
+    {
+      "kind": "hook",
+      "at": 2403,
+      "source": "data/000025.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "otlp",
+      "at": 2481,
+      "source": "data/000026.json"
+    }
+  ]
+}

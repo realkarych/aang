@@ -6,6 +6,7 @@ import {
   type ResetReason,
   type RunId,
   SseEvent,
+  StatusResponse,
   StreamQuery,
 } from '@aang/contract'
 import { InvalidPositionError, type ReadQueries, type RunFeed } from '@aang/engine'
@@ -15,12 +16,14 @@ export type StreamRefusal = ApiError['error']
 export interface StreamsOptions {
   readonly reads: ReadQueries
   readonly head: () => ChangeSeq
+  readonly status: () => Promise<StatusResponse>
   readonly onError: (error: unknown) => void
 }
 
 export interface Streams {
   readonly open: (request: IncomingMessage, response: ServerResponse, query: URLSearchParams) => StreamRefusal | null
   readonly changed: () => void
+  readonly statusChanged: () => void
   readonly close: () => void
 }
 
@@ -30,6 +33,17 @@ interface Subscriber {
   position: ChangeSeq
   delta: string | null
   blocked: boolean
+}
+
+interface StatusSubscriber {
+  readonly response: ServerResponse
+  observer: string | null
+  blocked: boolean
+}
+
+interface StatusFrame {
+  readonly observer: string
+  readonly text: string
 }
 
 const dataOf = (event: SseEvent): string => JSON.stringify(SseEvent.encode(event).data)
@@ -46,6 +60,14 @@ const begin = (response: ServerResponse): void => {
 
 const resetFrame = (reason: ResetReason): string => frame({ event: 'reset', id: null, data: { reason } })
 
+const statusFrame = (status: StatusResponse): StatusFrame => {
+  const data = StatusResponse.encode(status)
+  return {
+    observer: JSON.stringify(data.observer),
+    text: frame({ event: 'status', id: status.database.change_seq, data: status }, JSON.stringify(data)),
+  }
+}
+
 type Position = { readonly kind: 'absent' } | { readonly kind: 'at'; readonly seq: ChangeSeq } | { readonly kind: 'invalid' }
 
 const positionOf = (header: string | string[] | undefined): Position => {
@@ -61,9 +83,11 @@ type Reading =
   | { readonly kind: 'gone' }
   | { readonly kind: 'stale'; readonly reason: ResetReason }
 
-export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams => {
+export const createStreams = ({ reads, head, status, onError }: StreamsOptions): Streams => {
   const subscribers = new Set<Subscriber>()
+  const statusSubscribers = new Set<StatusSubscriber>()
   const state: { closed: boolean; pending: NodeJS.Immediate | null } = { closed: false, pending: null }
+  const statusQueue: { pending: NodeJS.Immediate | null; tail: Promise<void> } = { pending: null, tail: Promise.resolve() }
 
   const read = (run: RunId, after: ChangeSeq): Reading => {
     try {
@@ -121,6 +145,55 @@ export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams
     }
   }
 
+  const writeStatus = (subscriber: StatusSubscriber, built: StatusFrame): void => {
+    if (subscriber.blocked || subscriber.observer === built.observer) {
+      return
+    }
+    subscriber.observer = built.observer
+    subscriber.blocked = !subscriber.response.write(built.text)
+  }
+
+  const broadcastStatus = async (): Promise<void> => {
+    if (state.closed) {
+      return
+    }
+    try {
+      const built = statusFrame(await status())
+      for (const subscriber of statusSubscribers) {
+        writeStatus(subscriber, built)
+      }
+    } catch (error) {
+      onError(error)
+      for (const subscriber of statusSubscribers) {
+        subscriber.response.destroy()
+      }
+      statusSubscribers.clear()
+    }
+  }
+
+  const statusChanged = (): void => {
+    if (!state.closed && statusQueue.pending === null && statusSubscribers.size > 0) {
+      statusQueue.pending = setImmediate(() => {
+        statusQueue.pending = null
+        statusQueue.tail = statusQueue.tail.then(broadcastStatus)
+      })
+    }
+  }
+
+  const openStatus = (response: ServerResponse): void => {
+    begin(response)
+    const subscriber: StatusSubscriber = { response, observer: null, blocked: false }
+    statusSubscribers.add(subscriber)
+    response.on('close', () => {
+      statusSubscribers.delete(subscriber)
+    })
+    response.on('drain', () => {
+      subscriber.blocked = false
+      statusChanged()
+    })
+    statusChanged()
+  }
+
   return {
     open: (request, response, query) => {
       if (state.closed) {
@@ -130,13 +203,14 @@ export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams
       if (!parsed.success) {
         return { code: 'invalid_request', message: 'the stream takes a run id in the run parameter' }
       }
-      const { run } = parsed.data
-      if (run === undefined) {
-        return { code: 'invalid_request', message: 'the stream needs a run' }
-      }
       const position = positionOf(request.headers['last-event-id'])
       if (position.kind === 'invalid') {
         return { code: 'invalid_request', message: 'Last-Event-ID must be a change_seq' }
+      }
+      const { run } = parsed.data
+      if (run === undefined) {
+        openStatus(response)
+        return null
       }
       const reading = read(run, position.kind === 'at' ? position.seq : head())
       if (reading.kind === 'gone') {
@@ -164,16 +238,21 @@ export const createStreams = ({ reads, head, onError }: StreamsOptions): Streams
         state.pending = setImmediate(flush)
       }
     },
+    statusChanged,
     close: () => {
       state.closed = true
-      if (state.pending !== null) {
-        clearImmediate(state.pending)
-        state.pending = null
+      for (const pending of [state.pending, statusQueue.pending]) {
+        if (pending !== null) {
+          clearImmediate(pending)
+        }
       }
-      for (const subscriber of subscribers) {
+      state.pending = null
+      statusQueue.pending = null
+      for (const subscriber of [...subscribers, ...statusSubscribers]) {
         subscriber.response.end()
       }
       subscribers.clear()
+      statusSubscribers.clear()
     },
   }
 }

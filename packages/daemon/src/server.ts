@@ -10,8 +10,11 @@ import {
   type ShutdownResponse,
   streamPath,
 } from '@aang/contract'
-import type { z } from 'zod'
+import { z } from 'zod'
+import { AdminError } from './admin-error.js'
 import type { Authenticator } from './auth.js'
+import { type CookieWriteCheck, cookieWriteCheck } from './cookie-writes.js'
+import type { Admin } from './ingestion.js'
 import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
 import type { Streams } from './stream.js'
@@ -23,6 +26,7 @@ export interface ServerOptions {
   readonly routes: (address: Listener) => readonly ApiRoute[]
   readonly streams: Streams
   readonly reparse: () => Promise<ReparseResponse | null>
+  readonly admin: Admin
   readonly onShutdown: () => void
 }
 
@@ -36,8 +40,10 @@ const closeGraceMs = 1_000
 
 const statuses: Readonly<Record<ApiErrorCode, number>> = {
   unauthorized: 401,
+  forbidden: 403,
   not_found: 404,
   invalid_request: 400,
+  unsupported_media_type: 415,
   conflict: 409,
   unavailable: 503,
   internal: 500,
@@ -93,6 +99,7 @@ export const startServer = async ({
   routes,
   streams,
   reparse,
+  admin,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
   const acceptsBody = async (
@@ -136,6 +143,50 @@ export const startServer = async ({
     sendJson(response, 200, endpoints.reparse.response.encode(result))
   }
 
+  const serveAdmin = async <S extends z.ZodType, R extends z.ZodType>(
+    request: IncomingMessage,
+    response: ServerResponse,
+    spec: { readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => Promise<z.output<R>>,
+  ): Promise<void> => {
+    let body: unknown
+    try {
+      body = await readJson(request)
+    } catch (error) {
+      sendError(response, 'invalid_request', error instanceof Error ? error.message : String(error))
+      return
+    }
+    const parsed = spec.body.safeParse(body)
+    if (!parsed.success) {
+      sendError(response, 'invalid_request', z.prettifyError(parsed.error))
+      return
+    }
+    try {
+      sendJson(response, 200, spec.response.encode(await handle(parsed.data)))
+    } catch (error) {
+      if (error instanceof AdminError) {
+        sendError(response, error.code, error.message)
+        return
+      }
+      throw error
+    }
+  }
+
+  const adminRoute = <S extends z.ZodType, R extends z.ZodType>(
+    spec: { readonly method: string; readonly path: string; readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => Promise<z.output<R>>,
+  ) => ({
+    method: spec.method,
+    path: spec.path,
+    serve: (request: IncomingMessage, response: ServerResponse) => serveAdmin(request, response, spec, handle),
+  })
+
+  const adminRoutes = [
+    adminRoute(endpoints.watch, admin.watch),
+    adminRoute(endpoints.unwatch, admin.unwatch),
+    adminRoute(endpoints.prune, admin.prune),
+  ]
+
   const routeApi = async (
     table: readonly ApiRoute[],
     request: IncomingMessage,
@@ -157,6 +208,11 @@ export const startServer = async ({
       if (refusal !== null) {
         sendError(response, refusal.code, refusal.message)
       }
+      return
+    }
+    const adminMatch = adminRoutes.find((route) => route.method === method && route.path === pathname)
+    if (adminMatch !== undefined) {
+      await adminMatch.serve(request, response)
       return
     }
     const match = matchRoute(table, method, pathname)
@@ -193,6 +249,7 @@ export const startServer = async ({
 
   const handle = async (
     table: readonly ApiRoute[],
+    checkCookieWrite: CookieWriteCheck,
     request: IncomingMessage,
     response: ServerResponse,
   ): Promise<void> => {
@@ -203,11 +260,21 @@ export const startServer = async ({
       return
     }
     const api = isApiPath(pathname)
-    if (!(await auth.authorized(request))) {
+    const credential = await auth.credential(request)
+    if (credential === null) {
       if (api) {
         sendError(response, 'unauthorized', 'a bearer token or the aang session cookie is required')
       } else {
         sendText(response, 401, 'Not signed in. Run `aang open` to get a sign-in link.')
+      }
+      return
+    }
+    const refusal = credential === 'cookie' ? checkCookieWrite(request) : null
+    if (refusal !== null) {
+      if (api) {
+        sendError(response, refusal.code, refusal.message)
+      } else {
+        sendText(response, statuses[refusal.code], refusal.message)
       }
       return
     }
@@ -224,9 +291,10 @@ export const startServer = async ({
   const { port } = server.address() as AddressInfo
   const address: Listener = { host: listener.host, port }
   const table = routes(address)
+  const checkCookieWrite = cookieWriteCheck(port)
   server.on('request', (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader('x-content-type-options', 'nosniff')
-    handle(table, request, response).catch((error: unknown) => {
+    handle(table, checkCookieWrite, request, response).catch((error: unknown) => {
       process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
       if (response.headersSent) {
         response.destroy()

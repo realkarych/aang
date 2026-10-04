@@ -1,0 +1,130 @@
+{
+  "steps": [
+    {
+      "kind": "append",
+      "at": 323,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-29-01a1047e-a076-74d3-8bfd-df0dafe57859.jsonl"
+      },
+      "source": "data/000002.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 330,
+      "source": "data/000005.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 334,
+      "source": "data/000007.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 343,
+      "source": "data/000009.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 348,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-29-01a1047e-a076-74d3-8bfd-df0dafe57859.jsonl"
+      },
+      "source": "data/000003.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 351,
+      "source": "data/000011.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      },
+      "label": "approval-requested"
+    },
+    {
+      "kind": "otlp",
+      "at": 510,
+      "source": "data/000012.json"
+    },
+    {
+      "kind": "hook",
+      "at": 1426,
+      "source": "data/000015.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      },
+      "label": "approval-granted"
+    },
+    {
+      "kind": "append",
+      "at": 1430,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-29-01a1047e-a076-74d3-8bfd-df0dafe57859.jsonl"
+      },
+      "source": "data/000013.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 1447,
+      "source": "data/000018.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 1456,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/04/rollout-2026-10-04T04-19-29-01a1047e-a076-74d3-8bfd-df0dafe57859.jsonl"
+      },
+      "source": "data/000016.jsonl",
+      "label": "turn-complete"
+    },
+    {
+      "kind": "hook",
+      "at": 1458,
+      "source": "data/000021.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CODEX_HOME": "/Users/USER/.codex",
+        "CODEX_INTERNAL_ORIGINATOR_OVERRIDE": "Codex Desktop"
+      }
+    },
+    {
+      "kind": "otlp",
+      "at": 1476,
+      "source": "data/000019.json"
+    }
+  ]
+}

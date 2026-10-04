@@ -10,8 +10,10 @@ export const sessionCookie = 'aang_token'
 const codeLifetimeMs = 5 * 60_000
 const cookieMaxAgeSeconds = 400 * 24 * 60 * 60
 
+export type Credential = 'bearer' | 'cookie'
+
 export interface Authenticator {
-  readonly authorized: (request: IncomingMessage) => Promise<boolean>
+  readonly credential: (request: IncomingMessage) => Promise<Credential | null>
   readonly redeem: (code: string) => Promise<string | null>
   readonly pruneExpiredCodes: () => Promise<void>
 }
@@ -31,10 +33,17 @@ const cookieToken = (request: IncomingMessage): string | undefined =>
 const isExpired = (modifiedMs: number): boolean => Date.now() - modifiedMs > codeLifetimeMs
 
 export const createAuthenticator = (paths: AangHomePaths): Authenticator => {
-  const authorized = async (request: IncomingMessage): Promise<boolean> => {
+  const credential = async (request: IncomingMessage): Promise<Credential | null> => {
     const token = await readUiToken(paths.uiToken)
-    const presented = [bearerToken(request), cookieToken(request)].filter((value) => value !== undefined)
-    return token !== null && presented.some((value) => timingSafeEqual(digest(value), digest(token)))
+    if (token === null) {
+      return null
+    }
+    const matches = (presented: string | undefined): boolean =>
+      presented !== undefined && timingSafeEqual(digest(presented), digest(token))
+    if (matches(bearerToken(request))) {
+      return 'bearer'
+    }
+    return matches(cookieToken(request)) ? 'cookie' : null
   }
 
   const pruneExpiredCodes = async (): Promise<void> => {
@@ -75,5 +84,5 @@ export const createAuthenticator = (paths: AangHomePaths): Authenticator => {
     return `${sessionCookie}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${String(cookieMaxAgeSeconds)}`
   }
 
-  return { authorized, redeem, pruneExpiredCodes }
+  return { credential, redeem, pruneExpiredCodes }
 }

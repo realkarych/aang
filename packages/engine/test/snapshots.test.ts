@@ -129,7 +129,7 @@ test.for([
     run: runOf(source),
     worktree: repository.path,
     trigger: 'check',
-    masks: ['src'],
+    masks: [join(repository.path, 'src')],
     head: repository.head,
     clean,
   })
@@ -163,7 +163,7 @@ test('masks outside the worktree and actions that are not checks take no snapsho
   expect(factsOf(store).filter(({ kind }) => kind === 'git_snapshot')).toEqual([])
 })
 
-test('masks are relative to the watched root, so a check from a nested directory sees the whole mask', async ({ onTestFinished }) => {
+test('masks are resolved against the watched root, so a check from a nested directory sees the whole mask', async ({ onTestFinished }) => {
   const { store, engine, repository } = await setup(onTestFinished, { masks: ['src', 'README.md'] })
   await writeFiles(repository.path, { 'packages/app/index.ts': 'export {}\n' })
   await git(repository.path, 'add', '--all')
@@ -172,7 +172,9 @@ test('masks are relative to the watched root, so a check from a nested directory
   await writeFiles(repository.path, { 'src/new.ts': 'export {}\n', 'packages/app/scratch.ts': 'export {}\n' })
   const source = { session: 'nested-session', cwd: join(repository.path, 'packages', 'app') }
   await runCheck(engine, source)
-  expect(snapshotsOf(store, source)).toEqual([expect.objectContaining({ head, clean: false, masks: ['src', 'README.md'] })])
+  expect(snapshotsOf(store, source)).toEqual([
+    expect.objectContaining({ head, clean: false, masks: [join(repository.path, 'src'), join(repository.path, 'README.md')] }),
+  ])
   const fact = factsOf(store).find(({ kind }) => kind === 'git_snapshot')
   expect(fact?.payload).toMatchObject({ entries: [{ status: '??', path: 'src/new.ts' }] })
 })
@@ -314,8 +316,8 @@ test('a check snapshot is taken in the repository the check ran in, not where it
   await engine.ingest(rollout.batch(4, 5))
   const snapshots = store.artifacts.snapshots(runId(sessionKey('codex', thread)))
   expect(snapshots.map(({ worktree, head, clean, masks }) => ({ worktree, head, clean, masks }))).toEqual([
-    { worktree: other.path, head: other.head, clean: false, masks: ['.'] },
-    { worktree: origin.path, head: origin.head, clean: true, masks: ['.'] },
+    { worktree: other.path, head: other.head, clean: false, masks: [workspace] },
+    { worktree: origin.path, head: origin.head, clean: true, masks: [workspace] },
   ])
   const facts = factsOf(store).filter(({ kind }) => kind === 'git_snapshot')
   expect(facts[0]?.payload).toMatchObject({ entries: [{ status: ' M', path: 'src/app.ts' }] })

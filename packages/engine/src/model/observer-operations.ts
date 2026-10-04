@@ -197,6 +197,7 @@ export const planOperation = (context: ObserverContext, op: ObserverOp, at: Epoc
           status: { value: 'not_checked', basis, evidence: op.evidence },
           checked_commit: null,
           clean_tree_commit: null,
+          carried_checks: [],
         },
       })
       return

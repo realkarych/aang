@@ -192,8 +192,123 @@ root key when there is none, the rule that run linking (E.4) uses for projection
 The root session of a run comes from its `run` entity; without one, a session that
 is its own root uses its `cwd`.
 
-Checks do not produce criterion statuses: a check alone never gives `confirmed`.
-`passed_unversioned`, `confirmed` and `stale` belong to E.7c.
+## Contract criteria
+
+Each contract with a check result in a run has one criterion of the rule (ADR-0006):
+source `contract`, the contract name, the text `Check "<name>" passes`, no stage,
+and an id derived from the run and the contract name. The latest result of the
+contract decides its status with observed basis, and every change is a
+`criterion.status` rule change in the journal:
+
+- a failed check gives `failed` with the evidence of the check;
+- a passing check gives `confirmed` only when the contract has a `commitPattern`,
+  the outputs of the check report exactly one object name through it, and that
+  name is a commit of the repository of the check directory. The name is the
+  named group `commit`, otherwise the first group, otherwise the whole match; it
+  must be 7 to 64 hexadecimal digits, a shorter name that prefixes a longer one
+  counts as the same name, and the commit is resolved with `git rev-parse --verify
+  --quiet <name>^{commit}` and must start with the name, so a tag or a tree is not
+  a commit. `checked_commit` is the full name. The contract is responsible for the
+  check reading that commit, for example by checking out the commit in an isolated
+  `git worktree` and printing its `HEAD`; the output alone links them, so a check
+  read by backfill is confirmed as well. The evidence cites the facts of the check
+  and every result of the action whose output reported the name, so a commit
+  reported only by a later transcript result of a call is cited as well;
+- every other passing check gives `passed_unversioned`: no commit pattern, no
+  reported name, several names, a name that is not a commit, a directory outside a
+  git repository. When the snapshot taken after the start of the check was ingested
+  and before its end, and the first snapshot after its end, are both clean on the
+  same `HEAD`, `clean_tree_commit` notes that commit and the evidence cites both
+  snapshots. The note never confirms: the input could change and return between
+  them;
+- snapshots of the working tree of the check directory under the masks of the
+  contract taken after the end of a confirming check decide `stale`: when the latest
+  of them is not clean on `checked_commit` (another `HEAD`, a change under the
+  masks or a failed git command), the criterion is `stale` and cites the first
+  snapshot since the tree last showed the commit. A failed snapshot names the check
+  directory instead of its working tree and belongs to the criterion as well, so a
+  deleted check directory makes it `stale`. A later snapshot clean on the commit
+  confirms it again, since the current state is the checked version.
+
+Once a result has given `checked_commit`, the commit stays established for that
+result: while the latest result is the same and the criterion cites its facts, a
+later evaluation keeps `checked_commit` without resolving the name again, so a check
+directory that is gone after a restart leaves the criterion `stale`, not
+`passed_unversioned`.
+
+The order of snapshots and check facts is the order of their raw records, so it
+does not depend on the clocks of the runtime and the daemon.
+
+A criterion with `checked_commit` is watched:
+
+- at the end of every turn of its run (`turn_end` facts), the ingest takes a
+  `turn_end` snapshot of its check directory;
+- `engine.refreshCriteria()` takes a `restart` snapshot for every such criterion
+  of the store; the daemon calls it once after start;
+- with `fsWatch` (on by default, `collector.fsWatch` in the daemon), the engine
+  watches the paths of the masks inside the working tree: a directory recursively,
+  a file through its parent directory, a mask with a wildcard (`*`, `?`, `[`)
+  through the path before its first wildcard segment, recursively, ignoring `.git`.
+  A change takes a `fs_watch` snapshot after 100 ms of quiet, and the snapshot
+  decides whether the change is under the masks. A notification is only a signal: a
+  missed one is caught by the next snapshot at a turn end or a restart.
+
+A binding that moves a session to another run moves its checks along: the binding
+transaction evaluates the criteria of the run the session left and of the run it
+joined, and a run with no check of a contract any more loses the criterion of that
+contract with a `session.move` rule change, as failed check items do. Snapshots stay
+in the run they were taken for, and an evaluation reads only the snapshots of its own
+run, so a binding never confirms on snapshots of another run. A passing check that a
+binding moves or brings forward gives `passed_unversioned` without `checked_commit`
+and without the note, with a `session.move` rule change as its reason, and keeps it
+for good. A criterion lists its carried checks in `carried_checks`, by the id of the
+check action, and the binding transaction adds them with a `session.move` change of
+the criterion even when another check still covers it:
+
+- a carried check is any check of a moved session that has a result in the run when
+  the binding moves the session, whether or not it is the latest check of the
+  criterion;
+- a check brought forward is the latest check of a criterion in the binding
+  transaction that the criterion did not cite before, such as an earlier check of
+  the run the session left that a later check of the moved session covered;
+- a check is carried for good once any state of a criterion of any run has listed
+  its action in the journal; every evaluation reads these actions with one query
+  over the journals of all criteria. The status holds in whichever run the action
+  has a result later, whichever check covers the criterion in between and however
+  the results of the action change: a transcript read after a check of another
+  session can put the moved check in front again, a detach can uncover it, a
+  reparse can remove its result, a binding can take its session to another run
+  while it has no result, the criterion can be removed and created again, and turn
+  end snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it the
+  same way, before and after a restart. `carried_checks` of a criterion lists the
+  carried actions among its checks that have a result in the run. Only a check of
+  another action confirms the criterion again;
+- a check that the moved session runs after the binding is not affected, since its
+  action has no result at the binding and every snapshot after it belongs to the run
+  it joined.
+
+`engine.reparse()` evaluates the criteria of the runs it rebuilds in its transaction
+the same way.
+
+The ingest evaluates the criteria of every run whose sessions received facts in the
+transaction of the batch, together with its facts and cursors (ADR-0005). The git
+state that a verdict needs (the working tree of the check directory and the commit
+of the reported name) is read before that transaction: when the transaction meets a
+check whose git state is not known yet, it is rolled back, the engine reads the git
+state and repeats the transaction once; a binding and a reparse do the same. The git
+state is read once for each result (its check directory, the facts of the check and
+the reported name with its facts) and kept for the life of the engine. A later
+result reads git again and finds a repository created or a commit fetched since; a
+result already read keeps its state even when a later result of the same directory
+finds a repository, so the state of one check never changes the verdict of another.
+After a restart a result without an established commit is read again. The snapshots
+of the batch are taken after
+the commit and recorded together with the evaluation they change in one more
+transaction. A crash between the two loses only these snapshots: a confirmed
+criterion is checked again by the `restart` snapshot, and the note of an
+unversioned pass, which needs the snapshot after the check, is not given.
+`engine.close()` stops watching and waits for queued work; a failure of work started
+by a notification is raised by the next call of the engine.
 
 ## Working tree snapshots
 
@@ -217,6 +332,10 @@ git neither refreshes the index nor takes `index.lock`. `inputMasks` of a contra
 are paths relative to the watched root that declares the contract, interpreted as
 git pathspecs. A mask that covers the whole working tree becomes `.`, and masks
 outside the working tree are dropped; when no mask remains, no snapshot is taken.
+The snapshot records the masks resolved against that root as absolute paths, so the
+same mask of contracts with different roots names different inputs, and a criterion
+reads only the snapshots of its working tree with the masks of its contract resolved
+the same way.
 
 A snapshot is clean only when `HEAD` resolves to a commit and the status under the
 masks is empty: an uncommitted, staged, renamed, untracked or ignored path under a
@@ -225,7 +344,9 @@ gives an unclean snapshot without a head and with the error.
 
 Each snapshot is a raw record of the `snapshot` channel (position `daemon`, no
 runtime or stream), one `git_snapshot` fact keyed by the run of the root session
-with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
+with speaker `runtime`, and a `GitSnapshot` object with its trigger: `check` for
+checks, `turn_end`, `restart` and `fs_watch` for confirmed criteria (see Contract
+criteria). Daemon
 records are not session evidence: they do not move `last_event_at`, freshness or
 the turn state.
 
@@ -430,7 +551,10 @@ the batch over to the follow-up without spending an attempt. The follow-up respo
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
-between calls of a run.
+between calls of a run. `skipObserverFollowUp` gives the follow-up up the same way
+at run time: the batch returns to `pending` and the summarized deferred facts are
+released, both with the attempt given back. The scheduler (F.9) does so when the
+backend is no longer `ok` by the time of the follow-up.
 
 ## Observer queue
 
@@ -443,7 +567,7 @@ A reparse queues the facts it adds the same way after it rebuilds the projection
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
 
-`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context })`
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context, catchUpMs? })`
 starts the next call of a run from its pending facts in the order of their records:
 
 - a queued `context` or `git_snapshot` fact leaves the queue without a status;
@@ -452,6 +576,17 @@ starts the next call of a run from its pending facts in the order of their recor
   an open gap `cross_vendor_excluded` or `not_interpreted`;
 - the candidates are the first facts up to `limits.facts` whose payload size in UTF-8
   bytes stays within `limits.bytes`; the first fact always goes;
+- catch-up (ADR-0007): when the oldest pending fact was observed more than `catchUpMs`
+  before `at`, the candidates are the latest facts that fit these limits instead, and
+  the earlier pending facts become `deferred` with the run gap `summarized_backlog`.
+  The packing then keeps the latest candidates as well, and the earlier candidates
+  it leaves out are deferred into the same summary instead of staying `pending`;
+- every `deferred` fact of the run that no accepted call has summarized yet goes into
+  `batch.backlog`: the time range, the number of facts and, per agent in scope, the
+  facts by tool (the fact kind when the fact has no action). A deferred fact outside
+  the input scope becomes `not_interpreted` like a pending one. The summary rides with
+  a batch; when no pending fact is eligible, the call carries the summary alone with
+  an empty batch, so a run whose whole queue was deferred still reaches the observer;
 - the input carries the run description with the sessions and agents in scope, the
   given run context when its record is in scope (otherwise `null`), the snapshot of
   the current version (active stages, criteria, open attention items), the batch
@@ -460,12 +595,19 @@ starts the next call of a run from its pending facts in the order of their recor
   goal and brief, stages, criteria and attention items enter only when their grounds
   are in scope; a reference to a stage left out becomes `null`. The reasons carry
   over calls that ended without a response, so a backend failure or a restart after
-  a rejection does not drop them. The backlog and artifact versions stay empty;
+  a rejection does not drop them. A summary takes them from the latest call of the
+  run when that call carried a summary and was not accepted, with or without batch
+  facts; the reasons of the batch and of the summary are joined without repeats. The
+  artifact versions stay empty;
 - the input is packed within the limit (see "Observer input" below);
-- the call is recorded by `beginObserverCall`. Without a run entity or an eligible
-  fact, or when the run description, the snapshot and the context leave no room
-  even for one fact without its payload, nothing starts, the facts stay `pending`
-  and the result is `null`.
+- the call is recorded by `beginObserverCall`, and the summarized deferred facts refer
+  to it. Without a run entity or an eligible fact or deferred fact, or when the run
+  description, the snapshot and the context leave no room even for one fact without
+  its payload, nothing starts, the facts stay `pending` and the result is `null`.
+
+`beginObserverCall` refuses a second call of a run while facts of the run are
+`in_call` or summarized by an unfinished call, and refuses a call with neither a fact
+nor a summary.
 
 ### Observer input
 
@@ -501,6 +643,11 @@ stops at the first input that fits:
    The observer can request the raw record by the `seq` of the fact. The other
    candidates stay `pending` for the next batch.
 
+In catch-up the steps keep the suffix of the candidates instead of the prefix, and
+step 5 takes the last candidate. The candidates left out become `deferred` and join
+`batch.backlog`; the summary is measured with each tried input, so the input with
+it stays within the limit.
+
 A string or a model text is cut only when the cut, together with its truncation
 entry or the `…` mark, is shorter in JSON than the whole text. The input size
 therefore never grows when the length goes down, and each length above is found by
@@ -515,22 +662,36 @@ least one. The batch, the snapshot version and the ids stay those of the first c
 `failObserverCall` ends a call without an applicable response. `rejected`, an output
 the backend could not read against the schema, returns the batch to `pending` as a
 schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
-`pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
-store the usage of the call. A response that arrives after a session transfer ended
-its call is not applied: `chargeEndedObserverCall` stores its usage on the ended
-call, leaves its verdict, reasons and facts as they are, and returns `true`; for a
-call that is still running it returns `false`.
+`pending` and gives the attempt back. Both store the backend error class and message
+when the caller passes them. `applyObserverResponse` and `failObserverCall` store the
+usage of the call. An accepted response stores the delay of its batch: from the
+earliest `observed_at` of the batch records to the acceptance, so a `needs` follow-up
+counts the time of the first call. A call with the summary alone has no batch records
+and no delay. A response that arrives after a session transfer ended its call is not
+applied: `chargeEndedObserverCall` stores its usage on the ended call, leaves its
+verdict, reasons and facts as they are, and returns `true`; for a call that is still
+running it returns `false`.
+
+The summarized deferred facts stay with an accepted call. A rejected or failed call
+releases them, and the next batch summarizes them again; a `needs` follow-up takes
+them over with the batch. Attempts of a deferred fact count its summaries: deferral
+resets them, each summary spends one, a failed call gives it back, and a rejection
+keeps it.
 
 When the store opens, facts left `in_call` by a stopped process return to `pending`
 and get the attempt of the interrupted call back: a stop is not a content failure.
 They keep the reference to the interrupted call, which carries the reasons of the
-previous rejection.
+previous rejection. Deferred facts summarized by a call without an accepted response
+are released for the next summary and get the attempt back.
 
 `exhaustObserverCall` turns the facts of a rejected call that reached the attempt
-limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call. The
+released deferred facts of its run that reached the limit become `not_interpreted`
+with them, so a summary rejected `attempts` times stops being sent.
 `boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
-defers any, and returns the active queue.
+defers any, and returns the active queue. Deferred facts reach the observer only in
+the backlog summary of a later call.
 
 ## Forks, bindings and session transfer
 
@@ -596,15 +757,16 @@ binding's transaction:
 - the session's facts become `pending` in the target run and leave the pending
   queue of the source run. Its `context` and `git_snapshot` facts are not queued:
   they are run context and are never interpreted as facts;
-- an observer call of the source run whose batch holds any of these facts or
-  whose input describes the session is ended as `rejected` with a `scope` reason:
-  the rest of its batch returns to `pending` in the source run and gets its
-  attempt back, since a transfer is not a content failure, and a late
-  response to it is not applied, so neither a rejection nor a restart returns the
-  moved facts to the source run, and a session moved back gets its facts
-  `pending` again. A call that already ended as `needs_requested` keeps its
-  verdict: its batch returns to `pending` the same way, and its follow-up is
-  refused;
+- an observer call of the source run whose batch or summary holds any of these
+  facts or whose input describes the session is ended as `rejected` with a `scope`
+  reason, a call with the summary alone included: the rest of its batch returns to
+  `pending` in the source run, the rest of its summary is released for the next
+  summary, and both get their attempt back, since a transfer is not a content
+  failure. A late response to it is not applied, so neither a rejection nor a
+  restart returns the moved facts to the source run, and a session moved back gets
+  its facts `pending` again. A call that already ended as `needs_requested` keeps
+  its verdict: its batch and summary are released the same way, and its follow-up
+  is refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and
@@ -815,20 +977,23 @@ counts come from the interpretation statuses.
 
 - `runs()` lists run summaries, the latest activity first.
 - `snapshot(run)` returns the run, its summary, the semantic model, the observation
-  objects and gaps of its sessions, its plan facts, attention items and bindings.
+  objects and gaps of its sessions, its plan facts, attention items with their views,
+  the view mark and the attention zone, and bindings.
 - `feed(run, after)` returns the changes of that snapshot after a position as the
   contract deltas. Applying them to the snapshot taken at `after` gives the snapshot
   taken at `position`:
   - consecutive changes of facts, observation objects, gaps and retractions form one
-    `facts` event, and every model version forms one `model` event. An event id is
-    the last `change_seq` it contains, so ids grow and never repeat;
+    `facts` event, consecutive views and dismissals of attention items one
+    `attention` event with their views, every model version forms one `model`
+    event, and a new view mark forms one `run` event at the `change_seq` of the mark.
+    An event id is the last `change_seq` it contains, so ids grow and never repeat;
   - objects and gaps arrive in their current state, `removed` names retracted agents
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
   - a model event replaces the changed entities of the run; a removed
     `session_membership` takes the objects of that session out of the run;
   - `run` is the current summary, view and bindings, which the transport delivers
-    after the events;
+    after the events; a `run` event carries the same current state;
   - a position ahead of the change feed is an `InvalidPositionError` with reason
     `stale_position`; a position before the reparse boundary is one with reason
     `reparsed`.
@@ -843,13 +1008,13 @@ The run summary:
   failed, cancelled, unknown, planned and done. A run without sessions is unknown;
 - `freshness` takes the sessions in the order of a single session: lost, hooks
   inactive, quiet, ok;
-- open attention items are those with resolution `open`; an item waits for a human
-  while its runtime wait is active;
+- open attention items are the items of the attention zone: resolution `open` and
+  not dismissed; an item waits for a human while its runtime wait is active;
 - `pending_facts` counts pending facts and facts in a call, `oldest_pending_at` is
   the time of the oldest of them, `last_success_at` the end of the last accepted
   call;
 - `change_seq` is the last change of these inputs: the model version, the sessions,
-  the agents and the observer calls.
+  the agents, the observer calls and the attention views.
 
 The stage inspector shows the assigned actions that still belong to the run, the
 participating agents together with the agents of those actions, the items of the
@@ -864,9 +1029,9 @@ while naming the stage.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
-entries in between, cards added after the version, plan facts and new actions after
-the position, and attention items opened after the version and still open or closed
-after it. An action is new when every fact of it came after the position; inherited
+entries in between, cards added after the version, plan facts, new actions and the
+artifact versions created after the position in their current state, and attention
+items opened after the version and still open or closed after it. An action is new when every fact of it came after the position; inherited
 actions are not new. A change of a link changes every stage the link names before or
 after it, so a dependency changes both of its stages. A stage changed only through its
 links has the same state before and after, and its journal entries are those link
@@ -882,10 +1047,12 @@ recorded as `failed`. The result
 version of an accepted call is the last version of its transaction, including the
 rule changes that follow its operations, as returned by `applyObserverResponse`.
 
-Some parts of the contract have no source yet and stay empty: view rules, the view
-mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
-and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
-error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+Some parts of the contract have no source yet and stay empty: the artifact versions
+and git snapshots of the snapshot and the feed, stage inputs and outputs and
+criterion snapshots (E.7b, E.7c); the CLI version, model and error of observer calls
+(F.8, F.9). The usage of an observer call is what the CLI results of the call
+reported: a request for materials and its follow-up add up (Observer and chat
+usage). The usage records of a run come with its objects,
 and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
@@ -923,6 +1090,13 @@ and the session facts; `source` is the store or a transaction:
   of its sessions and each of its agents is the sum of its records, so the
   sessions of a run add up to the run. `cost_usd` is `null`: money comes only
   from `cost-state`, shown per session.
+- A session of the journal tells whether it is a fork (`fork`), by the same
+  lineage that marks its inherited records. The `cost-state` of a Claude fork
+  includes the usage of the history it copied, so a reader of it has to say so;
+  the records of the fork count only its own usage.
+- `thread_totals` of a session gives the `thread_total` of each of its agents
+  that has one: the cumulative total of a Codex thread without
+  `token_usage_record`. It is never added to the records, and a fork has none.
 - The `cost-state` of a session is final only when the data show that no launch
   runs after the one that wrote it; when they cannot show it, it is not final.
   Each launch ends with a `cost-state` line. Lines of the same content in several
@@ -981,3 +1155,246 @@ and the session facts; `source` is the store or a transaction:
   sum is not the duration of the run.
 - A transfer projects the session again with its new run, so both runs read the
   moved usage on the next query.
+
+## Observer and chat usage
+
+The observer and the chat keep their journals in `observer_calls`, apart from the
+solver journal and from each other (ADR-0009). The usage of a call is what its CLI
+result reported (`usage`, `modelUsage` and `total_cost_usd` of Claude,
+`turn.completed.usage` of Codex); a call is ephemeral, so nothing accumulates.
+
+- The observer journal of a run is its batch calls. A call that asked for materials
+  and its follow-up are one call, as in the observer calls of the run (Read
+  queries): it starts with the request, ends with the follow-up and spends the usage
+  of both. A call counts once it has ended: a call that still holds its batch is
+  running. The lag of a call is the delay of its accepted batch, from the reading of
+  its oldest fact to the model version (`delay_ms`, ADR-0007).
+- Probes on the synthetic input spend the observer usage of no run. Authorization
+  checks spend nothing.
+- The chat journal of a run is its chat calls (K.1 writes them with
+  `observerCalls.chat`). A follow-up that resolves `needs` names the call it
+  continues, and the chain is one call from the first start to the last end.
+
+`usage(query)` of the read queries gives the usage report of `aang usage` and the
+usage panel; `query` takes a run, a period from `from` (inclusive) to `to`
+(exclusive), or both, and an unknown run gives `null`:
+
+- A solver record counts in the period of its time and a call in the period of its
+  end. The activity of the solver counts in the period of its time, so the duration
+  of a run in the report runs from its first to its last activity in the period, and
+  the agents and stages of `solverUsage(source, run, { period })` take the same
+  records and activity.
+- Without a run the report lists every run with solver records, solver activity,
+  observer calls or chat calls in the period, the earliest activity first; a run
+  with only calls comes last. With a run it lists that run and has no probes,
+  which belong to no run.
+- `observer` and `chat` are the journals over the listed runs, `probes` the probes
+  of the period. The latency of calls and the lag of batches are the nearest-rank
+  50th and 95th percentiles and the maximum, in milliseconds. `records` of a call
+  journal counts the CLI results that reported usage; their output is never a lower
+  bound. `cost_usd` adds the money the CLI reported and is `null` when no call
+  reported any, as for Codex.
+- The sessions of a run come as `solverUsage` gives them: the Claude Code total
+  (`cost_state`) and whether it is final, whether the session is a fork, whose
+  Claude Code total includes the inherited usage, and the thread totals of Codex
+  threads without usage records. The Claude Code total and the thread totals are
+  cumulative over the whole session or thread, so a period does not cut them, and
+  they are never added to a journal.
+- `totals` sums each journal: the solver over the runs, the observer over the runs
+  and the probes, the chat over the runs. The journals are never added together.
+- An active hour is a clock hour of UTC in which the solver of a listed run was
+  active; the observer and the chat do not make an hour active. Two runs active in
+  the same hour count it once. `per_active_hour` divides each journal by the active
+  hours of the report and is `null` without them.
+
+## Watch and prune
+
+A scope decision of a root session keeps the starting directory it was judged by
+(`session_scopes.cwd`). `engine.rewatch(watch, persist)` judges every stored
+decision again with the new roots, in one transaction with `persist`, where the
+daemon saves the watch settings. Observer sessions keep their decision.
+
+- A session that leaves the roots becomes `external` together with its streams:
+  those whose records belong to it and those pruned with it (`pruned_streams`).
+  Appended lines are discarded while the records already taken stay until
+  `prune`.
+- A session that enters the roots becomes `watched`, but its streams keep the
+  `external` decision: their lines were never stored. A stream decision tells how
+  the lines read so far were taken, so an `external` stream of a watched session
+  is history still to reread. `rewatch` returns every `external` stream, and the
+  daemon asks the collector to reread them from the beginning within the lookback
+  (ADR-0004). A reread file is held like a new one; the decision of its session
+  wins over the stream decision, and the stream decision follows it.
+- Until such a reread the stream stays `external`, across restarts too, so a
+  later `watch` with a longer lookback or a repeated one after an interrupted
+  reread still takes the whole file. A stream whose reread finds nothing past its
+  prune boundary stays `external` as well, and the next `watch` rereads it from
+  the boundary.
+- New records follow the decision of the session that owns them: appended lines,
+  hooks, OTel records and gaps of a watched session are taken while its stream
+  waits for the reread, and none of them marks the history as taken. Appended
+  lines of a session that left the roots are discarded and make the stream
+  `external`. A hook decides the stream it names only when the stream has no
+  decision yet.
+- A hook record is stored with the stream its adapter names: Codex the thread,
+  Claude the main or subagent transcript of the event; a Claude registry entry
+  names the main transcript. A stream whose only stored records are such records
+  still belongs to their session, so a gap of its file, such as `source_lost`
+  after the file is deleted before the reread, is taken by the session's
+  decision and attached to the session and its run.
+
+`engine.prune(request, prefixHash)` removes the runs of `aang prune --run` or of
+`aang prune --before`: the runs whose sessions had their last event before the
+date. In one transaction it deletes the raw records of the run's streams and
+sessions with their facts, objects, gaps, the model and its journal, observer
+calls, view state, chat and bindings, and saves a boundary per stream in
+`pruned_streams` (ADR-0005). Cursors and scope decisions stay.
+
+- The streams of a run are the streams of any decision whose records, lines or
+  hooks, belong to one of its sessions, and the streams pruned with those
+  sessions before. Since a hook record keeps the stream its adapter names, a
+  session known only from hooks is bounded too.
+- A context record and a git snapshot belong to the run they were recorded for,
+  named by their fact about the run, and go only with that run, even when its
+  root session has moved to the pruned run. A context record also names the other
+  sessions it read; pruning one of them removes only that reference, so the
+  context of a run that keeps it stays whole for its observer calls (ADR-0007).
+- A Claude boundary is the offset of the furthest cursor of the stream with the
+  hash of the file prefix up to it, from `prefixHash`. Without a cursor the
+  boundary is the empty prefix. When the file can no longer be read, the boundary
+  keeps the offset with the hash of the empty prefix, which no prefix of that
+  length matches, so a file that reappears stops with a gap instead of returning
+  the deleted lines.
+- A Codex boundary is the largest `last_ordinal` of the stream's cursors.
+- Hook records of a pruned session observed before the latest boundary of the
+  session are discarded, and so are pending OTel records of a pruned stream.
+- A run created again for a session with boundaries has `start_pruned`.
+- A pruned run can be pruned again: its sessions are found by the root sessions
+  saved with the boundaries, except a session observed in another run since,
+  such as one resumed after the prune and then attached elsewhere, which stays
+  with that run. This is how a stream stopped with
+  `stream_changed_after_prune` is taken again whole (ADR-0005): a Claude stream
+  with that gap open gets the empty prefix as its new boundary, the gap goes with
+  the other layers of the run, and the collector rereads the stopped files from
+  the start.
+
+## View rules
+
+View rules change what the map shows and nothing else: the model, the journal, the
+usage and the attention zone stay as they are (ADR-0008). A rule belongs to one run.
+
+- `addViewRule(transaction, { run, rule, source, at })` checks a `ViewRuleSpec`
+  from the chat or the UI, stores it and returns it with the elements its selector
+  selects now, which is the count shown to the user. Text in a selector and the
+  group name are trimmed. A rule the run cannot hold is a `ViewRuleError` that
+  explains it and stores nothing: `invalid_rule` when it does not match the schema,
+  `invalid_selector` for an empty text, an empty stage list or a stage the run does
+  not have, `invalid_params` for an empty group name. An unknown run gives `null`.
+  The caller's transaction lets a chat answer and its rule commit together.
+- `revokeViewRule(transaction, { run, id, at })` records the revocation once, with
+  a new `change_seq`, and returns the rule; a revocation is never before the
+  creation of its rule. A revoked rule stays in the store. An unknown rule or a rule
+  of another run gives `null`.
+
+Rules apply when a view is read, never when it is written, so a rule selects
+elements that appear after it and a revocation restores the view. The snapshot and
+every `run` delta of the feed carry `view.rules`, the active rules in creation
+order with the elements they select, and `view.placements`. Rules survive a
+restart with the store.
+
+Selectors are deterministic. Agent type, name and role and a tool name match a
+whole value without regard to case or surrounding spaces; the role is the runtime
+role (`agent_role`) or the role in aang (`main`, `subagent`, `teammate`,
+`service`). Service agents are the agents with the service role. A stage title
+matches a fragment, and stage ids and action kinds match exactly. Stage selectors
+see every stage of the run, replaced ones included.
+
+The tree of an element is what a rule on it covers:
+
+- a stage covers its substages, the actions assigned to any of them that still
+  belong to the run, the participating agents and the agents of those actions;
+- an agent covers the agents spawned under it and the actions of all of them;
+- an action covers the actions of its code cell.
+
+A placement is the effect of the rules on one selected element. On each aspect of
+it the latest rule wins:
+
+- visibility: `collapse` shows the element as one node with the totals of its tree,
+  `hide` leaves it out together with its tree;
+- `group` names the node the element is shown under;
+- `detail` sets the level of its tree: only stages, stages and agents, or every
+  action. The element itself stays shown.
+
+The default rule collapses service agents (ADR-0006); its placements name the rule
+`null`. It comes before every stored rule, so a later rule overrides it until that
+rule is revoked.
+
+The totals of a collapsed element count the agents and actions of its tree, the
+running actions and the finished ones by outcome, the versions its actions produced
+and, for a stage, the outputs linked to its tree. Usage is that of the solver
+journal: the records of the agents of the tree, or for a stage the records that
+belong to its tree, as `solverUsage` attributes them. An action has no usage of its
+own. A hidden or collapsed element keeps its share in every total outside the view:
+the run, its sessions, stages and agents and the inspector count it as before.
+
+No rule removes an open attention item from the zone. A placement lists, in
+`attention`, the open items its element takes off the map: those of its whole tree
+when it is hidden or collapsed, and those of the agents and actions below the level
+of a detail rule. An item belongs to the action it names or its question names, to
+the agent of the question or of that action, and to its stage. The UI marks these
+items as coming from a hidden element.
+
+## Since the last view and the attention zone
+
+`createViewState({ store, now })` records the explicit view actions of the user
+(ADR-0008). They are view state: they change neither the model nor the journal and
+send nothing to the solver, and "viewed" never means "approved".
+
+- `markViewed(run, { version, change_seq })` sets the one view mark of the run
+  (ADR-0005). The pair must describe one state: `version` is the model version of the
+  run at `change_seq`, the last version committed at or before that position, and
+  the position is not ahead of the change feed. The client sends the position of the
+  snapshot it shows together with the events it applied; any other pair is an
+  `InvalidPositionError`, and the previous mark stays. A later mark replaces the
+  mark, even with an earlier position. Only this call sets the mark: ingestion, the
+  observer and reads never move it. A new mark is a visible change with its own
+  `change_seq`, after the position it marks; the marked pair stays as sent. The
+  snapshot and the `run` delta carry the mark, and the feed delivers it as a `run`
+  event at its `change_seq`. Repeating the same mark at the same time changes
+  nothing.
+- `viewItem(run, item)` and `dismissItem(run, item)` record that the user viewed or
+  dismissed an attention item of the run, with a new `change_seq`. The first time
+  of each is kept, so repeating either changes nothing. A dismissed item leaves the
+  attention zone and stays among the items of the snapshot with its view, which is
+  its history entry "dismissed by the user"; its resolution, runtime wait and the
+  stage state stay as they are. Viewing does not dismiss. An unknown run or an item
+  of another run gives `null`.
+
+The changes since the mark are `changes(run, mark)`: the model journal after the
+mark version and the observation layer after the mark position. Rule items, such as
+a question asked or a check failed while the observer was unavailable, are journal
+entries of the author `rule`, so they are in the changes without the observer. Later
+observer changes of such an item, a priority or a likely resolution, do not open it
+again, so after a new mark it is not announced a second time. An artifact version
+written while the observer was unavailable is in the changes as well: a version is
+new when it was created after the mark position. The store keeps the position at
+which a version was first stored, so storing it again when its base is retained,
+when an earlier producer is found or after a restart does not announce it again.
+
+The attention zone (`view.zone`) lists the open items that are not dismissed, in the
+order of ADR-0008. Each place explains itself:
+
+1. items not viewed come before viewed ones: viewing lowers an item, which stays in
+   the zone until it is closed or dismissed;
+2. `waiting_for_human`: the solver waits for the human on a known request, the
+   runtime wait of the item is active;
+3. `dependent_stages`: the active stages that depend on the item, more first. They
+   are the stage of the item, or for an action-level item the stages its action is
+   assigned to while the action belongs to the run, together with every stage that
+   depends on them through dependency links, directly or through other stages.
+   Dependency links pass through replaced, merged and split stages, but such stages
+   do not count;
+4. age: the older `opened_at` first; then the item id.
+
+The priority of the observer (`attention.priority`) is a recommendation shown with
+the item and never changes the order.

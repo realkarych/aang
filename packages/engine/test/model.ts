@@ -169,6 +169,7 @@ const testsPass: Criterion = {
   status: { value: 'not_checked', basis: byObserver(firstCall), evidence: [fact(5)] },
   checked_commit: null,
   clean_tree_commit: null,
+  carried_checks: [],
 }
 
 const participation: Link = {

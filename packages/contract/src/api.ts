@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { Execution } from './axes.js'
 import { ChatMessage } from './chat.js'
-import { CostStatePayload, Fact, TokenUsage } from './facts.js'
+import { ActionOutcome, CostStatePayload, Fact, TokenUsage } from './facts.js'
 import { ModelChange } from './journal.js'
 import { AttentionItem, AttentionKind, Binding, Card, Criterion, Link, Run, Stage } from './model.js'
 import {
@@ -34,8 +34,17 @@ import {
   ViewRuleId,
 } from './primitives.js'
 import { RawRecord } from './raw.js'
-import { SupportKey, SupportStatus } from './support.js'
-import { AppliedViewRule, AttentionPlace, AttentionView, ViewMark, ViewRule, ViewRuleSpec } from './view.js'
+import { SupportStatus, VersionKey } from './support.js'
+import {
+  AppliedViewRule,
+  AttentionPlace,
+  AttentionView,
+  DetailLevel,
+  ViewElement,
+  ViewMark,
+  ViewRule,
+  ViewRuleSpec,
+} from './view.js'
 
 const text = z.string()
 const name = z.string().min(1)
@@ -61,8 +70,10 @@ export const RawSeqText = z.codec(decimal, RawSeq, {
 
 export const ApiErrorCode = z.enum([
   'unauthorized',
+  'forbidden',
   'not_found',
   'invalid_request',
+  'unsupported_media_type',
   'conflict',
   'unavailable',
   'internal',
@@ -83,7 +94,7 @@ export const Listener = z.strictObject({
 })
 export type Listener = z.infer<typeof Listener>
 
-export const HookInstallation = z.enum(['not_installed', 'untrusted', 'active', 'unknown'])
+export const HookInstallation = z.enum(['not_installed', 'untrusted', 'disabled', 'active', 'unknown'])
 export type HookInstallation = z.infer<typeof HookInstallation>
 
 export const RuntimeStatus = z.strictObject({
@@ -118,12 +129,17 @@ export const ObserverBackendStatus = z.strictObject({
 })
 export type ObserverBackendStatus = z.infer<typeof ObserverBackendStatus>
 
-export const VersionStatus = z.strictObject({
-  key: SupportKey,
-  status: SupportStatus,
-  sessions: count,
-  last_seen_at: EpochNs,
-})
+export const VersionStatus = z
+  .strictObject({
+    key: VersionKey,
+    status: SupportStatus,
+    sessions: count,
+    last_seen_at: EpochNs,
+  })
+  .refine(({ key, status }) => key.surface !== null || status === 'unverified', {
+    message: 'a version of an unknown surface is unverified',
+    path: ['status'],
+  })
 export type VersionStatus = z.infer<typeof VersionStatus>
 
 export const NotObservableSurface = z.enum(['claude_cowork', 'claude_cloud', 'codex_cloud', 'work_cloud'])
@@ -225,8 +241,42 @@ export const AttentionState = z.strictObject({
 })
 export type AttentionState = z.infer<typeof AttentionState>
 
+export const UsageTotals = z.strictObject({
+  tokens: TokenUsage,
+  records: count,
+  output_lower_bound: z.boolean(),
+  cost_usd: z.number().nonnegative().nullable(),
+})
+export type UsageTotals = z.infer<typeof UsageTotals>
+
+export const ViewTotals = z.strictObject({
+  agents: count,
+  actions: count,
+  running_actions: count,
+  outcomes: z.record(ActionOutcome, count),
+  usage: UsageTotals.nullable(),
+  outputs: z.array(ArtifactVersionId),
+})
+export type ViewTotals = z.infer<typeof ViewTotals>
+
+export const ViewVisibility = z.discriminatedUnion('state', [
+  z.strictObject({ state: z.literal('collapsed'), rule: ViewRuleId.nullable(), totals: ViewTotals }),
+  z.strictObject({ state: z.literal('hidden'), rule: ViewRuleId.nullable() }),
+])
+export type ViewVisibility = z.infer<typeof ViewVisibility>
+
+export const ViewPlacement = z.strictObject({
+  element: ViewElement,
+  visibility: ViewVisibility.nullable(),
+  group: z.strictObject({ name, rule: ViewRuleId }).nullable(),
+  detail: z.strictObject({ level: DetailLevel, rule: ViewRuleId }).nullable(),
+  attention: z.array(AttentionItemId),
+})
+export type ViewPlacement = z.infer<typeof ViewPlacement>
+
 export const RunView = z.strictObject({
   rules: z.array(AppliedViewRule),
+  placements: z.array(ViewPlacement),
   mark: ViewMark.nullable(),
   zone: z.array(AttentionPlace),
 })
@@ -244,14 +294,6 @@ export const RunSnapshot = z.strictObject({
   change_seq: ChangeSeq,
 })
 export type RunSnapshot = z.infer<typeof RunSnapshot>
-
-export const UsageTotals = z.strictObject({
-  tokens: TokenUsage,
-  records: count,
-  output_lower_bound: z.boolean(),
-  cost_usd: z.number().nonnegative().nullable(),
-})
-export type UsageTotals = z.infer<typeof UsageTotals>
 
 export const StageArtifact = z.strictObject({
   link: Link,
@@ -489,32 +531,51 @@ export const ReparseResponse = z.strictObject({
 })
 export type ReparseResponse = z.infer<typeof ReparseResponse>
 
-export const UsageQuery = z.strictObject({
-  run: RunId.optional(),
-  from: EpochNs.optional(),
-  to: EpochNs.optional(),
-})
+export const UsageQuery = z
+  .strictObject({
+    run: RunId.optional(),
+    from: EpochNs.optional(),
+    to: EpochNs.optional(),
+  })
+  .refine(({ from, to }) => from === undefined || to === undefined || from < to, {
+    message: 'from must precede to',
+    path: ['to'],
+  })
 export type UsageQuery = z.infer<typeof UsageQuery>
+
+export const Latency = z.strictObject({
+  p50: count,
+  p95: count,
+  max: count,
+})
+export type Latency = z.infer<typeof Latency>
 
 export const CallsUsage = z.strictObject({
   calls: count,
-  probes: count,
   totals: UsageTotals,
-  latency_ms: z
-    .strictObject({
-      p50: count,
-      p95: count,
-      max: count,
-    })
-    .nullable(),
+  latency_ms: Latency.nullable(),
 })
 export type CallsUsage = z.infer<typeof CallsUsage>
 
+export const ObserverUsage = z.strictObject({
+  ...CallsUsage.shape,
+  lag_ms: Latency.nullable(),
+})
+export type ObserverUsage = z.infer<typeof ObserverUsage>
+
+export const ThreadTotal = z.strictObject({
+  agent: AgentId,
+  tokens: TokenUsage,
+})
+export type ThreadTotal = z.infer<typeof ThreadTotal>
+
 export const SessionUsage = z.strictObject({
   session: SessionId,
+  fork: z.boolean(),
   totals: UsageTotals,
   cost_state: CostStatePayload.nullable(),
   cost_state_final: z.boolean(),
+  thread_totals: z.array(ThreadTotal),
 })
 export type SessionUsage = z.infer<typeof SessionUsage>
 
@@ -526,7 +587,7 @@ export const RunUsage = z.strictObject({
     unassigned: UsageTotals,
     sessions: z.array(SessionUsage),
   }),
-  observer: CallsUsage,
+  observer: ObserverUsage,
   chat: CallsUsage,
   duration_ms: count,
   active_hours: count,
@@ -570,6 +631,9 @@ export const UsageReport = z.strictObject({
   from: EpochNs.nullable(),
   to: EpochNs.nullable(),
   runs: z.array(RunUsage),
+  observer: ObserverUsage,
+  probes: CallsUsage.nullable(),
+  chat: CallsUsage,
   totals: JournalTotals,
   active_hours: count,
   per_active_hour: JournalRates.nullable(),
@@ -596,6 +660,16 @@ export const DoctorReport = z.strictObject({
   checks: z.array(DoctorCheck),
 })
 export type DoctorReport = z.infer<typeof DoctorReport>
+
+export const OtelConfigRequest = z.strictObject({
+  rotate: z.boolean(),
+})
+export type OtelConfigRequest = z.infer<typeof OtelConfigRequest>
+
+export const OtelConfigResponse = z.strictObject({
+  endpoint: name,
+})
+export type OtelConfigResponse = z.infer<typeof OtelConfigResponse>
 
 export const ShutdownResponse = z.strictObject({
   stopping: z.literal(true),
@@ -798,6 +872,14 @@ export const endpoints = {
     body: null,
     response: UsageReport,
   },
+  hooksCheck: {
+    method: 'POST',
+    path: '/api/admin/hooks-check',
+    params: null,
+    query: null,
+    body: empty,
+    response: StatusResponse,
+  },
   doctor: {
     method: 'POST',
     path: '/api/admin/doctor',
@@ -805,6 +887,14 @@ export const endpoints = {
     query: null,
     body: DoctorRequest,
     response: DoctorReport,
+  },
+  otelConfig: {
+    method: 'POST',
+    path: '/api/admin/otel-config',
+    params: null,
+    query: null,
+    body: OtelConfigRequest,
+    response: OtelConfigResponse,
   },
   shutdown: {
     method: 'POST',

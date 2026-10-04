@@ -18,7 +18,7 @@ import type {
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
 import { compareText, grouped } from '../observations/evidence.js'
-import { InvalidPositionError, partsOf, planKinds, type ReadContext, runOf, stagesOfLink } from './context.js'
+import { InvalidPositionError, partsOf, planKinds, precedesPrune, type ReadContext, runOf, stagesOfLink } from './context.js'
 
 interface Transition<T> {
   readonly before: T | null
@@ -145,6 +145,11 @@ export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPositio
       `position ${String(from.version)}/${String(from.change_seq)} is ahead of ${String(head)}/${String(position)}`,
     )
   }
+  if (precedesPrune(store, from.change_seq)) {
+    throw new InvalidPositionError(
+      `position ${String(from.version)}/${String(from.change_seq)} precedes the latest prune`,
+    )
+  }
   const parts = partsOf(store.model.entities(run))
   const journal = store.model.changes(run, from.version)
   const created = new Set(
@@ -152,13 +157,13 @@ export const runChanges = ({ store }: ReadContext, run: RunId, from: ViewPositio
   )
   return {
     run,
-    from,
+    from: { version: from.version, change_seq: from.change_seq },
     to: { version: head, change_seq: position },
     stages: transitions(journal, 'stage', stageOf, touchedStages, parts.stages),
     criteria: transitions(journal, 'criterion', criterionOf, touchedCriteria, parts.criteria),
     cards: parts.cards.filter(({ id }) => created.has(id)),
     plan_facts: store.facts.ofRun(run, from.change_seq, planKinds).map(({ fact }) => fact),
-    artifact_versions: [],
+    artifact_versions: store.artifacts.versionsCreated(run, from.change_seq),
     attention: attentionChanges(journal, parts.attention),
     activity: activityOf(store, run, from),
   }

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { Runtime } from './primitives.js'
+import { Placement } from './support.js'
 
 const name = z.string().min(1)
 const path = z.string().min(1)
@@ -45,6 +46,7 @@ export const WatchedRoot = z.strictObject({
 export type WatchedRoot = z.infer<typeof WatchedRoot>
 
 export const Config = z.strictObject({
+  placement: Placement.nullable().default(null),
   runtimes: z
     .strictObject({
       claude: z.strictObject({ configDir: path.nullable().default(null) }).prefault({}),

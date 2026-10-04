@@ -43,9 +43,15 @@ jobs:
       - if: runner.os != 'Linux'
         run: pnpm exec playwright install chromium
       - run: pnpm coverage:test
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - if: ${{ !cancelled() }}
         run: pnpm coverage:e2e
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - run: pnpm coverage:report
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
       - if: failure()
         uses: actions/upload-artifact@v7
         with:

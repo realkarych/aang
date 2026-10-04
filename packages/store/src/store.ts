@@ -4,6 +4,7 @@ import { DatabaseSync } from 'node:sqlite'
 import { ChangeSeq } from '@aang/contract'
 import { type ArtifactReader, type ArtifactWriter, createArtifacts } from './artifacts.js'
 import { type ChangeFeed, createChangeFeed } from './changes.js'
+import { type ChatReader, type ChatWriter, createChat } from './chat.js'
 import { prepareStatement, type WriteContext } from './context.js'
 import { createCursors, type CursorReader, type CursorWriter } from './cursors.js'
 import { createFacts, type FactReader, type FactWriter } from './facts.js'
@@ -19,6 +20,7 @@ import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createObservations, type ObservationReader, type ObservationWriter } from './observations.js'
 import { createObserverCalls, type ObserverCallReader, type ObserverCallWriter } from './observer-calls.js'
 import { createPrunedStreams, type PrunedStreamReader, type PrunedStreamWriter } from './pruned.js'
+import { createPruning, type PruningWriter } from './pruning.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
@@ -39,12 +41,14 @@ export interface Transaction {
   readonly scopes: ScopeWriter
   readonly cursors: CursorWriter
   readonly pruned: PrunedStreamWriter
+  readonly pruning: PruningWriter
   readonly gaps: GapWriter
   readonly model: ModelWriter
   readonly settings: SettingWriter
   readonly observerCalls: ObserverCallWriter
   readonly interpretations: InterpretationWriter
   readonly views: ViewWriter
+  readonly chat: ChatWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
@@ -71,7 +75,9 @@ export interface Store {
   readonly observerCalls: ObserverCallReader
   readonly interpretations: InterpretationReader
   readonly views: ViewReader
+  readonly chat: ChatReader
   readonly changes: ChangeFeed
+  readonly vacuum: () => void
   readonly close: () => void
 }
 
@@ -84,12 +90,14 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
   const scopes = createScopes(database)
   const cursors = createCursors(database)
   const pruned = createPrunedStreams(database)
+  const pruning = createPruning(database)
   const gaps = createGaps(database)
   const model = createModel(database)
   const settings = createSettings(database)
   const observerCalls = createObserverCalls(database)
   const interpretations = createInterpretations(database)
   const views = createViews(database)
+  const chat = createChat(database)
   inTransaction(database, () => {
     recoverInterpretations(database)
   })
@@ -118,12 +126,14 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
         scopes: scopes.writer(context),
         cursors: cursors.writer(context),
         pruned: pruned.writer(context),
+        pruning: pruning.writer(context),
         gaps: gaps.writer(context),
         model: model.writer(context),
         settings: settings.writer(context),
         observerCalls: observerCalls.writer(context),
         interpretations: interpretations.writer(context),
         views: views.writer(context),
+        chat: chat.writer(context),
       },
       finish: () => {
         active = false
@@ -156,7 +166,9 @@ const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile):
     observerCalls: observerCalls.reader,
     interpretations: interpretations.reader,
     views: views.reader,
+    chat: chat.reader,
     changes: createChangeFeed(database),
+    vacuum: pruning.vacuum,
     close: () => {
       if (!open) {
         return

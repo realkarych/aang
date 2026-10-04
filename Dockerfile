@@ -14,6 +14,7 @@ RUN npm install --global "$(node -p "require('./package.json').packageManager")"
 COPY . .
 RUN pnpm install --frozen-lockfile
 RUN pnpm exec tsc -b packages/aang
+RUN pnpm --filter=@aang/web build
 RUN pnpm --filter=@aang/aang --prod deploy /opt/aang && chmod 755 /opt/aang/dist/main.js
 
 FROM node:26-slim AS aang

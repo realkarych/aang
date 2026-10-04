@@ -3,6 +3,7 @@ import {
   type Config,
   type Gap,
   GapKind,
+  type ObserverBackendStatus,
   type Runtime,
   type RuntimeStatus,
   runtimes,
@@ -14,6 +15,7 @@ import { type AangHomePaths, readSpoolState } from '@aang/contract/home'
 import type { Store } from '@aang/store'
 import { ignoreMissing } from './missing.js'
 import { type OverThreshold, recordedOverThreshold } from './spool.js'
+import { loadWatch } from './watch.js'
 
 export interface StatusSources {
   readonly daemon: StatusResponse['daemon']
@@ -21,6 +23,7 @@ export interface StatusSources {
   readonly config: Config
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
   readonly paths: AangHomePaths
+  readonly observer: () => ObserverBackendStatus[]
 }
 
 const sizeOf = (path: string): Promise<number> =>
@@ -79,13 +82,14 @@ const spoolStatus = async (
 }
 
 export const createStatus =
-  ({ daemon, store, config, runtimeRoots, paths }: StatusSources) =>
+  ({ daemon, store, config, runtimeRoots, paths, observer }: StatusSources) =>
   async (): Promise<StatusResponse> => {
     const recorded = store.read(() => ({
       changeSeq: store.changes.head(),
       sessions: store.observations.sessions(),
       gaps: GapKind.options.flatMap((kind) => store.gaps.open(kind)),
       overThreshold: recordedOverThreshold(store),
+      watch: loadWatch(store, config),
     }))
     const [databaseBytes, logBytes, runtimeStatuses, spool] = await Promise.all([
       sizeOf(store.file.path),
@@ -102,13 +106,9 @@ export const createStatus =
         change_seq: recorded.changeSeq,
       },
       runtimes: runtimeStatuses,
-      watch: {
-        all: config.watch.all,
-        lookback_days: config.watch.lookbackDays,
-        roots: config.watch.roots.map(({ path }) => path),
-      },
+      watch: recorded.watch,
       spool,
-      observer: { cross_vendor: config.observer.crossVendor, backends: [] },
+      observer: { cross_vendor: config.observer.crossVendor, backends: observer() },
       versions: [],
       unknown_records: recorded.sessions.reduce((total, { unknown_records: unknown }) => total + unknown, 0),
       gaps: recorded.gaps.filter(isSourceGap).sort(byDetection),
