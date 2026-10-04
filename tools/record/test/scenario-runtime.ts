@@ -1,7 +1,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const [mode, target] = process.argv.slice(2)
+const [mode, target, lines] = process.argv.slice(2)
 if (!target) {
   throw new Error('Missing target')
 }
@@ -53,14 +53,17 @@ switch (mode) {
     const tool = ['/opt/owner-tools/bin/tool', 'view']
     const add = ['git', 'add', 'pkg/private-project/main.go']
     const commit = ['git', 'commit', '-m', 'private commit text']
-    const listed = [commit, tool].map((prefix) => `- [${prefix.map((part) => JSON.stringify(part)).join(', ')}]`).join('\n')
+    const end = lines === 'crlf' ? '\r\n' : '\n'
+    const listed = [commit, tool].map((prefix) => `- [${prefix.map((part) => JSON.stringify(part)).join(', ')}]`).join(end)
+    const instructions = ['<permissions instructions>', '## Approved command prefixes', `The following prefix rules have already been approved: ${listed}`, '', 'Approval policy is `on-request`.', '</permissions instructions>'].join(end)
     const records = [
       { type: 'session_meta', payload: { id: target, cwd: process.cwd() } },
-      { type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: `<permissions instructions>\n## Approved command prefixes\nThe following prefix rules have already been approved: ${listed}\n\nApproval policy is \`on-request\`.\n</permissions instructions>` }] } },
+      { type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: instructions }] } },
       { type: 'world_state', payload: { full: true, state: { permissions: { instructions: 'fed2f53df24dd05a', approved_command_prefixes: [tool, add, commit] } } } },
       { type: 'event_msg', payload: { type: 'exec_approval_request', proposed_execpolicy_amendment: ['touch', 'approved.txt'] } },
     ]
     await writeFile(join(day, 'rollout-rules.jsonl'), records.map((record) => `${JSON.stringify(record)}\n`).join(''))
+    process.stdout.write(instructions)
     break
   }
   case 'append':

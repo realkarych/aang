@@ -44,7 +44,7 @@ const holdsCommandPrefixes = (key: string): boolean => normalize(key) === 'appro
 const prefixPlaceholder = /^(?:COMMAND|ARG)_\d+$/
 const quoted = String.raw`"(?:[^"\\\n]|\\.)*"`
 const prefixItem = String.raw`- \[(?:${quoted}(?:, ${quoted})*)?\]`
-const approvedPrefixes = new RegExp(String.raw`(?<=The following prefix rules have already been approved: )${prefixItem}(?:\n${prefixItem})*`, 'g')
+const approvedPrefixes = new RegExp(String.raw`(?<=The following prefix rules have already been approved: )${prefixItem}(?:\r?\n${prefixItem})*`, 'g')
 const quotedParts = new RegExp(quoted, 'g')
 
 const isRecord = (value: Json | undefined): value is { [key: string]: Json } => value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -213,9 +213,9 @@ export const createAnonymizer = (paths: ReadonlyMap<string, string> = new Map(),
     const value = parse(part)
     return typeof value === 'string' ? value : part.slice(1, -1)
   }
-  const prefixLists = (text: string): string => text.replaceAll(approvedPrefixes, (list) => list.split('\n')
-    .map((item) => `- [${commandPrefix(item.match(quotedParts)?.map(unquote) ?? []).map((part) => JSON.stringify(part)).join(', ')}]`)
-    .join('\n'))
+  const prefixLists = (text: string): string => text.replaceAll(approvedPrefixes, (list) => list.split(/(\r?\n)/)
+    .map((item) => /\n/.test(item) ? item : `- [${commandPrefix(item.match(quotedParts)?.map(unquote) ?? []).map((part) => JSON.stringify(part)).join(', ')}]`)
+    .join(''))
   const field = (key: string, value: Json): Json => {
     if (holdsCommandPrefixes(key) && isPrefixList(value)) return value.map(commandPrefix)
     const kind = identityKind(key)

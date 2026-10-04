@@ -116,7 +116,7 @@ test('the regular Codex home is passed to the runtime and keeps only new rollout
   }
 })
 
-test('approved command prefixes of the regular Codex home become placeholders of the same shape that verification requires', async () => {
+test.each(['lf', 'crlf'] as const)('approved command prefixes of the regular Codex home with %s line ends become placeholders of the same shape that verification requires', async (lines) => {
   const config = await options()
   const codexHome = join(await directory(), 'codex-home')
   await mkdir(join(codexHome, 'sessions'), { recursive: true })
@@ -124,7 +124,7 @@ test('approved command prefixes of the regular Codex home become placeholders of
   process.env['CODEX_HOME'] = codexHome
   try {
     const recording = await recordSession({ ...config, model: 'live', codexHome: 'regular' }, async (session) => {
-      await session.run(process.execPath, [script, 'rules', 'thread-rules-1'])
+      await session.run(process.execPath, [script, 'rules', 'thread-rules-1', lines])
     })
     const entries = await readdir(recording, { recursive: true, withFileTypes: true })
     const published = await Promise.all(entries.filter((entry) => entry.isFile()).map((entry) => readFile(join(entry.parentPath, entry.name), 'utf8')))
@@ -134,7 +134,7 @@ test('approved command prefixes of the regular Codex home become placeholders of
     const records = sources.map((source) => playback.sources.get(source)?.toString() ?? '').join('').trim().split('\n').map((line) => JSON.parse(line) as {
       payload: { content?: { text: string }[]; state?: { permissions: { approved_command_prefixes: string[][] } }; proposed_execpolicy_amendment?: string[] }
     })
-    expect(records[1]?.payload.content?.[0]?.text).toBe([
+    const instructions = [
       '<permissions instructions>',
       '## Approved command prefixes',
       'The following prefix rules have already been approved: - ["COMMAND_1", "ARG_1", "ARG_2", "ARG_3"]',
@@ -142,16 +142,28 @@ test('approved command prefixes of the regular Codex home become placeholders of
       '',
       'Approval policy is `on-request`.',
       '</permissions instructions>',
-    ].join('\n'))
+    ].join(lines === 'crlf' ? '\r\n' : '\n')
+    expect(records[1]?.payload.content?.[0]?.text).toBe(instructions)
     expect(records[2]?.payload.state?.permissions.approved_command_prefixes).toEqual([['COMMAND_2', 'ARG_1'], ['COMMAND_3', 'ARG_1', 'ARG_2'], ['COMMAND_1', 'ARG_1', 'ARG_2', 'ARG_3']])
     expect(records[3]?.payload.proposed_execpolicy_amendment).toEqual(['touch', 'approved.txt'])
+    const manifest = JSON.parse(await readFile(join(recording, 'manifest.json'), 'utf8')) as { artifacts: { source: string }[] }
+    const outputs = manifest.artifacts.filter(({ source }) => source.startsWith('output/')).map(({ source }) => join(recording, source))
+    expect(outputs).toHaveLength(1)
+    const [output = ''] = outputs
+    expect(await readFile(output, 'utf8')).toBe(instructions)
     await verifyRecording(recording)
     const rollout = join(recording, sources.at(-1) ?? '')
-    const anonymous = await readFile(rollout, 'utf8')
-    for (const [placeholders, command] of [['"COMMAND_3","ARG_1","ARG_2"', '"git","push","origin"'], [String.raw`[\"COMMAND_2\", \"ARG_1\"]`, String.raw`[\"git\", \"push\"]`]] as const) {
+    const substitutions = [
+      [rollout, '"COMMAND_3","ARG_1","ARG_2"', '"git","push","origin"'],
+      [rollout, String.raw`[\"COMMAND_2\", \"ARG_1\"]`, String.raw`[\"git\", \"push\"]`],
+      [output, '["COMMAND_2", "ARG_1"]', '["git", "push"]'],
+    ] as const
+    for (const [file, placeholders, command] of substitutions) {
+      const anonymous = await readFile(file, 'utf8')
       expect(anonymous).toContain(placeholders)
-      await writeFile(rollout, anonymous.replace(placeholders, command))
+      await writeFile(file, anonymous.replace(placeholders, command))
       await expect(verifyRecording(recording)).rejects.toThrow(/anonymization is required/)
+      await writeFile(file, anonymous)
     }
   } finally {
     if (previous === undefined) delete process.env['CODEX_HOME']
