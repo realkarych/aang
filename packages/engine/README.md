@@ -192,8 +192,123 @@ root key when there is none, the rule that run linking (E.4) uses for projection
 The root session of a run comes from its `run` entity; without one, a session that
 is its own root uses its `cwd`.
 
-Checks do not produce criterion statuses: a check alone never gives `confirmed`.
-`passed_unversioned`, `confirmed` and `stale` belong to E.7c.
+## Contract criteria
+
+Each contract with a check result in a run has one criterion of the rule (ADR-0006):
+source `contract`, the contract name, the text `Check "<name>" passes`, no stage,
+and an id derived from the run and the contract name. The latest result of the
+contract decides its status with observed basis, and every change is a
+`criterion.status` rule change in the journal:
+
+- a failed check gives `failed` with the evidence of the check;
+- a passing check gives `confirmed` only when the contract has a `commitPattern`,
+  the outputs of the check report exactly one object name through it, and that
+  name is a commit of the repository of the check directory. The name is the
+  named group `commit`, otherwise the first group, otherwise the whole match; it
+  must be 7 to 64 hexadecimal digits, a shorter name that prefixes a longer one
+  counts as the same name, and the commit is resolved with `git rev-parse --verify
+  --quiet <name>^{commit}` and must start with the name, so a tag or a tree is not
+  a commit. `checked_commit` is the full name. The contract is responsible for the
+  check reading that commit, for example by checking out the commit in an isolated
+  `git worktree` and printing its `HEAD`; the output alone links them, so a check
+  read by backfill is confirmed as well. The evidence cites the facts of the check
+  and every result of the action whose output reported the name, so a commit
+  reported only by a later transcript result of a call is cited as well;
+- every other passing check gives `passed_unversioned`: no commit pattern, no
+  reported name, several names, a name that is not a commit, a directory outside a
+  git repository. When the snapshot taken after the start of the check was ingested
+  and before its end, and the first snapshot after its end, are both clean on the
+  same `HEAD`, `clean_tree_commit` notes that commit and the evidence cites both
+  snapshots. The note never confirms: the input could change and return between
+  them;
+- snapshots of the working tree of the check directory under the masks of the
+  contract taken after the end of a confirming check decide `stale`: when the latest
+  of them is not clean on `checked_commit` (another `HEAD`, a change under the
+  masks or a failed git command), the criterion is `stale` and cites the first
+  snapshot since the tree last showed the commit. A failed snapshot names the check
+  directory instead of its working tree and belongs to the criterion as well, so a
+  deleted check directory makes it `stale`. A later snapshot clean on the commit
+  confirms it again, since the current state is the checked version.
+
+Once a result has given `checked_commit`, the commit stays established for that
+result: while the latest result is the same and the criterion cites its facts, a
+later evaluation keeps `checked_commit` without resolving the name again, so a check
+directory that is gone after a restart leaves the criterion `stale`, not
+`passed_unversioned`.
+
+The order of snapshots and check facts is the order of their raw records, so it
+does not depend on the clocks of the runtime and the daemon.
+
+A criterion with `checked_commit` is watched:
+
+- at the end of every turn of its run (`turn_end` facts), the ingest takes a
+  `turn_end` snapshot of its check directory;
+- `engine.refreshCriteria()` takes a `restart` snapshot for every such criterion
+  of the store; the daemon calls it once after start;
+- with `fsWatch` (on by default, `collector.fsWatch` in the daemon), the engine
+  watches the paths of the masks inside the working tree: a directory recursively,
+  a file through its parent directory, a mask with a wildcard (`*`, `?`, `[`)
+  through the path before its first wildcard segment, recursively, ignoring `.git`.
+  A change takes a `fs_watch` snapshot after 100 ms of quiet, and the snapshot
+  decides whether the change is under the masks. A notification is only a signal: a
+  missed one is caught by the next snapshot at a turn end or a restart.
+
+A binding that moves a session to another run moves its checks along: the binding
+transaction evaluates the criteria of the run the session left and of the run it
+joined, and a run with no check of a contract any more loses the criterion of that
+contract with a `session.move` rule change, as failed check items do. Snapshots stay
+in the run they were taken for, and an evaluation reads only the snapshots of its own
+run, so a binding never confirms on snapshots of another run. A passing check that a
+binding moves or brings forward gives `passed_unversioned` without `checked_commit`
+and without the note, with a `session.move` rule change as its reason, and keeps it
+for good. A criterion lists its carried checks in `carried_checks`, by the id of the
+check action, and the binding transaction adds them with a `session.move` change of
+the criterion even when another check still covers it:
+
+- a carried check is any check of a moved session that has a result in the run when
+  the binding moves the session, whether or not it is the latest check of the
+  criterion;
+- a check brought forward is the latest check of a criterion in the binding
+  transaction that the criterion did not cite before, such as an earlier check of
+  the run the session left that a later check of the moved session covered;
+- a check is carried for good once any state of a criterion of any run has listed
+  its action in the journal; every evaluation reads these actions with one query
+  over the journals of all criteria. The status holds in whichever run the action
+  has a result later, whichever check covers the criterion in between and however
+  the results of the action change: a transcript read after a check of another
+  session can put the moved check in front again, a detach can uncover it, a
+  reparse can remove its result, a binding can take its session to another run
+  while it has no result, the criterion can be removed and created again, and turn
+  end snapshots, `engine.refreshCriteria()` and `engine.reparse()` evaluate it the
+  same way, before and after a restart. `carried_checks` of a criterion lists the
+  carried actions among its checks that have a result in the run. Only a check of
+  another action confirms the criterion again;
+- a check that the moved session runs after the binding is not affected, since its
+  action has no result at the binding and every snapshot after it belongs to the run
+  it joined.
+
+`engine.reparse()` evaluates the criteria of the runs it rebuilds in its transaction
+the same way.
+
+The ingest evaluates the criteria of every run whose sessions received facts in the
+transaction of the batch, together with its facts and cursors (ADR-0005). The git
+state that a verdict needs (the working tree of the check directory and the commit
+of the reported name) is read before that transaction: when the transaction meets a
+check whose git state is not known yet, it is rolled back, the engine reads the git
+state and repeats the transaction once; a binding and a reparse do the same. The git
+state is read once for each result (its check directory, the facts of the check and
+the reported name with its facts) and kept for the life of the engine. A later
+result reads git again and finds a repository created or a commit fetched since; a
+result already read keeps its state even when a later result of the same directory
+finds a repository, so the state of one check never changes the verdict of another.
+After a restart a result without an established commit is read again. The snapshots
+of the batch are taken after
+the commit and recorded together with the evaluation they change in one more
+transaction. A crash between the two loses only these snapshots: a confirmed
+criterion is checked again by the `restart` snapshot, and the note of an
+unversioned pass, which needs the snapshot after the check, is not given.
+`engine.close()` stops watching and waits for queued work; a failure of work started
+by a notification is raised by the next call of the engine.
 
 ## Working tree snapshots
 
@@ -217,6 +332,10 @@ git neither refreshes the index nor takes `index.lock`. `inputMasks` of a contra
 are paths relative to the watched root that declares the contract, interpreted as
 git pathspecs. A mask that covers the whole working tree becomes `.`, and masks
 outside the working tree are dropped; when no mask remains, no snapshot is taken.
+The snapshot records the masks resolved against that root as absolute paths, so the
+same mask of contracts with different roots names different inputs, and a criterion
+reads only the snapshots of its working tree with the masks of its contract resolved
+the same way.
 
 A snapshot is clean only when `HEAD` resolves to a commit and the status under the
 masks is empty: an uncommitted, staged, renamed, untracked or ignored path under a
@@ -225,7 +344,9 @@ gives an unclean snapshot without a head and with the error.
 
 Each snapshot is a raw record of the `snapshot` channel (position `daemon`, no
 runtime or stream), one `git_snapshot` fact keyed by the run of the root session
-with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
+with speaker `runtime`, and a `GitSnapshot` object with its trigger: `check` for
+checks, `turn_end`, `restart` and `fs_watch` for confirmed criteria (see Contract
+criteria). Daemon
 records are not session evidence: they do not move `last_event_at`, freshness or
 the turn state.
 
@@ -1052,3 +1173,69 @@ calls, view state, chat and bindings, and saves a boundary per stream in
   with that gap open gets the empty prefix as its new boundary, the gap goes with
   the other layers of the run, and the collector rereads the stopped files from
   the start.
+
+## View rules
+
+View rules change what the map shows and nothing else: the model, the journal, the
+usage and the attention zone stay as they are (ADR-0008). A rule belongs to one run.
+
+- `addViewRule(transaction, { run, rule, source, at })` checks a `ViewRuleSpec`
+  from the chat or the UI, stores it and returns it with the elements its selector
+  selects now, which is the count shown to the user. Text in a selector and the
+  group name are trimmed. A rule the run cannot hold is a `ViewRuleError` that
+  explains it and stores nothing: `invalid_rule` when it does not match the schema,
+  `invalid_selector` for an empty text, an empty stage list or a stage the run does
+  not have, `invalid_params` for an empty group name. An unknown run gives `null`.
+  The caller's transaction lets a chat answer and its rule commit together.
+- `revokeViewRule(transaction, { run, id, at })` records the revocation once, with
+  a new `change_seq`, and returns the rule; a revocation is never before the
+  creation of its rule. A revoked rule stays in the store. An unknown rule or a rule
+  of another run gives `null`.
+
+Rules apply when a view is read, never when it is written, so a rule selects
+elements that appear after it and a revocation restores the view. The snapshot and
+every `run` delta of the feed carry `view.rules`, the active rules in creation
+order with the elements they select, and `view.placements`. Rules survive a
+restart with the store.
+
+Selectors are deterministic. Agent type, name and role and a tool name match a
+whole value without regard to case or surrounding spaces; the role is the runtime
+role (`agent_role`) or the role in aang (`main`, `subagent`, `teammate`,
+`service`). Service agents are the agents with the service role. A stage title
+matches a fragment, and stage ids and action kinds match exactly. Stage selectors
+see every stage of the run, replaced ones included.
+
+The tree of an element is what a rule on it covers:
+
+- a stage covers its substages, the actions assigned to any of them that still
+  belong to the run, the participating agents and the agents of those actions;
+- an agent covers the agents spawned under it and the actions of all of them;
+- an action covers the actions of its code cell.
+
+A placement is the effect of the rules on one selected element. On each aspect of
+it the latest rule wins:
+
+- visibility: `collapse` shows the element as one node with the totals of its tree,
+  `hide` leaves it out together with its tree;
+- `group` names the node the element is shown under;
+- `detail` sets the level of its tree: only stages, stages and agents, or every
+  action. The element itself stays shown.
+
+The default rule collapses service agents (ADR-0006); its placements name the rule
+`null`. It comes before every stored rule, so a later rule overrides it until that
+rule is revoked.
+
+The totals of a collapsed element count the agents and actions of its tree, the
+running actions and the finished ones by outcome, the versions its actions produced
+and, for a stage, the outputs linked to its tree. Usage is that of the solver
+journal: the records of the agents of the tree, or for a stage the records that
+belong to its tree, as `solverUsage` attributes them. An action has no usage of its
+own. A hidden or collapsed element keeps its share in every total outside the view:
+the run, its sessions, stages and agents and the inspector count it as before.
+
+No rule removes an open attention item from the zone. A placement lists, in
+`attention`, the open items its element takes off the map: those of its whole tree
+when it is hidden or collapsed, and those of the agents and actions below the level
+of a detail rule. An item belongs to the action it names or its question names, to
+the agent of the question or of that action, and to its stage. The UI marks these
+items as coming from a hidden element.
