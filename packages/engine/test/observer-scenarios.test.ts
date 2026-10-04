@@ -14,11 +14,18 @@ import { createEngine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
+  branchStageTitles,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
+  nestedStageTitles,
   observerScenarios,
+  preparationStageTitle,
+  reportQuestionText,
+  reportStageTitle,
+  splitStageTitles,
 } from '@aang/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { codexHooks, millisecond, otelDecision } from './attention-fixtures.js'
@@ -143,6 +150,106 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     ])
     expect(runDescription(store, run).brief).toMatch(/^Working towards: Step 1: run `echo hi`/)
     expect(pendingFacts(store, run)).toEqual([])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the map layout holds a done preparation and a claimed report that depends on the subagent stage', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-layout'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const main = stageTitled(store, run, mainStageTitle)
+    const preparation = stageTitled(store, run, preparationStageTitle)
+    const report = stageTitled(store, run, reportStageTitle)
+    const pinger = agentStageTitle(agentTyped(store, run, 'pinger'))
+    const delegated = stageTitled(store, run, pinger)
+    expect(main.parent).toBeNull()
+    expect(stagesUnder(store, run, main).map(({ title }) => title).sort()).toEqual(
+      [preparationStageTitle, reportStageTitle, pinger].sort(),
+    )
+    const bash = claudeAction(original, 'toolu_017B7FeHZ4yDzFdvKQMwDJB8')
+    expect(
+      linksOf(store, run).flatMap((link) => (link.kind === 'assignment' && link.action === bash ? [link.stage] : [])),
+    ).toEqual([preparation.id])
+    expect(assignedTo(store, run, main)).toEqual([claudeAction(original, 'toolu_01D254DDPoZEYPvJBjampKox')])
+    expect(preparation.execution).toMatchObject({ value: { state: 'done' }, basis: { kind: 'interpreted' } })
+    expect(report.execution).toMatchObject({ value: { state: 'done' }, basis: { kind: 'claimed' } })
+    expect(linksOf(store, run).filter(({ kind }) => kind === 'dependency')).toMatchObject([
+      { stage: report.id, depends_on: delegated.id, via: null },
+    ])
+    expect(
+      attentionOf(store, run).filter(({ author, kind }) => author === 'observer' && kind === 'question'),
+    ).toMatchObject([{ text: reportQuestionText, stage: report.id, resolution: 'open' }])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the map branches put a dependency across two branches and one of a parent on its substage', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-branches'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const [build, compile, verify, check] = [
+      branchStageTitles.build,
+      branchStageTitles.compile,
+      branchStageTitles.verify,
+      branchStageTitles.test,
+    ].map((title) => stageTitled(store, run, title))
+    expect(valuesOf(store, run, 'stage')).toHaveLength(4)
+    expect([build?.parent, compile?.parent, verify?.parent, check?.parent]).toEqual([null, build?.id, null, verify?.id])
+    const dependencies = linksOf(store, run).flatMap((link) =>
+      link.kind === 'dependency' ? [[link.stage, link.depends_on]] : [],
+    )
+    expect(dependencies).toHaveLength(2)
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        [check?.id, compile?.id],
+        [verify?.id, check?.id],
+      ]),
+    )
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the nested map puts a stage over its substage over another and both lower ones on the top one', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-nested'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const [release, bundle, sign] = [nestedStageTitles.release, nestedStageTitles.bundle, nestedStageTitles.sign].map(
+      (title) => stageTitled(store, run, title),
+    )
+    expect(valuesOf(store, run, 'stage')).toHaveLength(3)
+    expect([release?.parent, bundle?.parent, sign?.parent]).toEqual([null, release?.id, bundle?.id])
+    const dependencies = linksOf(store, run).flatMap((link) =>
+      link.kind === 'dependency' ? [[link.stage, link.depends_on]] : [],
+    )
+    expect(dependencies).toHaveLength(2)
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        [bundle?.id, release?.id],
+        [sign?.id, release?.id],
+      ]),
+    )
     expectGroundedInRecords(store, run)
   })
 
@@ -272,6 +379,63 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       expect(card.source).toMatchObject({ start: 0, end: card.text.length })
       expect(fact === null ? null : store.rawRecords.get(fact.seq)).not.toBeNull()
     }
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 14: new versions keep the main work stage, the continued run replaces it, its successor splits in two, then the two parts merge', async () => {
+    const sample = await playSample('claude-compaction')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const phases = observerScenarios['stage-succession']
+    const versionOf = ({ result }: ObservedCall): number => (result.status === 'accepted' ? result.version : -1)
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', phases.live.replies[0], at(10))
+    const selected = stageTitled(store, run, mainStageTitle)
+    expect(stagesUnder(store, run, selected)).toEqual([])
+    await sample.play({ until: 'subagent-result' })
+    const second = observeBatch(store, run, 'claude', phases.live.replies[0], at(20))
+    expect(stagesUnder(store, run, selected).map(({ title }) => title)).toEqual([
+      expect.stringMatching(/^pinger \(.+\)$/),
+    ])
+    await sample.play({ until: 'resume' })
+    const third = observeBatch(store, run, 'claude', phases.live.replies[0], at(30))
+    expect(stageTitled(store, run, mainStageTitle)).toMatchObject({ id: selected.id, lifecycle: { state: 'active' } })
+    await sample.play({ until: 'continue' })
+    const fourth = observeBatch(store, run, 'claude', phases.revised.replies[0], at(40))
+    const successor = stageTitled(store, run, continuedStageTitle)
+    expect(stageTitled(store, run, mainStageTitle).lifecycle).toEqual({ state: 'replaced', by: [successor.id] })
+    await sample.play({ until: 'compaction' })
+    const fifth = observeBatch(store, run, 'claude', phases.split.replies[0], at(50))
+    const parts = splitStageTitles.map((title) => stageTitled(store, run, title))
+    expect(stageTitled(store, run, continuedStageTitle).lifecycle).toEqual({
+      state: 'split',
+      into: parts.map(({ id }) => id),
+    })
+    expect(parts.map(({ lifecycle, parent }) => [lifecycle.state, parent])).toEqual([
+      ['active', null],
+      ['active', null],
+    ])
+    await sample.play({ until: 'compact-boundary' })
+    const sixth = observeBatch(store, run, 'claude', phases.merged.replies[0], at(60))
+
+    accepted(first, second, third, fourth, fifth, sixth)
+    expect(versionOf(second)).toBeGreaterThan(versionOf(first))
+    expect(versionOf(third)).toBeGreaterThan(versionOf(second))
+    const merged = stageTitled(store, run, mergedStageTitle)
+    expect(merged).toMatchObject({ lifecycle: { state: 'active' }, parent: null })
+    for (const title of splitStageTitles) {
+      expect(stageTitled(store, run, title).lifecycle).toEqual({ state: 'merged', into: merged.id })
+    }
+    expect(valuesOf(store, run, 'stage').map(({ title }) => title).sort()).toEqual(
+      [
+        mainStageTitle,
+        continuedStageTitle,
+        ...splitStageTitles,
+        mergedStageTitle,
+        stagesUnder(store, run, selected)[0]?.title,
+      ].sort(),
+    )
     expectGroundedInRecords(store, run)
   })
 

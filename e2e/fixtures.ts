@@ -1,9 +1,10 @@
 import { execFile } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
-import { readFile, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { promisify } from 'node:util'
+import { hookInstallPaths } from '@aang/hook'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -22,7 +23,7 @@ import {
 } from '@aang/testkit'
 import { test as base, expect } from '@playwright/test'
 
-export type PlayerSettings = Pick<PlayerOptions, 'timeScale'>
+export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime'>
 
 export type HookFields = Readonly<Record<string, unknown>>
 
@@ -77,8 +78,11 @@ const withScannedRoots = (config: ConfigInput): ConfigInput => ({
   collector: { rootsScanIntervalMs, ...config.collector },
 })
 
-const configuredPath = ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): string | null =>
-  args.length === 0 ? command : null
+const installLauncher = async (profile: Profile): Promise<void> => {
+  const { binary } = hookInstallPaths(profile.aangHome)
+  await mkdir(dirname(binary), { recursive: true })
+  await copyFile(hookBinary, binary)
+}
 
 export const test = base.extend<AangOptions & AangFixtures>({
   config: [{}, { option: true }],
@@ -101,9 +105,10 @@ export const test = base.extend<AangOptions & AangFixtures>({
   },
 
   daemon: async ({ profile, config, fakeClaude, fakeCodex }, use) => {
+    await installLauncher(profile)
     await profile.configure({
       ...withScannedRoots(config),
-      cli: { claude: configuredPath(fakeClaude), codex: configuredPath(fakeCodex), ...config.cli },
+      cli: { claude: fakeClaude.path, codex: fakeCodex.path, ...config.cli },
     })
     const daemon = await profile.startDaemon({ entry: aangEntry })
     await use(daemon)

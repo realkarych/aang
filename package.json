@@ -6,9 +6,9 @@
     "node": ">=26"
   },
   "scripts": {
-    "build": "tsc -b tsconfig.build.json && pnpm --filter @aang/web build && go build -C packages/hook -o bin/ ./cmd/aang-hook",
+    "build": "tsc -b tsconfig.build.json && pnpm --filter @aang/web build && go build -C packages/hook -o bin/ ./cmd/aang-hook && go build -o packages/testkit/bin/ packages/testkit/shim/exec-shim.go",
     "typecheck": "tsc -b",
-    "lint": "go vet -C packages/hook ./... && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exitCode=1}\" && pnpm lint:comments && pnpm lint:eslint",
+    "lint": "go vet -C packages/hook ./... && go vet packages/testkit/shim/exec-shim.go && node -e \"const out=process.getBuiltinModule('node:child_process').execFileSync('gofmt',['-l','packages/hook','packages/testkit/shim'],{encoding:'utf8'});if(out){process.stdout.write(out);process.exitCode=1}\" && pnpm lint:comments && pnpm lint:eslint",
     "lint:comments": "node tools/check-comments/dist/main.js",
     "lint:eslint": "eslint --flag unstable_native_nodejs_ts_config --max-warnings 0",
     "test": "vitest run --tags-filter=!benchmark --tags-filter=!runtime",
@@ -25,6 +25,7 @@
   "devDependencies": {
     "@aang/contract": "workspace:*",
     "@aang/eslint-plugin": "workspace:*",
+    "@aang/hook": "workspace:*",
     "@aang/testkit": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "~1.63.0",
