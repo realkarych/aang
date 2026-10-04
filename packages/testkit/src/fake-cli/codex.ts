@@ -207,7 +207,7 @@ const runMock = async (call: MockCall, config: JsonValue): Promise<void> => {
     failTurn(outcome.failure)
     return
   }
-  completeTurn(call.turn, outcome.text ?? '', outcome.usage)
+  completeTurn(call.turn, call.scenario.admissionFault === 'off_schema_last' ? '{}' : outcome.text ?? '', outcome.usage)
 }
 
 const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {

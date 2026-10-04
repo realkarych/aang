@@ -120,17 +120,19 @@ describe('observer isolation of the installed Codex CLI in the support matrix', 
   }, 120_000)
 
   test('a check that does not reach a verdict leaves the matrix as it was', async () => {
-    const support = await supportWith([claudeRow])
+    const support = await supportWith([claudeRow, rowWithoutRecordings(codexKey(hostOs), admission('passed'))])
     const before = await readFile(matrixPath(support), 'utf8')
 
     const missing = await isolation(support, join(support, 'missing', 'codex'))
-    const { cli } = await fakeCodex({ version, admissionFault: 'missing_last' })
-    const invalid = await isolation(support, cli)
+    const withoutOutput = await isolation(support, (await fakeCodex({ version, admissionFault: 'missing_last' })).cli)
+    const offSchema = await isolation(support, (await fakeCodex({ version, admissionFault: 'off_schema_last' })).cli)
 
     expect(missing).toMatchObject({ code: 1, stdout: '' })
     expect(missing.stderr).toMatch(/^the Codex admission did not complete: .*CLI not found/)
-    expect(invalid).toMatchObject({ code: 1, stdout: '' })
-    expect(invalid.stderr).toMatch(/^the Codex admission did not complete: /)
+    expect(withoutOutput).toMatchObject({ code: 1, stdout: '' })
+    expect(withoutOutput.stderr).toMatch(/^the Codex admission did not complete: /)
+    expect(offSchema).toMatchObject({ code: 1, stdout: '' })
+    expect(offSchema.stderr).toMatch(/^the Codex admission did not complete: Codex admission output was invalid/)
     expect(await readFile(matrixPath(support), 'utf8')).toBe(before)
   }, 120_000)
 
