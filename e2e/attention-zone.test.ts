@@ -1,5 +1,5 @@
 import { appendFile, readFile } from 'node:fs/promises'
-import { endpoints, type RunId, type Stage } from '@aang/contract'
+import { endpoints, type RunId, type Runtime, type Stage } from '@aang/contract'
 import {
   checksBlockerText,
   mainStageTitle,
@@ -339,6 +339,16 @@ const claudeFinalText = async (text: string): Promise<string> => {
   })}\n`
 }
 
+const observerAdmitted = async (page: Page, vendor: Runtime): Promise<void> => {
+  await expect
+    .poll(async () => {
+      const response = await page.request.get(endpoints.status.path)
+      const { backends } = endpoints.status.response.parse(await response.json()).observer
+      return backends.find((backend) => backend.vendor === vendor)?.state.state ?? null
+    }, observed)
+    .toBe('ok')
+}
+
 const stageOf = async (page: Page, run: RunId, title: string): Promise<Stage | null> => {
   const response = await page.request.get(endpoints.run.path.replace(':run', run))
   expect(response.status(), await response.text()).toBe(200)
@@ -363,6 +373,7 @@ test.describe('with the observer of the attention zone', () => {
     hook,
     fakeClaude,
   }) => {
+    await observerAdmitted(page, 'claude')
     const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })
     await played.play({ until: 'subagent-result' })
     const run = runOf(claudeOriginal)
@@ -421,6 +432,7 @@ test.describe('with the observer of the attention zone', () => {
     profile,
     hook,
   }) => {
+    await observerAdmitted(page, 'codex')
     await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
     await page.goto(`/?run=${runOf(codexThread)}`)
     await expect(zoneItem(page, checksBlockerText)).toContainText('блокирует 2 этапа', observed)
@@ -457,6 +469,7 @@ test.describe('with the observer and a check contract', () => {
     profile,
     hook,
   }) => {
+    await observerAdmitted(page, 'claude')
     const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })
     await played.play({ until: 'subagent-result' })
     const run = runOf(claudeOriginal)
