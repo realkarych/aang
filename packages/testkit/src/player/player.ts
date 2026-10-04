@@ -3,10 +3,12 @@ import { appendTo, archivedPath, move, type PlayerRoots, remove, resolveTarget, 
 import { type HookTarget, invokeHook } from './hook.js'
 import type { AppendStep, LoadedManifest, PlayerStep } from './manifest.js'
 import { sendOtlp } from './otlp.js'
+import { playbackShift, type RecordTime, shifted } from './record-time.js'
 
 export interface PlayerOptions {
   readonly roots: PlayerRoots
   readonly timeScale?: number
+  readonly recordTime?: RecordTime
   readonly hook?: HookTarget
   readonly otlp?: string
 }
@@ -55,7 +57,7 @@ const required = <T>(value: T | undefined, missing: () => string): T => {
 }
 
 export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): Player => {
-  const { roots, timeScale = 1 } = options
+  const { roots, timeScale = 1, recordTime = 'original' } = options
   if (!Number.isFinite(timeScale) || timeScale < 0) {
     throw new PlaybackError(`the time scale must be a finite number not below 0, got ${String(timeScale)}`)
   }
@@ -68,6 +70,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     throw new PlaybackError(`${file} has OTLP steps, but the player has no OTLP endpoint`)
   }
 
+  const shift = recordTime === 'playback' ? playbackShift(manifest.sources.values(), Date.now()) : 0
   const offsets = new Map<string, number>()
   const state = { next: 0, playing: false, lastHookEnd: Number.NEGATIVE_INFINITY }
 
@@ -105,12 +108,12 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     switch (step.kind) {
       case 'append': {
         const { chunk, end } = nextChunk(step)
-        await appendTo(resolveTarget(roots, step.target), chunk)
+        await appendTo(resolveTarget(roots, step.target), shifted(chunk, shift))
         offsets.set(step.source, end)
         return
       }
       case 'write':
-        return writeWhole(resolveTarget(roots, step.target), source(step.source))
+        return writeWhole(resolveTarget(roots, step.target), shifted(source(step.source), shift))
       case 'remove':
         return remove(resolveTarget(roots, step.target))
       case 'move':
@@ -125,7 +128,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
             runtime: step.runtime,
             registration: step.registration,
             env: step.env,
-            payload: source(step.source),
+            payload: shifted(source(step.source), shift),
           })
         } finally {
           state.lastHookEnd = performance.now()
