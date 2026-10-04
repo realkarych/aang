@@ -2,6 +2,7 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   CheckContract,
+  type CollectorBatch,
   type Fact,
   type JsonValue,
   ObserverCallId,
@@ -44,6 +45,8 @@ export interface Scene {
   readonly store: Store
   readonly reads: ReadQueries
   readonly project: string
+  readonly projects: string
+  readonly ingest: (batch: CollectorBatch) => Promise<void>
   readonly source: (session: string) => Source
   readonly runOf: (session: string) => RunId
   readonly transcript: (source: Source, lines: readonly string[]) => Promise<void>
@@ -99,6 +102,10 @@ export const openScene = async (register: TestContext['onTestFinished']): Promis
     store,
     reads,
     project,
+    projects,
+    ingest: async (batch) => {
+      await engine.ingest(batch)
+    },
     source: (session) => ({ session, cwd: project }),
     runOf: (session) => runId(sessionKey('claude', session)),
     transcript: async ({ session }, lines) => {
