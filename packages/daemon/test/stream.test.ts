@@ -16,7 +16,7 @@ import { openStore } from '@aang/store'
 import { applyFeed } from '@aang/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import type { z } from 'zod'
-import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
+import { bearer, createHome, type Home, missingCli, type RunningDaemon, startDaemon } from './daemon.js'
 import { admin, storedCount, waitUntil } from './sessions.js'
 import { endsWithRun, lastId, openKnownRun, openStream, requestStream, segmentsOf } from './stream-client.js'
 
@@ -42,6 +42,7 @@ const openScene = async (onTestFinished: TestContext['onTestFinished']): Promise
     JSON.stringify({
       api: { port: 0 },
       otel: { port: 0 },
+      cli: missingCli(home.root),
       collector: { rootsScanIntervalMs: 200 },
       watch: { roots: [{ path: workspace }] },
     }),

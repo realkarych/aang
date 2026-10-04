@@ -13,7 +13,7 @@ import {
   type UsageReport,
   type UsageTotals,
 } from '@aang/contract'
-import { readDaemon } from './admin.js'
+import { queryDaemon } from './admin.js'
 import type { Output } from './output.js'
 
 interface Amounts {
@@ -173,7 +173,7 @@ const reportLines = (report: UsageReport): string[] => [
 ]
 
 export const reportUsage = async (output: Output, query: UsageQuery): Promise<number> => {
-  for (const line of reportLines(await readDaemon(endpoints.usage, query))) {
+  for (const line of reportLines(await queryDaemon(endpoints.usage, query))) {
     output.out(line)
   }
   return 0

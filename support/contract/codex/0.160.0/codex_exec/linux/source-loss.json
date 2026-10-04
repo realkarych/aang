@@ -105,7 +105,7 @@
     {
       "channel": "rollout",
       "type": "world_state",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 2
     }
   ],
@@ -2117,7 +2117,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 1,
+      "unknown_records": 0,
       "cost_state": null,
       "started_at": "<time>",
       "last_event_at": "<time>"
@@ -2157,7 +2157,7 @@
       "freshness": "lost",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 1,
+      "unknown_records": 0,
       "cost_state": null,
       "started_at": "<time>",
       "last_event_at": "<time>"
@@ -2430,36 +2430,6 @@
       "session": "#51",
       "stream": "codex:01a10480-8e8f-7652-b7e5-495fb63cecf0:01a10480-8e8f-7652-b7e5-495fb63cecf0",
       "details": "Source not found after searching <base>/home/.codex/sessions/2026/10/04/rollout-2026-10-04T01-21-36-01a10480-8e8f-7652-b7e5-495fb63cecf0.jsonl",
-      "detected_at": "<time>",
-      "closed_at": null
-    },
-    {
-      "id": "#64",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "9b0e25c062b6237311aa359c51842276"
-      },
-      "kind": "unknown_records",
-      "run": "#50",
-      "session": "#49",
-      "stream": null,
-      "details": "1 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
-    },
-    {
-      "id": "#65",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "e603648c20de80b2277fcf6ad7311154"
-      },
-      "kind": "unknown_records",
-      "run": "#52",
-      "session": "#51",
-      "stream": null,
-      "details": "1 unrecognised session records",
       "detected_at": "<time>",
       "closed_at": null
     }

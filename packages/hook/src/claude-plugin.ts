@@ -2,7 +2,7 @@ import { mkdir, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import type { RegistrationTag, Runtime } from '@aang/contract'
 import { deployHookBinary } from './binary.js'
-import { type ClaudeCli, listPlugins, runPluginCommand } from './claude-cli.js'
+import { type ClaudeCli, type ClaudeCompleted, listPlugins, type PluginListing, pluginListingOf, runPluginCommand } from './claude-cli.js'
 import { requireHookInstallSupport } from './errors.js'
 import { jsonText, readIfReadable, replaceFile } from './files.js'
 import { hookInstallPaths } from './layout.js'
@@ -139,10 +139,16 @@ export const uninstallClaudePlugin = async ({ aangHome, claude }: ClaudePluginUn
   await rm(hookInstallPaths(aangHome).claudePlugin, { recursive: true, force: true })
 }
 
-export const claudePluginState = async (claude: ClaudeCli): Promise<ClaudePluginState> => {
-  const installed = (await listPlugins(claude)).filter((plugin) => plugin.id === claudePluginId)
+const pluginStateIn = (listing: PluginListing): ClaudePluginState => {
+  const installed = listing.filter((plugin) => plugin.id === claudePluginId)
   if (installed.length === 0) {
     return 'not_installed'
   }
   return installed.some((plugin) => plugin.enabled) ? 'enabled' : 'disabled'
 }
+
+export const claudePluginState = async (claude: ClaudeCli): Promise<ClaudePluginState> =>
+  pluginStateIn(await listPlugins(claude))
+
+export const claudePluginStateOf = (completed: ClaudeCompleted): ClaudePluginState =>
+  pluginStateIn(pluginListingOf(completed))
