@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { observerOutputJsonSchema, type CallUsage, type JsonValue } from '@aang/contract'
-import { createBackend, events, failureClass, LaunchError, number, object, requireSuccess, systemPrompt, validateOutput, type BackendOptions, type ObserverResult, type JsonObject } from './backend.js'
+import { createBackend, events, failureClass, LaunchError, number, object, requireSuccess, validateOutput, type BackendOptions, type ObserverOutcome, type JsonObject } from './backend.js'
+import { observerSystemPrompt } from './prompt.js'
 
 import type { ProcessResult } from './process.js'
 
@@ -72,11 +73,11 @@ export const claudeArguments = (options: ClaudeBackendOptions, sessionId: string
   ...(options.effort === undefined ? [] : ['--effort', options.effort]),
   '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
   '--tools', '', '--disallowedTools', 'mcp__*', '--disable-slash-commands',
-  '--system-prompt', systemPrompt, '--no-session-persistence', '--permission-mode', 'dontAsk',
+  '--system-prompt', observerSystemPrompt, '--no-session-persistence', '--permission-mode', 'dontAsk',
   '--settings', '{"crossSessionInbound":"hold"}', '--session-id', sessionId,
 ]
 
-export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendOptions): ObserverResult => {
+export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendOptions): ObserverOutcome => {
   const allowed = options.builtins ?? { mcpServers: [], skills: [], plugins: [] }
   let parseError: Error | null = null
   const stream: JsonObject[] = []

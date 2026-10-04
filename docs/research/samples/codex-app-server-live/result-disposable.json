@@ -1,0 +1,1820 @@
+{
+  "environment": {
+    "date": "2026-10-03T21:16:13.788Z",
+    "platform": "darwin 27.0.0 arm64",
+    "node": "v26.10.0",
+    "codex": "codex-cli 0.160.0",
+    "codexCommand": "/opt/homebrew/bin/codex",
+    "codexHome": "disposable",
+    "settings": {
+      "controlMs": 10000,
+      "beforeInitializeMs": 5000,
+      "afterInitializeMs": 5000,
+      "afterListMs": 20000,
+      "productRuns": 3
+    }
+  },
+  "snapshots": [
+    {
+      "label": "start",
+      "at": 41,
+      "settledAt": 41,
+      "entries": 1,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": null,
+        "AGENTS.md": null,
+        "installation_id": null,
+        "version.json": null,
+        "models_cache.json": null,
+        ".codex-global-state.json": null,
+        "history.jsonl": null,
+        "session_index.jsonl": null
+      },
+      "config": {
+        "hooksState": [],
+        "projects": {
+          "count": 0,
+          "digest": "DIGEST_2"
+        },
+        "hooksJson": {}
+      },
+      "databases": {},
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "~/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-1>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after control window",
+      "at": 10102,
+      "settledAt": 10102,
+      "entries": 1,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": null,
+        "AGENTS.md": null,
+        "installation_id": null,
+        "version.json": null,
+        "models_cache.json": null,
+        ".codex-global-state.json": null,
+        "history.jsonl": null,
+        "session_index.jsonl": null
+      },
+      "config": {
+        "hooksState": [],
+        "projects": {
+          "count": 0,
+          "digest": "DIGEST_2"
+        },
+        "hooksJson": {}
+      },
+      "databases": {},
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "~/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-1>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after instrumented run",
+      "at": 41403,
+      "settledAt": 43002,
+      "entries": 7874,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": null,
+        "AGENTS.md": null,
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": null,
+        "models_cache.json": null,
+        ".codex-global-state.json": null,
+        "history.jsonl": null,
+        "session_index.jsonl": null
+      },
+      "config": {
+        "hooksState": [],
+        "projects": {
+          "count": 0,
+          "digest": "DIGEST_2"
+        },
+        "hooksJson": {}
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 79,
+            "sqlite_sequence": 1
+          },
+          "minId": 1,
+          "maxId": 79
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 0,
+            "sqlite_sequence": 1
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 0,
+            "project_roots": 0,
+            "projects": 0,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 0,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 0,
+            "threads": 0
+          },
+          "threads": 0
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "~/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-1>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after product runs",
+      "at": 52714,
+      "settledAt": 53940,
+      "entries": 7901,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": null,
+        "AGENTS.md": null,
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": null,
+        "models_cache.json": null,
+        ".codex-global-state.json": null,
+        "history.jsonl": null,
+        "session_index.jsonl": null
+      },
+      "config": {
+        "hooksState": [],
+        "projects": {
+          "count": 0,
+          "digest": "DIGEST_2"
+        },
+        "hooksJson": {}
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 79,
+            "sqlite_sequence": 1
+          },
+          "minId": 1,
+          "maxId": 79
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 0,
+            "sqlite_sequence": 1
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 0,
+            "project_roots": 0,
+            "projects": 0,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 0,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 0,
+            "threads": 0
+          },
+          "threads": 0
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "~/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-1>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after final control window",
+      "at": 64025,
+      "settledAt": 64441,
+      "entries": 7901,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": null,
+        "AGENTS.md": null,
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": null,
+        "models_cache.json": null,
+        ".codex-global-state.json": null,
+        "history.jsonl": null,
+        "session_index.jsonl": null
+      },
+      "config": {
+        "hooksState": [],
+        "projects": {
+          "count": 0,
+          "digest": "DIGEST_2"
+        },
+        "hooksJson": {}
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 79,
+            "sqlite_sequence": 1
+          },
+          "minId": 1,
+          "maxId": 79
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 0,
+            "sqlite_sequence": 1
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 0,
+            "project_roots": 0,
+            "projects": 0,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 0,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 0,
+            "threads": 0
+          },
+          "threads": 0
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "~/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-1>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    },
+    {
+      "label": "after trust verification",
+      "at": 65737,
+      "settledAt": 66260,
+      "entries": 7900,
+      "changedWhileReading": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "digests": {
+        "config.toml": "DIGEST_1",
+        "hooks.json": null,
+        "AGENTS.md": null,
+        "installation_id": "INSTALLATION_ID_1",
+        "version.json": null,
+        "models_cache.json": null,
+        ".codex-global-state.json": null,
+        "history.jsonl": null,
+        "session_index.jsonl": null
+      },
+      "config": {
+        "hooksState": [],
+        "projects": {
+          "count": 0,
+          "digest": "DIGEST_2"
+        },
+        "hooksJson": {}
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "thread_goal_continuation_deferrals": 0,
+            "thread_goals": 0
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 79,
+            "sqlite_sequence": 1
+          },
+          "minId": 1,
+          "maxId": 79
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1,
+            "jobs": 0,
+            "stage1_outputs": 0
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "queued_items": 0,
+            "queued_thread_revisions": 0,
+            "sqlite_sequence": 1
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "external_agent_config_imports": 0,
+            "project_idempotency_keys": 0,
+            "project_roots": 0,
+            "projects": 0,
+            "remote_control_enrollments": 0,
+            "rollout_migration_skipped_rollouts": 0,
+            "rollout_migration_state": 0,
+            "sqlite_sequence": 0,
+            "thread_attachments": 0,
+            "thread_dynamic_tools": 0,
+            "thread_sections": 1,
+            "thread_spawn_edges": 0,
+            "threads": 0
+          },
+          "threads": 0
+        }
+      },
+      "processes": [
+        {
+          "pid": 6680,
+          "ppid": 6631,
+          "kind": "desktop app-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 6712,
+          "ppid": 6631,
+          "kind": "computer-use service",
+          "executable": "~/.codex/computer-use/Codex Computer Use.app/Contents/MacOS/SkyComputerUseService"
+        },
+        {
+          "pid": 7065,
+          "ppid": 6680,
+          "kind": "code-mode host",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/bin/codex-code-mode-host"
+        },
+        {
+          "pid": 33426,
+          "ppid": 6631,
+          "kind": "exec-server",
+          "executable": "/Applications/ChatGPT.app/Contents/Resources/codex-cli/CodexCLI.app/Contents/MacOS/codex"
+        },
+        {
+          "pid": 86437,
+          "ppid": 1,
+          "kind": "app-server daemon",
+          "executable": "<other-tmp-1>/home/packages/app-server-daemon/releases/0.160.0-aarch64-apple-darwin/bin/codex"
+        }
+      ],
+      "daemonSockets": 2,
+      "controlSocket": null
+    }
+  ],
+  "intervals": [
+    {
+      "label": "control before",
+      "from": 41,
+      "to": 10102,
+      "keyFiles": {
+        "auth.json": "absent",
+        "config.toml": "unchanged",
+        "hooks.json": "absent",
+        "AGENTS.md": "absent",
+        "installation_id": "absent",
+        "version.json": "absent",
+        "models_cache.json": "absent",
+        ".codex-global-state.json": "absent",
+        "history.jsonl": "absent",
+        "session_index.jsonl": "absent"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "databases": {},
+      "logWriters": []
+    },
+    {
+      "label": "instrumented run",
+      "from": 10102,
+      "to": 41403,
+      "keyFiles": {
+        "auth.json": "absent",
+        "config.toml": "unchanged",
+        "hooks.json": "absent",
+        "AGENTS.md": "absent",
+        "installation_id": "added",
+        "version.json": "absent",
+        "models_cache.json": "absent",
+        ".codex-global-state.json": "absent",
+        "history.jsonl": "absent",
+        "session_index.jsonl": "absent"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [
+          {
+            "group": ".tmp",
+            "count": 1,
+            "paths": [
+              ".tmp"
+            ]
+          },
+          {
+            "group": ".tmp/plugins",
+            "count": 7790,
+            "examples": [
+              ".tmp/plugins",
+              ".tmp/plugins/.agents",
+              ".tmp/plugins/.agents/plugins",
+              ".tmp/plugins/.agents/plugins/api_marketplace.json",
+              ".tmp/plugins/.agents/plugins/marketplace.json"
+            ]
+          },
+          {
+            "group": ".tmp/plugins.sha",
+            "count": 1,
+            "paths": [
+              ".tmp/plugins.sha"
+            ]
+          },
+          {
+            "group": ".tmp/plugins.sync.lock",
+            "count": 1,
+            "paths": [
+              ".tmp/plugins.sync.lock"
+            ]
+          },
+          {
+            "group": "goals_1.sqlite",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite"
+            ]
+          },
+          {
+            "group": "installation_id",
+            "count": 1,
+            "paths": [
+              "installation_id"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite"
+            ]
+          },
+          {
+            "group": "queue_1.sqlite",
+            "count": 1,
+            "paths": [
+              "queue_1.sqlite"
+            ]
+          },
+          {
+            "group": "skills",
+            "count": 1,
+            "paths": [
+              "skills"
+            ]
+          },
+          {
+            "group": "skills/.system",
+            "count": 71,
+            "examples": [
+              "skills/.system",
+              "skills/.system/.codex-system-skills.marker",
+              "skills/.system/imagegen",
+              "skills/.system/imagegen/LICENSE.txt",
+              "skills/.system/imagegen/SKILL.md"
+            ]
+          },
+          {
+            "group": "state_5.sqlite",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite"
+            ]
+          },
+          {
+            "group": "tmp",
+            "count": 1,
+            "paths": [
+              "tmp"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 1,
+            "paths": [
+              "tmp/arg0"
+            ]
+          }
+        ],
+        "removed": [],
+        "changed": []
+      },
+      "databases": {
+        "goals_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2
+          }
+        },
+        "logs_2.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "logs": 79,
+            "sqlite_sequence": 1
+          }
+        },
+        "memories_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "consolidation_progress": 1
+          }
+        },
+        "queue_1.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 2,
+            "sqlite_sequence": 1
+          }
+        },
+        "state_5.sqlite": {
+          "tables": {
+            "_sqlx_migrations": 58,
+            "backfill_state": 1,
+            "thread_sections": 1
+          }
+        }
+      },
+      "logWriters": []
+    },
+    {
+      "label": "product runs",
+      "from": 43002,
+      "to": 52714,
+      "keyFiles": {
+        "auth.json": "absent",
+        "config.toml": "unchanged",
+        "hooks.json": "absent",
+        "AGENTS.md": "absent",
+        "installation_id": "unchanged",
+        "version.json": "absent",
+        "models_cache.json": "absent",
+        ".codex-global-state.json": "absent",
+        "history.jsonl": "absent",
+        "session_index.jsonl": "absent"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [
+          {
+            "group": ".tmp/git-4SaBvr",
+            "count": 4,
+            "paths": [
+              ".tmp/git-4SaBvr",
+              ".tmp/git-4SaBvr/HEAD",
+              ".tmp/git-4SaBvr/objects",
+              ".tmp/git-4SaBvr/refs"
+            ]
+          },
+          {
+            "group": ".tmp/git-cWKZs3",
+            "count": 4,
+            "paths": [
+              ".tmp/git-cWKZs3",
+              ".tmp/git-cWKZs3/HEAD",
+              ".tmp/git-cWKZs3/objects",
+              ".tmp/git-cWKZs3/refs"
+            ]
+          },
+          {
+            "group": ".tmp/git-l7gdgi",
+            "count": 4,
+            "paths": [
+              ".tmp/git-l7gdgi",
+              ".tmp/git-l7gdgi/HEAD",
+              ".tmp/git-l7gdgi/objects",
+              ".tmp/git-l7gdgi/refs"
+            ]
+          },
+          {
+            "group": "goals_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "goals_1.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite-wal"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-shm"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-wal"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite-wal"
+            ]
+          },
+          {
+            "group": "queue_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "queue_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "queue_1.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "queue_1.sqlite-wal"
+            ]
+          },
+          {
+            "group": "state_5.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite-shm"
+            ]
+          },
+          {
+            "group": "state_5.sqlite-wal",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite-wal"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 5,
+            "paths": [
+              "tmp/arg0/codex-arg0LYOYTE",
+              "tmp/arg0/codex-arg0LYOYTE/.lock",
+              "tmp/arg0/codex-arg0LYOYTE/apply_patch",
+              "tmp/arg0/codex-arg0LYOYTE/applypatch",
+              "tmp/arg0/codex-arg0LYOYTE/codex-execve-wrapper"
+            ]
+          }
+        ],
+        "removed": [],
+        "changed": [
+          {
+            "group": ".tmp",
+            "count": 1,
+            "paths": [
+              ".tmp"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 1,
+            "paths": [
+              "tmp/arg0"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 79,
+            "to": 79,
+            "minIdBefore": 1,
+            "minIdAfter": 1
+          }
+        }
+      },
+      "logWriters": []
+    },
+    {
+      "label": "control after",
+      "from": 53940,
+      "to": 64025,
+      "keyFiles": {
+        "auth.json": "absent",
+        "config.toml": "unchanged",
+        "hooks.json": "absent",
+        "AGENTS.md": "absent",
+        "installation_id": "unchanged",
+        "version.json": "absent",
+        "models_cache.json": "absent",
+        ".codex-global-state.json": "absent",
+        "history.jsonl": "absent",
+        "session_index.jsonl": "absent"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [],
+        "removed": [],
+        "changed": []
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 79,
+            "to": 79,
+            "minIdBefore": 1,
+            "minIdAfter": 1
+          }
+        }
+      },
+      "logWriters": []
+    },
+    {
+      "label": "trust verification",
+      "from": 64441,
+      "to": 65737,
+      "keyFiles": {
+        "auth.json": "absent",
+        "config.toml": "unchanged",
+        "hooks.json": "absent",
+        "AGENTS.md": "absent",
+        "installation_id": "unchanged",
+        "version.json": "absent",
+        "models_cache.json": "absent",
+        ".codex-global-state.json": "absent",
+        "history.jsonl": "absent",
+        "session_index.jsonl": "absent"
+      },
+      "configChanged": false,
+      "files": {
+        "added": [
+          {
+            "group": ".tmp/git-77ZUW2",
+            "count": 4,
+            "paths": [
+              ".tmp/git-77ZUW2",
+              ".tmp/git-77ZUW2/HEAD",
+              ".tmp/git-77ZUW2/objects",
+              ".tmp/git-77ZUW2/refs"
+            ]
+          }
+        ],
+        "removed": [
+          {
+            "group": "tmp/arg0",
+            "count": 5,
+            "paths": [
+              "tmp/arg0/codex-arg0LYOYTE",
+              "tmp/arg0/codex-arg0LYOYTE/.lock",
+              "tmp/arg0/codex-arg0LYOYTE/apply_patch",
+              "tmp/arg0/codex-arg0LYOYTE/applypatch",
+              "tmp/arg0/codex-arg0LYOYTE/codex-execve-wrapper"
+            ]
+          }
+        ],
+        "changed": [
+          {
+            "group": ".tmp",
+            "count": 1,
+            "paths": [
+              ".tmp"
+            ]
+          },
+          {
+            "group": "goals_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "goals_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "logs_2.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "logs_2.sqlite-shm"
+            ]
+          },
+          {
+            "group": "memories_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "memories_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "queue_1.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "queue_1.sqlite-shm"
+            ]
+          },
+          {
+            "group": "state_5.sqlite-shm",
+            "count": 1,
+            "paths": [
+              "state_5.sqlite-shm"
+            ]
+          },
+          {
+            "group": "tmp/arg0",
+            "count": 1,
+            "paths": [
+              "tmp/arg0"
+            ]
+          }
+        ]
+      },
+      "databases": {
+        "logs_2.sqlite": {
+          "tables": {},
+          "logIds": {
+            "from": 79,
+            "to": 79,
+            "minIdBefore": 1,
+            "minIdAfter": 1
+          }
+        }
+      },
+      "logWriters": []
+    }
+  ],
+  "instrumented": {
+    "cwd": "<work>/project",
+    "pid": 99150,
+    "phases": [
+      {
+        "phase": "spawned",
+        "at": 10157
+      },
+      {
+        "phase": "initialize sent",
+        "at": 15179
+      },
+      {
+        "phase": "initialize answered",
+        "at": 15193
+      },
+      {
+        "phase": "hooks/list {} sent",
+        "at": 20215
+      },
+      {
+        "phase": "hooks/list {} answered",
+        "at": 20225
+      },
+      {
+        "phase": "hooks/list {\"cwds\":[\"<codex>\"]} sent",
+        "at": 20225
+      },
+      {
+        "phase": "hooks/list {\"cwds\":[\"<codex>\"]} answered",
+        "at": 20227
+      },
+      {
+        "phase": "stdin closed",
+        "at": 40259
+      },
+      {
+        "phase": "exited",
+        "at": 40280
+      }
+    ],
+    "initialize": {
+      "userAgent": "aang/0.160.0 (Mac OS 27.0.1; arm64) herdr/0.9.3 (aang; 0.0.0)",
+      "codexHome": "<codex>",
+      "platformFamily": "unix",
+      "platformOs": "macos",
+      "keys": [
+        "codexHome",
+        "platformFamily",
+        "platformOs",
+        "userAgent"
+      ]
+    },
+    "listings": [
+      {
+        "params": {},
+        "data": [
+          {
+            "cwd": "<work>/project",
+            "hooks": [],
+            "warnings": [],
+            "errors": []
+          }
+        ]
+      },
+      {
+        "params": {
+          "cwds": [
+            "<codex>"
+          ]
+        },
+        "data": [
+          {
+            "cwd": "<codex>",
+            "hooks": [],
+            "warnings": [],
+            "errors": []
+          }
+        ]
+      }
+    ],
+    "messages": [
+      {
+        "at": 15194,
+        "method": "remoteControl/status/changed",
+        "request": false,
+        "paramKeys": [
+          "environmentId",
+          "installationId",
+          "serverName",
+          "status"
+        ]
+      }
+    ],
+    "termination": {
+      "graceful": true,
+      "code": 0,
+      "signal": null,
+      "at": 40280
+    },
+    "leftovers": [],
+    "stderrTail": [],
+    "processes": [
+      {
+        "pid": 99150,
+        "ppid": 99049,
+        "pgid": 99150,
+        "command": "/opt/homebrew/bin/codex app-server",
+        "firstSeen": 10186,
+        "lastSeen": 40196
+      },
+      {
+        "pid": 99169,
+        "ppid": 99150,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/bin/git -c safe.bareRepository=explicit ls-remote https://github.com/openai/plugins.git HEAD",
+        "firstSeen": 10478,
+        "lastSeen": 11046
+      },
+      {
+        "pid": 99170,
+        "ppid": 99169,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/libexec/git-core/git remote-https https://github.com/openai/plugins.git https://github.com/openai/plugins.git",
+        "firstSeen": 10478,
+        "lastSeen": 11046
+      },
+      {
+        "pid": 99172,
+        "ppid": 99170,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/libexec/git-core/git-remote-https https://github.com/openai/plugins.git https://github.com/openai/plugins.git",
+        "firstSeen": 10478,
+        "lastSeen": 11046
+      },
+      {
+        "pid": 99233,
+        "ppid": 99150,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/bin/git -c safe.bareRepository=explicit -C <codex>/.tmp/plugins-clone-nfwH7n fetch --depth 1 --no-tags https://github.com/openai/plugins.git +5fd93af4cd0c623e020d0cc7e9ce178b4ac1f70f:refs/codex/curated-sync",
+        "firstSeen": 11202,
+        "lastSeen": 15916
+      },
+      {
+        "pid": 99234,
+        "ppid": 99233,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/libexec/git-core/git remote-https https://github.com/openai/plugins.git https://github.com/openai/plugins.git",
+        "firstSeen": 11202,
+        "lastSeen": 15785
+      },
+      {
+        "pid": 99235,
+        "ppid": 99234,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/libexec/git-core/git-remote-https https://github.com/openai/plugins.git https://github.com/openai/plugins.git",
+        "firstSeen": 11202,
+        "lastSeen": 15785
+      },
+      {
+        "pid": 99281,
+        "ppid": 99233,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/libexec/git-core/git --shallow-file <codex>/.tmp/plugins-clone-nfwH7n/.git/shallow.lock index-pack --stdin --fix-thin --keep=fetch-pack 99233 on <host> --pack_header=2,7278",
+        "firstSeen": 11902,
+        "lastSeen": 15785
+      },
+      {
+        "pid": 99555,
+        "ppid": 99150,
+        "pgid": 99150,
+        "command": "/Library/Developer/CommandLineTools/usr/bin/git -c safe.bareRepository=explicit -C <codex>/.tmp/plugins-clone-nfwH7n reset --hard refs/codex/curated-sync",
+        "firstSeen": 16048,
+        "lastSeen": 16620
+      },
+      {
+        "pid": 99632,
+        "ppid": 99150,
+        "pgid": 99150,
+        "command": "<defunct>",
+        "firstSeen": 16750,
+        "lastSeen": 16750
+      }
+    ],
+    "openFiles": [
+      {
+        "path": "tmp/arg0/codex-arg0rk60qZ/.lock",
+        "type": "REG",
+        "firstSeen": 10206
+      },
+      {
+        "path": "state_5.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "logs_2.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "goals_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "memories_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "queue_1.sqlite-shm",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "state_5.sqlite",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "state_5.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "logs_2.sqlite",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "logs_2.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "goals_1.sqlite",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "goals_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "memories_1.sqlite",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "memories_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "queue_1.sqlite",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "queue_1.sqlite-wal",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": ".tmp/plugins.sync.lock",
+        "type": "REG",
+        "firstSeen": 10629
+      },
+      {
+        "path": "",
+        "type": "DIR",
+        "firstSeen": 10629
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n",
+        "type": "DIR",
+        "firstSeen": 11502
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/.git/FETCH_HEAD",
+        "type": "REG",
+        "firstSeen": 11502
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/.git/shallow.lock",
+        "type": "REG",
+        "firstSeen": 11923
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/.git/objects/pack/tmp_pack_ESXUuQ",
+        "type": "REG",
+        "firstSeen": 11923
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/.git/objects/pack/pack-7e4ca65304fb7a4c26cb519fa403dc19da3c543c.idx",
+        "type": "REG",
+        "firstSeen": 16068
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/.git/objects/pack/pack-7e4ca65304fb7a4c26cb519fa403dc19da3c543c.pack",
+        "type": "REG",
+        "firstSeen": 16068
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/.git/index.lock",
+        "type": "REG",
+        "firstSeen": 16068
+      },
+      {
+        "path": ".tmp/plugins-clone-nfwH7n/plugins/data-analytics/assets/datascience-table-widget.html.gz.b64.part001",
+        "type": "REG",
+        "firstSeen": 16068
+      }
+    ],
+    "sockets": [
+      {
+        "type": "IPv4",
+        "remote": "104.18.32.47:443",
+        "resolvesFrom": [
+          "chatgpt.com",
+          "ab.chatgpt.com"
+        ],
+        "firstSeen": 10629
+      },
+      {
+        "type": "IPv4",
+        "remote": "140.82.121.4:443",
+        "resolvesFrom": [
+          "github.com"
+        ],
+        "firstSeen": 10629
+      }
+    ],
+    "unixSockets": 11
+  },
+  "product": [
+    {
+      "index": 1,
+      "at": 43082,
+      "durationMs": 63,
+      "pids": [
+        14424
+      ],
+      "outcome": {
+        "status": "not_installed",
+        "aangHooks": [],
+        "warnings": []
+      },
+      "leftovers": [],
+      "processes": [
+        {
+          "pid": 14424,
+          "ppid": 99049,
+          "pgid": 14424,
+          "command": "(codex)",
+          "firstSeen": 43174,
+          "lastSeen": 43174
+        },
+        {
+          "pid": 14426,
+          "ppid": 14424,
+          "pgid": 14424,
+          "command": "(git)",
+          "firstSeen": 43174,
+          "lastSeen": 43174
+        },
+        {
+          "pid": 14427,
+          "ppid": 14426,
+          "pgid": 14424,
+          "command": "(git)",
+          "firstSeen": 43174,
+          "lastSeen": 43174
+        },
+        {
+          "pid": 14429,
+          "ppid": 14427,
+          "pgid": 14424,
+          "command": "(git-remote-http)",
+          "firstSeen": 43174,
+          "lastSeen": 43174
+        }
+      ],
+      "openFiles": [],
+      "sockets": [],
+      "unixSockets": 0
+    },
+    {
+      "index": 2,
+      "at": 46274,
+      "durationMs": 77,
+      "pids": [
+        15215
+      ],
+      "outcome": {
+        "status": "not_installed",
+        "aangHooks": [],
+        "warnings": []
+      },
+      "leftovers": [],
+      "processes": [
+        {
+          "pid": 15215,
+          "ppid": 99049,
+          "pgid": 99046,
+          "command": "/opt/homebrew/bin/codex app-server",
+          "firstSeen": 46313,
+          "lastSeen": 46313
+        }
+      ],
+      "openFiles": [
+        {
+          "path": "",
+          "type": "DIR",
+          "firstSeen": 46344
+        },
+        {
+          "path": "state_5.sqlite-shm",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "logs_2.sqlite-shm",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "goals_1.sqlite-shm",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "memories_1.sqlite-shm",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "queue_1.sqlite-shm",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "tmp/arg0/codex-arg0M6VX4v/.lock",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "state_5.sqlite",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "state_5.sqlite-wal",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "logs_2.sqlite",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "logs_2.sqlite-wal",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "goals_1.sqlite",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "goals_1.sqlite-wal",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "memories_1.sqlite",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "memories_1.sqlite-wal",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "queue_1.sqlite",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": "queue_1.sqlite-wal",
+          "type": "REG",
+          "firstSeen": 46344
+        },
+        {
+          "path": ".tmp/plugins.sync.lock",
+          "type": "REG",
+          "firstSeen": 46344
+        }
+      ],
+      "sockets": [
+        {
+          "type": "IPv4",
+          "remote": "104.18.32.47:443",
+          "resolvesFrom": [
+            "chatgpt.com",
+            "ab.chatgpt.com"
+          ],
+          "firstSeen": 46344
+        }
+      ],
+      "unixSockets": 9
+    },
+    {
+      "index": 3,
+      "at": 49447,
+      "durationMs": 66,
+      "pids": [
+        15630
+      ],
+      "outcome": {
+        "status": "not_installed",
+        "aangHooks": [],
+        "warnings": []
+      },
+      "leftovers": [],
+      "processes": [
+        {
+          "pid": 15630,
+          "ppid": 99049,
+          "pgid": 15630,
+          "command": "/opt/homebrew/bin/codex app-server",
+          "firstSeen": 49486,
+          "lastSeen": 49486
+        }
+      ],
+      "openFiles": [
+        {
+          "path": "",
+          "type": "DIR",
+          "firstSeen": 49513
+        }
+      ],
+      "sockets": [],
+      "unixSockets": 0
+    }
+  ],
+  "verification": {
+    "cwd": "<work>/project",
+    "pid": 16527,
+    "phases": [
+      {
+        "phase": "spawned",
+        "at": 64502
+      },
+      {
+        "phase": "initialize sent",
+        "at": 64504
+      },
+      {
+        "phase": "initialize answered",
+        "at": 64523
+      },
+      {
+        "phase": "hooks/list {} sent",
+        "at": 64525
+      },
+      {
+        "phase": "hooks/list {} answered",
+        "at": 64527
+      },
+      {
+        "phase": "stdin closed",
+        "at": 64528
+      },
+      {
+        "phase": "exited",
+        "at": 64531
+      }
+    ],
+    "initialize": {
+      "userAgent": "aang/0.160.0 (Mac OS 27.0.1; arm64) herdr/0.9.3 (aang; 0.0.0)",
+      "codexHome": "<codex>",
+      "platformFamily": "unix",
+      "platformOs": "macos",
+      "keys": [
+        "codexHome",
+        "platformFamily",
+        "platformOs",
+        "userAgent"
+      ]
+    },
+    "listings": [
+      {
+        "params": {},
+        "data": [
+          {
+            "cwd": "<work>/project",
+            "hooks": [],
+            "warnings": [],
+            "errors": []
+          }
+        ]
+      }
+    ],
+    "messages": [
+      {
+        "at": 64524,
+        "method": "remoteControl/status/changed",
+        "request": false,
+        "paramKeys": [
+          "environmentId",
+          "installationId",
+          "serverName",
+          "status"
+        ]
+      }
+    ],
+    "termination": {
+      "graceful": true,
+      "code": 0,
+      "signal": null,
+      "at": 64531
+    },
+    "leftovers": [],
+    "stderrTail": [],
+    "processes": [
+      {
+        "pid": 16527,
+        "ppid": 99049,
+        "pgid": 16527,
+        "command": "/opt/homebrew/bin/codex app-server",
+        "firstSeen": 64534,
+        "lastSeen": 64534
+      }
+    ],
+    "openFiles": [],
+    "sockets": [],
+    "unixSockets": 0
+  },
+  "ownLogs": {
+    "99150": {
+      "rows": 79,
+      "bytes": 15076,
+      "withThread": 0,
+      "first": 10288,
+      "last": 30221,
+      "byPhase": {
+        "spawned": 11,
+        "initialize sent": 6,
+        "initialize answered": 22,
+        "hooks/list {} sent": 5,
+        "hooks/list {\"cwds\":[\"<codex>\"]} sent": 5,
+        "hooks/list {\"cwds\":[\"<codex>\"]} answered": 30
+      },
+      "byTarget": [
+        {
+          "key": "INFO codex_login::auth::manager",
+          "count": 32
+        },
+        {
+          "key": "INFO codex_app_server_transport::transport::remote_control::websocket",
+          "count": 18
+        },
+        {
+          "key": "DEBUG codex_config::loader::macos",
+          "count": 15
+        },
+        {
+          "key": "DEBUG codex_config::loader::layer_io",
+          "count": 5
+        },
+        {
+          "key": "TRACE codex_app_server::message_processor",
+          "count": 3
+        },
+        {
+          "key": "WARN codex_core_plugins::manifest",
+          "count": 2
+        },
+        {
+          "key": "INFO codex_http_client::custom_ca",
+          "count": 1
+        },
+        {
+          "key": "WARN codex_core_plugins::manager",
+          "count": 1
+        },
+        {
+          "key": "TRACE codex_app_server::outgoing_message",
+          "count": 1
+        },
+        {
+          "key": "INFO codex_app_server::message_processor",
+          "count": 1
+        }
+      ]
+    }
+  }
+}

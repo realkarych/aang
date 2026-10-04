@@ -25,8 +25,10 @@ import {
   beginObserverFollowUp,
   createEngine,
   type Engine,
+  failObserverCall,
   recordRunContext,
   type RunContextOptions,
+  startObserverBatch,
   storedRunContext,
 } from '@aang/engine'
 import type { Store } from '@aang/store'
@@ -720,6 +722,71 @@ test('a context assembled across vendors reaches only an observer with crossVend
   expect(JSON.stringify(openMaterials.materials[0])).toContain(restricted)
 })
 
+test('a context shared across vendors stays out of the queue and the batch of a session moved away', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, project, cwd } = workspace
+  const restricted = 'CODEX-PRIVATE-MCP-SERVER'
+  const lines = [...codexRollout({ thread: codexThread, cwd }).slice(0, 20), mcpToolCall(20, restricted, 'navigate')]
+  await engine.ingest(codexFile(project, 'shared', lines, 31n).batch(1, lines.length))
+  const source = { session: 'moving-session', cwd }
+  const start = claudeTranscript(source).slice(0, 12)
+  await engine.ingest(claudeFile(workspace, 'moving', start, 33n).batch(1, start.length))
+  const [codexRun, claudeRun] = [runOf('codex', codexThread), runOf('claude', source.session)]
+  const session = objectId(sessionKey('claude', source.session))
+  await engine.bind({ kind: 'attach', session, run: codexRun })
+  const shared = await recorded(store, optionsOf(workspace, codexRun, { backend: 'codex', crossVendor: true }))
+  expect(ofKind(shared, 'mcp_server').map(({ ref }) => ref)).toEqual([restricted])
+  const contexts = store.facts.ofRecord(shared.seq)
+  const moved = contexts.find(({ entity_key: key }) => key.session === source.session)
+  if (moved === undefined) {
+    throw new Error('the attached session must get a context fact')
+  }
+  const queued = (run: RunId) => store.interpretations.ofRun(run).map(({ fact }) => fact)
+  const contextIds = contexts.map(({ id }) => id)
+  const queuedContexts = () => [...queued(codexRun), ...queued(claudeRun)].filter((id) => contextIds.includes(id))
+  expect(queuedContexts()).toEqual([])
+
+  await engine.bind({ kind: 'detach', session })
+  expect(queuedContexts()).toEqual([])
+  expect(queued(claudeRun)).toEqual(sessionFacts(store, source.session).map(({ id }) => id).sort())
+
+  store.transaction((transaction) => {
+    transaction.interpretations.queue(claudeRun, contextIds)
+  })
+  const input = store.transaction((transaction) =>
+    startObserverBatch(transaction, {
+      run: claudeRun,
+      backend: 'claude',
+      crossVendor: false,
+      id: ObserverCallId.parse('moved-batch'),
+      at: recordedAt,
+      limits: { facts: 1_000, bytes: 10_000_000, textLength: 4_000, inputTokens: 10_000_000 },
+    }),
+  )
+  expect(input?.batch.facts.map(({ kind }) => kind)).not.toContain('context')
+  expect(JSON.stringify(input)).not.toContain(restricted)
+  expect(queuedContexts()).toEqual([])
+  store.transaction((transaction) => {
+    failObserverCall(transaction, { call: ObserverCallId.parse('moved-batch'), outcome: 'failed', at: recordedAt })
+  })
+
+  for (const crossVendor of [false, true]) {
+    expect(() => {
+      store.transaction((transaction) => {
+        beginObserverCall(transaction, {
+          id: ObserverCallId.parse(`smuggled-${String(crossVendor)}`),
+          backend: 'claude',
+          crossVendor,
+          input: inputFor(store, [moved], claudeRun),
+          at: recordedAt,
+        })
+      })
+    }).toThrow(`fact ${moved.id} is not in run ${claudeRun}`)
+  }
+})
+
 test('a context of the same text assembled with another vendor stays apart from the own one', async ({
   onTestFinished,
 }) => {
@@ -953,4 +1020,90 @@ test('a run without sources or without its root session has no context', async (
   expect(await recordRunContext(store, optionsOf(workspace, run))).toBeNull()
   expect(await recordRunContext(store, optionsOf(workspace, runOf('claude', 'unknown-session')))).toBeNull()
   expect(contextRecords(store)).toEqual([])
+})
+
+const pruneRun = (engine: Engine, run: RunId) => engine.prune({ scope: 'run', run }, () => Promise.resolve(null))
+
+const ingestSessions = async (workspace: Workspace, sessions: readonly Source[], ino: bigint): Promise<void> => {
+  for (const [index, source] of sessions.entries()) {
+    const lines = claudeTranscript(source).slice(0, 12)
+    await workspace.engine.ingest(claudeFile(workspace, source.session, lines, ino + BigInt(index)).batch(1, lines.length))
+  }
+}
+
+test('pruning a session that left the run keeps the context the run recorded with it and the call that cited it', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, project, cwd } = workspace
+  await write(join(project, 'CLAUDE.md'), 'Project rules\n')
+  const root = { session: 'kept-root', cwd }
+  const participant = { session: 'pruned-participant', cwd }
+  await ingestSessions(workspace, [root, participant], 41n)
+  const run = runOf('claude', root.session)
+  const participantRun = runOf('claude', participant.session)
+  const participantKey = sessionKey('claude', participant.session)
+  const { binding } = await engine.bind({ kind: 'attach', session: objectId(participantKey), run })
+  const context = await recorded(store, optionsOf(workspace, run))
+  const subjectsOf = () => store.facts.ofRecord(context.seq).map(({ entity_key }) => entity_key)
+  const runSubject = { kind: 'run', runtime: 'claude', session: root.session }
+  expect(subjectsOf()).toEqual([runSubject, participantKey])
+  const [fact] = sessionFacts(store, root.session)
+  if (fact === undefined) {
+    throw new Error('the transcript must produce facts of the root session')
+  }
+  const { input, begin, respond } = observerCalls(store, run)
+  const cited = input(fact, context)
+  begin('cited', cited, false)
+  expect(respond('cited', cited, [])).toBe('accepted')
+  await engine.revokeBinding(binding.id)
+  expect(store.observations.getSession(objectId(participantKey))?.run).toBe(participantRun)
+  const call = store.observerCalls.get(ObserverCallId.parse('cited'))
+
+  const pruned = await pruneRun(engine, participantRun)
+
+  expect(pruned.runs).toEqual([participantRun])
+  expect(store.observations.getSession(objectId(participantKey))).toBeNull()
+  expect(store.facts.ofSession(participantKey)).toEqual([])
+  expect(storedRunContext(store.rawRecords, context.seq)).toEqual(context)
+  expect(subjectsOf()).toEqual([runSubject])
+  expect(call?.input.context?.seq).toBe(context.seq)
+  expect(store.observerCalls.get(ObserverCallId.parse('cited'))).toEqual(call)
+
+  await pruneRun(engine, run)
+  expect(contextRecords(store)).toEqual([])
+  expect(contextFacts(store)).toEqual([])
+  expect(store.observerCalls.get(ObserverCallId.parse('cited'))).toBeNull()
+})
+
+test('a run keeps its context and git snapshots when its root session moves to a run that is pruned, and loses them with its own prune', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { store, engine, project, cwd } = workspace
+  await write(join(project, 'CLAUDE.md'), 'Project rules\n')
+  const root = { session: 'moved-root', cwd }
+  const host = { session: 'pruned-host', cwd }
+  await ingestSessions(workspace, [root, host], 51n)
+  const run = runOf('claude', root.session)
+  const rootKey = sessionKey('claude', root.session)
+  const context = await recorded(store, optionsOf(workspace, run))
+  recordSnapshot(store, rootKey, 'snapshot:moved-root', taken(cwd, ['.'], 'root-commit', []))
+  const ofRun = () => recordsOf(store).filter(({ channel }) => channel === 'context' || channel === 'snapshot')
+  const runFacts = () => factsOf(store).filter(({ entity_key }) => entity_key.kind === 'run')
+  const [records, facts] = [ofRun(), runFacts()]
+  expect(records.map(({ channel }) => channel).sort()).toEqual(['context', 'snapshot'])
+  await engine.bind({ kind: 'attach', session: objectId(rootKey), run: runOf('claude', host.session) })
+
+  await pruneRun(engine, runOf('claude', host.session))
+
+  expect(store.observations.getSession(objectId(rootKey))).toBeNull()
+  expect(factsOf(store).filter(({ entity_key }) => entity_key.kind !== 'run')).toEqual([])
+  expect(ofRun()).toEqual(records)
+  expect(runFacts()).toEqual(facts)
+  expect(storedRunContext(store.rawRecords, context.seq)).toEqual(context)
+
+  await pruneRun(engine, run)
+  expect(ofRun()).toEqual([])
+  expect(factsOf(store)).toEqual([])
 })

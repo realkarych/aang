@@ -134,6 +134,17 @@ test('working calls are refused while admission is in progress', async (context)
   expect(cli.calls().filter((call) => call.prompt?.includes(input.private))).toEqual([])
 })
 
+test('working calls run side by side and admission waits until they finish', async (context) => {
+  const { root, options } = await sandbox(context)
+  const cli = installFakeClaude(root, { replies: [{ kind: 'answer', output }, { kind: 'answer', output }] })
+  const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins })
+  expect(await backend.admit()).toMatchObject({ admitted: true })
+  const calls = [backend.execute({ input }), backend.execute({ input })]
+  expect(await backend.admit()).toMatchObject({ admitted: false, reason: 'admission_busy' })
+  expect(await Promise.all(calls)).toMatchObject([{ ok: true, output }, { ok: true, output }])
+  expect(await backend.admit()).toMatchObject({ admitted: true })
+})
+
 for (const runtime of ['claude', 'codex'] as const) {
   test(`${runtime} cannot pass negative hook control with its switch removed`, async (context) => {
     const { root, options } = await sandbox(context)

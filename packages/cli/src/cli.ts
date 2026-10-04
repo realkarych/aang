@@ -1,5 +1,7 @@
 import { parseArgs } from 'node:util'
+import { type PruneRequest, RunId } from '@aang/contract'
 import { openLink, rotateToken } from './access.js'
+import { epochOfDate, prune, reparse, unwatch, watch } from './admin.js'
 import { describeError, type Output, processOutput } from './output.js'
 import { daemonCommand, type DaemonProgram, runDaemonProcess, startInBackground, startInForeground } from './start.js'
 import { status } from './status.js'
@@ -12,6 +14,11 @@ const usage = `usage: aang <command>
   status                                    show the daemon and the spool
   open                                      print a one-time sign-in link to the UI
   token rotate                              replace the UI token
+  reparse                                   parse stored records again with the current normalizers
+  watch <directory> [--lookback <days>]     watch a project and reread its sessions within the lookback
+  watch --all [--lookback <days>]           watch every session
+  unwatch <directory> | --all               stop taking new records of a watched root
+  prune --run <id> | --before <date>        delete runs with all their records
 `
 
 class UsageError extends Error {}
@@ -23,6 +30,47 @@ const noArguments = (command: string, args: string[]): void => {
 }
 
 const bindOption = { bind: { type: 'string' } } as const
+
+const lookbackDays = (value: string | undefined): number | null => {
+  if (value === undefined) {
+    return null
+  }
+  const days = /^([1-9][0-9]*)d?$/.exec(value)?.[1]
+  if (days === undefined || !Number.isSafeInteger(Number(days))) {
+    throw new UsageError(`--lookback takes a positive number of days, got '${value}'`)
+  }
+  return Number(days)
+}
+
+const watchTarget = (
+  command: string,
+  all: boolean,
+  positionals: readonly string[],
+): { readonly path: string } | { readonly all: true } => {
+  const [path, ...rest] = positionals
+  if (all ? path !== undefined : path === undefined || rest.length > 0) {
+    throw new UsageError(`aang ${command} takes one directory or --all`)
+  }
+  return path === undefined ? { all: true } : { path }
+}
+
+const pruneRequest = (run: string | undefined, before: string | undefined): PruneRequest => {
+  if ((run === undefined) === (before === undefined)) {
+    throw new UsageError('aang prune takes --run <id> or --before <date>')
+  }
+  if (run !== undefined) {
+    const parsed = RunId.safeParse(run)
+    if (!parsed.success) {
+      throw new UsageError(`'${run}' is not a run id`)
+    }
+    return { scope: 'run', run: parsed.data }
+  }
+  const at = epochOfDate(before ?? '')
+  if (at === null) {
+    throw new UsageError(`'${before ?? ''}' is not a date`)
+  }
+  return { scope: 'before', before: at }
+}
 
 const dispatch = async (argv: string[], program: DaemonProgram, output: Output): Promise<number> => {
   const [command, ...args] = argv
@@ -53,6 +101,39 @@ const dispatch = async (argv: string[], program: DaemonProgram, output: Output):
     case 'open':
       noArguments(command, args)
       return openLink(output)
+    case 'reparse':
+      noArguments(command, args)
+      return reparse(output)
+    case 'watch': {
+      const { values, positionals } = parseArgs({
+        args,
+        options: { all: { type: 'boolean', default: false }, lookback: { type: 'string' } },
+        allowPositionals: true,
+        strict: true,
+      })
+      return watch(output, watchTarget(command, values.all, positionals), lookbackDays(values.lookback))
+    }
+    case 'unwatch': {
+      const { values, positionals } = parseArgs({
+        args,
+        options: { all: { type: 'boolean', default: false } },
+        allowPositionals: true,
+        strict: true,
+      })
+      return unwatch(output, watchTarget(command, values.all, positionals))
+    }
+    case 'prune': {
+      const { values, positionals } = parseArgs({
+        args,
+        options: { run: { type: 'string' }, before: { type: 'string' } },
+        allowPositionals: true,
+        strict: true,
+      })
+      if (positionals.length > 0) {
+        throw new UsageError('aang prune takes no positional arguments')
+      }
+      return prune(output, pruneRequest(values.run, values.before))
+    }
     case 'token':
       if (args.length !== 1 || args[0] !== 'rotate') {
         throw new UsageError('usage: aang token rotate')

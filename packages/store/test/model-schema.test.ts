@@ -4,6 +4,7 @@ import { checkSchemaCase, createSchemaDatabase, insert, type Row, type SchemaCas
 
 const observerCall: Row = {
   id: "'c1'",
+  kind: "'batch'",
   run_id: "'r1'",
   backend: "'claude'",
   base_version: '0',
@@ -15,6 +16,18 @@ const observerCall: Row = {
   started_at: '1759370000000000000',
   finished_at: 'NULL',
   change_seq: '1',
+}
+
+const probe: Row = {
+  ...observerCall,
+  id: "'p1'",
+  kind: "'probe'",
+  run_id: 'NULL',
+  base_version: 'NULL',
+  verdict: "'failed'",
+  error_class: "'limit'",
+  error_message: "'usage limit'",
+  finished_at: '1759370001000000000',
 }
 
 const modelVersion: Row = {
@@ -66,12 +79,14 @@ const viewMark: Row = {
   model_version: '1',
   change_seq: '2',
   viewed_at: '1759370000000000000',
+  mark_change_seq: '3',
 }
 
 const attentionView: Row = {
   run_id: "'r1'",
   item_id: "'a1'",
   viewed_at: '1759370000000000000',
+  dismissed_at: 'NULL',
   change_seq: '3',
 }
 
@@ -139,9 +154,116 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: backend IN/,
   },
   {
-    name: 'an observer call needs its base model version',
+    name: 'an observer call of a batch needs its base model version',
     statement: insert('observer_calls', observerCall, { id: "'c2'", base_version: 'NULL' }),
-    error: /NOT NULL constraint failed: observer_calls\.base_version/,
+    error: /CHECK constraint failed: observer_calls_batch/,
+  },
+  {
+    name: 'an observer call of a batch needs its run',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", run_id: 'NULL' }),
+    error: /CHECK constraint failed: observer_calls_batch/,
+  },
+  {
+    name: 'an observer call of a batch needs its input',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", input: 'NULL' }),
+    error: /CHECK constraint failed: observer_calls_batch/,
+  },
+  {
+    name: 'an observer call of an unknown kind is rejected',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", kind: "'chat'" }),
+    error: /CHECK constraint failed: kind IN/,
+  },
+  {
+    name: 'a failed observer call keeps the class and message of the backend error',
+    statement: insert('observer_calls', observerCall, {
+      id: "'c2'",
+      verdict: "'failed'",
+      error_class: "'network'",
+      error_message: "'stream disconnected'",
+      finished_at: '1759370009000000000',
+    }),
+  },
+  {
+    name: 'a backend error class outside the observer error classes is rejected',
+    statement: insert('observer_calls', observerCall, {
+      id: "'c2'",
+      verdict: "'failed'",
+      error_class: "'cancelled'",
+      error_message: "'cancelled'",
+    }),
+    error: /CHECK constraint failed: error_class IN/,
+  },
+  {
+    name: 'a backend error has both a class and a message',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", verdict: "'failed'", error_class: "'timeout'" }),
+    error: /CHECK constraint failed: observer_calls_error/,
+  },
+  {
+    name: 'an accepted batch keeps its delay',
+    statement: insert('observer_calls', observerCall, {
+      id: "'c2'",
+      verdict: "'accepted'",
+      finished_at: '1759370009000000000',
+      delay_ms: '12000',
+    }),
+  },
+  {
+    name: 'only an accepted batch has a delay',
+    statement: insert('observer_calls', observerCall, {
+      id: "'c2'",
+      verdict: "'rejected'",
+      finished_at: '1759370009000000000',
+      delay_ms: '12000',
+    }),
+    error: /CHECK constraint failed: observer_calls_delay/,
+  },
+  {
+    name: 'a batch delay is not negative',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", verdict: "'accepted'", delay_ms: '-1' }),
+    error: /CHECK constraint failed: delay_ms >= 0/,
+  },
+  {
+    name: 'a probe is recorded finished, without a run or a base version, with its error and usage',
+    statement: insert('observer_calls', probe, { usage: '\'{"tokens":null}\'' }),
+  },
+  {
+    name: 'a probe does not belong to a run',
+    statement: insert('observer_calls', probe, { run_id: "'r1'" }),
+    error: /CHECK constraint failed: observer_calls_check/,
+  },
+  {
+    name: 'a probe has no base version',
+    statement: insert('observer_calls', probe, { base_version: '0' }),
+    error: /CHECK constraint failed: observer_calls_check/,
+  },
+  {
+    name: 'a probe is recorded only when it has finished',
+    statement: insert('observer_calls', probe, { finished_at: 'NULL' }),
+    error: /CHECK constraint failed: observer_calls_check/,
+  },
+  {
+    name: 'a probe either succeeds or fails',
+    statement: insert('observer_calls', probe, { verdict: "'rejected'", error_class: 'NULL', error_message: 'NULL' }),
+    error: /CHECK constraint failed: observer_calls_check/,
+  },
+  {
+    name: 'a probe has no batch delay',
+    statement: insert('observer_calls', probe, { verdict: "'accepted'", error_class: 'NULL', error_message: 'NULL', delay_ms: '0' }),
+    error: /CHECK constraint failed: observer_calls_delay/,
+  },
+  {
+    name: 'an authorization check has neither input nor usage',
+    statement: insert('observer_calls', probe, { kind: "'auth_status'", input: 'NULL', error_class: "'auth'" }),
+  },
+  {
+    name: 'an authorization check sends no input to the model',
+    statement: insert('observer_calls', probe, { kind: "'auth_status'" }),
+    error: /CHECK constraint failed: observer_calls_auth_status/,
+  },
+  {
+    name: 'an authorization check spends no tokens',
+    statement: insert('observer_calls', probe, { kind: "'auth_status'", input: 'NULL', usage: '\'{"tokens":null}\'' }),
+    error: /CHECK constraint failed: observer_calls_auth_status/,
   },
   {
     name: 'an observer call input must be JSON',
@@ -348,7 +470,7 @@ const cases: readonly SchemaCase[] = [
   {
     name: 'a run has a single view mark',
     setup: [insert('view_marks', viewMark)],
-    statement: insert('view_marks', viewMark, { model_version: '2', change_seq: '5' }),
+    statement: insert('view_marks', viewMark, { model_version: '2', change_seq: '5', mark_change_seq: '6' }),
     error: /UNIQUE constraint failed: view_marks\.run_id/,
   },
   {
@@ -357,10 +479,24 @@ const cases: readonly SchemaCase[] = [
     error: /NOT NULL constraint failed: view_marks\.change_seq/,
   },
   {
+    name: 'a view mark is changed after the state it marks',
+    statement: insert('view_marks', viewMark, { mark_change_seq: '2' }),
+    error: /CHECK constraint failed: view_marks_after_viewed/,
+  },
+  {
     name: 'an attention item is marked viewed once per run',
     setup: [insert('attention_views', attentionView)],
     statement: insert('attention_views', attentionView, { change_seq: '4' }),
     error: /UNIQUE constraint failed: attention_views\.run_id, attention_views\.item_id/,
+  },
+  {
+    name: 'an attention item can be dismissed without being viewed',
+    statement: insert('attention_views', attentionView, { viewed_at: 'NULL', dismissed_at: '1759370001000000000' }),
+  },
+  {
+    name: 'an attention view records a view or a dismissal',
+    statement: insert('attention_views', attentionView, { viewed_at: 'NULL' }),
+    error: /CHECK constraint failed: attention_views_marked/,
   },
   {
     name: 'a collapse rule from the interface has no parameters',

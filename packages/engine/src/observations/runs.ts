@@ -10,6 +10,7 @@ import {
   LinkId,
   type ModelEntity,
   type RunId,
+  type Session,
   type SessionKey,
 } from '@aang/contract'
 import { canonicalJson, contentHash, objectId, runId } from '@aang/contract/ids'
@@ -46,6 +47,14 @@ export const sessionRun = (transaction: Transaction, key: SessionKey): RunId =>
   transaction.model.entityRuns({ kind: 'session_membership', id: objectId(key) }).toSorted(compareText)[0] ??
   runId(key)
 
+export const rootSessionOf = (transaction: Transaction, run: RunId, session: Session | null): Session | null => {
+  const entity = transaction.model.entity(run, { kind: 'run', id: run })
+  if (entity?.kind === 'run') {
+    return transaction.observations.getSession(entity.value.root_session)
+  }
+  return session !== null && runId(session.key) === run ? session : null
+}
+
 const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract<Link, { kind: 'spawn' }> => ({
   id: derivedLinkId('spawn', child),
   run,
@@ -57,7 +66,7 @@ const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract
   evidence: [...new Set(evidence)].sort(compareText),
 })
 
-const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks): RunDraft | null => {
+const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks, startPruned: boolean): RunDraft | null => {
   const session = objectId(key)
   if (current === null) {
     return {
@@ -66,7 +75,7 @@ const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks
       root_session: session,
       goal: null,
       brief: null,
-      start_pruned: false,
+      start_pruned: startPruned,
       created_at: root.at,
     }
   }
@@ -81,7 +90,8 @@ const rootChanges = (transaction: Transaction, links: SessionLinks): ModelChange
   const { key, run, root } = links
   const session = objectId(key)
   const grounds = { op: 'run.create', basis: observed, evidence: [root.id] } satisfies Omit<ModelChangeDraft, 'put'>
-  const draft = runUpdate(transaction.model.entity(run, { kind: 'run', id: run }), links)
+  const startPruned = run === runId(key) && transaction.pruned.ofSession(key).length > 0
+  const draft = runUpdate(transaction.model.entity(run, { kind: 'run', id: run }), links, startPruned)
   const member = transaction.model.entity(run, { kind: 'session_membership', id: session }) !== null
   return [
     ...(draft === null ? [] : [{ ...grounds, put: { kind: 'run', value: draft } } as const]),

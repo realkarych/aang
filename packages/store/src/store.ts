@@ -2,6 +2,7 @@ import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { ChangeSeq } from '@aang/contract'
+import { type ArtifactReader, type ArtifactWriter, createArtifacts } from './artifacts.js'
 import { type ChangeFeed, createChangeFeed } from './changes.js'
 import { prepareStatement, type WriteContext } from './context.js'
 import { createCursors, type CursorReader, type CursorWriter } from './cursors.js'
@@ -18,11 +19,13 @@ import { createModel, type ModelReader, type ModelWriter } from './model.js'
 import { createObservations, type ObservationReader, type ObservationWriter } from './observations.js'
 import { createObserverCalls, type ObserverCallReader, type ObserverCallWriter } from './observer-calls.js'
 import { createPrunedStreams, type PrunedStreamReader, type PrunedStreamWriter } from './pruned.js'
+import { createPruning, type PruningWriter } from './pruning.js'
 import { createRawRecords, type RawRecordReader, type RawRecordWriter } from './raw-records.js'
 import { prepareSchema } from './schema.js'
 import { createScopes, type ScopeReader, type ScopeWriter } from './scopes.js'
 import { createSettings, type SettingReader, type SettingWriter } from './settings.js'
-import { inTransaction } from './transaction.js'
+import { inReadTransaction, inTransaction } from './transaction.js'
+import { createViews, type ViewReader, type ViewWriter } from './views.js'
 
 export interface StoreOptions {
   readonly home: string
@@ -31,23 +34,34 @@ export interface StoreOptions {
 export interface Transaction {
   readonly nextChangeSeq: () => ChangeSeq
   readonly observations: ObservationWriter
+  readonly artifacts: ArtifactWriter
   readonly rawRecords: RawRecordWriter
   readonly facts: FactWriter
   readonly scopes: ScopeWriter
   readonly cursors: CursorWriter
   readonly pruned: PrunedStreamWriter
+  readonly pruning: PruningWriter
   readonly gaps: GapWriter
   readonly model: ModelWriter
   readonly settings: SettingWriter
   readonly observerCalls: ObserverCallWriter
   readonly interpretations: InterpretationWriter
+  readonly views: ViewWriter
 }
 
 type Synchronous<T> = T extends PromiseLike<unknown> ? never : T
 
+export interface StoreFile {
+  readonly path: string
+  readonly schemaVersion: number
+}
+
 export interface Store {
+  readonly file: StoreFile
   readonly transaction: <T>(work: (transaction: Transaction) => Synchronous<T>) => T
+  readonly read: <T>(work: () => Synchronous<T>) => T
   readonly observations: ObservationReader
+  readonly artifacts: ArtifactReader
   readonly rawRecords: RawRecordReader
   readonly facts: FactReader
   readonly scopes: ScopeReader
@@ -58,23 +72,28 @@ export interface Store {
   readonly settings: SettingReader
   readonly observerCalls: ObserverCallReader
   readonly interpretations: InterpretationReader
+  readonly views: ViewReader
   readonly changes: ChangeFeed
+  readonly vacuum: () => void
   readonly close: () => void
 }
 
-const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
+const createStore = (database: DatabaseSync, lock: WriterLock, file: StoreFile): Store => {
   const issueChangeSeq = prepareStatement(database, 'UPDATE change_counter SET value = value + 1 RETURNING value')
   const observations = createObservations(database)
+  const artifacts = createArtifacts(database)
   const rawRecords = createRawRecords(database)
   const facts = createFacts(database)
   const scopes = createScopes(database)
   const cursors = createCursors(database)
   const pruned = createPrunedStreams(database)
+  const pruning = createPruning(database)
   const gaps = createGaps(database)
   const model = createModel(database)
   const settings = createSettings(database)
   const observerCalls = createObserverCalls(database)
   const interpretations = createInterpretations(database)
+  const views = createViews(database)
   inTransaction(database, () => {
     recoverInterpretations(database)
   })
@@ -97,16 +116,19 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
       transaction: {
         nextChangeSeq: context.nextChangeSeq,
         observations: observations.writer(context),
+        artifacts: artifacts.writer(context),
         rawRecords: rawRecords.writer(context),
         facts: facts.writer(context),
         scopes: scopes.writer(context),
         cursors: cursors.writer(context),
         pruned: pruned.writer(context),
+        pruning: pruning.writer(context),
         gaps: gaps.writer(context),
         model: model.writer(context),
         settings: settings.writer(context),
         observerCalls: observerCalls.writer(context),
         interpretations: interpretations.writer(context),
+        views: views.writer(context),
       },
       finish: () => {
         active = false
@@ -116,6 +138,7 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
 
   let open = true
   return {
+    file,
     transaction: (work) => {
       const { transaction, finish } = beginTransaction()
       try {
@@ -124,7 +147,9 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
         finish()
       }
     },
+    read: (work) => inReadTransaction(database, work),
     observations: observations.reader,
+    artifacts: artifacts.reader,
     rawRecords: rawRecords.reader,
     facts: facts.reader,
     scopes: scopes.reader,
@@ -135,7 +160,9 @@ const createStore = (database: DatabaseSync, lock: WriterLock): Store => {
     settings: settings.reader,
     observerCalls: observerCalls.reader,
     interpretations: interpretations.reader,
+    views: views.reader,
     changes: createChangeFeed(database),
+    vacuum: pruning.vacuum,
     close: () => {
       if (!open) {
         return
@@ -161,8 +188,8 @@ export const openStore = ({ home }: StoreOptions): Store => {
   try {
     const databaseFile = join(home, 'aang.db')
     database = new DatabaseSync(databaseFile)
-    prepareSchema(database, databaseFile)
-    return createStore(database, lock)
+    const schemaVersion = prepareSchema(database, databaseFile)
+    return createStore(database, lock, { path: databaseFile, schemaVersion })
   } catch (error) {
     database?.close()
     lock.release()

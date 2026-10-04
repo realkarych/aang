@@ -38,6 +38,7 @@ const testDependenciesOfEveryPackage: readonly PackageDirectory[] = ['testkit']
 const testDependencies: Readonly<Partial<Record<PackageDirectory, readonly PackageDirectory[]>>> = {
   collector: ['adapter-claude', 'adapter-codex'],
   engine: ['adapter-claude', 'adapter-codex', 'collector'],
+  observer: ['adapter-claude', 'adapter-codex'],
 }
 
 export const isPackageDirectory = (name: string): name is PackageDirectory => Object.hasOwn(productionDependencies, name)

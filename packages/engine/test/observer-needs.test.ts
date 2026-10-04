@@ -4,6 +4,7 @@ import {
   type Agent,
   AgentId,
   ArtifactVersionId,
+  AttentionItemId,
   ContentHash,
   CriterionId,
   type EpochNs,
@@ -339,7 +340,10 @@ const followUp = (store: Store, previous = callId, id = followUpId, crossVendor 
   )
 
 const queue = (store: Store) =>
-  store.interpretations.ofRun(runA).map(({ status, attempts, observer_call }) => [status, attempts, observer_call])
+  store.interpretations
+    .ofRun(runA)
+    .filter(({ attempts }) => attempts > 0)
+    .map(({ status, attempts, observer_call }) => [status, attempts, observer_call])
 
 const outcomes = (materials: readonly ObserverMaterial[]) =>
   materials.map((material) => (material.kind === 'unavailable' ? material.reason : material.kind))
@@ -499,7 +503,12 @@ test('a restart between the request and the follow-up returns the batch to the q
   )
   store.close()
   const restarted = home.open()
-  expect(queue(restarted)).toEqual([['pending', 1, null]])
+  expect(
+    restarted.interpretations
+      .ofRun(runA)
+      .filter(({ fact }) => fact === solver.id)
+      .map(({ status, attempts, observer_call }) => [status, attempts, observer_call]),
+  ).toEqual([['pending', 0, callId]])
   expect(() => followUp(restarted)).toThrow('no longer owns its batch')
   expect(restarted.observerCalls.get(followUpId)).toBeNull()
 })
@@ -702,56 +711,42 @@ test('an action carries its text output together with the structured result and 
   })
 })
 
-test('needs are deduplicated, capped and truncated with the original length', async ({ onTestFinished }) => {
+test('needs are deduplicated, capped and truncated with the original length where cutting shortens them', async ({
+  onTestFinished,
+}) => {
   const { store, thinkingRecord, claudeAction } = await setupNeeds(onTestFinished)
   const scope = inputScope(store, { run: runA, backend: 'claude', crossVendor: false })
   const action: ObserverNeed = { kind: 'action', action: claudeAction.id }
+  const edit: ObserverNeed = { kind: 'action', action: editAction }
   const record: ObserverNeed = { kind: 'raw_record', seq: thinkingRecord.seq }
   const materials = resolveObserverNeeds(
     store,
     scope,
-    [action, { ...action }, record, { kind: 'raw_record', seq: RawSeq.parse(999_999) }],
-    { needs: 2, textLength: 1 },
+    [action, { ...action }, edit, record, { kind: 'raw_record', seq: RawSeq.parse(999_999) }],
+    { needs: 3, textLength: 1 },
   )
-  expect(materials.map(({ kind }) => kind)).toEqual(['action', 'raw_record'])
-  const [actionMaterial, recordMaterial] = materials
+  expect(materials.map(({ kind }) => kind)).toEqual(['action', 'action', 'raw_record'])
+  const [shortMaterial, editMaterial, recordMaterial] = materials
   const payload = JSON.stringify(stripped(thinkingRecord.payload, 'message', 'content'))
   expect(recordMaterial).toMatchObject({
     payload: payload.slice(0, 1),
     truncated: { path: 'payload', length: payload.length },
   })
-  if (actionMaterial?.kind !== 'action') {
-    throw new Error('the first material must describe the action')
-  }
+  expect(editMaterial).toMatchObject({
+    input: editInput,
+    output: envelope(null, { ...editResponse, originalFile: editResponse.originalFile.slice(0, 1) }),
+    truncated: [{ path: 'result.originalFile', length: editResponse.originalFile.length }],
+  })
   const start = factOf(store, claudeAction.input_fact)
   const end = factOf(store, claudeAction.output_fact)
-  const originalOutput = end.kind === 'action_end' ? (end.payload.output ?? '') : ''
-  const originalResult = end.kind === 'action_end' ? membersOf(end.payload.result) : {}
-  const originalInput = start.kind === 'action_start' ? membersOf(start.payload.input) : {}
-  const longTexts = (members: JsonObject, prefix: string) =>
-    Object.entries(members).flatMap(([key, value]) =>
-      typeof value === 'string' && value.length > 1 ? [{ path: `${prefix}.${key}`, length: value.length }] : [],
-    )
-  const longInputs = longTexts(originalInput, 'input')
-  const longResults = longTexts(originalResult, 'result')
-  expect(longInputs.length).toBeGreaterThan(0)
-  expect(longResults.length).toBeGreaterThan(0)
-  expect(actionMaterial.output).toBe(
-    envelope(
-      originalOutput.slice(0, 1),
-      Object.fromEntries(
-        Object.entries(originalResult).map(([key, value]) => [
-          key,
-          typeof value === 'string' ? value.slice(0, 1) : value,
-        ]),
-      ),
-    ),
-  )
-  expect(actionMaterial.truncated).toEqual([
-    ...longInputs,
-    { path: 'output', length: originalOutput.length },
-    ...longResults,
-  ])
+  const originalOutput = end.kind === 'action_end' ? end.payload.output : null
+  expect(originalOutput?.length).toBeGreaterThan(1)
+  expect(shortMaterial).toMatchObject({
+    kind: 'action',
+    input: start.kind === 'action_start' ? start.payload.input : null,
+    output: envelope(originalOutput, end.kind === 'action_end' ? membersOf(end.payload.result) : null),
+    truncated: [],
+  })
   expect(() => resolveObserverNeeds(store, scope, [action], { needs: 0, textLength: 1 })).toThrow(
     'positive integers',
   )
@@ -808,6 +803,20 @@ test('every part of the observer input passes the same scope before the call is 
 }) => {
   const setup = await setupNeeds(onTestFinished)
   const { store, solver, foreignRecord, foreignAction, codexAction, compactionRecord } = setup
+  const grounded = (id: string, evidence: Fact['id'][]): SnapshotAttentionItem => {
+    const item = { ...drafts.permission, id: AttentionItemId.parse(id), evidence }
+    store.transaction((transaction) => {
+      applyChangeSet(transaction, {
+        run: runA,
+        author: 'rule',
+        at: at(4),
+        changes: [put('attention.open', { kind: 'attention_item', value: item }, observed, evidence)],
+      })
+    })
+    return { ...snapshotAttention(), id: item.id }
+  }
+  const codexGrounded = grounded('attention-codex', setup.codexFacts.slice(0, 1).map(({ id }) => id))
+  const replaced = grounded('attention-replaced', [fact(999)])
   const ownAgent = agentOf(store, sessionA)
   const foreignAgent = agentOf(store, sessionB)
   const codexAgent = agentOf(store, codexSession)
@@ -874,6 +883,8 @@ test('every part of the observer input passes the same scope before the call is 
     ],
     [withModel({ criteria: [{ ...snapshotCriterion(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
     [withModel({ attention: [{ ...snapshotAttention(), stage: stages.verify }] }), outside(`stage ${stages.verify}`)],
+    [withModel({ attention: [codexGrounded] }), foreignVendor('attention_item attention-codex')],
+    [withModel({ attention: [replaced] }), foreignVendor('attention_item attention-replaced')],
     [withFact({ session: sessionB }), outside(`session ${sessionB}`)],
     [withFact({ id: unknownFact }), outside(`fact ${unknownFact}`)],
     [withFact({ agent: foreignAgent.id }), outside(`agent ${foreignAgent.id}`)],
@@ -914,13 +925,14 @@ test('every part of the observer input passes the same scope before the call is 
     }).toThrow(message)
   }
   expect(store.observerCalls.get(callId)).toBeNull()
-  expect(store.interpretations.ofRun(runA)).toEqual([])
+  expect(store.interpretations.ofRun(runA).filter(({ status }) => status !== 'pending')).toEqual([])
 
   const crossVendor = {
     ...withRun({
       sessions: [...valid.run.sessions, sessionBrief(codexSession, 'codex')],
       agents: [...valid.run.agents, agentBrief(codexAgent)],
     }),
+    model: { ...valid.model, attention: [...valid.model.attention, codexGrounded, replaced] },
     batch: withFact({ action: codexAction.id }).batch,
   }
   expect(() => {

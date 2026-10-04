@@ -1,4 +1,4 @@
-import { appendFileSync, closeSync, openSync, readFileSync, writeFileSync } from 'node:fs'
+import { appendFileSync, closeSync, openSync, readFileSync, writeFileSync, writeSync } from 'node:fs'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { spawn } from 'node:child_process'
@@ -97,7 +97,12 @@ for await (const line of createInterface({ input: process.stdin })) {
     if (scenario.replaceHooks !== undefined && invocation > 0) {
       writeFileSync(hooksFile, scenario.replaceHooks)
     }
-    emit({ id: request.id, result: scenario.listings?.[Math.min(invocation, scenario.listings.length - 1)] ?? listingFromFile() })
+    const answer = { id: request.id, result: scenario.listings?.[Math.min(invocation, scenario.listings.length - 1)] ?? listingFromFile() }
+    if (scenario.exitAfterListing === true) {
+      writeSync(1, `${JSON.stringify(answer)}\r\n`)
+      process.kill(process.pid, 'SIGKILL')
+    }
+    emit(answer)
   } else {
     process.exit(4)
   }

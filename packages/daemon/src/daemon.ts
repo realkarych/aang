@@ -2,13 +2,17 @@ import { rm } from 'node:fs/promises'
 import type { Config, Listener, Runtime } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
+import { createReadQueries, type ObserverRunStatus } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
 import { otelToken } from './otel-token.js'
+import { readRoutes } from './reads.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
+import { createStatus } from './status.js'
+import { createStreams } from './stream.js'
 
 export interface DaemonReady {
   readonly pid: number
@@ -19,6 +23,7 @@ export interface DaemonReady {
 export type DaemonStopReason = 'shutdown' | 'stop_marker' | 'signal'
 
 export interface DaemonOptions {
+  readonly version: string
   readonly environment: ConfigEnvironment
   readonly bind: string | null
   readonly staticRoot: string | null
@@ -41,6 +46,20 @@ const openExclusive = (home: string): Store => {
     throw error instanceof StoreLockedError ? new DaemonAlreadyRunningError(home) : error
   }
 }
+
+const observerOfRun = (): ObserverRunStatus => ({
+  state: { state: 'disabled', reason: 'version_not_admitted' },
+  isolation_unverified: false,
+})
+
+const notifying = (store: Store, changed: () => void): Store => ({
+  ...store,
+  transaction: (work) => {
+    const result = store.transaction(work)
+    changed()
+    return result
+  },
+})
 
 const report = (error: unknown): void => {
   process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
@@ -96,8 +115,18 @@ interface Session {
   readonly store: Store
 }
 
-const serve = async ({ options, config, runtimeRoots, paths, listener, store }: Session): Promise<DaemonStopReason> => {
+const serve = async ({
+  options,
+  config,
+  runtimeRoots,
+  paths,
+  listener,
+  store: opened,
+}: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
+  const reads = createReadQueries({ store: opened, observer: observerOfRun })
+  const streams = createStreams({ reads, head: opened.changes.head, onError: report })
+  const store = notifying(opened, streams.changed)
   const stop = Promise.withResolvers<StopCause>()
   const stopRequest = { made: false }
   const settle = (cause: StopCause): void => {
@@ -125,17 +154,24 @@ const serve = async ({ options, config, runtimeRoots, paths, listener, store }: 
   const worker = createWorker()
   const timers: NodeJS.Timeout[] = []
   const running: { server: RunningServer | null; spool: SpoolSupervisor | null } = { server: null, spool: null }
+  const startedAt = epochNow()
   try {
     const server = await startServer({
       listener,
       auth,
       staticRoot: options.staticRoot,
+      routes: (api) => {
+        const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
+        return readRoutes({ store, reads, status: createStatus({ daemon, store, config, runtimeRoots, paths }) })
+      },
+      streams,
+      reparse: ingestion.reparse,
+      admin: ingestion.admin,
       onShutdown: () => {
         requestStop('shutdown')
       },
     })
     running.server = server
-    const startedAt = epochNow()
     const publishState = (over: OverThreshold | null): Promise<void> =>
       writeDaemonState(paths.daemonState, {
         pid: process.pid,

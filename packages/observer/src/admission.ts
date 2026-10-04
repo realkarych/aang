@@ -4,7 +4,7 @@ import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Runtime } from '@aang/contract'
 import { admitClaude, admitCodex, type ProbeContext } from './admission-probes.js'
-import { LaunchError, requireSuccess, type BackendOptions, type LaunchErrorClass, type ObserverRequest, type ObserverResult } from './backend.js'
+import { LaunchError, requireSuccess, stoppedAll, type BackendOptions, type LaunchErrorClass, type ObserverOutcome, type ObserverRequest, type ObserverResult } from './backend.js'
 import { createClaudeLauncher, type ClaudeBackendOptions } from './claude.js'
 import { createCodexLauncher } from './codex.js'
 import { cleanEnvironment, prepareWorkspace, resolveCli } from './environment.js'
@@ -41,7 +41,8 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
   let launcher = makeLauncher()
   let record: AdmissionStatus = { runtime, version: null, profile, platform: process.platform, admitted: false, checkedAt: null, reason: 'version_not_admitted', warning: null }
   let errorClass: LaunchErrorClass = 'version_not_admitted'
-  let busy = false
+  let admitting = false
+  let executing = 0
   const listeners = new Set<(snapshot: LaunchStatus) => void>()
   const status = (): LaunchStatus => {
     const launch = launcher.status()
@@ -86,7 +87,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     if (match?.[1] === undefined) throw new LaunchError('version_not_admitted', 'CLI did not report a recognizable version')
     return match[1]
   }
-  const fail = (error: unknown): ObserverResult => {
+  const fail = (error: unknown): ObserverOutcome => {
     const problem = error instanceof LaunchError ? error : new LaunchError('invalid_output', String(error))
     record = { ...record, admitted: false, reason: problem.message, warning: null }
     errorClass = problem.kind
@@ -94,8 +95,9 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     return { ok: false, error: { class: problem.kind, message: problem.message }, usage: problem.usage }
   }
   const admit = async (signal?: AbortSignal): Promise<AdmissionStatus> => {
+    const busy = admitting || executing > 0
     if (busy || status().state.state === 'unavailable') return { ...record, admitted: false, reason: busy ? 'admission_busy' : 'process_stuck' }
-    busy = true
+    admitting = true
     record = { ...record, admitted: false, reason: 'admission_pending', checkedAt: new Date().toISOString(), warning: null }
     errorClass = 'version_not_admitted'
     notify()
@@ -132,24 +134,26 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         if (status().state.state === 'unavailable') void cleanup.catch(() => undefined)
         else await cleanup
       }
-      busy = false
+      admitting = false
       notify()
     }
     return { ...record }
   }
-  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
-    if (busy) return { ok: false, error: { class: 'admission_busy', message: 'Backend is checking admission or executing a call' }, usage: null }
+  const attempt = async (request: ObserverRequest, stopped: Promise<void>[]): Promise<ObserverOutcome> => {
+    if (admitting) return { ok: false, error: { class: 'admission_busy', message: 'Backend is checking admission' }, usage: null }
     if (!record.admitted) return { ok: false, error: { class: errorClass, message: record.reason ?? 'version_not_admitted' }, usage: null }
     if (status().state.state === 'unavailable') return { ok: false, error: { class: 'process_stuck', message: 'Backend process tree has not stopped' }, usage: null }
-    busy = true
+    executing += 1
+    let probe: ReturnType<typeof context> | undefined
     try {
-      const probe = context(request.signal)
+      probe = context(request.signal)
       const version = versionOf(await probe.run(['--version']))
       if (record.version !== version) {
         record = { ...record, version }
         throw new LaunchError('version_not_admitted', 'CLI version changed; synthetic admission is required')
       }
       const result = await launcher.execute(request)
+      stopped.push(result.stopped)
       if (!result.ok && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
         fail(new LaunchError(result.error.class, result.error.message, result.usage))
         await save()
@@ -159,7 +163,14 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       const result = fail(error)
       try { await save() } catch (failure) { return fail(failure) }
       return result
-    } finally { busy = false }
+    } finally {
+      stopped.push(...(probe?.stopped ?? []))
+      executing -= 1
+    }
+  }
+  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
+    const stopped: Promise<void>[] = []
+    return { ...(await attempt(request, stopped)), stopped: stoppedAll(stopped) }
   }
   return {
     admit, execute, status,

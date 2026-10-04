@@ -106,6 +106,25 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: json_valid\(data\)/,
   },
   {
+    name: 'an artifact version keeps the position at which it was first stored',
+    statement: insert('objects', object, { id: "'o2'", kind: "'artifact_version'", change_seq: '3', created_seq: '2' }),
+  },
+  {
+    name: 'an artifact version without the position of its creation is rejected',
+    statement: insert('objects', object, { id: "'o2'", kind: "'artifact_version'" }),
+    error: /CHECK constraint failed: objects_version_created/,
+  },
+  {
+    name: 'only an artifact version keeps the position of its creation',
+    statement: insert('objects', object, { id: "'o2'", kind: "'agent'", created_seq: '1' }),
+    error: /CHECK constraint failed: objects_version_created/,
+  },
+  {
+    name: 'an artifact version is created no later than its last change',
+    statement: insert('objects', object, { id: "'o2'", kind: "'artifact_version'", change_seq: '2', created_seq: '3' }),
+    error: /CHECK constraint failed: objects_created_before_changed/,
+  },
+  {
     name: 'a removed agent not linked to a run is accepted',
     statement: insert('object_removals', removal, { id: "'o5'", entity_key: "'claude:s1:a8'", run_id: 'NULL' }),
   },

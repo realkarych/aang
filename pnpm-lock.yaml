@@ -166,9 +166,15 @@ importers:
 
   .:
     devDependencies:
+      '@aang/contract':
+        specifier: workspace:*
+        version: link:packages/contract
       '@aang/eslint-plugin':
         specifier: workspace:*
         version: link:tools/eslint-plugin
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:packages/testkit
       '@eslint/js':
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.11.0(supports-color@7.2.0))
@@ -340,6 +346,12 @@ importers:
         specifier: workspace:*
         version: link:../store
     devDependencies:
+      '@aang/adapter-claude':
+        specifier: workspace:*
+        version: link:../adapter-claude
+      '@aang/adapter-codex':
+        specifier: workspace:*
+        version: link:../adapter-codex
       '@aang/testkit':
         specifier: workspace:*
         version: link:../testkit

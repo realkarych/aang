@@ -1,16 +1,29 @@
 import {
+  type CallUsage,
   type EpochNs,
   type FactId,
   ModelVersion,
   type ObserverCallId,
   type ObserverInput,
+  type ObserverNeed,
   type ObserverOp,
   ObserverOutput,
   type ObserverRejection,
   type RunId,
+  type SessionId,
 } from '@aang/contract'
-import type { ObserverCallStart, Transaction } from '@aang/store'
-import { type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
+import type { ObserverCallStart, StoredObserverCall, Transaction } from '@aang/store'
+import {
+  clipAttempt,
+  clipInputFact,
+  clipRun,
+  clipSnapshot,
+  defaultInputTokens,
+  longestStateText,
+  type Packing,
+  packObserverInput,
+} from '../input/fit.js'
+import { clipContext, defaultMaterialLimits, type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
 import { type InputScope, inputScope, inputViolations } from '../input/scope.js'
 import { applyChangeSet } from './journal.js'
 import { batchFacts, ObserverContext, OperationRejection, type ValidationLimits } from './observer-context.js'
@@ -18,13 +31,31 @@ import { planOperation } from './observer-operations.js'
 import { refreshStageDecisions } from './stage-decision.js'
 import { refreshStageExecution, type StageObservations } from './stage-execution.js'
 
+export interface FollowUpOptions {
+  readonly crossVendor: boolean
+  readonly limits?: MaterialLimits
+  readonly inputTokens?: number
+}
+
 export interface ObserverResponse {
   readonly call: ObserverCallId
   readonly output: unknown
   readonly at: EpochNs
   readonly limits?: ValidationLimits
   readonly observations?: StageObservations
+  readonly usage?: CallUsage | null
+  readonly followUp?: FollowUpOptions
 }
+
+interface ObserverCallEnd {
+  readonly call: ObserverCallId
+  readonly at: EpochNs
+  readonly usage?: CallUsage | null
+}
+
+export type ObserverCallFailure =
+  | (ObserverCallEnd & { readonly outcome: 'rejected'; readonly message: string })
+  | (ObserverCallEnd & { readonly outcome: 'failed' })
 
 export type ObserverResponseResult =
   | { readonly status: 'accepted'; readonly version: ModelVersion }
@@ -35,12 +66,10 @@ export interface ObserverCallBegin extends ObserverCallStart {
   readonly crossVendor: boolean
 }
 
-export interface ObserverFollowUp {
+export interface ObserverFollowUp extends FollowUpOptions {
   readonly previous: ObserverCallId
   readonly id: ObserverCallId
   readonly at: EpochNs
-  readonly crossVendor: boolean
-  readonly limits?: MaterialLimits
 }
 
 const admitInput = (transaction: Transaction, scope: InputScope, input: ObserverInput): void => {
@@ -78,22 +107,57 @@ export const beginObserverCall = (transaction: Transaction, call: ObserverCallBe
   transaction.interpretations.begin(run.id, id, facts)
 }
 
+const inputTokensOf = ({ inputTokens = defaultInputTokens }: FollowUpOptions): number => {
+  if (!Number.isSafeInteger(inputTokens) || inputTokens <= 0) {
+    throw new RangeError('the input limit must be a positive integer')
+  }
+  return inputTokens
+}
+
+const followUpInput = (
+  transaction: Transaction,
+  call: StoredObserverCall,
+  needs: readonly ObserverNeed[],
+  options: FollowUpOptions,
+): ObserverInput | null => {
+  const tokens = inputTokensOf(options)
+  const limits = options.limits ?? defaultMaterialLimits
+  const scope = inputScope(transaction, { run: call.run, backend: call.backend, crossVendor: options.crossVendor })
+  const base = call.input
+  const materials = (textLength: number) => resolveObserverNeeds(transaction, scope, needs, { ...limits, textLength })
+  const render = ({ count, batchText, stateText }: Packing): ObserverInput => ({
+    ...base,
+    run: clipRun(base.run, stateText),
+    context: clipContext(base.context, batchText),
+    model: clipSnapshot(base.model, stateText),
+    batch: { ...base.batch, facts: base.batch.facts.map((fact) => clipInputFact(fact, batchText)) },
+    materials: materials(batchText).slice(0, count),
+    previous_attempt: clipAttempt(base.previous_attempt, stateText),
+  })
+  const range = {
+    count: materials(limits.textLength).length,
+    minimumCount: 1,
+    batchText: limits.textLength,
+    stateText: longestStateText(base),
+  }
+  return packObserverInput(range, tokens, render)
+}
+
 export const beginObserverFollowUp = (transaction: Transaction, followUp: ObserverFollowUp): ObserverInput => {
   const previous = transaction.observerCalls.get(followUp.previous)
   if (previous?.verdict !== 'needs_requested') {
     throw new Error(`observer call ${followUp.previous} did not request materials`)
   }
   const batch = batchFacts(previous.input)
-  const scope = inputScope(transaction, {
-    run: previous.run,
-    backend: previous.backend,
-    crossVendor: followUp.crossVendor,
-  })
-  admitInput(transaction, scope, previous.input)
+  admitInput(
+    transaction,
+    inputScope(transaction, { run: previous.run, backend: previous.backend, crossVendor: followUp.crossVendor }),
+    previous.input,
+  )
   const { needs } = ObserverOutput.parse(previous.output)
-  const input: ObserverInput = {
-    ...previous.input,
-    materials: resolveObserverNeeds(transaction, scope, needs, followUp.limits),
+  const input = followUpInput(transaction, previous, needs, followUp)
+  if (input === null) {
+    throw new Error(`no material requested by observer call ${previous.id} fits the input limit`)
   }
   transaction.observerCalls.start({ id: followUp.id, backend: previous.backend, input, at: followUp.at })
   if (transaction.interpretations.handover(previous.id, followUp.id) !== batch.length) {
@@ -102,23 +166,30 @@ export const beginObserverFollowUp = (transaction: Transaction, followUp: Observ
   return input
 }
 
-export const endObserverCalls = (
-  transaction: Transaction,
-  run: RunId,
-  facts: readonly FactId[],
-  at: EpochNs,
-  message: string,
-): void => {
+export interface CallEnding {
+  readonly run: RunId
+  readonly session: SessionId
+  readonly facts: readonly FactId[]
+  readonly at: EpochNs
+  readonly message: string
+}
+
+export interface EndedCallUsage {
+  readonly call: ObserverCallId
+  readonly usage: CallUsage | null
+}
+
+export const endObserverCalls = (transaction: Transaction, { run, session, facts, at, message }: CallEnding): void => {
   const leaving = new Set(facts)
-  const calls = new Set(
-    transaction.interpretations
-      .ofRun(run)
-      .flatMap(({ fact, status, observer_call: call }) =>
-        status === 'in_call' && call !== null && leaving.has(fact) ? [call] : [],
-      ),
-  )
+  const active = transaction.interpretations
+    .ofRun(run)
+    .flatMap(({ fact, status, observer_call: call }) => (status === 'in_call' && call !== null ? [{ fact, call }] : []))
+  const owning = new Set(active.flatMap(({ fact, call }) => (leaving.has(fact) ? [call] : [])))
+  const describes = (call: ObserverCallId): boolean =>
+    transaction.observerCalls.get(call)?.input.run.sessions.some(({ id }) => id === session) === true
+  const calls = [...new Set(active.map(({ call }) => call))].filter((call) => owning.has(call) || describes(call))
   for (const call of calls) {
-    transaction.interpretations.settle(call, 'pending')
+    transaction.interpretations.release(call)
     if (transaction.observerCalls.get(call)?.finished_at !== null) {
       continue
     }
@@ -132,6 +203,17 @@ export const endObserverCalls = (
   }
 }
 
+export const chargeEndedObserverCall = (transaction: Transaction, { call, usage }: EndedCallUsage): boolean => {
+  const stored = transaction.observerCalls.get(call)
+  if (stored === null || stored.finished_at === null) {
+    return false
+  }
+  if (usage !== null) {
+    transaction.observerCalls.charge(call, usage)
+  }
+  return true
+}
+
 const textsOf = (op: ObserverOp): string[] =>
   Object.entries(op)
     .filter(
@@ -142,6 +224,26 @@ const textsOf = (op: ObserverOp): string[] =>
     .map(([, value]) => value as string)
 
 const creation = (op: ObserverOp): boolean => 'temp_id' in op
+
+export const failObserverCall = (transaction: Transaction, failure: ObserverCallFailure): void => {
+  const call = transaction.observerCalls.get(failure.call)
+  if (call === null || call.finished_at !== null) {
+    throw new Error(`observer call ${failure.call} is missing or already finished`)
+  }
+  if (failure.outcome === 'rejected') {
+    transaction.interpretations.settle(call.id, 'pending')
+  } else {
+    transaction.interpretations.release(call.id)
+  }
+  transaction.observerCalls.finish({
+    id: call.id,
+    output: null,
+    verdict: failure.outcome,
+    reasons: failure.outcome === 'rejected' ? [{ op_index: null, cause: 'schema', message: failure.message }] : [],
+    usage: failure.usage ?? null,
+    at: failure.at,
+  })
+}
 
 export const applyObserverResponse = (
   transaction: Transaction,
@@ -164,17 +266,18 @@ export const applyObserverResponse = (
     throw new RangeError('observer validation limits must be positive integers')
   }
   const parsed = ObserverOutput.safeParse(response.output)
-  if (
-    parsed.success &&
-    parsed.data.base_version === call.base_version &&
-    parsed.data.needs.length > 0 &&
-    call.input.materials.length === 0
-  ) {
+  const options = response.followUp ?? { crossVendor: false }
+  const needs =
+    parsed.success && parsed.data.base_version === call.base_version && call.input.materials.length === 0
+      ? parsed.data.needs
+      : []
+  if (needs.length > 0 && followUpInput(transaction, call, needs, options) !== null) {
     transaction.observerCalls.finish({
       id: call.id,
       output: response.output,
       verdict: 'needs_requested',
       reasons: [],
+      usage: response.usage ?? null,
       at: response.at,
     })
     return { status: 'needs_requested' }
@@ -189,6 +292,14 @@ export const applyObserverResponse = (
     context.reject(
       null,
       new OperationRejection('version', 'base_version does not match the saved observer call'),
+    )
+  } else if (needs.length > 0) {
+    context.reject(
+      null,
+      new OperationRejection(
+        'limit',
+        `needs: none of the requested materials fits the input limit of ${String(inputTokensOf(options))} tokens`,
+      ),
     )
   } else if (parsed.data.ops.length > limits.operations) {
     context.reject(
@@ -269,6 +380,7 @@ export const applyObserverResponse = (
     output: response.output ?? null,
     verdict: rejected ? 'rejected' : 'accepted',
     reasons: context.rejections,
+    usage: response.usage ?? null,
     at: response.at,
   })
   return rejected ? { status: 'rejected', rejections: context.rejections } : { status: 'accepted', version }

@@ -21,7 +21,7 @@ const backUp = (database: DatabaseSync, target: string): void => {
   database.prepare('VACUUM INTO ?').run(target)
 }
 
-export const prepareSchema = (database: DatabaseSync, databaseFile: string): void => {
+export const prepareSchema = (database: DatabaseSync, databaseFile: string): number => {
   const migrations = loadMigrations()
   const current = userVersion(database)
   if (current > migrations.length) {
@@ -29,7 +29,7 @@ export const prepareSchema = (database: DatabaseSync, databaseFile: string): voi
   }
   database.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = FULL; PRAGMA foreign_keys = ON')
   if (current === migrations.length) {
-    return
+    return current
   }
   if (current > 0) {
     backUp(database, `${databaseFile}.v${String(current)}.bak`)
@@ -40,4 +40,5 @@ export const prepareSchema = (database: DatabaseSync, databaseFile: string): voi
     }
     database.exec(`PRAGMA user_version = ${String(migrations.length)}`)
   })
+  return migrations.length
 }

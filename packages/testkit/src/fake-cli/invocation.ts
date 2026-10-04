@@ -1,9 +1,9 @@
-import type { Runtime } from '@aang/contract'
-import { environment, finish, say } from './io.js'
+import type { JsonValue, Runtime } from '@aang/contract'
+import { environment, finish, isJsonObject, say } from './io.js'
 import { scenarioMessage } from './profile.js'
-import { fakeCliExitCodes, type FakeCall, type FakeCommand } from './scenario.js'
+import { fakeCliExitCodes, type FakeCall, type FakeCommand, type FakePurpose } from './scenario.js'
 import { claimCall, claimReply, writeCall } from './state.js'
-import { TemplateError } from './template.js'
+import { ScenarioError } from './scenario-error.js'
 
 export interface PickedReply<R> {
   readonly index: number
@@ -14,7 +14,7 @@ export interface Invocation {
   readonly state: string
   readonly argv: readonly string[]
   readonly record: (command: FakeCommand, fields?: Partial<FakeCall>) => void
-  readonly nextReply: <R>(replies: readonly R[]) => PickedReply<R>
+  readonly nextReply: <R>(replies: readonly R[], purpose: FakePurpose) => PickedReply<R>
   readonly missingReply: (index: number | null) => void
 }
 
@@ -35,13 +35,14 @@ export const invocation = (runtime: Runtime): Invocation => {
         prompt: null,
         systemPrompt: null,
         schema: null,
+        purpose: null,
         reply: null,
         violations: [],
         ...fields,
       })
     },
-    nextReply: (replies) => {
-      const index = claimReply(state)
+    nextReply: (replies, purpose) => {
+      const index = claimReply(state, purpose)
       return { index, reply: replies[Math.min(index, replies.length - 1)] }
     },
     missingReply: (index) => {
@@ -51,11 +52,14 @@ export const invocation = (runtime: Runtime): Invocation => {
   }
 }
 
+export const purposeOf = (input: JsonValue | undefined): FakePurpose =>
+  isJsonObject(input) && typeof input.question === 'string' ? 'chat' : 'observer'
+
 export const runEntry = async (runtime: Runtime, main: () => Promise<void>): Promise<void> => {
   try {
     await main()
   } catch (error) {
-    if (!(error instanceof TemplateError)) {
+    if (!(error instanceof ScenarioError)) {
       throw error
     }
     say(process.stderr, scenarioMessage(runtime, error.message))

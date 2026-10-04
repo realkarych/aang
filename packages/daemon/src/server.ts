@@ -1,14 +1,31 @@
 import { once } from 'node:events'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
-import { type ApiError, type ApiErrorCode, endpoints, type Listener, type ShutdownResponse } from '@aang/contract'
+import {
+  type ApiError,
+  type ApiErrorCode,
+  endpoints,
+  type Listener,
+  type ReparseResponse,
+  type ShutdownResponse,
+  streamPath,
+} from '@aang/contract'
+import { z } from 'zod'
+import { AdminError } from './admin-error.js'
 import type { Authenticator } from './auth.js'
+import type { Admin } from './ingestion.js'
+import { ApiFailure, type ApiRoute, matchRoute } from './routes.js'
 import { serveStatic } from './static.js'
+import type { Streams } from './stream.js'
 
 export interface ServerOptions {
   readonly listener: Listener
   readonly auth: Authenticator
   readonly staticRoot: string | null
+  readonly routes: (address: Listener) => readonly ApiRoute[]
+  readonly streams: Streams
+  readonly reparse: () => Promise<ReparseResponse | null>
+  readonly admin: Admin
   readonly onShutdown: () => void
 }
 
@@ -72,17 +89,38 @@ const readJson = async (request: IncomingMessage): Promise<unknown> => {
   return JSON.parse(Buffer.concat(chunks).toString('utf8'))
 }
 
-export const startServer = async ({ listener, auth, staticRoot, onShutdown }: ServerOptions): Promise<RunningServer> => {
-  const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+export const startServer = async ({
+  listener,
+  auth,
+  staticRoot,
+  routes,
+  streams,
+  reparse,
+  admin,
+  onShutdown,
+}: ServerOptions): Promise<RunningServer> => {
+  const acceptsBody = async (
+    request: IncomingMessage,
+    response: ServerResponse,
+    schema: z.ZodType,
+    refusal: string,
+  ): Promise<boolean> => {
     let body: unknown
     try {
       body = await readJson(request)
     } catch (error) {
       sendError(response, 'invalid_request', error instanceof Error ? error.message : String(error))
-      return
+      return false
     }
-    if (!endpoints.shutdown.body.safeParse(body).success) {
-      sendError(response, 'invalid_request', 'shutdown takes an empty JSON object')
+    if (!schema.safeParse(body).success) {
+      sendError(response, 'invalid_request', refusal)
+      return false
+    }
+    return true
+  }
+
+  const shutdown = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    if (!(await acceptsBody(request, response, endpoints.shutdown.body, 'shutdown takes an empty JSON object'))) {
       return
     }
     response.on('finish', onShutdown)
@@ -90,12 +128,104 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
     sendJson(response, 200, accepted)
   }
 
-  const routeApi = async (request: IncomingMessage, response: ServerResponse, pathname: string): Promise<void> => {
-    if (request.method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
+  const reparseRecords = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
+    if (!(await acceptsBody(request, response, endpoints.reparse.body, 'reparse takes an empty JSON object'))) {
+      return
+    }
+    const result = await reparse()
+    if (result === null) {
+      sendError(response, 'unavailable', 'the daemon is stopping')
+      return
+    }
+    sendJson(response, 200, endpoints.reparse.response.encode(result))
+  }
+
+  const serveAdmin = async <S extends z.ZodType, R extends z.ZodType>(
+    request: IncomingMessage,
+    response: ServerResponse,
+    spec: { readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => Promise<z.output<R>>,
+  ): Promise<void> => {
+    let body: unknown
+    try {
+      body = await readJson(request)
+    } catch (error) {
+      sendError(response, 'invalid_request', error instanceof Error ? error.message : String(error))
+      return
+    }
+    const parsed = spec.body.safeParse(body)
+    if (!parsed.success) {
+      sendError(response, 'invalid_request', z.prettifyError(parsed.error))
+      return
+    }
+    try {
+      sendJson(response, 200, spec.response.encode(await handle(parsed.data)))
+    } catch (error) {
+      if (error instanceof AdminError) {
+        sendError(response, error.code, error.message)
+        return
+      }
+      throw error
+    }
+  }
+
+  const adminRoute = <S extends z.ZodType, R extends z.ZodType>(
+    spec: { readonly method: string; readonly path: string; readonly body: S; readonly response: R },
+    handle: (body: z.output<S>) => Promise<z.output<R>>,
+  ) => ({
+    method: spec.method,
+    path: spec.path,
+    serve: (request: IncomingMessage, response: ServerResponse) => serveAdmin(request, response, spec, handle),
+  })
+
+  const adminRoutes = [
+    adminRoute(endpoints.watch, admin.watch),
+    adminRoute(endpoints.unwatch, admin.unwatch),
+    adminRoute(endpoints.prune, admin.prune),
+  ]
+
+  const routeApi = async (
+    table: readonly ApiRoute[],
+    request: IncomingMessage,
+    response: ServerResponse,
+    url: URL,
+  ): Promise<void> => {
+    const { pathname, searchParams: search } = url
+    const method = request.method ?? 'GET'
+    if (method === endpoints.shutdown.method && pathname === endpoints.shutdown.path) {
       await shutdown(request, response)
       return
     }
-    sendError(response, 'not_found', `no route for ${request.method ?? 'GET'} ${pathname}`)
+    if (method === endpoints.reparse.method && pathname === endpoints.reparse.path) {
+      await reparseRecords(request, response)
+      return
+    }
+    if (method === 'GET' && pathname === streamPath) {
+      const refusal = streams.open(request, response, search)
+      if (refusal !== null) {
+        sendError(response, refusal.code, refusal.message)
+      }
+      return
+    }
+    const adminMatch = adminRoutes.find((route) => route.method === method && route.path === pathname)
+    if (adminMatch !== undefined) {
+      await adminMatch.serve(request, response)
+      return
+    }
+    const match = matchRoute(table, method, pathname)
+    if (match === null) {
+      sendError(response, 'not_found', `no route for ${method} ${pathname}`)
+      return
+    }
+    try {
+      sendJson(response, 200, await match.route.serve({ pathname, params: match.params, search }))
+    } catch (error) {
+      if (error instanceof ApiFailure) {
+        sendError(response, error.code, error.message)
+        return
+      }
+      throw error
+    }
   }
 
   const redeemLink = async (response: ServerResponse, code: string): Promise<void> => {
@@ -114,8 +244,13 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
     response.end(signedInPage)
   }
 
-  const handle = async (request: IncomingMessage, response: ServerResponse): Promise<void> => {
-    const { pathname } = new URL(request.url ?? '/', 'http://daemon.invalid')
+  const handle = async (
+    table: readonly ApiRoute[],
+    request: IncomingMessage,
+    response: ServerResponse,
+  ): Promise<void> => {
+    const url = new URL(request.url ?? '/', 'http://daemon.invalid')
+    const { pathname } = url
     if (pathname.startsWith(authPrefix) && request.method === 'GET') {
       await redeemLink(response, pathname.slice(authPrefix.length))
       return
@@ -130,15 +265,21 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
       return
     }
     if (api) {
-      await routeApi(request, response, pathname)
+      await routeApi(table, request, response, url)
       return
     }
     await serveStatic(staticRoot, pathname, request, response)
   }
 
-  const server = createServer((request, response) => {
+  const server = createServer()
+  server.listen(listener.port, listener.host)
+  await once(server, 'listening')
+  const { port } = server.address() as AddressInfo
+  const address: Listener = { host: listener.host, port }
+  const table = routes(address)
+  server.on('request', (request: IncomingMessage, response: ServerResponse) => {
     response.setHeader('x-content-type-options', 'nosniff')
-    handle(request, response).catch((error: unknown) => {
+    handle(table, request, response).catch((error: unknown) => {
       process.stderr.write(`aang daemon: ${error instanceof Error ? (error.stack ?? error.message) : String(error)}\n`)
       if (response.headersSent) {
         response.destroy()
@@ -147,13 +288,11 @@ export const startServer = async ({ listener, auth, staticRoot, onShutdown }: Se
       }
     })
   })
-  server.listen(listener.port, listener.host)
-  await once(server, 'listening')
-  const { port } = server.address() as AddressInfo
   return {
-    address: { host: listener.host, port },
+    address,
     close: async () => {
       const closed = once(server, 'close')
+      streams.close()
       server.close()
       server.closeIdleConnections()
       const force = setTimeout(() => {

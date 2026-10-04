@@ -3,6 +3,7 @@ import { admissionHookPath, claudeAdmissionArtifacts, runAdmissionHook } from '.
 import { randomUUID } from 'node:crypto'
 import { startDescendant } from './process-tree.js'
 import { resolve } from 'node:path'
+import type { JsonValue } from '@aang/contract'
 import type { z } from 'zod'
 import {
   answerEvents,
@@ -17,11 +18,12 @@ import { emulatePluginCommand } from './claude-plugin.js'
 import { claudeOptions, claudeViolations } from './claude-profile.js'
 import { emit, finish, hang, parseJson, readStdin, say, tryReadText, type TextRead } from './io.js'
 import { lastValue, parseOptions, type ParsedOptions } from './options.js'
-import { invocation, runEntry } from './invocation.js'
+import { invocation, purposeOf, runEntry } from './invocation.js'
 import { isolationMessage, scenarioMessage } from './profile.js'
+import { answerOutput } from './reply.js'
 import { ClaudeScenario, fakeCliExitCodes } from './scenario.js'
 import { readScenario } from './state.js'
-import { extractInput, renderTemplate } from './template.js'
+import { extractInput } from './template.js'
 
 type Scenario = z.output<typeof ClaudeScenario>
 type Reply = Scenario['replies'][number]
@@ -62,10 +64,11 @@ const limitMessage = (resetsAt: number | undefined): string =>
     ? "You've hit your limit"
     : `You've hit your limit · resets ${new Date(resetsAt * 1000).toISOString()}`
 
-const respond = (session: ClaudeSession, reply: Reply, prompt: string): void => {
+const respond = (session: ClaudeSession, reply: Reply, input: JsonValue | undefined): void => {
   switch (reply.kind) {
-    case 'answer': {
-      const output = renderTemplate(reply.output, extractInput(prompt))
+    case 'answer':
+    case 'script': {
+      const output = answerOutput(reply, input)
       emit(initEvent(session))
       answerEvents(session, output, reply.usage ?? defaultClaudeUsage).forEach(emit)
       finish(0)
@@ -95,17 +98,20 @@ const respond = (session: ClaudeSession, reply: Reply, prompt: string): void => 
 
 const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {
   const prompt = options.positionals[0] ?? (await readStdin())
+  const input = extractInput(prompt)
+  const purpose = purposeOf(input)
   const instructions = systemPrompt(options)
   const unreadable = unreadableSystemPrompt(options, instructions)
   const admission = existsSync(admissionHookPath('claude'))
   const violations = claudeViolations({ options, systemPrompt: instructions, env: process.env }).filter((violation) => !admission || violation !== '--setting-sources ""')
   const streamWithoutVerbose = lastValue(options, 'output-format') === 'stream-json' && !options.flags.has('verbose')
   const reachesModel = unreadable === null && violations.length === 0 && !streamWithoutVerbose && scenario.loggedIn
-  const { index, reply } = admission ? { index: null, reply: { kind: 'answer', output: { base_version: 0, ops: [], needs: [] } } as Reply } : reachesModel ? nextReply(scenario.replies) : { index: null, reply: undefined }
+  const { index, reply } = admission ? { index: null, reply: { kind: 'answer', output: { base_version: 0, ops: [], needs: [] } } as Reply } : reachesModel ? nextReply(purpose === 'chat' ? scenario.chatReplies : scenario.replies, purpose) : { index: null, reply: undefined }
   record('print', {
     prompt,
     systemPrompt: instructions?.ok === true ? instructions.text : null,
     schema: parseJson(lastValue(options, 'json-schema')) ?? null,
+    purpose,
     reply: index,
     violations,
   })
@@ -134,7 +140,7 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     startedAt,
   }
   if (!scenario.loggedIn) {
-    respond(session, { kind: 'auth' }, prompt)
+    respond(session, { kind: 'auth' }, input)
     return
   }
   if (reply === undefined) {
@@ -145,12 +151,12 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     const cleanup = await claudeAdmissionArtifacts(session.sessionId, scenario.admissionFault)
     try {
       runAdmissionHook('claude', options, scenario.admissionFault)
-      respond(session, reply, prompt)
+      respond(session, reply, input)
     } finally { cleanup() }
     return
   }
   await startDescendant(scenario.descendant)
-  respond(session, reply, prompt)
+  respond(session, reply, input)
 }
 
 const isVersion = (argument: string | undefined): boolean => argument === '--version' || argument === '-v'

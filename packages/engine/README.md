@@ -9,7 +9,7 @@ journal restores the same stage and relationship ids.
 Assignments, participation, artifact links and dependencies are upserts by their
 endpoints. Repeating a relationship keeps its id and updates its grounds. Artifact
 input and output links are distinct; the same action, agent or version can belong
-to several stages. Artifact retention belongs to E.7b.
+to several stages. Linking a version makes it a basis; see Artifact versions.
 
 ## Runtime execution
 
@@ -193,8 +193,169 @@ The root session of a run comes from its `run` entity; without one, a session th
 is its own root uses its `cwd`.
 
 Checks do not produce criterion statuses: a check alone never gives `confirmed`.
-Snapshots around checks, `passed_unversioned`, `confirmed` and `stale` belong to
-E.7b and E.7c.
+`passed_unversioned`, `confirmed` and `stale` belong to E.7c.
+
+## Working tree snapshots
+
+When the ingest transaction stores the start or the end of a check (a command
+action of a run that matches a contract), the engine takes a snapshot of the
+working tree after the commit and before `ingest` resolves (ADR-0006). A batch
+that holds both the start and the end of a check takes one snapshot; a start and
+an end read in separate batches give snapshots around the check. Checks read by
+backfill are snapshotted when they are read, so `taken_at` tells later readers
+whether a snapshot can precede the check.
+
+The snapshot runs in the directory of the check, finds the top of the working tree
+and runs read-only commands with `GIT_OPTIONAL_LOCKS=0` and `core.fsmonitor=false`:
+
+- `git rev-parse --verify --quiet HEAD^{commit}`;
+- `git status --porcelain=v1 -z --ignored=traditional --untracked-files=normal
+  --ignore-submodules=none -- <pathspecs>`.
+
+User settings that hide untracked files or submodule changes do not apply, and
+git neither refreshes the index nor takes `index.lock`. `inputMasks` of a contract
+are paths relative to the watched root that declares the contract, interpreted as
+git pathspecs. A mask that covers the whole working tree becomes `.`, and masks
+outside the working tree are dropped; when no mask remains, no snapshot is taken.
+
+A snapshot is clean only when `HEAD` resolves to a commit and the status under the
+masks is empty: an uncommitted, staged, renamed, untracked or ignored path under a
+mask makes it unclean. A failed git command (no repository, a missing directory)
+gives an unclean snapshot without a head and with the error.
+
+Each snapshot is a raw record of the `snapshot` channel (position `daemon`, no
+runtime or stream), one `git_snapshot` fact keyed by the run of the root session
+with speaker `runtime`, and a `GitSnapshot` object with trigger `check`. Daemon
+records are not session evidence: they do not move `last_event_at`, freshness or
+the turn state.
+
+The directory of an action comes from all of its starts. An explicit directory of
+the tool wins: `workdir` of a Codex `exec_command` or `cwd` of a Codex
+`CommandExecution`, given as a path or a `file://` URL. A relative explicit
+directory resolves against the ambient one. The ambient directory is the `cwd` of
+a start, otherwise of the session. A check without any directory runs in the
+`cwd` of its root session.
+
+## Artifact versions
+
+The ingest transaction projects artifact versions from the actions whose start or
+end it stores. A version belongs to the run of the action's session, its artifact
+is the absolute path, and it records the action in `produced_by`. Inherited
+actions give no versions. Paths come from:
+
+- Claude `Write` (`file_path` with `content`), `Edit` and `MultiEdit`
+  (`file_path` with the replacements as a patch), `NotebookEdit`
+  (`notebook_path`);
+- Codex `apply_patch` (`*** Add File` with its content, `*** Update File` with
+  its hunks as a patch and its `*** Move to`) and `FileChange` items (`add`,
+  `update` with `move_path`); deletions give no version;
+- shell scripts of command actions (a `command` or `cmd` string, or the script of
+  a shell argument vector): redirection targets and the file arguments of `tee`.
+  Comments, quoted text, expansions and globs are not targets; duplications such
+  as `2>&1`, devices, and targets with expansions, globs or a leading `~` are
+  skipped, and relative targets are skipped when the script changes directory.
+
+Relative paths resolve against the directory of the action (see Working tree
+snapshots). A script is read with the rules of its shell:
+
+- POSIX (`sh`, `bash`, `zsh`): `>`, `>>`, `>|`, `&>`, `&>>`, `N>`; heredoc bodies,
+  `[[ ]]`, `(( ))` and process substitutions are skipped; a backslash escapes any
+  character outside quotes and only `$`, `` ` ``, `"`, `\` and a newline inside
+  double quotes; `/dev/*` are devices; `cd`, `pushd` and `popd` change directory;
+- PowerShell: `>`, `>>`, `N>`, `*>`, `*>>`; the backtick is the escape character,
+  quotes are doubled inside quotes, `$` expands in double quotes, block comments
+  and here-strings are skipped; `nul`, `con` and other reserved names are devices;
+  `cd`, `Set-Location`, `Push-Location`, `Pop-Location` and their aliases change
+  directory; `tee` and `Tee-Object` write files;
+- `cmd`: `>`, `>>`, `N>`; `^` escapes, quotes are literal, `%` and `!` expand, `rem`
+  and `::` lines are remarks; reserved names are devices; `cd`, `chdir`,
+  `pushd`, `popd` and a bare drive change directory.
+
+The shell of an argument vector is its program (`pwsh`, `powershell`, `cmd`,
+otherwise POSIX). A command string uses the `shell` of the input when it is given;
+otherwise Claude `PowerShell` is PowerShell, Claude `Bash` is POSIX (Git Bash on
+Windows), and a Codex command runs in the host shell: PowerShell on Windows, POSIX
+elsewhere.
+
+A file tool gives a version after an end with outcome `ok`; an end with an unknown
+outcome, such as a Codex `PostToolUse` or tool output, is not enough. A command
+gives a version after any end except `denied`, because a failing command still
+writes its redirections.
+Full content in the payload (Claude `Write`, an added file of a Codex patch) makes
+the identity the content hash. Otherwise the version is known only by reference:
+its identity is the earliest stored start that names the path. The projection is
+repeatable, keeps the stored retention, and dates a version by its earliest
+qualifying end.
+
+Actions that write the same content to the same path share one content version.
+Its `produced_by` and `observed_at` are those of the earliest qualifying end, ties
+broken by the smaller action id, so the result does not depend on the order in
+which the evidence arrives, and a late hook of a known action changes nothing. An
+`action_payload` retention names the same action: the payload of every producer
+holds the same bytes.
+
+## Retention of bases
+
+`engine.retainBases(runs?)` retains every version of the given runs (all runs by
+default) that is still known only by reference and is a basis: the version of an
+`artifact` link or the `via` of a `dependency` link. Callers run it after applying
+an observer response and after a restart; the engine queue orders it with ingest.
+
+- A content version whose payload still holds that content is retained from the
+  payload as `action_payload`: the version the action produced.
+- A version written by a patch (Claude `Edit`/`MultiEdit`, a Codex `*** Update
+  File`) is rebuilt from the patch and its base and retained as `action_payload`
+  of the patching action. See Patch bases below.
+- Otherwise a regular file at the path is read as `file_read` with `read_at`, the
+  state of the file at the moment of reading, not proven to be the output of the
+  action.
+- Content larger than `maxBlobBytes` (5 MiB by default) keeps only `hash_only`
+  with its SHA-256 and size; no blob is stored.
+- A missing path, a directory or an unreadable file keeps the version known only
+  by reference; a later call reads it again.
+
+### Patch bases
+
+The base of a patch is the content of the patched path that the action changed. It
+is established only when it is proven:
+
+- a Claude `Edit` or `MultiEdit` that reports `originalFile` in its result has that
+  content as its base: the tool read it right before applying the change. When the
+  result says `userModified`, the change differs from the input and the version is
+  not rebuilt. Only an edit without a reported original looks for a base in the run;
+- otherwise the base is the latest known state of the source path (the path before a
+  `*** Move to`) before the patch started: the end of a write of the run (all its
+  sessions), that is a successful file tool or a command that redirects to the path,
+  or a stored `file_read` of the path with its `read_at`. Two states at the same time
+  make it ambiguous;
+- the content of a write is known from payloads: full content of the action, or a
+  patch to its own established base. A command write has no known content. The
+  content of a stored read is its blob, decoded as strict UTF-8 with its byte order
+  mark kept;
+- nothing may have changed the path between that state and the end of the patch: no
+  other action that could write it ran in that window. Every command, MCP tool, code
+  cell and unknown tool could write any path, a file tool could write the paths it
+  names; reads, searches, web, questions, plans and agent calls, whose own actions
+  are observed in their sessions, do not write. Denied actions did not run; an
+  action without an end and a Claude command `run_in_background` are still running.
+  A Codex command whose call returned `Process running with session ID N` runs until
+  its own result settles with an exit code or an outcome, or a `write_stdin` poll of
+  session `N` reports `Process exited with code`; a return of the call is not the
+  end of the process;
+- every replacement applies exactly: Claude `old_string` occurs once (or at least
+  once with `replace_all`), and an empty `new_string` does not touch a following
+  newline; Codex hunks match their context and lines exactly, with the matching
+  and end-of-file rules of `apply_patch`.
+
+When any condition fails the version is read from the file as before. Writes the
+daemon does not observe at all, such as an editor outside the sessions, are out of
+reach of these rules; a reported original covers them for Claude edits. Codex
+`FileChange` diffs are not used as patches; the `apply_patch` input of the same
+action is.
+
+Blobs are stored once per hash with a reference per version and its source; the
+last reference removes the blob. Retention changes the version, so it reaches the
+change feed. Versions of URLs, commits and pull requests are not retained here.
 
 ## Input scope and needs
 
@@ -202,21 +363,31 @@ E.7b and E.7c.
 observer input; chat materials (K.1) use the same filter. An object is in scope only
 when its session belongs to the run. A session of a vendor other than `backend`, the
 vendor that receives the input, is excluded unless `crossVendor` is set. A raw record
-is attributed through its facts, so a record without facts is out of scope.
+is attributed through its facts, so a record without facts is out of scope. A
+`context` fact follows the rule of its record: it is in scope only when every
+session the context was assembled from is, whichever session keys it. A model
+entity of the run is attributed through its grounds, the evidence of every change in
+its journal: it is excluded when a ground comes from a vendor other than `backend`
+without `crossVendor`. A ground from a session that has since left the run does not
+exclude the entity. A ground fact that a reparse no longer produces is attributed
+through the stored input of the observer call that wrote a change of the entity: the
+input keeps the raw record of every batch fact, and the raw record keeps its
+runtime. A ground whose vendor cannot be established this way, such as a deleted
+fact cited by a rule, excludes the entity without `crossVendor`. The run goal and
+brief follow the same rule through the journal of the run.
 
 `inputViolations(reader, scope, input)` applies the scope to the whole input: the
 sessions and agents of the run description, the context record, the stages,
 criteria and attention items of the snapshot, the facts of the batch with their
 sessions, agents and actions, the agents of collapsed facts and of the backlog, and
-the artifact versions with the actions that produced them. Snapshot entities must
-belong to the run. The context record follows the raw record rule through its
-`context` facts, one keyed by the run of the root session and one for every other
+the artifact versions with the actions that produced them. Snapshot entities and the
+stages they refer to must belong to the run and pass the grounds rule. The context
+record follows the raw record rule through its `context` facts, one keyed by the
+run of the root session and one for every other
 session whose data the context was assembled from (F.7a). A context that read a
 session of another vendor is therefore refused without `crossVendor`, whether it is
 the context of the input, the input checked again before a follow-up or a requested
-raw record. An
-artifact version must be bound to the run, so it is refused until E.7b provides its
-storage.
+raw record. An artifact version must be bound to the run, as E.7b stores it.
 `beginObserverCall` refuses an input with any violation and a first call that already
 carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started
@@ -236,19 +407,130 @@ output of `action_end` or `PostToolBatch`. When the action has a structured resu
 such as an edit patch or an MCP result, the output is the JSON text
 `{"output": <text>, "result": <result>}`. Texts longer than
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
-and report their path and original length. Artifact versions answer `not_found`
-until E.7b provides their storage. Context records answer `not_found`: the resolver
-does not read the stored context of F.7a yet.
+and report their path and original length. A string is cut only when the cut text
+and its truncation entry together are shorter in JSON than the whole string, so a
+cut never lengthens a material, and a cut never splits a surrogate pair. Artifact
+versions answer `not_found`
+until E.7b provides their storage. A context request returns the stored run context
+of F.7a with its entries cut at `MaterialLimits.textLength`; a record of another
+channel answers `not_found`, a context out of scope its exclusion.
 
-A response with nonempty `needs` to a call without materials is not applied.
+A response with nonempty `needs` to a call without materials is not applied. When
+at least one requested material fits a follow-up within its input limit,
 `applyObserverResponse` records the verdict `needs_requested` and leaves the batch
-`in_call`. `beginObserverFollowUp` starts the only follow-up with the same snapshot
+`in_call`; the response option `followUp` (`crossVendor`, material limits,
+`inputTokens`) must match the options later given to `beginObserverFollowUp`.
+Otherwise the response is rejected with the cause `limit`: the batch returns to
+`pending`, spends the attempt like any rejected response, and the next call gets the
+reason in `previous_attempt`. A follow-up therefore always carries materials, and a
+call with materials is a follow-up whose `needs` are ignored.
+`beginObserverFollowUp` starts the only follow-up with the same snapshot
 and batch plus the resolved materials, with the backend of the first call. It hands
 the batch over to the follow-up without spending an attempt. The follow-up response
 is applied or rejected as usual, and its `needs` are ignored. After a restart the
 batch returns to `pending`, and the cycle starts again with a new first call. The
 scheduler (F.8) starts the follow-up immediately, outside the minimum interval
 between calls of a run.
+
+## Observer queue
+
+The ingest transaction queues every new fact as `pending` in the run of its session
+after the observation projection, including the facts of OTel records normalized in
+that transaction (ADR-0005). `context` and `git_snapshot` facts are never queued: the daemon writes
+them as run context, which reaches the observer through the context of the run (ADR-0007), not
+through a batch. A redelivered record adds no facts and queues nothing.
+A reparse queues the facts it adds the same way after it rebuilds the projections,
+including the OTel facts it resolves; the facts it keeps keep their status and
+attempts.
+
+`startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context })`
+starts the next call of a run from its pending facts in the order of their records:
+
+- a queued `context` or `git_snapshot` fact leaves the queue without a status;
+- a fact that the input scope excludes, from a session of another vendor without
+  `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
+  an open gap `cross_vendor_excluded` or `not_interpreted`;
+- the candidates are the first facts up to `limits.facts` whose payload size in UTF-8
+  bytes stays within `limits.bytes`; the first fact always goes;
+- the input carries the run description with the sessions and agents in scope, the
+  given run context when its record is in scope (otherwise `null`), the snapshot of
+  the current version (active stages, criteria, open attention items), the batch
+  facts with their session, agent and action, the collapsed routine facts and the
+  reasons of the latest rejected call of these facts as `previous_attempt`. The run
+  goal and brief, stages, criteria and attention items enter only when their grounds
+  are in scope; a reference to a stage left out becomes `null`. The reasons carry
+  over calls that ended without a response, so a backend failure or a restart after
+  a rejection does not drop them. The backlog and artifact versions stay empty;
+- the input is packed within the limit (see "Observer input" below);
+- the call is recorded by `beginObserverCall`. Without a run entity or an eligible
+  fact, or when the run description, the snapshot and the context leave no room
+  even for one fact without its payload, nothing starts, the facts stay `pending`
+  and the result is `null`.
+
+### Observer input
+
+The size of an input is its JSON in UTF-8 bytes divided by four, rounded up, in
+tokens (`observerInputTokens`); `limits.inputTokens` bounds it (ADR-0007, 24 000 by
+default in the scheduler). A first call is packed within seven eighths of the limit,
+so that the follow-up for `needs` has room for its materials under the full limit.
+
+Routine facts are folded into counters (`batch.collapsed`) before the size is
+measured. A fact is routine when it starts an action that reads files or searches
+(`file_read`, `search`), or ends one with the outcome `ok`, and is not urgent. The
+facts of each session and agent are taken in batch order; a series of routine facts
+of the same tool that covers at least three actions becomes one counter with the
+tool, the action kind, the agent, the fact ids and the time span. Any other fact of
+the same agent ends the series; facts of other agents do not. Collapsed facts belong
+to the batch: they may be cited as evidence and are interpreted with it.
+
+When the input exceeds the limit, the packing gives up detail in this order and
+stops at the first input that fits:
+
+1. the strings of the batch fact payloads and the context entries are cut to the
+   longest common length between 256 characters and `limits.textLength`; every cut
+   reports its path and original length;
+2. with those strings at 256 characters, the texts of the run description, the
+   snapshot and `previous_attempt` are cut to the longest length from 64 characters
+   and end with `…`;
+3. the batch keeps the longest prefix of the candidates that fits with full model
+   texts, and the strings of that prefix get the longest length that still fits; the
+   other candidates stay `pending` for the next batch;
+4. one fact with 256-character strings and model texts cut from 64 characters;
+5. the first candidate alone with its payload omitted: `payload` is `null` and its
+   only truncation entry has the path `payload` and the length of the payload JSON.
+   The observer can request the raw record by the `seq` of the fact. The other
+   candidates stay `pending` for the next batch.
+
+A string or a model text is cut only when the cut, together with its truncation
+entry or the `…` mark, is shorter in JSON than the whole text. The input size
+therefore never grows when the length goes down, and each length above is found by
+trying the longest one first and then by bisection.
+
+`beginObserverFollowUp` packs the stored input with the resolved materials within
+`inputTokens` (24 000 by default) by steps 1–4. The materials are resolved with the
+same string length as the batch facts and the context, which can be cut further than
+in the first call; step 3 drops materials from the end instead of facts and keeps at
+least one. The batch, the snapshot version and the ids stay those of the first call.
+
+`failObserverCall` ends a call without an applicable response. `rejected`, an output
+the backend could not read against the schema, returns the batch to `pending` as a
+schema rejection and keeps the attempt; `failed`, a backend failure, returns it to
+`pending` and gives the attempt back. `applyObserverResponse` and `failObserverCall`
+store the usage of the call. A response that arrives after a session transfer ended
+its call is not applied: `chargeEndedObserverCall` stores its usage on the ended
+call, leaves its verdict, reasons and facts as they are, and returns `true`; for a
+call that is still running it returns `false`.
+
+When the store opens, facts left `in_call` by a stopped process return to `pending`
+and get the attempt of the interrupted call back: a stop is not a content failure.
+They keep the reference to the interrupted call, which carries the reasons of the
+previous rejection.
+
+`exhaustObserverCall` turns the facts of a rejected call that reached the attempt
+limit into `not_interpreted` and opens a gap `not_interpreted` for the call.
+`boundObserverQueue` defers the pending facts older than `bounds.ageMs` and, of the
+rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
+defers any, and returns the active queue.
 
 ## Forks, bindings and session transfer
 
@@ -305,18 +587,24 @@ binding's transaction:
 - the rule attention items of the session's questions leave the source run and
   enter the target run with their state, without a stage and without the marks
   of the source run's observer (likely resolution, priority), so a question is
-  in the attention zone of one run only and its later answer closes it there;
+  in the attention zone of one run only and its later answer closes it there.
+  The change that brings an item in cites the item's evidence, so the input scope
+  attributes its text to the vendor of the question's session in the target run
+  too;
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run;
-- an observer call of the source run whose batch holds any of these facts is
-  ended as `rejected` with a `scope` reason: the rest of its batch returns to
-  `pending` in the source run, and a late response to it is refused, so neither
-  a rejection nor a restart returns the moved facts to the source run, and a
-  session moved back gets its facts `pending` again. A call that already ended
-  as `needs_requested` keeps its verdict: its batch returns to `pending` the same
-  way, and its follow-up is refused;
+  queue of the source run. Its `context` and `git_snapshot` facts are not queued:
+  they are run context and are never interpreted as facts;
+- an observer call of the source run whose batch holds any of these facts or
+  whose input describes the session is ended as `rejected` with a `scope` reason:
+  the rest of its batch returns to `pending` in the source run and gets its
+  attempt back, since a transfer is not a content failure, and a late
+  response to it is not applied, so neither a rejection nor a restart returns the
+  moved facts to the source run, and a session moved back gets its facts
+  `pending` again. A call that already ended as `needs_requested` keeps its
+  verdict: its batch returns to `pending` the same way, and its follow-up is
+  refused;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and
@@ -430,8 +718,11 @@ fails and changes nothing: the contract has no removal without a replacement.
 A deleted fact, object or discarded record leaves no row in the change feed, so
 every deletion advances `change_seq`, and a record whose facts were added or
 removed is rewritten with a new `change_seq`. The head therefore moves with
-every visible change and a reparse that changes nothing keeps it. The daemon
-publishes the SSE `reset` with reason `reparsed` after a reparse. An object that
+every visible change and a reparse that changes nothing keeps it. A reparse that
+moves the head stores the new head as the reparse boundary in the same
+transaction, because a client that holds an earlier position cannot learn its
+deletions from the feed. `feed` refuses such a position, and the daemon answers it
+with the SSE `reset` with reason `reparsed`, also after a restart. An object that
 is deleted and later projected again starts without fields owned by other rules,
 such as its run.
 
@@ -443,8 +734,9 @@ item without another `ingest`, and an open item of a failure that the current
 normalizer reads as a success of the same action is closed. Their changes are
 appended to the journal; earlier journal changes are never rewritten.
 `resolveEvidence(facts, evidence)` returns each referenced fact, or `unavailable`
-for a fact the current normalizer no longer produces. Reparse does not write
-`fact_interpretation`.
+for a fact the current normalizer no longer produces. The facts a reparse adds
+enter the observer queue in the same transaction; the statuses of the facts it
+keeps do not change.
 
 ## Run context
 
@@ -512,3 +804,251 @@ be cited; the same text assembled from other sessions, for example with
 Records of the `context` and `snapshot` channels are not events of a session: they do
 not change its projection, freshness or `last_event_at`. The `context` facts are not
 queued for interpretation.
+
+## Read queries
+
+`createReadQueries({ store, observer })` answers the reads of the API (ADR-0011).
+Each query runs in one read transaction of the store, so its data and its
+`change_seq`, the head of the change feed, describe the same state. `observer(run)`
+supplies the scheduler state of a run (`state`, `isolation_unverified`); the queue
+counts come from the interpretation statuses.
+
+- `runs()` lists run summaries, the latest activity first.
+- `snapshot(run)` returns the run, its summary, the semantic model, the observation
+  objects and gaps of its sessions, its plan facts, attention items and bindings.
+- `feed(run, after)` returns the changes of that snapshot after a position as the
+  contract deltas. Applying them to the snapshot taken at `after` gives the snapshot
+  taken at `position`:
+  - consecutive changes of facts, observation objects, gaps and retractions form one
+    `facts` event, and every model version forms one `model` event. An event id is
+    the last `change_seq` it contains, so ids grow and never repeat;
+  - objects and gaps arrive in their current state, `removed` names retracted agents
+    and their replacements, and `facts` carries plan facts, the only facts of the
+    snapshot;
+  - a model event replaces the changed entities of the run; a removed
+    `session_membership` takes the objects of that session out of the run;
+  - `run` is the current summary, view and bindings, which the transport delivers
+    after the events;
+  - a position ahead of the change feed is an `InvalidPositionError` with reason
+    `stale_position`; a position before the reparse boundary is one with reason
+    `reparsed`.
+- `inspector(run, stage)`, `changes(run, { version, change_seq })` and
+  `observerCalls(run)` serve the inspector, the changes since a view mark and the
+  observer calls.
+
+The run summary:
+
+- `execution` is the most active execution among the sessions: running, waiting for
+  a human, for background work, for an unknown reason, idle after an answer, then
+  failed, cancelled, unknown, planned and done. A run without sessions is unknown;
+- `freshness` takes the sessions in the order of a single session: lost, hooks
+  inactive, quiet, ok;
+- open attention items are those with resolution `open`; an item waits for a human
+  while its runtime wait is active;
+- `pending_facts` counts pending facts and facts in a call, `oldest_pending_at` is
+  the time of the oldest of them, `last_success_at` the end of the last accepted
+  call;
+- `change_seq` is the last change of these inputs: the model version, the sessions,
+  the agents and the observer calls.
+
+The stage inspector shows the assigned actions that still belong to the run, the
+participating agents together with the agents of those actions, the items of the
+stage and the action-level items of its actions, and the facts of the current
+grounds of the stage. Its time runs from the first start to the last end once every
+action has ended; the active time is the union of the action intervals, so parallel
+work is not added up (ADR-0009). Its history holds the journal entries of the
+stage, of the links that name it before or after the change (dependencies in both
+directions, assignments, participation and artifact links), of its criteria and of
+the attention items it shows. Its observer calls made these entries or were rejected
+while naming the stage.
+
+The changes since a model version and a change position list stage and criterion
+transitions from their state at the version to the current state with the journal
+entries in between, cards added after the version, plan facts and new actions after
+the position, and attention items opened after the version and still open or closed
+after it. An action is new when every fact of it came after the position; inherited
+actions are not new. A change of a link changes every stage the link names before or
+after it, so a dependency changes both of its stages. A stage changed only through its
+links has the same state before and after, and its journal entries are those link
+changes.
+
+The attempt of an observer call is one more than the number of earlier rejected
+calls that contained a fact of its batch. A call that asked for materials and its
+follow-up are one call (ADR-0007): it has the id, verdict and output of the
+follow-up, starts with the request, and its latency includes the follow-up, whose
+own duration is `needs_latency_ms`. A call without a result is running while it holds
+its batch; once a restart returns the batch to the queue, it has failed, as has a call
+recorded as `failed`. The result
+version of an accepted call is the last version of its transaction, including the
+rule changes that follow its operations, as returned by `applyObserverResponse`.
+
+Some parts of the contract have no source yet and stay empty: view rules, the view
+mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
+and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
+error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
+The queue of a run counts every fact of it that is `pending` or in a call, since the
+ingest transaction queues each new fact (Observer queue).
+
+## Solver usage
+
+The solver journal follows ADR-0009. The ingestion transaction projects a usage
+record for every `usage` entity of a session, next to its actions:
+
+- A Claude record is keyed by `message.id` and groups every transcript record of
+  the message. Input and cache tokens come from any of them, output and reasoning
+  output are the largest. When no record of the group has a `stop_reason`, the
+  output is marked as a lower bound (`output_lower_bound`), which is how the
+  understated output of subagents shows. A `<synthetic>` message is stored with
+  `synthetic: true`. The agent is the one of the file: the main thread or the
+  subagent.
+- A Codex record is keyed by `(thread_id, response_id)` of `token_usage_record`;
+  its output is never a lower bound. `turn.completed`, `thread_token_usage` and
+  `token_count` are not summed.
+- Records copied by a Claude fork are stored with `inherited: true`, by the same
+  rule as inherited actions (Forks, bindings and session transfer).
+- The session keeps the last `cost-state` line of its transcript as
+  `cost_state`; it is never added to the records. The line is cumulative through
+  resume, so the last one has the largest total duration, then the largest cost;
+  the line number breaks a tie. The order of reading does not decide it: a backfill
+  of an earlier part or a superseded file of the stream may be read last.
+- An agent of a Codex thread that has no `token_usage_record` keeps the total of
+  the thread with the largest ordinal as `thread_total`. A thread with records,
+  and the root thread of a fork, whose counter includes its parent, have none.
+
+`solverUsage(source, run)` reads the journal of a run from the projected objects
+and the session facts; `source` is the store or a transaction:
+
+- Totals count records that are neither inherited nor synthetic: the run, each
+  of its sessions and each of its agents is the sum of its records, so the
+  sessions of a run add up to the run. `cost_usd` is `null`: money comes only
+  from `cost-state`, shown per session.
+- The `cost-state` of a session is final only when the data show that no launch
+  runs after the one that wrote it; when they cannot show it, it is not final.
+  Each launch ends with a `cost-state` line. Lines of the same content in several
+  files of the stream, such as a superseded copy, are copies of one line. A line
+  has no time. It was written after the latest time of the records stored before
+  any of its copies in their own files, and before the first of its copies was
+  read. A later launch shows:
+  - as a record with a time after the first of its copies was read;
+  - as a record with a time after a copy of the line in the same file, of any
+    parse state and with or without facts;
+  - as a record with a time after that moment in a file of the stream that holds
+    no copy of the line;
+  - or as a `SessionStart` hook after that moment that no launch which wrote its
+    line after it explains. The `cost-state` lines written after the moment end
+    launches in the order of their totals: the first one the launch active at
+    that moment, each next one a launch that started after it and wrote no
+    record with a time, such as a run that made no API call. Hooks are matched
+    to these launches in the order of time, each to a launch whose line was read
+    after the hook. Each `SessionStart` is a launch of its own: a possible
+    redelivery from another registration does not prove one launch. A hook left
+    without a launch starts a launch that still runs, such as a resumed session
+    before its first new line, or one that started after the lines of the
+    earlier launches were read. `SessionEnd` does not count.
+
+  Two limits follow from what the data can show. A record read in several files
+  is stored once, in the file read first, so the file of a copy may keep no
+  dated record before it; the records of the other files are not taken in its
+  place, and such a line is not final. A launch that writes no record with a time
+  is told from a launch still running only by the time its line was read, so a
+  hook that fired before the line was read is taken as the start of the launch
+  that wrote it.
+
+  While a later launch runs, an interactive session has not written its line
+  yet, so the money and compaction usage it shows are of an earlier launch.
+- A record belongs to a stage when the actions of its response are known, not
+  empty, and each of them is assigned to that stage and to no other one. The
+  actions of a Claude response are the tool calls of its `message.id`. A Codex
+  item names no response, so the actions of a Codex record are all actions of
+  its turn: the record belongs to a stage only when every action of the turn
+  does. The other records are `unassigned`. `stageUsage(source, run, stage)`
+  gives the stage's records and the unassigned records of the sessions whose
+  actions or agents are linked to the stage. There is no proportional estimate.
+- The duration of a run runs from the first to the last activity of its sessions.
+  Activity is a fact of a record that carries its own time, or of a hook, whose
+  time is the moment it was written. A line without a timestamp, such as
+  `cost-state`, a registry entry or a file read whole, takes the time it was read,
+  which a backfill moves arbitrarily, so it is not activity. A silence of at least
+  `pauseAfterMs` (5 minutes by default) between two activities of the run is a
+  pause; pauses stay inside the duration.
+- The active time of an agent is the sum of its turns, from its own activity
+  without the inherited facts. A turn opens with a turn start, an agent start or
+  a prompt that is not a slash command or a synthetic line, or with the first
+  message, action or usage after a closed turn. It closes with a final message,
+  a turn end, an agent end or the session end. A turn still open lasts until the
+  last activity of the agent. The active times of parallel agents overlap, so their
+  sum is not the duration of the run.
+- A transfer projects the session again with its new run, so both runs read the
+  moved usage on the next query.
+
+## Watch and prune
+
+A scope decision of a root session keeps the starting directory it was judged by
+(`session_scopes.cwd`). `engine.rewatch(watch, persist)` judges every stored
+decision again with the new roots, in one transaction with `persist`, where the
+daemon saves the watch settings. Observer sessions keep their decision.
+
+- A session that leaves the roots becomes `external` together with its streams:
+  those whose records belong to it and those pruned with it (`pruned_streams`).
+  Appended lines are discarded while the records already taken stay until
+  `prune`.
+- A session that enters the roots becomes `watched`, but its streams keep the
+  `external` decision: their lines were never stored. A stream decision tells how
+  the lines read so far were taken, so an `external` stream of a watched session
+  is history still to reread. `rewatch` returns every `external` stream, and the
+  daemon asks the collector to reread them from the beginning within the lookback
+  (ADR-0004). A reread file is held like a new one; the decision of its session
+  wins over the stream decision, and the stream decision follows it.
+- Until such a reread the stream stays `external`, across restarts too, so a
+  later `watch` with a longer lookback or a repeated one after an interrupted
+  reread still takes the whole file. A stream whose reread finds nothing past its
+  prune boundary stays `external` as well, and the next `watch` rereads it from
+  the boundary.
+- New records follow the decision of the session that owns them: appended lines,
+  hooks, OTel records and gaps of a watched session are taken while its stream
+  waits for the reread, and none of them marks the history as taken. Appended
+  lines of a session that left the roots are discarded and make the stream
+  `external`. A hook decides the stream it names only when the stream has no
+  decision yet.
+- A hook record is stored with the stream its adapter names: Codex the thread,
+  Claude the main or subagent transcript of the event; a Claude registry entry
+  names the main transcript. A stream whose only stored records are such records
+  still belongs to their session, so a gap of its file, such as `source_lost`
+  after the file is deleted before the reread, is taken by the session's
+  decision and attached to the session and its run.
+
+`engine.prune(request, prefixHash)` removes the runs of `aang prune --run` or of
+`aang prune --before`: the runs whose sessions had their last event before the
+date. In one transaction it deletes the raw records of the run's streams and
+sessions with their facts, objects, gaps, the model and its journal, observer
+calls, view state, chat and bindings, and saves a boundary per stream in
+`pruned_streams` (ADR-0005). Cursors and scope decisions stay.
+
+- The streams of a run are the streams of any decision whose records, lines or
+  hooks, belong to one of its sessions, and the streams pruned with those
+  sessions before. Since a hook record keeps the stream its adapter names, a
+  session known only from hooks is bounded too.
+- A context record and a git snapshot belong to the run they were recorded for,
+  named by their fact about the run, and go only with that run, even when its
+  root session has moved to the pruned run. A context record also names the other
+  sessions it read; pruning one of them removes only that reference, so the
+  context of a run that keeps it stays whole for its observer calls (ADR-0007).
+- A Claude boundary is the offset of the furthest cursor of the stream with the
+  hash of the file prefix up to it, from `prefixHash`. Without a cursor the
+  boundary is the empty prefix. When the file can no longer be read, the boundary
+  keeps the offset with the hash of the empty prefix, which no prefix of that
+  length matches, so a file that reappears stops with a gap instead of returning
+  the deleted lines.
+- A Codex boundary is the largest `last_ordinal` of the stream's cursors.
+- Hook records of a pruned session observed before the latest boundary of the
+  session are discarded, and so are pending OTel records of a pruned stream.
+- A run created again for a session with boundaries has `start_pruned`.
+- A pruned run can be pruned again: its sessions are found by the root sessions
+  saved with the boundaries, except a session observed in another run since,
+  such as one resumed after the prune and then attached elsewhere, which stays
+  with that run. This is how a stream stopped with
+  `stream_changed_after_prune` is taken again whole (ADR-0005): a Claude stream
+  with that gap open gets the empty prefix as its new boundary, the gap goes with
+  the other layers of the run, and the collector rereads the stopped files from
+  the start.

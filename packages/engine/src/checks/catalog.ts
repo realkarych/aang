@@ -5,8 +5,10 @@ import { contains, type WatchedRoots } from '../ingest/scope.js'
 
 export interface Contract {
   readonly name: string
+  readonly root: string
   readonly command: RegExp
   readonly successExitCodes: readonly number[]
+  readonly inputMasks: readonly string[]
 }
 
 export interface ContractCatalog {
@@ -19,10 +21,12 @@ interface Root {
   readonly contracts: readonly Contract[]
 }
 
-const compiled = ({ name, command, successExitCodes }: CheckContract): Contract => ({
+const compiled = (root: string, { name, command, successExitCodes, inputMasks }: CheckContract): Contract => ({
   name,
+  root,
   command: compilePattern(command),
   successExitCodes,
+  inputMasks,
 })
 
 const canonicalPath = (path: string): string => {
@@ -53,7 +57,10 @@ export const createContractCatalog = (watch: WatchedRoots): ContractCatalog => {
 
   const contractsFor = (cwd: string): Contract[] => {
     roots ??= configured
-      .map(({ path, contracts = [] }) => ({ path: canonicalPath(path), contracts: contracts.map(compiled) }))
+      .map(({ path, contracts = [] }) => {
+        const root = canonicalPath(path)
+        return { path: root, contracts: contracts.map((contract) => compiled(root, contract)) }
+      })
       .sort(byDepth)
     const directory = canonical(cwd)
     const named = new Map<string, Contract>()

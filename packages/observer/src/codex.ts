@@ -1,7 +1,8 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { observerOutputJsonSchema, type CallUsage } from '@aang/contract'
-import { createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, systemPrompt, validateOutput, type BackendOptions, type JsonObject } from './backend.js'
+import { createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, validateOutput, type BackendOptions, type JsonObject } from './backend.js'
+import { observerSystemPrompt } from './prompt.js'
 
 const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins']
 const settings = [
@@ -82,7 +83,7 @@ export const codexArguments = async (directory: string, catalog: JsonObject, opt
   const lastPath = join(directory, 'last.json')
   await Promise.all([
     writeFile(catalogPath, JSON.stringify(catalog), { mode: 0o600 }),
-    writeFile(promptPath, systemPrompt, { mode: 0o600 }),
+    writeFile(promptPath, observerSystemPrompt, { mode: 0o600 }),
     writeFile(schemaPath, JSON.stringify(observerOutputJsonSchema()), { mode: 0o600 }),
   ])
   return [
