@@ -1,6 +1,6 @@
 import { ChangeSeq, ChatMessageId, ModelVersion, StageId, ViewRuleId } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
-import type { ChatAnswer, Store } from '@aang/store'
+import type { ChatAnswer, ChatScope, Store } from '@aang/store'
 import { expect, test } from 'vitest'
 import { createHome } from './home.js'
 import { instant } from './records.js'
@@ -19,13 +19,16 @@ const answer = (overrides: Partial<ChatAnswer> = {}): ChatAnswer => ({
   ...overrides,
 })
 
-const ask = (store: Store, question: string, version = 1, target = run) =>
+const claudeOnly: ChatScope = { backend: 'claude', cross_vendor: false }
+
+const ask = (store: Store, question: string, version = 1, target = run, scope = claudeOnly) =>
   store.transaction((transaction) =>
     transaction.chat.ask({
       run: target,
       stage: target === run ? stage : null,
       question,
       version: ModelVersion.parse(version),
+      scope,
       asked_at: instant(10n),
     }),
   )
@@ -81,7 +84,7 @@ test('the chat of a run keeps its questions in order, apart from other runs, and
   const store = home.open()
   const first = ask(store, 'What is left?')
   const other = ask(store, 'Why did it stop?', 2, otherRun)
-  const second = ask(store, 'Who reviews it?')
+  const second = ask(store, 'Who reviews it?', 1, run, { backend: 'codex', cross_vendor: true })
   const insufficient = store.transaction((transaction) =>
     transaction.chat.answer(run, second.id, answer({ answer: null, citations: [], insufficient_data: true })),
   )
@@ -93,6 +96,11 @@ test('the chat of a run keeps its questions in order, apart from other runs, and
 
   expect(reopened.chat.messages(run)).toEqual([first, insufficient])
   expect(reopened.chat.messages(otherRun)).toEqual([failed])
+  expect(reopened.chat.scoped(run)).toEqual([
+    { message: first, scope: claudeOnly },
+    { message: insufficient, scope: { backend: 'codex', cross_vendor: true } },
+  ])
+  expect(reopened.chat.scoped(otherRun)).toEqual([{ message: failed, scope: claudeOnly }])
   expect(failed).toMatchObject({ status: 'failed', answer: null, error: 'Codex did not complete its turn', answered_at: instant(20n) })
   expect(insufficient).toMatchObject({ status: 'answered', answer: null, citations: [], insufficient_data: true })
   expect(reopened.chat.message(run, first.id)).toEqual(first)

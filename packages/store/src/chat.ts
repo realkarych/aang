@@ -7,18 +7,30 @@ import {
   type EpochNs,
   type ModelVersion,
   type RunId,
+  Runtime,
   type StageId,
   type ViewRuleId,
 } from '@aang/contract'
 import { decodeJson, encodeFlag, encodeJson } from './codec.js'
 import { prepareStatement, type WriteContext } from './context.js'
 
+export interface ChatScope {
+  readonly backend: Runtime
+  readonly cross_vendor: boolean
+}
+
 export interface ChatQuestion {
   readonly run: RunId
   readonly stage: StageId | null
   readonly question: string
   readonly version: ModelVersion
+  readonly scope: ChatScope
   readonly asked_at: EpochNs
+}
+
+export interface ScopedChatMessage {
+  readonly message: ChatMessage
+  readonly scope: ChatScope
 }
 
 export interface ChatAnswer {
@@ -43,6 +55,7 @@ export interface ChatChange {
 export interface ChatReader {
   readonly message: (run: RunId, id: ChatMessageId) => ChatMessage | null
   readonly messages: (run: RunId) => ChatMessage[]
+  readonly scoped: (run: RunId) => ScopedChatMessage[]
   readonly changed: (run: RunId, after: ChangeSeq) => ChatChange[]
   readonly pending: () => ChatMessage[]
 }
@@ -64,6 +77,8 @@ type MessageRow = {
   readonly stage_id: string | null
   readonly model_version: bigint
   readonly question: string
+  readonly backend: string
+  readonly cross_vendor: bigint
   readonly status: string
   readonly answer: string | null
   readonly citations: string
@@ -78,7 +93,7 @@ type MessageRow = {
 type ChangedRow = MessageRow & { readonly change_seq: bigint }
 
 const columns =
-  'id, run_id, stage_id, model_version, question, status, answer, citations, unconfirmed_citations, insufficient_data, view_rule_id, error, asked_at, answered_at'
+  'id, run_id, stage_id, model_version, question, backend, cross_vendor, status, answer, citations, unconfirmed_citations, insufficient_data, view_rule_id, error, asked_at, answered_at'
 
 const storedNumber = /^[1-9][0-9]{0,18}$/
 
@@ -110,6 +125,11 @@ const toMessage = (row: MessageRow): ChatMessage =>
     answered_at: row.answered_at,
   })
 
+const toScoped = (row: MessageRow): ScopedChatMessage => ({
+  message: toMessage(row),
+  scope: { backend: Runtime.parse(row.backend), cross_vendor: row.cross_vendor === 1n },
+})
+
 export const createChat = (database: DatabaseSync): ChatRepository => {
   const selectMessage = prepareStatement(database, `SELECT ${columns} FROM chat_messages WHERE run_id = ? AND id = ?`)
   const selectMessages = prepareStatement(database, `SELECT ${columns} FROM chat_messages WHERE run_id = ? ORDER BY id`)
@@ -123,8 +143,8 @@ export const createChat = (database: DatabaseSync): ChatRepository => {
   )
   const insertQuestion = prepareStatement(
     database,
-    `INSERT INTO chat_messages (run_id, stage_id, model_version, question, status, asked_at, change_seq)
-     VALUES (:run_id, :stage_id, :model_version, :question, 'pending', :asked_at, :change_seq)
+    `INSERT INTO chat_messages (run_id, stage_id, model_version, question, backend, cross_vendor, status, asked_at, change_seq)
+     VALUES (:run_id, :stage_id, :model_version, :question, :backend, :cross_vendor, 'pending', :asked_at, :change_seq)
      RETURNING ${columns}`,
   )
   const updateAnswer = prepareStatement(
@@ -151,6 +171,7 @@ export const createChat = (database: DatabaseSync): ChatRepository => {
   const reader: ChatReader = {
     message,
     messages: (run) => (selectMessages.all(run) as MessageRow[]).map(toMessage),
+    scoped: (run) => (selectMessages.all(run) as MessageRow[]).map(toScoped),
     changed: (run, after) =>
       (selectChanged.all(run, after) as ChangedRow[]).map((row) => ({
         change_seq: ChangeSeq.parse(Number(row.change_seq)),
@@ -185,6 +206,8 @@ export const createChat = (database: DatabaseSync): ChatRepository => {
           stage_id: question.stage,
           model_version: question.version,
           question: question.question,
+          backend: question.scope.backend,
+          cross_vendor: encodeFlag(question.scope.cross_vendor),
           asked_at: question.asked_at,
           change_seq: context.nextChangeSeq(),
         }) as MessageRow,

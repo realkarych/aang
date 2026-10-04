@@ -115,6 +115,8 @@ const chatMessage: Row = {
   stage_id: 'NULL',
   model_version: '1',
   question: "'What is left?'",
+  backend: "'claude'",
+  cross_vendor: '0',
   status: "'pending'",
   answer: 'NULL',
   citations: "'[]'",
@@ -626,6 +628,25 @@ const cases: readonly SchemaCase[] = [
     name: 'a chat question is not empty',
     statement: insert('chat_messages', chatMessage, { question: "''" }),
     error: /CHECK constraint failed: question <> ''/,
+  },
+  {
+    name: 'a chat question keeps the backend and the cross-vendor setting its input was built for',
+    statement: insert('chat_messages', chatMessage, { backend: "'codex'", cross_vendor: '1' }),
+  },
+  {
+    name: 'a chat question names a known backend',
+    statement: insert('chat_messages', chatMessage, { backend: "'gemini'" }),
+    error: /CHECK constraint failed: backend IN/,
+  },
+  {
+    name: 'a chat question cannot leave its backend unknown',
+    statement: insert('chat_messages', chatMessage, { backend: 'NULL' }),
+    error: /NOT NULL constraint failed: chat_messages\.backend/,
+  },
+  {
+    name: 'the cross-vendor setting of a chat question is a flag',
+    statement: insert('chat_messages', chatMessage, { cross_vendor: '2' }),
+    error: /CHECK constraint failed: cross_vendor IN/,
   },
   {
     name: 'a chat message has a known status',

@@ -4,6 +4,8 @@ CREATE TABLE chat_messages (
   stage_id TEXT,
   model_version INTEGER NOT NULL CHECK (model_version >= 0),
   question TEXT NOT NULL CHECK (question <> ''),
+  backend TEXT NOT NULL CHECK (backend IN ('claude', 'codex')),
+  cross_vendor INTEGER NOT NULL CHECK (cross_vendor IN (0, 1)),
   status TEXT NOT NULL CHECK (status IN ('pending', 'answered', 'failed')),
   answer TEXT,
   citations TEXT NOT NULL DEFAULT '[]' CHECK (json_type(citations) = 'array'),
