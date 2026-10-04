@@ -413,7 +413,7 @@ describe('the support matrix generated from the contract run', () => {
     expect(await readdirNames(join(support, 'contract/claude/2.1.286/claude_cli', hostOs))).toEqual(
       contractScenarios.map((name) => `${name}.json`).sort(),
     )
-    expect(await readdirNames(join(support, 'contract'))).toEqual(['claude'])
+    expect(await readdirNames(join(support, 'contract'))).toEqual(['claude', 'codex'])
   }, 180_000)
 
   test('a claimed full or limited row whose E2E 1 or 4 failed is not verified, even when every scenario of the run passes', async () => {

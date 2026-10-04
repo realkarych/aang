@@ -1,16 +1,46 @@
 {
   "records": [
     {
-      "channel": "rollout",
-      "type": "compacted",
+      "channel": "hook",
+      "type": "PostToolUse",
       "parse_state": "parsed",
       "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "PreToolUse",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "SessionEnd",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "SessionStart",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "Stop",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "UserPromptSubmit",
+      "parse_state": "parsed",
+      "count": 2
     },
     {
       "channel": "rollout",
       "type": "event_msg:item_completed",
       "parse_state": "parsed",
-      "count": 7
+      "count": 5
     },
     {
       "channel": "rollout",
@@ -28,23 +58,23 @@
       "channel": "rollout",
       "type": "event_msg:thread_settings_applied",
       "parse_state": "parsed",
-      "count": 3
+      "count": 2
     },
     {
       "channel": "rollout",
       "type": "event_msg:token_count",
       "parse_state": "parsed",
-      "count": 4
+      "count": 3
     },
     {
       "channel": "rollout",
-      "type": "response_item:custom_tool_call",
+      "type": "response_item:function_call",
       "parse_state": "parsed",
       "count": 1
     },
     {
       "channel": "rollout",
-      "type": "response_item:custom_tool_call_output",
+      "type": "response_item:function_call_output",
       "parse_state": "parsed",
       "count": 1
     },
@@ -52,7 +82,7 @@
       "channel": "rollout",
       "type": "response_item:message",
       "parse_state": "parsed",
-      "count": 13
+      "count": 8
     },
     {
       "channel": "rollout",
@@ -64,7 +94,7 @@
       "channel": "rollout",
       "type": "token_usage_record",
       "parse_state": "parsed",
-      "count": 4
+      "count": 3
     },
     {
       "channel": "rollout",
@@ -76,7 +106,7 @@
       "channel": "rollout",
       "type": "world_state",
       "parse_state": "parsed",
-      "count": 2
+      "count": 1
     }
   ],
   "facts": [
@@ -86,15 +116,15 @@
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "turn_id": null,
         "prompt_id": null,
         "record_uuid": null,
@@ -107,7 +137,7 @@
         "cwd": "/fixture/project",
         "version": "0.160.0",
         "entrypoint": null,
-        "originator": "codex_exec",
+        "originator": "codex_sdk_ts",
         "git_branch": null
       },
       "format_verified": true,
@@ -115,7 +145,7 @@
       "payload": {
         "launch": "startup",
         "surface": {
-          "surface": "codex_exec",
+          "surface": "codex_sdk",
           "basis": "observed"
         },
         "cwd": "/fixture/project",
@@ -129,16 +159,16 @@
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
@@ -163,16 +193,16 @@
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
@@ -193,30 +223,143 @@
         "model": "gpt-6.1-sol",
         "effort": null,
         "approval_policy": "never",
-        "sandbox": "read-only"
+        "sandbox": "danger-full-access"
       }
     },
     {
       "id": "#4",
+      "kind": "session_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "c661e8d0264315c4a508b07a9316b8a1f5237da10b9d45cd34b615183ddf2aad",
+      "payload": {
+        "launch": "startup",
+        "surface": null,
+        "cwd": "/fixture/project",
+        "forked_from": null,
+        "observer_marker": false
+      }
+    },
+    {
+      "id": "#5",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "0bc6b268d298d06ee29bfd53ea4e4489cba4de34e2596ba477cb5804e791d426",
+      "payload": {}
+    },
+    {
+      "id": "#6",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "message": "01a10474-86cd-7211-84bf-600c2cf9ff65:9"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "spool#2"
       },
       "speaker": "human",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "01a10474-8ffd-79a1-bf55-c3403ad56861",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "0bc6b268d298d06ee29bfd53ea4e4489cba4de34e2596ba477cb5804e791d426",
+      "payload": {
+        "text": "[aang:sdk-question] Ask me which greeting notes.txt should use, then stop.",
+        "origin": "human",
+        "origin_raw": null
+      }
+    },
+    {
+      "id": "#7",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "01a10480-d25a-7400-9dbb-9390c44715f4:9"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "01a10480-d2a0-7082-afcb-f9dac652e83e",
         "call_id": null,
         "ordinal": 9
       },
@@ -230,33 +373,126 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "[aang:live] Run the shell command `echo hi` exactly once, then reply with just: OK",
+        "text": "[aang:sdk-question] Ask me which greeting notes.txt should use, then stop.",
         "origin": "human",
         "origin_raw": null
       }
     },
     {
-      "id": "#5",
-      "kind": "message",
+      "id": "#8",
+      "kind": "action_start",
       "entity_key": {
-        "kind": "message",
+        "kind": "action",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "message": "01a10474-86cd-7211-84bf-600c2cf9ff65:10"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "call": "call_aang_1_0"
       },
       "speaker": "solver",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "msg_079753bd61807069016ac1a710994887d28a7ae49831b11835",
-        "call_id": null,
+        "message_id": null,
+        "call_id": "call_aang_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "783dd1a49692f2e2da9ac96b305d6d3c2875180b42b8a99eea16bf6b1b16eab5",
+      "payload": {
+        "tool": "request_user_input_async",
+        "action_kind": "question",
+        "input": {
+          "questions": [
+            {
+              "title": "Which greeting should notes.txt use?",
+              "options": [
+                "hello",
+                "hi"
+              ]
+            }
+          ]
+        },
+        "description": null,
+        "container_call": null
+      }
+    },
+    {
+      "id": "#9",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "call": "call_aang_1_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "call_aang_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "db0e2120d0f3ef60fa97118de9adce235bbb6a2a72619f5e4f124726afccd7bc",
+      "payload": {
+        "outcome": "unknown",
+        "output": "{\"accepted\":true}",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": null
+      }
+    },
+    {
+      "id": "#10",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "call": "call_aang_1_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "call_aang_1_0",
         "ordinal": 10
       },
       "runtime_env": {
@@ -269,76 +505,46 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "I’ll run the command once.",
-        "final": false,
-        "audience": "user",
-        "model": null
-      }
-    },
-    {
-      "id": "#6",
-      "kind": "action_start",
-      "entity_key": {
-        "kind": "action",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "call": "call_4HTGqC1f5M0ate4P6qNTaGkP"
-      },
-      "speaker": "solver",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": null,
-        "call_id": "call_4HTGqC1f5M0ate4P6qNTaGkP",
-        "ordinal": 12
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "tool": "exec",
-        "action_kind": "code_cell",
-        "input": "text(await tools.exec_command({cmd:\"echo hi\"}));\n",
+        "tool": "request_user_input_async",
+        "action_kind": "question",
+        "input": {
+          "questions": [
+            {
+              "title": "Which greeting should notes.txt use?",
+              "options": [
+                "hello",
+                "hi"
+              ]
+            }
+          ]
+        },
         "description": null,
         "container_call": null
       }
     },
     {
-      "id": "#7",
+      "id": "#11",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_079753bd61807069016ac1a70e966087d295d6d12209e02d57"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "usage": "01a10480-d25a-7400-9dbb-9390c44715f4:resp_aang_1"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "resp_079753bd61807069016ac1a70e966087d295d6d12209e02d57",
+        "message_id": "resp_aang_1",
         "call_id": null,
-        "ordinal": 13
+        "ordinal": 11
       },
       "runtime_env": {
         "cwd": null,
@@ -352,10 +558,10 @@
       "payload": {
         "model": null,
         "tokens": {
-          "uncached_input_tokens": 1963,
-          "cache_read_input_tokens": 12288,
+          "uncached_input_tokens": 120,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 36,
+          "output_tokens": 8,
           "reasoning_output_tokens": 0
         },
         "stop_reason": null,
@@ -363,27 +569,27 @@
       }
     },
     {
-      "id": "#8",
+      "id": "#12",
       "kind": "usage_total",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 13
+        "ordinal": 11
       },
       "runtime_env": {
         "cwd": null,
@@ -397,37 +603,37 @@
       "payload": {
         "source": "thread_token_usage",
         "tokens": {
-          "uncached_input_tokens": 1963,
-          "cache_read_input_tokens": 12288,
+          "uncached_input_tokens": 120,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 36,
+          "output_tokens": 8,
           "reasoning_output_tokens": 0
         }
       }
     },
     {
-      "id": "#9",
-      "kind": "action_start",
+      "id": "#13",
+      "kind": "message",
       "entity_key": {
-        "kind": "action",
+        "kind": "message",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "call": "exec-09df563a-6cae-41fc-81dd-5b8e9ca47d7a"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "01a10480-d25a-7400-9dbb-9390c44715f4:12"
       },
       "speaker": "solver",
-      "urgent": false,
+      "urgent": true,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": null,
-        "call_id": "exec-09df563a-6cae-41fc-81dd-5b8e9ca47d7a",
-        "ordinal": 14
+        "message_id": "call_aang_1_0",
+        "call_id": null,
+        "ordinal": 12
       },
       "runtime_env": {
         "cwd": null,
@@ -439,43 +645,35 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "tool": "CommandExecution",
-        "action_kind": "command",
-        "input": {
-          "command": [
-            "/bin/zsh",
-            "-lc",
-            "echo hi"
-          ],
-          "cwd": "file:///fixture/project"
-        },
-        "description": null,
-        "container_call": null
+        "text": "Which greeting should notes.txt use?\n- hello\n- hi",
+        "final": true,
+        "audience": "user",
+        "model": null
       }
     },
     {
-      "id": "#10",
-      "kind": "action_end",
+      "id": "#14",
+      "kind": "question_asked",
       "entity_key": {
-        "kind": "action",
+        "kind": "question",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "call": "exec-09df563a-6cae-41fc-81dd-5b8e9ca47d7a"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "question": "call_aang_1_0"
       },
-      "speaker": "tool",
-      "urgent": false,
+      "speaker": "solver",
+      "urgent": true,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": null,
-        "call_id": "exec-09df563a-6cae-41fc-81dd-5b8e9ca47d7a",
-        "ordinal": 14
+        "message_id": "call_aang_1_0",
+        "call_id": null,
+        "ordinal": 12
       },
       "runtime_env": {
         "cwd": null,
@@ -487,37 +685,43 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "outcome": "ok",
-        "output": "hi\n",
-        "persisted_output_path": null,
-        "exit_code": 0,
-        "duration_ms": 0,
-        "result": null
+        "source": "agent_message",
+        "blocking": false,
+        "questions": [
+          {
+            "header": null,
+            "text": "Which greeting should notes.txt use?",
+            "options": [
+              "hello",
+              "hi"
+            ]
+          }
+        ]
       }
     },
     {
-      "id": "#11",
+      "id": "#15",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "call": "call_4HTGqC1f5M0ate4P6qNTaGkP"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "call": "call_aang_1_0"
       },
       "speaker": "tool",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "call_4HTGqC1f5M0ate4P6qNTaGkP",
-        "ordinal": 15
+        "call_id": "call_aang_1_0",
+        "ordinal": 13
       },
       "runtime_env": {
         "cwd": null,
@@ -530,7 +734,7 @@
       "redelivery_key": null,
       "payload": {
         "outcome": "unknown",
-        "output": "Script completed\nWall time 0.1 seconds\nOutput:\n{\"chunk_id\":\"97bc6b\",\"wall_time_seconds\":0.000002042,\"exit_code\":0,\"original_token_count\":1,\"output\":\"hi\\n\"}",
+        "output": "{\"accepted\":true}",
         "persisted_output_path": null,
         "exit_code": null,
         "duration_ms": null,
@@ -538,27 +742,27 @@
       }
     },
     {
-      "id": "#12",
+      "id": "#16",
       "kind": "usage_total",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "turn_id": null,
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 16
+        "ordinal": 14
       },
       "runtime_env": {
         "cwd": null,
@@ -572,35 +776,75 @@
       "payload": {
         "source": "token_count",
         "tokens": {
-          "uncached_input_tokens": 1963,
-          "cache_read_input_tokens": 12288,
+          "uncached_input_tokens": 120,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 36,
+          "output_tokens": 8,
           "reasoning_output_tokens": 0
         }
       }
     },
     {
-      "id": "#13",
+      "id": "#17",
       "kind": "message",
       "entity_key": {
         "kind": "message",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "message": "01a10474-86cd-7211-84bf-600c2cf9ff65:17"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "01a10480-d25a-7400-9dbb-9390c44715f4:15"
       },
       "speaker": "solver",
-      "urgent": true,
+      "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
-        "message_id": "msg_079753bd61807069016ac1a71346a887d2b603833618c0b875",
+        "message_id": "msg_aang_2",
+        "call_id": null,
+        "ordinal": 15
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "done",
+        "final": false,
+        "audience": "user",
+        "model": null
+      }
+    },
+    {
+      "id": "#18",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "usage": "01a10480-d25a-7400-9dbb-9390c44715f4:resp_aang_2"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "resp_aang_2",
         "call_id": null,
         "ordinal": 17
       },
@@ -614,52 +858,12 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "text": "OK",
-        "final": true,
-        "audience": "user",
-        "model": null
-      }
-    },
-    {
-      "id": "#14",
-      "kind": "usage",
-      "entity_key": {
-        "kind": "usage",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_079753bd61807069016ac1a711de4887d2be941848cf00bc88"
-      },
-      "speaker": "runtime",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": "resp_079753bd61807069016ac1a711de4887d2be941848cf00bc88",
-        "call_id": null,
-        "ordinal": 19
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
         "model": null,
         "tokens": {
-          "uncached_input_tokens": 265,
-          "cache_read_input_tokens": 14080,
+          "uncached_input_tokens": 120,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 5,
+          "output_tokens": 8,
           "reasoning_output_tokens": 0
         },
         "stop_reason": null,
@@ -667,27 +871,27 @@
       }
     },
     {
-      "id": "#15",
+      "id": "#19",
       "kind": "usage_total",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 19
+        "ordinal": 17
       },
       "runtime_env": {
         "cwd": null,
@@ -701,36 +905,36 @@
       "payload": {
         "source": "thread_token_usage",
         "tokens": {
-          "uncached_input_tokens": 2228,
-          "cache_read_input_tokens": 26368,
+          "uncached_input_tokens": 240,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 41,
+          "output_tokens": 16,
           "reasoning_output_tokens": 0
         }
       }
     },
     {
-      "id": "#16",
+      "id": "#20",
       "kind": "usage_total",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "turn_id": null,
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 20
+        "ordinal": 18
       },
       "runtime_env": {
         "cwd": null,
@@ -744,36 +948,111 @@
       "payload": {
         "source": "token_count",
         "tokens": {
-          "uncached_input_tokens": 2228,
-          "cache_read_input_tokens": 26368,
+          "uncached_input_tokens": 240,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 41,
+          "output_tokens": 16,
           "reasoning_output_tokens": 0
         }
       }
     },
     {
-      "id": "#17",
+      "id": "#21",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": true,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-899b-7fc1-b428-981d2d6d0dc1",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 21
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "56abbb166725f02e28cb7da42ac052553b46ba646355a93578fbf167467aab03",
+      "payload": {
+        "outcome": "completed",
+        "reason": null,
+        "final_message": "done",
+        "background_tasks": []
+      }
+    },
+    {
+      "id": "#22",
+      "kind": "session_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "0e353a2c1184401c0c66b8ba46bccdd69755948a6eb487600d85d42f7ed3e29c",
+      "payload": {
+        "reason": "other"
+      }
+    },
+    {
+      "id": "#23",
+      "kind": "turn_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d262-76e2-8b4f-a6df3e387dde",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 19
       },
       "runtime_env": {
         "cwd": null,
@@ -787,32 +1066,145 @@
       "payload": {
         "outcome": "completed",
         "reason": null,
-        "final_message": "OK",
+        "final_message": "done",
         "background_tasks": []
       }
     },
     {
-      "id": "#18",
-      "kind": "turn_start",
+      "id": "#24",
+      "kind": "session_start",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": null,
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 24
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "b5ebdbbb9254e797ac53b2441175f521c20d5242a79ad965d1d2c1559867f59d",
+      "payload": {
+        "launch": "resume",
+        "surface": null,
+        "cwd": "/fixture/project",
+        "forked_from": null,
+        "observer_marker": false
+      }
+    },
+    {
+      "id": "#25",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "76edbe83baf86674a771c088ac0efdca7201b4cde117d924141bf078be0f02b5",
+      "payload": {}
+    },
+    {
+      "id": "#26",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "spool#8"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "76edbe83baf86674a771c088ac0efdca7201b4cde117d924141bf078be0f02b5",
+      "payload": {
+        "text": "hello",
+        "origin": "human",
+        "origin_raw": null
+      }
+    },
+    {
+      "id": "#27",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": 22
       },
       "runtime_env": {
         "cwd": null,
@@ -826,72 +1218,66 @@
       "payload": {}
     },
     {
-      "id": "#19",
-      "kind": "usage",
-      "entity_key": {
-        "kind": "usage",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_0e28935138378de9016ac1a716f9b487d2996838f0f222eab1"
-      },
-      "speaker": "runtime",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": "resp_0e28935138378de9016ac1a716f9b487d2996838f0f222eab1",
-        "call_id": null,
-        "ordinal": 25
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "model": null,
-        "tokens": {
-          "uncached_input_tokens": 162,
-          "cache_read_input_tokens": 14208,
-          "cache_write_input_tokens": 0,
-          "output_tokens": 96,
-          "reasoning_output_tokens": 0
-        },
-        "stop_reason": null,
-        "synthetic": false
-      }
-    },
-    {
-      "id": "#20",
-      "kind": "usage_total",
+      "id": "#28",
+      "kind": "turn_settings",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
+        "ordinal": 23
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "gpt-6.1-sol",
+        "effort": null,
+        "approval_policy": "never",
+        "sandbox": "danger-full-access"
+      }
+    },
+    {
+      "id": "#29",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "01a10480-d25a-7400-9dbb-9390c44715f4:25"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "01a10480-d39c-78e2-9455-3a21663f0269",
+        "call_id": null,
         "ordinal": 25
       },
       "runtime_env": {
@@ -904,36 +1290,107 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "source": "thread_token_usage",
-        "tokens": {
-          "uncached_input_tokens": 2390,
-          "cache_read_input_tokens": 40576,
-          "cache_write_input_tokens": 0,
-          "output_tokens": 137,
-          "reasoning_output_tokens": 0
-        }
+        "text": "hello",
+        "origin": "human",
+        "origin_raw": null
       }
     },
     {
-      "id": "#21",
-      "kind": "compaction",
+      "id": "#30",
+      "kind": "turn_end",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": true,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "21afd5015e2c1b2126b1ef37a54502dd3e943e5a4719e6e0b8acd5baa0f5d013",
+      "payload": {
+        "outcome": "completed",
+        "reason": null,
+        "final_message": "done",
+        "background_tasks": []
+      }
+    },
+    {
+      "id": "#31",
+      "kind": "session_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "turn_id": null,
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": null,
+        "entrypoint": null,
+        "originator": "codex_sdk_ts",
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "0e353a2c1184401c0c66b8ba46bccdd69755948a6eb487600d85d42f7ed3e29c",
+      "payload": {
+        "reason": "other"
+      }
+    },
+    {
+      "id": "#32",
+      "kind": "message",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "message": "01a10480-d25a-7400-9dbb-9390c44715f4:26"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "msg_aang_3",
         "call_id": null,
         "ordinal": 26
       },
@@ -947,28 +1404,74 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "phase": "boundary",
-        "trigger": "unknown",
-        "summary": null,
-        "tokens_before": null
+        "text": "done",
+        "final": false,
+        "audience": "user",
+        "model": null
       }
     },
     {
-      "id": "#22",
-      "kind": "usage_total",
+      "id": "#33",
+      "kind": "usage",
       "entity_key": {
-        "kind": "session",
+        "kind": "usage",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "usage": "01a10480-d25a-7400-9dbb-9390c44715f4:resp_aang_3"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": "resp_aang_3",
+        "call_id": null,
+        "ordinal": 28
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": null,
+        "tokens": {
+          "uncached_input_tokens": 120,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 8,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": null,
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#34",
+      "kind": "usage_total",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "codex",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "agent_id": null,
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
@@ -986,323 +1489,38 @@
       "format_verified": true,
       "redelivery_key": null,
       "payload": {
-        "source": "token_count",
-        "tokens": {
-          "uncached_input_tokens": 2228,
-          "cache_read_input_tokens": 26368,
-          "cache_write_input_tokens": 0,
-          "output_tokens": 41,
-          "reasoning_output_tokens": 0
-        }
-      }
-    },
-    {
-      "id": "#23",
-      "kind": "compaction",
-      "entity_key": {
-        "kind": "session",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
-      },
-      "speaker": "runtime",
-      "urgent": true,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": null,
-        "call_id": null,
-        "ordinal": 29
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "phase": "started",
-        "trigger": "unknown",
-        "summary": null,
-        "tokens_before": null
-      }
-    },
-    {
-      "id": "#24",
-      "kind": "compaction",
-      "entity_key": {
-        "kind": "session",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
-      },
-      "speaker": "runtime",
-      "urgent": true,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": null,
-        "call_id": null,
-        "ordinal": 29
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "phase": "completed",
-        "trigger": "unknown",
-        "summary": null,
-        "tokens_before": null
-      }
-    },
-    {
-      "id": "#25",
-      "kind": "turn_settings",
-      "entity_key": {
-        "kind": "session",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
-      },
-      "speaker": "runtime",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": null,
-        "call_id": null,
-        "ordinal": 35
-      },
-      "runtime_env": {
-        "cwd": "/fixture/project",
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "model": "gpt-6.1-sol",
-        "effort": null,
-        "approval_policy": "never",
-        "sandbox": "read-only"
-      }
-    },
-    {
-      "id": "#26",
-      "kind": "prompt",
-      "entity_key": {
-        "kind": "message",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "message": "01a10474-86cd-7211-84bf-600c2cf9ff65:37"
-      },
-      "speaker": "human",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": "01a10474-c448-7e42-ad22-9faf6dc3d9d6",
-        "call_id": null,
-        "ordinal": 37
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "text": "Reply with just: OK2",
-        "origin": "human",
-        "origin_raw": null
-      }
-    },
-    {
-      "id": "#27",
-      "kind": "message",
-      "entity_key": {
-        "kind": "message",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "message": "01a10474-86cd-7211-84bf-600c2cf9ff65:38"
-      },
-      "speaker": "solver",
-      "urgent": true,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": "msg_0e28935138378de9016ac1a71db81887d2a8d23e6cfbedba22",
-        "call_id": null,
-        "ordinal": 38
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "text": "OK2",
-        "final": true,
-        "audience": "user",
-        "model": null
-      }
-    },
-    {
-      "id": "#28",
-      "kind": "usage",
-      "entity_key": {
-        "kind": "usage",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_0e28935138378de9016ac1a71c207c87d291d9c89ff1adfed4"
-      },
-      "speaker": "runtime",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": "resp_0e28935138378de9016ac1a71c207c87d291d9c89ff1adfed4",
-        "call_id": null,
-        "ordinal": 40
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
-        "model": null,
-        "tokens": {
-          "uncached_input_tokens": 2071,
-          "cache_read_input_tokens": 12288,
-          "cache_write_input_tokens": 0,
-          "output_tokens": 6,
-          "reasoning_output_tokens": 0
-        },
-        "stop_reason": null,
-        "synthetic": false
-      }
-    },
-    {
-      "id": "#29",
-      "kind": "usage_total",
-      "entity_key": {
-        "kind": "session",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
-      },
-      "speaker": "runtime",
-      "urgent": false,
-      "at": "<time>",
-      "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
-        "prompt_id": null,
-        "record_uuid": null,
-        "parent_uuid": null,
-        "message_id": null,
-        "call_id": null,
-        "ordinal": 40
-      },
-      "runtime_env": {
-        "cwd": null,
-        "version": null,
-        "entrypoint": null,
-        "originator": null,
-        "git_branch": null
-      },
-      "format_verified": true,
-      "redelivery_key": null,
-      "payload": {
         "source": "thread_token_usage",
         "tokens": {
-          "uncached_input_tokens": 4461,
-          "cache_read_input_tokens": 52864,
+          "uncached_input_tokens": 360,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 143,
+          "output_tokens": 24,
           "reasoning_output_tokens": 0
         }
       }
     },
     {
-      "id": "#30",
+      "id": "#35",
       "kind": "usage_total",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "turn_id": null,
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 41
+        "ordinal": 29
       },
       "runtime_env": {
         "cwd": null,
@@ -1316,36 +1534,36 @@
       "payload": {
         "source": "token_count",
         "tokens": {
-          "uncached_input_tokens": 4299,
-          "cache_read_input_tokens": 38656,
+          "uncached_input_tokens": 360,
+          "cache_read_input_tokens": 0,
           "cache_write_input_tokens": 0,
-          "output_tokens": 47,
+          "output_tokens": 24,
           "reasoning_output_tokens": 0
         }
       }
     },
     {
-      "id": "#31",
+      "id": "#36",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
       "speaker": "runtime",
       "urgent": true,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent_id": null,
-        "thread_id": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "turn_id": "01a10474-a942-7651-8f03-561f3167a6af",
+        "thread_id": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "turn_id": "01a10480-d38a-7d30-925c-c4d4439dc711",
         "prompt_id": null,
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
-        "ordinal": 42
+        "ordinal": 30
       },
       "runtime_env": {
         "cwd": null,
@@ -1359,22 +1577,22 @@
       "payload": {
         "outcome": "completed",
         "reason": null,
-        "final_message": "OK2",
+        "final_message": "done",
         "background_tasks": []
       }
     }
   ],
   "sessions": [
     {
-      "id": "#32",
+      "id": "#37",
       "key": {
         "kind": "session",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4"
       },
-      "run": "#33",
+      "run": "#38",
       "surface": {
-        "surface": "codex_exec",
+        "surface": "codex_sdk",
         "basis": "observed"
       },
       "version": "0.160.0",
@@ -1386,15 +1604,24 @@
           "launch": "startup",
           "at": "<time>",
           "fact": "#1"
+        },
+        {
+          "launch": "startup",
+          "at": "<time>",
+          "fact": "#4"
+        },
+        {
+          "launch": "resume",
+          "at": "<time>",
+          "fact": "#24"
         }
       ],
-      "state": "turn_done",
+      "state": "ended",
       "execution": {
-        "state": "waiting",
-        "reason": "idle"
+        "state": "done"
       },
-      "freshness": "hooks_inactive",
-      "support_mode": "files_only",
+      "freshness": "ok",
+      "support_mode": "full",
       "double_registration": false,
       "unknown_records": 0,
       "cost_state": null,
@@ -1404,17 +1631,17 @@
   ],
   "agents": [
     {
-      "id": "#34",
+      "id": "#39",
       "key": {
         "kind": "agent",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
         "agent": {
           "kind": "main"
         }
       },
-      "session": "#32",
-      "run": "#33",
+      "session": "#37",
+      "run": "#38",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -1424,8 +1651,7 @@
       "parent": null,
       "spawned_by": null,
       "execution": {
-        "state": "waiting",
-        "reason": "idle"
+        "state": "done"
       },
       "thread_total": null,
       "started_at": "<time>",
@@ -1434,20 +1660,20 @@
   ],
   "actions": [
     {
-      "id": "#35",
+      "id": "#40",
       "key": {
         "kind": "action",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "call": "call_4HTGqC1f5M0ate4P6qNTaGkP"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "call": "call_aang_1_0"
       },
-      "session": "#32",
-      "agent": "#34",
-      "run": "#33",
-      "tool": "exec",
-      "action_kind": "code_cell",
+      "session": "#37",
+      "agent": "#39",
+      "run": "#38",
+      "tool": "request_user_input_async",
+      "action_kind": "question",
       "container": null,
-      "is_container": true,
+      "is_container": false,
       "started_at": "<time>",
       "ended_at": "<time>",
       "outcome": {
@@ -1456,69 +1682,65 @@
           "kind": "observed"
         },
         "evidence": [
-          "#11"
+          "#15"
         ]
       },
       "execution": {
         "state": "unknown"
       },
-      "input_fact": "#6",
-      "output_fact": "#11",
+      "input_fact": "#10",
+      "output_fact": "#15",
       "inherited": false
-    },
+    }
+  ],
+  "questions": [
     {
-      "id": "#36",
+      "id": "#41",
       "key": {
-        "kind": "action",
+        "kind": "question",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "call": "exec-09df563a-6cae-41fc-81dd-5b8e9ca47d7a"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "question": "call_aang_1_0"
       },
-      "session": "#32",
-      "agent": "#34",
-      "run": "#33",
-      "tool": "CommandExecution",
-      "action_kind": "command",
-      "container": null,
-      "is_container": false,
-      "started_at": "<time>",
-      "ended_at": "<time>",
-      "outcome": {
-        "value": "ok",
+      "session": "#37",
+      "agent": "#39",
+      "run": "#38",
+      "kind": "agent_message",
+      "blocking": false,
+      "text": "Which greeting should notes.txt use?",
+      "asked_at": "<time>",
+      "answered_at": null,
+      "action": null,
+      "decision": {
+        "value": "requested",
         "basis": {
           "kind": "observed"
         },
         "evidence": [
-          "#10"
+          "#14"
         ]
       },
-      "execution": {
-        "state": "done"
-      },
-      "input_fact": "#9",
-      "output_fact": "#10",
-      "inherited": false
+      "redelivery_group": null
     }
   ],
-  "questions": [],
   "usage": [
     {
-      "id": "#37",
+      "id": "#42",
       "key": {
         "kind": "usage",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_079753bd61807069016ac1a70e966087d295d6d12209e02d57"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "usage": "01a10480-d25a-7400-9dbb-9390c44715f4:resp_aang_1"
       },
-      "session": "#32",
-      "agent": "#34",
-      "run": "#33",
+      "session": "#37",
+      "agent": "#39",
+      "run": "#38",
       "model": null,
       "tokens": {
-        "uncached_input_tokens": 1963,
-        "cache_read_input_tokens": 12288,
+        "uncached_input_tokens": 120,
+        "cache_read_input_tokens": 0,
         "cache_write_input_tokens": 0,
-        "output_tokens": 36,
+        "output_tokens": 8,
         "reasoning_output_tokens": 0
       },
       "output_lower_bound": false,
@@ -1527,22 +1749,22 @@
       "at": "<time>"
     },
     {
-      "id": "#38",
+      "id": "#43",
       "key": {
         "kind": "usage",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_079753bd61807069016ac1a711de4887d2be941848cf00bc88"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "usage": "01a10480-d25a-7400-9dbb-9390c44715f4:resp_aang_2"
       },
-      "session": "#32",
-      "agent": "#34",
-      "run": "#33",
+      "session": "#37",
+      "agent": "#39",
+      "run": "#38",
       "model": null,
       "tokens": {
-        "uncached_input_tokens": 265,
-        "cache_read_input_tokens": 14080,
+        "uncached_input_tokens": 120,
+        "cache_read_input_tokens": 0,
         "cache_write_input_tokens": 0,
-        "output_tokens": 5,
+        "output_tokens": 8,
         "reasoning_output_tokens": 0
       },
       "output_lower_bound": false,
@@ -1551,46 +1773,22 @@
       "at": "<time>"
     },
     {
-      "id": "#39",
+      "id": "#44",
       "key": {
         "kind": "usage",
         "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_0e28935138378de9016ac1a716f9b487d2996838f0f222eab1"
+        "session": "01a10480-d25a-7400-9dbb-9390c44715f4",
+        "usage": "01a10480-d25a-7400-9dbb-9390c44715f4:resp_aang_3"
       },
-      "session": "#32",
-      "agent": "#34",
-      "run": "#33",
+      "session": "#37",
+      "agent": "#39",
+      "run": "#38",
       "model": null,
       "tokens": {
-        "uncached_input_tokens": 162,
-        "cache_read_input_tokens": 14208,
+        "uncached_input_tokens": 120,
+        "cache_read_input_tokens": 0,
         "cache_write_input_tokens": 0,
-        "output_tokens": 96,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#40",
-      "key": {
-        "kind": "usage",
-        "runtime": "codex",
-        "session": "01a10474-86cd-7211-84bf-600c2cf9ff65",
-        "usage": "01a10474-86cd-7211-84bf-600c2cf9ff65:resp_0e28935138378de9016ac1a71c207c87d291d9c89ff1adfed4"
-      },
-      "session": "#32",
-      "agent": "#34",
-      "run": "#33",
-      "model": null,
-      "tokens": {
-        "uncached_input_tokens": 2071,
-        "cache_read_input_tokens": 12288,
-        "cache_write_input_tokens": 0,
-        "output_tokens": 6,
+        "output_tokens": 8,
         "reasoning_output_tokens": 0
       },
       "output_lower_bound": false,
@@ -1602,28 +1800,28 @@
   "artifacts": [],
   "gaps": [
     {
-      "id": "#41",
+      "id": "#45",
       "key": {
         "kind": "gap",
         "gap": "hooks_inactive",
-        "subject": "c685c6520491a8964748ce8a4ef95f33"
+        "subject": "f7d98bb8672e654afe1b10210d486508"
       },
       "kind": "hooks_inactive",
-      "run": "#33",
-      "session": "#32",
+      "run": "#38",
+      "session": "#37",
       "stream": null,
       "details": "Session files are available without hook events",
       "detected_at": "<time>",
-      "closed_at": null
+      "closed_at": "<time>"
     }
   ],
   "removals": [],
   "runs": [
     {
       "run": {
-        "id": "#33",
+        "id": "#38",
         "runtime": "codex",
-        "root_session": "#32",
+        "root_session": "#37",
         "goal": null,
         "brief": null,
         "start_pruned": false,
@@ -1632,11 +1830,36 @@
       },
       "entities": [
         {
+          "kind": "attention_item",
+          "value": {
+            "id": "#46",
+            "run": "#38",
+            "kind": "question",
+            "author": "rule",
+            "text": "Which greeting should notes.txt use?",
+            "stage": null,
+            "question": "#41",
+            "action": null,
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#14"
+            ],
+            "runtime_wait": "none",
+            "resolution": "open",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": null
+          }
+        },
+        {
           "kind": "run",
           "value": {
-            "id": "#33",
+            "id": "#38",
             "runtime": "codex",
-            "root_session": "#32",
+            "root_session": "#37",
             "goal": null,
             "brief": null,
             "start_pruned": false,
@@ -1647,8 +1870,8 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#32",
-            "run": "#33"
+            "session": "#37",
+            "run": "#38"
           }
         }
       ]
