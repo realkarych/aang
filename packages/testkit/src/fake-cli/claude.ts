@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { admissionHookPath, claudeAdmissionArtifacts, runAdmissionHook } from './admission.js'
 import { randomUUID } from 'node:crypto'
-import { startDescendant } from './process-tree.js'
+import { leaveProcessGroup, startDescendant } from './process-tree.js'
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
 import type { z } from 'zod'
@@ -137,6 +137,7 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     finish(fakeCliExitCodes.isolation)
     return
   }
+  if (scenario.groupEscape !== undefined) await leaveProcessGroup(scenario.groupEscape)
   const session: ClaudeSession = {
     sessionId: lastValue(options, 'session-id') ?? randomUUID(),
     model: lastValue(options, 'model') ?? '',
