@@ -30,6 +30,15 @@ const probe: Row = {
   finished_at: '1759370001000000000',
 }
 
+const chatCall: Row = {
+  ...observerCall,
+  id: "'ch1'",
+  kind: "'chat'",
+  verdict: "'needs_requested'",
+  usage: '\'{"tokens":null}\'',
+  finished_at: '1759370004000000000',
+}
+
 const modelVersion: Row = {
   run_id: "'r1'",
   version: '1',
@@ -108,7 +117,6 @@ const chatMessage: Row = {
   question: "'What is left?'",
   answer: 'NULL',
   citations: "'[]'",
-  usage: 'NULL',
   asked_at: '1759370000000000000',
   answered_at: 'NULL',
   change_seq: '3',
@@ -170,8 +178,56 @@ const cases: readonly SchemaCase[] = [
   },
   {
     name: 'an observer call of an unknown kind is rejected',
-    statement: insert('observer_calls', observerCall, { id: "'c2'", kind: "'chat'" }),
+    statement: insert('observer_calls', observerCall, { id: "'c2'", kind: "'admission'" }),
     error: /CHECK constraint failed: kind IN/,
+  },
+  {
+    name: 'a chat call is recorded finished, with its run, base version, input, verdict and usage',
+    statement: insert('observer_calls', chatCall),
+  },
+  {
+    name: 'a follow-up chat call refers to the chat call it continues',
+    setup: [insert('observer_calls', chatCall)],
+    statement: insert('observer_calls', chatCall, { id: "'ch2'", previous_id: "'ch1'", verdict: "'accepted'" }),
+  },
+  {
+    name: 'a follow-up chat call refers to an existing call',
+    statement: insert('observer_calls', chatCall, { previous_id: "'missing'" }),
+    error: /FOREIGN KEY constraint failed/,
+  },
+  {
+    name: 'a chat call is continued by one follow-up',
+    setup: [
+      insert('observer_calls', chatCall),
+      insert('observer_calls', chatCall, { id: "'ch2'", previous_id: "'ch1'", verdict: "'accepted'" }),
+    ],
+    statement: insert('observer_calls', chatCall, { id: "'ch3'", previous_id: "'ch1'", verdict: "'accepted'" }),
+    error: /UNIQUE constraint failed: observer_calls\.previous_id/,
+  },
+  {
+    name: 'a chat call does not follow itself',
+    statement: insert('observer_calls', chatCall, { previous_id: "'ch1'" }),
+    error: /CHECK constraint failed: observer_calls_previous/,
+  },
+  {
+    name: 'only a chat call follows another call',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", previous_id: "'c1'" }),
+    error: /CHECK constraint failed: observer_calls_previous/,
+  },
+  ...['run_id', 'base_version', 'input', 'finished_at'].map((column) => ({
+    name: `a chat call needs its ${column}`,
+    statement: insert('observer_calls', chatCall, { [column]: 'NULL' }),
+    error: /CHECK constraint failed: observer_calls_chat/,
+  })),
+  {
+    name: 'a chat call ends with a verdict',
+    statement: insert('observer_calls', chatCall, { verdict: "'running'" }),
+    error: /CHECK constraint failed: observer_calls_chat/,
+  },
+  {
+    name: 'a chat call has no batch delay',
+    statement: insert('observer_calls', chatCall, { verdict: "'accepted'", delay_ms: '0' }),
+    error: /CHECK constraint failed: observer_calls_delay/,
   },
   {
     name: 'a failed observer call keeps the class and message of the backend error',
@@ -523,14 +579,18 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: revoked_at >= created_at/,
   },
   {
-    name: 'an answered chat message keeps its citations and usage',
+    name: 'an answered chat message keeps its citations',
     statement: insert('chat_messages', chatMessage, {
       stage_id: "'st1'",
       answer: "'Two stages remain.'",
       citations: '\'[{"kind":"stage","id":"st1"}]\'',
-      usage: '\'{"input_tokens":10}\'',
       answered_at: '1759370005000000000',
     }),
+  },
+  {
+    name: 'the usage of the chat is kept in its journal, not in chat messages',
+    statement: insert('chat_messages', chatMessage, { usage: '\'{"input_tokens":10}\'' }),
+    error: /table chat_messages has no column named usage/,
   },
   {
     name: 'chat citations are a JSON array',

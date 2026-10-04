@@ -6,6 +6,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { DatabaseSync } from 'node:sqlite'
 import { promisify } from 'node:util'
 import { endpoints } from '@aang/contract'
+import { hookInstallPaths } from '@aang/hook'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -97,31 +98,10 @@ const savedOtelToken = (database: string): string => {
   }
 }
 
-const configuredPath = ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): string | null =>
-  args.length === 0 ? command : null
-
-const npmCodex = async ({ command, args }: Pick<FakeCli<never>, 'command' | 'args'>): Promise<string | null> => {
-  const [script, state] = args
-  if (script === undefined || state === undefined) {
-    return configuredPath({ command, args })
-  }
-  const directory = join(dirname(state), 'npm')
-  const bin = join(directory, 'node_modules', '@openai', 'codex', 'bin')
-  await mkdir(bin, { recursive: true })
-  await writeFile(join(dirname(bin), 'package.json'), '{"type":"module"}\n')
-  await writeFile(
-    join(bin, 'codex.js'),
-    `process.argv.splice(2, 0, ${JSON.stringify(state)})\nawait import(${JSON.stringify(pathToFileURL(script).href)})\n`,
-  )
-  const shim = join(directory, 'codex.cmd')
-  await writeFile(shim, '')
-  return shim
-}
-
-const installLauncher = async (aangHome: string): Promise<void> => {
-  const launcher = join(aangHome, 'bin', 'aang-hook.exe')
-  await mkdir(dirname(launcher), { recursive: true })
-  await copyFile(hookBinary, launcher)
+const installLauncher = async (profile: Profile): Promise<void> => {
+  const { binary } = hookInstallPaths(profile.aangHome)
+  await mkdir(dirname(binary), { recursive: true })
+  await copyFile(hookBinary, binary)
 }
 
 export const test = base.extend<AangOptions & AangFixtures>({
@@ -145,12 +125,10 @@ export const test = base.extend<AangOptions & AangFixtures>({
   },
 
   daemon: async ({ profile, config, fakeClaude, fakeCodex }, use) => {
-    if (process.platform === 'win32') {
-      await installLauncher(profile.aangHome)
-    }
+    await installLauncher(profile)
     await profile.configure({
       ...withScannedRoots(config),
-      cli: { claude: configuredPath(fakeClaude), codex: await npmCodex(fakeCodex), ...config.cli },
+      cli: { claude: fakeClaude.path, codex: fakeCodex.path, ...config.cli },
     })
     const daemon = await profile.startDaemon({ entry: aangEntry })
     await use(daemon)
