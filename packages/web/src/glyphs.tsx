@@ -219,3 +219,16 @@ export const DisclosureGlyph = ({ open }: { readonly open: boolean }): ReactElem
     />
   </Glyph>
 )
+
+export const HandoverGlyph = (): ReactElement => (
+  <Glyph>
+    <path
+      d="M1.5 3.5h6.5M6 1.5l2 2-2 2M10.5 8.5H4M6 6.5l-2 2 2 2"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)

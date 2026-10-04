@@ -18,6 +18,7 @@ import type {
   Runtime,
   ServiceAgent,
   SessionLaunch,
+  StageLifecycle,
   StageOrigin,
   Surface,
   SupportKey,
@@ -236,6 +237,12 @@ export const serviceAgentLabel: Readonly<Record<ServiceAgent, string>> = {
 export const stageOriginLabel: Readonly<Record<StageOrigin, string>> = {
   plan: 'из плана',
   inferred: 'восстановлен aang',
+}
+
+export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state'], 'active'>, string>> = {
+  replaced: 'заменён',
+  merged: 'объединён с другими',
+  split: 'разделён',
 }
 
 export const sessionForms = { one: 'сессия', few: 'сессии', many: 'сессий' } as const

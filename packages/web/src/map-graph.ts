@@ -1,4 +1,5 @@
 import type { Action, Agent, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@aang/contract'
+import { predecessorsOf } from './stage-lineage.js'
 
 export interface Span {
   readonly start: bigint
@@ -46,10 +47,33 @@ export interface VisibleStage {
 export interface VisibleMap {
   readonly stages: readonly VisibleStage[]
   readonly edges: readonly MapEdge[]
+  readonly holders: ReadonlyMap<StageId, StageId>
 }
 
 const byModelOrder = (left: Stage, right: Stage): number =>
   left.created_version - right.created_version || (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
+
+const inheritedPlaces = (
+  all: ReadonlyMap<StageId, Stage>,
+  predecessors: ReadonlyMap<StageId, readonly StageId[]>,
+): ((stage: Stage) => Stage) => {
+  const places = new Map<StageId, Stage>()
+  const placeOf = (stage: Stage): Stage => {
+    const known = places.get(stage.id)
+    if (known !== undefined) {
+      return known
+    }
+    const place = (predecessors.get(stage.id) ?? [])
+      .flatMap((id) => {
+        const predecessor = all.get(id)
+        return predecessor === undefined ? [] : [placeOf(predecessor)]
+      })
+      .reduce((earliest, inherited) => (byModelOrder(inherited, earliest) < 0 ? inherited : earliest), stage)
+    places.set(stage.id, place)
+    return place
+  }
+  return placeOf
+}
 
 const spanOf = ({ started_at: start, ended_at: end }: Pick<Action, 'started_at' | 'ended_at'>): Span[] =>
   start === null ? [] : [{ start, end }]
@@ -73,7 +97,11 @@ const listed = <K, V>(map: Map<K, V[]>, key: K, value: V): void => {
 
 export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
   const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))
-  const active = snapshot.model.stages.filter(({ lifecycle }) => lifecycle.state === 'active').sort(byModelOrder)
+  const predecessors = predecessorsOf(snapshot.model.stages)
+  const placeOf = inheritedPlaces(all, predecessors)
+  const active = snapshot.model.stages
+    .filter(({ lifecycle }) => lifecycle.state === 'active')
+    .sort((left, right) => byModelOrder(placeOf(left), placeOf(right)) || byModelOrder(left, right))
   const shown = new Set(active.map(({ id }) => id))
   const actions = new Map(snapshot.objects.actions.map((action) => [action.id, action]))
   const agents = new Map(snapshot.objects.agents.map((agent) => [agent.id, agent]))
@@ -193,5 +221,5 @@ export const visibleMap = (graph: StageGraph, isOpen: (stage: MapStage) => boole
       }
     }
   }
-  return { stages, edges: [...edges.values()] }
+  return { stages, edges: [...edges.values()], holders: shownAs }
 }
