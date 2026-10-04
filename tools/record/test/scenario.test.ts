@@ -126,6 +126,7 @@ test('the regular Claude home is the real home without CLAUDE_CONFIG_DIR, keeps 
   await writeFile(join(claude, 'projects', '-Users-someone-else-old', '9d0c51f4-6d0e-4b5e-8f3a-2f6f0f4a7c11.jsonl'), `${JSON.stringify({ type: 'user', cwd: '/Users/someone-else/old' })}\n`)
   await mkdir(join(claude, 'sessions'), { recursive: true })
   await writeFile(join(claude, 'sessions', '1.json'), JSON.stringify({ pid: 1, sessionId: 'existing', cwd: '/Users/someone-else/old' }))
+  await mkdir(join(claude, 'plugins', 'data', 'aang-probe-inline'), { recursive: true })
   vi.stubEnv('HOME', home)
   vi.stubEnv('USERPROFILE', home)
   vi.stubEnv('CLAUDE_CONFIG_DIR', undefined)
@@ -155,6 +156,7 @@ test('the regular Claude home is the real home without CLAUDE_CONFIG_DIR, keeps 
   expect(created).toEqual([{
     sessions: [session],
     paths: [
+      join(claude, 'plugins', 'data', 'aang-inline'),
       join(claude, 'projects', String(project)),
       join(claude, 'session-env', session),
       join(claude, 'sessions', `${String(environment.pid)}.json`),
@@ -276,6 +278,11 @@ test('a catalog scenario records under the resolved engine version with its mode
   expect(recording).toBe(join(fixturesRoot, 'codex', '9.8.7', 'codex_exec', os, 'synthetic'))
   expect(JSON.parse(await readFile(join(recording, 'manifest.json'), 'utf8'))).toMatchObject({ model: 'stub', app_version: 'app 1', engine_version: '9.8.7' })
   await expect(recordScenario(scenario(), driver, { fixturesRoot, hookBinary: binary, model: 'live', selection: {} })).rejects.toThrow(/supports only stub/)
+  const paired = scenario({ name: 'paired', models: ['stub', 'live'], run: async (session) => { await session.run(process.execPath, [script, 'otlp', session.otlp]) } })
+  const live = await recordScenario(paired, driver, { fixturesRoot, hookBinary: binary, model: 'live', selection: {} })
+  expect(live).toBe(join(fixturesRoot, 'codex', '9.8.7', 'codex_exec', os, 'paired-live'))
+  expect(JSON.parse(await readFile(join(live, 'manifest.json'), 'utf8'))).toMatchObject({ scenario: 'paired-live', model: 'live' })
+  expect(await recordScenario(paired, driver, { fixturesRoot, hookBinary: binary, selection: {} })).toBe(join(fixturesRoot, 'codex', '9.8.7', 'codex_exec', os, 'paired'))
   await expect(recordScenario(scenario({ name: 'elsewhere', os: [os === 'linux' ? 'windows' : 'linux'] }), driver, { fixturesRoot, hookBinary: binary, selection: {} })).rejects.toThrow(/not recorded on/)
   await expect(recordScenario(scenario({ surface: 'claude_cli' }), driver, { fixturesRoot, hookBinary: binary, selection: {} })).rejects.toThrow(/does not belong/)
 })

@@ -4,6 +4,7 @@ export type { CodexAppServerOptions, CodexCli, CodexHookEntry, CodexHookListing 
 export { codexHooksState, type CodexHooksState } from './codex-state.js'
 export {
   claudePluginId,
+  claudePluginName,
   claudePluginState,
   installClaudePlugin,
   uninstallClaudePlugin,

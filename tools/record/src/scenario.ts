@@ -57,6 +57,9 @@ export interface ScenarioOptions {
 export const scenarioModel = (scenario: Scenario, requested: ModelMode | undefined): ModelMode | undefined =>
   requested === undefined ? scenario.models[0] : scenario.models.includes(requested) ? requested : undefined
 
+const recordedName = (scenario: Scenario, model: ModelMode): string =>
+  model === scenario.models[0] ? scenario.name : `${scenario.name}-${model}`
+
 export const supportsOs = (scenario: Scenario, driver: SurfaceDriver, os: OperatingSystem): boolean =>
   (scenario.os ?? driver.os ?? [os]).includes(os) && (driver.os ?? [os]).includes(os)
 
@@ -72,7 +75,7 @@ export const recordScenario = async (scenario: Scenario, driver: SurfaceDriver, 
     engineVersion: engine.version,
     appVersion: engine.appVersion,
     surface: scenario.surface,
-    scenario: scenario.name,
+    scenario: recordedName(scenario, model),
     model,
     expectedFacts: scenario.expectedFacts,
     fixturesRoot: options.fixturesRoot,

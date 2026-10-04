@@ -32,6 +32,7 @@ export interface Capture {
 
 export interface RegularProfiles {
   readonly project: string
+  readonly plugin: string
   readonly claude: boolean
   readonly codex: boolean
 }
@@ -149,6 +150,9 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     for (const file of await filesIn(location.directory)) ignored.add(file)
   }
   const owned = new Map<string, Location['root']>()
+  const pluginData = join(roots.claude, 'plugins', 'data')
+  const ownPluginData = (name: string): boolean => name === regular?.plugin || name.startsWith(`${regular?.plugin ?? ''}-`)
+  const existingPluginData = new Set(claudeRegular ? (await entriesOf(pluginData)).map(({ name }) => name) : [])
   const foreign = async (file: string, location: Location, final: boolean): Promise<boolean> => {
     const { owner } = location
     if (owner === undefined || owned.has(file)) return false
@@ -236,6 +240,9 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
         }
       }
       for (const session of sessions) ids.add(session)
+      for (const { name } of await entriesOf(pluginData)) {
+        if (ownPluginData(name) && !existingPluginData.has(name)) paths.add(join(pluginData, name))
+      }
       for (const directory of await entriesOf(roots.claude)) {
         if (!directory.isDirectory() || directory.name === 'projects') continue
         for (const { name } of await entriesOf(join(roots.claude, directory.name))) {

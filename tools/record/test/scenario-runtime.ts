@@ -61,6 +61,8 @@ switch (mode) {
     await write(join(project, target, 'subagents', 'agent-a1.jsonl'), line({ type: 'user', sessionId: target, agentId: 'a1', isSidechain: true }))
     await write(join(claude, 'tasks', target, '1.json'), JSON.stringify({ id: '1', subject: 'Own task', status: 'pending' }))
     await mkdir(join(claude, 'session-env', target), { recursive: true })
+    await mkdir(join(claude, 'plugins', 'data', 'aang-inline'), { recursive: true })
+    await mkdir(join(claude, 'plugins', 'data', 'other-inline'), { recursive: true })
     await write(join(claude, 'projects', '-Users-someone-else-elsewhere', `${foreign}.jsonl`), line({ type: 'user', sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
     await write(join(claude, 'sessions', '2.json'), JSON.stringify({ pid: 2, sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
     await write(join(claude, 'tasks', foreign, '1.json'), JSON.stringify({ id: '1', subject: 'Foreign task', status: 'pending' }))

@@ -3,7 +3,7 @@ import { access, mkdir, mkdtemp, realpath, rename, rm, stat, writeFile } from 'n
 import { homedir, tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { type OperatingSystem, type Runtime, spoolFormat, type Surface } from '@aang/contract'
-import { writeClaudePlugin } from '@aang/hook'
+import { claudePluginName, writeClaudePlugin } from '@aang/hook'
 import { createProcessRunner } from '@aang/observer'
 import { leaseSpool } from '@aang/testkit'
 import { createAnonymizer } from './anonymize.js'
@@ -105,7 +105,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     await leaseSpool(spool, 24 * 60 * 60 * 1_000)
     await writeClaudePlugin({ directory: plugin, hookBinary, spool })
     const started = Date.now()
-    const capture = await createCapture({ home, claude, codex }, spool, started, regularCodex || regularClaude ? { regular: { project, claude: regularClaude, codex: regularCodex } } : {})
+    const capture = await createCapture({ home, claude, codex }, spool, started, regularCodex || regularClaude ? { regular: { project, plugin: claudePluginName, claude: regularClaude, codex: regularCodex } } : {})
     created = capture.created
     otlp.listen((body, receivedAt) => {
       capture.otlp(body, receivedAt)
