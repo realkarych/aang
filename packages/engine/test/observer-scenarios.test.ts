@@ -14,11 +14,15 @@ import { createEngine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
+  checkedCriterionText,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
   observerScenarios,
+  outlineStageTitles,
+  renamedStageTitle,
+  reshapedStageTitles,
 } from '@aang/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { codexHooks, millisecond, otelDecision } from './attention-fixtures.js'
@@ -272,6 +276,56 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       expect(card.source).toMatchObject({ start: 0, end: card.text.length })
       expect(fact === null ? null : store.rawRecords.get(fact.seq)).not.toBeNull()
     }
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 4: the continued run merges, splits and renames the outline stages once and revises the criteria', async () => {
+    const sample = await playSample('claude-fork')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const phases = observerScenarios['revised-decisions']
+
+    await sample.play({ until: 'resume' })
+    const before = observeBatch(store, run, 'claude', phases.before.replies[0], at(10))
+    await sample.play({ until: 'continue' })
+    const resumed = observeBatch(store, run, 'claude', phases.after.replies[0], at(20))
+    await sample.play({ until: 'fork' })
+    const continued = observeBatch(store, run, 'claude', phases.after.replies[0], at(30))
+
+    accepted(before, resumed, continued)
+    const main = stageTitled(store, run, mainStageTitle)
+    const prepared = stageTitled(store, run, reshapedStageTitles.prepared)
+    const facts = stageTitled(store, run, reshapedStageTitles.facts)
+    const wording = stageTitled(store, run, reshapedStageTitles.wording)
+    const publish = stageTitled(store, run, outlineStageTitles.publish)
+    const notify = stageTitled(store, run, renamedStageTitle)
+    expect(valuesOf(store, run, 'stage').filter(({ title }) => title === outlineStageTitles.notify)).toEqual([])
+    expect(stageTitled(store, run, outlineStageTitles.sources).lifecycle).toEqual({ state: 'merged', into: prepared.id })
+    expect(stageTitled(store, run, outlineStageTitles.draft).lifecycle).toEqual({ state: 'merged', into: prepared.id })
+    expect(stageTitled(store, run, outlineStageTitles.check).lifecycle).toEqual({
+      state: 'split',
+      into: [facts.id, wording.id],
+    })
+    expect(
+      [prepared, facts, wording, publish, notify].map(({ parent, lifecycle }) => [parent, lifecycle.state]),
+    ).toEqual([
+      [main.id, 'active'],
+      [main.id, 'active'],
+      [main.id, 'active'],
+      [main.id, 'active'],
+      [main.id, 'active'],
+    ])
+    expect(linksOf(store, run).filter(({ kind }) => kind === 'dependency')).toMatchObject([
+      { stage: publish.id, depends_on: prepared.id, via: null },
+    ])
+    expect(
+      valuesOf(store, run, 'criterion')
+        .map(({ text, stage, status }) => [text, stage, status.value])
+        .sort(),
+    ).toEqual([
+      [checkedCriterionText, facts.id, 'not_checked'],
+      [goalCriterionText, main.id, 'partial'],
+    ])
     expectGroundedInRecords(store, run)
   })
 

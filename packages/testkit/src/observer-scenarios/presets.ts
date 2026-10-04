@@ -20,6 +20,7 @@ export const observerScenarios = {
   'live-map': { live: phase([script('map')]) },
   'claimed-done': { live: phase([script('claimed-done')]) },
   'since-last-view': { before: phase([script('map')]), after: phase([script('revision')]) },
+  'revised-decisions': { before: phase([script('outline')]), after: phase([script('reshape')]) },
   chat: { live: phase([script('map')], [script('chat-answer'), script('chat-collapse-reviewers')]) },
   'llm-failure': {
     healthy: phase([script('map')]),
