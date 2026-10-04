@@ -610,48 +610,58 @@ test('Codex commands and patches without a workdir resolve relative paths where 
   expect(retainedAs(store, notes.id)).toEqual({ kind: 'action_payload', text: 'relative\n' })
 })
 
-test.for([
-  {
-    os: 'Windows',
-    cwd: 'C:\\work\\project',
-    nested: 'file:///C:/work/project/nested',
-    shell: ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-Command'],
-    paths: ['C:\\work\\project\\nested\\out.txt', 'C:\\work\\project\\notes\\result.txt'],
-  },
-  {
-    os: 'POSIX',
-    cwd: '/work/project',
-    nested: 'file:///work/project/nested',
-    shell: ['/bin/zsh', '-lc'],
-    paths: ['/work/project/nested/out.txt', '/work/project/notes/result.txt'],
-  },
-])('paths written in a $os session keep its path dialect on a daemon of any OS', async ({ cwd, nested, shell, paths }, { onTestFinished }) => {
-  const { store, engine, project } = await setup(onTestFinished)
-  const absolute = paths[1] ?? ''
-  const lines = [
-    codexRollout({ thread: codexThread, cwd })[0] ?? '',
-    ...codexPatchCall(1, 'call_relative', '*** Begin Patch\n*** Add File: notes/result.txt\n+ok\n*** End Patch\n'),
-    codexItem(3, {
-      type: 'FileChange',
-      id: 'call_absolute',
-      changes: { [absolute]: { type: 'add', content: 'ok\n' } },
-      status: 'completed',
-    }),
-    codexItem(4, {
-      type: 'CommandExecution',
-      id: 'exec-nested',
-      command: [...shell, 'echo x > out.txt'],
-      cwd: nested,
-      status: 'completed',
-      aggregated_output: '',
-      exit_code: 0,
-    }),
-  ]
-  await engine.ingest(jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 31n }).batch(1, lines.length))
+const windowsSession = {
+  os: 'Windows',
+  cwd: 'C:\\work\\project',
+  shell: ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-Command'],
+  changed: ['C:\\work\\project\\notes\\result.txt', 'C:\\work\\project\\rooted.txt'],
+  paths: ['C:\\work\\project\\nested\\out.txt', 'C:\\work\\project\\notes\\result.txt', 'C:\\work\\project\\rooted.txt'],
+}
 
-  const versions = store.artifacts.versions(runId(codexKey))
-  expect(versions.flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : [])).sort()).toEqual(paths)
-})
+const posixSession = {
+  os: 'POSIX',
+  cwd: '/work/project',
+  shell: ['/bin/zsh', '-lc'],
+  changed: ['/work/project/notes/result.txt', '/work/project/rooted.txt'],
+  paths: ['/work/project/nested/out.txt', '/work/project/notes/result.txt', '/work/project/rooted.txt'],
+}
+
+test.for([
+  { ...windowsSession, nested: 'file:///C:/work/project/nested' },
+  { ...windowsSession, nested: 'file://localhost/C:/work/project/nested' },
+  { ...windowsSession, nested: 'file:///C%3A/work/project/nested' },
+  { ...posixSession, nested: 'file:///work/project/nested' },
+  { ...posixSession, nested: 'file://localhost/work/project/nested' },
+])(
+  'paths written in a $os session with the working directory $nested keep its path dialect on a daemon of any OS',
+  async ({ cwd, nested, shell, changed, paths }, { onTestFinished }) => {
+    const { store, engine, project } = await setup(onTestFinished)
+    const lines = [
+      codexRollout({ thread: codexThread, cwd })[0] ?? '',
+      ...codexPatchCall(1, 'call_relative', '*** Begin Patch\n*** Add File: notes/result.txt\n+ok\n*** End Patch\n'),
+      ...codexPatchCall(3, 'call_rooted', '*** Begin Patch\n*** Add File: /work/project/rooted.txt\n+ok\n*** End Patch\n'),
+      codexItem(5, {
+        type: 'FileChange',
+        id: 'call_absolute',
+        changes: Object.fromEntries(changed.map((path) => [path, { type: 'add', content: 'ok\n' }])),
+        status: 'completed',
+      }),
+      codexItem(6, {
+        type: 'CommandExecution',
+        id: 'exec-nested',
+        command: [...shell, 'echo x > out.txt'],
+        cwd: nested,
+        status: 'completed',
+        aggregated_output: '',
+        exit_code: 0,
+      }),
+    ]
+    await engine.ingest(jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 31n }).batch(1, lines.length))
+
+    const versions = store.artifacts.versions(runId(codexKey))
+    expect(versions.flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : [])).sort()).toEqual(paths)
+  },
+)
 
 type Shell = 'Bash' | 'PowerShell' | 'cmd' | 'exec_command'
 

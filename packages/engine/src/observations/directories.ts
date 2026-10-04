@@ -9,7 +9,7 @@ const present = (path: string | null): string | null => (path === '' ? null : pa
 
 const windowsAbsolute = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/
 
-const windowsFileUrl = /^file:\/\/(?:\/[A-Za-z]:|[^/])/i
+const windowsDrive = /^\/[A-Za-z](?::|%3A)/i
 
 const isAbsolute = (path: string): boolean => windowsAbsolute.test(path) || posix.isAbsolute(path)
 
@@ -23,7 +23,8 @@ const pathOf = (value: JsonValue | undefined): string | null => {
     return value
   }
   try {
-    return fileURLToPath(value, { windows: windowsFileUrl.test(value) })
+    const url = new URL(value)
+    return fileURLToPath(url, { windows: url.hostname !== '' || windowsDrive.test(url.pathname) })
   } catch {
     return null
   }
@@ -33,10 +34,13 @@ const explicitOf = ({ payload }: Start): string | null =>
   pathOf(fieldOf(payload.input, 'workdir')) ?? pathOf(fieldOf(payload.input, 'cwd'))
 
 export const resolvedPath = (path: string, base: string | null): string | null => {
-  if (isAbsolute(path)) {
-    return dialectOf(path).resolve(path)
+  if (windowsAbsolute.test(path)) {
+    return win32.resolve(path)
   }
-  return base === null || !isAbsolute(base) ? null : dialectOf(base).resolve(base, path)
+  if (base !== null && isAbsolute(base)) {
+    return dialectOf(base).resolve(base, path)
+  }
+  return posix.isAbsolute(path) ? posix.resolve(path) : null
 }
 
 export const actionDirectory = (starts: readonly Start[], session: string | null): string | null => {
