@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "exports": {
-    ".": "./dist/index.html"
+    ".": "./dist/index.html",
+    "./map-graph": "./src/map-graph.ts",
+    "./map-layout": "./src/map-layout.ts"
   },
   "scripts": {
     "build": "vite build"

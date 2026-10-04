@@ -25,6 +25,7 @@ export const preparationStageTitle = 'Preparation'
 export const reportStageTitle = 'Report'
 export const reportQuestionText = 'Is the report accepted?'
 export const branchStageTitles = { build: 'Build', compile: 'Compile', verify: 'Verify', test: 'Test' } as const
+export const nestedStageTitles = { release: 'Release', bundle: 'Bundle', sign: 'Sign' } as const
 
 const nonblank = z.string().refine((text) => text.trim() !== '')
 
@@ -440,5 +441,28 @@ export const mapBranchesScript = (input: ObserverInput): ObserverOutput => {
     createStage('test', branchStageTitles.test, null, stage('verify'), evidence),
     depends('test', 'compile'),
     depends('verify', 'test'),
+  ])
+}
+
+export const mapNestedScript = (input: ObserverInput): ObserverOutput => {
+  if (stageTitled(input, nestedStageTitles.release) !== undefined) {
+    return output(input, [])
+  }
+  const evidence = sentFacts(input)
+  const stage = (id: keyof typeof nestedStageTitles): StageRef => ({ kind: 'new', temp_id: temp(id) })
+  const onRelease = (dependent: keyof typeof nestedStageTitles): ObserverOpOf<'stage.depends'> => ({
+    op: 'stage.depends',
+    stage: stage(dependent),
+    depends_on: stage('release'),
+    via: null,
+    evidence,
+    rationale: 'The stage builds on the result of the release',
+  })
+  return output(input, [
+    createStage('release', nestedStageTitles.release, null, null, evidence),
+    createStage('bundle', nestedStageTitles.bundle, null, stage('release'), evidence),
+    createStage('sign', nestedStageTitles.sign, null, stage('bundle'), evidence),
+    onRelease('bundle'),
+    onRelease('sign'),
   ])
 }

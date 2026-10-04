@@ -19,6 +19,7 @@ import {
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  nestedStageTitles,
   observerScenarios,
   preparationStageTitle,
   reportQuestionText,
@@ -215,6 +216,36 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       expect.arrayContaining([
         [check?.id, compile?.id],
         [verify?.id, check?.id],
+      ]),
+    )
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the nested map puts a stage over its substage over another and both lower ones on the top one', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-nested'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const [release, bundle, sign] = [nestedStageTitles.release, nestedStageTitles.bundle, nestedStageTitles.sign].map(
+      (title) => stageTitled(store, run, title),
+    )
+    expect(valuesOf(store, run, 'stage')).toHaveLength(3)
+    expect([release?.parent, bundle?.parent, sign?.parent]).toEqual([null, release?.id, bundle?.id])
+    const dependencies = linksOf(store, run).flatMap((link) =>
+      link.kind === 'dependency' ? [[link.stage, link.depends_on]] : [],
+    )
+    expect(dependencies).toHaveLength(2)
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        [bundle?.id, release?.id],
+        [sign?.id, release?.id],
       ]),
     )
     expectGroundedInRecords(store, run)

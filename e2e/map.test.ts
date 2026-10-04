@@ -5,6 +5,7 @@ import { runId } from '@aang/contract/ids'
 import {
   branchStageTitles,
   mainStageTitle,
+  nestedStageTitles,
   observerScenarios,
   preparationStageTitle,
   reportStageTitle,
@@ -298,6 +299,61 @@ test.describe('with the observer building two branches', () => {
     await expect
       .poll(async () => (await box(stage(page, compile))).bottom < (await box(stage(page, check))).y)
       .toBe(true)
+    await expect.poll(async () => crossings(page)).toEqual([])
+    await expect(edges(page)).toHaveCount(2)
+  })
+})
+
+test.describe('with the observer building three levels', () => {
+  test.skip(
+    process.platform === 'win32',
+    'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
+  )
+  test.use({ claudeScenario: observerScenarios['map-nested'].live })
+
+  test('a stage whose result a substage and its own substage use opens into a whole map with both lines (E2E 1, map)', async ({
+    page,
+    player,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })).play()
+    await page.goto(`/?run=${claudeRun}`)
+    const { release, bundle, sign } = nestedStageTitles
+    await expect(stage(page, bundle)).toBeVisible(observed)
+    await expect(stage(page, release)).toBeVisible()
+    await expect(stage(page, sign)).toHaveCount(0)
+
+    const toBundle = edge(page, /^«Bundle» использует результат «Release», основание: /)
+    const toSign = edge(page, /^«Sign» использует результат «Release», основание: /)
+    await expect(toBundle).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(1)
+
+    await stage(page, bundle).getByRole('button', { name: `Развернуть «${bundle}»` }).click()
+    await expect(stage(page, sign)).toBeVisible()
+    await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
+    await expect(toBundle).toHaveCount(1)
+    await expect(toSign).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(2)
+    await expect.poll(async () => crossings(page)).toEqual([])
+    const ownCard = async (title: string): Promise<{ x: number; y: number; right: number; bottom: number }> =>
+      box(stage(page, title).locator('.stage-card'))
+    expect((await ownCard(release)).right).toBeLessThan((await box(stage(page, bundle))).x)
+    expect((await ownCard(bundle)).right).toBeLessThan((await box(stage(page, sign))).x)
+
+    await stage(page, bundle).getByRole('button', { name: `Свернуть «${bundle}»` }).click()
+    await expect(stage(page, sign)).toHaveCount(0)
+    await expect(toSign).toHaveCount(0)
+    await expect(toBundle).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(1)
+    await expect.poll(async () => crossings(page)).toEqual([])
+
+    await stage(page, bundle).getByRole('button', { name: `Развернуть «${bundle}»` }).click()
+    await expect(toSign).toHaveCount(1)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect
+      .poll(async () => (await ownCard(bundle)).bottom < (await box(stage(page, sign))).y)
+      .toBe(true)
+    expect((await ownCard(release)).bottom).toBeLessThan((await box(stage(page, bundle))).y)
+    await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
     await expect.poll(async () => crossings(page)).toEqual([])
     await expect(edges(page)).toHaveCount(2)
   })

@@ -20,6 +20,8 @@ export interface MapLayout {
   readonly routes: ReadonlyMap<string, readonly ElkPoint[]>
 }
 
+export type LayoutEngine = Pick<InstanceType<typeof ELK>, 'layout'>
+
 const elk = new ELK()
 
 const px = (value: number): string => String(value)
@@ -47,11 +49,26 @@ const enclosureOptions: Record<string, string> = {
   ...spacing,
 }
 
-const cardOptions: Record<string, string> = { 'elk.layered.layering.layerConstraint': 'FIRST_SEPARATE' }
+const cardOptions: Record<string, string> = { 'elk.layered.layering.layerConstraint': 'FIRST' }
 
 const cardOf = (stage: string): string => `${stage}:card`
 
-const elkGraph = (map: VisibleMap, direction: MapDirection): ElkNode => {
+const loops = (start: string, next: ReadonlyMap<string, readonly string[]>): boolean => {
+  const seen = new Set<string>()
+  const queue = [...(next.get(start) ?? [])]
+  for (const stage of queue) {
+    if (stage === start) {
+      return true
+    }
+    if (!seen.has(stage)) {
+      seen.add(stage)
+      queue.push(...(next.get(stage) ?? []))
+    }
+  }
+  return false
+}
+
+const elkGraph = (map: VisibleMap, direction: MapDirection, cardsFirst: boolean): ElkNode => {
   const roots: ElkNode[] = []
   const enclosures = new Map<string, ElkNode[]>()
   const parents = new Map<string, string | null>()
@@ -60,7 +77,12 @@ const elkGraph = (map: VisibleMap, direction: MapDirection): ElkNode => {
     parents.set(id, parent)
     const children: ElkNode[] = []
     if (open) {
-      children.push({ id: cardOf(id), width: card.width, height: card.height, layoutOptions: cardOptions })
+      children.push({
+        id: cardOf(id),
+        width: card.width,
+        height: card.height,
+        ...(cardsFirst ? { layoutOptions: cardOptions } : {}),
+      })
       enclosures.set(id, children)
     }
     const elkNode: ElkNode = open
@@ -69,22 +91,50 @@ const elkGraph = (map: VisibleMap, direction: MapDirection): ElkNode => {
     const siblings = parent === null ? roots : (enclosures.get(parent) ?? roots)
     siblings.push(elkNode)
   }
-  const within = (inner: string, outer: string): boolean => {
-    const parent = parents.get(inner) ?? null
-    return parent !== null && (parent === outer || within(parent, outer))
+  const holder = (enclosure: string, stage: string): string | null => {
+    const parent = parents.get(stage) ?? null
+    return parent === null ? null : parent === enclosure ? stage : holder(enclosure, parent)
   }
   const end = (stage: string, other: string): string =>
-    enclosures.has(stage) && within(other, stage) ? cardOf(stage) : stage
+    enclosures.has(stage) && holder(stage, other) !== null ? cardOf(stage) : stage
   const edges: ElkExtendedEdge[] = map.edges.map(({ id, from, to }) => ({
     id,
     sources: [end(from, to)],
     targets: [end(to, from)],
   }))
-  return { id: 'map', layoutOptions: graphOptions(direction), children: roots, edges }
+  const anchors = [...enclosures.keys()].flatMap((enclosure): ElkExtendedEdge[] => {
+    const led = new Set<string>()
+    const next = new Map<string, string[]>()
+    for (const { from, to } of map.edges) {
+      const source = from === enclosure ? cardOf(enclosure) : holder(enclosure, from)
+      const target = holder(enclosure, to)
+      if (source !== null && target !== null && source !== target) {
+        led.add(target)
+        next.set(source, [...(next.get(source) ?? []), target])
+      }
+    }
+    return map.stages
+      .filter(({ parent }) => parent === enclosure)
+      .map(({ node }) => node.stage.id)
+      .filter((stage) => !led.has(stage) || loops(stage, next))
+      .map((stage) => ({ id: `${cardOf(enclosure)}>${stage}`, sources: [cardOf(enclosure)], targets: [stage] }))
+  })
+  return {
+    id: 'map',
+    layoutOptions: graphOptions(direction),
+    children: roots,
+    edges: cardsFirst ? [...edges, ...anchors] : edges,
+  }
 }
 
-export const layoutMap = async (map: VisibleMap, direction: MapDirection): Promise<MapLayout> => {
-  const result = await elk.layout(elkGraph(map, direction))
+export const layoutMap = async (
+  map: VisibleMap,
+  direction: MapDirection,
+  engine: LayoutEngine = elk,
+): Promise<MapLayout> => {
+  const result = await engine
+    .layout(elkGraph(map, direction, true))
+    .catch(async () => engine.layout(elkGraph(map, direction, false)))
   const nodes = new Map<string, Placement>()
   const cards = new Map<string, Placement>()
   const origins = new Map<string, ElkPoint>([[result.id, { x: 0, y: 0 }]])
@@ -102,8 +152,9 @@ export const layoutMap = async (map: VisibleMap, direction: MapDirection): Promi
     }
   }
   visit(result, { x: 0, y: 0 })
+  const drawn = new Set(map.edges.map(({ id }) => id))
   const routes = new Map<string, readonly ElkPoint[]>()
-  for (const edge of result.edges ?? []) {
+  for (const edge of (result.edges ?? []).filter(({ id }) => drawn.has(id))) {
     const origin = origins.get(edge.container ?? result.id) ?? { x: 0, y: 0 }
     const points = (edge.sections ?? []).flatMap(({ startPoint, bendPoints = [], endPoint }) => [
       startPoint,
