@@ -56,8 +56,8 @@ export const threadsOf = ({ steps }: LoadedManifest): string[] => [
   ),
 ]
 
-export const withoutHooks = (manifest: LoadedManifest): LoadedManifest =>
+export const filesOnly = (manifest: LoadedManifest): LoadedManifest =>
   withSteps(
     manifest,
-    manifest.steps.filter(({ kind }) => kind !== 'hook'),
+    manifest.steps.filter(({ kind }) => kind !== 'hook' && kind !== 'otlp'),
   )

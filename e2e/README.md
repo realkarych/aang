@@ -35,7 +35,7 @@ test('прогон из образца виден в API', async ({ player, page
 | `otelEndpoint()` | адрес приёмника OTel запущенного демона с его токеном приёма — для `otlp` проигрывателя |
 | `hook.claude(sample, fields)`, `hook.codex(sample, fields)` | вызов настоящего `aang-hook` с payload образца из `docs/research/samples/claude-code-hooks` или `codex-cli/hooks` (поле `stdin`), поля которого заменены на `fields` |
 
-Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`. Эталонные записи R.4 выбирает `e2e/recordings.ts`: запись ОС раннера, а если её нет — macOS; `through` и `after` режут запись по метке контрольного события, `withoutHooks` убирает из неё hook-события, `threadsOf` перечисляет треды Codex в порядке их rollout.
+Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`. Эталонные записи R.4 выбирает `e2e/recordings.ts`: запись ОС раннера, а если её нет — macOS; `through` и `after` режут запись по метке контрольного события, `filesOnly` оставляет в ней только файлы сессии, без hook-событий и OTLP, `threadsOf` перечисляет треды Codex в порядке их rollout.
 
 | Опция (`test.use`) | По умолчанию | Смысл |
 | --- | --- | --- |

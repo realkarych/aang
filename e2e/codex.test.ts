@@ -2,7 +2,7 @@ import { ObserverInput, type RunId } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } from '@aang/testkit'
 import { expect, test } from './fixtures.js'
-import { after, codexRecording, threadsOf, through, withoutHooks } from './recordings.js'
+import { after, codexRecording, filesOnly, threadsOf, through } from './recordings.js'
 import {
   agentsOf,
   fact,
@@ -62,7 +62,7 @@ test('an LLM failure leaves the facts flowing and the model ageing in plain sigh
 
   await page.goto(`/?run=${codexRun(session)}`)
   await (
-    await player(withoutHooks(through(reconnect, 'daemon-restart')), {
+    await player(filesOnly(through(reconnect, 'daemon-restart')), {
       timeScale: 0,
       recordTime: { startsAt: Date.now() - 25 * hourMs },
     })
