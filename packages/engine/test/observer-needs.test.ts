@@ -34,6 +34,7 @@ import {
   inputScope,
   type InputScopeOptions,
   resolveObserverNeeds,
+  skipObserverFollowUp,
 } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test, type TestContext } from 'vitest'
@@ -511,6 +512,30 @@ test('a restart between the request and the follow-up returns the batch to the q
   ).toEqual([['pending', 0, callId]])
   expect(() => followUp(restarted)).toThrow('no longer owns its batch')
   expect(restarted.observerCalls.get(followUpId)).toBeNull()
+})
+
+test('a skipped follow-up returns the batch to the queue without spending an attempt', async ({ onTestFinished }) => {
+  const { store, solver, human, begin, claudeAction } = await setupNeeds(onTestFinished)
+  const input = begin([solver, human])
+  const skip = (call: ObserverCallId): void => {
+    store.transaction((transaction) => {
+      skipObserverFollowUp(transaction, call)
+    })
+  }
+  expect(() => {
+    skip(callId)
+  }).toThrow('did not request materials')
+  respond(store, callId, { base_version: input.model.version, ops: [], needs: [{ kind: 'action', action: claudeAction.id }] }, 20)
+  skip(callId)
+  expect(
+    store.interpretations
+      .ofRun(runA)
+      .filter(({ fact }) => fact === solver.id || fact === human.id)
+      .map(({ status, attempts, observer_call }) => [status, attempts, observer_call]),
+  ).toEqual(Array.from({ length: 2 }, () => ['pending', 0, callId]))
+  expect(() => followUp(store)).toThrow('no longer owns its batch')
+  begin([solver, human], thirdCall)
+  expect(queue(store)).toEqual(Array.from({ length: 2 }, () => ['in_call', 1, thirdCall]))
 })
 
 test('needs outside the run, from another vendor or of unknown objects are not executed', async ({

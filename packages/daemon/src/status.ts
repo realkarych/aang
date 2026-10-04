@@ -3,6 +3,7 @@ import {
   type Config,
   type Gap,
   GapKind,
+  type ObserverBackendStatus,
   type Runtime,
   type RuntimeStatus,
   runtimes,
@@ -22,6 +23,7 @@ export interface StatusSources {
   readonly config: Config
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
   readonly paths: AangHomePaths
+  readonly observer: () => ObserverBackendStatus[]
 }
 
 const sizeOf = (path: string): Promise<number> =>
@@ -80,7 +82,7 @@ const spoolStatus = async (
 }
 
 export const createStatus =
-  ({ daemon, store, config, runtimeRoots, paths }: StatusSources) =>
+  ({ daemon, store, config, runtimeRoots, paths, observer }: StatusSources) =>
   async (): Promise<StatusResponse> => {
     const recorded = store.read(() => ({
       changeSeq: store.changes.head(),
@@ -106,7 +108,7 @@ export const createStatus =
       runtimes: runtimeStatuses,
       watch: recorded.watch,
       spool,
-      observer: { cross_vendor: config.observer.crossVendor, backends: [] },
+      observer: { cross_vendor: config.observer.crossVendor, backends: observer() },
       versions: [],
       unknown_records: recorded.sessions.reduce((total, { unknown_records: unknown }) => total + unknown, 0),
       gaps: recorded.gaps.filter(isSourceGap).sort(byDetection),

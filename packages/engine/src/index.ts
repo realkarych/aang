@@ -30,6 +30,7 @@ export {
   type ObserverFollowUp,
   type ObserverResponse,
   type ObserverResponseResult,
+  skipObserverFollowUp,
 } from './model/observer.js'
 export { type MaterialLimits, resolveObserverNeeds } from './input/materials.js'
 export { type BatchLimits, type ObserverBatchStart, startObserverBatch } from './input/batch.js'
@@ -86,3 +87,12 @@ export { hookRedeliveries, type HookRedelivery } from './observations/redelivery
 export { InvalidPositionError, type ObserverRunStatus } from './read/context.js'
 export { createReadQueries, type ReadQueries, type ReadQueriesOptions } from './read/queries.js'
 export type { RunFeed, RunFeedEvent } from './read/snapshot.js'
+export {
+  addViewRule,
+  revokeViewRule,
+  ViewRuleError,
+  type ViewRuleAddition,
+  type ViewRuleErrorCode,
+  type ViewRuleRevocation,
+} from './view/rules.js'
+export { createViewState, type ViewState, type ViewStateOptions } from './view/state.js'
