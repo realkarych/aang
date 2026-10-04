@@ -1,4 +1,6 @@
 import type {
+  ArtifactVersionId,
+  ArtifactVersionResponse,
   ChangeSeq,
   ChangesResponse,
   ObserverCallsResponse,
@@ -9,6 +11,7 @@ import type {
   StageInspector,
   ViewPosition,
 } from '@aang/contract'
+import { artifactVersion } from './artifact-version.js'
 import { runChanges } from './changes.js'
 import type { ReadContext } from './context.js'
 import { stageInspector } from './inspector.js'
@@ -24,6 +27,7 @@ export interface ReadQueries {
   readonly inspector: (run: RunId, stage: StageId) => StageInspector | null
   readonly changes: (run: RunId, from: ViewPosition) => ChangesResponse | null
   readonly observerCalls: (run: RunId) => ObserverCallsResponse | null
+  readonly artifactVersion: (id: ArtifactVersionId) => Promise<ArtifactVersionResponse | null>
 }
 
 export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
@@ -39,5 +43,6 @@ export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
         const calls = runObserverCalls(context, run)
         return calls === null ? null : { calls }
       }),
+    artifactVersion: (id) => artifactVersion(context, id),
   }
 }

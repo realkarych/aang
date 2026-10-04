@@ -313,6 +313,78 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     expect(JSON.parse(raw.payload)).toMatchObject({ type: 'assistant', sessionId: session })
   })
 
+  test('a saved artifact version is read with its content and a version known only by reference says so', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { home, workspace } = await watchedHome(onTestFinished)
+    const session = 'g4-artifact-versions'
+    const run = runId(claudeSession(session))
+    const line = (uuid: string, type: 'assistant' | 'user', message: Record<string, unknown>): string =>
+      JSON.stringify({ type, sessionId: session, uuid, timestamp: '2026-10-01T12:00:00.000Z', cwd: workspace, message })
+    const write = (call: string, file: string): string[] => [
+      line(`${call}-use`, 'assistant', {
+        id: `${call}-message`,
+        role: 'assistant',
+        content: [{ type: 'tool_use', id: call, name: 'Bash', input: { command: `node write.js > ${file}` } }],
+      }),
+      line(`${call}-result`, 'user', {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: call, content: 'done', is_error: false }],
+      }),
+    ]
+    const calls = ['toolu_report', 'toolu_notes']
+    const collecting = await startDaemon(home, onTestFinished)
+    await claudeTranscript(home, '-work', session, [
+      ...transcriptLines(session, workspace, 22),
+      ...write('toolu_report', 'report.md'),
+      ...write('toolu_notes', 'notes.md'),
+    ])
+    const written = new Set(calls.map((call) => objectId({ kind: 'action', runtime: 'claude', session, call })))
+    await apiOf(collecting.base, home).until(
+      runPath(run),
+      endpoints.run.response,
+      ({ objects }) => objects.actions.filter(({ id, ended_at: ended }) => written.has(id) && ended !== null).length === 2,
+    )
+    collecting.abort()
+    await collecting.stopped
+
+    const store = openStore({ home: home.paths.home })
+    const [report, notes] = ['report.md', 'notes.md'].map((file) =>
+      store.artifacts.versions(run).find(({ ref }) => ref.kind === 'file' && ref.path === join(workspace, file)),
+    )
+    if (report === undefined || notes === undefined) {
+      throw new Error('the commands must write both files')
+    }
+    const retained = store.transaction((transaction) =>
+      transaction.artifacts.retain(report.id, {
+        kind: 'file_read',
+        read_at: report.observed_at,
+        content: Buffer.from('# Report\n'),
+      }),
+    )
+    store.close()
+
+    const daemon = await startDaemon(home, onTestFinished)
+    const api = apiOf(daemon.base, home)
+    const path = (id: string): string => `/api/artifact-versions/${id}`
+    expect(await api.get(path(report.id), endpoints.artifactVersion.response)).toEqual({
+      version: retained,
+      content: {
+        kind: 'stored',
+        source: 'file_read',
+        encoding: 'utf8',
+        data: '# Report\n',
+        size_bytes: 9,
+        read_at: report.observed_at,
+      },
+    })
+    expect(await api.get(path(notes.id), endpoints.artifactVersion.response)).toEqual({
+      version: notes,
+      content: { kind: 'unavailable', reason: 'reference_only' },
+    })
+  })
+
   test('the status shows the daemon, the database, the runtimes, the watched roots, the sessions and the spool', async ({
     expect,
     onTestFinished,
@@ -479,6 +551,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
       `${runPath(run)}/observer-calls`,
       `/api/facts/${fact}`,
       '/api/raw/1',
+      `/api/artifact-versions/${'0'.repeat(32)}`,
     ]
 
     for (const path of paths) {
@@ -502,6 +575,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
       `${runPath(run)}/changes?version=0&seq=0&seq=1`,
       `${runPath(run)}/changes?version=0&seq=0&limit=5`,
       `/api/facts/${fact}0`,
+      '/api/artifact-versions/not-a-version',
       '/api/raw/0',
       '/api/raw/one',
       '/api/runs/%E0%A4%A',

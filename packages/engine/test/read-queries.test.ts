@@ -1,3 +1,5 @@
+import { writeFile } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
   BindingId,
   ChangeSeq,
@@ -16,7 +18,7 @@ import {
   StageInspector,
   TempId,
 } from '@aang/contract'
-import { objectId, runId } from '@aang/contract/ids'
+import { contentHash, objectId, runId } from '@aang/contract/ids'
 import {
   applyChangeSet,
   applyObserverResponse,
@@ -529,6 +531,94 @@ describe('read queries of the model', () => {
     expect(scene.reads.inspector(run, whole?.id ?? StageId.parse('missing'))?.predecessors).toEqual(parts.toSorted())
     expect(scene.reads.inspector(run, StageId.parse('missing'))).toBeNull()
     expect(scene.reads.inspector(scene.runOf('missing'), build.id)).toBeNull()
+  })
+
+  test('the inspector shows the versions a stage reads and produces and the snapshots its criteria cite', async ({
+    onTestFinished,
+  }) => {
+    const scene = await openScene(onTestFinished)
+    const { source, run, start, steps } = playScene(scene)
+    await start()
+    for (const step of steps.slice(0, 4)) {
+      await step()
+    }
+    const write = (call: string, second: number, file: string): string[] => [
+      toolUse(source, call, time(second), 'Bash', { command: `node report.js > ${file}`, description: 'Write a report' }),
+      toolResult(source, call, time(second + 1), 'done'),
+    ]
+    await scene.transcript(source, [...write('report-1', 30, 'report.md'), ...write('report-2', 32, 'summary.md')])
+    await scene.transcript(source, testRun(source, 'verify-1', time(34), time(35), true))
+    await scene.transcript(source, testRun(source, 'verify-2', time(36), time(37), true))
+    const versionOf = (file: string) => {
+      const path = join(scene.project, file)
+      const version = scene.store.artifacts.versions(run).find(({ ref }) => ref.kind === 'file' && ref.path === path)
+      if (version === undefined) {
+        throw new Error(`the command must write ${file}`)
+      }
+      return version
+    }
+    const report = versionOf('report.md')
+    const summary = versionOf('summary.md')
+    const [failed, skipped, passed] = scene.store.artifacts.snapshots(run)
+    const model = scene.reads.snapshot(run)?.model
+    const build = model?.stages.find(({ title }) => title === 'Build the parser')
+    const tests = model?.criteria.find(({ text }) => text === 'The tests pass')
+    if (build === undefined || tests === undefined || failed === undefined || skipped === undefined || passed === undefined) {
+      throw new Error('the stage, its criterion and a snapshot of every check must exist')
+    }
+    const produced = [...factsOfCall(scene, source, 'report-1'), ...factsOfCall(scene, source, 'report-2')]
+    const evidence = produced.map(({ id }) => id)
+    const grounds = { evidence, rationale: 'The commands wrote the reports' }
+    expect(
+      scene.observe(
+        run,
+        'call-report',
+        [...produced, ...scene.factsOf(source, 'git_snapshot')],
+        [
+          { ...createStage(evidence, 'publish'), title: 'Publish the reports' },
+          { ...grounds, op: 'artifact.link', stage: existing(build.id), version: summary.id, direction: 'output' },
+          { ...grounds, op: 'artifact.link', stage: existing(build.id), version: report.id, direction: 'output' },
+          { ...grounds, op: 'artifact.link', stage: temporary('publish'), version: report.id, direction: 'input' },
+          {
+            op: 'criterion.assess',
+            criterion: { kind: 'existing', id: tests.id },
+            status: 'partial',
+            evidence: [passed.fact, failed.fact],
+            rationale: 'The tests passed after they had failed',
+          },
+        ],
+        { at: 40 },
+      ).status,
+    ).toBe('accepted')
+    const publish = scene.reads.snapshot(run)?.model.stages.find(({ title }) => title === 'Publish the reports')
+    const linked = scene.reads.inspector(run, build.id)
+    if (publish === undefined || linked === null) {
+      throw new Error('both stages must be readable')
+    }
+    expect(StageInspector.safeParse(linked).error).toBeUndefined()
+    const output = (version: typeof report, call: string) => ({
+      link: { kind: 'artifact', stage: build.id, version: version.id, direction: 'output' },
+      version: { id: version.id, produced_by: actionOf(source, call), retention: { kind: 'reference' } },
+    })
+    expect(linked).toMatchObject({ inputs: [], outputs: [output(report, 'report-1'), output(summary, 'report-2')] })
+    expect(linked.criteria.find(({ criterion }) => criterion.id === tests.id)).toMatchObject({
+      criterion: { status: { value: 'partial', evidence: [passed.fact, failed.fact] } },
+      snapshots: [failed, passed],
+    })
+
+    await writeFile(join(scene.project, 'report.md'), '# Report\n')
+    await writeFile(join(scene.project, 'summary.md'), '# Summary\n')
+    await scene.retain()
+    const retained = scene.reads.inspector(run, build.id)?.outputs.map(({ version }) => version)
+    expect(retained?.map(({ id, retention }) => [id, retention.kind === 'file_read' ? retention.blob : null])).toEqual([
+      [report.id, contentHash('# Report\n')],
+      [summary.id, contentHash('# Summary\n')],
+    ])
+    expect(scene.reads.inspector(run, publish.id)).toMatchObject({
+      inputs: [{ link: { kind: 'artifact', stage: publish.id, direction: 'input' }, version: retained?.[0] }],
+      outputs: [],
+      criteria: [],
+    })
   })
 
   test('the changes since a model version and change position show transitions, new results and new work', async ({

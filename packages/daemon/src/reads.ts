@@ -32,4 +32,5 @@ export const readRoutes = ({ store, reads, status }: ReadSources): ApiRoute[] =>
     const raw = store.rawRecords.get(params.seq)
     return raw === null ? null : { raw }
   }),
+  readRoute(endpoints.artifactVersion, ({ params }) => reads.artifactVersion(params.id)),
 ]

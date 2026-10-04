@@ -597,8 +597,14 @@ starts the next call of a run from its pending facts in the order of their recor
   over calls that ended without a response, so a backend failure or a restart after
   a rejection does not drop them. A summary takes them from the latest call of the
   run when that call carried a summary and was not accepted, with or without batch
-  facts; the reasons of the batch and of the summary are joined without repeats. The
-  artifact versions stay empty;
+  facts; the reasons of the batch and of the summary are joined without repeats;
+- `batch.artifact_versions` lists the artifact versions of the run whose
+  `produced_by` is the action of a fact in the batch, sorted by id. A version is
+  `retained` when its content is kept (`action_payload`, `file_read`, `commit`), not
+  when it is known only by hash or by reference. The list is rendered with the facts,
+  so it counts toward the input limit, and a fact left for the next batch takes the
+  versions of its action with it. A version whose action has facts in two batches is
+  sent with both;
 - the input is packed within the limit (see "Observer input" below);
 - the call is recorded by `beginObserverCall`, and the summarized deferred facts refer
   to it. Without a run entity or an eligible fact or deferred fact, or when the run
@@ -1000,6 +1006,19 @@ counts come from the interpretation statuses.
 - `inspector(run, stage)`, `changes(run, { version, change_seq })` and
   `observerCalls(run)` serve the inspector, the changes since a view mark and the
   observer calls.
+- `artifactVersion(id)` resolves to the stored version with its content, or `null`
+  for an unknown id. The version and a stored blob are read in one read
+  transaction; the content follows the retention:
+  - `reference` and `hash_only` are unavailable with reasons `reference_only` and
+    `hash_only`;
+  - `action_payload` and `file_read` give the blob with that source, and `read_at`
+    for a file read; a blob that is gone is unavailable with reason `blob_missing`;
+  - `commit` reads the file at that commit with `git cat-file blob`, read-only and
+    with `GIT_OPTIONAL_LOCKS=0` like a snapshot, by its path relative to the
+    repository. A path outside the repository, a ref that is not a file or a failed
+    read is unavailable with reason `commit_missing`;
+  - stored bytes that decode as strict UTF-8 come as `utf8` text, any others as
+    `base64`; `size_bytes` counts the bytes.
 
 The run summary:
 
@@ -1025,7 +1044,11 @@ work is not added up (ADR-0009). Its history holds the journal entries of the
 stage, of the links that name it before or after the change (dependencies in both
 directions, assignments, participation and artifact links), of its criteria and of
 the attention items it shows. Its observer calls made these entries or were rejected
-while naming the stage.
+while naming the stage. Its inputs and outputs are its artifact links of that
+direction with the stored version of the run, by the time the version was observed,
+then by version and link id; a link whose version is missing or belongs to another
+run is left out. Each criterion of the stage comes with the git snapshots of the run
+that its status cites as evidence, by the time they were taken.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
@@ -1048,10 +1071,10 @@ version of an accepted call is the last version of its transaction, including th
 rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: the artifact versions
-and git snapshots of the snapshot and the feed, stage inputs and outputs and
-criterion snapshots (E.7b, E.7c); the CLI version, model, usage and error of
-observer calls (F.8, F.9). The usage records of a run come with its objects,
-and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
+and git snapshots of the snapshot and the feed (E.7b, E.7c); the CLI version, model,
+usage and error of observer calls (F.8, F.9). The usage records of a run come with
+its objects, and the inspector shows the usage of a stage as `stageUsage` gives it
+(Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
 
