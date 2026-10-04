@@ -1,0 +1,182 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": "0.160.0",
+  "surface": "codex_sdk",
+  "os": "macos",
+  "scenario": "tools",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:19:22.755Z",
+  "expected_facts": [
+    "A Codex SDK thread (runStreamed, bundled codex exec --experimental-json, originator codex_sdk_ts, source exec) runs `echo hi`, applies a patch adding result.json and runs `echo code` from a code-mode exec cell",
+    "Hooks are trusted through app-server hooks/list and hooks.state trusted_hash in config.toml, without a bypass flag, and fire for Bash and apply_patch",
+    "The SDK stream ends with turn.completed usage; every model response has a token_usage_record"
+  ],
+  "control_events": [
+    {
+      "label": "result-written",
+      "step": 10,
+      "observed_at": "2026-10-04T01:19:23.156Z",
+      "expected_map_change": {
+        "description": "result.json appears as the output file of the SDK stage"
+      }
+    },
+    {
+      "label": "turn-complete",
+      "step": 14,
+      "observed_at": "2026-10-04T01:19:23.235Z",
+      "expected_map_change": {
+        "description": "The SDK turn completes with three finished actions and its usage counted once per response"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "output/000001.txt",
+      "observed_at": "2026-10-04T01:19:22.943Z",
+      "mtime_ns": "1791076762943000000"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-04T01:19:23.077Z",
+      "mtime_ns": "1791076763076847568"
+    },
+    {
+      "source": "data/000003.jsonl",
+      "observed_at": "2026-10-04T01:19:23.104Z",
+      "mtime_ns": "1791076763093463024"
+    },
+    {
+      "source": "spool/000004.spool",
+      "observed_at": "2026-10-04T01:19:23.085Z",
+      "mtime_ns": "1791076763085034108"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-04T01:19:23.085Z",
+      "mtime_ns": "1791076763085034108"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-04T01:19:23.089Z",
+      "mtime_ns": "1791076763089517213"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-04T01:19:23.089Z",
+      "mtime_ns": "1791076763089517213"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-04T01:19:23.098Z",
+      "mtime_ns": "1791076763098557258"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-04T01:19:23.098Z",
+      "mtime_ns": "1791076763098557258"
+    },
+    {
+      "source": "data/000010.jsonl",
+      "observed_at": "2026-10-04T01:19:23.131Z",
+      "mtime_ns": "1791076763131384044"
+    },
+    {
+      "source": "data/000011.jsonl",
+      "observed_at": "2026-10-04T01:19:23.156Z",
+      "mtime_ns": "1791076763154925576"
+    },
+    {
+      "source": "data/000012.json",
+      "observed_at": "2026-10-04T01:19:23.156Z",
+      "mtime_ns": "1791076763146867287"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-04T01:19:23.137Z",
+      "mtime_ns": "1791076763137810909"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:19:23.137Z",
+      "mtime_ns": "1791076763137810909"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-04T01:19:23.146Z",
+      "mtime_ns": "1791076763146184783"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-04T01:19:23.146Z",
+      "mtime_ns": "1791076763146184783"
+    },
+    {
+      "source": "spool/000017.spool",
+      "observed_at": "2026-10-04T01:19:23.151Z",
+      "mtime_ns": "1791076763151675602"
+    },
+    {
+      "source": "data/000018.json",
+      "observed_at": "2026-10-04T01:19:23.151Z",
+      "mtime_ns": "1791076763151675602"
+    },
+    {
+      "source": "spool/000019.spool",
+      "observed_at": "2026-10-04T01:19:23.188Z",
+      "mtime_ns": "1791076763188124906"
+    },
+    {
+      "source": "data/000020.json",
+      "observed_at": "2026-10-04T01:19:23.188Z",
+      "mtime_ns": "1791076763188124906"
+    },
+    {
+      "source": "data/000021.jsonl",
+      "observed_at": "2026-10-04T01:19:23.235Z",
+      "mtime_ns": "1791076763233366545"
+    },
+    {
+      "source": "spool/000022.spool",
+      "observed_at": "2026-10-04T01:19:23.223Z",
+      "mtime_ns": "1791076763223328746"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-04T01:19:23.223Z",
+      "mtime_ns": "1791076763223328746"
+    },
+    {
+      "source": "spool/000024.spool",
+      "observed_at": "2026-10-04T01:19:23.232Z",
+      "mtime_ns": "1791076763232532707"
+    },
+    {
+      "source": "data/000025.json",
+      "observed_at": "2026-10-04T01:19:23.232Z",
+      "mtime_ns": "1791076763232532707"
+    },
+    {
+      "source": "data/000026.json",
+      "observed_at": "2026-10-04T01:19:23.262Z",
+      "mtime_ns": "1791076763262000000"
+    },
+    {
+      "source": "spool/000027.spool",
+      "observed_at": "2026-10-04T01:19:23.241Z",
+      "mtime_ns": "1791076763241527127"
+    },
+    {
+      "source": "data/000028.json",
+      "observed_at": "2026-10-04T01:19:23.241Z",
+      "mtime_ns": "1791076763241527127"
+    },
+    {
+      "source": "output/000029.txt",
+      "observed_at": "2026-10-04T01:19:23.876Z",
+      "mtime_ns": "1791076763876000000"
+    }
+  ],
+  "playback": "playback.json"
+}

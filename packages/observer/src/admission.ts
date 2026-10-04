@@ -1,11 +1,12 @@
 import { createHash, randomUUID } from 'node:crypto'
+import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Runtime } from '@aang/contract'
 import { admitClaude, admitCodex, type ProbeContext } from './admission-probes.js'
 import { authenticate, LaunchError, requireSuccess, stoppedAll, type AuthResult, type BackendOptions, type LaunchErrorClass, type LaunchFailure, type ObserverOutcome, type ObserverRequest, type ObserverResult } from './backend.js'
-import { createClaudeLauncher, type ClaudeBackendOptions } from './claude.js'
+import { createClaudeLauncher, type ClaudeBackendOptions, type ClaudeBuiltins } from './claude.js'
 import { createCodexLauncher } from './codex.js'
 import { cleanEnvironment, prepareWorkspace, resolveCli } from './environment.js'
 import { createProcessRunner, type LaunchStatus, type ProcessResult } from './process.js'
@@ -24,7 +25,30 @@ export interface AdmissionStatus {
   readonly checkedAt: string | null
   readonly reason: string | null
   readonly warning: string | null
+  readonly isolationViolated: boolean
+  readonly builtinPlugins: readonly string[]
 }
+
+export interface AdmissionRequest {
+  readonly manual?: boolean
+}
+
+const violatedVersion = (path: string, profile: string): string | null => {
+  try {
+    const stored: unknown = JSON.parse(readFileSync(path, 'utf8'))
+    if (typeof stored !== 'object' || stored === null || !('isolationViolated' in stored) || stored.isolationViolated !== true) return null
+    if (!('profile' in stored) || stored.profile !== profile || !('version' in stored) || typeof stored.version !== 'string') return null
+    return stored.version
+  } catch { return null }
+}
+
+const admittedBuiltins = (configured: ClaudeBuiltins | undefined, plugins: readonly string[]): ClaudeBuiltins => ({
+  mcpServers: configured?.mcpServers ?? [],
+  skills: configured?.skills ?? [],
+  plugins: [...new Set([...(configured?.plugins ?? []), ...plugins])],
+})
+
+const violation = (version: string): string => `Isolation was violated on CLI ${version}; a new CLI version or a manual admission is required`
 
 const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & AdmissionOptions) => {
   const options = {
@@ -33,14 +57,15 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     cli: typeof source.cli === 'string' ? source.cli : { command: source.cli.command, args: [...(source.cli.args ?? [])] },
     ...(source.builtins === undefined ? {} : { builtins: structuredClone(source.builtins) }),
   }
-  const profile = createHash('sha256').update(JSON.stringify({ revision: 1, runtime, cli: options.cli, model: options.model, effort: options.effort, builtins: options.builtins })).digest('hex')
+  const profile = createHash('sha256').update(JSON.stringify({ revision: 2, runtime, cli: options.cli, model: options.model, effort: options.effort, builtins: options.builtins })).digest('hex')
   const verified = [...(source.verifiedClaudeVersions ?? [])]
   const statusPath = source.admissionStatusPath ?? join(options.environment.HOME ?? options.environment.USERPROFILE ?? homedir(), '.aang', 'support', `${runtime}-observer.json`)
   const runner = createProcessRunner(options)
-  const makeLauncher = (version?: string) => runtime === 'claude' ? createClaudeLauncher(options, version) : createCodexLauncher(options, version)
+  const makeLauncher = (version?: string, plugins: readonly string[] = []) => runtime === 'claude' ? createClaudeLauncher({ ...options, builtins: admittedBuiltins(options.builtins, plugins) }, version) : createCodexLauncher(options, version)
   let launcher = makeLauncher()
-  let record: AdmissionStatus = { runtime, version: null, profile, platform: process.platform, admitted: false, checkedAt: null, reason: 'version_not_admitted', warning: null }
-  let errorClass: LaunchErrorClass = 'version_not_admitted'
+  const violated = violatedVersion(statusPath, profile)
+  let record: AdmissionStatus = { runtime, version: violated, profile, platform: process.platform, admitted: false, checkedAt: null, reason: violated === null ? 'version_not_admitted' : violation(violated), warning: null, isolationViolated: violated !== null, builtinPlugins: [] }
+  let errorClass: LaunchErrorClass = violated === null ? 'version_not_admitted' : 'isolation'
   let admitting = false
   let executing = 0
   const listeners = new Set<(snapshot: LaunchStatus) => void>()
@@ -89,16 +114,16 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
   }
   const fail = (error: unknown): ObserverOutcome => {
     const problem = error instanceof LaunchError ? error : new LaunchError('invalid_output', String(error))
-    record = { ...record, admitted: false, reason: problem.message, warning: null }
+    record = { ...record, admitted: false, reason: problem.message, warning: null, isolationViolated: record.isolationViolated || problem.kind === 'isolation' }
     errorClass = problem.kind
     notify()
     return { ok: false, error: { class: problem.kind, message: problem.message }, usage: problem.usage }
   }
-  const admit = async (signal?: AbortSignal): Promise<AdmissionStatus> => {
+  const admit = async (signal?: AbortSignal, { manual = false }: AdmissionRequest = {}): Promise<AdmissionStatus> => {
     const busy = admitting || executing > 0
     if (busy || status().state.state === 'unavailable') return { ...record, admitted: false, reason: busy ? 'admission_busy' : 'process_stuck' }
     admitting = true
-    record = { ...record, admitted: false, reason: 'admission_pending', checkedAt: new Date().toISOString(), warning: null }
+    record = { ...record, admitted: false, reason: 'admission_pending', checkedAt: new Date().toISOString(), warning: null, builtinPlugins: [] }
     errorClass = 'version_not_admitted'
     notify()
     let probe: ReturnType<typeof context> | undefined
@@ -107,18 +132,20 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       await save()
       probe = context(signal)
       const version = versionOf(await probe.run(['--version']))
-      record = { ...record, version }
+      if (version !== record.version) record = { ...record, version, isolationViolated: false }
+      else if (record.isolationViolated && !manual) throw new LaunchError('isolation', violation(version))
       directory = await realpath(await mkdtemp(join(dirname(probe.cwd), 'admission-')))
       const invocation = { directory, env: probe.env, run: probe.run }
+      let plugins: readonly string[] = []
       if (runtime === 'claude') {
         await authenticate('claude', probe.run)
-        await admitClaude(invocation, options)
+        plugins = await admitClaude(invocation, options)
       } else await admitCodex(invocation, options)
       if (versionOf(await probe.run(['--version'])) !== version) throw new LaunchError('version_not_admitted', 'CLI version changed during admission')
-      record = { ...record, admitted: true, reason: null, warning: runtime === 'claude' && !verified.includes(version) ? 'изоляция от сообщений других сессий на этой версии не проверена' : null }
+      record = { ...record, admitted: true, reason: null, warning: runtime === 'claude' && !verified.includes(version) ? 'изоляция от сообщений других сессий на этой версии не проверена' : null, isolationViolated: false, builtinPlugins: plugins }
       await save()
       unsubscribe()
-      launcher = makeLauncher(version)
+      launcher = makeLauncher(version, plugins)
       unsubscribe = launcher.subscribe(notify)
     } catch (error) {
       fail(error)
@@ -150,12 +177,12 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       probe = context(request.signal)
       const version = versionOf(await probe.run(['--version']))
       if (record.version !== version) {
-        record = { ...record, version }
+        record = { ...record, version, isolationViolated: false }
         throw new LaunchError('version_not_admitted', 'CLI version changed; synthetic admission is required')
       }
       const result = await launcher.execute(request)
       stopped.push(result.stopped)
-      if (!result.ok && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
+      if (!result.ok && record.version === version && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
         fail(new LaunchError(result.error.class, result.error.message, result.usage))
         await save()
       }
@@ -173,6 +200,10 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     const stopped: Promise<void>[] = []
     return { ...(await attempt(request, stopped)), stopped: stoppedAll(stopped) }
   }
+  const cliVersion = async (signal?: AbortSignal): Promise<string | null> => {
+    try { return versionOf(await context(signal).run(['--version'])) }
+    catch { return null }
+  }
   const authStatus = async (signal?: AbortSignal): Promise<AuthResult> => {
     const refused = refusal()
     if (refused !== null) return { ok: false, error: refused, stopped: Promise.resolve() }
@@ -181,7 +212,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     finally { executing -= 1 }
   }
   return {
-    admit, execute, authStatus, status,
+    admit, execute, authStatus, status, cliVersion,
     admission: (): AdmissionStatus => ({ ...record }),
     subscribe: (listener: (snapshot: LaunchStatus) => void): (() => void) => {
       listeners.add(listener)

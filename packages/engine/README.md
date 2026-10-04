@@ -977,20 +977,23 @@ counts come from the interpretation statuses.
 
 - `runs()` lists run summaries, the latest activity first.
 - `snapshot(run)` returns the run, its summary, the semantic model, the observation
-  objects and gaps of its sessions, its plan facts, attention items and bindings.
+  objects and gaps of its sessions, its plan facts, attention items with their views,
+  the view mark and the attention zone, and bindings.
 - `feed(run, after)` returns the changes of that snapshot after a position as the
   contract deltas. Applying them to the snapshot taken at `after` gives the snapshot
   taken at `position`:
   - consecutive changes of facts, observation objects, gaps and retractions form one
-    `facts` event, and every model version forms one `model` event. An event id is
-    the last `change_seq` it contains, so ids grow and never repeat;
+    `facts` event, consecutive views and dismissals of attention items one
+    `attention` event with their views, every model version forms one `model`
+    event, and a new view mark forms one `run` event at the `change_seq` of the mark.
+    An event id is the last `change_seq` it contains, so ids grow and never repeat;
   - objects and gaps arrive in their current state, `removed` names retracted agents
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
   - a model event replaces the changed entities of the run; a removed
     `session_membership` takes the objects of that session out of the run;
   - `run` is the current summary, view and bindings, which the transport delivers
-    after the events;
+    after the events; a `run` event carries the same current state;
   - a position ahead of the change feed is an `InvalidPositionError` with reason
     `stale_position`; a position before the reparse boundary is one with reason
     `reparsed`.
@@ -1005,13 +1008,13 @@ The run summary:
   failed, cancelled, unknown, planned and done. A run without sessions is unknown;
 - `freshness` takes the sessions in the order of a single session: lost, hooks
   inactive, quiet, ok;
-- open attention items are those with resolution `open`; an item waits for a human
-  while its runtime wait is active;
+- open attention items are the items of the attention zone: resolution `open` and
+  not dismissed; an item waits for a human while its runtime wait is active;
 - `pending_facts` counts pending facts and facts in a call, `oldest_pending_at` is
   the time of the oldest of them, `last_success_at` the end of the last accepted
   call;
 - `change_seq` is the last change of these inputs: the model version, the sessions,
-  the agents and the observer calls.
+  the agents, the observer calls and the attention views.
 
 The stage inspector shows the assigned actions that still belong to the run, the
 participating agents together with the agents of those actions, the items of the
@@ -1026,9 +1029,9 @@ while naming the stage.
 
 The changes since a model version and a change position list stage and criterion
 transitions from their state at the version to the current state with the journal
-entries in between, cards added after the version, plan facts and new actions after
-the position, and attention items opened after the version and still open or closed
-after it. An action is new when every fact of it came after the position; inherited
+entries in between, cards added after the version, plan facts, new actions and the
+artifact versions created after the position in their current state, and attention
+items opened after the version and still open or closed after it. An action is new when every fact of it came after the position; inherited
 actions are not new. A change of a link changes every stage the link names before or
 after it, so a dependency changes both of its stages. A stage changed only through its
 links has the same state before and after, and its journal entries are those link
@@ -1044,10 +1047,10 @@ recorded as `failed`. The result
 version of an accepted call is the last version of its transaction, including the
 rule changes that follow its operations, as returned by `applyObserverResponse`.
 
-Some parts of the contract have no source yet and stay empty: view rules, the view
-mark, the attention zone and attention views (M.7, M.8); artifact versions, git snapshots, stage inputs
-and outputs and criterion snapshots (E.7b, E.7c); the CLI version, model, usage and
-error of observer calls (F.8, F.9). The usage records of a run come with its objects,
+Some parts of the contract have no source yet and stay empty: the artifact versions
+and git snapshots of the snapshot and the feed, stage inputs and outputs and
+criterion snapshots (E.7b, E.7c); the CLI version, model, usage and error of
+observer calls (F.8, F.9). The usage records of a run come with its objects,
 and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
@@ -1287,3 +1290,58 @@ when it is hidden or collapsed, and those of the agents and actions below the le
 of a detail rule. An item belongs to the action it names or its question names, to
 the agent of the question or of that action, and to its stage. The UI marks these
 items as coming from a hidden element.
+
+## Since the last view and the attention zone
+
+`createViewState({ store, now })` records the explicit view actions of the user
+(ADR-0008). They are view state: they change neither the model nor the journal and
+send nothing to the solver, and "viewed" never means "approved".
+
+- `markViewed(run, { version, change_seq })` sets the one view mark of the run
+  (ADR-0005). The pair must describe one state: `version` is the model version of the
+  run at `change_seq`, the last version committed at or before that position, and
+  the position is not ahead of the change feed. The client sends the position of the
+  snapshot it shows together with the events it applied; any other pair is an
+  `InvalidPositionError`, and the previous mark stays. A later mark replaces the
+  mark, even with an earlier position. Only this call sets the mark: ingestion, the
+  observer and reads never move it. A new mark is a visible change with its own
+  `change_seq`, after the position it marks; the marked pair stays as sent. The
+  snapshot and the `run` delta carry the mark, and the feed delivers it as a `run`
+  event at its `change_seq`. Repeating the same mark at the same time changes
+  nothing.
+- `viewItem(run, item)` and `dismissItem(run, item)` record that the user viewed or
+  dismissed an attention item of the run, with a new `change_seq`. The first time
+  of each is kept, so repeating either changes nothing. A dismissed item leaves the
+  attention zone and stays among the items of the snapshot with its view, which is
+  its history entry "dismissed by the user"; its resolution, runtime wait and the
+  stage state stay as they are. Viewing does not dismiss. An unknown run or an item
+  of another run gives `null`.
+
+The changes since the mark are `changes(run, mark)`: the model journal after the
+mark version and the observation layer after the mark position. Rule items, such as
+a question asked or a check failed while the observer was unavailable, are journal
+entries of the author `rule`, so they are in the changes without the observer. Later
+observer changes of such an item, a priority or a likely resolution, do not open it
+again, so after a new mark it is not announced a second time. An artifact version
+written while the observer was unavailable is in the changes as well: a version is
+new when it was created after the mark position. The store keeps the position at
+which a version was first stored, so storing it again when its base is retained,
+when an earlier producer is found or after a restart does not announce it again.
+
+The attention zone (`view.zone`) lists the open items that are not dismissed, in the
+order of ADR-0008. Each place explains itself:
+
+1. items not viewed come before viewed ones: viewing lowers an item, which stays in
+   the zone until it is closed or dismissed;
+2. `waiting_for_human`: the solver waits for the human on a known request, the
+   runtime wait of the item is active;
+3. `dependent_stages`: the active stages that depend on the item, more first. They
+   are the stage of the item, or for an action-level item the stages its action is
+   assigned to while the action belongs to the run, together with every stage that
+   depends on them through dependency links, directly or through other stages.
+   Dependency links pass through replaced, merged and split stages, but such stages
+   do not count;
+4. age: the older `opened_at` first; then the item id.
+
+The priority of the observer (`attention.priority`) is a recommendation shown with
+the item and never changes the order.
