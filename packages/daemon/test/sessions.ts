@@ -249,6 +249,7 @@ export const claudeStream = (session: string): StreamKey => {
 
 export interface LiveTranscript {
   readonly run: RunId
+  readonly file: string
   readonly append: (lines: readonly string[]) => Promise<void>
   readonly call: (call: string, tool?: string, input?: Record<string, unknown>) => string[]
   readonly plan: (call: string, items: readonly string[]) => string[]
@@ -275,6 +276,7 @@ export const liveTranscript = async (home: Home, workspace: string, session: str
   ]
   return {
     run: runId(claudeSession(session)),
+    file,
     append: (lines) => appendFile(file, lines.map((entry) => `${entry}\n`).join('')),
     call,
     plan: (id, items) => call(id, 'TodoWrite', { todos: items.map((content) => ({ content, status: 'pending' })) }),
