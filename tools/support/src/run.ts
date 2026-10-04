@@ -33,7 +33,7 @@ export interface ContractRun {
 
 export const pendingScenarios: Readonly<Record<Runtime, readonly string[]>> = {
   claude: ['plan', 'question'],
-  codex: ['plan', 'question'],
+  codex: [],
 }
 
 export const inContractRun = ({ runtime, scenario }: Pick<RecordingManifest, 'runtime' | 'scenario'>): boolean =>
