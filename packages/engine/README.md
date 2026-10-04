@@ -1097,6 +1097,13 @@ and the session facts; `source` is the store or a transaction:
   of its sessions and each of its agents is the sum of its records, so the
   sessions of a run add up to the run. `cost_usd` is `null`: money comes only
   from `cost-state`, shown per session.
+- A session of the journal tells whether it is a fork (`fork`), by the same
+  lineage that marks its inherited records. The `cost-state` of a Claude fork
+  includes the usage of the history it copied, so a reader of it has to say so;
+  the records of the fork count only its own usage.
+- `thread_totals` of a session gives the `thread_total` of each of its agents
+  that has one: the cumulative total of a Codex thread without
+  `token_usage_record`. It is never added to the records, and a fork has none.
 - The `cost-state` of a session is final only when the data show that no launch
   runs after the one that wrote it; when they cannot show it, it is not final.
   Each launch ends with a `cost-state` line. Lines of the same content in several

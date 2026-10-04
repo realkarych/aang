@@ -6,7 +6,6 @@ CREATE TABLE chat_messages (
   question TEXT NOT NULL,
   answer TEXT,
   citations TEXT NOT NULL DEFAULT '[]' CHECK (json_type(citations) = 'array'),
-  usage TEXT CHECK (json_valid(usage)),
   asked_at INTEGER NOT NULL,
   answered_at INTEGER CHECK (answered_at >= asked_at),
   change_seq INTEGER NOT NULL CHECK (change_seq > 0)
