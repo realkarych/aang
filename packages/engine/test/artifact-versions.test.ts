@@ -663,6 +663,45 @@ test.for([
   },
 )
 
+test.for([
+  {
+    name: 'a drive',
+    cwd: 'C:\\work\\project',
+    paths: ['C:\\work\\project\\local.txt', 'C:\\work\\project\\nested\\nested.txt', 'C:\\work\\project\\out.txt'],
+  },
+  { name: 'a UNC share', cwd: '\\\\server\\share\\project', paths: ['\\\\server\\share\\project\\out.txt'] },
+])(
+  'a drive-relative path in a Windows session on $name resolves only against a directory on its drive, never against the daemon',
+  async ({ cwd, paths }, { onTestFinished }) => {
+    const { store, engine, project } = await setup(onTestFinished)
+    const writes = [
+      { target: 'out.txt' },
+      { target: 'C:local.txt' },
+      { target: 'D:report.txt' },
+      { target: 'nested.txt', cwd: 'C:nested' },
+      { target: 'elsewhere.txt', cwd: 'D:nested' },
+    ]
+    const lines = [
+      codexRollout({ thread: codexThread, cwd })[0] ?? '',
+      ...writes.map(({ target, cwd: directory }, index) =>
+        codexItem(index + 1, {
+          type: 'CommandExecution',
+          id: `exec-${target}`,
+          command: ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-Command', `echo hi > ${target}`],
+          ...(directory === undefined ? {} : { cwd: directory }),
+          status: 'completed',
+          aggregated_output: '',
+          exit_code: 0,
+        }),
+      ),
+    ]
+    await engine.ingest(jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 32n }).batch(1, lines.length))
+
+    const versions = store.artifacts.versions(runId(codexKey))
+    expect(versions.flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : [])).sort()).toEqual(paths)
+  },
+)
+
 type Shell = 'Bash' | 'PowerShell' | 'cmd' | 'exec_command'
 
 const runShell = async (engine: Engine, project: string, shell: Shell, command: string): Promise<RunId> => {

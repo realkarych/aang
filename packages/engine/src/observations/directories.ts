@@ -11,9 +11,7 @@ const windowsAbsolute = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/
 
 const windowsDrive = /^\/[A-Za-z](?::|%3A)/i
 
-const isAbsolute = (path: string): boolean => windowsAbsolute.test(path) || posix.isAbsolute(path)
-
-const dialectOf = (path: string) => (windowsAbsolute.test(path) ? win32 : posix)
+const driveOf = (path: string): string | undefined => /^[A-Za-z]:/.exec(path)?.[0].toUpperCase()
 
 const pathOf = (value: JsonValue | undefined): string | null => {
   if (typeof value !== 'string' || value === '') {
@@ -37,10 +35,14 @@ export const resolvedPath = (path: string, base: string | null): string | null =
   if (windowsAbsolute.test(path)) {
     return win32.resolve(path)
   }
-  if (base !== null && isAbsolute(base)) {
-    return dialectOf(base).resolve(base, path)
+  if (base !== null && windowsAbsolute.test(base)) {
+    const drive = driveOf(path)
+    return drive === undefined || drive === driveOf(base) ? win32.resolve(base, path) : null
   }
-  return posix.isAbsolute(path) ? posix.resolve(path) : null
+  if (posix.isAbsolute(path)) {
+    return posix.resolve(path)
+  }
+  return base !== null && posix.isAbsolute(base) ? posix.resolve(base, path) : null
 }
 
 export const actionDirectory = (starts: readonly Start[], session: string | null): string | null => {
