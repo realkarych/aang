@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
@@ -96,16 +97,72 @@ const recordCalls = (sandbox: Sandbox, run: string): void => {
   }
 }
 
-const reported = async (sandbox: Sandbox): Promise<CommandResult> => {
+const reported = async (sandbox: Sandbox, done: (stdout: string) => boolean): Promise<CommandResult> => {
   const deadline = Date.now() + 20_000
   for (;;) {
     const result = await sandbox.aang('usage')
-    if (result.stdout.includes('2 records\n    session ') || Date.now() > deadline) {
+    if (done(result.stdout) || Date.now() > deadline) {
       return result
     }
     await new Promise((resolve) => setTimeout(resolve, 200))
   }
 }
+
+interface Watched {
+  readonly workspace: string
+  readonly projects: string
+  readonly rollouts: string
+}
+
+const watching = async (sandbox: Sandbox): Promise<Watched> => {
+  const root = dirname(sandbox.aangHome)
+  const watched = {
+    workspace: join(root, 'work'),
+    projects: join(root, '.claude', 'projects', '-work'),
+    rollouts: join(root, '.codex', 'sessions', '2026', '10', '01'),
+  }
+  await Promise.all(Object.values(watched).map((directory) => mkdir(directory, { recursive: true })))
+  await writeFile(
+    join(sandbox.aangHome, 'config.json'),
+    JSON.stringify({
+      api: { port: 0 },
+      otel: { port: 0 },
+      collector: { rootsScanIntervalMs: 200 },
+      watch: { roots: [{ path: watched.workspace }] },
+    }),
+  )
+  return watched
+}
+
+const samples = new URL('../../../docs/research/samples/', import.meta.url)
+
+const sampleLines = (path: string): string[] =>
+  readFileSync(new URL(path, samples), 'utf8')
+    .split('\n')
+    .filter((line) => line !== '')
+
+const claudeSample = (path: string, id: string, cwd: string): string[] =>
+  sampleLines(`claude-code-transcripts/${path}`).map((line) => {
+    const record = JSON.parse(line) as Record<string, unknown>
+    return JSON.stringify({ ...record, ...('sessionId' in record ? { sessionId: id } : {}), ...('cwd' in record ? { cwd } : {}) })
+  })
+
+const codexWithoutRecords = (thread: string, cwd: string, meta: Record<string, unknown> = {}): string[] =>
+  sampleLines('codex-cli/rollout/rollout-real-exec-then-resume-with-compaction.jsonl').flatMap((line) => {
+    const record = JSON.parse(line) as { readonly type: string; readonly payload: Record<string, unknown> }
+    switch (record.type) {
+      case 'token_usage_record':
+        return []
+      case 'session_meta':
+        return [JSON.stringify({ ...record, payload: { ...record.payload, id: thread, session_id: thread, cwd, ...meta } })]
+      case 'turn_context':
+        return [JSON.stringify({ ...record, payload: { ...record.payload, cwd } })]
+      default:
+        return [line]
+    }
+  })
+
+const lines = (records: readonly string[]): string => `${records.join('\n')}\n`
 
 const idOf = (pattern: RegExp, text: string): string => {
   const id = pattern.exec(text)?.[1]
@@ -115,12 +172,19 @@ const idOf = (pattern: RegExp, text: string): string => {
   return id
 }
 
+const runWith = (line: string, text: string): string =>
+  idOf(new RegExp(`^run ([0-9a-f]{32}):.*\\n(?: {2}.*\\n)*?.*${line}`, 'm'), text)
+
 const observerLine = 'observer: 100 input, 2,000 cache read, 300 cache write, 50 output, $0.25'
 const observerCalls = '1 call; latency p50 12.0 s, p95 12.0 s, max 12.0 s; lag p50 50 min 10 s, p95 50 min 10 s, max 50 min 10 s'
 const chatLine = 'chat: 70 input, 900 cache read, 50 cache write, 66 output, $0.2813'
 const chatCalls = '1 call; latency p50 15.0 s, p95 15.0 s, max 15.0 s'
 const solverLine = 'solver: 6 input, 2,000 cache read, 200 cache write, at least 100 output, 2 records'
 const moneyNote = 'money is at list prices; with a subscription it is not a charge'
+const cumulativeNote = 'Claude Code reports and thread totals cover whole sessions and threads, not only the period'
+const inherited = 'includes the usage inherited from the parent session'
+const threadTotal = 'thread total 4,366 input, 38,656 cache read, 0 cache write, 38 output'
+const idleSolver = 'solver: 0 input, 0 cache read, 0 cache write, 0 output, 0 records'
 
 describe.concurrent('aang usage shows the three journals of the running daemon', () => {
   test('the report of a run, of all runs and of a period keeps the solver, observer and chat apart', async ({
@@ -128,23 +192,10 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
     onTestFinished,
   }) => {
     const sandbox = await createSandbox(onTestFinished)
-    const root = dirname(sandbox.aangHome)
-    const workspace = join(root, 'work')
-    const projects = join(root, '.claude', 'projects', '-work')
-    await mkdir(workspace)
-    await mkdir(projects, { recursive: true })
-    await writeFile(
-      join(sandbox.aangHome, 'config.json'),
-      JSON.stringify({
-        api: { port: 0 },
-        otel: { port: 0 },
-        collector: { rootsScanIntervalMs: 200 },
-        watch: { roots: [{ path: workspace }] },
-      }),
-    )
-    await writeFile(join(projects, `${session}.jsonl`), `${transcript(workspace).join('\n')}\n`)
+    const { workspace, projects } = await watching(sandbox)
+    await writeFile(join(projects, `${session}.jsonl`), lines(transcript(workspace)))
     expect((await sandbox.aang('start')).code).toBe(0)
-    const collected = await reported(sandbox)
+    const collected = await reported(sandbox, (stdout) => stdout.includes('2 records\n    session '))
     expect((await sandbox.aang('stop')).code).toBe(0)
     const run = idOf(/^run ([0-9a-f]{32}):/m, collected.stdout)
     const sessionId = idOf(/session ([0-9a-f]{32}):/, collected.stdout)
@@ -211,12 +262,65 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
         `  ${observerLine}; ${observerCalls}`,
         `  ${chatLine}; ${chatCalls}`,
         '',
+        cumulativeNote,
         moneyNote,
         '',
       ].join('\n'),
     })
     expect(unknown.code).toBe(1)
     expect(unknown.stderr).toContain(`aang usage: no run ${'0'.repeat(32)}`)
+  })
+
+  test('a fork says that its Claude Code total includes the inherited usage, and a Codex thread without usage records shows its thread total', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const sandbox = await createSandbox(onTestFinished)
+    const { workspace, projects, rollouts } = await watching(sandbox)
+    await writeFile(join(projects, 'parent.jsonl'), lines(claudeSample('session-86f93ed5-main-full.jsonl', 'parent', workspace)))
+    await writeFile(join(projects, 'fork.jsonl'), lines(claudeSample('session-cdfb3544-fork-full.jsonl', 'fork', workspace)))
+    await writeFile(join(rollouts, 'rollout-legacy.jsonl'), lines(codexWithoutRecords('legacy', workspace)))
+    await writeFile(
+      join(rollouts, 'rollout-legacy-fork.jsonl'),
+      lines(codexWithoutRecords('legacy-fork', workspace, { forked_from_id: 'legacy', forked_from_ordinal_exclusive: 3 })),
+    )
+    expect((await sandbox.aang('start')).code).toBe(0)
+    const all = await reported(sandbox, (stdout) => (stdout.match(/^run /gm) ?? []).length === 4 && stdout.includes(inherited))
+    const fork = runWith(inherited, all.stdout)
+    const legacy = runWith('thread total', all.stdout)
+    const ofFork = await sandbox.aang('usage', '--run', fork)
+    const ofLegacy = await sandbox.aang('usage', '--run', legacy)
+    const period = await sandbox.aang('usage', '--from', '2000-01-01')
+    expect((await sandbox.aang('stop')).code).toBe(0)
+
+    const forkSession = idOf(/^ {4}session ([0-9a-f]{32}): Claude Code reports/m, ofFork.stdout)
+    expect(ofFork.code).toBe(0)
+    expect(ofFork.stdout).toContain(
+      [
+        '  solver: 2 input, 18,341 cache read, 427 cache write, 5 output, 1 record',
+        `    session ${forkSession}: Claude Code reports 14 input, 100,625 cache read, 10,415 cache write, 228 output, $0.1026; ${inherited}; final`,
+        '',
+      ].join('\n'),
+    )
+    expect(ofLegacy.code).toBe(0)
+    expect(ofLegacy.stdout).toMatch(
+      new RegExp(
+        [
+          `^${idleSolver}$`,
+          '[^]*^per active hour$',
+          `^  ${idleSolver}$`,
+          `[^]*^run ${legacy}: .*, 2 active hours$`,
+          `^  ${idleSolver}$`,
+          `^ {4}session [0-9a-f]{32}, agent [0-9a-f]{32}: ${threadTotal}; the thread has no usage records, so the solver journal leaves it out$`,
+          '^  observer: ',
+        ].join('\n'),
+        'm',
+      ),
+    )
+    expect(all.stdout.match(/thread total/g)).toHaveLength(1)
+    expect(all.stdout.match(new RegExp(inherited, 'g'))).toHaveLength(1)
+    expect(all.stdout).not.toContain(cumulativeNote)
+    expect(period.stdout).toContain(`\n\n${cumulativeNote}\n${moneyNote}\n`)
   })
 
   test('an empty daemon reports no usage, and the command refuses to run without a daemon', async ({

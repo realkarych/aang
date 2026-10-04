@@ -1194,6 +1194,12 @@ usage panel; `query` takes a run, a period from `from` (inclusive) to `to`
   journal counts the CLI results that reported usage; their output is never a lower
   bound. `cost_usd` adds the money the CLI reported and is `null` when no call
   reported any, as for Codex.
+- The sessions of a run come as `solverUsage` gives them: the Claude Code total
+  (`cost_state`) and whether it is final, whether the session is a fork, whose
+  Claude Code total includes the inherited usage, and the thread totals of Codex
+  threads without usage records. The Claude Code total and the thread totals are
+  cumulative over the whole session or thread, so a period does not cut them, and
+  they are never added to a journal.
 - `totals` sums each journal: the solver over the runs, the observer over the runs
   and the probes, the chat over the runs. The journals are never added together.
 - An active hour is a clock hour of UTC in which the solver of a listed run was

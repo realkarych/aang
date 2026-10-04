@@ -29,6 +29,8 @@ const secondsOf = new Intl.NumberFormat('en-US', { minimumFractionDigits: 1, max
 
 const moneyNote = 'money is at list prices; with a subscription it is not a charge'
 
+const cumulativeNote = 'Claude Code reports and thread totals cover whole sessions and threads, not only the period'
+
 const isoOf = (at: EpochNs): string => new Date(Number(at / 1_000_000n)).toISOString()
 
 const periodLine = ({ from, to }: UsageReport): string => {
@@ -97,14 +99,29 @@ const costStateOf = ({ total_cost_usd: cost, models }: CostStatePayload): Amount
   }
 }
 
-const sessionLines = ({ session, cost_state: costState, cost_state_final: final }: SessionUsage): string[] =>
-  costState === null
+const threadTotalOf = (tokens: TokenUsage): Amounts => ({ tokens, records: 0, output_lower_bound: false, cost_usd: null })
+
+const sessionLines = ({
+  session,
+  fork,
+  cost_state: costState,
+  cost_state_final: final,
+  thread_totals: threads,
+}: SessionUsage): string[] => [
+  ...(costState === null
     ? []
     : [
-        `    session ${session}: Claude Code reports ${tokensOf(costStateOf(costState), false)}; ${
-          final ? 'final' : 'not final: a running interactive session writes its total at exit'
-        }`,
-      ]
+        [
+          `    session ${session}: Claude Code reports ${tokensOf(costStateOf(costState), false)}`,
+          ...(fork ? ['includes the usage inherited from the parent session'] : []),
+          final ? 'final' : 'not final: a running interactive session writes its total at exit',
+        ].join('; '),
+      ]),
+  ...threads.map(
+    ({ agent, tokens }) =>
+      `    session ${session}, agent ${agent}: thread total ${tokensOf(threadTotalOf(tokens), false)}; the thread has no usage records, so the solver journal leaves it out`,
+  ),
+]
 
 const runLines = (usage: RunUsage): string[] => [
   '',
@@ -118,6 +135,12 @@ const runLines = (usage: RunUsage): string[] => [
   `  ${callsLine('observer', usage.observer)}`,
   `  ${callsLine('chat', usage.chat)}`,
 ]
+
+const hasCumulative = ({ from, to, runs }: UsageReport): boolean =>
+  (from !== null || to !== null) &&
+  runs.some(({ solver }) =>
+    solver.sessions.some(({ cost_state: state, thread_totals: threads }) => state !== null || threads.length > 0),
+  )
 
 const hasMoney = (report: UsageReport): boolean =>
   [report.totals.solver, report.totals.observer, report.totals.chat].some(({ cost_usd: cost }) => cost !== null) ||
@@ -144,7 +167,9 @@ const reportLines = (report: UsageReport): string[] => [
   report.probes === null ? 'probes: not attributed to runs' : `probes: ${callsOf(report.probes)}`,
   `chat calls: ${callsOf(report.chat)}`,
   ...report.runs.flatMap(runLines),
-  ...(hasMoney(report) ? ['', moneyNote] : []),
+  ...(hasMoney(report) || hasCumulative(report) ? [''] : []),
+  ...(hasCumulative(report) ? [cumulativeNote] : []),
+  ...(hasMoney(report) ? [moneyNote] : []),
 ]
 
 export const reportUsage = async (output: Output, query: UsageQuery): Promise<number> => {

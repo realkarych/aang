@@ -11,7 +11,7 @@ import {
   type UsageQuery,
   type UsageTotals,
 } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
+import { objectId, runId } from '@aang/contract/ids'
 import {
   applyObserverResponse,
   beginObserverCall,
@@ -25,6 +25,7 @@ import { jsonlFile } from './batches.js'
 import { sessionKey, startEngine } from './harness.js'
 import { createHome } from './home.js'
 import { inputFor } from './observer-fixtures.js'
+import { claudeForkTranscript, claudeTranscript, codexRollout } from './samples.js'
 
 const cwd = '/work/project'
 const projects = '/home/.claude/projects/-work-project'
@@ -384,5 +385,94 @@ describe('the usage report', () => {
       },
       { id: call('timeout'), outcome: 'failed', usage: null, latency_ms: 30_000 },
     ])
+  })
+})
+
+const sampleFile = (runtime: 'claude' | 'codex', path: string, lines: readonly string[], ino: bigint): CollectorBatch =>
+  jsonlFile({ runtime, path, lines, ino }).batch(1, lines.length)
+
+const withoutRecords = (lines: readonly string[]): string[] =>
+  lines.filter((record) => (JSON.parse(record) as { type: string }).type !== 'token_usage_record')
+
+const forks = async (): Promise<Store> => {
+  const store = (await createHome(onTestFinished)).open()
+  const engine = startEngine(store, { all: true })
+  const forkMeta = { forked_from_id: 'legacy', forked_from_ordinal_exclusive: 3 }
+  const codexSessions = '/home/.codex/sessions'
+  await engine.ingest(sampleFile('codex', `${codexSessions}/legacy.jsonl`, withoutRecords(codexRollout({ thread: 'legacy', cwd })), 1n))
+  await engine.ingest(
+    sampleFile(
+      'codex',
+      `${codexSessions}/legacy-fork.jsonl`,
+      withoutRecords(codexRollout({ thread: 'legacy-fork', cwd, sessionMeta: forkMeta })),
+      2n,
+    ),
+  )
+  await engine.ingest(sampleFile('claude', `${projects}/parent.jsonl`, claudeTranscript({ session: 'parent', cwd }), 3n))
+  await engine.ingest(sampleFile('claude', `${projects}/fork.jsonl`, claudeForkTranscript({ session: 'fork', cwd }), 4n))
+  return store
+}
+
+const idle = totals(0, [0, 0, 0, 0])
+
+describe('the usage report of forks and of threads without usage records', () => {
+  test('gives the total of a Codex thread without usage records next to the solver journal, never in it', async () => {
+    const store = await forks()
+    const legacy = objectId({ kind: 'agent', runtime: 'codex', session: 'legacy', agent: { kind: 'main' } })
+
+    const report = reportOf(store, { run: runId(sessionKey('codex', 'legacy')) })
+
+    expect(report?.runs).toEqual([
+      expect.objectContaining({
+        solver: expect.objectContaining({
+          totals: idle,
+          sessions: [
+            expect.objectContaining({
+              fork: false,
+              totals: idle,
+              thread_totals: [
+                {
+                  agent: legacy,
+                  tokens: {
+                    uncached_input_tokens: 4366,
+                    cache_read_input_tokens: 38_656,
+                    cache_write_input_tokens: 0,
+                    output_tokens: 38,
+                    reasoning_output_tokens: 0,
+                  },
+                },
+              ],
+            }),
+          ],
+        }) as unknown,
+      }),
+    ])
+    expect(report?.totals.solver).toEqual(idle)
+    expect(report?.active_hours).toBeGreaterThan(0)
+    expect(report?.per_active_hour?.solver).toMatchObject({ tokens: tokens(0, 0, 0, 0), records: 0 })
+    expect(reportOf(store, { run: runId(sessionKey('codex', 'legacy-fork')) })?.runs[0]?.solver.sessions).toEqual([
+      expect.objectContaining({ fork: true, totals: idle, thread_totals: [] }),
+    ])
+  })
+
+  test('marks a Claude fork, whose Claude Code total includes the inherited usage, and counts only its own records', async () => {
+    const store = await forks()
+
+    const fork = reportOf(store, { run: runId(sessionKey('claude', 'fork')) })
+    const parent = reportOf(store, { run: runId(sessionKey('claude', 'parent')) })
+
+    expect(fork?.totals.solver).toEqual({
+      ...totals(1, [2, 18_341, 427, 5]),
+      tokens: { ...tokens(2, 18_341, 427, 5), reasoning_output_tokens: 0 },
+    })
+    expect(fork?.runs[0]?.solver.sessions).toEqual([
+      expect.objectContaining({
+        fork: true,
+        cost_state: expect.objectContaining({ total_cost_usd: 0.102586 }) as unknown,
+        cost_state_final: true,
+        thread_totals: [],
+      }),
+    ])
+    expect(parent?.runs[0]?.solver.sessions).toEqual([expect.objectContaining({ fork: false, thread_totals: [] })])
   })
 })
