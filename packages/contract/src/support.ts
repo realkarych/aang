@@ -27,6 +27,12 @@ export const SupportKey = z.strictObject({
 })
 export type SupportKey = z.infer<typeof SupportKey>
 
+export const VersionKey = z.strictObject({
+  ...SupportKey.shape,
+  surface: Surface.nullable(),
+})
+export type VersionKey = z.infer<typeof VersionKey>
+
 export const SupportScenarios = z.strictObject({
   during_work: CheckResult,
   after_iteration: CheckResult,

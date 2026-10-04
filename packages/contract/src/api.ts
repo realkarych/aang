@@ -34,7 +34,7 @@ import {
   ViewRuleId,
 } from './primitives.js'
 import { RawRecord } from './raw.js'
-import { SupportKey, SupportStatus } from './support.js'
+import { SupportStatus, VersionKey } from './support.js'
 import {
   AppliedViewRule,
   AttentionPlace,
@@ -127,12 +127,17 @@ export const ObserverBackendStatus = z.strictObject({
 })
 export type ObserverBackendStatus = z.infer<typeof ObserverBackendStatus>
 
-export const VersionStatus = z.strictObject({
-  key: SupportKey,
-  status: SupportStatus,
-  sessions: count,
-  last_seen_at: EpochNs,
-})
+export const VersionStatus = z
+  .strictObject({
+    key: VersionKey,
+    status: SupportStatus,
+    sessions: count,
+    last_seen_at: EpochNs,
+  })
+  .refine(({ key, status }) => key.surface !== null || status === 'unverified', {
+    message: 'a version of an unknown surface is unverified',
+    path: ['status'],
+  })
 export type VersionStatus = z.infer<typeof VersionStatus>
 
 export const NotObservableSurface = z.enum(['claude_cowork', 'claude_cloud', 'codex_cloud', 'work_cloud'])

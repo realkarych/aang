@@ -102,14 +102,14 @@ const addTokens = (sum: TokenUsage, tokens: TokenUsage): TokenUsage => ({
       : (sum.reasoning_output_tokens ?? 0) + tokens.reasoning_output_tokens,
 })
 
-const usageTotals = (records: readonly UsageRecord[]): UsageTotals => ({
+export const usageTotals = (records: readonly UsageRecord[]): UsageTotals => ({
   tokens: records.reduce((sum, { tokens }) => addTokens(sum, tokens), noTokens),
   records: records.length,
   output_lower_bound: records.some(({ output_lower_bound: lowerBound }) => lowerBound),
   cost_usd: null,
 })
 
-const counted = (record: UsageRecord): boolean => !record.inherited && !record.synthetic
+export const counted = (record: UsageRecord): boolean => !record.inherited && !record.synthetic
 
 const byId = <T extends { readonly id: string }>(left: T, right: T): number => compareText(left.id, right.id)
 
@@ -317,6 +317,11 @@ export const solverUsage = (
   }
 }
 
+export const usageByStage = (source: UsageSource, run: RunId): Map<StageId | null, UsageRecord[]> => {
+  const { records, stageOf } = observationsOf(source, run)
+  return byStage(records, stageOf)
+}
+
 const stageSessions = (source: UsageSource, run: RunId, stage: StageId): Set<SessionId> => {
   const sessions = new Set<SessionId>()
   for (const entity of source.model.entities(run)) {
@@ -335,9 +340,8 @@ const stageSessions = (source: UsageSource, run: RunId, stage: StageId): Set<Ses
 }
 
 export const stageUsage = (source: UsageSource, run: RunId, stage: StageId): StageUsage => {
-  const { records, stageOf } = observationsOf(source, run)
   const sessions = stageSessions(source, run, stage)
-  const stages = byStage(records, stageOf)
+  const stages = usageByStage(source, run)
   return {
     stage: usageTotals(stages.get(stage) ?? []),
     unassigned_in_sessions: usageTotals((stages.get(null) ?? []).filter((record) => sessions.has(record.session))),

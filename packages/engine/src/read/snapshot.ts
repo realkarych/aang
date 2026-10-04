@@ -1,6 +1,8 @@
 import {
   type Action,
   type Agent,
+  type AttentionDelta,
+  type AttentionView,
   type ChangeSeq,
   type Fact,
   type FactsDelta,
@@ -17,18 +19,24 @@ import {
   type RunId,
   type RunSnapshot,
   type RunsResponse,
+  type RunView,
   type Session,
   type UsageRecord,
 } from '@aang/contract'
 import type { Observation, StoredObservationRemoval } from '@aang/store'
 import { compareText } from '../observations/evidence.js'
 import { reparseBoundary } from '../reparse/boundary.js'
+import { type ProjectedView, projectView } from '../view/projection.js'
+import { type SceneObjects, viewScene } from '../view/scene.js'
+import { attentionZone } from '../view/zone.js'
 import { byId, InvalidPositionError, origin, partsOf, planKinds, precedesPrune, type ReadContext, runOf } from './context.js'
 import { type RunState, summaryOf } from './summary.js'
 
 export type RunFeedEvent =
+  | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
+  | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
 
 export interface RunFeed {
   readonly position: ChangeSeq
@@ -64,9 +72,12 @@ const sortedObjects = (objects: ObservationObjects): ObservationObjects => ({
   gaps: objects.gaps.toSorted(byId),
 })
 
+const byItem = (left: AttentionView, right: AttentionView): number => compareText(left.item, right.item)
+
 const stateOf = ({ store }: ReadContext, run: Run, members: readonly Observation[]): RunState => ({
   run,
   parts: partsOf(store.model.entities(run.id)),
+  views: store.views.attention(run.id, origin).sort(byItem),
   sessions: members.filter(isSession),
   agents: members.filter(isAgent),
 })
@@ -74,9 +85,20 @@ const stateOf = ({ store }: ReadContext, run: Run, members: readonly Observation
 const summaryStateOf = (context: ReadContext, run: Run): RunState =>
   stateOf(context, run, context.store.observations.ofRun(run.id, origin, ['session', 'agent']))
 
+const projectedOf = ({ store }: ReadContext, { run, parts, agents }: RunState, objects?: Observation[]): ProjectedView => {
+  const known: SceneObjects = objects === undefined ? { parts, agents } : { parts, agents, objects }
+  return projectView(viewScene(store, run.id, known))
+}
+
+const viewOf = (context: ReadContext, state: RunState, objects?: Observation[]): RunView => ({
+  ...projectedOf(context, state, objects),
+  mark: context.store.views.mark(state.run.id),
+  zone: attentionZone(context.store.model, state.run.id, state.parts, state.views),
+})
+
 const runDelta = (context: ReadContext, state: RunState): RunDelta => ({
   summary: summaryOf(context, state),
-  view: { rules: [], placements: [], mark: null, zone: [] },
+  view: viewOf(context, state),
   bindings: state.parts.bindings,
 })
 
@@ -95,8 +117,8 @@ export const runSnapshot = (context: ReadContext, id: RunId): RunSnapshot | null
     model: { stages: parts.stages, criteria: parts.criteria, cards: parts.cards, links: parts.links },
     objects: sortedObjects(objectsOf(objects, store.gaps.ofRun(id, origin))),
     plan_facts: store.facts.ofRun(id, origin, planKinds).map(({ fact }) => fact),
-    attention: { items: parts.attention, views: [] },
-    view: { rules: [], placements: [], mark: null, zone: [] },
+    attention: { items: parts.attention, views: [...state.views] },
+    view: viewOf(context, state, objects),
     bindings: parts.bindings,
     change_seq: store.changes.head(),
   }
@@ -121,7 +143,11 @@ type FactsItem =
   | { readonly kind: 'gap'; readonly seq: ChangeSeq; readonly gap: Gap }
   | { readonly kind: 'removal'; readonly seq: ChangeSeq; readonly removal: StoredObservationRemoval }
 
-type FeedItem = FactsItem | { readonly kind: 'model'; readonly seq: ChangeSeq; readonly version: ModelVersionRecord }
+type FeedItem =
+  | FactsItem
+  | { readonly kind: 'model'; readonly seq: ChangeSeq; readonly version: ModelVersionRecord }
+  | { readonly kind: 'view'; readonly seq: ChangeSeq; readonly view: AttentionView }
+  | { readonly kind: 'mark'; readonly seq: ChangeSeq }
 
 const removalOf = ({ kind, id, replaced_by: replacedBy }: StoredObservationRemoval): ObservationRemoval => ({
   kind,
@@ -184,6 +210,7 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
     throw new InvalidPositionError(`position ${String(after)} precedes the latest prune`)
   }
   const versions = store.model.versions(id, after)
+  const marked = store.views.markChangeSeq(id)
   const first = versions[0]
   const changes =
     first === undefined
@@ -201,28 +228,53 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
       .removalsOfRun(id, after)
       .map((removal): FeedItem => ({ kind: 'removal', seq: removal.change_seq, removal })),
     ...versions.map((version): FeedItem => ({ kind: 'model', seq: version.change_seq, version })),
+    ...store.views.attention(id, after).map((view): FeedItem => ({ kind: 'view', seq: view.change_seq, view })),
+    ...(marked !== null && marked > after ? [{ kind: 'mark', seq: marked } as const] : []),
   ].sort((left, right) => left.seq - right.seq)
+  const delta = runDelta(context, summaryStateOf(context, run))
   const events: RunFeedEvent[] = []
   let group: FactsItem[] = []
-  const flush = (): void => {
+  let viewed: AttentionView[] = []
+  const flushFacts = (): void => {
     const last = group.at(-1)
     if (last !== undefined) {
       events.push({ event: 'facts', id: last.seq, data: factsDelta(id, group) })
       group = []
     }
   }
-  for (const item of items) {
-    if (item.kind === 'model') {
-      flush()
-      events.push({
-        event: 'model',
-        id: item.seq,
-        data: { run: id, version: item.version, changes: changes.get(item.version.version) ?? [] },
-      })
-    } else {
-      group.push(item)
+  const flushViews = (): void => {
+    const last = viewed.at(-1)
+    if (last !== undefined) {
+      events.push({ event: 'attention', id: last.change_seq, data: { run: id, items: [], views: viewed } })
+      viewed = []
     }
   }
-  flush()
-  return { position, events, run: runDelta(context, summaryStateOf(context, run)) }
+  for (const item of items) {
+    switch (item.kind) {
+      case 'model':
+        flushFacts()
+        flushViews()
+        events.push({
+          event: 'model',
+          id: item.seq,
+          data: { run: id, version: item.version, changes: changes.get(item.version.version) ?? [] },
+        })
+        break
+      case 'view':
+        flushFacts()
+        viewed.push(item.view)
+        break
+      case 'mark':
+        flushFacts()
+        flushViews()
+        events.push({ event: 'run', id: item.seq, data: delta })
+        break
+      default:
+        flushViews()
+        group.push(item)
+    }
+  }
+  flushFacts()
+  flushViews()
+  return { position, events, run: delta }
 }

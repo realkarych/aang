@@ -479,6 +479,18 @@ describe('fake codex injects observer failures (F.4)', () => {
     })
   })
 
+  test('a network failure fails the turn after a reconnection attempt', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [{ kind: 'network' }] })
+
+    const exit = await observer.call()
+
+    expect(exit.code).toBe(1)
+    expect(exit.events.map((event) => event.type)).toEqual(['thread.started', 'turn.started', 'error', 'error', 'turn.failed'])
+    expect(ofType(exit.events, 'turn.failed')).toMatchObject({
+      error: { message: expect.stringContaining('stream disconnected before completion') as unknown },
+    })
+  })
+
   test('invalid JSON output completes the turn with a last message that is not JSON', async ({ onTestFinished }) => {
     const observer = await setUp(onTestFinished, {
       replies: [{ kind: 'invalid_json', text: '{"base_version": 7, "ops": [' }],
