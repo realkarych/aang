@@ -537,15 +537,15 @@ const expandAll = async (panel: Locator): Promise<void> => {
     for (let opened = 0; opened < count; opened += 1) {
       await closed.first().click()
     }
+    await expect(panel.getByText(/^Загрузка/)).toHaveCount(0)
   }
-  await expect(panel.getByText(/^Загрузка/)).toHaveCount(0)
 }
 
 const shows = async (page: Page, marker: string, stale: string): Promise<void> => {
   const panel = inspector(page)
   await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
-  await expandAll(panel)
   await expect(section(page, 'Критерии')).toContainText(goalCriterionText)
+  await expandAll(panel)
   const outputs = section(page, 'Входы и выходы')
   await expect(outputs.getByRole('list', { name: 'Выходы' })).toContainText(join(resetProject, 'report.md'))
   await expect(outputs.getByRole('region', { name: /^Сохранённая версия/ }).locator('pre')).toHaveText(`${marker} report\n`)
