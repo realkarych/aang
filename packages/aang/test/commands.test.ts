@@ -9,6 +9,7 @@ describe.concurrent('aang rejects malformed command lines with usage', () => {
     { args: ['start', 'now'], message: 'aang start takes no positional arguments' },
     { args: ['start', '--port', '1'], message: "Unknown option '--port'" },
     { args: ['token'], message: 'usage: aang token rotate' },
+    { args: ['reparse', 'now'], message: 'aang reparse takes no arguments' },
   ])('aang $args', async ({ args, message }, { expect, onTestFinished }) => {
     const sandbox = await createSandbox(onTestFinished)
 

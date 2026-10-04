@@ -26,7 +26,7 @@ export interface CriteriaMonitor {
 
 export interface CriteriaMonitorOptions {
   readonly store: Store
-  readonly catalog: ContractCatalog
+  readonly catalog: () => ContractCatalog
   readonly now: () => EpochNs
   readonly fsWatch: boolean
   readonly onTreeChange: (runs: ReadonlySet<RunId>) => void
@@ -130,13 +130,14 @@ export const createCriteriaMonitor = ({
     prepare: git.prepare,
     settle,
     recheck: async (runs, trigger) => {
-      if (catalog.empty) {
+      const contracts = catalog()
+      if (contracts.empty) {
         return
       }
       const { requests, checks } = store.transaction((transaction) => {
         const selected = latestChecks(
           transaction,
-          storedRunChecks(transaction, runs ?? versionedRuns(transaction), catalog),
+          storedRunChecks(transaction, runs ?? versionedRuns(transaction), contracts),
           new Set(),
         )
         return { requests: versionedSnapshots(transaction, selected, trigger), checks: selected }

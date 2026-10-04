@@ -20,6 +20,7 @@ import { agentKey } from '../observations/evidence.js'
 import { lostSessions, type QuietWatch, settleQuiet, watchQuiet } from '../observations/freshness.js'
 import { projectSession } from '../observations/project.js'
 import { streamOwner } from '../observations/sources.js'
+import { saveReparseBoundary } from './boundary.js'
 
 export interface ReparseResult extends ReparseResponse {
   readonly head: ChangeSeq
@@ -125,6 +126,7 @@ const storedObservations = (transaction: Transaction, key: SessionKey): Observat
     ...transaction.observations.agents(session),
     ...transaction.observations.actions(session),
     ...transaction.observations.questions(session),
+    ...transaction.observations.usageRecords(session),
   ]
 }
 
@@ -177,12 +179,17 @@ export const reparse = (
   refresh: RefreshSessions,
 ): ReparseResult => {
   const tally = store.transaction((transaction) => {
+    const before = store.changes.head()
     const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map(), added: [] }
     const counted = reparseRecords(transaction, adapters, reparsed)
     const sessions = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
     queueFacts(transaction, reparsed.added)
     refresh(transaction, sessions, now)
     settleQuiet(transaction, quiet, now, quietAfterMs)
+    const after = store.changes.head()
+    if (after > before) {
+      saveReparseBoundary(transaction.settings, after, now)
+    }
     return counted
   })
   return { ...tally, head: store.changes.head() }

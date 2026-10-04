@@ -11,18 +11,21 @@ import {
   RunId,
   Session,
   type SessionId,
+  UsageRecord,
+  type UsageRecordId,
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import { decodeJson, encodeJson } from './codec.js'
 import { insertInto, prepareStatement, upsertInto, type WriteContext } from './context.js'
 
-export type Observation = Session | Agent | Action | Question
+export type Observation = Session | Agent | Action | Question | UsageRecord
 export type ObservationKind = Observation['key']['kind']
 export type ObservationDraft =
   | Omit<Session, 'change_seq'>
   | Omit<Agent, 'change_seq'>
   | Omit<Action, 'change_seq'>
   | Omit<Question, 'change_seq'>
+  | Omit<UsageRecord, 'change_seq'>
 
 export type StoredObservationRemoval = ObservationRemoval & {
   readonly run: RunId | null
@@ -36,11 +39,13 @@ export interface ObservationReader {
   readonly getAgent: (id: AgentId) => Agent | null
   readonly getAction: (id: ActionId) => Action | null
   readonly getQuestion: (id: QuestionId) => Question | null
+  readonly getUsage: (id: UsageRecordId) => UsageRecord | null
   readonly getRemoval: (removed: RemovedObservation) => StoredObservationRemoval | null
   readonly sessions: () => Session[]
   readonly agents: (session: SessionId) => Agent[]
   readonly actions: (session: SessionId) => Action[]
   readonly questions: (session: SessionId) => Question[]
+  readonly usageRecords: (session: SessionId) => UsageRecord[]
   readonly ofRun: (run: RunId, after: ChangeSeq, kinds?: readonly ObservationKind[]) => Observation[]
   readonly removalsOfRun: (run: RunId, after: ChangeSeq) => StoredObservationRemoval[]
 }
@@ -69,14 +74,16 @@ export const toObservation = (row: ObservationRow): Observation => {
       return Action.parse(value)
     case 'question':
       return Question.parse(value)
+    case 'usage':
+      return UsageRecord.parse(value)
     default:
       throw new Error(`unsupported observation kind: ${row.kind}`)
   }
 }
 
-export const observationKinds = "'session', 'agent', 'action', 'question'"
+export const observationKinds = "'session', 'agent', 'action', 'question', 'usage'"
 
-const everyObservationKind: readonly ObservationKind[] = ['session', 'agent', 'action', 'question']
+const everyObservationKind: readonly ObservationKind[] = ['session', 'agent', 'action', 'question', 'usage']
 
 export type RemovalRow = {
   readonly id: string
@@ -154,6 +161,7 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
     getAgent: (id) => Agent.nullable().parse(get(id, 'agent')),
     getAction: (id) => Action.nullable().parse(get(id, 'action')),
     getQuestion: (id) => Question.nullable().parse(get(id, 'question')),
+    getUsage: (id) => UsageRecord.nullable().parse(get(id, 'usage')),
     getRemoval: removalOf,
     sessions: () =>
       (selectSessions.all() as { readonly data: string }[]).map(({ data }) =>
@@ -162,6 +170,7 @@ export const createObservations = (database: DatabaseSync): ObservationRepositor
     agents: (session) => members('agent', session).map((value) => Agent.parse(value)),
     actions: (session) => members('action', session).map((value) => Action.parse(value)),
     questions: (session) => members('question', session).map((value) => Question.parse(value)),
+    usageRecords: (session) => members('usage', session).map((value) => UsageRecord.parse(value)),
     ofRun: (run, after, kinds = everyObservationKind) =>
       (selectOfRun.all(run, JSON.stringify(kinds), after) as ObservationRow[]).map(toObservation),
     removalsOfRun: (run, after) => (selectRemovalsOfRun.all(run, after) as RemovalRow[]).map(toRemoval),

@@ -13,3 +13,4 @@ export {
   type SchedulerOptions,
   systemClock,
 } from './scheduler.js'
+export { observerSystemPrompt } from './prompt.js'

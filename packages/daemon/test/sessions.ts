@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs'
-import { mkdir, readdir, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rename, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
 import {
   ChangeSeq,
@@ -9,12 +10,14 @@ import {
   type Runtime,
   type SessionKey,
   spoolFormat,
+  type StreamKey,
   spoolLayout,
 } from '@aang/contract'
+import { claudeAdapter } from '@aang/adapter-claude'
 import { openStore, type Store } from '@aang/store'
 import { invokeHook } from '@aang/testkit'
 import type { TestContext } from 'vitest'
-import { createHome, type Home, spawnDaemon } from './daemon.js'
+import { bearer, createHome, type Home, spawnDaemon } from './daemon.js'
 
 export interface WatchedHome {
   readonly home: Home
@@ -127,6 +130,7 @@ export const enqueue = async (
   prefix: string,
   events: readonly string[],
   runtime: Runtime = 'claude',
+  writtenAt: Date | null = null,
 ): Promise<string[]> => {
   const temporary = join(home.paths.spool, spoolLayout.temporaryDirectory)
   await mkdir(temporary, { recursive: true })
@@ -135,6 +139,9 @@ export const enqueue = async (
   for (const [index, payload] of events.entries()) {
     const name = `${prefix}-${String(index).padStart(6, '0')}.evt`
     await writeFile(join(temporary, name), spoolBytes(runtime, payload))
+    if (writtenAt !== null) {
+      await utimes(join(temporary, name), writtenAt, writtenAt)
+    }
     await rename(join(temporary, name), join(home.paths.spoolReady, name))
     names.push(name)
   }
@@ -188,6 +195,38 @@ export const restartUntil = async <T>(
   throw new Error('the store did not reach the expected state after 20 restarts')
 }
 
+export const daysAgo = (days: number): Date => new Date(Date.now() - days * 86_400_000)
+
+export const stored = <T>(home: Home, read: (database: DatabaseSync) => T, fallback: T): T => {
+  try {
+    const database = new DatabaseSync(join(home.paths.home, 'aang.db'), { readOnly: true })
+    try {
+      return read(database)
+    } finally {
+      database.close()
+    }
+  } catch {
+    return fallback
+  }
+}
+
+export const storedCount = (home: Home, sql: string, ...parameters: string[]): number =>
+  stored(home, (database) => (database.prepare(sql).get(...parameters) as { readonly count: number }).count, 0)
+
+export interface AdminAnswer {
+  readonly status: number
+  readonly body: unknown
+}
+
+export const admin = async (home: Home, base: string, action: string, body: unknown): Promise<AdminAnswer> => {
+  const response = await fetch(`${base}/api/admin/${action}`, {
+    method: 'POST',
+    headers: { ...bearer(home.token), 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return { status: response.status, body: await response.json() }
+}
+
 export const claudeTranscript = async (home: Home, project: string, session: string, lines: readonly string[]): Promise<string> => {
   const directory = join(home.root, '.claude', 'projects', project)
   await mkdir(directory, { recursive: true })
@@ -196,4 +235,12 @@ export const claudeTranscript = async (home: Home, project: string, session: str
   await writeFile(written, `${lines.join('\n')}\n`)
   await rename(written, path)
   return path
+}
+
+export const claudeStream = (session: string): StreamKey => {
+  const stream = claudeAdapter.streamKey([JSON.stringify({ sessionId: session })])
+  if (stream === null) {
+    throw new Error(`no Claude stream for ${session}`)
+  }
+  return stream
 }
