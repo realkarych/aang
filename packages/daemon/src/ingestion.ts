@@ -32,6 +32,8 @@ export interface IngestionOptions {
   readonly spool: string
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
   readonly otelToken: string
+  readonly onIngested: () => void
+  readonly onBound: () => void
 }
 
 export interface Admin {
@@ -82,6 +84,8 @@ export const startIngestion = async ({
   spool,
   runtimeRoots,
   otelToken,
+  onIngested,
+  onBound,
 }: IngestionOptions): Promise<Ingestion> => {
   let watching = loadWatch(store, config)
   const engine = createEngine({
@@ -110,6 +114,7 @@ export const startIngestion = async ({
   const pump = async (): Promise<void> => {
     for await (const batch of collector.start(store.cursors.list())) {
       const { settled, rescan } = await engine.ingest(batch)
+      onIngested()
       for (const acknowledged of settled) {
         await collector.ack(acknowledged)
       }
@@ -143,7 +148,9 @@ export const startIngestion = async ({
     }
     const result = work()
     binding = result.catch(() => undefined)
-    return (await result).binding
+    const outcome = await result
+    onBound()
+    return outcome.binding
   }
 
   const bindings: Bindings = {

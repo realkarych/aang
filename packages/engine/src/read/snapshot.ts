@@ -21,11 +21,9 @@ import {
   type RunsResponse,
   type RunView,
   type Session,
-  type SessionId,
   type UsageRecord,
 } from '@aang/contract'
 import type { Observation, StoredObservationRemoval } from '@aang/store'
-import { factSession } from '../input/scope.js'
 import { compareText } from '../observations/evidence.js'
 import { reparseBoundary } from '../reparse/boundary.js'
 import { type ProjectedView, projectView } from '../view/projection.js'
@@ -194,43 +192,6 @@ const versionChanges = (changes: readonly ModelChange[]): Map<ModelVersion, Mode
   return byVersion
 }
 
-const enteredSessions = (changes: ReadonlyMap<ModelVersion, ModelChange[]>): Set<SessionId> =>
-  new Set(
-    [...changes.values()].flatMap((list) =>
-      list.flatMap(({ after }) => (after?.kind === 'session_membership' ? [after.value.session] : [])),
-    ),
-  )
-
-const arrivals = (
-  { store }: ReadContext,
-  id: RunId,
-  after: ChangeSeq,
-  changes: ReadonlyMap<ModelVersion, ModelChange[]>,
-): FactsItem[] => {
-  const placed = new Map<SessionId, ChangeSeq>()
-  for (const entered of enteredSessions(changes)) {
-    const session = store.observations.getSession(entered)
-    if (session !== null && session.run === id && session.change_seq > after) {
-      placed.set(session.id, session.change_seq)
-    }
-  }
-  if (placed.size === 0) {
-    return []
-  }
-  const placement = (session: SessionId | null, seq: ChangeSeq): ChangeSeq | null =>
-    session === null || seq > after ? null : (placed.get(session) ?? null)
-  return [
-    ...store.facts.ofRun(id, origin, planKinds).flatMap(({ change_seq: seq, fact }): FactsItem[] => {
-      const at = placement(factSession(fact), seq)
-      return at === null ? [] : [{ kind: 'fact', seq: at, fact }]
-    }),
-    ...store.gaps.ofRun(id, origin).flatMap((gap): FactsItem[] => {
-      const at = placement(gap.session, gap.change_seq)
-      return at === null ? [] : [{ kind: 'gap', seq: at, gap }]
-    }),
-  ]
-}
-
 export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunFeed | null => {
   const { store } = context
   const position = store.changes.head()
@@ -269,7 +230,6 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
     ...versions.map((version): FeedItem => ({ kind: 'model', seq: version.change_seq, version })),
     ...store.views.attention(id, after).map((view): FeedItem => ({ kind: 'view', seq: view.change_seq, view })),
     ...(marked !== null && marked > after ? [{ kind: 'mark', seq: marked } as const] : []),
-    ...arrivals(context, id, after, changes),
   ].sort((left, right) => left.seq - right.seq)
   const delta = runDelta(context, summaryStateOf(context, run))
   const events: RunFeedEvent[] = []

@@ -15,6 +15,7 @@ import type { Transaction } from '@aang/store'
 import { interpretable } from '../ingest/queue.js'
 import { applyChangeSet, type ModelChangeDraft, type ModelEntityDraft } from '../model/journal.js'
 import { endObserverCalls } from '../model/observer.js'
+import { planKinds } from '../read/context.js'
 import { compareText } from './evidence.js'
 import { refreshForksOf } from './origins.js'
 import { sessionRun } from './runs.js'
@@ -145,6 +146,8 @@ export const transferSession = (transaction: Transaction, { session, to, at }: T
       ...stageMarks(transaction, to, runOf, touched),
     ],
   })
+  transaction.facts.resequence(session.key, planKinds)
+  transaction.gaps.resequence(session.id, to)
   refreshForksOf(transaction, from, at)
   const facts = transaction.facts.ofSession(session.key)
   const ids = facts.map(({ id }) => id)

@@ -259,7 +259,7 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
     expect(following.every(({ id }) => id !== null && id > current.id)).toBe(true)
   })
 
-  test('the stream refuses a request without the token, without a run, with an unknown run or a malformed position', async ({
+  test('the stream refuses a request without the token, with a malformed or unknown run or a malformed position', async ({
     expect,
     onTestFinished,
   }) => {
@@ -275,7 +275,7 @@ describe.concurrent('the run stream delivers the change feed over SSE', () => {
     const unknown = runId({ kind: 'session', runtime: 'claude', session: 'g5-never-seen' })
 
     expect(await refusal({ run: session.run, token: null })).toEqual([401, 'unauthorized'])
-    expect(await refusal({})).toEqual([400, 'invalid_request'])
+    expect(await refusal({ lastEventId: 'first' })).toEqual([400, 'invalid_request'])
     expect(await refusal({ run: 'not a run' })).toEqual([400, 'invalid_request'])
     expect(await refusal({ run: unknown, lastEventId: '0' })).toEqual([404, 'not_found'])
     for (const position of ['first', '-1', '1.5', '01']) {
