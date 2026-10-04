@@ -19,12 +19,10 @@ import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 import {
   briefed,
   configure,
-  configuredPath,
   installLauncher,
   observerEnvironment,
   progressOf,
   settled,
-  singlePathClaude,
   toolAttempt,
 } from './observers.js'
 import { claudeHook, codexHook, enqueue, waitUntil, watchedHome } from './sessions.js'
@@ -76,7 +74,7 @@ test('the admission and an isolation violation of the Codex observer reach /api/
   const { home, workspace } = await watchedHome(onTestFinished)
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [toolAttempt] })
   await installLauncher(home)
-  const path = await configuredPath(codex)
+  const path = codex.path
   await configure(home, workspace, { cli: { codex: path }, observer: { effort: { codex: 'low' } } })
   const launched = EpochNs.parse(BigInt(Date.now()) * 1_000_000n)
   const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
@@ -162,7 +160,7 @@ test('a subscription limit of the Codex observer shows in /api/status and both s
   const resetsAt = Math.floor(Date.now() / 1_000) + 3_600
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [{ kind: 'limit', resetsAt }] })
   await installLauncher(home)
-  await configure(home, workspace, { cli: { codex: await configuredPath(codex) } })
+  await configure(home, workspace, { cli: { codex: codex.path } })
   const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
   const status = await openStream(daemon.base, home.token, {})
   const observed = runId(codexKey('thread-g6-limit'))
@@ -185,7 +183,7 @@ test('a run stream follows its observer through admission when no facts change',
   const { home, workspace } = await watchedHome(onTestFinished)
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
   await installLauncher(home)
-  await configure(home, workspace, { cli: { codex: await configuredPath(codex) } })
+  await configure(home, workspace, { cli: { codex: codex.path } })
   const observed = runId(codexKey('thread-g6-admission'))
   const first = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
   await enqueue(home, 'codex', codexEvents('thread-g6-admission', workspace), 'codex')
@@ -194,7 +192,7 @@ test('a run stream follows its observer through admission when no facts change',
   await first.stopped
 
   const hold = { gate: join(home.root, 'gate'), started: join(home.root, 'started') }
-  await configure(home, workspace, { cli: { codex: await configuredPath(codex, hold) } })
+  await configure(home, workspace, { cli: { codex: codex.held(hold) } })
   const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
   await waitUntil(() => existsSync(hold.started))
   const feed = await openStream(daemon.base, home.token, { run: observed })
@@ -209,13 +207,14 @@ test('a run stream follows its observer through admission when no facts change',
   await feed.close()
 })
 
-test.skipIf(!singlePathClaude)(
+test(
   'a Claude run carries the unverified isolation mark in its summary and stream, and the status shows which admission left it',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
     const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
-    await configure(home, workspace, { cli: { claude: claude.command, codex: codex.command } })
+    await installLauncher(home)
+    await configure(home, workspace, { cli: { claude: claude.path, codex: codex.path } })
     const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
     const claudeRun = runId(claudeKey('session-g6-mark'))
     const codexRun = runId(codexKey('thread-g6-mark'))
