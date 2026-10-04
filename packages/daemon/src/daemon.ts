@@ -169,6 +169,7 @@ const serve = async ({
     runtimeRoots,
     otelToken: otelToken(store),
     onIngested: observer.wake,
+    onBound: observer.wake,
   }).catch(async (error: unknown) => {
     await observer.close()
     throw error
