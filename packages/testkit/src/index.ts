@@ -18,6 +18,7 @@ export {
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
   nestedStageTitles,
   preparationStageTitle,
   reportQuestionText,

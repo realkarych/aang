@@ -19,6 +19,7 @@ import {
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
   nestedStageTitles,
   observerScenarios,
   preparationStageTitle,
@@ -381,8 +382,8 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     expectGroundedInRecords(store, run)
   })
 
-  test('E2E 14: new versions keep the main work stage, the continued run replaces it, then its successor splits in two', async () => {
-    const sample = await playSample('claude-fork')
+  test('E2E 14: new versions keep the main work stage, the continued run replaces it, its successor splits in two, then the two parts merge', async () => {
+    const sample = await playSample('claude-compaction')
     const { store } = sample
     const run = runId(sessionKey('claude', original))
     const phases = observerScenarios['stage-succession']
@@ -404,12 +405,8 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     const fourth = observeBatch(store, run, 'claude', phases.revised.replies[0], at(40))
     const successor = stageTitled(store, run, continuedStageTitle)
     expect(stageTitled(store, run, mainStageTitle).lifecycle).toEqual({ state: 'replaced', by: [successor.id] })
-    await sample.play({ until: 'fork' })
+    await sample.play({ until: 'compaction' })
     const fifth = observeBatch(store, run, 'claude', phases.split.replies[0], at(50))
-
-    accepted(first, second, third, fourth, fifth)
-    expect(versionOf(second)).toBeGreaterThan(versionOf(first))
-    expect(versionOf(third)).toBeGreaterThan(versionOf(second))
     const parts = splitStageTitles.map((title) => stageTitled(store, run, title))
     expect(stageTitled(store, run, continuedStageTitle).lifecycle).toEqual({
       state: 'split',
@@ -419,8 +416,25 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       ['active', null],
       ['active', null],
     ])
+    await sample.play({ until: 'compact-boundary' })
+    const sixth = observeBatch(store, run, 'claude', phases.merged.replies[0], at(60))
+
+    accepted(first, second, third, fourth, fifth, sixth)
+    expect(versionOf(second)).toBeGreaterThan(versionOf(first))
+    expect(versionOf(third)).toBeGreaterThan(versionOf(second))
+    const merged = stageTitled(store, run, mergedStageTitle)
+    expect(merged).toMatchObject({ lifecycle: { state: 'active' }, parent: null })
+    for (const title of splitStageTitles) {
+      expect(stageTitled(store, run, title).lifecycle).toEqual({ state: 'merged', into: merged.id })
+    }
     expect(valuesOf(store, run, 'stage').map(({ title }) => title).sort()).toEqual(
-      [mainStageTitle, continuedStageTitle, ...splitStageTitles, stagesUnder(store, run, selected)[0]?.title].sort(),
+      [
+        mainStageTitle,
+        continuedStageTitle,
+        ...splitStageTitles,
+        mergedStageTitle,
+        stagesUnder(store, run, selected)[0]?.title,
+      ].sort(),
     )
     expectGroundedInRecords(store, run)
   })

@@ -27,6 +27,7 @@ export const observerScenarios = {
     live: phase([script('map')]),
     revised: phase([script('revision')]),
     split: phase([script('split')]),
+    merged: phase([script('merge')]),
   },
   chat: { live: phase([script('map')], [script('chat-answer'), script('chat-collapse-reviewers')]) },
   'llm-failure': {

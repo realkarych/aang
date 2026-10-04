@@ -25,6 +25,7 @@ export const preparationStageTitle = 'Preparation'
 export const reportStageTitle = 'Report'
 export const reportQuestionText = 'Is the report accepted?'
 export const splitStageTitles = ['Changes', 'Checks'] as const
+export const mergedStageTitle = 'Changes and checks'
 export const branchStageTitles = { build: 'Build', compile: 'Compile', verify: 'Verify', test: 'Test' } as const
 export const nestedStageTitles = { release: 'Release', bundle: 'Bundle', sign: 'Sign' } as const
 
@@ -340,6 +341,27 @@ export const splitScript = (input: ObserverInput): ObserverOutput => {
       into: parts.map(({ temp_id }): StageRef => ({ kind: 'new', temp_id })),
       evidence,
       rationale: 'The continued work divides into the changes and their checks',
+    },
+  ])
+}
+
+export const mergeScript = (input: ObserverInput): ObserverOutput => {
+  const parts = splitStageTitles.flatMap((title) => stageTitled(input, title) ?? [])
+  const [first] = parts
+  if (first === undefined || parts.length < splitStageTitles.length) {
+    return output(input, [])
+  }
+  const evidence = sentFacts(input)
+  const parent: StageRef | null = first.parent === null ? null : { kind: 'existing', id: first.parent }
+  const merged = createStage('merged', mergedStageTitle, null, parent, evidence)
+  return output(input, [
+    merged,
+    {
+      op: 'stage.merge',
+      stages: parts.map(({ id }): StageRef => ({ kind: 'existing', id })),
+      into: { kind: 'new', temp_id: merged.temp_id },
+      evidence,
+      rationale: 'The changes and their checks turn out to be one piece of work',
     },
   ])
 }
