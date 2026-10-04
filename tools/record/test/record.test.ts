@@ -2,12 +2,16 @@ import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { codexAdapter } from '@aang/adapter-codex'
+import { CollectedRecord, type ParseResult } from '@aang/contract'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
-import { afterEach, expect, test } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 import { recordSession, verifyRecording, type RecordContext, type RecordOptions } from '../dist/index.js'
 
 const temporary: string[] = []
 const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
+const hookScript = fileURLToPath(new URL('./hook-event.ts', import.meta.url))
+const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
 
@@ -26,6 +30,7 @@ const options = async (runtime: 'claude' | 'codex' = 'claude'): Promise<RecordOp
 }
 
 afterEach(async () => {
+  vi.unstubAllEnvs()
   await Promise.all(temporary.splice(0).map((directory) => rm(directory, { recursive: true, force: true })))
 })
 
@@ -262,6 +267,14 @@ test('verification detects every private input class independently of the record
     { text: String.raw`Raw JSON: {"cwd":"\/Users\/PrivatePerson\/work"}` },
     { text: String.raw`Raw JSON: {"cwd":"\u002fhome\u002fPrivatePerson\u002fwork"}` },
     { text: String.raw`Raw JSON: {"cwd":"C:\u005cUsers\u005cPrivatePerson\u005cwork"}` },
+    { attributes: [{ key: 'host.name', value: { stringValue: 'Private-Laptop.local' } }] },
+    { hostname: 'private-laptop' },
+    { machine_id: '0123456789abcdef0123456789abcdef' },
+    { pidDomain: 'linux:0123456789abcdef0123456789abcdef:pid:[4026531836]' },
+    { pidDomain: 'win32:PRIVATE-DESKTOP' },
+    { pidDomain: 'win32:bob' },
+    { origin: JSON.stringify({ hostname: 'Private-Owner-Mac' }) },
+    { status: 'Connected', source: JSON.stringify({ hostname: 'private-owner-mac' }) },
   ]
   for (const vector of vectors) {
     await writeFile(join(directory, 'unchecked.json'), JSON.stringify(vector))
@@ -370,6 +383,224 @@ test('masks credentials, short identities and escaped home paths while keeping e
   expect(value.config).toBe('/home/USER/.codex/config.toml')
   const agent = JSON.parse(content('project/agent.json')) as { payload: { source: { subagent: { thread_spawn: { agent_path: string } } } } }
   expect(agent.payload.source.subagent.thread_spawn.agent_path).toBe('/root/pong')
+})
+
+const recordedSource = (playback: Awaited<ReturnType<typeof loadManifest>>, root: string, path: string): string => {
+  const step = playback.steps.find((item) => 'target' in item && item.target.root === root && item.target.path === path)
+  return playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
+}
+
+const machineId = (): Promise<string> => readFile('/etc/machine-id', 'utf8').then((text) => text.trim(), () => '')
+
+const prefixedJson = String.raw`JSON in text: {"text":"Connected to \u0050rivate-Owner-Mac"}`
+const jsonBlock = ['```json', '{', String.raw`  "text": "Connected to \u0050rivate-Owner-Mac"`, '}', '```'].join('\n')
+
+test.each([
+  { name: 'Private-Laptop.local', spellings: ['PRIVATE-Laptop.local', 'pRiVaTe-LaPtOp.local', 'private-LAPTOP'] },
+  { name: 'bob.local', spellings: ['bob', 'BOB.local', 'Bob'] },
+  { name: '7-private.local', spellings: ['7-private', '7-PRIVATE.local'] },
+  { name: 'bob', spellings: ['bob', 'BOB'] },
+])('replaces the host name $name and the machine id of the recording machine in machine name fields in any letter case', async ({ name, spellings }) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const machine = await machineId()
+  const identities = machine ? { machine_id: machine, registry: { pidDomain: `linux:${machine}:pid:[4026531836]` } } : {}
+  const directory = await recordSession(await options('codex'), async (session) => {
+    await writeFile(join(session.project, 'host.json'), JSON.stringify({
+      resource: { attributes: [{ key: 'host.name', value: { stringValue: name } }] },
+      params: { serverName: spellings[0], status: 'disabled' },
+      pidDomain: `win32:${String(spellings.at(-1)).toUpperCase()}`,
+      origin: JSON.stringify({ hostname: spellings.at(-1) }),
+      ...identities,
+      word: 'Bobsled',
+      local: 'http://localhost:4318/v1/logs',
+    }))
+  })
+  await verifyRecording(directory)
+  const value = JSON.parse(recordedSource(await loadManifest(join(directory, 'playback.json')), 'home', 'project/host.json')) as { params: { serverName: string } }
+  const host = value.params.serverName
+  expect(host).toMatch(/^HOST_\d+$/)
+  expect(value).toEqual({
+    resource: { attributes: [{ key: 'host.name', value: { stringValue: host } }] },
+    params: { serverName: host, status: 'disabled' },
+    pidDomain: `win32:${host}`,
+    origin: JSON.stringify({ hostname: host }),
+    ...machine ? { machine_id: 'MACHINE_1', registry: { pidDomain: 'linux:MACHINE_1:pid:[4026531836]' } } : {},
+    word: 'Bobsled',
+    local: 'http://localhost:4318/v1/logs',
+  })
+})
+
+test('verification rejects a host name or machine id of this machine anywhere in any file, including escaped JSON strings, but not inside longer words', async () => {
+  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac.local')
+  const directory = await recordSession(await options('codex'), async (session) => {
+    await writeFile(join(session.project, 'result.json'), String.raw`{"text":"Private-Owner-Machine and private-owner-macs","escaped":"\u0050rivate-Owner-Machine","nested":"{\"text\":\"\\u0050rivate-Owner-Macs\"}"}`)
+  })
+  await verifyRecording(directory)
+  const machine = await machineId()
+  const mentions = [
+    'ssh Private-Owner-Mac', 'PRIVATE-OWNER-MAC.local:22', String.raw`{"text":"line\nprivate-owner-mac"}`, 'user_Private-Owner-Mac', 'Private-Owner-Mac-2',
+    String.raw`{"text":"Connected to \u0050rivate-Owner-Mac"}`,
+    String.raw`{"\u0050RIVATE-owner-mac.local":"online"}`,
+    String.raw`{"payload":"{\"text\":\"Connected to \\u0050rivate-Owner-Mac\"}"}`,
+    String.raw`{"payload":"{\"inner\":\"{\\\"text\\\":\\\"Private-Owner-\\\\u004dac\\\"}\"}"}`,
+    String.raw`plain line` + '\n' + String.raw`["ssh \u0070rivate-owner-mac"]`,
+    JSON.stringify({ description: prefixedJson }),
+    JSON.stringify({ text: jsonBlock }),
+    JSON.stringify({ payload: JSON.stringify({ text: jsonBlock }) }),
+    ...machine ? [`id ${machine}`, String.raw`{"id":"\u00${machine.charCodeAt(0).toString(16)}${machine.slice(1)}"}`] : [],
+  ]
+  for (const mention of mentions) {
+    await writeFile(join(directory, 'unchecked.txt'), mention)
+    await expect(verifyRecording(directory), mention).rejects.toThrow(/^Recording file unchecked\.txt contains the (?:host name|machine id) "/)
+  }
+})
+
+interface OtlpAttribute { readonly key: string; readonly value: { readonly stringValue: string } }
+interface OtlpLogs {
+  readonly resourceLogs: readonly {
+    readonly resource: { readonly attributes: readonly OtlpAttribute[] }
+    readonly scopeLogs: readonly { readonly logRecords: readonly { readonly attributes: readonly OtlpAttribute[] }[] }[]
+  }[]
+}
+
+const identified = (logs: OtlpLogs, host: string, account: string): OtlpLogs => ({
+  resourceLogs: logs.resourceLogs.map((resourceLogs) => ({
+    ...resourceLogs,
+    resource: {
+      ...resourceLogs.resource,
+      attributes: [
+        ...resourceLogs.resource.attributes.filter(({ key }) => key !== 'host.name'),
+        { key: 'host.name', value: { stringValue: host } },
+        { key: 'user.account_id', value: { stringValue: account } },
+      ],
+    },
+  })),
+})
+
+const decisionLogs = async (): Promise<OtlpLogs> =>
+  JSON.parse(await readFile(new URL('codex-otel/logs.envelope.tool_decision.approved-user.app-server.json', samples), 'utf8')) as OtlpLogs
+
+const sendOtlp = async (session: RecordContext, logs: OtlpLogs): Promise<void> => {
+  const response = await fetch(session.otlp, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(logs) })
+  await response.arrayBuffer()
+}
+
+test('the host name in OTLP resource attributes is replaced while the Codex adapter reads the same facts', async () => {
+  vi.stubEnv('COMPUTERNAME', 'Private-Owner-Mac')
+  const { resourceLogs } = await decisionLogs()
+  const sent = identified({ resourceLogs }, 'Private-Owner-Mac', 'acct-private-4477')
+  const directory = await recordSession(await options('codex'), async (session) => {
+    await sendOtlp(session, sent)
+  })
+  await verifyRecording(directory)
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const step = playback.steps.find((item) => item.kind === 'otlp')
+  const recorded = playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? ''
+  const received = JSON.parse(recorded) as OtlpLogs
+  const resource = Object.fromEntries(received.resourceLogs[0]?.resource.attributes.map(({ key, value }) => [key, value.stringValue]) ?? [])
+  expect(resource['host.name']).toMatch(/^HOST_\d+$/)
+  expect(resource['user.account_id']).toMatch(/^ACCOUNT_\d+$/)
+  expect(received).toEqual(identified({ resourceLogs }, String(resource['host.name']), String(resource['user.account_id'])))
+  const conversation = resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.attributes.find(({ key }) => key === 'conversation.id')?.value.stringValue
+  const stream = codexAdapter.streamKey([JSON.stringify({ hook_event_name: 'SessionStart', session_id: conversation })])
+  const parse = (payload: string): ParseResult => codexAdapter.parse(CollectedRecord.parse({
+    channel: 'otel', runtime: 'codex', stream, hook: null, observed_at: 1_790_856_592_228_739_000n, payload, position: { kind: 'otel' },
+  }))
+  expect(parse(recorded)).toMatchObject({ parse_state: 'parsed', facts: [{ kind: 'permission_decision', payload: { decision: 'approved', source: 'user' } }] })
+  expect(parse(recorded)).toEqual(parse(JSON.stringify(sent)))
+})
+
+const runtimeFile = { claude: 'projects/sample/session.jsonl', codex: 'sessions/2026/10/01/rollout-2026-10-01T12-00-00-sample.jsonl' } as const
+
+const sampleRecord = async (sample: string, line = 0): Promise<string> => {
+  const text = await readFile(new URL(sample, samples), 'utf8')
+  return JSON.stringify(JSON.parse(sample.endsWith('.jsonl') ? text.trim().split('\n')[line] ?? '' : text))
+}
+
+type Write = (session: RecordContext) => Promise<unknown>
+
+const runtimeLine = (root: 'claude' | 'codex', sample: string, line = 0, mention?: readonly [string, string]): Write => async (session) => {
+  const record = await sampleRecord(sample, line)
+  const file = join(root === 'claude' ? session.claude : session.codex, runtimeFile[root])
+  await mkdir(dirname(file), { recursive: true })
+  await writeFile(file, `${mention === undefined ? record : record.replaceAll(...mention)}\n`)
+}
+
+const hookEvent = (payload: string | Readonly<Record<string, unknown>>, mention?: readonly [string, string]): Write => async (session) => {
+  const record = typeof payload === 'string' ? await sampleRecord(payload) : JSON.stringify({ session_id: 'session-public-1', ...payload })
+  await session.run(process.execPath, [hookScript, mention === undefined ? record : record.replaceAll(...mention)])
+}
+
+const projectFile = (content: string | Readonly<Record<string, unknown>>): Write => (session) =>
+  writeFile(join(session.project, 'result.json'), typeof content === 'string' ? content : JSON.stringify(content))
+
+const commandMarkers = 'claude-code-transcripts/rec-compact-local-command-users.jsonl'
+const bashFailure = 'claude-code-hooks/PostToolUseFailure.Bash.json'
+
+test.each([
+  { name: 'command-name', runtime: 'claude', source: 'a Claude command marker', write: runtimeLine('claude', commandMarkers, 1) },
+  { name: 'local-command-stdout', runtime: 'claude', source: 'a Claude command output marker', write: runtimeLine('claude', commandMarkers, 2) },
+  { name: 'code', runtime: 'claude', source: 'the exit code prefix of a hook error', write: hookEvent(bashFailure) },
+  { name: '1', runtime: 'claude', source: 'the exit code of a hook error', write: hookEvent(bashFailure) },
+  { name: 'user', runtime: 'claude', source: 'a Claude record type', write: runtimeLine('claude', 'claude-code-transcripts/rec-user-prompt.json') },
+  { name: 'Agent', runtime: 'claude', source: 'a Claude tool name', write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-tool-use-agent.json') },
+  { name: 'end_turn', runtime: 'claude', source: 'a Claude stop reason', write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json') },
+  { name: 'interrupted', runtime: 'codex', source: 'a Codex interruption reason', write: runtimeLine('codex', 'codex-cli/rollout/event_msg.turn_aborted.mock-tui.json') },
+  { name: 'collaboration', runtime: 'codex', source: 'a Codex tool namespace', write: runtimeLine('codex', 'codex-cli/rollout/response_item.function_call.spawn_agent.mock.json') },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', '"text":"Connected to Private-Owner-Mac"']),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'escaped Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', String.raw`"text":"Connected to \u0050rivate-Owner-Mac"`]),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'an escaped permission denial reason in the spool',
+    write: hookEvent({ hook_event_name: 'PermissionDenied', tool_name: 'Bash', tool_use_id: 'toolu_denied', reason: 'SSH to Private-Owner-Mac was denied by the user' }, ['Private', String.raw`\u0050rivate`]),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'escaped JSON after a text prefix in Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', `"text":${JSON.stringify(prefixedJson)}`]),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'an escaped multiline JSON block in Claude message text',
+    write: runtimeLine('claude', 'claude-code-transcripts/rec-assistant-text-end-turn.json', 0, ['"text":"OK"', `"text":${JSON.stringify(jsonBlock)}`]),
+  },
+  { name: 'Private-Owner-Mac', runtime: 'codex', source: 'escaped JSON after a text prefix in a project value', write: projectFile({ description: prefixedJson }) },
+  { name: 'Private-Owner-Mac', runtime: 'codex', source: 'an escaped project value', write: projectFile(String.raw`{"text":"Connected to \u0050rivate-Owner-Mac"}`) },
+  {
+    name: 'Private-Owner-Mac', runtime: 'codex', source: 'an escaped value of nested serialized JSON',
+    write: projectFile(String.raw`{"payload":"{\"text\":\"Connected to \\u0050rivate-Owner-Mac\"}"}`),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'a permission denial reason',
+    write: hookEvent({ hook_event_name: 'PermissionDenied', tool_name: 'Bash', tool_use_id: 'toolu_denied', reason: 'SSH to Private-Owner-Mac was denied by the user' }),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'claude', source: 'an MCP tool result',
+    write: hookEvent({ hook_event_name: 'PostToolUse', tool_name: 'mcp__inspect__host', tool_use_id: 'toolu_mcp', tool_response: { status: 'Connected to Private-Owner-Mac' } }),
+  },
+  {
+    name: 'Private-Owner-Mac', runtime: 'codex', source: 'project values and addresses',
+    write: projectFile({ status: 'Connected to Private-Owner-Mac', source: 'ssh://Private-Owner-Mac/project', type: 'private-owner-mac' }),
+  },
+  { name: 'host', runtime: 'codex', source: 'an OTLP attribute name', write: async (session: RecordContext) => sendOtlp(session, identified(await decisionLogs(), 'host', 'acct-private-4477')) },
+  { name: 'plugin', runtime: 'claude', source: 'a spool header', write: (session: RecordContext) => session.run(process.execPath, [runtimeScript, 'claude', 'first']) },
+  { name: 'data', runtime: 'codex', source: 'the recording layout', write: projectFile({ state: 'done' }) },
+  { name: 'home', runtime: 'codex', source: 'a playback target root', write: projectFile({ state: 'done' }) },
+] as const)('the host name $name in $source aborts the recording and publishes nothing', async ({ name, runtime, write }) => {
+  vi.stubEnv('COMPUTERNAME', name)
+  const config = await options(runtime)
+  let project = ''
+  await expect(recordSession(config, async (session) => {
+    project = session.project
+    await write(session)
+  })).rejects.toThrow(`contains the host name "${name}" of this machine, which anonymization replaces only in machine name fields and never in free text or other values`)
+  await expect(stat(project)).rejects.toMatchObject({ code: 'ENOENT' })
+  const destination = join(config.fixturesRoot, runtime, '0.0.1', config.surface, os, 'tools')
+  await expect(stat(destination)).rejects.toMatchObject({ code: 'ENOENT' })
+  expect(await readdir(dirname(destination))).toEqual([])
 })
 
 test('rejects a missing, directory or non-executable hook binary before running the scenario', async () => {

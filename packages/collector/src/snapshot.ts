@@ -1,5 +1,5 @@
 import type { BigIntStats } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
+import { open, stat } from 'node:fs/promises'
 import type {
   CollectedGap,
   CollectedPosition,
@@ -12,7 +12,7 @@ import type {
 import { contentHash } from '@aang/contract/ids'
 import { absent, isMissing } from './errors.js'
 import type { Backoff, Failure, Retrier } from './retry.js'
-import { epochNs, nowNs } from './time.js'
+import { epochNs, millisecondsToNs, nowNs } from './time.js'
 import { segmentsOf, type TreeRoot } from './tree.js'
 import type { Wakeup } from './wakeup.js'
 
@@ -43,6 +43,7 @@ interface SnapshotFile {
   readonly path: string
   readonly source: SnapshotRoot
   seen: string | null
+  recheckAt: EpochNs | null
   emitted: ContentHash | null
   unsettled: Unsettled | null
   failure: Failure | null
@@ -51,6 +52,8 @@ interface SnapshotFile {
 interface Loaded {
   readonly stats: BigIntStats
   readonly content: Buffer
+  readonly changing: boolean
+  readonly startedAt: EpochNs
 }
 
 interface ReadOutcome {
@@ -60,8 +63,14 @@ interface ReadOutcome {
 
 const maxBytesPerBatch = 8 * 1024 ** 2
 const maxRecordsPerBatch = 4096
+const mtimeGranularityNs = millisecondsToNs(2_000)
 
 const fingerprint = (stats: BigIntStats): string => [stats.dev, stats.ino, stats.size, stats.mtimeNs].join(':')
+
+const recheckAfter = (stats: BigIntStats, startedAt: EpochNs): EpochNs | null => {
+  const trustedFrom = epochNs(stats.mtimeNs + mtimeGranularityNs)
+  return trustedFrom > startedAt ? trustedFrom : null
+}
 
 const isJson = (text: string): boolean => {
   try {
@@ -73,8 +82,19 @@ const isJson = (text: string): boolean => {
 }
 
 const load = async (path: string): Promise<Loaded | null> => {
-  const stats = await stat(path, { bigint: true })
-  return stats.isFile() ? { stats, content: await readFile(path) } : null
+  if (!(await stat(path)).isFile()) {
+    return null
+  }
+  const startedAt = nowNs()
+  const file = await open(path, 'r')
+  try {
+    const stats = await file.stat({ bigint: true })
+    const content = await file.readFile()
+    const after = await file.stat({ bigint: true })
+    return { stats, content, changing: fingerprint(after) !== fingerprint(stats), startedAt }
+  } finally {
+    await file.close()
+  }
 }
 
 export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): SnapshotSource => {
@@ -88,7 +108,7 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     if (existing !== undefined) {
       return existing
     }
-    const file: SnapshotFile = { path, source, seen: null, emitted: null, unsettled: null, failure: null }
+    const file: SnapshotFile = { path, source, seen: null, recheckAt: null, emitted: null, unsettled: null, failure: null }
     files.set(path, file)
     return file
   }
@@ -122,6 +142,7 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     const emitted = file.emitted
     file.emitted = null
     file.seen = null
+    file.recheckAt = null
     if (dirty.get(file.path) !== file) {
       files.delete(file.path)
     }
@@ -148,8 +169,9 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     return false
   }
 
-  const loaded = (file: SnapshotFile, { stats, content }: Loaded): CollectedRecord[] => {
+  const loaded = (file: SnapshotFile, { stats, content, startedAt }: Loaded): CollectedRecord[] => {
     file.seen = fingerprint(stats)
+    file.recheckAt = recheckAfter(stats, startedAt)
     const hash = contentHash(content)
     const payload = content.toString('utf8')
     if (hash !== file.emitted && !complete(file, hash, payload)) {
@@ -182,6 +204,10 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
       return { records: [], gaps: [] }
     }
     const gaps = retrier.recovered(file)
+    if (content?.changing === true) {
+      mark(file)
+      return { records: [], gaps }
+    }
     return { records: content === null ? vanished(file) : loaded(file, content), gaps }
   }
 
@@ -192,6 +218,9 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     }
   }
 
+  const unchanged = (file: SnapshotFile, stats: BigIntStats | null): boolean =>
+    stats !== null && fingerprint(stats) === file.seen && (file.recheckAt === null || file.recheckAt > nowNs())
+
   const listed = async (root: TreeRoot, paths: readonly string[]): Promise<void> => {
     const source = sources.get(root)
     if (source === undefined) {
@@ -201,7 +230,7 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     for (const path of present) {
       const stats = await stat(path, { bigint: true }).catch(absent)
       const file = track(source, path)
-      if (stats === null || fingerprint(stats) !== file.seen) {
+      if (!unchanged(file, stats)) {
         mark(file)
       }
     }

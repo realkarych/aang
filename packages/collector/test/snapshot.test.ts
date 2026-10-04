@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto'
-import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { CollectedRecord, type CollectedPosition } from '@aang/contract'
 import { expect, test, vi } from 'vitest'
@@ -49,6 +49,13 @@ const removal = (channel: 'registry' | 'transcript', path: string, lastContent: 
 
 const ofPath = (running: Running, path: string): CollectedRecord[] =>
   running.records().filter(({ position }) => position.kind !== 'spool' && position.kind !== 'otel' && position.path === path)
+
+const lastPositions = (running: Running): Map<string, CollectedPosition> =>
+  new Map(
+    running
+      .records()
+      .flatMap(({ position }) => (position.kind === 'spool' || position.kind === 'otel' ? [] : [[position.path, position] as const])),
+  )
 
 interface RegistryEvent {
   readonly event: string
@@ -124,6 +131,33 @@ test('the registry sequence restored from the observed lifecycle is issued in or
   }
   expect(running.gaps()).toEqual([])
   expect(running.arrivals.flatMap(({ batch }) => batch.cursors)).toEqual([])
+})
+
+test('a file rewritten while it is being read is issued with the modification time of the content it carries', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = registryPath(sandbox, '901.json')
+  const scanIntervalMs = 250
+  await mkdir(dirname(path), { recursive: true })
+  const running = runCollector(sandbox, { rootsScanIntervalMs: scanIntervalMs })
+  await sleep(scanIntervalMs)
+
+  const written = new Map<string, CollectedRecord>()
+  let last = ''
+  for (let round = 0; round < 2_000; round += 1) {
+    last = JSON.stringify({ pid: 901, sessionId: 's-901', round, padding: 'x'.repeat(round % 7) })
+    await writeFile(path, last)
+    written.set(sha256(last), snapshot('registry', path, last, (await stat(path, { bigint: true })).mtimeNs))
+  }
+  await vi.waitFor(() => {
+    expect(running.records().at(-1)).toEqual(written.get(sha256(last)))
+  })
+
+  expect(running.records()).toEqual(
+    running.records().map(({ position }) => written.get(position.kind === 'file' ? position.content_hash : '')),
+  )
+  expect(running.gaps()).toEqual([])
 })
 
 test('subagent meta, workflow and team files are snapshots of the transcript channel, other JSON files are not collected', async ({
@@ -251,6 +285,41 @@ test('with fsWatch off registry files that appear, change and disappear are foun
   ])
 })
 
+test('a rewrite that keeps the size and the modification time of the issued content is found by a later scan', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = registryPath(sandbox, '1001.json')
+  const first = JSON.stringify({ pid: 1001, sessionId: 's-1001', status: 'busy' })
+  const second = JSON.stringify({ pid: 1001, sessionId: 's-1001', status: 'idle' })
+  const tick = new Date()
+  const writeWithinTick = async (content: string): Promise<bigint> => {
+    await put(path, content)
+    await utimes(path, tick, tick)
+    return (await stat(path, { bigint: true })).mtimeNs
+  }
+  const firstAt = await writeWithinTick(first)
+  const running = runCollector(sandbox, { fsWatch: false })
+  await vi.waitFor(() => {
+    expect(running.records()).toEqual([snapshot('registry', path, first, firstAt)])
+  })
+
+  const secondAt = await writeWithinTick(second)
+  expect(secondAt).toBe(firstAt)
+  await vi.waitFor(
+    () => {
+      running.collector.rescan([])
+      expect(running.records()).toHaveLength(2)
+    },
+    { timeout: 10_000, interval: 100 },
+  )
+  running.collector.rescan([])
+  await sleep(200)
+
+  expect(running.records()).toEqual([snapshot('registry', path, first, firstAt), snapshot('registry', path, second, secondAt)])
+  expect(running.gaps()).toEqual([])
+})
+
 test('a partly written file waits for valid JSON, while content that stays invalid is issued once as it is', async ({
   onTestFinished,
 }) => {
@@ -376,9 +445,9 @@ test('removals racing with scans and watch events are issued once per incarnatio
 
   const present = new Map<string, string>()
   const settled = (): void => {
+    const positions = lastPositions(running)
     for (const path of paths) {
-      const events = ofPath(running, path)
-      const last = events.at(-1)?.position
+      const last = positions.get(path)
       const content = present.get(path)
       if (content === undefined) {
         expect([path, last?.kind ?? 'file_removed']).toEqual([path, 'file_removed'])

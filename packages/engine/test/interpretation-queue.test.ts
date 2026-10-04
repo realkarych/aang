@@ -120,7 +120,7 @@ test('a git snapshot stays out of the queue, also when its session moves to anot
 
 test('queue operations refuse invalid bounds, unknown runs and finished calls', async () => {
   const { store, begin } = await setupObserver(onTestFinished)
-  const limits = { facts: 30, bytes: 96_000, textLength: 4_000 }
+  const limits = { facts: 30, bytes: 96_000, textLength: 4_000, inputTokens: 24_000 }
   const start = (run = runA, batch = limits) =>
     store.transaction((transaction) =>
       startObserverBatch(transaction, {
