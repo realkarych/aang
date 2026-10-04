@@ -71,11 +71,15 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
   }
 
   const shift = recordTime === 'playback' ? playbackShift(manifest.sources.values(), Date.now()) : 0
+  const timed = new Map([...manifest.sources].map(([name, content]) => [name, shifted(content, shift)] as const))
   const offsets = new Map<string, number>()
   const state = { next: 0, playing: false, lastHookEnd: Number.NEGATIVE_INFINITY }
 
   const source = (name: string): Buffer =>
     required(manifest.sources.get(name), () => `${file}: source ${name} is not loaded`)
+
+  const recorded = (name: string): Buffer =>
+    required(timed.get(name), () => `${file}: source ${name} is not loaded`)
 
   const endOfLines = (name: string, content: Buffer, offset: number, lines: number): number => {
     let end = offset
@@ -90,7 +94,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
   }
 
   const nextChunk = (step: AppendStep): { chunk: Buffer; end: number } => {
-    const content = source(step.source)
+    const content = recorded(step.source)
     const offset = offsets.get(step.source) ?? 0
     const end =
       step.lines !== undefined
@@ -108,12 +112,12 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     switch (step.kind) {
       case 'append': {
         const { chunk, end } = nextChunk(step)
-        await appendTo(resolveTarget(roots, step.target), shifted(chunk, shift))
+        await appendTo(resolveTarget(roots, step.target), chunk)
         offsets.set(step.source, end)
         return
       }
       case 'write':
-        return writeWhole(resolveTarget(roots, step.target), shifted(source(step.source), shift))
+        return writeWhole(resolveTarget(roots, step.target), recorded(step.source))
       case 'remove':
         return remove(resolveTarget(roots, step.target))
       case 'move':
@@ -128,7 +132,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
             runtime: step.runtime,
             registration: step.registration,
             env: step.env,
-            payload: shifted(source(step.source), shift),
+            payload: recorded(step.source),
           })
         } finally {
           state.lastHookEnd = performance.now()
