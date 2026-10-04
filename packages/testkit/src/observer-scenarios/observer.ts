@@ -50,7 +50,7 @@ export const readObserverInput = (input: JsonValue | undefined): ObserverInput =
 
 const temp = (id: string): TempId => TempId.parse(id)
 
-const sentFacts = (input: ObserverInput): FactId[] => [
+export const sentFacts = (input: ObserverInput): FactId[] => [
   ...new Set([...input.batch.facts.map(({ id }) => id), ...input.batch.collapsed.flatMap(({ facts }) => facts)]),
 ]
 
@@ -92,7 +92,7 @@ const agentStageUpdate = (
 const factsOfAgent = (input: ObserverInput, agent: AgentId): FactId[] =>
   input.batch.facts.filter((fact) => fact.agent === agent).map(({ id }) => id)
 
-const finalSolverTexts = (input: ObserverInput): FinalText[] =>
+export const finalSolverTexts = (input: ObserverInput): FinalText[] =>
   input.batch.facts.flatMap((fact) => {
     const payload = FinalSolverText.safeParse(fact.payload)
     return fact.kind === 'message' && fact.speaker === 'solver' && fact.truncated.length === 0 && payload.success
@@ -128,7 +128,7 @@ const batchSummary = (input: ObserverInput): string => {
   return `Latest batch: ${String(sentFacts(input).length)} facts, ${String(actions.size)} actions${restored}`
 }
 
-const createStage = (
+export const createStage = (
   id: string,
   title: string,
   expected: string | null,
@@ -172,7 +172,7 @@ const assignments = (
   }))
 }
 
-const planMap = (input: ObserverInput, rootTitle: string): MapPlan => {
+export const planMap = (input: ObserverInput, rootTitle: string): MapPlan => {
   const evidence = sentFacts(input)
   const ops: ObserverOp[] = []
   const existingRoot = stageTitled(input, rootTitle)

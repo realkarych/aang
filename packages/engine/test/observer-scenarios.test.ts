@@ -2,26 +2,33 @@ import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type AgentId,
+  type AttentionItem,
+  type AttentionPlace,
   CheckContract,
   type JsonValue,
   ModelVersion,
   type RunDescription,
   type RunId,
+  RunSnapshot,
   type Stage,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { createEngine } from '@aang/engine'
+import { createEngine, createReadQueries } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
+  checksBlockerText,
+  checksStageTitle,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
   observerScenarios,
+  releaseStageTitle,
+  reviewRequestText,
 } from '@aang/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
-import { codexHooks, millisecond, otelDecision } from './attention-fixtures.js'
+import { codexHooks, codexRolloutFile, millisecond, otelDecision } from './attention-fixtures.js'
 import { hookBatch, jsonlFile, snapshotBatch } from './batches.js'
 import { adapters, factsOf, sessionKey, startEngine } from './harness.js'
 import { createHome } from './home.js'
@@ -44,6 +51,7 @@ import {
   claudeSubagentTranscript,
   claudeTranscript,
   codexChildRollout,
+  codexHook,
   codexRollout,
   codexSpawnLines,
 } from './samples.js'
@@ -452,5 +460,184 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     expect(valuesOf(store, forkRun, 'stage').map(({ title }) => title)).toEqual([mainStageTitle])
     expectGroundedInRecords(store, rootRun)
     expectGroundedInRecords(store, forkRun)
+  })
+})
+
+const sampleCwd = '/tmp/aang-spike/cc-transcripts/run'
+
+const askedQuestion = 'Which database should the parser use?'
+
+const asyncQuestion = 'Proceed with probe?'
+
+const snapshotOf = (store: Store, run: RunId): RunSnapshot => {
+  const reads = createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
+  return RunSnapshot.parse(reads.snapshot(run))
+}
+
+const itemWhere = (store: Store, run: RunId, matches: (item: AttentionItem) => boolean): AttentionItem => {
+  const item = attentionOf(store, run).find(matches)
+  if (item === undefined) {
+    throw new Error(`run ${run} has no such attention item`)
+  }
+  return item
+}
+
+const place = (item: AttentionItem, dependent: readonly Stage[] = [], waiting = false): AttentionPlace => ({
+  item: item.id,
+  waiting_for_human: waiting,
+  dependent_stages: dependent.map(({ id }) => id).sort(),
+  viewed: false,
+})
+
+const recommended = { value: 'high', call: expect.any(String) as unknown }
+
+describe('the attention scenario orders the zone, recommends and marks likely answers on the records of E2E 15 (before H.3)', () => {
+  test('Claude: waiting requests lead the zone, the blocker holds two stages, recommendations keep the order, the review request outlives the session and an off-topic prompt answers nothing', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['attention-zone'].live.replies
+    const source = { session: original, cwd: sampleCwd }
+    const askInput: JsonValue = {
+      questions: [{ question: askedQuestion, header: 'Database', options: [{ label: 'SQLite' }, { label: 'Postgres' }] }],
+    }
+
+    await sample.play({ until: 'subagent-result' })
+    await sample.deliver('1-ask.evt', {
+      payload: claudeHook('PreToolUse.Bash.json', source, {
+        tool_use_id: 'toolu_ask',
+        tool_name: 'AskUserQuestion',
+        tool_input: askInput,
+      }),
+    })
+    await sample.deliver('2-permission.evt', { payload: claudeHook('PermissionRequest.Bash.json', source) })
+    const before = snapshotOf(store, run).view.zone
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+
+    accepted(first)
+    const main = stageTitled(store, run, mainStageTitle)
+    const checks = stageTitled(store, run, checksStageTitle)
+    const release = stageTitled(store, run, releaseStageTitle)
+    expect([checks.parent, release.parent, checks.lifecycle, release.lifecycle]).toEqual([
+      null,
+      null,
+      { state: 'active' },
+      { state: 'active' },
+    ])
+    const dependencies = () =>
+      linksOf(store, run).flatMap((link) => (link.kind === 'dependency' ? [[link.stage, link.depends_on, link.via]] : []))
+    expect(dependencies()).toEqual([[release.id, checks.id, null]])
+    const asked = itemWhere(store, run, ({ author, kind }) => author === 'rule' && kind === 'question')
+    const permission = itemWhere(store, run, ({ author, kind }) => author === 'rule' && kind === 'permission')
+    const blocker = itemWhere(store, run, ({ text }) => text === checksBlockerText)
+    expect(asked).toMatchObject({ text: askedQuestion, runtime_wait: 'active', priority: recommended })
+    expect(permission).toMatchObject({ text: 'Bash: touch probe-perm.txt', runtime_wait: 'active', priority: recommended })
+    expect(blocker).toMatchObject({ author: 'observer', kind: 'blocker', stage: checks.id, priority: null })
+    const waiting = [place(asked, [main], true), place(permission, [], true), place(blocker, [checks, release])]
+    expect(snapshotOf(store, run).view.zone).toEqual(waiting)
+    expect(before.map(({ item }) => item)).toEqual([asked.id, permission.id])
+    expect(attentionOf(store, run).filter(({ kind }) => kind === 'review_request')).toEqual([])
+
+    await sample.play()
+    await sample.deliver('3-end.evt', { payload: claudeHook('SessionEnd.json', source) })
+    const ended = observeBatch(store, run, 'claude', reply, at(20))
+    await sample.deliver('4-prompt.evt', {
+      payload: claudeHook('UserPromptSubmit.json', source, { prompt: 'Now update the changelog' }),
+    })
+    const offTopic = observeBatch(store, run, 'claude', reply, at(30))
+
+    accepted(ended, offTopic)
+    const done = factsOf(store).find(
+      ({ kind, payload }) => kind === 'message' && 'final' in payload && payload.final && payload.text === 'OK',
+    )
+    const review = itemWhere(store, run, ({ text }) => text === reviewRequestText)
+    expect(review).toMatchObject({
+      author: 'observer',
+      kind: 'review_request',
+      stage: main.id,
+      resolution: 'open',
+      evidence: [done?.id],
+    })
+    expect(itemWhere(store, run, ({ id }) => id === permission.id).resolution).toBe('ended_without_answer')
+    expect(itemWhere(store, run, ({ id }) => id === asked.id)).toMatchObject({
+      runtime_wait: 'ended',
+      resolution: 'open',
+      likely_resolved: null,
+      priority: recommended,
+    })
+    expect(snapshotOf(store, run).view.zone).toEqual([
+      place(blocker, [checks, release]),
+      place(review, [main]),
+      place(asked, [main]),
+    ])
+    expect(stageTitled(store, run, mainStageTitle).execution.value.state).not.toBe('waiting')
+    expect(attentionOf(store, run).filter(({ likely_resolved }) => likely_resolved !== null)).toEqual([])
+    expect(offTopic.output.ops.filter(({ op }) => op === 'attention.likely_resolved')).toEqual([])
+    expect(
+      valuesOf(store, run, 'stage')
+        .map(({ title }) => title)
+        .filter((title) => title === checksStageTitle || title === releaseStageTitle)
+        .sort(),
+    ).toEqual([checksStageTitle, releaseStageTitle])
+    expect(dependencies()).toEqual([[release.id, checks.id, null]])
+    expect(
+      attentionOf(store, run)
+        .filter(({ author }) => author === 'observer')
+        .map(({ kind, text }) => `${kind}: ${text}`)
+        .sort(),
+    ).toEqual([`blocker: ${checksBlockerText}`, `review_request: ${reviewRequestText}`])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('Codex: a prompt that repeats the asynchronous question marks it likely answered while it stays open in the zone', async () => {
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const engine = startEngine(store, { all: true })
+    const thread = 'codex-async-thread'
+    const source = { session: thread, cwd: '/work/attention' }
+    const hook = (file: string, arrival: number, name: string, changes: Record<string, JsonValue> = {}) => ({
+      runtime: 'codex' as const,
+      registration: 'user' as const,
+      file,
+      arrival,
+      payload: codexHook(name, source, changes),
+    })
+    const run = runId(sessionKey('codex', thread))
+    const [reply] = observerScenarios['attention-zone'].live.replies
+    await engine.ingest(hookBatch(hook('ask.evt', ms(1), 'PreToolUse.request_user_input_async.json')))
+    const rollout = codexRolloutFile(
+      thread,
+      ['response_item.function_call.request_user_input_async.mock.json', 'event_msg.item_completed.AgentMessage.question-async.mock.json'],
+      51n,
+    )
+    await engine.ingest(rollout.batch(1, rollout.lines.length))
+
+    const asked = observeBatch(store, run, 'codex', reply, at(10))
+    const question = itemWhere(store, run, ({ author, kind }) => author === 'rule' && kind === 'question')
+    const answer = `${asyncQuestion} Yes, go ahead.`
+    await engine.ingest(hookBatch(hook('answer.evt', ms(2), 'UserPromptSubmit.json', { prompt: answer })))
+    const answered = observeBatch(store, run, 'codex', reply, at(20))
+
+    accepted(asked, answered)
+    expect(question).toMatchObject({
+      text: asyncQuestion,
+      runtime_wait: 'none',
+      resolution: 'open',
+      likely_resolved: null,
+      priority: recommended,
+    })
+    const prompt = factsOf(store).find(
+      ({ kind, speaker, payload }) => kind === 'prompt' && speaker === 'human' && 'text' in payload && payload.text === answer,
+    )
+    expect(itemWhere(store, run, ({ id }) => id === question.id)).toMatchObject({
+      resolution: 'open',
+      closed_at: null,
+      likely_resolved: {
+        basis: { kind: 'interpreted', interpreter: { kind: 'llm', call: expect.any(String) as unknown } },
+        evidence: [prompt?.id],
+      },
+    })
+    expect(snapshotOf(store, run).view.zone.map(({ item }) => item)).toContain(question.id)
+    expectGroundedInRecords(store, run)
   })
 })
