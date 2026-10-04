@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { createConversation, hostArguments, type PermissionResponse } from './conversation.js'
-import { pluginDirectory } from './plan.js'
+import { pluginDirectory, type SettingSource } from './plan.js'
 
 interface SdkUserMessage {
   readonly type: 'user'
@@ -14,6 +14,8 @@ interface SdkOptions {
   readonly env: Readonly<Record<string, string | undefined>>
   readonly plugins: readonly { readonly type: 'local'; readonly path: string }[]
   readonly permissionMode: 'default' | 'plan'
+  readonly settingSources?: readonly SettingSource[]
+  readonly strictMcpConfig?: boolean
   readonly resume?: string
   readonly forkSession?: boolean
   readonly stderr: (data: string) => void
@@ -81,6 +83,8 @@ const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
       env: { ...process.env, ...plan.env },
       plugins: [{ type: 'local', path: pluginDirectory(forwarded) }],
       permissionMode: plan.permissionMode,
+      ...plan.settingSources === undefined ? {} : { settingSources: plan.settingSources },
+      ...plan.strictMcpConfig ? { strictMcpConfig: true } : {},
       ...plan.resume === undefined ? {} : { resume: plan.resume },
       ...plan.fork ? { forkSession: true } : {},
       stderr: (data) => {

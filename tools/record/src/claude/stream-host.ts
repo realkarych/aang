@@ -16,6 +16,7 @@ const CancelRequest = z.looseObject({ request_id: z.string() })
 const engine = spawn(plan.engine, [
   '--output-format', 'stream-json', '--input-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio',
   ...plan.args, '--permission-mode', plan.permissionMode,
+  ...plan.settingSources === undefined ? [] : ['--setting-sources', plan.settingSources.join(',')], ...plan.strictMcpConfig ? ['--strict-mcp-config'] : [],
   ...plan.resume === undefined ? [] : ['--resume', plan.resume], ...plan.fork ? ['--fork-session'] : [],
   ...forwarded,
 ], { env: { ...process.env, ...plan.env }, stdio: ['pipe', 'pipe', 'pipe'] })

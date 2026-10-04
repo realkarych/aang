@@ -7,11 +7,11 @@ import { writeClaudePlugin } from '@aang/hook'
 import { createProcessRunner } from '@aang/observer'
 import { leaseSpool } from '@aang/testkit'
 import { createAnonymizer } from './anonymize.js'
-import { createCapture, type ControlTarget } from './capture.js'
+import { type Capture, claudeProjectName, createCapture, type ControlTarget, type CreatedEntries } from './capture.js'
 import { isMissing } from './files.js'
 import { machineIdentities } from './machine.js'
 import { startOtlpReceiver } from './otlp.js'
-import { type CodexHome, type ModelMode, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
+import { type ModelMode, type ProfileHome, RecordMetadata, recordingOs, RecordingManifest } from './schema.js'
 import { verifyRecording } from './verify.js'
 
 export interface RecordOptions {
@@ -24,7 +24,9 @@ export interface RecordOptions {
   readonly expectedFacts: readonly string[]
   readonly fixturesRoot: string
   readonly hookBinary: string
-  readonly codexHome?: CodexHome | undefined
+  readonly codexHome?: ProfileHome | undefined
+  readonly claudeHome?: ProfileHome | undefined
+  readonly created?: ((entries: CreatedEntries) => void) | undefined
 }
 
 export interface RunOptions {
@@ -39,6 +41,7 @@ export interface RunOutput {
 
 export interface RecordContext {
   readonly os: OperatingSystem
+  readonly claudeHome: ProfileHome
   readonly project: string
   readonly home: string
   readonly claude: string
@@ -77,6 +80,9 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     throw error
   })
   if (exists) throw new Error('Recording destination already exists')
+  const regularClaude = options.claudeHome === 'regular'
+  const regularCodex = options.codexHome === 'regular'
+  if (regularClaude && (metadata.runtime !== 'claude' || metadata.model !== 'live')) throw new Error('The regular Claude home is only for live Claude recordings')
   const hookBinary = resolve(options.hookBinary)
   if (!await isExecutable(hookBinary)) throw new Error('Hook binary must be an existing executable file')
   const temporary = await mkdtemp(join(tmpdir(), 'aang-record-'))
@@ -84,24 +90,23 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   const controller = new AbortController()
   const pending = new Set<Promise<unknown>>()
   const otlp = await startOtlpReceiver()
+  let created: Capture['created'] | undefined
   try {
     const root = await realpath(temporary)
     const home = join(root, 'home')
     const project = join(home, 'project')
-    const claude = join(home, '.claude')
-    const regular = options.codexHome === 'regular'
     const userHome = homedir()
-    const codex = regular ? resolve(process.env['CODEX_HOME'] ?? join(userHome, '.codex')) : join(home, '.codex')
+    const claude = regularClaude ? resolve(process.env['CLAUDE_CONFIG_DIR'] ?? join(userHome, '.claude')) : join(home, '.claude')
+    const codex = regularCodex ? resolve(process.env['CODEX_HOME'] ?? join(userHome, '.codex')) : join(home, '.codex')
     const spool = join(root, 'spool')
     const plugin = join(root, 'plugin')
     const work = join(root, 'work')
-    for (const directory of [project, claude, work, ...regular ? [] : [codex]]) await mkdir(directory, { recursive: true, mode: 0o700 })
+    for (const directory of [project, work, ...regularClaude ? [] : [claude], ...regularCodex ? [] : [codex]]) await mkdir(directory, { recursive: true, mode: 0o700 })
     await leaseSpool(spool, 24 * 60 * 60 * 1_000)
     await writeClaudePlugin({ directory: plugin, hookBinary, spool })
     const started = Date.now()
-    const codexOwner = (first: unknown): boolean => typeof first === 'object' && first !== null && 'type' in first && first.type === 'session_meta' &&
-      'payload' in first && typeof first.payload === 'object' && first.payload !== null && 'cwd' in first.payload && first.payload.cwd === project
-    const capture = await createCapture({ home, claude, codex }, spool, started, regular ? { codexOwner } : {})
+    const capture = await createCapture({ home, claude, codex }, spool, started, regularCodex || regularClaude ? { regular: { project, claude: regularClaude, codex: regularCodex } } : {})
+    created = capture.created
     otlp.listen((body, receivedAt) => {
       capture.otlp(body, receivedAt)
     })
@@ -109,12 +114,13 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     const excluded = new Set(['AANG_OBSERVER', 'CLAUDE_CODE_ENTRYPOINT', 'CLAUDE_CODE_SESSION_ID', 'CLAUDE_CODE_HOST_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CODEX_INTERNAL_ORIGINATOR_OVERRIDE'])
     const env: Record<string, string> = {
       ...Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined && !excluded.has(entry[0]))),
-      ...regular ? { HOME: userHome, USERPROFILE: userHome } : { HOME: home, USERPROFILE: home }, CODEX_HOME: codex, CLAUDE_CONFIG_DIR: claude,
+      ...regularCodex || regularClaude ? { HOME: userHome, USERPROFILE: userHome } : { HOME: home, USERPROFILE: home }, CODEX_HOME: codex,
+      ...regularClaude ? {} : { CLAUDE_CONFIG_DIR: claude },
       AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: hookBinary,
     }
     const execution: { running: boolean; failure?: Error } = { running: false }
     await scenario({
-      os, project, home, claude, codex, spool, plugin, hook: hookBinary, otlp: otlp.endpoint, work,
+      os, claudeHome: regularClaude ? 'regular' : 'isolated', project, home, claude, codex, spool, plugin, hook: hookBinary, otlp: otlp.endpoint, work,
       checkpoint: async (...args) => {
         if (execution.running) throw new Error('Await the recording command before adding a checkpoint')
         await capture.checkpoint(...args)
@@ -178,11 +184,13 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
     const canonicalProject = os === 'windows' ? 'C:\\fixture\\project' : '/fixture/project'
     const paths = new Map([
       [project, canonicalProject],
-      [project.replaceAll(/[^a-zA-Z0-9]/g, '-'), '-fixture-project'],
+      [claudeProjectName(project), '-fixture-project'],
       [home, canonicalHome],
       [root, os === 'windows' ? 'C:\\fixture\\recording' : '/fixture/recording'],
       [hookBinary, os === 'windows' ? 'C:\\fixture\\aang-hook.exe' : '/fixture/aang-hook'],
-      ...regular ? [[codex, os === 'windows' ? 'C:\\Users\\USER\\.codex' : `${canonicalHome}/.codex`] as const, [userHome, canonicalHome] as const] : [],
+      ...regularCodex ? [[codex, os === 'windows' ? 'C:\\Users\\USER\\.codex' : `${canonicalHome}/.codex`] as const] : [],
+      ...regularClaude ? [[claude, os === 'windows' ? 'C:\\Users\\USER\\.claude' : `${canonicalHome}/.claude`] as const] : [],
+      ...regularCodex || regularClaude ? [[userHome, canonicalHome] as const] : [],
     ])
     for (const [before, after] of [...paths]) {
       paths.set(before.replaceAll('\\', '/'), after.replaceAll('\\', '/'))
@@ -216,6 +224,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   } finally {
     controller.abort()
     await Promise.allSettled([...pending])
+    if (created !== undefined && options.created !== undefined && (regularCodex || regularClaude)) options.created(await created())
     await otlp.close()
     if (staging !== undefined) await removeTree(staging)
     await removeTree(temporary)

@@ -50,6 +50,7 @@ test('CLI passes the regular Codex home option of a scenario module to the recor
     const env = { ...process.env, CODEX_HOME: codexHome }
     const recorded = await exec(process.execPath, [cli, 'record', scenario], { env })
     await access(join(codexHome, 'sessions', '2026', '10', '03', 'rollout-own.jsonl'))
+    expect(recorded.stderr).toBe(`Created in the regular profile:\n  session thread-cli-1\n  ${join(codexHome, 'sessions', '2026', '10', '03', 'rollout-own.jsonl')}\n`)
     const playback = await loadManifest(join(recorded.stdout.trim(), 'playback.json'))
     expect(playback.steps.flatMap((step) => 'target' in step ? [step.target.path] : [])).toEqual(['sessions/2026/10/03/rollout-own.jsonl'])
     await writeFile(scenario, module('shared'))

@@ -16,9 +16,14 @@ const Turn = z.strictObject({
   interrupt: z.strictObject({ tool: z.string().min(1), delayMs: z.int().nonnegative() }).optional(),
 })
 
+export const SettingSource = z.enum(['user', 'project', 'local'])
+export type SettingSource = z.infer<typeof SettingSource>
+
 export const HostPlan = z.strictObject({
   engine: z.string().min(1),
   args: z.array(z.string()).default([]),
+  settingSources: z.array(SettingSource).min(1).optional(),
+  strictMcpConfig: z.boolean().default(false),
   env: z.record(z.string(), z.string()).default({}),
   initialize: z.boolean().default(false),
   resume: z.string().min(1).optional(),

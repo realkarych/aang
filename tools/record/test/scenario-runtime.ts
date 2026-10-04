@@ -45,6 +45,30 @@ switch (mode) {
     process.stdout.write(JSON.stringify({ home: process.env['HOME'], codexHome }))
     break
   }
+  case 'regular-claude': {
+    const home = process.env['HOME'] ?? ''
+    const claude = join(home, '.claude')
+    const project = join(claude, 'projects', process.cwd().replaceAll(/[^a-zA-Z0-9]/g, '-'))
+    const foreign = '9d0c51f4-6d0e-4b5e-8f3a-2f6f0f4a7c11'
+    const line = (value: unknown): string => `${JSON.stringify(value)}\n`
+    const write = async (path: string, content: string): Promise<void> => {
+      await mkdir(join(path, '..'), { recursive: true })
+      await writeFile(path, content)
+    }
+    await mkdir(join(project, 'memory'), { recursive: true })
+    await write(join(claude, 'sessions', `${String(process.pid)}.json`), JSON.stringify({ pid: process.pid, sessionId: target, cwd: process.cwd() }))
+    await write(join(project, `${target}.jsonl`), line({ type: 'user', sessionId: target, cwd: process.cwd(), message: { role: 'user', content: `Read ${join(claude, 'settings.json')}` } }))
+    await write(join(project, target, 'subagents', 'agent-a1.jsonl'), line({ type: 'user', sessionId: target, agentId: 'a1', isSidechain: true }))
+    await write(join(claude, 'tasks', target, '1.json'), JSON.stringify({ id: '1', subject: 'Own task', status: 'pending' }))
+    await mkdir(join(claude, 'session-env', target), { recursive: true })
+    await write(join(claude, 'projects', '-Users-someone-else-elsewhere', `${foreign}.jsonl`), line({ type: 'user', sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
+    await write(join(claude, 'sessions', '2.json'), JSON.stringify({ pid: 2, sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
+    await write(join(claude, 'tasks', foreign, '1.json'), JSON.stringify({ id: '1', subject: 'Foreign task', status: 'pending' }))
+    await write(join(claude, 'teams', 'team-new', 'config.json'), JSON.stringify({ name: 'team-new', leadSessionId: target }))
+    await appendFile(join(claude, 'projects', '-Users-someone-else-old', `${foreign}.jsonl`), line({ type: 'later' }))
+    process.stdout.write(JSON.stringify({ home, claudeConfigDir: process.env['CLAUDE_CONFIG_DIR'] ?? null, pid: process.pid }))
+    break
+  }
   case 'append':
     await appendFile(join(process.cwd(), 'events.jsonl'), `${JSON.stringify({ type: 'event', word: target })}\n`)
     break

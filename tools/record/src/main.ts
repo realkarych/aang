@@ -3,14 +3,15 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { parseArgs } from 'node:util'
 import { Surface } from '@aang/contract'
 import { z } from 'zod'
+import type { CreatedEntries } from './capture.js'
 import { driverOf, scenarios } from './catalog.js'
 import { recordSession, type RecordContext } from './record.js'
 import { recordScenario, scenarioModel, supportsOs } from './scenario.js'
-import { CodexHome, ModelMode, RecordMetadata, recordingOs } from './schema.js'
+import { ModelMode, ProfileHome, RecordMetadata, recordingOs } from './schema.js'
 import { verifyRecording } from './verify.js'
 
 const Scenario = z.object({
-  options: RecordMetadata.safeExtend({ fixturesRoot: z.string().min(1), hookBinary: z.string().min(1), codexHome: CodexHome.optional() }),
+  options: RecordMetadata.safeExtend({ fixturesRoot: z.string().min(1), hookBinary: z.string().min(1), codexHome: ProfileHome.optional(), claudeHome: ProfileHome.optional() }),
   run: z.custom<(context: RecordContext) => Promise<void>>((value) => typeof value === 'function'),
 })
 
@@ -19,12 +20,22 @@ const usage = [
   '  node tools/record/dist/main.js record <scenario.mjs>',
   '  node tools/record/dist/main.js verify <recording-directory>',
   '  node tools/record/dist/main.js scenarios',
-  '  node tools/record/dist/main.js scenario <surface> [name ...] [--model stub|live] [--fixtures <directory>] [--hook <aang-hook>]',
+  '  node tools/record/dist/main.js scenario <surface> [name ...] [--model stub|live] [--claude-home isolated|regular] [--fixtures <directory>] [--hook <aang-hook>]',
   '    [--claude <executable>] [--codex <executable>] [--claude-sdk <package-directory>] [--codex-sdk <package-directory>]',
   '    [--claude-desktop <executable>] [--codex-desktop <executable>]',
 ].join('\n')
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
+
+const report = (entries: CreatedEntries): void => {
+  if (entries.sessions.length === 0 && entries.paths.length === 0) return
+  process.stderr.write([
+    'Created in the regular profile:',
+    ...entries.sessions.map((session) => `  session ${session}`),
+    ...entries.paths.map((path) => `  ${path}`),
+    '',
+  ].join('\n'))
+}
 
 const listScenarios = (): void => {
   const os = recordingOs()
@@ -40,6 +51,7 @@ const runScenarios = async (args: readonly string[]): Promise<void> => {
     allowPositionals: true,
     options: {
       model: { type: 'string' },
+      'claude-home': { type: 'string' },
       fixtures: { type: 'string' },
       hook: { type: 'string' },
       claude: { type: 'string' },
@@ -53,6 +65,7 @@ const runScenarios = async (args: readonly string[]): Promise<void> => {
   const [surfaceName, ...names] = positionals
   const surface = Surface.parse(surfaceName)
   const model = values.model === undefined ? undefined : ModelMode.parse(values.model)
+  const claudeHome = values['claude-home'] === undefined ? undefined : ProfileHome.parse(values['claude-home'])
   const os = recordingOs()
   const available = scenarios.filter((scenario) => scenario.surface === surface)
   const unknown = names.filter((name) => !available.some((scenario) => scenario.name === name))
@@ -68,6 +81,8 @@ const runScenarios = async (args: readonly string[]): Promise<void> => {
       fixturesRoot,
       hookBinary,
       model,
+      claudeHome,
+      created: report,
       selection: {
         claude: values.claude,
         codex: values.codex,
@@ -100,7 +115,7 @@ const main = async (): Promise<void> => {
   }
   const loaded: unknown = await import(pathToFileURL(resolve(path)).href)
   const scenario = Scenario.parse(loaded)
-  process.stdout.write(`${await recordSession(scenario.options, scenario.run)}\n`)
+  process.stdout.write(`${await recordSession({ ...scenario.options, created: report }, scenario.run)}\n`)
 }
 
 try { await main() } catch (error) {

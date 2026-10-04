@@ -1,6 +1,7 @@
 import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
+import type { CreatedEntries } from './capture.js'
 import { recordSession, type RecordContext } from './record.js'
-import { type CodexHome, type ModelMode, recordingOs } from './schema.js'
+import { type ModelMode, type ProfileHome, recordingOs } from './schema.js'
 
 export interface EngineSelection {
   readonly claude?: string | undefined
@@ -32,7 +33,7 @@ export interface Scenario {
   readonly surface: Surface
   readonly models: readonly ModelMode[]
   readonly os?: readonly OperatingSystem[] | undefined
-  readonly codexHome?: CodexHome | undefined
+  readonly codexHome?: ProfileHome | undefined
   readonly expectedFacts: readonly string[]
   readonly run: (session: ScenarioSession) => Promise<void>
 }
@@ -48,6 +49,8 @@ export interface ScenarioOptions {
   readonly fixturesRoot: string
   readonly hookBinary: string
   readonly model?: ModelMode | undefined
+  readonly claudeHome?: ProfileHome | undefined
+  readonly created?: ((entries: CreatedEntries) => void) | undefined
   readonly selection: EngineSelection
 }
 
@@ -75,5 +78,7 @@ export const recordScenario = async (scenario: Scenario, driver: SurfaceDriver, 
     fixturesRoot: options.fixturesRoot,
     hookBinary: options.hookBinary,
     codexHome: scenario.codexHome,
+    claudeHome: options.claudeHome,
+    created: options.created,
   }, (context) => scenario.run({ ...context, model, engine }))
 }
