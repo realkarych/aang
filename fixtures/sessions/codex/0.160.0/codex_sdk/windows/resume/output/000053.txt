@@ -1,0 +1,12 @@
+{"type":"thread.started","thread_id":"01a10484-04dc-7760-a432-ee5e694bb253"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'echo first'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'echo first'","aggregated_output":"first\r\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"done"}}
+{"type":"turn.completed","usage":{"input_tokens":240,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":16,"reasoning_output_tokens":0}}
+{"type":"thread.started","thread_id":"01a10484-04dc-7760-a432-ee5e694bb253"}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_0","type":"command_execution","command":"\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'echo second'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_0","type":"command_execution","command":"\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'echo second'","aggregated_output":"second\r\n","exit_code":0,"status":"completed"}}
+{"type":"item.completed","item":{"id":"item_1","type":"agent_message","text":"done"}}
+{"type":"turn.completed","usage":{"input_tokens":480,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":32,"reasoning_output_tokens":0}}
