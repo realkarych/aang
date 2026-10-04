@@ -88,9 +88,13 @@ const edgeLabel = ({ kind, from, to, bases }: MapEdge, titles: ReadonlyMap<strin
     : `${target} начат после завершения ${source}`
 }
 
-const flowNodes = ({ source, nodes }: MapLayout, onToggle: (stage: StageId, open: boolean) => void): StageFlowNode[] =>
+const flowNodes = (
+  { source, nodes, cards }: MapLayout,
+  onToggle: (stage: StageId, open: boolean) => void,
+): StageFlowNode[] =>
   source.stages.map(({ node, parent, open }) => {
     const { x, y, width, height } = nodes.get(node.stage.id) ?? { x: 0, y: 0, width: 0, height: 0 }
+    const card = cards.get(node.stage.id)
     return {
       id: node.stage.id,
       type: 'stage',
@@ -98,7 +102,7 @@ const flowNodes = ({ source, nodes }: MapLayout, onToggle: (stage: StageId, open
       width,
       height,
       ...(parent === null ? {} : { parentId: parent }),
-      data: { node, open, onToggle },
+      data: { node, open, onToggle, ...(card === undefined ? {} : { card }) },
       draggable: false,
       selectable: false,
       connectable: false,

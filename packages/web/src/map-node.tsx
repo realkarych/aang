@@ -11,6 +11,7 @@ import type { EdgeKind, MapStage } from './map-graph.js'
 type StageNodeData = {
   readonly node: MapStage
   readonly open: boolean
+  readonly card?: ElkPoint
   readonly onToggle: (stage: StageId, open: boolean) => void
 }
 
@@ -29,7 +30,7 @@ const agentLabel = (agent: Agent): string =>
   agent.name ??
   (agent.service === null ? agentRoleLabel[agent.role] : serviceAgentLabel[agent.service])
 
-const StageCard = ({ node, open, onToggle }: StageNodeData): ReactElement => {
+const StageCard = ({ node, open, card, onToggle }: StageNodeData): ReactElement => {
   const { stage, children, actions, agents } = node
   const team = agents.map(agentLabel).join(', ')
   return (
@@ -37,6 +38,7 @@ const StageCard = ({ node, open, onToggle }: StageNodeData): ReactElement => {
       className="stage-card"
       data-tone={executionTone(stage.execution.value)}
       data-stacked={!open && children.length > 0}
+      style={card === undefined ? undefined : { left: card.x, top: card.y }}
     >
       <header className="stage-head">
         {children.length === 0 ? null : (

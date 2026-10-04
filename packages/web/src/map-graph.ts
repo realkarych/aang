@@ -138,7 +138,11 @@ export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
 }
 
 const precedes = (earlier: Span | null, later: Span | null): boolean =>
-  earlier !== null && later !== null && earlier.end !== null && earlier.end <= later.start
+  earlier !== null &&
+  later !== null &&
+  earlier.end !== null &&
+  earlier.end <= later.start &&
+  (later.end === null || earlier.start < later.end)
 
 const orderOf = (siblings: readonly MapStage[]): Array<readonly [StageId, StageId]> =>
   siblings.flatMap((later) =>
@@ -167,21 +171,11 @@ export const visibleMap = (graph: StageGraph, isOpen: (stage: MapStage) => boole
   for (const root of graph.roots) {
     place(root, null)
   }
-  const within = (inner: StageId, outer: StageId): boolean => {
-    const parent = graph.stages.get(inner)?.parent ?? null
-    return parent !== null && (parent === outer || within(parent, outer))
-  }
   const edges = new Map<string, MapEdge>()
   for (const { from, to, basis } of graph.dependencies) {
     const source = shownAs.get(from)
     const target = shownAs.get(to)
-    if (
-      source === undefined ||
-      target === undefined ||
-      source === target ||
-      within(source, target) ||
-      within(target, source)
-    ) {
+    if (source === undefined || target === undefined || source === target) {
       continue
     }
     const id = `dependency:${source}:${target}`

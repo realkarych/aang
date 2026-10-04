@@ -60,13 +60,11 @@
 
 .map-stage[data-open='true'] {
   background: var(--map-enclosure);
-  border: 1px solid var(--rule-strong);
+  box-shadow: inset 0 0 0 1px var(--rule-strong);
 }
 
 .map-stage[data-open='true'] > .stage-card {
   position: absolute;
-  top: 11px;
-  left: 11px;
 }
 
 .map-handle.react-flow__handle {

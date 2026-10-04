@@ -24,6 +24,7 @@ export const continuationQuestionText = 'Is the result of the continued run acce
 export const preparationStageTitle = 'Preparation'
 export const reportStageTitle = 'Report'
 export const reportQuestionText = 'Is the report accepted?'
+export const branchStageTitles = { build: 'Build', compile: 'Compile', verify: 'Verify', test: 'Test' } as const
 
 const nonblank = z.string().refine((text) => text.trim() !== '')
 
@@ -412,5 +413,32 @@ export const mapLayoutScript = (input: ObserverInput): ObserverOutput => {
     ...ops,
     ...preparationDone(input, preparation, preparing),
     ...reportOps(input, root, delegatedStages),
+  ])
+}
+
+export const mapBranchesScript = (input: ObserverInput): ObserverOutput => {
+  if (stageTitled(input, branchStageTitles.build) !== undefined) {
+    return output(input, [])
+  }
+  const evidence = sentFacts(input)
+  const stage = (id: keyof typeof branchStageTitles): StageRef => ({ kind: 'new', temp_id: temp(id) })
+  const depends = (
+    dependent: keyof typeof branchStageTitles,
+    on: keyof typeof branchStageTitles,
+  ): ObserverOpOf<'stage.depends'> => ({
+    op: 'stage.depends',
+    stage: stage(dependent),
+    depends_on: stage(on),
+    via: null,
+    evidence,
+    rationale: 'The stage builds on the result of the other',
+  })
+  return output(input, [
+    createStage('build', branchStageTitles.build, null, null, evidence),
+    createStage('compile', branchStageTitles.compile, null, stage('build'), evidence),
+    createStage('verify', branchStageTitles.verify, null, null, evidence),
+    createStage('test', branchStageTitles.test, null, stage('verify'), evidence),
+    depends('test', 'compile'),
+    depends('verify', 'test'),
   ])
 }

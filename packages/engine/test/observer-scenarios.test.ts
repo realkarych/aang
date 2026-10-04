@@ -14,6 +14,7 @@ import { createEngine } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
+  branchStageTitles,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
@@ -183,6 +184,39 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     expect(
       attentionOf(store, run).filter(({ author, kind }) => author === 'observer' && kind === 'question'),
     ).toMatchObject([{ text: reportQuestionText, stage: report.id, resolution: 'open' }])
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 1: the map branches put a dependency across two branches and one of a parent on its substage', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [reply] = observerScenarios['map-branches'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', reply, at(10))
+    await sample.play()
+    const second = observeBatch(store, run, 'claude', reply, at(20))
+
+    accepted(first, second)
+    const [build, compile, verify, check] = [
+      branchStageTitles.build,
+      branchStageTitles.compile,
+      branchStageTitles.verify,
+      branchStageTitles.test,
+    ].map((title) => stageTitled(store, run, title))
+    expect(valuesOf(store, run, 'stage')).toHaveLength(4)
+    expect([build?.parent, compile?.parent, verify?.parent, check?.parent]).toEqual([null, build?.id, null, verify?.id])
+    const dependencies = linksOf(store, run).flatMap((link) =>
+      link.kind === 'dependency' ? [[link.stage, link.depends_on]] : [],
+    )
+    expect(dependencies).toHaveLength(2)
+    expect(dependencies).toEqual(
+      expect.arrayContaining([
+        [check?.id, compile?.id],
+        [verify?.id, check?.id],
+      ]),
+    )
     expectGroundedInRecords(store, run)
   })
 

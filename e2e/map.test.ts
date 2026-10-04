@@ -1,6 +1,9 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
 import { endpoints, type RunId, type RunSnapshot, type Stage } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import {
+  branchStageTitles,
   mainStageTitle,
   observerScenarios,
   preparationStageTitle,
@@ -33,6 +36,57 @@ const box = async (locator: Locator): Promise<{ x: number; y: number; right: num
     throw new Error('the element has no box')
   }
   return { x: found.x, y: found.y, right: found.x + found.width, bottom: found.y + found.height }
+}
+
+const crossings = async (page: Page): Promise<string[]> =>
+  map(page).evaluate((region) => {
+    const cards = [...region.querySelectorAll('.stage-card')].map((card) => ({
+      title: card.querySelector('.stage-title')?.textContent ?? '',
+      box: card.getBoundingClientRect(),
+    }))
+    return [...region.querySelectorAll<SVGPathElement>('.react-flow__edge path.map-route')].flatMap((path) => {
+      const screen = path.getScreenCTM()
+      const points: DOMPoint[] = []
+      for (let along = 0; screen !== null && along <= path.getTotalLength(); along += 2) {
+        const { x, y } = path.getPointAtLength(along)
+        points.push(new DOMPoint(x, y).matrixTransform(screen))
+      }
+      return cards
+        .filter(({ box }) =>
+          points.some(
+            ({ x, y }) => x > box.left + 1 && x < box.right - 1 && y > box.top + 1 && y < box.bottom - 1,
+          ),
+        )
+        .map(({ title }) => `${path.textContent} × ${title}`)
+    })
+  })
+
+const bashCall = 'toolu_017B7FeHZ4yDzFdvKQMwDJB8'
+
+const stampOf = (line: string | undefined): string | undefined => /"timestamp": "([^"]+)"/.exec(line ?? '')?.[1]
+
+const withInstantCall = async (directory: string, call: string): Promise<string> => {
+  const original = sampleScenarioManifest('claude-subagent')
+  const manifest = JSON.parse(await readFile(original, 'utf8')) as { steps: Array<{ source?: string }> }
+  const sources = [...new Set(manifest.steps.flatMap(({ source }) => (source === undefined ? [] : [source])))]
+  const local = new Map(sources.map((source, index) => [source, `${String(index)}-${basename(source)}`]))
+  await mkdir(directory, { recursive: true })
+  for (const [source, name] of local) {
+    const lines = (await readFile(join(dirname(original), ...source.split('/')), 'utf8')).split('\n')
+    const started = stampOf(lines.find((line) => line.includes(`"id": "${call}"`)))
+    const instant = lines.map((line) =>
+      started !== undefined && line.includes(`"tool_use_id": "${call}"`)
+        ? line.replace(/"timestamp": "[^"]+"/, `"timestamp": "${started}"`)
+        : line,
+    )
+    await writeFile(join(directory, name), instant.join('\n'))
+  }
+  const file = join(directory, 'manifest.json')
+  const steps = manifest.steps.map((step) =>
+    step.source === undefined ? step : { ...step, source: local.get(step.source) },
+  )
+  await writeFile(file, JSON.stringify({ ...manifest, steps }))
+  return file
 }
 
 const snapshotOf = async (page: Page, run: RunId): Promise<RunSnapshot> => {
@@ -172,5 +226,79 @@ test.describe('with the observer building the map', () => {
       })
       .toBe(true)
     await expect.poll(fitted).toBe(true)
+  })
+
+  test('a preparation whose action took no time still precedes the subagent stage by a time-order line (E2E 1, map)', async ({
+    page,
+    player,
+    profile,
+  }) => {
+    const manifest = await withInstantCall(join(profile.root, 'instant-call'), bashCall)
+    const played = await player(manifest, { timeScale: 0, recordTime: 'playback' })
+    await page.goto(`/?run=${claudeRun}`)
+    await played.play({ until: 'subagent' })
+    await expect(stage(page, preparationStageTitle)).toBeVisible(observed)
+    await played.play()
+    await expect(stage(page, reportStageTitle)).toBeVisible(observed)
+
+    const bash = (await snapshotOf(page, claudeRun)).objects.actions.find(({ key }) => key.call === bashCall)
+    expect(bash?.started_at).not.toBeNull()
+    expect(bash?.ended_at).toBe(bash?.started_at)
+    await expect(edge(page, /^«pinger \(.+\)» начат после завершения «Preparation»$/)).toHaveCount(1)
+    await expect(edge(page, /^«Report» использует результат «pinger \(.+\)», основание: /)).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(2)
+  })
+})
+
+test.describe('with the observer building two branches', () => {
+  test.skip(
+    process.platform === 'win32',
+    'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
+  )
+  test.use({ claudeScenario: observerScenarios['map-branches'].live })
+
+  test('lines between open branches and from a substage to its own stage go around every card (E2E 1, map)', async ({
+    page,
+    player,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })).play()
+    await page.goto(`/?run=${claudeRun}`)
+    const { build, compile, verify, test: check } = branchStageTitles
+    await expect(stage(page, check)).toBeVisible(observed)
+    for (const title of [build, compile, verify]) {
+      await expect(stage(page, title)).toBeVisible()
+    }
+
+    const across = edge(page, /^«Test» использует результат «Compile», основание: /)
+    const upward = edge(page, /^«Verify» использует результат «Test», основание: /)
+    await expect(across).toHaveCount(1)
+    await expect(upward).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(2)
+    expect((await box(stage(page, compile))).right).toBeLessThan((await box(stage(page, check))).x)
+    await expect.poll(async () => crossings(page)).toEqual([])
+
+    const ownCard = await box(stage(page, verify).locator('.stage-card'))
+    const substage = await box(stage(page, check))
+    expect(ownCard.right).toBeLessThan(substage.x)
+
+    await stage(page, verify).getByRole('button', { name: `Свернуть «${verify}»` }).click()
+    await expect(stage(page, check)).toHaveCount(0)
+    await expect(upward).toHaveCount(0)
+    await expect(across).toHaveCount(0)
+    await expect(edge(page, /^«Verify» использует результат «Compile», основание: /)).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(1)
+    await expect.poll(async () => crossings(page)).toEqual([])
+
+    await stage(page, verify).getByRole('button', { name: `Развернуть «${verify}»` }).click()
+    await expect(upward).toHaveCount(1)
+    await expect(across).toHaveCount(1)
+    await expect(edges(page)).toHaveCount(2)
+
+    await page.setViewportSize({ width: 390, height: 844 })
+    await expect
+      .poll(async () => (await box(stage(page, compile))).bottom < (await box(stage(page, check))).y)
+      .toBe(true)
+    await expect.poll(async () => crossings(page)).toEqual([])
+    await expect(edges(page)).toHaveCount(2)
   })
 })
