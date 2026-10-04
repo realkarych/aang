@@ -1,0 +1,217 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": null,
+  "surface": "codex_exec",
+  "os": "macos",
+  "scenario": "fork",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:18:59.924Z",
+  "expected_facts": [
+    "codex exec fork <id> creates a new thread whose session_meta.forked_from_id is the source thread id",
+    "The fork continues the ordinal sequence of the source without copying its history",
+    "SessionStart in the fork has source \"fork\""
+  ],
+  "control_events": [
+    {
+      "label": "source-complete",
+      "step": 8,
+      "observed_at": "2026-10-04T01:19:00.078Z",
+      "expected_map_change": {
+        "description": "The source session completes its first turn"
+      }
+    },
+    {
+      "label": "fork-complete",
+      "step": 19,
+      "observed_at": "2026-10-04T01:19:00.844Z",
+      "expected_map_change": {
+        "description": "A forked session appears linked to its source and completes its own turn"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.jsonl",
+      "observed_at": "2026-10-04T01:19:00.000Z",
+      "mtime_ns": "1791076739999533758"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-04T01:18:59.991Z",
+      "mtime_ns": "1791076739991097138"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-04T01:18:59.991Z",
+      "mtime_ns": "1791076739991097138"
+    },
+    {
+      "source": "spool/000004.spool",
+      "observed_at": "2026-10-04T01:18:59.995Z",
+      "mtime_ns": "1791076739995564621"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-04T01:18:59.995Z",
+      "mtime_ns": "1791076739995564621"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-04T01:19:00.004Z",
+      "mtime_ns": "1791076740004276331"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-04T01:19:00.004Z",
+      "mtime_ns": "1791076740004276331"
+    },
+    {
+      "source": "data/000008.jsonl",
+      "observed_at": "2026-10-04T01:19:00.052Z",
+      "mtime_ns": "1791076740047948302"
+    },
+    {
+      "source": "spool/000009.spool",
+      "observed_at": "2026-10-04T01:19:00.043Z",
+      "mtime_ns": "1791076740043788744"
+    },
+    {
+      "source": "data/000010.json",
+      "observed_at": "2026-10-04T01:19:00.043Z",
+      "mtime_ns": "1791076740043788744"
+    },
+    {
+      "source": "data/000011.jsonl",
+      "observed_at": "2026-10-04T01:19:00.078Z",
+      "mtime_ns": "1791076740053571647"
+    },
+    {
+      "source": "spool/000012.spool",
+      "observed_at": "2026-10-04T01:19:00.052Z",
+      "mtime_ns": "1791076740052820128"
+    },
+    {
+      "source": "data/000013.json",
+      "observed_at": "2026-10-04T01:19:00.052Z",
+      "mtime_ns": "1791076740052820128"
+    },
+    {
+      "source": "spool/000014.spool",
+      "observed_at": "2026-10-04T01:19:00.061Z",
+      "mtime_ns": "1791076740061040535"
+    },
+    {
+      "source": "data/000015.json",
+      "observed_at": "2026-10-04T01:19:00.061Z",
+      "mtime_ns": "1791076740061040535"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-04T01:19:00.142Z",
+      "mtime_ns": "1791076740142000000"
+    },
+    {
+      "source": "output/000017.txt",
+      "observed_at": "2026-10-04T01:19:00.683Z",
+      "mtime_ns": "1791076740683000000"
+    },
+    {
+      "source": "output/000018.txt",
+      "observed_at": "2026-10-04T01:19:00.683Z",
+      "mtime_ns": "1791076740683000000"
+    },
+    {
+      "source": "data/000019.jsonl",
+      "observed_at": "2026-10-04T01:19:00.767Z",
+      "mtime_ns": "1791076740764644342"
+    },
+    {
+      "source": "data/000020.jsonl",
+      "observed_at": "2026-10-04T01:19:00.793Z",
+      "mtime_ns": "1791076740780874875"
+    },
+    {
+      "source": "spool/000021.spool",
+      "observed_at": "2026-10-04T01:19:00.772Z",
+      "mtime_ns": "1791076740772923237"
+    },
+    {
+      "source": "data/000022.json",
+      "observed_at": "2026-10-04T01:19:00.772Z",
+      "mtime_ns": "1791076740772923237"
+    },
+    {
+      "source": "spool/000023.spool",
+      "observed_at": "2026-10-04T01:19:00.777Z",
+      "mtime_ns": "1791076740777332379"
+    },
+    {
+      "source": "data/000024.json",
+      "observed_at": "2026-10-04T01:19:00.777Z",
+      "mtime_ns": "1791076740777332379"
+    },
+    {
+      "source": "spool/000025.spool",
+      "observed_at": "2026-10-04T01:19:00.785Z",
+      "mtime_ns": "1791076740785530855"
+    },
+    {
+      "source": "data/000026.json",
+      "observed_at": "2026-10-04T01:19:00.785Z",
+      "mtime_ns": "1791076740785530855"
+    },
+    {
+      "source": "data/000027.jsonl",
+      "observed_at": "2026-10-04T01:19:00.817Z",
+      "mtime_ns": "1791076740817264781"
+    },
+    {
+      "source": "data/000028.jsonl",
+      "observed_at": "2026-10-04T01:19:00.844Z",
+      "mtime_ns": "1791076740832152409"
+    },
+    {
+      "source": "spool/000029.spool",
+      "observed_at": "2026-10-04T01:19:00.822Z",
+      "mtime_ns": "1791076740822798531"
+    },
+    {
+      "source": "data/000030.json",
+      "observed_at": "2026-10-04T01:19:00.822Z",
+      "mtime_ns": "1791076740822798531"
+    },
+    {
+      "source": "spool/000031.spool",
+      "observed_at": "2026-10-04T01:19:00.831Z",
+      "mtime_ns": "1791076740831379975"
+    },
+    {
+      "source": "data/000032.json",
+      "observed_at": "2026-10-04T01:19:00.831Z",
+      "mtime_ns": "1791076740831379975"
+    },
+    {
+      "source": "spool/000033.spool",
+      "observed_at": "2026-10-04T01:19:00.841Z",
+      "mtime_ns": "1791076740841102153"
+    },
+    {
+      "source": "data/000034.json",
+      "observed_at": "2026-10-04T01:19:00.841Z",
+      "mtime_ns": "1791076740841102153"
+    },
+    {
+      "source": "data/000035.json",
+      "observed_at": "2026-10-04T01:19:00.918Z",
+      "mtime_ns": "1791076740918000000"
+    },
+    {
+      "source": "output/000036.txt",
+      "observed_at": "2026-10-04T01:19:01.412Z",
+      "mtime_ns": "1791076741412000000"
+    }
+  ],
+  "playback": "playback.json"
+}

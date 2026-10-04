@@ -1,0 +1,322 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": "0.160.0",
+  "surface": "codex_sdk",
+  "os": "linux",
+  "scenario": "subagents",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:21:52.171Z",
+  "expected_facts": [
+    "The root thread spawns two parallel subagents `scout` and `builder` in one step through collaboration.spawn_agent, then one wait_agent returns after both finished",
+    "Each child writes its own rollout with parent_thread_id of the root, agent_path /root/<task_name> and source.subagent.thread_spawn; with the default fork_turns the child rollout repeats the parent session_meta as its second line",
+    "Each child runs exec_command; SubagentStart and SubagentStop hooks carry the child thread id as agent_id"
+  ],
+  "control_events": [
+    {
+      "label": "child-finished",
+      "step": 27,
+      "observed_at": "2026-10-04T01:21:52.832Z",
+      "expected_map_change": {
+        "description": "A subagent stage finishes under the root SDK session and its result returns to the parent"
+      }
+    },
+    {
+      "label": "root-finished",
+      "step": 33,
+      "observed_at": "2026-10-04T01:21:52.883Z",
+      "expected_map_change": {
+        "description": "The root SDK turn completes after waiting for both subagents"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "output/000001.txt",
+      "observed_at": "2026-10-04T01:21:52.501Z",
+      "mtime_ns": "1791076912501000000"
+    },
+    {
+      "source": "output/000002.txt",
+      "observed_at": "2026-10-04T01:21:52.501Z",
+      "mtime_ns": "1791076912501000000"
+    },
+    {
+      "source": "data/000003.jsonl",
+      "observed_at": "2026-10-04T01:21:52.655Z",
+      "mtime_ns": "1791076912653150879"
+    },
+    {
+      "source": "data/000004.jsonl",
+      "observed_at": "2026-10-04T01:21:52.680Z",
+      "mtime_ns": "1791076912679494782"
+    },
+    {
+      "source": "spool/000005.spool",
+      "observed_at": "2026-10-04T01:21:52.662Z",
+      "mtime_ns": "1791076912662151061"
+    },
+    {
+      "source": "data/000006.json",
+      "observed_at": "2026-10-04T01:21:52.662Z",
+      "mtime_ns": "1791076912662151061"
+    },
+    {
+      "source": "spool/000007.spool",
+      "observed_at": "2026-10-04T01:21:52.665Z",
+      "mtime_ns": "1791076912665151121"
+    },
+    {
+      "source": "data/000008.json",
+      "observed_at": "2026-10-04T01:21:52.665Z",
+      "mtime_ns": "1791076912665151121"
+    },
+    {
+      "source": "data/000009.jsonl",
+      "observed_at": "2026-10-04T01:21:52.706Z",
+      "mtime_ns": "1791076912700151829"
+    },
+    {
+      "source": "data/000010.jsonl",
+      "observed_at": "2026-10-04T01:21:52.707Z",
+      "mtime_ns": "1791076912702151870"
+    },
+    {
+      "source": "spool/000011.spool",
+      "observed_at": "2026-10-04T01:21:52.684Z",
+      "mtime_ns": "1791076912684151506"
+    },
+    {
+      "source": "data/000012.json",
+      "observed_at": "2026-10-04T01:21:52.684Z",
+      "mtime_ns": "1791076912684151506"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-04T01:21:52.700Z",
+      "mtime_ns": "1791076912700151829"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:21:52.700Z",
+      "mtime_ns": "1791076912700151829"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-04T01:21:52.705Z",
+      "mtime_ns": "1791076912705151931"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-04T01:21:52.705Z",
+      "mtime_ns": "1791076912705151931"
+    },
+    {
+      "source": "data/000017.jsonl",
+      "observed_at": "2026-10-04T01:21:52.734Z",
+      "mtime_ns": "1791076912726152355"
+    },
+    {
+      "source": "data/000018.jsonl",
+      "observed_at": "2026-10-04T01:21:52.734Z",
+      "mtime_ns": "1791076912724152315"
+    },
+    {
+      "source": "data/000019.jsonl",
+      "observed_at": "2026-10-04T01:21:52.734Z",
+      "mtime_ns": "1791076912731152457"
+    },
+    {
+      "source": "spool/000020.spool",
+      "observed_at": "2026-10-04T01:21:52.707Z",
+      "mtime_ns": "1791076912707151971"
+    },
+    {
+      "source": "data/000021.json",
+      "observed_at": "2026-10-04T01:21:52.707Z",
+      "mtime_ns": "1791076912707151971"
+    },
+    {
+      "source": "spool/000022.spool",
+      "observed_at": "2026-10-04T01:21:52.722Z",
+      "mtime_ns": "1791076912722152274"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-04T01:21:52.722Z",
+      "mtime_ns": "1791076912722152274"
+    },
+    {
+      "source": "spool/000024.spool",
+      "observed_at": "2026-10-04T01:21:52.731Z",
+      "mtime_ns": "1791076912731152457"
+    },
+    {
+      "source": "data/000025.json",
+      "observed_at": "2026-10-04T01:21:52.731Z",
+      "mtime_ns": "1791076912731152457"
+    },
+    {
+      "source": "spool/000026.spool",
+      "observed_at": "2026-10-04T01:21:52.734Z",
+      "mtime_ns": "1791076912734152517"
+    },
+    {
+      "source": "data/000027.json",
+      "observed_at": "2026-10-04T01:21:52.734Z",
+      "mtime_ns": "1791076912734152517"
+    },
+    {
+      "source": "data/000028.jsonl",
+      "observed_at": "2026-10-04T01:21:52.759Z",
+      "mtime_ns": "1791076912748152801"
+    },
+    {
+      "source": "spool/000029.spool",
+      "observed_at": "2026-10-04T01:21:52.753Z",
+      "mtime_ns": "1791076912753152902"
+    },
+    {
+      "source": "data/000030.json",
+      "observed_at": "2026-10-04T01:21:52.753Z",
+      "mtime_ns": "1791076912753152902"
+    },
+    {
+      "source": "data/000031.jsonl",
+      "observed_at": "2026-10-04T01:21:52.782Z",
+      "mtime_ns": "1791076912780153448"
+    },
+    {
+      "source": "data/000032.jsonl",
+      "observed_at": "2026-10-04T01:21:52.808Z",
+      "mtime_ns": "1791076912787153590"
+    },
+    {
+      "source": "data/000033.jsonl",
+      "observed_at": "2026-10-04T01:21:52.809Z",
+      "mtime_ns": "1791076912794522262"
+    },
+    {
+      "source": "spool/000034.spool",
+      "observed_at": "2026-10-04T01:21:52.786Z",
+      "mtime_ns": "1791076912786153569"
+    },
+    {
+      "source": "data/000035.json",
+      "observed_at": "2026-10-04T01:21:52.786Z",
+      "mtime_ns": "1791076912786153569"
+    },
+    {
+      "source": "spool/000036.spool",
+      "observed_at": "2026-10-04T01:21:52.792Z",
+      "mtime_ns": "1791076912792153691"
+    },
+    {
+      "source": "data/000037.json",
+      "observed_at": "2026-10-04T01:21:52.792Z",
+      "mtime_ns": "1791076912792153691"
+    },
+    {
+      "source": "data/000038.json",
+      "observed_at": "2026-10-04T01:21:52.817Z",
+      "mtime_ns": "1791076912817000000"
+    },
+    {
+      "source": "data/000039.jsonl",
+      "observed_at": "2026-10-04T01:21:52.832Z",
+      "mtime_ns": "1791076912826154379"
+    },
+    {
+      "source": "data/000040.jsonl",
+      "observed_at": "2026-10-04T01:21:52.832Z",
+      "mtime_ns": "1791076912820385697"
+    },
+    {
+      "source": "data/000041.jsonl",
+      "observed_at": "2026-10-04T01:21:52.833Z",
+      "mtime_ns": "1791076912825154358"
+    },
+    {
+      "source": "spool/000042.spool",
+      "observed_at": "2026-10-04T01:21:52.819Z",
+      "mtime_ns": "1791076912819154237"
+    },
+    {
+      "source": "data/000043.json",
+      "observed_at": "2026-10-04T01:21:52.819Z",
+      "mtime_ns": "1791076912819154237"
+    },
+    {
+      "source": "spool/000044.spool",
+      "observed_at": "2026-10-04T01:21:52.825Z",
+      "mtime_ns": "1791076912825154358"
+    },
+    {
+      "source": "data/000045.json",
+      "observed_at": "2026-10-04T01:21:52.825Z",
+      "mtime_ns": "1791076912825154358"
+    },
+    {
+      "source": "data/000046.jsonl",
+      "observed_at": "2026-10-04T01:21:52.856Z",
+      "mtime_ns": "1791076912855154965"
+    },
+    {
+      "source": "spool/000047.spool",
+      "observed_at": "2026-10-04T01:21:52.849Z",
+      "mtime_ns": "1791076912849154844"
+    },
+    {
+      "source": "data/000048.json",
+      "observed_at": "2026-10-04T01:21:52.849Z",
+      "mtime_ns": "1791076912849154844"
+    },
+    {
+      "source": "spool/000049.spool",
+      "observed_at": "2026-10-04T01:21:52.854Z",
+      "mtime_ns": "1791076912854154945"
+    },
+    {
+      "source": "data/000050.json",
+      "observed_at": "2026-10-04T01:21:52.854Z",
+      "mtime_ns": "1791076912854154945"
+    },
+    {
+      "source": "data/000051.jsonl",
+      "observed_at": "2026-10-04T01:21:52.883Z",
+      "mtime_ns": "1791076912877155410"
+    },
+    {
+      "source": "spool/000052.spool",
+      "observed_at": "2026-10-04T01:21:52.876Z",
+      "mtime_ns": "1791076912876155390"
+    },
+    {
+      "source": "data/000053.json",
+      "observed_at": "2026-10-04T01:21:52.876Z",
+      "mtime_ns": "1791076912876155390"
+    },
+    {
+      "source": "spool/000054.spool",
+      "observed_at": "2026-10-04T01:21:52.885Z",
+      "mtime_ns": "1791076912885155572"
+    },
+    {
+      "source": "data/000055.json",
+      "observed_at": "2026-10-04T01:21:52.885Z",
+      "mtime_ns": "1791076912885155572"
+    },
+    {
+      "source": "data/000056.json",
+      "observed_at": "2026-10-04T01:21:52.984Z",
+      "mtime_ns": "1791076912984000000"
+    },
+    {
+      "source": "output/000057.txt",
+      "observed_at": "2026-10-04T01:21:53.032Z",
+      "mtime_ns": "1791076913032000000"
+    }
+  ],
+  "playback": "playback.json"
+}
