@@ -6,8 +6,9 @@ import type { z } from 'zod'
 import { emit, isJsonObject, parseJson, readText } from './io.js'
 import type { CodexScenario } from './scenario.js'
 
-type HookState = Exclude<z.output<typeof CodexScenario>['hooks'], 'unlisted'>
-type ListedHooks = z.output<typeof CodexScenario>['hooks']
+type HookState = Exclude<z.output<typeof CodexScenario>['hooks'], 'unlisted' | 'unanswered'>
+type ListedHooks = Exclude<z.output<typeof CodexScenario>['hooks'], 'unanswered'>
+type ServedHooks = z.output<typeof CodexScenario>['hooks']
 type JsonObject = { readonly [key: string]: JsonValue }
 
 const listedState: Readonly<Record<HookState, { readonly trustStatus: string; readonly enabled: boolean }>> = {
@@ -49,7 +50,7 @@ const listHooks = (codexHome: string, state: ListedHooks): JsonValue[] => {
   )
 }
 
-export const serveAppServer = async (state: ListedHooks): Promise<void> => {
+export const serveAppServer = async (state: ServedHooks): Promise<void> => {
   const codexHome = process.env.CODEX_HOME ?? ''
   for await (const line of createInterface({ input: process.stdin })) {
     const request = parseJson(line)
@@ -59,6 +60,9 @@ export const serveAppServer = async (state: ListedHooks): Promise<void> => {
     if (request.method === 'initialize') {
       emit({ id: request.id, result: { userAgent: 'fake-codex', codexHome } })
     } else if (request.method === 'hooks/list') {
+      if (state === 'unanswered') {
+        continue
+      }
       emit({
         id: request.id,
         result: { data: [{ cwd: process.cwd(), hooks: listHooks(codexHome, state), errors: [], warnings: [] }] },

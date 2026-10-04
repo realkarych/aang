@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { appendFile, mkdir, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import {
@@ -26,6 +26,7 @@ import { describe, test } from 'vitest'
 import { bearer, createHome, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 import {
   claudeHook,
+  claudeSession,
   claudeTranscript,
   hookBinary,
   hookEvent,
@@ -139,6 +140,12 @@ const isRunning = (pid: number): boolean => {
   }
 }
 
+const withVersion = (lines: readonly string[], version: string): string[] =>
+  lines.map((line) => {
+    const record = JSON.parse(line) as Record<string, unknown>
+    return JSON.stringify('version' in record ? { ...record, version } : record)
+  })
+
 const supportRow = (row: Pick<SupportRow, 'runtime' | 'surface' | 'engine_version' | 'status'>): SupportRow => ({
   ...row,
   os: hostOs,
@@ -242,20 +249,55 @@ describe.skipIf(process.platform === 'win32')('the static hooks state of ADR-000
       expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
     },
   )
+
+  test(
+    'the checks own their process trees: a descendant of a finished Claude check is stopped, and stopping the daemon cancels hanging checks',
+    { timeout: 60_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, claude, codex, claudeHome, codexHome } = await connect(onTestFinished, {})
+      const descendantFile = join(home.root, 'plugin-descendant.pid')
+      claude.setScenario({ pluginDescendant: { pidFile: descendantFile } })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, hooksAre({ claude: 'not_installed', codex: 'not_installed' }))
+      expect(isRunning(Number(await readFile(descendantFile, 'utf8')))).toBe(false)
+
+      claude.setScenario({ pluginHang: true })
+      codex.setScenario({ hooks: 'unanswered' })
+      const finished = { claude: fakeCalls(claude, 'plugin').length, codex: fakeCalls(codex, 'app_server').length }
+      await writeFile(join(claudeHome, 'settings.json'), '{}')
+      await writeFile(join(codexHome, 'hooks.json'), '{}')
+      await waitUntil(
+        () =>
+          fakeCalls(claude, 'plugin').length > finished.claude && fakeCalls(codex, 'app_server').length > finished.codex,
+      )
+      const hanging = [
+        ...fakeCalls(claude, 'plugin').slice(finished.claude),
+        ...fakeCalls(codex, 'app_server').slice(finished.codex),
+      ]
+      expect(hanging.filter(({ pid }) => isRunning(pid))).toHaveLength(2)
+
+      const stopping = Date.now()
+      daemon.abort()
+      await daemon.stopped
+      expect(Date.now() - stopping).toBeLessThan(7_000)
+      expect(hanging.filter(({ pid }) => isRunning(pid))).toEqual([])
+    },
+  )
 })
 
 test(
-  'versions of the sessions carry their support status from the matrix by the OS and placement of the daemon',
+  'versions of the sessions carry their support status from the matrix by the OS and placement of the daemon, a version of an unknown surface stays visible as unverified, and a configured placement has its own rows',
   { timeout: 60_000 },
   async ({ expect, onTestFinished }) => {
     const home = await createHome(onTestFinished)
     const workspace = join(home.root, 'work')
     await mkdir(workspace)
-    await writeConfig(home, {
+    const config = {
       cli: { claude: join(home.root, 'no-cli', 'claude'), codex: join(home.root, 'no-cli', 'codex') },
       collector: { rootsScanIntervalMs: 200 },
       watch: { roots: [{ path: workspace }] },
-    })
+    }
+    await writeConfig(home, config)
     const matrix: SupportMatrix = {
       format: supportMatrixFormat,
       rows: [supportRow({ runtime: 'claude', surface: 'claude_cli', engine_version: '2.1.286', status: 'limited' })],
@@ -263,16 +305,27 @@ test(
     const supportMatrix = join(home.root, 'matrix.json')
     await writeFile(supportMatrix, JSON.stringify(matrix))
     const session = 'g7-versions'
+    const filesOnly = 'g7-files-only'
     await claudeTranscript(home, '-work', session, transcriptLines(session, workspace, 22))
+    await claudeTranscript(home, '-work', filesOnly, withVersion(transcriptLines(filesOnly, workspace, 22), '999.0.0'))
     await writeRollout(join(home.root, '.codex'), workspace)
 
     const local = await startDaemon(home, onTestFinished, { supportMatrix })
     await hookEvent(home, claudeHook('SessionStart.startup', session, workspace))
-    const seen = await statusUntil(local, home, ({ versions }) => versions.length === 2)
+    const seen = await statusUntil(
+      local,
+      home,
+      ({ versions }) => versions.length === 3 && versions.some(({ key }) => key.surface === 'claude_cli'),
+    )
     expect(seen.versions.map(({ key, status, sessions }) => ({ key, status, sessions }))).toEqual([
       {
         key: { runtime: 'claude', surface: 'claude_cli', os: hostOs, placement: 'local', engine_version: '2.1.286' },
         status: 'limited',
+        sessions: 1,
+      },
+      {
+        key: { runtime: 'claude', surface: null, os: hostOs, placement: 'local', engine_version: '999.0.0' },
+        status: 'unverified',
         sessions: 1,
       },
       {
@@ -282,7 +335,7 @@ test(
       },
     ])
     expect(hooksOf(seen)).toEqual({ claude: 'unknown', codex: 'unknown' })
-    expect(runtimeOf(seen, 'claude')?.hooks_inactive_sessions).toEqual([])
+    expect(runtimeOf(seen, 'claude')?.hooks_inactive_sessions).toEqual([objectId(claudeSession(filesOnly))])
     expect(runtimeOf(seen, 'codex')?.hooks_inactive_sessions).toEqual([
       objectId({ kind: 'session', runtime: 'codex', session: rolloutThread }),
     ])
@@ -290,11 +343,24 @@ test(
     local.abort()
     await local.stopped
 
-    const docker = await startDaemon(home, onTestFinished, { supportMatrix, placement: 'docker' })
-    const contained = await readStatus(docker, home)
-    expect(contained.versions.map(({ key: { placement }, status }) => ({ placement, status }))).toEqual([
-      { placement: 'docker', status: 'unverified' },
-      { placement: 'docker', status: 'unverified' },
+    const placed = async (settings: Parameters<typeof startDaemon>[2]) => {
+      const daemon = await startDaemon(home, onTestFinished, { supportMatrix, ...settings })
+      const { versions } = await readStatus(daemon, home)
+      daemon.abort()
+      await daemon.stopped
+      return versions.map(({ key: { placement }, status }) => ({ placement, status }))
+    }
+    const unverifiedIn = (placement: string) => Array.from({ length: 3 }, () => ({ placement, status: 'unverified' }))
+    expect(await placed({ placement: 'docker' })).toEqual(unverifiedIn('docker'))
+    for (const placement of ['vm', 'desktop_ssh']) {
+      await writeConfig(home, { ...config, placement })
+      expect(await placed({})).toEqual(unverifiedIn(placement))
+    }
+    await writeConfig(home, { ...config, placement: 'local' })
+    expect(await placed({ placement: 'docker' })).toEqual([
+      { placement: 'local', status: 'limited' },
+      { placement: 'local', status: 'unverified' },
+      { placement: 'local', status: 'unverified' },
     ])
   },
 )

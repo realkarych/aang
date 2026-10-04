@@ -58,6 +58,8 @@ export const ClaudeScenario = z.strictObject({
   replies: z.array(ClaudeReply).default(() => []),
   chatReplies: z.array(ClaudeReply).default(() => []),
   pluginFailures: z.array(ClaudePluginCommand).default(() => []),
+  pluginHang: z.boolean().default(false),
+  pluginDescendant: Descendant.optional(),
 })
 export type ClaudeScenario = z.input<typeof ClaudeScenario>
 
@@ -90,7 +92,7 @@ export const CodexScenario = z.strictObject({
   leakedTools: z.array(z.string()).default(() => []),
   replies: z.array(CodexReply).default(() => []),
   chatReplies: z.array(CodexReply).default(() => []),
-  hooks: z.enum(['untrusted', 'trusted', 'disabled', 'unlisted']).default('untrusted'),
+  hooks: z.enum(['untrusted', 'trusted', 'disabled', 'unlisted', 'unanswered']).default('untrusted'),
 })
 export type CodexScenario = z.input<typeof CodexScenario>
 

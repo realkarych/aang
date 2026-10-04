@@ -1,7 +1,7 @@
-import { endpoints, type EpochNs, type HookInstallation, type StatusResponse } from '@aang/contract'
+import { endpoints, type EpochNs, type HookInstallation, type StatusResponse, type VersionKey } from '@aang/contract'
 import { loadConfig, processEnvironment, resolveAangHome } from '@aang/contract/config-file'
 import { aangHomePaths, type DaemonState, readDaemonState, readSpoolState, type SpoolState } from '@aang/contract/home'
-import { callDaemon } from './admin.js'
+import { callDaemon, readDaemon } from './admin.js'
 import { daemonUrl, isAlive } from './daemon-process.js'
 import { describeError, type Output } from './output.js'
 
@@ -42,7 +42,8 @@ const thresholdLines = async (output: Output, state: DaemonState | null, spool: 
       ]
 }
 
-const connectionTimeoutMs = 30_000
+const hooksCheckTimeoutMs = 60_000
+const storedStatusTimeoutMs = 10_000
 
 const hookNotes: Readonly<Record<HookInstallation, string>> = {
   not_installed: 'not installed',
@@ -51,6 +52,9 @@ const hookNotes: Readonly<Record<HookInstallation, string>> = {
   active: 'active',
   unknown: 'unknown, the check did not succeed',
 }
+
+const versionName = ({ runtime, surface, engine_version: version }: VersionKey): string =>
+  surface === null ? `${runtime} ${version} of an unknown surface` : `${surface} ${version}`
 
 const sessionCount = (count: number): string => `${String(count)} ${count === 1 ? 'session' : 'sessions'}`
 
@@ -62,33 +66,51 @@ const connectionLines = ({ runtimes, versions, not_observable: unobservable }: S
   ]),
   ...versions.map(
     ({ key, status: support, sessions }) =>
-      `version ${key.surface} ${key.engine_version} on ${key.os} (${key.placement}): ${support}, ${sessionCount(sessions)}`,
+      `version ${versionName(key)} on ${key.os} (${key.placement}): ${support}, ${sessionCount(sessions)}`,
   ),
   `not observable: ${unobservable.join(', ')}`,
 ]
 
-const connection = (output: Output): Promise<string[]> =>
-  callDaemon(endpoints.hooksCheck, {}, connectionTimeoutMs).then(connectionLines, (error: unknown) => {
-    output.error(`aang status: ${describeError(error)}`)
-    return []
-  })
+interface Connection {
+  readonly lines: readonly string[]
+  readonly code: number
+}
+
+const connection = async (output: Output): Promise<Connection> => {
+  try {
+    return { lines: connectionLines(await callDaemon(endpoints.hooksCheck, {}, hooksCheckTimeoutMs)), code: 0 }
+  } catch (error) {
+    output.error(`aang status: the hooks check failed: ${describeError(error)}`)
+  }
+  try {
+    const stored = await readDaemon(endpoints.status, storedStatusTimeoutMs)
+    return { lines: ['hooks: not checked now, the last stored state follows', ...connectionLines(stored)], code: 0 }
+  } catch (error) {
+    output.error(`aang status: the connection state is unavailable: ${describeError(error)}`)
+    return { lines: [], code: 1 }
+  }
+}
+
+const disconnected: Connection = { lines: [], code: 0 }
 
 export const status = async (output: Output): Promise<number> => {
   const paths = aangHomePaths(resolveAangHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
   const alive = state !== null && isAlive(state.pid)
   const spool = await readSpoolState(paths.spool)
+  const threshold = await thresholdLines(output, alive ? state : null, spool)
+  const connected = alive ? await connection(output) : disconnected
   const lines = [
     `aang home: ${paths.home}`,
     daemonLine(state, alive),
     `spool: ${String(spool.files)} files, ${String(spool.bytes)} bytes`,
     leaseLine(spool),
     `stop marker: ${spool.stopped ? 'set' : 'not set'}`,
-    ...(await thresholdLines(output, alive ? state : null, spool)),
-    ...(alive ? await connection(output) : []),
+    ...threshold,
+    ...connected.lines,
   ]
   for (const line of lines) {
     output.out(line)
   }
-  return 0
+  return connected.code
 }

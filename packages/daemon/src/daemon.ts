@@ -168,7 +168,7 @@ const serve = async ({
     hooks: null,
   }
   const startedAt = epochNow()
-  const host: SupportHost = { os: hostOs(), placement: options.placement }
+  const host: SupportHost = { os: hostOs(), placement: config.placement ?? options.placement }
   const status = Promise.withResolvers<() => Promise<StatusResponse>>()
   try {
     const hooks = startHookChecks({ aangHome: paths.home, config, runtimeRoots })

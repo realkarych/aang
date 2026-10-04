@@ -13,10 +13,10 @@ import {
   type Session,
   type SpoolStatus,
   type StatusResponse,
-  type SupportKey,
-  supportKeyText,
   type SupportMatrix,
+  type SupportStatus,
   supportStatusOf,
+  type VersionKey,
   type VersionStatus,
 } from '@aang/contract'
 import { type AangHomePaths, readSpoolState } from '@aang/contract/home'
@@ -80,17 +80,23 @@ const order = <T extends bigint | string>(left: T, right: T): number => (left < 
 const byDetection = (left: Gap, right: Gap): number =>
   order(left.detected_at, right.detected_at) || order(left.id, right.id)
 
+const versionKeyText = ({ runtime, surface, os, placement, engine_version: version }: VersionKey): string =>
+  JSON.stringify([runtime, surface, os, placement, version])
+
+const supportOf = (matrix: SupportMatrix, key: VersionKey): SupportStatus =>
+  key.surface === null ? 'unverified' : supportStatusOf(matrix, { ...key, surface: key.surface })
+
 const versionsOf = (sessions: readonly Session[], matrix: SupportMatrix, host: SupportHost): VersionStatus[] => {
   const versions = new Map<string, VersionStatus>()
   for (const { key: session, surface, version, last_event_at: seen } of sessions) {
-    if (surface === null || version === null) {
+    if (version === null) {
       continue
     }
-    const key: SupportKey = { runtime: session.runtime, surface: surface.surface, ...host, engine_version: version }
-    const known = versions.get(supportKeyText(key))
-    versions.set(supportKeyText(key), {
+    const key: VersionKey = { runtime: session.runtime, surface: surface?.surface ?? null, ...host, engine_version: version }
+    const known = versions.get(versionKeyText(key))
+    versions.set(versionKeyText(key), {
       key,
-      status: supportStatusOf(matrix, key),
+      status: supportOf(matrix, key),
       sessions: (known?.sessions ?? 0) + 1,
       last_seen_at: known === undefined || seen > known.last_seen_at ? seen : known.last_seen_at,
     })

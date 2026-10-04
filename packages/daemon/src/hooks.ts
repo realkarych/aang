@@ -1,7 +1,15 @@
 import { type Stats, unwatchFile, watchFile } from 'node:fs'
 import { join } from 'node:path'
 import { type Config, type HookInstallation, type Runtime, runtimes } from '@aang/contract'
-import { claudePluginState, type ClaudePluginState, codexHooksState, type CodexHooksState } from '@aang/hook'
+import {
+  claudePluginListArgs,
+  type ClaudePluginState,
+  claudePluginStateOf,
+  codexHooksState,
+  type CodexHooksState,
+  hookInstallPaths,
+} from '@aang/hook'
+import { createProcessRunner, type ProcessRunner, resolveCli } from '@aang/observer'
 
 export interface HookChecksOptions {
   readonly aangHome: string
@@ -17,7 +25,7 @@ export interface HookChecks {
 
 interface Probe {
   readonly files: readonly string[]
-  readonly read: () => Promise<HookInstallation>
+  readonly read: (signal: AbortSignal) => Promise<HookInstallation>
 }
 
 interface Checker {
@@ -40,22 +48,57 @@ const codexInstallations: Readonly<Record<CodexHooksState['status'], HookInstall
 
 const fileCheckIntervalMs = 1_000
 
-const probes = ({ aangHome, config, runtimeRoots }: HookChecksOptions): Readonly<Record<Runtime, Probe>> => ({
-  claude: {
-    files: [join(runtimeRoots.claude, 'settings.json'), join(runtimeRoots.claude, 'plugins', 'installed_plugins.json')],
-    read: async () =>
-      claudeInstallations[
-        await claudePluginState({ command: config.cli.claude ?? 'claude', configDir: config.runtimes.claude.configDir })
-      ],
-  },
-  codex: {
-    files: [join(runtimeRoots.codex, 'hooks.json'), join(runtimeRoots.codex, 'config.toml')],
-    read: async () => {
-      const codex = { command: config.cli.codex ?? 'codex' }
-      return codexInstallations[(await codexHooksState({ aangHome, codexHome: runtimeRoots.codex, codex })).status]
+const hookProbeTimeoutMs = 10_000
+
+const inheritedEnvironment = (): Record<string, string> =>
+  Object.fromEntries(Object.entries(process.env).filter((entry): entry is [string, string] => entry[1] !== undefined))
+
+const claudePlugin = async (
+  { aangHome, config }: HookChecksOptions,
+  runner: ProcessRunner,
+  signal: AbortSignal,
+): Promise<ClaudePluginState> => {
+  const environment = inheritedEnvironment()
+  const { configDir } = config.runtimes.claude
+  const cli = resolveCli('claude', config.cli.claude ?? 'claude', environment)
+  const { failure, exitCode, stdout, stderr } = await runner.run({
+    command: cli.command,
+    args: [...(cli.args ?? []), ...claudePluginListArgs],
+    cwd: aangHome,
+    env: configDir === null ? environment : { ...environment, CLAUDE_CONFIG_DIR: configDir },
+    input: '',
+    timeoutMs: hookProbeTimeoutMs,
+    signal,
+  })
+  if (failure !== null) {
+    throw new Error(`claude ${claudePluginListArgs.join(' ')}: ${failure}`)
+  }
+  return claudePluginStateOf({ status: exitCode ?? -1, stdout, stderr })
+}
+
+const probes = (options: HookChecksOptions, runner: ProcessRunner): Readonly<Record<Runtime, Probe>> => {
+  const { aangHome, config, runtimeRoots } = options
+  return {
+    claude: {
+      files: [join(runtimeRoots.claude, 'settings.json'), join(runtimeRoots.claude, 'plugins', 'installed_plugins.json')],
+      read: async (signal) => claudeInstallations[await claudePlugin(options, runner, signal)],
     },
-  },
-})
+    codex: {
+      files: [join(runtimeRoots.codex, 'hooks.json'), join(runtimeRoots.codex, 'config.toml')],
+      read: async (signal) => {
+        const codex = { command: config.cli.codex ?? 'codex' }
+        const state = await codexHooksState({
+          aangHome,
+          codexHome: runtimeRoots.codex,
+          codex,
+          timeoutMs: hookProbeTimeoutMs,
+          signal,
+        })
+        return codexInstallations[state.status]
+      },
+    },
+  }
+}
 
 const createChecker = (check: () => Promise<void>): Checker => {
   let running: Promise<void> | null = null
@@ -97,14 +140,15 @@ const changed = (current: Stats, previous: Stats): boolean =>
 
 export const startHookChecks = (options: HookChecksOptions): HookChecks => {
   const installations: Record<Runtime, HookInstallation> = { claude: 'unknown', codex: 'unknown' }
-  const state = { closed: false }
+  const closing = new AbortController()
   const watched: (readonly [string, (current: Stats, previous: Stats) => void])[] = []
-  const probed = probes(options)
+  const runner = createProcessRunner({ windowsLauncher: hookInstallPaths(options.aangHome).binary })
+  const probed = probes(options, runner)
   const checkerOf = (runtime: Runtime): Checker => {
     const { files, read } = probed[runtime]
     const checker = createChecker(async () => {
-      if (!state.closed) {
-        installations[runtime] = await read().catch((): HookInstallation => 'unknown')
+      if (!closing.signal.aborted) {
+        installations[runtime] = await read(closing.signal).catch((): HookInstallation => 'unknown')
       }
     })
     for (const file of files) {
@@ -127,7 +171,7 @@ export const startHookChecks = (options: HookChecksOptions): HookChecks => {
     installations: () => ({ ...installations }),
     check,
     close: async () => {
-      state.closed = true
+      closing.abort()
       for (const [file, listener] of watched) {
         unwatchFile(file, listener)
       }
