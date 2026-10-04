@@ -42,7 +42,7 @@ export const claudeAdmissionArtifacts = async (sessionId: string, fault?: string
     writeFileSync(join(project, `${sessionId}.jsonl`), '{}\n')
   }
   if (fault === 'tool_execution') writeFileSync(join(process.cwd(), 'tool-ran'), 'executed')
-  await setTimeout(100)
+  await setTimeout(300)
   return () => { rmSync(registry, { force: true }) }
 }
 
