@@ -1,0 +1,11 @@
+{"type":"thread.started","thread_id":"01a10482-ea30-71a1-add6-cc73d91b7ffe"}
+{"type":"item.completed","item":{"id":"item_0","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"item.completed","item":{"id":"item_1","type":"error","message":"`--dangerously-bypass-hook-trust` is enabled. Enabled hooks may run without review for this invocation."}}
+{"type":"turn.started"}
+{"type":"item.started","item":{"id":"item_2","type":"todo_list","items":[{"text":"Inspect the project","completed":false},{"text":"Write the summary","completed":false}]}}
+{"type":"item.started","item":{"id":"item_3","type":"command_execution","command":"\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'echo inspect'","aggregated_output":"","exit_code":null,"status":"in_progress"}}
+{"type":"item.completed","item":{"id":"item_3","type":"command_execution","command":"\"C:\\\\Program Files\\\\PowerShell\\\\7\\\\pwsh.exe\" -Command 'echo inspect'","aggregated_output":"inspect\r\n","exit_code":0,"status":"completed"}}
+{"type":"item.updated","item":{"id":"item_2","type":"todo_list","items":[{"text":"Inspect the project","completed":true},{"text":"Write the summary","completed":true}]}}
+{"type":"item.completed","item":{"id":"item_4","type":"agent_message","text":"done"}}
+{"type":"item.completed","item":{"id":"item_2","type":"todo_list","items":[{"text":"Inspect the project","completed":true},{"text":"Write the summary","completed":true}]}}
+{"type":"turn.completed","usage":{"input_tokens":480,"cached_input_tokens":0,"cache_write_input_tokens":0,"output_tokens":32,"reasoning_output_tokens":0}}

@@ -28,7 +28,18 @@ const perActiveHour: JournalRates = {
 
 describe.concurrent('usage report', () => {
   test('averages per active hour keep fractions while totals stay whole', ({ expect }) => {
-    const report = { from: null, to: null, runs: [], totals, active_hours: 2, per_active_hour: perActiveHour }
+    const calls = { calls: 0, totals: idle, latency_ms: null }
+    const report = {
+      from: null,
+      to: null,
+      runs: [],
+      observer: { ...calls, lag_ms: null },
+      probes: calls,
+      chat: calls,
+      totals,
+      active_hours: 2,
+      per_active_hour: perActiveHour,
+    }
 
     expect(UsageReport.parse(report)).toEqual(report)
     expect(UsageReport.safeParse({ ...report, totals: perActiveHour }).success).toBe(false)
