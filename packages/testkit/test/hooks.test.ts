@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { readdir } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -218,6 +218,79 @@ describe.concurrent(
         })
       },
     )
+
+    test('at playback time the numeric epochs of rollout lines and OTLP requests move with the ISO timestamps', async ({
+      expect,
+      onTestFinished,
+    }) => {
+      const { profile, manifest } = await createFixture(onTestFinished)
+      const receiver = await startReceiver(onTestFinished)
+      const line = {
+        timestamp: '2026-10-04T01:19:14.853Z',
+        payload: {
+          create_time: 1_791_076_754,
+          started_at_ms: 1_791_076_754_873,
+          completed_at_ms: 1_791_076_755_964,
+          duration_ms: 1_091,
+          exit_code: 0,
+          call_number: 1_234_567_890_123,
+        },
+      }
+      const logs = {
+        resourceLogs: [
+          {
+            scopeLogs: [
+              {
+                logRecords: [
+                  {
+                    timeUnixNano: '0',
+                    observedTimeUnixNano: '1791076755918590000',
+                    attributes: [{ key: 'event.timestamp', value: { stringValue: '2026-10-04T01:19:15.918Z' } }],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      }
+      const rollout = { root: 'codex', path: 'sessions/2026/10/04/rollout-epochs.jsonl' }
+      const file = await manifest('epochs', {
+        sources: { 'rollout.jsonl': `${JSON.stringify(line)}\n`, 'logs.json': JSON.stringify(logs) },
+        steps: [
+          { at: 0, kind: 'append', target: rollout, source: 'rollout.jsonl' },
+          { at: 0, kind: 'otlp', source: 'logs.json' },
+        ],
+      })
+
+      const before = Date.now()
+      const player = createPlayer(await loadManifest(file), {
+        roots: profile,
+        otlp: receiver.endpoint,
+        timeScale: 0,
+        recordTime: 'playback',
+      })
+      await player.play()
+
+      const written = JSON.parse(readFileSync(join(profile.codex, ...rollout.path.split('/')), 'utf8')) as typeof line
+      const shift = Date.parse(written.timestamp) - Date.parse(line.timestamp)
+      expect(Date.parse(written.timestamp)).toBeGreaterThanOrEqual(before)
+      expect(written.payload).toEqual({
+        create_time: line.payload.create_time + Math.trunc(shift / 1_000),
+        started_at_ms: line.payload.started_at_ms + shift,
+        completed_at_ms: line.payload.completed_at_ms + shift,
+        duration_ms: line.payload.duration_ms,
+        exit_code: 0,
+        call_number: line.payload.call_number,
+      })
+      const [received] = receiver.received
+      const sent = JSON.parse(received?.body.toString('utf8') ?? '{}') as typeof logs
+      const record = sent.resourceLogs[0]?.scopeLogs[0]?.logRecords[0]
+      expect(record?.timeUnixNano).toBe('0')
+      expect(BigInt(record?.observedTimeUnixNano ?? '0')).toBe(
+        BigInt(logs.resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.observedTimeUnixNano ?? '0') + BigInt(shift) * 1_000_000n,
+      )
+      expect(Date.parse(record?.attributes[0]?.value.stringValue ?? '')).toBe(Date.parse('2026-10-04T01:19:15.918Z') + shift)
+    })
 
     test('a receiver that refuses a request stops playback at that step', async ({ expect, onTestFinished }) => {
       const { profile, manifest } = await createFixture(onTestFinished)

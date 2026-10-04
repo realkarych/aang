@@ -3,7 +3,7 @@ import { appendTo, archivedPath, move, type PlayerRoots, remove, resolveTarget, 
 import { type HookTarget, invokeHook } from './hook.js'
 import type { AppendStep, LoadedManifest, PlayerStep } from './manifest.js'
 import { sendOtlp } from './otlp.js'
-import { playbackShift, type RecordTime, shifted } from './record-time.js'
+import { playbackShift, type RecordTime, shifted, unshifted } from './record-time.js'
 
 export interface PlayerOptions {
   readonly roots: PlayerRoots
@@ -70,7 +70,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     throw new PlaybackError(`${file} has OTLP steps, but the player has no OTLP endpoint`)
   }
 
-  const shift = recordTime === 'playback' ? playbackShift(manifest.sources.values(), Date.now()) : 0
+  const shift = recordTime === 'playback' ? playbackShift(manifest.sources.values(), Date.now()) : unshifted
   const offsets = new Map<string, number>()
   const state = { next: 0, playing: false, lastHookEnd: Number.NEGATIVE_INFINITY }
 
@@ -138,7 +138,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
       case 'otlp':
         return sendOtlp(
           required(options.otlp, () => 'no OTLP endpoint'),
-          source(step.source),
+          shifted(source(step.source), shift),
         )
     }
   }
