@@ -55,6 +55,7 @@ export interface RecordContext {
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
 }
 
+const regularClaudeArgs = ['--setting-sources', 'project,local', '--strict-mcp-config']
 const removeTree = (directory: string): Promise<void> => rm(directory, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 })
 const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
 const isExecutable = async (path: string): Promise<boolean> => {
@@ -91,6 +92,12 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
   const pending = new Set<Promise<unknown>>()
   const otlp = await startOtlpReceiver()
   let created: Capture['created'] | undefined
+  let reported = false
+  const report = async (): Promise<void> => {
+    if (reported || created === undefined || options.created === undefined || !(regularCodex || regularClaude)) return
+    reported = true
+    options.created(await created())
+  }
   try {
     const root = await realpath(temporary)
     const home = join(root, 'home')
@@ -129,7 +136,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
         const commandRun = async (): Promise<RunOutput> => {
           if (execution.running) throw new Error('Recording commands must be awaited sequentially')
           execution.running = true
-          const runtimeArgs = metadata.runtime === 'claude' ? [...args, '--plugin-dir', plugin] : [...args]
+          const runtimeArgs = metadata.runtime === 'claude' ? [...args, '--plugin-dir', plugin, ...regularClaude ? regularClaudeArgs : []] : [...args]
           const request = runner.run({ command, args: runtimeArgs, cwd: project, env: { ...env, ...runOptions.env }, input: '', timeoutMs: runOptions.timeoutMs ?? 300_000, signal: controller.signal })
           const scanState: { error?: Error } = {}
           let scan = Promise.resolve()
@@ -218,13 +225,14 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       await writeFile(path, content, { mode: 0o600 })
     }
     await verifyRecording(staging)
+    await report()
     await rename(staging, destination)
     staging = undefined
     return destination
   } finally {
     controller.abort()
     await Promise.allSettled([...pending])
-    if (created !== undefined && options.created !== undefined && (regularCodex || regularClaude)) options.created(await created())
+    await report().catch(() => undefined)
     await otlp.close()
     if (staging !== undefined) await removeTree(staging)
     await removeTree(temporary)

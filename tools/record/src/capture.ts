@@ -17,6 +17,7 @@ export interface CapturedArtifact extends Artifact {
 export interface CreatedEntries {
   readonly sessions: readonly string[]
   readonly paths: readonly string[]
+  readonly unreadable: readonly string[]
 }
 
 export interface Capture {
@@ -230,33 +231,39 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   const created = async (): Promise<CreatedEntries> => {
     const ids = new Set<string>()
     const paths = new Set<string>()
+    const unreadable = new Set<string>()
+    const readable = <T>(path: string, read: Promise<T>, fallback: T): Promise<T> => read.catch(() => {
+      unreadable.add(path)
+      return fallback
+    })
+    const listing = (directory: string): Promise<Dirent[]> => readable(directory, entriesOf(directory), [])
     if (claudeRegular) {
       const projects = join(roots.claude, 'projects')
-      for (const { name } of (await entriesOf(projects)).filter(({ name }) => ownProject(name))) {
+      for (const { name } of (await listing(projects)).filter(({ name }) => ownProject(name))) {
         paths.add(join(projects, name))
-        for (const entry of await entriesOf(join(projects, name))) {
+        for (const entry of await listing(join(projects, name))) {
           const session = sessionOf(entry.name)
           if (session !== undefined) ids.add(session)
         }
       }
       for (const session of sessions) ids.add(session)
-      for (const { name } of await entriesOf(pluginData)) {
+      for (const { name } of await listing(pluginData)) {
         if (ownPluginData(name) && !existingPluginData.has(name)) paths.add(join(pluginData, name))
       }
-      for (const directory of await entriesOf(roots.claude)) {
+      for (const directory of await listing(roots.claude)) {
         if (!directory.isDirectory() || directory.name === 'projects') continue
-        for (const { name } of await entriesOf(join(roots.claude, directory.name))) {
+        for (const { name } of await listing(join(roots.claude, directory.name))) {
           if ([...ids].some((id) => name.includes(id))) paths.add(join(roots.claude, directory.name, name))
         }
       }
     }
     for (const [file, root] of owned) {
-      if (!await exists(file)) continue
+      if (!await readable(file, exists(file), true)) continue
       paths.add(file)
-      const thread = root === 'codex' ? fieldsOf(fieldsOf(firstLine(await readBytes(file)))?.['payload'])?.['id'] : undefined
+      const thread = root === 'codex' ? fieldsOf(fieldsOf(firstLine(await readable(file, readBytes(file), Buffer.alloc(0))))?.['payload'])?.['id'] : undefined
       if (typeof thread === 'string') ids.add(thread)
     }
-    return { sessions: [...ids].sort(), paths: [...paths].sort() }
+    return { sessions: [...ids].sort(), paths: [...paths].sort(), unreadable: [...unreadable].sort() }
   }
   return {
     artifacts, steps, controlEvents, scan, created,

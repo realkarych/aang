@@ -68,7 +68,7 @@ switch (mode) {
     await write(join(claude, 'tasks', foreign, '1.json'), JSON.stringify({ id: '1', subject: 'Foreign task', status: 'pending' }))
     await write(join(claude, 'teams', 'team-new', 'config.json'), JSON.stringify({ name: 'team-new', leadSessionId: target }))
     await appendFile(join(claude, 'projects', '-Users-someone-else-old', `${foreign}.jsonl`), line({ type: 'later' }))
-    process.stdout.write(JSON.stringify({ home, claudeConfigDir: process.env['CLAUDE_CONFIG_DIR'] ?? null, pid: process.pid }))
+    process.stdout.write(JSON.stringify({ home, claudeConfigDir: process.env['CLAUDE_CONFIG_DIR'] ?? null, pid: process.pid, args: process.argv.slice(4) }))
     break
   }
   case 'append':

@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import type { OperatingSystem } from '@aang/contract'
 import type { ScenarioSession } from '../scenario.js'
 import { desktopSdkVersion } from './drivers.js'
-import { type HostPlanInput, type HostSummary, readSummary, type SettingSource } from './plan.js'
+import { type HostPlanInput, type HostSummary, readSummary } from './plan.js'
 import { startModelStub, type StubScript } from './stub.js'
 
 export type ClaudeSurfaceName = 'claude_cli' | 'claude_sdk' | 'claude_desktop'
@@ -13,7 +13,6 @@ interface Launch {
   readonly host: string
   readonly engine: string
   readonly args: readonly string[]
-  readonly settingSources?: readonly SettingSource[]
   readonly env: Readonly<Record<string, string>>
   readonly initialize: boolean
 }
@@ -49,8 +48,7 @@ export const claudeSurfaces: readonly ClaudeSurface[] = [
       return {
         host: streamHost,
         engine: session.engine.executable,
-        args: ['--include-partial-messages', '--replay-user-messages'],
-        settingSources: ['user', 'project', 'local'],
+        args: ['--setting-sources', 'user,project,local', '--include-partial-messages', '--replay-user-messages'],
         env: {
           CLAUDE_CODE_ENTRYPOINT: 'claude-desktop',
           CLAUDE_CODE_EAGER_FLUSH: '1',
@@ -63,7 +61,7 @@ export const claudeSurfaces: readonly ClaudeSurface[] = [
   },
 ]
 
-export type Stage = Omit<HostPlanInput, 'engine' | 'args' | 'settingSources' | 'strictMcpConfig' | 'initialize'>
+export type Stage = Omit<HostPlanInput, 'engine' | 'args' | 'initialize'>
 
 export interface ClaudeRun {
   readonly session: ScenarioSession
@@ -79,7 +77,6 @@ const liveCredentials = (): void => {
   if (process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_CODE_OAUTH_TOKEN']) return
   throw new Error('Live Claude scenarios need ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, or the regular Claude home: the temporary CLAUDE_CONFIG_DIR has no login')
 }
-const regularSources: readonly SettingSource[] = ['project', 'local']
 
 export const withClaude = (
   surface: ClaudeSurface,
@@ -103,16 +100,12 @@ export const withClaude = (
   const timeoutMs = live ? 900_000 : 300_000
   try {
     const launch = await surface.launch(session)
-    const settingSources = regular ? regularSources : launch.settingSources
     await body({
       session,
       stage: async (name, stage) => {
         const plan = join(session.work, `${name}.plan.json`)
         const summary = join(session.work, `${name}.summary.json`)
-        const content: HostPlanInput = {
-          ...stage, engine: launch.engine, args: [...launch.args], env: { ...launch.env, ...stage.env }, initialize: launch.initialize,
-          ...settingSources === undefined ? {} : { settingSources: [...settingSources] }, strictMcpConfig: regular,
-        }
+        const content: HostPlanInput = { ...stage, engine: launch.engine, args: [...launch.args], env: { ...launch.env, ...stage.env }, initialize: launch.initialize }
         await writeFile(plan, `${JSON.stringify(content, null, 2)}\n`)
         try {
           await session.run(process.execPath, [launch.host, plan, summary], { env, timeoutMs })

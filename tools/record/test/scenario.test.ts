@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process'
 import { once } from 'node:events'
-import { chmod, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, mkdtemp, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { homedir, tmpdir } from 'node:os'
@@ -132,13 +132,15 @@ test('the regular Claude home is the real home without CLAUDE_CONFIG_DIR, keeps 
   vi.stubEnv('CLAUDE_CONFIG_DIR', undefined)
   await expect(recordSession({ ...config, model: 'stub', claudeHome: 'regular' }, async () => {})).rejects.toThrow(/only for live Claude/)
   const created: CreatedEntries[] = []
-  let environment: { home?: string; claudeConfigDir?: string | null; pid?: number } = {}
+  let environment: { home?: string; claudeConfigDir?: string | null; pid?: number; args?: string[] } = {}
+  let plugin = ''
   const recording = await recordSession({ ...config, claudeHome: 'regular', created: (entries) => created.push(entries) }, async (context) => {
     expect(context.claude).toBe(claude)
     expect(context.claudeHome).toBe('regular')
+    plugin = context.plugin
     environment = JSON.parse((await context.run(process.execPath, [script, 'regular-claude', session])).stdout) as typeof environment
   })
-  expect(environment).toMatchObject({ home, claudeConfigDir: null })
+  expect(environment).toMatchObject({ home, claudeConfigDir: null, args: ['--plugin-dir', plugin, '--setting-sources', 'project,local', '--strict-mcp-config'] })
   const playback = await loadManifest(join(recording, 'playback.json'))
   const targets = playback.steps.flatMap((step) => 'target' in step && step.target.root === 'claude' ? [step.target.path] : [])
   expect(targets.toSorted()).toEqual([
@@ -162,7 +164,35 @@ test('the regular Claude home is the real home without CLAUDE_CONFIG_DIR, keeps 
       join(claude, 'sessions', `${String(environment.pid)}.json`),
       join(claude, 'tasks', session),
     ].toSorted(),
+    unreadable: [],
   }])
+})
+
+test('a throwing created callback aborts publication or leaves the recording error in place, and cleanup still runs', async () => {
+  const config = { ...await options(), runtime: 'claude' as const, surface: 'claude_cli' as const, model: 'live' as const, claudeHome: 'regular' as const }
+  const home = await directory()
+  vi.stubEnv('HOME', home)
+  vi.stubEnv('USERPROFILE', home)
+  vi.stubEnv('CLAUDE_CONFIG_DIR', undefined)
+  const created = (): void => {
+    throw new Error('Report failed')
+  }
+  const sessions: { project: string; otlp: string }[] = []
+  await expect(recordSession({ ...config, scenario: 'reported', created }, async (session) => {
+    sessions.push({ project: session.project, otlp: session.otlp })
+    await session.run(process.execPath, [script, 'otlp', session.otlp])
+  })).rejects.toThrow('Report failed')
+  await expect(recordSession({ ...config, scenario: 'failed', created }, async (session) => {
+    sessions.push({ project: session.project, otlp: session.otlp })
+    await session.run(process.execPath, [script, 'otlp', session.otlp])
+    throw new Error('Scenario failed')
+  })).rejects.toThrow('Scenario failed')
+  expect(sessions).toHaveLength(2)
+  for (const { project, otlp } of sessions) {
+    await expect(stat(project)).rejects.toMatchObject({ code: 'ENOENT' })
+    await expect(fetch(otlp, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })).rejects.toThrow()
+  }
+  await expect(stat(join(config.fixturesRoot, 'claude', '0.0.1', 'claude_cli', os, 'reported'))).rejects.toMatchObject({ code: 'ENOENT' })
 })
 
 const streamHost = fileURLToPath(new URL('../dist/claude/stream-host.js', import.meta.url))
@@ -202,30 +232,30 @@ const fakeEngine = async (work: string, kind: 'stream' | 'sdk'): Promise<string>
 test.for([
   { kind: 'stream' as const, host: streamHost },
   { kind: 'sdk' as const, host: sdkHost },
-])('the $kind host passes setting sources and the strict MCP configuration of the regular Claude home to the engine', async ({ kind, host }, context) => {
+])('the $kind host gives the engine the setting sources and strict MCP configuration the recorder appends', async ({ kind, host }, context) => {
   if (kind === 'stream' && process.platform === 'win32') {
     context.skip()
     return
   }
   const work = await directory()
   const engine = await fakeEngine(work, kind)
-  const run = async (name: string, extra: Readonly<Record<string, unknown>>): Promise<unknown> => {
+  const run = async (name: string, recorder: readonly string[]): Promise<unknown> => {
     const out = join(work, `${name}.out.json`)
     const plan = join(work, `${name}.plan.json`)
-    await writeFile(plan, JSON.stringify({ engine, env: { AANG_TEST_OUT: out }, turns: [{ prompt: 'hello' }], ...extra }))
-    await exec(process.execPath, [host, plan, join(work, `${name}.summary.json`), '--plugin-dir', work], { cwd: work })
+    await writeFile(plan, JSON.stringify({ engine, args: ['--setting-sources', 'user,project,local'], env: { AANG_TEST_OUT: out }, turns: [{ prompt: 'hello' }] }))
+    await exec(process.execPath, [host, plan, join(work, `${name}.summary.json`), '--plugin-dir', work, ...recorder], { cwd: work })
     return JSON.parse(await readFile(out, 'utf8'))
   }
-  const regular = await run('regular', { settingSources: ['project', 'local'], strictMcpConfig: true })
-  const isolated = await run('isolated', {})
+  const regular = await run('regular', ['--setting-sources', 'project,local', '--strict-mcp-config'])
+  const isolated = await run('isolated', [])
   if (kind === 'sdk') {
     expect(regular).toEqual({ settingSources: ['project', 'local'], strictMcpConfig: true })
     expect(isolated).toEqual({ settingSources: null, strictMcpConfig: null })
     return
   }
-  expect(regular).toEqual(expect.arrayContaining(['--setting-sources', 'project,local', '--strict-mcp-config', '--plugin-dir', work]))
-  expect(isolated).not.toEqual(expect.arrayContaining(['--setting-sources']))
-  expect(isolated).not.toEqual(expect.arrayContaining(['--strict-mcp-config']))
+  const lastSources = (args: unknown): unknown => (args as string[]).slice((args as string[]).lastIndexOf('--setting-sources'))
+  expect(lastSources(regular)).toEqual(['--setting-sources', 'project,local', '--strict-mcp-config'])
+  expect(lastSources(isolated)).toEqual(['--setting-sources', 'user,project,local', '--permission-mode', 'default', '--plugin-dir', work])
 })
 
 test('checkpoints select the first or a content-matching event, tasks are captured, failures show the stderr tail', async () => {

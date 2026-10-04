@@ -28,13 +28,17 @@ const usage = [
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
 
 const report = (entries: CreatedEntries): void => {
-  if (entries.sessions.length === 0 && entries.paths.length === 0) return
   process.stderr.write([
-    'Created in the regular profile:',
-    ...entries.sessions.map((session) => `  session ${session}`),
-    ...entries.paths.map((path) => `  ${path}`),
-    '',
-  ].join('\n'))
+    ...entries.sessions.length === 0 && entries.paths.length === 0 ? [] : [
+      'Created in the regular profile:',
+      ...entries.sessions.map((session) => `  session ${session}`),
+      ...entries.paths.map((path) => `  ${path}`),
+    ],
+    ...entries.unreadable.length === 0 ? [] : [
+      'Not checked in the regular profile, unreadable:',
+      ...entries.unreadable.map((path) => `  ${path}`),
+    ],
+  ].map((line) => `${line}\n`).join(''))
 }
 
 const listScenarios = (): void => {

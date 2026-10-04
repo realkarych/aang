@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { createConversation, hostArguments, type PermissionResponse } from './conversation.js'
-import { pluginDirectory, type SettingSource } from './plan.js'
+import { forwardedSettings, pluginDirectory, type SettingSource } from './plan.js'
 
 interface SdkUserMessage {
   readonly type: 'user'
@@ -76,6 +76,7 @@ const conversation = createConversation(plan, summary, async () => {
 const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
   const sdk: unknown = await import(pathToFileURL(plan.engine).href)
   if (!isSdk(sdk)) throw new Error(`${plan.engine} does not export query()`)
+  const { settingSources, strictMcpConfig } = forwardedSettings(forwarded)
   const query = sdk.query({
     prompt: prompts.messages,
     options: {
@@ -83,8 +84,8 @@ const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
       env: { ...process.env, ...plan.env },
       plugins: [{ type: 'local', path: pluginDirectory(forwarded) }],
       permissionMode: plan.permissionMode,
-      ...plan.settingSources === undefined ? {} : { settingSources: plan.settingSources },
-      ...plan.strictMcpConfig ? { strictMcpConfig: true } : {},
+      ...settingSources === undefined ? {} : { settingSources },
+      ...strictMcpConfig ? { strictMcpConfig: true } : {},
       ...plan.resume === undefined ? {} : { resume: plan.resume },
       ...plan.fork ? { forkSession: true } : {},
       stderr: (data) => {
