@@ -22,6 +22,7 @@ export {
   preparationStageTitle,
   reportQuestionText,
   reportStageTitle,
+  splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {
   type ObserverScenarioName,

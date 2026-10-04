@@ -1,6 +1,6 @@
 # Сценарии наблюдателя (T.6)
 
-Ответы наблюдателя и чата для E2E 1, 3, 4, 5, 7, 8 (ADR-0012). Поддельные `claude` и `codex` (F.1, F.4) отвечают по ним так же, как настоящий CLI: ответ строится из входа и ссылается на id фактов, этапов, агентов, действий, пунктов внимания и на `model_version` из него.
+Ответы наблюдателя и чата для E2E 1, 3, 4, 5, 7, 8 (ADR-0012) и для E2E 14 карты (H.5). Поддельные `claude` и `codex` (F.1, F.4) отвечают по ним так же, как настоящий CLI: ответ строится из входа и ссылается на id фактов, этапов, агентов, действий, пунктов внимания и на `model_version` из него.
 
 ```ts
 import { installFakeClaude, observerScenarios } from '@aang/testkit'
@@ -23,6 +23,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | `map-nested` | наблюдатель | Один раз, пока в снимке нет этапа `Release`: этап верхнего уровня `Release`, под ним `Bundle`, под `Bundle` — `Sign`; `Bundle` и `Sign` зависят от `Release`. Действия и участники не назначаются. Дальше — пустой ответ |
 | `claimed-done` | наблюдатель | `map`, а при финальном тексте решателя в порции — `stage.state` `done` и `criterion.assess` `reported_done` со свидетельством последнего финального текста: основание `claimed` |
 | `revision` | наблюдатель | `map` с этапом `Main work, continued`, который один раз заменяет `Main work` (`stage.replace`); один вопрос наблюдателя к новому этапу; карточка на каждый финальный текст решателя порции с координатами всего текста |
+| `split` | наблюдатель | Этап `Main work, continued`, пока он действует, один раз разделяется (`stage.split`) на два новых этапа `Changes` и `Checks` с тем же родителем и свидетельствами порции. Без него ответ пустой |
 | `chat-answer` | чат | Ответ «по версии карты V» со ссылками: этап, его факты и действия для фокуса этапа; этапы снимка, пункты внимания и свидетельства последних изменений для фокуса прогона. Без материала — `insufficient_data` |
 | `chat-collapse-reviewers` | чат | Правило `collapse` по `agent_type` (или по имени) агентов, у которых тип, имя или описание содержит `review`. Без ревьюеров — `insufficient_data` без правила |
 
@@ -43,6 +44,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | 5 | `chat.live` | транскрипт образца Claude с субагентом типа `code-reviewer` и его `PermissionRequest` |
 | 7 | `llm-failure.healthy`, `.failing`, `.recovered` | образец `codex-resume-compaction`: порция до `resume`; в `failing` только отказ `limit`; в `recovered` — факты после сводки ранних фактов и свёрнутые счётчики токенов |
 | 8 | `live-map.live` | rollout Codex с запуском субагента, затем rollout субагента, hooks с `PermissionRequest`, решение через OTel (`source: User`) и fork отдельным прогоном |
+| 14 | `stage-succession.live`, затем `.revised` и `.split` | образец `claude-fork`: до субагента, до результата субагента и до `resume` на `.live` (этап субагента вкладывается в `Main work`, следующая версия `Main work` не меняет), до `continue` на `.revised` (`Main work` заменён одним преемником), до `fork` на `.split` (преемник разделён на два этапа) |
 
 Проверку M.2–M.3 выполняет `packages/engine/test/observer-scenarios.test.ts`: записи проходят через настоящие адаптеры и `engine`, вход собирается из хранилища по контракту, ответ скрипта применяется через `applyObserverResponse`. Все ответы приняты, основания LLM не `observed`, каждое свидетельство ведёт к сырой записи. Ответы чата проверяются схемой `ChatOutput` и тем, что ссылки есть во входе.
 

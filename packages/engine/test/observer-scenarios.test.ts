@@ -24,6 +24,7 @@ import {
   preparationStageTitle,
   reportQuestionText,
   reportStageTitle,
+  splitStageTitles,
 } from '@aang/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
 import { codexHooks, millisecond, otelDecision } from './attention-fixtures.js'
@@ -377,6 +378,50 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
       expect(card.source).toMatchObject({ start: 0, end: card.text.length })
       expect(fact === null ? null : store.rawRecords.get(fact.seq)).not.toBeNull()
     }
+    expectGroundedInRecords(store, run)
+  })
+
+  test('E2E 14: new versions keep the main work stage, the continued run replaces it, then its successor splits in two', async () => {
+    const sample = await playSample('claude-fork')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const phases = observerScenarios['stage-succession']
+    const versionOf = ({ result }: ObservedCall): number => (result.status === 'accepted' ? result.version : -1)
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', phases.live.replies[0], at(10))
+    const selected = stageTitled(store, run, mainStageTitle)
+    expect(stagesUnder(store, run, selected)).toEqual([])
+    await sample.play({ until: 'subagent-result' })
+    const second = observeBatch(store, run, 'claude', phases.live.replies[0], at(20))
+    expect(stagesUnder(store, run, selected).map(({ title }) => title)).toEqual([
+      expect.stringMatching(/^pinger \(.+\)$/),
+    ])
+    await sample.play({ until: 'resume' })
+    const third = observeBatch(store, run, 'claude', phases.live.replies[0], at(30))
+    expect(stageTitled(store, run, mainStageTitle)).toMatchObject({ id: selected.id, lifecycle: { state: 'active' } })
+    await sample.play({ until: 'continue' })
+    const fourth = observeBatch(store, run, 'claude', phases.revised.replies[0], at(40))
+    const successor = stageTitled(store, run, continuedStageTitle)
+    expect(stageTitled(store, run, mainStageTitle).lifecycle).toEqual({ state: 'replaced', by: [successor.id] })
+    await sample.play({ until: 'fork' })
+    const fifth = observeBatch(store, run, 'claude', phases.split.replies[0], at(50))
+
+    accepted(first, second, third, fourth, fifth)
+    expect(versionOf(second)).toBeGreaterThan(versionOf(first))
+    expect(versionOf(third)).toBeGreaterThan(versionOf(second))
+    const parts = splitStageTitles.map((title) => stageTitled(store, run, title))
+    expect(stageTitled(store, run, continuedStageTitle).lifecycle).toEqual({
+      state: 'split',
+      into: parts.map(({ id }) => id),
+    })
+    expect(parts.map(({ lifecycle, parent }) => [lifecycle.state, parent])).toEqual([
+      ['active', null],
+      ['active', null],
+    ])
+    expect(valuesOf(store, run, 'stage').map(({ title }) => title).sort()).toEqual(
+      [mainStageTitle, continuedStageTitle, ...splitStageTitles, stagesUnder(store, run, selected)[0]?.title].sort(),
+    )
     expectGroundedInRecords(store, run)
   })
 

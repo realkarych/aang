@@ -24,6 +24,7 @@ export const continuationQuestionText = 'Is the result of the continued run acce
 export const preparationStageTitle = 'Preparation'
 export const reportStageTitle = 'Report'
 export const reportQuestionText = 'Is the report accepted?'
+export const splitStageTitles = ['Changes', 'Checks'] as const
 export const branchStageTitles = { build: 'Build', compile: 'Compile', verify: 'Verify', test: 'Test' } as const
 export const nestedStageTitles = { release: 'Release', bundle: 'Bundle', sign: 'Sign' } as const
 
@@ -321,6 +322,26 @@ export const revisionScript = (input: ObserverInput): ObserverOutput => {
     })
   }
   return output(input, ops)
+}
+
+export const splitScript = (input: ObserverInput): ObserverOutput => {
+  const continued = stageTitled(input, continuedStageTitle)
+  if (continued === undefined) {
+    return output(input, [])
+  }
+  const evidence = sentFacts(input)
+  const parent: StageRef | null = continued.parent === null ? null : { kind: 'existing', id: continued.parent }
+  const parts = splitStageTitles.map((title, index) => createStage(`part-${String(index)}`, title, null, parent, evidence))
+  return output(input, [
+    ...parts,
+    {
+      op: 'stage.split',
+      stage: { kind: 'existing', id: continued.id },
+      into: parts.map(({ temp_id }): StageRef => ({ kind: 'new', temp_id })),
+      evidence,
+      rationale: 'The continued work divides into the changes and their checks',
+    },
+  ])
 }
 
 const ownedByMain = (input: ObserverInput, agent: AgentId | null): boolean =>

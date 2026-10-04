@@ -23,6 +23,11 @@ export const observerScenarios = {
   'map-nested': { live: phase([script('map-nested')]) },
   'claimed-done': { live: phase([script('claimed-done')]) },
   'since-last-view': { before: phase([script('map')]), after: phase([script('revision')]) },
+  'stage-succession': {
+    live: phase([script('map')]),
+    revised: phase([script('revision')]),
+    split: phase([script('split')]),
+  },
   chat: { live: phase([script('map')], [script('chat-answer'), script('chat-collapse-reviewers')]) },
   'llm-failure': {
     healthy: phase([script('map')]),
