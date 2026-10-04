@@ -278,6 +278,57 @@ const cases: readonly LanguageCase[] = [
     ],
   },
   {
+    name: 'Dockerfile comments are reported, including indented ones and those between continued lines',
+    files: {
+      Dockerfile: ['# header', 'FROM node:26-slim', '  # indented', 'RUN echo a \\', '# between continued lines', '  && echo b'],
+      'stage.Dockerfile': ['FROM scratch', '', '# syntax=docker/dockerfile:1'],
+    },
+    status: 1,
+    stdout: [
+      'Dockerfile:1:1: Dockerfile comment',
+      'Dockerfile:3:3: Dockerfile comment',
+      'Dockerfile:5:1: Dockerfile comment',
+      'stage.Dockerfile:3:1: Dockerfile comment',
+    ],
+  },
+  {
+    name: 'Dockerfile leading parser directives, # inside instructions and heredoc bodies are not Dockerfile comments',
+    files: {
+      Dockerfile: [
+        '# syntax=docker/dockerfile:1',
+        '#ESCAPE = \\',
+        'FROM node:26-slim',
+        'RUN echo "#1" && echo a#b # shell',
+        'RUN <<EOF',
+        '# shell script',
+        'echo hi',
+        'EOF',
+        'COPY <<-"CONFIG" <<FILE /etc/',
+        '\t# file content',
+        '\tCONFIG',
+        '# second file',
+        'FILE',
+        'LABEL x=y',
+      ],
+    },
+    status: 0,
+  },
+  {
+    name: 'Dockerfile with an unterminated heredoc is reported with its location',
+    files: { Dockerfile: ['FROM scratch', 'RUN <<EOF', 'echo hi'] },
+    status: 2,
+    stderr: ['Dockerfile:2:5: cannot check Dockerfile: unterminated heredoc'],
+  },
+  {
+    name: '.dockerignore comments are reported, and # after the first column is a pattern',
+    files: {
+      '.dockerignore': ['# comment', 'node_modules', ' #pattern', 'a#b'],
+      'solver.Dockerfile.dockerignore': ['dist', '#comment'],
+    },
+    status: 1,
+    stdout: ['.dockerignore:1:1: dockerignore comment', 'solver.Dockerfile.dockerignore:2:1: dockerignore comment'],
+  },
+  {
     name: 'CSS comments are reported, including after hash and at-keyword names',
     files: {
       'bad.css': [
