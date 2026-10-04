@@ -214,10 +214,11 @@ const parsePs = async () => {
 const processTable = () => (linux ? Promise.resolve(parseProc()) : parsePs())
 const keyOf = (entry) => `${String(entry.pid)}:${entry.start}`
 
-const trackTree = (rootPid, rootName, started) => {
+const trackTree = (rootPid, rootName, started, readTable) => {
   const seen = new Map()
   let samplesTaken = 0
   let running = true
+  let applied = Promise.resolve()
   const update = (table, at) => {
     const byPid = new Map(table.map((entry) => [entry.pid, entry]))
     const inTree = new Set([rootPid])
@@ -254,12 +255,14 @@ const trackTree = (rootPid, rootName, started) => {
       seen.set(key, record)
     }
   }
-  const sample = async () => {
+  const sample = () => {
     const at = now() - started
-    const table = await processTable()
-    samplesTaken += 1
-    update(table, at)
-    return { at, table }
+    const reading = readTable()
+    applied = Promise.all([reading, applied]).then(([table]) => {
+      samplesTaken += 1
+      update(table, at)
+    })
+    return reading.then((table) => ({ at, table }))
   }
   const loop = (async () => {
     while (running) {
@@ -272,6 +275,8 @@ const trackTree = (rootPid, rootName, started) => {
     stop: async () => {
       running = false
       await loop
+      await sample()
+      await applied
     },
     records: () => [...seen.values()],
     samples: () => samplesTaken,
@@ -350,7 +355,7 @@ const straceEvents = async (path) => {
   return { execs: [...new Set(execs)], groupCalls }
 }
 
-const launch = async ({ command, args, env, stdin, timeoutMs, traceName }) => {
+const launch = async ({ command, args, env, stdin, timeoutMs, traceName, processTableFor = () => processTable }) => {
   const traceLog = values.strace === undefined ? null : join(work, `strace-${randomUUID()}.log`)
   const actual = traceLog === null
     ? { command, args }
@@ -373,7 +378,7 @@ const launch = async ({ command, args, env, stdin, timeoutMs, traceName }) => {
     child.on('exit', (code, signal) => resolve({ code, signal, at: now() - started }))
     child.on('error', (error) => resolve({ code: null, signal: null, at: now() - started, error: error.code ?? String(error) }))
   })
-  const tracker = child.pid === undefined ? null : trackTree(child.pid, traceLog === null ? traceName : 'strace', started)
+  const tracker = child.pid === undefined ? null : trackTree(child.pid, traceLog === null ? traceName : 'strace', started, processTableFor(child.pid, started))
   child.stdin.end(stdin)
   let timedOut = false
   const timer = setTimeout(() => {
@@ -401,7 +406,6 @@ const launch = async ({ command, args, env, stdin, timeoutMs, traceName }) => {
   let tree = null
   if (tracker !== null) {
     await tracker.stop()
-    await tracker.sample()
     const aliveAtStop = new Set(atStop.table.map(keyOf))
     const rootPgid = child.pid
     tree = {
@@ -435,19 +439,34 @@ if (values.mode === 'check') {
     { name: 'escaped child holds the pipes', detached: true, stdio: 'inherit', childMs: 1_200, expected: { escaped: 1, survivors: 1 } },
     { name: 'escaped child without the pipes', detached: true, stdio: 'ignore', childMs: 1_200, expected: { escaped: 1, survivors: 1 } },
     { name: 'group child holds the pipes', detached: false, stdio: 'inherit', childMs: 5_000, expected: { escaped: 0, survivors: 0 } },
+    { name: 'stale snapshot returns after the stop', detached: true, stdio: 'ignore', childMs: 1_200, holdMs: 2_000, expected: { escaped: 1, survivors: 1, staleAfterStop: true } },
   ]
+  const holdFirstChildSnapshot = (holdMs, held) => (rootPid, started) => async () => {
+    const table = await processTable()
+    if (held.readAtMs !== undefined || !table.some((entry) => entry.ppid === rootPid)) return table
+    held.readAtMs = now() - started
+    await pause(holdMs)
+    held.deliveredAtMs = now() - started
+    return table
+  }
   const checks = []
   for (const scenario of scenarios) {
+    const held = scenario.holdMs === undefined ? null : {}
     const root = `require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, ${String(scenario.childMs)})'], { detached: ${String(scenario.detached)}, stdio: '${scenario.stdio}' }).unref(); setTimeout(() => process.exit(0), 150)`
-    const launched = await launch({ command: process.execPath, args: ['-e', root], env: { PATH: process.env.PATH ?? '' }, stdin: '', timeoutMs: 10_000, traceName: 'root' })
-    const observed = { escaped: launched.tree.escaped, survivors: launched.tree.survivors }
+    const launched = await launch({ command: process.execPath, args: ['-e', root], env: { PATH: process.env.PATH ?? '' }, stdin: '', timeoutMs: 10_000, traceName: 'root', processTableFor: held === null ? undefined : holdFirstChildSnapshot(scenario.holdMs, held) })
+    const observed = {
+      escaped: launched.tree.escaped,
+      survivors: launched.tree.survivors,
+      ...(held === null ? {} : { staleAfterStop: held.readAtMs < launched.stop.atMs && held.deliveredAtMs > launched.tree.stopSnapshotAtMs }),
+    }
     checks.push({
       ...scenario,
       observed,
-      pass: observed.escaped === scenario.expected.escaped && observed.survivors === scenario.expected.survivors,
+      pass: Object.entries(scenario.expected).every(([key, value]) => observed[key] === value),
       exitMs: round(launched.exit.at),
       stopMs: round(launched.stop.atMs),
       stopConfirmed: launched.stop.confirmed,
+      ...(held === null ? {} : { staleSnapshot: { readAtMs: round(held.readAtMs), deliveredAtMs: round(held.deliveredAtMs) } }),
       tree: launched.tree,
     })
     process.stdout.write(`${scenario.name}: ${checks.at(-1).pass ? 'ok' : 'FAILED'} escaped ${String(observed.escaped)}, survivors ${String(observed.survivors)}\n`)

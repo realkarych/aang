@@ -23,20 +23,20 @@
         "survivors": 1
       },
       "pass": true,
-      "exitMs": 274,
-      "stopMs": 308,
+      "exitMs": 240,
+      "stopMs": 269,
       "stopConfirmed": true,
       "tree": {
-        "samples": 39,
+        "samples": 46,
         "sampleMs": 5,
-        "stopSnapshotAtMs": 308,
-        "closedAtMs": 1411,
+        "stopSnapshotAtMs": 269,
+        "closedAtMs": 1374,
         "processes": [
           {
             "name": "root",
             "parent": "aang",
-            "firstAtMs": 3,
-            "lastAtMs": 262,
+            "firstAtMs": 1,
+            "lastAtMs": 207,
             "sameGroup": true,
             "sameSession": null,
             "states": "RS",
@@ -47,8 +47,8 @@
           {
             "name": "node",
             "parent": "root",
-            "firstAtMs": 136,
-            "lastAtMs": 1398,
+            "firstAtMs": 107,
+            "lastAtMs": 1342,
             "sameGroup": false,
             "sameSession": null,
             "states": "RS",
@@ -76,20 +76,20 @@
         "survivors": 1
       },
       "pass": true,
-      "exitMs": 253,
-      "stopMs": 285,
+      "exitMs": 239,
+      "stopMs": 265,
       "stopConfirmed": true,
       "tree": {
-        "samples": 12,
+        "samples": 13,
         "sampleMs": 5,
-        "stopSnapshotAtMs": 285,
-        "closedAtMs": 253,
+        "stopSnapshotAtMs": 265,
+        "closedAtMs": 239,
         "processes": [
           {
             "name": "root",
             "parent": "aang",
-            "firstAtMs": 1,
-            "lastAtMs": 233,
+            "firstAtMs": 0,
+            "lastAtMs": 216,
             "sameGroup": true,
             "sameSession": null,
             "states": "RS",
@@ -100,8 +100,8 @@
           {
             "name": "node",
             "parent": "root",
-            "firstAtMs": 117,
-            "lastAtMs": 347,
+            "firstAtMs": 94,
+            "lastAtMs": 312,
             "sameGroup": false,
             "sameSession": null,
             "states": "RS",
@@ -129,20 +129,20 @@
         "survivors": 0
       },
       "pass": true,
-      "exitMs": 251,
-      "stopMs": 295,
+      "exitMs": 239,
+      "stopMs": 271,
       "stopConfirmed": true,
       "tree": {
-        "samples": 12,
+        "samples": 13,
         "sampleMs": 5,
-        "stopSnapshotAtMs": 295,
-        "closedAtMs": 293,
+        "stopSnapshotAtMs": 271,
+        "closedAtMs": 266,
         "processes": [
           {
             "name": "root",
             "parent": "aang",
             "firstAtMs": 0,
-            "lastAtMs": 236,
+            "lastAtMs": 224,
             "sameGroup": true,
             "sameSession": null,
             "states": "RS",
@@ -153,8 +153,8 @@
           {
             "name": "node",
             "parent": "root",
-            "firstAtMs": 121,
-            "lastAtMs": 277,
+            "firstAtMs": 97,
+            "lastAtMs": 256,
             "sameGroup": true,
             "sameSession": null,
             "states": "RS",
@@ -171,6 +171,66 @@
         ],
         "escaped": 0,
         "survivors": 0
+      }
+    },
+    {
+      "name": "stale snapshot returns after the stop",
+      "detached": true,
+      "stdio": "ignore",
+      "childMs": 1200,
+      "holdMs": 2000,
+      "expected": {
+        "escaped": 1,
+        "survivors": 1,
+        "staleAfterStop": true
+      },
+      "observed": {
+        "escaped": 1,
+        "survivors": 1,
+        "staleAfterStop": true
+      },
+      "pass": true,
+      "exitMs": 239,
+      "stopMs": 264,
+      "stopConfirmed": true,
+      "staleSnapshot": {
+        "readAtMs": 121,
+        "deliveredAtMs": 2123
+      },
+      "tree": {
+        "samples": 7,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 264,
+        "closedAtMs": 239,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 0,
+            "lastAtMs": 96,
+            "sameGroup": true,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node",
+            "parent": "root",
+            "firstAtMs": 96,
+            "lastAtMs": 264,
+            "sameGroup": false,
+            "sameSession": null,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 1,
+        "survivors": 1
       }
     }
   ]
