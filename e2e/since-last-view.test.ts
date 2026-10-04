@@ -384,6 +384,17 @@ test.describe('with the LLM unavailable', () => {
 
 const changesRead = (url: URL): boolean => url.pathname.endsWith('/changes')
 
+const holdChanges = async (page: Page): Promise<() => void> => {
+  const held = Promise.withResolvers<undefined>()
+  await page.route(changesRead, async (route) => {
+    await held.promise
+    await route.continue().catch(() => undefined)
+  })
+  return () => {
+    held.resolve(undefined)
+  }
+}
+
 test('a mark in the changes mode keeps a change the page has not shown yet', async ({
   page,
   context,
@@ -397,11 +408,7 @@ test('a mark in the changes mode keeps a change the page has not shown yet', asy
   await markButton(page).click()
   await expect(since(page)).toContainText(nothingChanged)
 
-  const held = Promise.withResolvers<undefined>()
-  await page.route(changesRead, async (route) => {
-    await held.promise
-    await route.continue().catch(() => undefined)
-  })
+  const release = await holdChanges(page)
   const fields = hookFields(profile, claudeOriginal)
   await hook.claude('UserPromptSubmit.json', fields)
   await ask(hook, fields, question, 'toolu_h7_unseen')
@@ -411,8 +418,7 @@ test('a mark in the changes mode keeps a change the page has not shown yet', asy
   await markButton(page).click()
   expect((await saved).status()).toBe(200)
 
-  held.resolve(undefined)
-  await page.unroute(changesRead)
+  release()
   await expect(change(page, 'Вопросы и запросы', question)).toContainText('открыт')
   const returned = await context.newPage()
   await returned.goto(`/?run=${run}&mode=changes`)
@@ -432,14 +438,14 @@ test('a changes read that hangs times out, says so and recovers without a reload
   await markButton(page).click()
   await expect(since(page)).toContainText(nothingChanged)
 
-  await page.route(changesRead, () => undefined)
+  const release = await holdChanges(page)
   const fields = hookFields(profile, claudeOriginal)
   await hook.claude('UserPromptSubmit.json', fields)
   await ask(hook, fields, question, 'toolu_h7_hang')
   await expect(zoneItem(page, question)).toContainText('ждёт ответа')
   await expect(since(page)).toContainText('Изменения не обновляются: демон не ответил.', { timeout: 20_000 })
   await expect(since(page)).toContainText(nothingChanged)
-  await page.unroute(changesRead)
+  release()
   await expect(change(page, 'Вопросы и запросы', question)).toContainText('открыт')
   await expect(since(page)).not.toContainText('Изменения не обновляются')
 })
