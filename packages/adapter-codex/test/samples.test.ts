@@ -53,8 +53,6 @@ interface Expectation {
   readonly facts?: readonly Record<string, unknown>[]
 }
 
-const unrecognized = (stream: StreamKey): Expectation => ({ stream })
-
 const noFacts = (stream: StreamKey): Expectation => ({ stream, facts: [] })
 
 const expectations: Readonly<Record<string, Expectation>> = {
@@ -714,8 +712,8 @@ const expectations: Readonly<Record<string, Expectation>> = {
       },
     ],
   },
-  'event_msg.thread_settings_applied.real-resume.json': unrecognized(real),
-  'world_state.real.json': unrecognized(real),
+  'event_msg.thread_settings_applied.real-resume.json': noFacts(real),
+  'world_state.real.json': noFacts(real),
 }
 
 test('every rollout sample has an expectation', () => {

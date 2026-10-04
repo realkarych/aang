@@ -147,11 +147,8 @@ describe('the sample scenarios played into watched runtime roots pass through th
     ])
     expect(factsOfKind(store, 'turn_end')).toHaveLength(2)
     expect(factsOfKind(store, 'compaction').length).toBeGreaterThan(0)
-    expect(recordsOf(store).filter(({ parse_state }) => parse_state === 'invalid')).toEqual([])
-    expect(sessionGaps(store)).toEqual([
-      filesOnly('codex', thread),
-      ['unknown_records', sessionId('codex', thread), true],
-    ])
+    expect(recordsOf(store).filter(({ parse_state }) => parse_state !== 'parsed')).toEqual([])
+    expect(sessionGaps(store)).toEqual([filesOnly('codex', thread)])
   })
 })
 
