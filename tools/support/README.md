@@ -14,7 +14,7 @@ CI runs the same check as contract tests: `tools/support/test/contract.test.ts` 
 
 ## Which recordings run
 
-Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<os>/<scenario>/` is verified with the recorder's `verifyRecording` and replayed on every OS, whatever OS recorded it. The run leaves out the Codex `plan` and `question` (plans and answers to questions) until C.6 adds them; B.7 added the Claude ones, and R.5b makes the whole set mandatory. Teammates, workflows and MCP elicitation have no recorded scenarios yet.
+Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<os>/<scenario>/` is verified with the recorder's `verifyRecording` and replayed on every OS, whatever OS recorded it. The run leaves out the Codex `plan` and `question` (plans and answers to questions) until C.6 adds them; B.7 added the Claude ones, and R.5b makes the whole set mandatory. Teammates, workflows and MCP elicitation have no recorded scenarios yet: R.2b adds the scenarios, R.4b records them, and B.8 adds them to the run as mandatory.
 
 ## Playback
 
