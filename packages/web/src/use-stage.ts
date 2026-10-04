@@ -13,8 +13,12 @@ const refreshGapMs = 400
 
 const retryMs = 1_000
 
-const changed = (wanted: ChangeSeq | null, loaded: ChangeSeq | null): boolean =>
-  loaded === null || (wanted !== null && wanted > loaded)
+interface Loaded {
+  readonly seq: ChangeSeq | null
+}
+
+const changed = (wanted: ChangeSeq | null, loaded: Loaded | null): boolean =>
+  loaded === null || (wanted !== null && (loaded.seq === null || wanted > loaded.seq))
 
 const nextChange = (wake: { current: (() => void) | null }, signal: AbortSignal): Promise<void> =>
   new Promise((resolve) => {
@@ -42,7 +46,7 @@ export const useStage = (run: RunId, stage: StageId, seq: ChangeSeq | null, onSi
     const { signal } = controller
     const stopped = (): boolean => signal.aborted
     const follow = async (): Promise<void> => {
-      let loaded: ChangeSeq | null = null
+      let loaded: Loaded | null = null
       while (!signal.aborted) {
         if (!changed(wanted.current, loaded)) {
           await nextChange(wake, signal)
@@ -51,7 +55,7 @@ export const useStage = (run: RunId, stage: StageId, seq: ChangeSeq | null, onSi
         const target = wanted.current
         try {
           const inspector = await readStage(run, stage, signal)
-          loaded = target === null || inspector.change_seq > target ? inspector.change_seq : target
+          loaded = { seq: target === null || inspector.change_seq > target ? inspector.change_seq : target }
           setLoad({ kind: 'ready', inspector, failing: false })
           await pause(refreshGapMs, signal)
         } catch (error) {
@@ -63,8 +67,9 @@ export const useStage = (run: RunId, stage: StageId, seq: ChangeSeq | null, onSi
             return
           }
           if (error instanceof NotFound) {
-            loaded = target
+            loaded = { seq: target }
             setLoad({ kind: 'missing' })
+            await pause(refreshGapMs, signal)
             continue
           }
           setLoad((previous) => (previous.kind === 'ready' ? { ...previous, failing: true } : { kind: 'failing' }))

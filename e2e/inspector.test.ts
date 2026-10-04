@@ -1,9 +1,12 @@
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { execFile } from 'node:child_process'
+import { realpathSync } from 'node:fs'
+import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { promisify } from 'node:util'
 import { endpoints, type RunId, type RunSnapshot, type StageId } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
-import { goalCriterionText, mainStageTitle, observerScenarios, sampleScenarioManifest } from '@aang/testkit'
+import { goalCriterionText, mainStageTitle, observerScenarios, type Profile, sampleScenarioManifest } from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 import { freshManifest } from './fresh.js'
@@ -124,7 +127,7 @@ test('the open inspector follows the model live and lists the observer answer th
   await expect(rejected).toContainText('операция 1')
 })
 
-test('a report written by a Bash command becomes an output, and its saved version opens after the file changed, vanished and the daemon restarted (E2E 17)', async ({
+test('a report written by a Bash command becomes an output, its copy read later is not passed off as what the command wrote, and it opens after the file changed, vanished and the daemon restarted (E2E 17)', async ({
   page,
   player,
   profile,
@@ -135,11 +138,12 @@ test('a report written by a Bash command becomes an output, and its saved versio
   const project = join(profile.home, 'project')
   await mkdir(project, { recursive: true })
   const report = join(project, 'report.md')
-  const firstVersion = `report-v1\n${'all checks passed\n'.repeat(6_000)}end of report\n`
-  await writeFile(report, firstVersion)
+  const written = 'report-v1\n'
+  const retained = `${written}${'all checks passed\n'.repeat(6_000)}end of report\n`
+  await writeFile(report, retained)
   const sample = await freshManifest(sampleScenarioManifest('claude-subagent'), test.info().outputPath('report-sample'), [
     ['/tmp/aang-spike/cc-transcripts/run', project],
-    ['"command": "echo hi"', '"command": "echo report-v1 > report.md"'],
+    ['"command": "echo hi"', `"command": "echo ${written.trim()} > report.md"`],
   ])
   await (await player(sample, { timeScale: 0 })).play()
   const main = stageTitled(await interpreted(page.request, claudeRun), (title) => title === mainStageTitle)
@@ -148,7 +152,8 @@ test('a report written by a Bash command becomes an output, and its saved versio
   const outputs = section(page, 'Входы и выходы')
   await expect(outputs.getByRole('list', { name: 'Выходы' })).toContainText(report)
   await expect(outputs).toContainText('сохранена: состояние файла на момент чтения', { timeout: 15_000 })
-  await expect(outputs).toContainText('записана действием Bash')
+  await expect(outputs).toContainText('в файл писало действие Bash; что копия — записанное им содержимое, не доказано')
+  await expect(outputs).not.toContainText('записана действием')
 
   await writeFile(report, 'report-v2\n')
   await rm(report)
@@ -161,68 +166,172 @@ test('a report written by a Bash command becomes an output, and its saved versio
     await saved.getByRole('button', { name: 'Открыть сохранённую версию' }).click()
     const version = saved.getByRole('region', { name: `Сохранённая версия: ${report}` })
     await expect(version).toContainText('состояние файла на момент чтения')
-    await expect(version.locator('pre')).toHaveText(firstVersion.slice(0, 100_000))
+    await expect(version.locator('pre')).toHaveText(retained.slice(0, 100_000))
     await expect(version).toContainText('Показаны первые 100 000 символов из 108 024.')
     await version.getByRole('button', { name: 'Показать полностью' }).click()
-    await expect(version.locator('pre')).toHaveText(firstVersion)
+    await expect(version.locator('pre')).toHaveText(retained)
   } finally {
     expect(await restarted.stop()).toEqual({ code: 0, signal: null })
   }
 })
 
-const checkedProject = join(tmpdir(), `aang-e2e-inspector-${String(process.pid)}`)
+const runFile = promisify(execFile)
 
-test.describe('a claim of done over a failed check', () => {
+const projectsRoot = realpathSync(tmpdir())
+
+const projectAt = (name: string): string => join(projectsRoot, `aang-e2e-${name}-${String(process.pid)}`)
+
+const git = async (cwd: string, ...args: readonly string[]): Promise<string> => {
+  const { stdout } = await runFile('git', ['-c', 'user.name=aang', '-c', 'user.email=aang@example.invalid', ...args], {
+    cwd,
+    env: {
+      ...Object.fromEntries(Object.entries(process.env).filter(([name]) => !name.startsWith('GIT_'))),
+      GIT_CONFIG_NOSYSTEM: '1',
+      GIT_CONFIG_GLOBAL: join(projectsRoot, 'aang-e2e-no-gitconfig'),
+    },
+  })
+  return stdout.trim()
+}
+
+const appFile = (project: string): string => join(project, 'src', 'app.ts')
+
+const repositoryAt = async (project: string): Promise<string> => {
+  await mkdir(join(project, 'src'), { recursive: true })
+  await writeFile(appFile(project), 'export const app = 1\n')
+  await git(project, 'init', '--quiet', '--initial-branch=main')
+  await git(project, 'add', '--all')
+  await git(project, 'commit', '--quiet', '--message=init')
+  return git(project, 'rev-parse', 'HEAD')
+}
+
+const shortSha = (sha: string): string => sha.slice(0, 12)
+
+type TranscriptEntry = Readonly<Record<string, unknown>> & { readonly type: 'user' | 'assistant' }
+
+const prompt = (text: string): TranscriptEntry => ({ type: 'user', message: { role: 'user', content: text } })
+
+const command = (call: string, text: string): TranscriptEntry => ({
+  type: 'assistant',
+  message: {
+    id: `message-${call}`,
+    role: 'assistant',
+    content: [{ type: 'tool_use', id: call, name: 'Bash', input: { command: text } }],
+  },
+})
+
+const failedWith = (call: string, output: string): TranscriptEntry => ({
+  type: 'user',
+  message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: call, content: output, is_error: true }] },
+})
+
+const passedWith = (call: string, output: string): TranscriptEntry => ({
+  type: 'user',
+  message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: call, content: output, is_error: false }] },
+  toolUseResult: { stdout: output, stderr: '', interrupted: false, isImage: false },
+})
+
+const reply = (id: string, text: string): TranscriptEntry => ({
+  type: 'assistant',
+  message: { id, role: 'assistant', content: [{ type: 'text', text }], stop_reason: 'end_turn' },
+})
+
+interface Transcript {
+  readonly run: RunId
+  readonly append: (...entries: readonly TranscriptEntry[]) => Promise<void>
+}
+
+const transcriptOf = (profile: Profile, project: string, session: string): Transcript => {
+  const started = Date.now() - 60_000
+  let path: string | null = null
+  let lines = 0
+  return {
+    run: runId({ kind: 'session', runtime: 'claude', session }),
+    append: async (...entries) => {
+      const text = entries
+        .map((entry, offset) => {
+          const index = lines + offset
+          return `${JSON.stringify({
+            ...entry,
+            sessionId: session,
+            uuid: `${session}-${String(index)}`,
+            parentUuid: index === 0 ? null : `${session}-${String(index - 1)}`,
+            timestamp: new Date(started + index * 1_000).toISOString(),
+            cwd: project,
+          })}\n`
+        })
+        .join('')
+      lines += entries.length
+      if (path === null) {
+        path = await profile.write('claude', `projects/e2e-inspector/${session}.jsonl`, text)
+      } else {
+        await appendFile(path, text)
+      }
+    },
+  }
+}
+
+const snapshotRecords = async (request: APIRequestContext, seq = 1): Promise<number> => {
+  const response = await request.get(endpoints.raw.path.replace(':seq', String(seq)))
+  if (!response.ok()) {
+    return 0
+  }
+  const { raw } = endpoints.raw.response.parse(await response.json())
+  return (raw.channel === 'snapshot' ? 1 : 0) + (await snapshotRecords(request, seq + 1))
+}
+
+const contractCriterion = (page: Page): Locator =>
+  section(page, 'Критерии').getByRole('listitem').filter({ hasText: 'Check "test" passes' })
+
+const statusGrounds = async (criterion: Locator): Promise<Locator> => {
+  const toggle = criterion.getByRole('button', { name: /^Статус критерия/ })
+  if ((await toggle.getAttribute('aria-expanded')) === 'false') {
+    await toggle.click()
+  }
+  return criterion.getByRole('list', { name: /^Основания: Статус критерия/ })
+}
+
+const snapshotRows = (criterion: Locator, text: string): Locator =>
+  criterion.getByRole('table', { name: /^Снимки рабочего дерева/ }).getByRole('row').filter({ hasText: text })
+
+const verifiedProject = projectAt('verified')
+
+test.describe('a claim of done over a failed check, then a passing repeat that reports its commit', () => {
   test.use({
-    config: { watch: { roots: [{ path: checkedProject, contracts: [{ name: 'test', command: '^pnpm test' }] }] } },
+    config: {
+      watch: {
+        roots: [
+          {
+            path: verifiedProject,
+            contracts: [
+              { name: 'test', command: '^pnpm test', inputMasks: ['src'], commitPattern: 'verified commit ([0-9a-f]+)' },
+            ],
+          },
+        ],
+      },
+    },
   })
 
   test.afterEach(async () => {
-    await rm(checkedProject, { recursive: true, force: true })
+    await rm(verifiedProject, { recursive: true, force: true })
   })
 
-  test('the inspector shows the claimed done stage with its open failed check and the reported criterion (E2E 3)', async ({
+  test('the open inspector shows the claimed done stage with its open failed check, confirms the repeat on the reported commit and marks it stale after an edit under the mask (E2E 3)', async ({
     page,
     profile,
     fakeClaude,
   }) => {
     fakeClaude.setScenario(observerScenarios['claimed-done'].live)
-    await mkdir(checkedProject, { recursive: true })
-    const session = 'e2e-claimed-done'
-    const started = Date.now() - 60_000
-    const line = (index: number, type: 'user' | 'assistant', message: Record<string, unknown>): string =>
-      JSON.stringify({
-        type,
-        sessionId: session,
-        uuid: `${session}-${String(index)}`,
-        parentUuid: index === 0 ? null : `${session}-${String(index - 1)}`,
-        timestamp: new Date(started + index * 1_000).toISOString(),
-        cwd: checkedProject,
-        message,
-      })
-    const lines = [
-      line(0, 'user', { role: 'user', content: 'Run the tests and report.' }),
-      line(1, 'assistant', {
-        id: 'message-check',
-        role: 'assistant',
-        content: [{ type: 'tool_use', id: 'toolu_check', name: 'Bash', input: { command: 'pnpm test' } }],
-      }),
-      line(2, 'user', {
-        role: 'user',
-        content: [{ type: 'tool_result', tool_use_id: 'toolu_check', content: 'Exit code 1\nfailed', is_error: true }],
-      }),
-      line(3, 'assistant', {
-        id: 'message-done',
-        role: 'assistant',
-        content: [{ type: 'text', text: 'All done: the tests pass.' }],
-        stop_reason: 'end_turn',
-      }),
-    ]
-    await profile.write('claude', `projects/e2e-inspector/${session}.jsonl`, `${lines.join('\n')}\n`)
-    const run = runId({ kind: 'session', runtime: 'claude', session })
-    const main = stageTitled(await interpreted(page.request, run), (title) => title === mainStageTitle)
+    const head = await repositoryAt(verifiedProject)
+    const transcript = transcriptOf(profile, verifiedProject, 'e2e-claimed-done')
+    await transcript.append(
+      prompt('Run the tests and report.'),
+      command('toolu_check', 'pnpm test'),
+      failedWith('toolu_check', 'Exit code 1\nfailed'),
+      reply('message-done', 'All done: the tests pass.'),
+    )
+    const main = stageTitled(await interpreted(page.request, transcript.run), (title) => title === mainStageTitle)
 
-    await page.goto(`/?run=${run}&stage=${main}`)
+    await page.goto(`/?run=${transcript.run}&stage=${main}`)
     const panel = inspector(page)
     await expect(panel.getByRole('definition').filter({ hasText: 'завершён' }).first()).toContainText('заявление решателя')
     await expect(panel).toContainText('Завершён, но есть упавшая проверка')
@@ -231,12 +340,97 @@ test.describe('a claim of done over a failed check', () => {
     await expect(attention).toContainText('открыт')
     const criteria = section(page, 'Критерии')
     await expect(criteria).toContainText('агент сообщил о завершении')
-    const contract = criteria.getByRole('listitem').filter({ hasText: 'Check "test" passes' })
+    const contract = contractCriterion(page)
     await expect(contract).toContainText('не выполнен')
     await expect(contract).toContainText('по контракту проверки test')
     await expect(contract).toContainText('Критерий всего прогона')
     const goal = criteria.getByRole('listitem').filter({ hasText: goalCriterionText })
-    await goal.getByRole('button', { name: /^Статус критерия/ }).click()
-    await expect(goal.getByRole('list', { name: /^Основания: Статус критерия/ })).toContainText('All done: the tests pass.')
+    await expect(await statusGrounds(goal)).toContainText('All done: the tests pass.')
+
+    await transcript.append(
+      prompt('The check failed. Fix the code and run the check again.'),
+      command('toolu_verify', 'pnpm test && echo "verified commit $(git rev-parse HEAD)"'),
+      passedWith('toolu_verify', `Tests passed\nverified commit ${head}\n`),
+      reply('message-verified', 'Fixed: the tests pass on the checked commit.'),
+    )
+    await expect(contract).toContainText('подтверждён', { timeout: 45_000 })
+    await expect(contract).toContainText(`Проверенная версия — коммит ${shortSha(head)}`)
+    await expect(contract).toContainText('Критерий всего прогона')
+    await expect(await statusGrounds(contract)).toContainText(`verified commit ${head}`)
+
+    let edit = 1
+    await expect(async () => {
+      edit += 1
+      await writeFile(appFile(verifiedProject), `export const app = ${String(edit)}\n`)
+      await expect(contract).toContainText('проверен на другой версии', { timeout: 2_000 })
+    }).toPass({ timeout: 30_000 })
+    await expect(contract).toContainText(`Проверен на коммите ${shortSha(head)}, текущее состояние уже другое`)
+    await expect(contract).not.toContainText('подтверждён')
+    const edited = snapshotRows(contract, 'после изменения файлов')
+    await expect(edited).toContainText('есть изменения')
+    await expect(edited).toContainText(shortSha(head))
+    const grounds = await statusGrounds(contract)
+    await expect(grounds).toContainText('Снимок рабочего дерева')
+    await expect(grounds).toContainText('есть изменения под масками')
+  })
+})
+
+const unversionedProject = projectAt('unversioned')
+
+test.describe('a passing check by a contract without a reported commit', () => {
+  test.use({
+    config: {
+      watch: { roots: [{ path: unversionedProject, contracts: [{ name: 'test', command: '^pnpm test', inputMasks: ['src'] }] }] },
+    },
+  })
+
+  test.afterEach(async () => {
+    await rm(unversionedProject, { recursive: true, force: true })
+  })
+
+  test('the open inspector shows passed_unversioned with the clean tree note and never a confirmation, for a tree clean around the check and for an input changed and restored between its snapshots (E2E 3)', async ({
+    page,
+    profile,
+    fakeClaude,
+  }) => {
+    fakeClaude.setScenario(observerScenarios['live-map'].live)
+    const first = await repositoryAt(unversionedProject)
+    const transcript = transcriptOf(profile, unversionedProject, 'e2e-unversioned')
+    await transcript.append(prompt('Run the tests.'), command('toolu_first', 'pnpm test'))
+    await expect.poll(() => snapshotRecords(page.request), { timeout: 15_000 }).toBe(1)
+    await transcript.append(passedWith('toolu_first', 'Tests passed\n'), reply('message-first', 'The tests pass.'))
+    const main = stageTitled(await interpreted(page.request, transcript.run), (title) => title === mainStageTitle)
+
+    await page.goto(`/?run=${transcript.run}&stage=${main}`)
+    const contract = contractCriterion(page)
+    await expect(contract).toContainText('проверка прошла, версия не установлена')
+    await expect(contract).toContainText('какую версию она проверила, неизвестно: подтверждением это не считается.')
+    await expect(contract).toContainText(`Справочно: дерево было чистым на коммите ${shortSha(first)} в обоих снимках.`)
+    await expect(snapshotRows(contract, 'при проверке')).toHaveCount(2)
+    await expect(snapshotRows(contract, 'чисто')).toHaveCount(2)
+    await expect(contract).not.toContainText('подтверждён')
+    await expect(contract).not.toContainText('Проверенная версия')
+    const firstGrounds = await statusGrounds(contract)
+    await expect(firstGrounds).toContainText('Снимок рабочего дерева')
+    await expect(firstGrounds).toContainText('дерево чистое')
+
+    await writeFile(appFile(unversionedProject), 'export const app = 2\n')
+    await git(unversionedProject, 'commit', '--quiet', '--all', '--message=fix')
+    const second = await git(unversionedProject, 'rev-parse', 'HEAD')
+    await transcript.append(prompt('Run the app tests on the fix.'), command('toolu_second', 'pnpm test --filter app'))
+    await expect.poll(() => snapshotRecords(page.request), { timeout: 15_000 }).toBe(3)
+    await writeFile(appFile(unversionedProject), 'export const app = 3\n')
+    await writeFile(appFile(unversionedProject), 'export const app = 2\n')
+    await transcript.append(passedWith('toolu_second', 'Tests passed\n'), reply('message-second', 'The app tests pass.'))
+
+    await expect(contract).toContainText(`Справочно: дерево было чистым на коммите ${shortSha(second)} в обоих снимках.`, {
+      timeout: 45_000,
+    })
+    await expect(contract).toContainText('проверка прошла, версия не установлена')
+    await expect(contract).not.toContainText('подтверждён')
+    await expect(contract).not.toContainText('Проверенная версия')
+    await expect(snapshotRows(contract, shortSha(second))).toHaveCount(2)
+    await expect(snapshotRows(contract, 'чисто')).toHaveCount(2)
+    await expect(await statusGrounds(contract)).toContainText('pnpm test --filter app')
   })
 })

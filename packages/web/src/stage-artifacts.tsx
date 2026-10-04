@@ -82,6 +82,20 @@ const RetentionNote = ({ version }: { readonly version: ArtifactVersion }): Reac
   }
 }
 
+const ProducerNote = ({ version, producer }: { readonly version: ArtifactVersion; readonly producer: Action }): ReactElement => {
+  const tool = <code>{producer.tool}</code>
+  switch (version.retention.kind) {
+    case 'action_payload':
+      return <span>записана действием {tool}</span>
+    case 'file_read':
+      return <span>в файл писало действие {tool}; что копия — записанное им содержимое, не доказано</span>
+    case 'commit':
+    case 'hash_only':
+    case 'reference':
+      return <span>в файл писало действие {tool}</span>
+  }
+}
+
 const unavailableLabel: Readonly<Record<Extract<ArtifactContent, { kind: 'unavailable' }>['reason'], string>> = {
   reference_only: 'Известна только ссылка, содержимое aang не сохранял.',
   hash_only: 'Сохранён только хеш содержимого.',
@@ -157,11 +171,7 @@ const ArtifactItem = ({
       </p>
       <p className="artifact-meta">
         <RetentionNote version={version} />
-        {producer === undefined ? null : (
-          <span>
-            записана действием <code>{producer.tool}</code>
-          </span>
-        )}
+        {producer === undefined ? null : <ProducerNote version={version} producer={producer} />}
         <span>замечена {absoluteTime(version.observed_at)}</span>
       </p>
       {isStored(version) ? (
