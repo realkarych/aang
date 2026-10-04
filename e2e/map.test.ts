@@ -385,10 +385,6 @@ test.describe('with the observer building three levels', () => {
 })
 
 test.describe('with the observer revising the map', () => {
-  test.skip(
-    process.platform === 'win32',
-    'on Windows the fake claude needs node with a script and cannot be the configured observer CLI',
-  )
   test.use({ claudeScenario: observerScenarios['stage-succession'].live })
 
   test('new model versions keep the selected stage and the reading place, a replaced, split or merged stage hands the selection to its successor (E2E 14)', async ({
@@ -504,12 +500,17 @@ test.describe('with the observer revising the map', () => {
     await pick(changes, changesTitle).press('Enter')
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
+    await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
     await pinger.getByRole('list').click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
 
-    const checksAbove = await settled(checks)
-    const splitFrame = await box(canvas)
-    await drag(page, { x: splitFrame.right - 24, y: Math.max(splitFrame.y, 0) + 200 }, { x: 0, y: 120 - checksAbove.y })
+    const pan = async (by: { x: number; y: number }): Promise<void> => {
+      const frame = await box(canvas)
+      const top = Math.max(frame.y, 0)
+      const bottom = Math.min(frame.bottom, page.viewportSize()?.height ?? frame.bottom)
+      await drag(page, { x: frame.x + 70, y: by.y < 0 ? bottom - 30 : top + 30 }, by)
+    }
+    await pan({ x: 40, y: 0 })
     await pick(checks, checksTitle).click()
     await expect(pick(checks, checksTitle)).toHaveAttribute('aria-pressed', 'true')
     const changesPlace = await settled(changes)
@@ -529,10 +530,9 @@ test.describe('with the observer revising the map', () => {
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mergedStageTitle).id)
     near(await settled(merged), checksPlace)
 
-    const mergedFrame = await box(canvas)
-    await drag(page, { x: mergedFrame.x + 300, y: Math.max(mergedFrame.y, 0) + 200 }, { x: 500, y: 0 })
+    await pan({ x: 500, y: 40 - checksPlace.y })
     const aside = await settled(merged)
-    near(aside, { x: checksPlace.x + 500, y: checksPlace.y })
+    near(aside, { x: checksPlace.x + 500, y: 40 })
     await page.setViewportSize({ width: 390, height: 844 })
     await expect
       .poll(async () => {
