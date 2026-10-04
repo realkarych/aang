@@ -31,7 +31,7 @@ const { values } = parseArgs({
   },
 })
 
-const modes = ['live', 'stub']
+const modes = ['live', 'stub', 'check']
 if (!modes.includes(values.mode)) throw new Error(`--mode must be one of ${modes.join(', ')}`)
 const stub = values.mode === 'stub'
 const runs = Number(values.runs)
@@ -88,10 +88,28 @@ const freshness = (calls, callGapMs = 10_000, timerMs = 5_000) => {
   }
 }
 
+const hourly = (calls, callGapMs = 10_000) => {
+  const measured = calls.filter((call) => call.ok && typeof call.stopMs === 'number' && typeof call.tokens?.total === 'number')
+  if (measured.length === 0) return null
+  const mean = (selector) => measured.reduce((sum, call) => sum + selector(call), 0) / measured.length
+  const cycleMs = mean((call) => Math.max(call.stopMs, callGapMs))
+  const callsPerHour = 3_600_000 / cycleMs
+  return {
+    assumptions: 'continuous activity, one call per run, at least 10 s between call starts, this batch on every call; tokens are the call total over every model',
+    cycleMs: Math.round(cycleMs),
+    callsPerHour: Math.round(callsPerHour),
+    tokensPerHour: Math.round(callsPerHour * mean((call) => call.tokens.total)),
+    costUsdPerHour: measured.every((call) => typeof call.costUsd === 'number') ? Number((callsPerHour * mean((call) => call.costUsd)).toFixed(2)) : null,
+  }
+}
+
+const outsideGroup = (entry) => !entry.sameGroup || entry.sameSession === false
+
 const summarise = (calls, names) => Object.fromEntries(names.map((name) => {
   const own = calls.filter((call) => call.variant === name)
   const ok = own.filter((call) => call.ok)
   const pick = (selector) => distribution(own.map(selector))
+  const processes = (call) => call.tree?.processes ?? []
   return [name, {
     calls: own.length,
     ok: ok.length,
@@ -102,8 +120,14 @@ const summarise = (calls, names) => Object.fromEntries(names.map((name) => {
     cliDurationMs: pick((call) => call.cli?.durationMs),
     cliApiDurationMs: pick((call) => call.cli?.durationApiMs),
     usage: Object.fromEntries(Object.keys(own[0]?.usage ?? {}).map((key) => [key, pick((call) => call.usage[key])])),
+    tokens: Object.fromEntries(Object.keys(own[0]?.tokens ?? {}).map((key) => [key, pick((call) => call.tokens[key])])),
+    models: Object.fromEntries([...new Set(own.flatMap((call) => Object.keys(call.models ?? {})))].sort().map((model) => [model, {
+      calls: own.filter((call) => call.models?.[model] !== undefined).length,
+      ...Object.fromEntries(['input', 'cacheCreation', 'cacheRead', 'output', 'costUsd'].map((key) => [key, pick((call) => call.models?.[model]?.[key])])),
+    }])),
     costUsd: pick((call) => call.costUsd),
     costUsdTotal: Number(own.reduce((sum, call) => sum + (call.costUsd ?? 0), 0).toFixed(6)),
+    hourlyEstimate: hourly(own),
     answers: {
       schemaValid: own.filter((call) => call.answer.schemaValid).length,
       baseVersionMatches: own.filter((call) => call.answer.baseVersionMatches).length,
@@ -114,11 +138,14 @@ const summarise = (calls, names) => Object.fromEntries(names.map((name) => {
     },
     tree: {
       escaped: own.reduce((sum, call) => sum + (call.tree?.escaped ?? 0), 0),
+      callsEscaped: own.filter((call) => (call.tree?.escaped ?? 0) > 0).length,
+      callsEscapedAliveAtRootExit: own.filter((call) => processes(call).some((entry) => entry.aliveAtRootExit && outsideGroup(entry))).length,
+      aliveAtStop: own.reduce((sum, call) => sum + processes(call).filter((entry) => entry.aliveAtStop).length, 0),
       survivors: own.reduce((sum, call) => sum + (call.tree?.survivors ?? 0), 0),
+      callsWithSurvivors: own.filter((call) => (call.tree?.survivors ?? 0) > 0).length,
       groupAtRootExit: own.reduce((sum, call) => sum + (call.tree?.groupAtRootExit.length ?? 0), 0),
-      escapedAliveAtRootExit: own.reduce((sum, call) => sum + (call.tree?.processes ?? []).filter((entry) => entry.aliveAtRootExit && !entry.sameGroup).length, 0),
       stopUnconfirmed: own.filter((call) => !call.stopConfirmed).length,
-      descendants: [...new Set(own.flatMap((call) => (call.tree?.processes ?? []).filter((entry) => entry.parent !== 'aang').map((entry) => `${entry.parent ?? '?'}>${entry.name}`)))].sort(),
+      descendants: [...new Set(own.flatMap((call) => processes(call).filter((entry) => entry.parent !== 'aang').map((entry) => `${entry.parent ?? '?'}>${entry.name}`)))].sort(),
       groupCalls: own.flatMap((call) => call.strace?.groupCalls ?? []).length,
       execs: [...new Set(own.flatMap((call) => call.strace?.execs ?? []))].sort(),
     },
@@ -228,10 +255,11 @@ const trackTree = (rootPid, rootName, started) => {
     }
   }
   const sample = async () => {
+    const at = now() - started
     const table = await processTable()
     samplesTaken += 1
-    update(table, now() - started)
-    return table
+    update(table, at)
+    return { at, table }
   }
   const loop = (async () => {
     while (running) {
@@ -340,7 +368,7 @@ const launch = async ({ command, args, env, stdin, timeoutMs, traceName }) => {
   })
   child.stderr.setEncoding('utf8').on('data', (chunk) => { stderr += chunk })
   child.stdin.on('error', () => undefined)
-  const closed = new Promise((resolve) => child.on('close', resolve))
+  const closed = new Promise((resolve) => child.on('close', () => resolve(now() - started)))
   const exited = new Promise((resolve) => {
     child.on('exit', (code, signal) => resolve({ code, signal, at: now() - started }))
     child.on('error', (error) => resolve({ code: null, signal: null, at: now() - started, error: error.code ?? String(error) }))
@@ -357,28 +385,31 @@ const launch = async ({ command, args, env, stdin, timeoutMs, traceName }) => {
   let atRootExit = new Set()
   let groupAtRootExit = []
   let stop = { confirmed: true, atMs: exit.at }
-  if (child.pid !== undefined && tracker !== null) {
-    const table = await tracker.sample()
+  let atStop = null
+  if (tracker !== null) {
+    const { table } = await tracker.sample()
     atRootExit = new Set(table.map(keyOf))
     groupAtRootExit = table.filter((entry) => entry.pgid === child.pid && entry.pid !== child.pid).map((entry) => ({ name: basename(entry.comm), state: entry.state }))
     killGroup(child.pid)
     const deadline = now() + 10_000
     while (groupAlive(child.pid) && now() < deadline) await pause(5)
     stop = { confirmed: !groupAlive(child.pid), atMs: now() - started }
+    atStop = await tracker.sample()
   }
-  await Promise.race([closed, pause(5_000)])
+  const closedAt = await Promise.race([closed, pause(5_000).then(() => null)])
   if (pending.trim() !== '') lines.push({ at: now() - started, text: pending })
   let tree = null
   if (tracker !== null) {
     await tracker.stop()
-    const after = await processTable()
-    const alive = new Set(after.map(keyOf))
-    const records = tracker.records()
+    await tracker.sample()
+    const aliveAtStop = new Set(atStop.table.map(keyOf))
     const rootPgid = child.pid
     tree = {
       samples: tracker.samples(),
       sampleMs,
-      processes: records.map((record) => ({
+      stopSnapshotAtMs: round(atStop.at),
+      closedAtMs: round(closedAt),
+      processes: tracker.records().map((record) => ({
         name: record.name,
         parent: record.parent,
         firstAtMs: round(record.firstAt),
@@ -386,16 +417,44 @@ const launch = async ({ command, args, env, stdin, timeoutMs, traceName }) => {
         sameGroup: [...record.pgids].every((pgid) => pgid === rootPgid),
         sameSession: record.sids.size === 0 ? null : [...record.sids].every((sid) => sid === rootPgid),
         states: [...record.states].join(''),
-        aliveAtRootExit: record.pid !== rootPgid && atRootExit.has(`${String(record.pid)}:${record.start}`),
-        aliveAfterStop: alive.has(`${String(record.pid)}:${record.start}`),
+        aliveAtRootExit: record.pid !== rootPgid && atRootExit.has(keyOf(record)),
+        aliveAtStop: aliveAtStop.has(keyOf(record)),
+        seenAfterStop: record.lastAt >= stop.atMs,
       })),
       groupAtRootExit,
     }
-    tree.escaped = tree.processes.filter((entry) => !entry.sameGroup || entry.sameSession === false).length
-    tree.survivors = tree.processes.filter((entry) => entry.aliveAfterStop).length
+    tree.escaped = tree.processes.filter(outsideGroup).length
+    tree.survivors = tree.processes.filter((entry) => entry.seenAfterStop).length
   }
   const strace = traceLog === null ? null : await straceEvents(traceLog)
   return { exit, timedOut, stop, lines, stderr, tree, strace }
+}
+
+if (values.mode === 'check') {
+  const scenarios = [
+    { name: 'escaped child holds the pipes', detached: true, stdio: 'inherit', childMs: 1_200, expected: { escaped: 1, survivors: 1 } },
+    { name: 'escaped child without the pipes', detached: true, stdio: 'ignore', childMs: 1_200, expected: { escaped: 1, survivors: 1 } },
+    { name: 'group child holds the pipes', detached: false, stdio: 'inherit', childMs: 5_000, expected: { escaped: 0, survivors: 0 } },
+  ]
+  const checks = []
+  for (const scenario of scenarios) {
+    const root = `require('node:child_process').spawn(process.execPath, ['-e', 'setTimeout(() => {}, ${String(scenario.childMs)})'], { detached: ${String(scenario.detached)}, stdio: '${scenario.stdio}' }).unref(); setTimeout(() => process.exit(0), 150)`
+    const launched = await launch({ command: process.execPath, args: ['-e', root], env: { PATH: process.env.PATH ?? '' }, stdin: '', timeoutMs: 10_000, traceName: 'root' })
+    const observed = { escaped: launched.tree.escaped, survivors: launched.tree.survivors }
+    checks.push({
+      ...scenario,
+      observed,
+      pass: observed.escaped === scenario.expected.escaped && observed.survivors === scenario.expected.survivors,
+      exitMs: round(launched.exit.at),
+      stopMs: round(launched.stop.atMs),
+      stopConfirmed: launched.stop.confirmed,
+      tree: launched.tree,
+    })
+    process.stdout.write(`${scenario.name}: ${checks.at(-1).pass ? 'ok' : 'FAILED'} escaped ${String(observed.escaped)}, survivors ${String(observed.survivors)}\n`)
+  }
+  const result = { tool: 'docs/research/samples/observer-measurement/run.mjs', mode: 'check', platform: { os: platform(), release: release(), arch: arch(), node: process.version }, sampleMs, checks }
+  await writeFile(values.out, `${redact(JSON.stringify(result, null, 2))}\n`)
+  process.exit(checks.every((check) => check.pass) ? 0 : 1)
 }
 
 const parseJsonLines = (lines) => lines.flatMap(({ at, text }) => {
@@ -470,6 +529,18 @@ const claudeCall = async (variant, cli, env, sessions) => {
   const limits = events.filter(({ value }) => value.type === 'rate_limit_event').map(({ value }) => value.rate_limit_info?.unifiedWindows ?? null)
   const usage = isObject(result?.usage) ? result.usage : {}
   const names = (items) => (Array.isArray(items) ? items.map((item) => (isObject(item) ? item.name : item)) : null)
+  const models = isObject(result?.modelUsage)
+    ? Object.fromEntries(Object.entries(result.modelUsage).filter(([, entry]) => isObject(entry)).map(([model, entry]) => [model, {
+      input: entry.inputTokens ?? null,
+      cacheCreation: entry.cacheCreationInputTokens ?? null,
+      cacheRead: entry.cacheReadInputTokens ?? null,
+      output: entry.outputTokens ?? null,
+      costUsd: entry.costUSD ?? null,
+    }]))
+    : null
+  const tokenKeys = ['input', 'cacheCreation', 'cacheRead', 'output']
+  const tokens = Object.fromEntries(tokenKeys.map((key) => [key, models === null ? null : Object.values(models).reduce((sum, entry) => sum + (entry[key] ?? 0), 0)]))
+  tokens.total = models === null ? null : tokenKeys.reduce((sum, key) => sum + tokens[key], 0)
   return {
     launched,
     record: {
@@ -493,8 +564,9 @@ const claudeCall = async (variant, cli, env, sessions) => {
         output: usage.output_tokens ?? null,
         thinking: usage.output_tokens_details?.thinking_tokens ?? usage.thinking_tokens ?? null,
       },
+      tokens,
       costUsd: result?.total_cost_usd ?? null,
-      models: isObject(result?.modelUsage) ? Object.fromEntries(Object.entries(result.modelUsage).map(([model, entry]) => [model, { costUsd: entry.costUSD ?? null, output: entry.outputTokens ?? null }])) : null,
+      models,
       rateLimits: limits.at(-1) ?? null,
       isolation: init === undefined ? null : {
         model: init.model ?? null,
@@ -561,6 +633,7 @@ const codexCall = async (variant, cli, env, catalog, threads) => {
         output: usage.output_tokens ?? null,
         reasoning: usage.reasoning_output_tokens ?? null,
       },
+      tokens: { total: typeof usage.input_tokens === 'number' && typeof usage.output_tokens === 'number' ? usage.input_tokens + usage.output_tokens : null },
       stderr: {
         lines: stderrLines.length,
         errors: stderrLines.filter((line) => /\bERROR\b/.test(line)).length,

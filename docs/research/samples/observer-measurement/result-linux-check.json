@@ -1,0 +1,177 @@
+{
+  "tool": "docs/research/samples/observer-measurement/run.mjs",
+  "mode": "check",
+  "platform": {
+    "os": "linux",
+    "release": "7.0.14-linuxkit",
+    "arch": "arm64",
+    "node": "v26.10.0"
+  },
+  "sampleMs": 5,
+  "checks": [
+    {
+      "name": "escaped child holds the pipes",
+      "detached": true,
+      "stdio": "inherit",
+      "childMs": 1200,
+      "expected": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "observed": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "pass": true,
+      "exitMs": 172,
+      "stopMs": 172,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 180,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 172,
+        "closedAtMs": 1240,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 2,
+            "lastAtMs": 171,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node-MainThread",
+            "parent": "root",
+            "firstAtMs": 20,
+            "lastAtMs": 1235,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 1,
+        "survivors": 1
+      }
+    },
+    {
+      "name": "escaped child without the pipes",
+      "detached": true,
+      "stdio": "ignore",
+      "childMs": 1200,
+      "expected": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "observed": {
+        "escaped": 1,
+        "survivors": 1
+      },
+      "pass": true,
+      "exitMs": 173,
+      "stopMs": 173,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 30,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 173,
+        "closedAtMs": 173,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 1,
+            "lastAtMs": 172,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RSZ",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node-MainThread",
+            "parent": "root",
+            "firstAtMs": 18,
+            "lastAtMs": 180,
+            "sameGroup": false,
+            "sameSession": false,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": true,
+            "seenAfterStop": true
+          }
+        ],
+        "groupAtRootExit": [],
+        "escaped": 1,
+        "survivors": 1
+      }
+    },
+    {
+      "name": "group child holds the pipes",
+      "detached": false,
+      "stdio": "inherit",
+      "childMs": 5000,
+      "expected": {
+        "escaped": 0,
+        "survivors": 0
+      },
+      "observed": {
+        "escaped": 0,
+        "survivors": 0
+      },
+      "pass": true,
+      "exitMs": 174,
+      "stopMs": 180,
+      "stopConfirmed": true,
+      "tree": {
+        "samples": 30,
+        "sampleMs": 5,
+        "stopSnapshotAtMs": 180,
+        "closedAtMs": 176,
+        "processes": [
+          {
+            "name": "root",
+            "parent": "aang",
+            "firstAtMs": 2,
+            "lastAtMs": 172,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": false,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          },
+          {
+            "name": "node-MainThread",
+            "parent": "root",
+            "firstAtMs": 20,
+            "lastAtMs": 174,
+            "sameGroup": true,
+            "sameSession": true,
+            "states": "RS",
+            "aliveAtRootExit": true,
+            "aliveAtStop": false,
+            "seenAfterStop": false
+          }
+        ],
+        "groupAtRootExit": [
+          {
+            "name": "node-MainThread",
+            "state": "S"
+          }
+        ],
+        "escaped": 0,
+        "survivors": 0
+      }
+    }
+  ]
+}
