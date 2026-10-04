@@ -18,6 +18,7 @@ export type { RawInsertResult, RawRecordReader, RawRecordWriter } from './raw-re
 export type { ScopeReader, ScopeWriter, SessionDecision, SessionScope, StreamScope } from './scopes.js'
 export type { SettingReader, SettingWriter } from './settings.js'
 export type {
+  LatestObserverCall,
   ObserverCallError,
   ObserverCallProgress,
   ObserverCallReader,
@@ -37,7 +38,7 @@ export type {
   InterpretationWriter,
   PendingFact,
 } from './interpretations.js'
-export type { AttentionViewDraft, ViewReader, ViewWriter } from './views.js'
+export type { AttentionViewDraft, ViewReader, ViewRuleDraft, ViewWriter } from './views.js'
 export { openStore, type Store, type StoreFile, type StoreOptions, type Transaction } from './store.js'
 export type {
   Observation,

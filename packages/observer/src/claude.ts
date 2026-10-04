@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
 import { observerOutputJsonSchema, type CallUsage, type JsonValue } from '@aang/contract'
-import { createBackend, events, failureClass, LaunchError, number, object, requireSuccess, validateOutput, type BackendOptions, type ObserverOutcome, type JsonObject } from './backend.js'
+import { authenticate, createBackend, events, failureClass, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type ObserverOutcome, type JsonObject } from './backend.js'
 import { observerSystemPrompt } from './prompt.js'
 
 import type { ProcessResult } from './process.js'
@@ -50,11 +50,7 @@ export const createClaudeLauncher = (options: ClaudeBackendOptions, admittedVers
       if (version.stdout.trim() !== `${admittedVersion} (Claude Code)`) throw new LaunchError('version_not_admitted', 'Claude version changed after admission')
     }
     if (!authenticated) {
-      const auth = await run(['auth', 'status'])
-      if (auth.failure !== null) requireSuccess(auth)
-      if (auth.exitCode !== 0) throw new LaunchError('auth', 'Claude is not logged in')
-      const status: unknown = JSON.parse(auth.stdout)
-      if (typeof status !== 'object' || status === null || !('loggedIn' in status) || status.loggedIn !== true) throw new LaunchError('auth', 'Claude is not logged in')
+      await authenticate('claude', run)
       authenticated = true
     }
     const result = await run(claudeArguments(options, randomUUID()), input)
@@ -95,8 +91,11 @@ export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendO
   if (parseError !== null) throw parseError
   if (response === undefined || results.length !== 1 || response.subtype !== 'success' || response.is_error !== false || result.exitCode !== 0) {
     const message = typeof response?.result === 'string' ? response.result : ''
-    const kind = response?.api_error_status === 429 ? 'limit' : failureClass(message + result.stderr)
-    throw new LaunchError(kind, 'Claude did not produce a successful result', usage)
+    const status = number(response?.api_error_status)
+    const limit = stream.filter((event) => event.type === 'rate_limit_event').map((event) => event.rate_limit_info).find((info) => object(info) && info.status === 'rejected')
+    const kind = status === 429 || limit !== undefined ? 'limit' : status !== null && status >= 500 ? 'network' : failureClass(message + result.stderr)
+    const resets = object(limit) ? number(limit.resetsAt) : null
+    throw new LaunchError(kind, `Claude did not produce a successful result${message === '' ? '' : `: ${message}`}`, usage, kind !== 'limit' ? null : resets === null ? resetTime(message) : resets * 1000)
   }
   return validateOutput(response.structured_output, usageOf(response, options.model))
 }
