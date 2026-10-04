@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import type { CallUsage } from '@aang/contract'
 import { authenticate, createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type CallOutcome, type CallProtocol, type Invocation, type JsonObject } from './backend.js'
 
-const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins']
+const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins', 'shell_snapshot']
 const settings = [
   'include_environment_context=false', 'include_permissions_instructions=false', 'include_apps_instructions=false',
   'include_collaboration_mode_instructions=false', 'project_doc_max_bytes=0', 'web_search="disabled"',

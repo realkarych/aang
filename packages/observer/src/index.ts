@@ -3,6 +3,7 @@ export { createClaudeBackend, createCodexBackend, type AdmissionOptions, type Ad
 export { type AuthOutcome, type AuthResult, type BackendOptions, type CallResult, type ChatResult, type LaunchErrorClass, type LaunchFailure, type ObserverRequest, type ObserverResult } from './backend.js'
 export { createProcessRunner, type CliCommand, type LaunchStatus, type ProcessFailure, type ProcessRequest, type ProcessResult, type ProcessRunner, type ProcessRunnerOptions } from './process.js'
 export { createClaudeLauncher } from './claude.js'
+export { resolveCli, type InheritedEnvironment } from './environment.js'
 export { createCodexLauncher } from './codex.js'
 export {
   createObserverScheduler,
