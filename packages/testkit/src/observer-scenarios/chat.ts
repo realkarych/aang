@@ -61,11 +61,12 @@ export const chatAnswerScript = (input: ChatInput): ChatOutput => {
   }
 }
 
-const reviews = (agent: RunAgentBrief): boolean =>
-  [agent.agent_type, agent.name, agent.description].some((value) => value !== null && /review/i.test(value))
+const reviewing = (value: string | null): boolean => value !== null && /review/i.test(value)
+
+const reviews = (agent: RunAgentBrief): boolean => [agent.agent_type, agent.name, agent.description].some(reviewing)
 
 const reviewerSelector = (reviewers: readonly RunAgentBrief[]): ViewSelector | null => {
-  const agentType = reviewers.find(({ agent_type }) => agent_type !== null)?.agent_type
+  const agentType = reviewers.find(({ agent_type }) => reviewing(agent_type))?.agent_type
   if (agentType !== undefined && agentType !== null) {
     return { kind: 'agent_type', agent_type: agentType }
   }
