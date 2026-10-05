@@ -14,9 +14,13 @@ const Block = z.looseObject({
   content: z.unknown().optional(),
 })
 
+const Attachment = z.looseObject({ type: z.string() })
+export type Attachment = z.infer<typeof Attachment>
+
 const Entry = z.looseObject({
   type: z.string(),
   subtype: z.string().optional(),
+  attachment: Attachment.optional(),
   isCompactSummary: z.boolean().optional(),
   sessionId: z.string().optional(),
   compactMetadata: z.looseObject({ trigger: z.string().optional() }).optional(),
@@ -79,6 +83,20 @@ export const subagentTranscripts = async (claude: string, transcript: Transcript
   const directory = join(transcript.file.slice(0, -'.jsonl'.length), 'subagents')
   const names = (await readdir(directory).catch(() => [])).filter((name) => /^agent-.+\.jsonl$/.test(name))
   return Promise.all(names.map((name) => readTranscript(claude, join(directory, name))))
+}
+
+export const attachments = (transcript: Transcript): Attachment[] =>
+  transcript.entries.flatMap((entry) => entry.type === 'attachment' && entry.attachment !== undefined ? [entry.attachment] : [])
+
+const AgentMeta = z.looseObject({ agentType: z.string(), toolUseId: z.string().optional() })
+
+export const subagentMetas = async (transcript: Transcript): Promise<(z.infer<typeof AgentMeta> & { readonly transcript: string })[]> => {
+  const directory = join(transcript.file.slice(0, -'.jsonl'.length), 'subagents')
+  const names = (await readdir(directory).catch(() => [])).filter((name) => /^agent-.+\.meta\.json$/.test(name))
+  return Promise.all(names.map(async (name) => ({
+    ...AgentMeta.parse(JSON.parse(await readFile(join(directory, name), 'utf8'))),
+    transcript: join(directory, `${name.slice(0, -'.meta.json'.length)}.jsonl`),
+  })))
 }
 
 const blocks = (entry: Entry): z.infer<typeof Block>[] => {

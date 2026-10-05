@@ -25,6 +25,9 @@ const engine = spawn(plan.engine, [
   ...plan.args, '--permission-mode', plan.permissionMode,
   ...plan.resume === undefined ? [] : ['--resume', plan.resume], ...plan.fork ? ['--fork-session'] : [],
   ...mcpServers.length === 0 ? [] : ['--mcp-config', JSON.stringify({ mcpServers: Object.fromEntries(mcpServers.map(([name, server]) => [name, { type: 'stdio', ...server }])) })],
+  ...plan.plugins.flatMap((directory) => ['--plugin-dir', directory]),
+  ...Object.keys(plan.agents).length === 0 ? [] : ['--agents', JSON.stringify(plan.agents)],
+  ...plan.settings === undefined ? [] : ['--settings', plan.settings],
   ...forwarded,
 ], { env: { ...process.env, ...plan.env }, stdio: ['pipe', 'pipe', 'pipe'] })
 const exited = once(engine, 'exit') as Promise<[number | null, NodeJS.Signals | null]>
