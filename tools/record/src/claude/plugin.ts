@@ -34,7 +34,7 @@ export const plugin: Definition = {
   expectedFacts: [
     `The session loads the plugin ${pluginName} with --plugin-dir; the agent listing describes its agent ${agentType} and the skill listing describes its skill ${skill}`,
     `The root session invokes the plugin skill ${skill} with the Skill tool and the skill instructions enter the session`,
-    `The root session starts the plugin subagent ${agentType}, which runs one Bash action; its meta file and SubagentStart hook carry the type ${agentType}`,
+    `The root session starts the plugin subagent ${agentType}, which runs one Bash action that prints reviewed; its meta file and SubagentStart hook carry the type ${agentType}`,
   ],
   script: () => ({
     plugin: [

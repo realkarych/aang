@@ -49,7 +49,9 @@ export const checkDefinedAgent = async (
   const meta = present(metas.find(({ toolUseId }) => toolUseId === call.id), `No subagent meta file belongs to ${call.id}: ${metas.map(({ agentType }) => agentType).join(', ')}`)
   check(meta.agentType === type, `The subagent of ${call.id} has the type ${meta.agentType} instead of ${type}`)
   const child = await readTranscript(session.claude, meta.transcript)
-  check(named(toolUses(child), 'Bash').some((use) => commandOf(use).includes(`echo ${word}`)), `The ${type} subagent did not run echo ${word}`)
+  const command = present(named(toolUses(child), 'Bash').find((use) => commandOf(use).includes(`echo ${word}`)), `The ${type} subagent did not run echo ${word}`)
+  const output = present(toolResult(child, command.id), `echo ${word} of the ${type} subagent has no result`)
+  check(!output.isError && output.text.includes(word), `echo ${word} of the ${type} subagent failed: ${output.text}`)
   const started = hooksNamed(await hookRecords(session.spool), 'SubagentStart')
   check(started.some((hook) => hook['agent_type'] === type), `No SubagentStart hook has the agent type ${type}: ${started.map((hook) => String(hook['agent_type'])).join(', ')}`)
   return call

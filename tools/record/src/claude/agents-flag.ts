@@ -11,7 +11,7 @@ export const agentsFlag: Definition = {
   surfaces: ['claude_cli', 'claude_sdk'],
   expectedFacts: [
     `The session defines the agent ${agentType} for this run only: --agents on the CLI, the agents option of query() in the SDK; the agent listing describes it`,
-    `The root session starts the ${agentType} subagent, which runs one Bash action and reports back`,
+    `The root session starts the ${agentType} subagent, which runs one Bash action that prints checked and reports back`,
     `The meta file and the SubagentStart hook of the subagent carry the type ${agentType}`,
   ],
   script: () => ({

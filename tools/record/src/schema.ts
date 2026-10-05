@@ -22,7 +22,7 @@ export const RecordMetadata = z.strictObject({
 }).refine((value) => value.surface.startsWith(`${value.runtime}_`), 'surface must match runtime')
 
 export const Artifact = z.strictObject({
-  source: z.string().regex(/^(data|spool|output)\/[0-9]+\.(jsonl|json|spool|txt)$/),
+  source: z.string().regex(/^(data|spool|output)\/[0-9]+\.(jsonl|json|spool|txt|toml)$/),
   observed_at: z.iso.datetime(),
   mtime_ns: z.string().regex(/^[0-9]+$/),
 })
