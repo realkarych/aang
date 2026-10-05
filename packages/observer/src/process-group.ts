@@ -76,7 +76,7 @@ export const watchProcessGroup = (pgid: number): ProcessGroupWatch => {
     for (const entry of table) {
       if (!members.has(entry.pid)) continue
       known.add(identity(entry))
-      if (entry.pgid !== pgid) departed.set(identity(entry), entry)
+      if (entry.pgid !== pgid) departed.set(`${identity(entry)}:${String(entry.pgid)}`, entry)
     }
   }
   const watching = new AbortController()
