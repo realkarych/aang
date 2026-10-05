@@ -14,6 +14,7 @@ import {
   installFakeClaude,
   installFakeCodex,
   invokeHook,
+  type LoadedManifest,
   loadManifest,
   type Player,
   type PlayerOptions,
@@ -45,7 +46,7 @@ export interface AangFixtures {
   readonly daemon: RunningDaemon
   readonly aang: (...args: readonly string[]) => Promise<string>
   readonly signInLink: () => Promise<string>
-  readonly player: (manifest: string, settings?: PlayerSettings) => Promise<Player>
+  readonly player: (manifest: string | LoadedManifest, settings?: PlayerSettings) => Promise<Player>
   readonly hook: HookSamples
 }
 
@@ -162,7 +163,7 @@ export const test = base.extend<AangOptions & AangFixtures>({
 
   player: async ({ profile }, use) => {
     await use(async (manifest, settings = {}) =>
-      createPlayer(await loadManifest(manifest), {
+      createPlayer(typeof manifest === 'string' ? await loadManifest(manifest) : manifest, {
         ...settings,
         roots: { home: profile.home, claude: profile.claude, codex: profile.codex },
         hook: { binary: hookBinary, spool: profile.spool, env: profile.env },

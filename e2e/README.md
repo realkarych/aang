@@ -31,10 +31,10 @@ test('прогон из образца виден в API', async ({ player, page
 | `request` | встроенный анонимный `APIRequestContext`, для проверок 401 |
 | `aang(...args)` | команда собранного `aang` в окружении профиля; возвращает stdout |
 | `signInLink()` | новая неиспользованная одноразовая ссылка от `aang open` |
-| `player(manifest, { timeScale, recordTime })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля; `recordTime: 'playback'` сдвигает время записей к моменту проигрывания |
+| `player(manifest, { timeScale, recordTime })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля; `manifest` — путь или загруженный манифест; `recordTime: 'playback'` сдвигает время записей к моменту проигрывания, `{ startsAt }` — к заданному моменту |
 | `hook.claude(sample, fields)`, `hook.codex(sample, fields)` | вызов настоящего `aang-hook` с payload образца из `docs/research/samples/claude-code-hooks` или `codex-cli/hooks` (поле `stdin`), поля которого заменены на `fields` |
 
-Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`.
+Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`. Эталонные записи R.4 выбирает `e2e/recordings.ts`: запись ОС раннера, а если её нет — macOS; `through` и `after` режут запись по метке контрольного события, `filesOnly` оставляет в ней только файлы сессии, без hook-событий и OTLP, `threadsOf` перечисляет треды Codex в порядке их rollout.
 
 | Опция (`test.use`) | По умолчанию | Смысл |
 | --- | --- | --- |
