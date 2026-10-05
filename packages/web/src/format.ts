@@ -70,3 +70,32 @@ export const bytes = (value: number): string => {
   }
   return `${byteFormat.format(scaled)} ${byteUnits[unit] ?? 'Б'}`
 }
+
+const wholeFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 0 })
+const rateFormat = new Intl.NumberFormat(locale, { maximumFractionDigits: 1 })
+const secondsFormat = new Intl.NumberFormat(locale, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+const moneyFormat = new Intl.NumberFormat(locale, {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 4,
+})
+
+export const whole = (value: number): string => wholeFormat.format(value)
+
+export const rate = (value: number): string => rateFormat.format(value)
+
+export const money = (usd: number): string => moneyFormat.format(usd)
+
+export const elapsed = (ms: number): string => {
+  const seconds = Math.floor(ms / 1_000)
+  const parts = [
+    [Math.floor(seconds / 3_600), 'ч'],
+    [Math.floor((seconds % 3_600) / 60), 'мин'],
+    [seconds % 60, 'с'],
+  ] as const
+  const shown = parts.filter(([value]) => value > 0).map(([value, unit]) => `${String(value)} ${unit}`)
+  return shown.length === 0 ? '0 с' : shown.join(' ')
+}
+
+export const wait = (ms: number): string => (ms < 60_000 ? `${secondsFormat.format(ms / 1_000)} с` : elapsed(ms))
