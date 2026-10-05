@@ -16,6 +16,7 @@ export interface RouteRequest {
   readonly pathname: string
   readonly params: ReadonlyMap<string, string>
   readonly search: URLSearchParams
+  readonly body: () => Promise<unknown>
 }
 
 export interface ApiRoute {
@@ -34,6 +35,11 @@ interface ReadSpec extends EndpointSpec {
   readonly body: null
 }
 
+interface WriteSpec extends EndpointSpec {
+  readonly method: 'POST' | 'DELETE'
+  readonly query: null
+}
+
 type Parsed<T> = T extends z.ZodType ? z.output<T> : null
 
 export interface ReadInput<S extends ReadSpec> {
@@ -41,9 +47,16 @@ export interface ReadInput<S extends ReadSpec> {
   readonly query: Parsed<S['query']>
 }
 
-type Found<S extends ReadSpec> = z.output<S['response']> | null
+export interface WriteInput<S extends WriteSpec> {
+  readonly params: Parsed<S['params']>
+  readonly body: Parsed<S['body']>
+}
+
+type Found<S extends EndpointSpec> = z.output<S['response']> | null
 
 export type ReadHandler<S extends ReadSpec> = (input: ReadInput<S>) => Found<S> | Promise<Found<S>>
+
+export type WriteHandler<S extends WriteSpec> = (input: WriteInput<S>) => Found<S> | Promise<Found<S>>
 
 const capture = (path: string, pathname: string): Map<string, string> | null => {
   const expected = path.split('/')
@@ -95,7 +108,7 @@ const queryOf = (search: URLSearchParams): Record<string, string> => {
   return Object.fromEntries(query)
 }
 
-const parsed = (schema: z.ZodType, value: Record<string, string>, part: string): unknown => {
+const parsed = (schema: z.ZodType, value: unknown, part: string): unknown => {
   const result = schema.safeParse(value)
   if (!result.success) {
     throw new ApiFailure('invalid_request', `invalid ${part}: ${z.prettifyError(result.error)}`)
@@ -103,18 +116,34 @@ const parsed = (schema: z.ZodType, value: Record<string, string>, part: string):
   return result.data
 }
 
-export const readRoute = <S extends ReadSpec>(spec: S, handle: ReadHandler<S>): ApiRoute => ({
+const pathOf = (spec: EndpointSpec, params: ReadonlyMap<string, string>): unknown =>
+  spec.params === null ? null : parsed(spec.params, decoded(params), 'path')
+
+const served = <S extends EndpointSpec>(spec: S, find: (request: RouteRequest) => Promise<Found<S>>): ApiRoute => ({
   method: spec.method,
   path: spec.path,
-  serve: async ({ pathname, params, search }) => {
-    const input = {
-      params: spec.params === null ? null : parsed(spec.params, decoded(params), 'path'),
-      query: spec.query === null ? null : parsed(spec.query, queryOf(search), 'query'),
-    } as ReadInput<S>
-    const found = await handle(input)
+  serve: async (request) => {
+    const found = await find(request)
     if (found === null) {
-      throw new ApiFailure('not_found', `${pathname} was not found`)
+      throw new ApiFailure('not_found', `${request.pathname} was not found`)
     }
     return spec.response.encode(found)
   },
 })
+
+export const readRoute = <S extends ReadSpec>(spec: S, handle: ReadHandler<S>): ApiRoute =>
+  served(spec, async ({ params, search }) =>
+    handle({
+      params: pathOf(spec, params),
+      query: spec.query === null ? null : parsed(spec.query, queryOf(search), 'query'),
+    } as ReadInput<S>),
+  )
+
+export const writeRoute = <S extends WriteSpec>(spec: S, handle: WriteHandler<S>): ApiRoute =>
+  served(spec, async ({ params, body }) => {
+    const path = pathOf(spec, params)
+    return handle({
+      params: path,
+      body: spec.body === null ? null : parsed(spec.body, await body(), 'body'),
+    } as WriteInput<S>)
+  })
