@@ -44,7 +44,7 @@ export interface ToolUse {
 
 const projects = (claude: string): string => join(claude, 'projects')
 
-const readTranscript = async (claude: string, file: string): Promise<Transcript> => {
+export const readTranscript = async (claude: string, file: string): Promise<Transcript> => {
   const lines = (await readFile(file, 'utf8')).split('\n').filter((line) => line.trim() !== '')
   return {
     file,

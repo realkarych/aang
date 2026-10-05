@@ -215,6 +215,27 @@ test('a hook control event uses its receipt time and replays before the selected
   expect(Date.parse(event?.observed_at ?? '')).toBe(Number(BigInt(artifact?.mtime_ns ?? '0') / 1_000_000n))
 })
 
+test('a hook control event selects a notification by its type', async () => {
+  const config = await options()
+  const directory = await recordSession(config, async (session) => {
+    for (const type of ['elicitation_dialog', 'agent_needs_input', 'elicitation_dialog']) {
+      await session.run(process.execPath, [hookScript, JSON.stringify({ hook_event_name: 'Notification', session_id: 'session-public-1', notification_type: type, message: `Needs input: ${type}` })])
+    }
+    await session.checkpoint('needs-input', { hook: { event: 'Notification', sessionId: 'session-public-1', notificationType: 'agent_needs_input' } }, 'The session needs input')
+    await session.checkpoint('form', { hook: { event: 'Notification', notificationType: 'elicitation_dialog' }, occurrence: 'first' }, 'The form needs input')
+    await expect(session.checkpoint('link', { hook: { event: 'Notification', notificationType: 'elicitation_url_dialog' } }, 'Never happens')).rejects.toThrow(/Checkpoint/)
+  })
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const labelled = (label: string): { readonly index: number; readonly payload: unknown } => {
+    const index = playback.steps.findIndex((item) => item.label === label)
+    const step = playback.steps[index]
+    return { index, payload: JSON.parse(playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? 'null') }
+  }
+  expect(labelled('needs-input').payload).toMatchObject({ notification_type: 'agent_needs_input' })
+  expect(labelled('form').payload).toMatchObject({ notification_type: 'elicitation_dialog' })
+  expect(labelled('form').index).toBeLessThan(labelled('needs-input').index)
+})
+
 test('scenario failure stops an unfinished command and its descendants before cleanup', async () => {
   const config = await options('codex')
   const treeScript = fileURLToPath(new URL('./process-tree.ts', import.meta.url))

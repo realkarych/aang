@@ -835,6 +835,9 @@ binding's transaction:
   its facts `pending` again. A call that already ended as `needs_requested` keeps
   its verdict: its batch and summary are released the same way, and its follow-up
   is refused;
+- the session's plan facts, and its gaps that have no run or belong to the target
+  run, get a new `change_seq` in order, so the feed of the target run delivers them
+  after the membership whatever position a client resumes from;
 - the session and its objects are projected again with the target run, so usage
   follows it; checks are recomputed for the target run and for the source run
   with its remaining sessions, as described in Check contracts; view marks and
@@ -1061,7 +1064,13 @@ counts come from the interpretation statuses.
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
   - a model event replaces the changed entities of the run; a removed
-    `session_membership` takes the objects of that session out of the run;
+    `session_membership` takes the objects and plan facts of that session out of the
+    run;
+  - a session moved into the run arrives after the model event that adds its
+    `session_membership`: the transfer projects its objects again and gives its plan
+    facts and gaps a new `change_seq` in the same transaction, so a feed from any
+    position, an event of the transfer included, carries everything the next
+    snapshot shows of the session;
   - `run` is the current summary, view and bindings, which the transport delivers
     after the events; a `run` event carries the same current state;
   - a position ahead of the change feed is an `InvalidPositionError` with reason

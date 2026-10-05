@@ -17,6 +17,7 @@ import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
 import { createStatus, type SupportHost } from './status.js'
 import { createStreams } from './stream.js'
+import { writeRoutes } from './writes.js'
 
 export interface DaemonReady {
   readonly pid: number
@@ -178,6 +179,7 @@ const serve = async ({
     runtimeRoots,
     otelToken: otelToken(store),
     onIngested: observer.wake,
+    onBound: observer.wake,
   }).catch(async (error: unknown) => {
     await observer.close()
     throw error
@@ -215,7 +217,11 @@ const serve = async ({
           observer: observer.backends,
         })
         status.resolve(read)
-        return [...readRoutes({ store, reads, status: read }), ...chatRoutes({ reads, ask: observer.ask })]
+        return [
+          ...readRoutes({ store, reads, status: read }),
+          ...writeRoutes({ store, bindings: ingestion.bindings }),
+          ...chatRoutes({ reads, ask: observer.ask }),
+        ]
       },
       streams,
       reparse: ingestion.reparse,

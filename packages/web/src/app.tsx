@@ -122,13 +122,14 @@ const focusOf = (snapshot: RunSnapshot | null): FocusedRun | null =>
 
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
+  const runs = usePolled(readRuns, onSignedOut)
   const title = snapshotTitle(feed.snapshot)
   useTitle(`${title ?? 'Прогон'} — aang`)
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
     runs: null,
-    runsFailing: false,
+    runsFailing: runs.failing,
     focus: { connection: feed.connection, run: focusOf(feed.snapshot) },
     now,
   })
@@ -137,7 +138,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <Masthead trail={[{ label: title ?? 'Прогон' }]} />
       <StatusStrip lamps={lamps} />
       <main className="page">
-        <RunPage feed={feed} now={now} />
+        <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} />
       </main>
     </>
   )
