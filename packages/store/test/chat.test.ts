@@ -15,6 +15,7 @@ const answer = (overrides: Partial<ChatAnswer> = {}): ChatAnswer => ({
   unconfirmed_citations: false,
   insufficient_data: false,
   view_rule: null,
+  view_rule_error: null,
   answered_at: instant(30n),
   ...overrides,
 })
@@ -57,6 +58,7 @@ test('a question waits for its answer at the model version it was asked on, and 
     unconfirmed_citations: false,
     insufficient_data: false,
     view_rule: null,
+    view_rule_error: null,
     error: null,
     asked_at: instant(10n),
     answered_at: null,
@@ -134,6 +136,32 @@ test('only a pending question gets an answer or a failure, and a refused one cha
 
   expect(store.changes.head()).toBe(head)
   expect(store.chat.message(run, pending.id)).toEqual(pending)
+})
+
+test('an answer keeps why its proposed view rule was not applied, and never a rule together with that explanation', async ({
+  onTestFinished,
+}) => {
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const rejected = ask(store, 'Collapse the reviewers')
+  const both = ask(store, 'Hide the reads')
+  const explanation = 'invalid_selector: the run has no stages missing'
+
+  const answered = store.transaction((transaction) =>
+    transaction.chat.answer(run, rejected.id, answer({ view_rule_error: explanation })),
+  )
+  const head = store.changes.head()
+
+  expect(answered).toMatchObject({ status: 'answered', view_rule: null, view_rule_error: explanation })
+  expect(() =>
+    store.transaction((transaction) =>
+      transaction.chat.answer(run, both.id, answer({ view_rule: ViewRuleId.parse('4'), view_rule_error: explanation })),
+    ),
+  ).toThrow(/CHECK constraint failed: chat_messages_view_rule/)
+  expect(store.changes.head()).toBe(head)
+  store.close()
+  const reopened = home.open()
+  expect(reopened.chat.messages(run)).toEqual([answered, both])
 })
 
 test('pruning a run removes its chat and keeps the chat of other runs', async ({ onTestFinished }) => {

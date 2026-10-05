@@ -123,6 +123,7 @@ const chatMessage: Row = {
   unconfirmed_citations: '0',
   insufficient_data: '0',
   view_rule_id: 'NULL',
+  view_rule_error: 'NULL',
   error: 'NULL',
   asked_at: '1759370000000000000',
   answered_at: 'NULL',
@@ -612,6 +613,25 @@ const cases: readonly SchemaCase[] = [
     }),
   },
   {
+    name: 'an answered chat message explains why its proposed view rule was not applied',
+    statement: insert('chat_messages', chatMessage, answeredChat, {
+      view_rule_error: "'invalid_selector: the run has no stages st9'",
+    }),
+  },
+  {
+    name: 'a chat message has either an applied view rule or the reason it was not applied',
+    statement: insert('chat_messages', chatMessage, answeredChat, {
+      view_rule_id: '7',
+      view_rule_error: "'invalid_selector: the run has no stages st9'",
+    }),
+    error: /CHECK constraint failed: chat_messages_view_rule/,
+  },
+  {
+    name: 'the reason a view rule was not applied is not empty',
+    statement: insert('chat_messages', chatMessage, answeredChat, { view_rule_error: "''" }),
+    error: /CHECK constraint failed: view_rule_error <> ''/,
+  },
+  {
     name: 'an answer may be missing when the data is insufficient',
     statement: insert('chat_messages', chatMessage, answeredChat, { answer: 'NULL', insufficient_data: '1' }),
   },
@@ -680,6 +700,7 @@ const cases: readonly SchemaCase[] = [
       ['unconfirmed citations', { unconfirmed_citations: '1' }],
       ['the insufficient data mark', { insufficient_data: '1' }],
       ['a view rule', { view_rule_id: '7' }],
+      ['a rejected view rule', { view_rule_error: "'invalid_params: the group name must not be empty'" }],
     ] as const
   ).flatMap(([part, row]): SchemaCase[] => [
     {
