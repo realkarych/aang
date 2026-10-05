@@ -284,7 +284,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     return
   }
   await startDescendant(scenario.descendant)
-  if (reply.kind === 'answer' && reply.gate !== undefined) {
+  if ((reply.kind === 'answer' || reply.kind === 'script') && reply.gate !== undefined) {
     await appeared(reply.gate)
   }
   respond(turn, reply, input)

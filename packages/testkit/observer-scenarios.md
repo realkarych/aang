@@ -11,6 +11,8 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 
 `setScenario` начинает обе очереди ответов с первого ответа, журнал вызовов сохраняется.
 
+Ответ `answer` или `script` с полем `gate` (путь к файлу) ждёт, пока файл появится, и только потом отвечает: так тест держит вызов открытым, пока меняет прогон. Существующий файл ответ не задерживает, поэтому повтор того же ответа на следующем вызове идёт сразу.
+
 ## Скрипты
 
 Ответ `{ kind: 'script', script }` — функция от входа контракта (`ObserverInput` или `ChatInput` из S.4a, S.4b) с типизированным выходом. Вход, который не проходит строгую схему, — ошибка сценария: CLI завершается с кодом `fakeCliExitCodes.scenario`. Шаблоны `{ kind: 'answer', output }` с указателями `$input` (F.1) остаются для простых ответов.
@@ -27,6 +29,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | `merge` | наблюдатель | Этапы `Changes` и `Checks`, пока оба действуют, один раз объединяются (`stage.merge`) в новый этап `Changes and checks` с родителем `Changes` и свидетельствами порции. Без них ответ пустой |
 | `chat-answer` | чат | Ответ «по версии карты V» со ссылками: этап, его факты и действия для фокуса этапа; этапы снимка, пункты внимания и свидетельства последних изменений для фокуса прогона. Без материала — `insufficient_data` |
 | `chat-collapse-reviewers` | чат | Правило `collapse` по `agent_type` (или по имени) агентов, у которых тип, имя или описание содержит `review`. Без ревьюеров — `insufficient_data` без правила |
+| `chat-old-ground` | чат | Этап фокуса, а без него — первый этап верхнего уровня. Пока во входе нет журнала этого этапа, ответ — только `needs` с журналом этапа. С журналом — ответ со ссылками на этап и на первое свидетельство журнала, которого нет нигде во входе, кроме материалов (старое основание вне первого входа); если такого нет — `insufficient_data` со ссылкой на этап |
 
 ## Очереди наблюдателя и чата
 
@@ -43,6 +46,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | 3 | `claimed-done.live` | транскрипт образца Claude, упавший `pnpm test` по контракту и финальный текст «All done»; пункт `failed_check` остаётся открытым |
 | 4 | `since-last-view.before`, затем `.after` | образец `claude-fork` до `resume`, затем до `continue` и до `fork`; образец `codex-resume-compaction` до `resume` и после |
 | 5 | `chat.live` | транскрипт образца Claude с субагентом типа `code-reviewer` и его `PermissionRequest` |
+| 18 | `old-ground.live` | образцы `claude-subagent` (до субагента, до его результата) и `codex-resume-compaction` (до `resume`, до `compaction`): вопрос по этапу `Main work`, когда его свидетельства уже заменены следующей порцией |
 | 7 | `llm-failure.healthy`, `.failing`, `.recovered` | образец `codex-resume-compaction`: порция до `resume`; в `failing` только отказ `limit`; в `recovered` — факты после сводки ранних фактов и свёрнутые счётчики токенов |
 | 8 | `live-map.live` | rollout Codex с запуском субагента, затем rollout субагента, hooks с `PermissionRequest`, решение через OTel (`source: User`) и fork отдельным прогоном |
 | 14 | `stage-succession.live`, затем `.revised`, `.split` и `.merged` | образец `claude-compaction`: до субагента, до результата субагента и до `resume` на `.live` (этап субагента вкладывается в `Main work`, следующая версия `Main work` не меняет), до `continue` на `.revised` (`Main work` заменён одним преемником), до `compaction` на `.split` (преемник разделён на два этапа), до `compact-boundary` на `.merged` (оба этапа объединены в один) |

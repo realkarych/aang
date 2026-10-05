@@ -30,6 +30,7 @@ export const observerScenarios = {
     merged: phase([script('merge')]),
   },
   chat: { live: phase([script('map')], [script('chat-answer'), script('chat-collapse-reviewers')]) },
+  'old-ground': { live: phase([script('map')], [script('chat-old-ground')]) },
   'llm-failure': {
     healthy: phase([script('map')]),
     failing: phase([{ kind: 'limit' }]),
