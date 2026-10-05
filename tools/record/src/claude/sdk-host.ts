@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url'
 import { createConversation, type ElicitationResponse, hostArguments, type PermissionResponse } from './conversation.js'
-import { forwardedSettings, pluginDirectory, type SettingSource } from './plan.js'
+import { type AgentDefinition, forwardedSettings, pluginDirectory, type SettingSource } from './plan.js'
 
 interface SdkUserMessage {
   readonly type: 'user'
@@ -16,6 +16,8 @@ interface SdkOptions {
   readonly permissionMode: 'default' | 'plan'
   readonly settingSources?: readonly SettingSource[]
   readonly strictMcpConfig?: boolean
+  readonly agents?: Readonly<Record<string, AgentDefinition>>
+  readonly settings?: string
   readonly resume?: string
   readonly forkSession?: boolean
   readonly stderr: (data: string) => void
@@ -91,10 +93,12 @@ const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
     options: {
       cwd: process.cwd(),
       env: { ...process.env, ...plan.env },
-      plugins: [{ type: 'local', path: pluginDirectory(forwarded) }],
+      plugins: [pluginDirectory(forwarded), ...plan.plugins].map((path) => ({ type: 'local' as const, path })),
       permissionMode: plan.permissionMode,
       ...settingSources === undefined ? {} : { settingSources },
       ...strictMcpConfig ? { strictMcpConfig: true } : {},
+      ...Object.keys(plan.agents).length === 0 ? {} : { agents: plan.agents },
+      ...plan.settings === undefined ? {} : { settings: plan.settings },
       ...plan.resume === undefined ? {} : { resume: plan.resume },
       ...plan.fork ? { forkSession: true } : {},
       stderr: (data) => {

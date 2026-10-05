@@ -171,7 +171,8 @@ export const createConversation = (plan: HostPlan, summaryPath: string, interrup
       send(turn.prompt)
       await nextResult(index + 1)
     }
-    if (remaining.length > 0) throw new Error(`Planned permission requests did not arrive: ${remaining.map(({ tool }) => tool).join(', ')}`)
+    const missing = remaining.filter(({ optional }) => !optional)
+    if (missing.length > 0) throw new Error(`Planned permission requests did not arrive: ${missing.map(({ tool }) => tool).join(', ')}`)
     if (unanswered.length > 0) throw new Error(`Planned elicitations did not arrive: ${unanswered.map(({ mode }) => mode).join(', ')}`)
     const unsent = plan.turns.filter((turn) => turn.interrupt !== undefined).length - summary.interrupts.length
     if (unsent > 0) throw new Error('A planned interrupt was not sent')
