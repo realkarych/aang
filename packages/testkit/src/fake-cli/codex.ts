@@ -216,7 +216,7 @@ const runMock = async (call: MockCall, config: JsonValue): Promise<void> => {
     failTurn(outcome.failure)
     return
   }
-  completeTurn(call.turn, outcome.text ?? '', outcome.usage)
+  completeTurn(call.turn, call.scenario.admissionFault === 'off_schema_last' ? '{}' : outcome.text ?? '', outcome.usage)
 }
 
 const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {
@@ -268,7 +268,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     }
     const entry = catalogEntry({ options, catalog })
     if (admission) {
-      runAdmissionHook('codex', options, scenario.admissionFault)
+      await runAdmissionHook('codex', options, scenario.admissionFault)
       codexAdmissionArtifacts(scenario.admissionFault)
     }
     if (scenario.admissionFault === 'no_http') { completeTurn(turn, '{"base_version":0,"ops":[],"needs":[]}', defaultCodexUsage); return }

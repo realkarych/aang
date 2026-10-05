@@ -1,5 +1,6 @@
 import {
   type CheckResult,
+  type ObserverIsolationResult,
   type OperatingSystem,
   type Surface,
   type SupportKey,
@@ -155,5 +156,31 @@ export const generateMatrix = (options: MatrixOptions): SupportMatrix => {
     rows: [...keys.values()].sort(byKeyText).map((key) => rowFor(key, previous.get(supportKeyText(key)) ?? null, options)),
   }
 }
+
+const keyOfRow = ({ runtime, surface, os, placement, engine_version }: SupportKey): SupportKey => ({
+  runtime,
+  surface,
+  os,
+  placement,
+  engine_version,
+})
+
+export const withObserver = (matrix: SupportMatrix | null, key: SupportKey, observer: ObserverIsolationResult): SupportMatrix => {
+  const text = supportKeyText(key)
+  const rows = matrix?.rows ?? []
+  const row =
+    rows.find((candidate) => supportKeyText(candidate) === text) ??
+    rowFor(keyOfRow(key), null, { outcomes: [], previous: null, contractScenarios: () => false })
+  return {
+    format: supportMatrixFormat,
+    rows: [...rows.filter((candidate) => supportKeyText(candidate) !== text), { ...row, observer }].sort(byKeyText),
+  }
+}
+
+export const importObservers = (matrix: SupportMatrix | null, sources: readonly SupportMatrix[]): SupportMatrix =>
+  sources
+    .flatMap(({ rows }) => rows)
+    .filter(({ observer }) => observer.admission !== 'not_run' || observer.cross_session_inbound !== 'not_run')
+    .reduce<SupportMatrix>((merged, row) => withObserver(merged, row, row.observer), matrix ?? { format: supportMatrixFormat, rows: [] })
 
 export const serializeMatrix = (matrix: SupportMatrix): string => `${JSON.stringify(matrix, null, 2)}\n`

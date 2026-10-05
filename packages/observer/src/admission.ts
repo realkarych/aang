@@ -1,16 +1,16 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { mkdir, mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Runtime } from '@aang/contract'
 import { admitClaude, admitCodex, type ProbeContext } from './admission-probes.js'
-import { authenticate, LaunchError, requireSuccess, stoppedAll, type AuthResult, type BackendOptions, type LaunchErrorClass, type LaunchFailure, type ObserverOutcome, type ObserverRequest, type ObserverResult } from './backend.js'
+import { authenticate, chatProtocol, LaunchError, observerProtocol, requireSuccess, stoppedAll, type AuthResult, type BackendOptions, type CallOutcome, type CallProtocol, type CallResult, type ChatResult, type LaunchErrorClass, type LaunchFailure, type ObserverRequest, type ObserverResult } from './backend.js'
 import { createClaudeLauncher, type ClaudeBackendOptions, type ClaudeBuiltins } from './claude.js'
 import { createCodexLauncher } from './codex.js'
 import { cleanEnvironment, prepareWorkspace, resolveCli } from './environment.js'
 import { createProcessRunner, type LaunchStatus, type ProcessResult } from './process.js'
-import { watchProcessGroup, type ProcessGroupWatch } from './process-group.js'
+import { watchProcessGroup, type DepartedProcess, type ProcessGroupWatch } from './process-group.js'
 
 export interface AdmissionOptions {
   readonly admissionStatusPath?: string
@@ -48,6 +48,12 @@ const admittedBuiltins = (configured: ClaudeBuiltins | undefined, plugins: reado
   skills: configured?.skills ?? [],
   plugins: [...new Set([...(configured?.plugins ?? []), ...plugins])],
 })
+
+const controlHookGroup = async (marker: string | undefined): Promise<number | undefined> => {
+  if (marker === undefined) return undefined
+  const pid = await readFile(marker, 'utf8').catch(() => '')
+  return /^\d+$/.test(pid) ? Number(pid) : undefined
+}
 
 const violation = (version: string): string => `Isolation was violated on CLI ${version}; a new CLI version or a manual admission is required`
 
@@ -100,7 +106,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     catch (error) { throw new LaunchError('cli_missing', String(error)) }
     const env = cleanEnvironment(runtime, options.environment)
     const stopped: Promise<void>[] = []
-    const run: ProbeContext['run'] = async (args, input = '', directory = cwd, environment = env) => {
+    const run: ProbeContext['run'] = async (args, input = '', directory = cwd, environment = env, hookMarker) => {
       const groups: ProcessGroupWatch[] = []
       const result = await runner.run({
         command: cli.command, args: [...(cli.args ?? []), ...args], input, cwd: directory, env: environment, timeoutMs: options.timeoutMs ?? (runtime === 'claude' ? 90_000 : 150_000),
@@ -108,10 +114,12 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         ...(watchGroups ? { onProcessGroup: (pgid: number) => { groups.push(watchProcessGroup(pgid)) } } : {}),
       })
       stopped.push(result.stopped)
-      let departed: string[]
+      let departed: DepartedProcess[]
       try { departed = (await Promise.all(groups.map((group) => group.finish()))).flat() }
       catch (error) { throw new LaunchError('isolation', `CLI process group could not be checked: ${String(error)}`) }
-      if (departed.length > 0) throw new LaunchError('isolation', `CLI descendant left its process group: ${departed.join(', ')}`)
+      const hookGroup = await controlHookGroup(hookMarker)
+      const escaped = [...new Set(departed.filter((entry) => entry.pgid !== hookGroup).map((entry) => entry.name))].sort()
+      if (escaped.length > 0) throw new LaunchError('isolation', `CLI descendant left its process group: ${escaped.join(', ')}`)
       return result
     }
     return { cwd, env, run, stopped }
@@ -122,7 +130,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     if (match?.[1] === undefined) throw new LaunchError('version_not_admitted', 'CLI did not report a recognizable version')
     return match[1]
   }
-  const fail = (error: unknown): ObserverOutcome => {
+  const fail = (error: unknown): CallOutcome<never> => {
     const problem = error instanceof LaunchError ? error : new LaunchError('invalid_output', String(error))
     record = { ...record, admitted: false, reason: problem.message, warning: null, isolationViolated: record.isolationViolated || problem.kind === 'isolation' }
     errorClass = problem.kind
@@ -178,7 +186,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     if (status().state.state === 'unavailable') return { class: 'process_stuck', message: 'Backend process tree has not stopped' }
     return null
   }
-  const attempt = async (request: ObserverRequest, stopped: Promise<void>[]): Promise<ObserverOutcome> => {
+  const attempt = async <T>(protocol: CallProtocol<T>, request: ObserverRequest, stopped: Promise<void>[]): Promise<CallOutcome<T>> => {
     const refused = refusal()
     if (refused !== null) return { ok: false, error: refused, usage: null }
     executing += 1
@@ -190,7 +198,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         record = { ...record, version, isolationViolated: false }
         throw new LaunchError('version_not_admitted', 'CLI version changed; synthetic admission is required')
       }
-      const result = await launcher.execute(request)
+      const result = await launcher.call(protocol, request)
       stopped.push(result.stopped)
       if (!result.ok && record.version === version && (launcher.status().state.state === 'disabled' || result.error.class === 'version_not_admitted')) {
         fail(new LaunchError(result.error.class, result.error.message, result.usage))
@@ -206,10 +214,12 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
       executing -= 1
     }
   }
-  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
+  const call = async <T>(protocol: CallProtocol<T>, request: ObserverRequest): Promise<CallResult<T>> => {
     const stopped: Promise<void>[] = []
-    return { ...(await attempt(request, stopped)), stopped: stoppedAll(stopped) }
+    return { ...(await attempt(protocol, request, stopped)), stopped: stoppedAll(stopped) }
   }
+  const execute = (request: ObserverRequest): Promise<ObserverResult> => call(observerProtocol, request)
+  const chat = (request: ObserverRequest): Promise<ChatResult> => call(chatProtocol, request)
   const cliVersion = async (signal?: AbortSignal): Promise<string | null> => {
     try { return versionOf(await context(signal).run(['--version'])) }
     catch { return null }
@@ -222,7 +232,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     finally { executing -= 1 }
   }
   return {
-    admit, execute, authStatus, status, cliVersion,
+    admit, execute, chat, authStatus, status, cliVersion,
     admission: (): AdmissionStatus => ({ ...record }),
     subscribe: (listener: (snapshot: LaunchStatus) => void): (() => void) => {
       listeners.add(listener)
