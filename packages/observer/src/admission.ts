@@ -1,6 +1,6 @@
 import { createHash, randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
-import { mkdir, mkdtemp, realpath, rename, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, realpath, rename, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Runtime } from '@aang/contract'
@@ -10,7 +10,7 @@ import { createClaudeLauncher, type ClaudeBackendOptions, type ClaudeBuiltins } 
 import { createCodexLauncher } from './codex.js'
 import { cleanEnvironment, prepareWorkspace, resolveCli } from './environment.js'
 import { createProcessRunner, type LaunchStatus, type ProcessResult } from './process.js'
-import { watchProcessGroup, type ProcessGroupWatch } from './process-group.js'
+import { watchProcessGroup, type DepartedProcess, type ProcessGroupWatch } from './process-group.js'
 
 export interface AdmissionOptions {
   readonly admissionStatusPath?: string
@@ -48,6 +48,12 @@ const admittedBuiltins = (configured: ClaudeBuiltins | undefined, plugins: reado
   skills: configured?.skills ?? [],
   plugins: [...new Set([...(configured?.plugins ?? []), ...plugins])],
 })
+
+const controlHookGroup = async (marker: string | undefined): Promise<number | undefined> => {
+  if (marker === undefined) return undefined
+  const pid = await readFile(marker, 'utf8').catch(() => '')
+  return /^\d+$/.test(pid) ? Number(pid) : undefined
+}
 
 const violation = (version: string): string => `Isolation was violated on CLI ${version}; a new CLI version or a manual admission is required`
 
@@ -100,7 +106,7 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
     catch (error) { throw new LaunchError('cli_missing', String(error)) }
     const env = cleanEnvironment(runtime, options.environment)
     const stopped: Promise<void>[] = []
-    const run: ProbeContext['run'] = async (args, input = '', directory = cwd, environment = env) => {
+    const run: ProbeContext['run'] = async (args, input = '', directory = cwd, environment = env, hookMarker) => {
       const groups: ProcessGroupWatch[] = []
       const result = await runner.run({
         command: cli.command, args: [...(cli.args ?? []), ...args], input, cwd: directory, env: environment, timeoutMs: options.timeoutMs ?? (runtime === 'claude' ? 90_000 : 150_000),
@@ -108,10 +114,12 @@ const createAdmittedBackend = (runtime: Runtime, source: ClaudeBackendOptions & 
         ...(watchGroups ? { onProcessGroup: (pgid: number) => { groups.push(watchProcessGroup(pgid)) } } : {}),
       })
       stopped.push(result.stopped)
-      let departed: string[]
+      let departed: DepartedProcess[]
       try { departed = (await Promise.all(groups.map((group) => group.finish()))).flat() }
       catch (error) { throw new LaunchError('isolation', `CLI process group could not be checked: ${String(error)}`) }
-      if (departed.length > 0) throw new LaunchError('isolation', `CLI descendant left its process group: ${departed.join(', ')}`)
+      const hookGroup = await controlHookGroup(hookMarker)
+      const escaped = [...new Set(departed.filter((entry) => entry.pgid !== hookGroup).map((entry) => entry.name))].sort()
+      if (escaped.length > 0) throw new LaunchError('isolation', `CLI descendant left its process group: ${escaped.join(', ')}`)
       return result
     }
     return { cwd, env, run, stopped }

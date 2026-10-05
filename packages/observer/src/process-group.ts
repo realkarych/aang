@@ -12,8 +12,10 @@ interface ProcessEntry {
   readonly name: string
 }
 
+export type DepartedProcess = Pick<ProcessEntry, 'pid' | 'pgid' | 'name'>
+
 export interface ProcessGroupWatch {
-  readonly finish: () => Promise<readonly string[]>
+  readonly finish: () => Promise<readonly DepartedProcess[]>
 }
 
 const vanished = (error: unknown): boolean =>
@@ -56,7 +58,7 @@ const identity = (entry: ProcessEntry): string => `${String(entry.pid)}:${entry.
 
 export const watchProcessGroup = (pgid: number): ProcessGroupWatch => {
   const known = new Set<string>()
-  const departed = new Map<string, string>()
+  const departed = new Map<string, ProcessEntry>()
   let root: string | undefined
   const sample = async (): Promise<void> => {
     const table = await processTable()
@@ -74,7 +76,7 @@ export const watchProcessGroup = (pgid: number): ProcessGroupWatch => {
     for (const entry of table) {
       if (!members.has(entry.pid)) continue
       known.add(identity(entry))
-      if (entry.pgid !== pgid) departed.set(identity(entry), entry.name)
+      if (entry.pgid !== pgid) departed.set(identity(entry), entry)
     }
   }
   const watching = new AbortController()
@@ -91,7 +93,7 @@ export const watchProcessGroup = (pgid: number): ProcessGroupWatch => {
       await loop
       if (failure !== undefined) throw failure.error
       await sample()
-      return [...new Set(departed.values())].sort()
+      return [...departed.values()]
     },
   }
 }
