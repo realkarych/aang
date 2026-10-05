@@ -19,6 +19,7 @@ interface Surface {
   readonly name: string
   readonly surface: string
   readonly version: string
+  readonly checkedOnWindows: boolean
 }
 
 interface Continuation {
@@ -33,14 +34,14 @@ interface Observer {
 }
 
 const claudeSurfaces: readonly Surface[] = [
-  { name: 'SDK', surface: 'claude_sdk', version: '2.1.289' },
-  { name: 'Desktop', surface: 'claude_desktop', version: '2.1.286' },
+  { name: 'SDK', surface: 'claude_sdk', version: '2.1.289', checkedOnWindows: true },
+  { name: 'Desktop', surface: 'claude_desktop', version: '2.1.286', checkedOnWindows: false },
 ]
 
 const codexSurfaces: readonly Surface[] = [
-  { name: 'CLI', surface: 'codex_exec', version: '0.160.0' },
-  { name: 'SDK', surface: 'codex_sdk', version: '0.160.0' },
-  { name: 'Desktop', surface: 'codex_desktop', version: '0.159.2' },
+  { name: 'CLI', surface: 'codex_exec', version: '0.160.0', checkedOnWindows: true },
+  { name: 'SDK', surface: 'codex_sdk', version: '0.160.0', checkedOnWindows: true },
+  { name: 'Desktop', surface: 'codex_desktop', version: '0.159.2', checkedOnWindows: false },
 ]
 
 const codexSurfacesWithQuestions = codexSurfaces.filter(({ surface }) => surface !== 'codex_desktop')
@@ -167,43 +168,50 @@ const expectCountedChanges = async (page: Page): Promise<void> => {
   await expect(sinceTab(page)).toHaveAccessibleName(/^С последнего просмотра, \d+ изменени/)
 }
 
+const checkedOnThisOs = ({ checkedOnWindows }: Surface): void => {
+  test.skip(
+    process.platform === 'win32' && !checkedOnWindows,
+    'Desktop on Windows is not checked in the MVP (ADR-0013, decision 3)',
+  )
+}
+
 test.use({ config: { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } } })
 
 test.describe('with the observer', () => {
-  test.skip(
-    process.platform === 'win32',
-    'on Windows the fake CLI needs node with a script and cannot be the configured observer CLI',
-  )
   test.describe.configure({ timeout: 120_000 })
 
   test.describe('of Claude', () => {
     test.use({ claudeScenario: observerScenarios['since-last-view'].before })
 
     for (const surface of claudeSurfaces) {
-      test(`Claude ${surface.name}: a turn continued after the mark shows the replaced stage, the new result, the closed approvals, the observer question and the card to the original (E2E 4)`, async ({
-        page,
-        player,
-        fakeClaude,
-      }) => {
-        const session = await continuedAfterTheMark(page, player, fakeClaude, {
-          runtime: 'claude',
-          surface,
-          scenario: 'tools',
-          firstToolAfterTheMark: 'Write',
-        })
+      test.describe(() => {
+        checkedOnThisOs(surface)
 
-        await expectReplacedStage(page)
-        await expectNewResult(page, session, 'result.txt', 'Write')
-        await expectNewResult(page, session, 'result.txt', 'Edit')
-        for (const tool of ['Write', 'Edit']) {
-          const approval = change(page, 'Вопросы и запросы', `${tool}: `)
-          await expect(approval).toContainText('Запрос одобрения')
-          await expect(approval).toContainText('по правилу aang')
-          await expect(approval).toContainText('закрыт')
-        }
-        await expectObserverQuestion(page)
-        await expectCardToOriginal(page, claudeFinalText)
-        await expectCountedChanges(page)
+        test(`Claude ${surface.name}: a turn continued after the mark shows the replaced stage, the new result, the closed approvals, the observer question and the card to the original (E2E 4)`, async ({
+          page,
+          player,
+          fakeClaude,
+        }) => {
+          const session = await continuedAfterTheMark(page, player, fakeClaude, {
+            runtime: 'claude',
+            surface,
+            scenario: 'tools',
+            firstToolAfterTheMark: 'Write',
+          })
+
+          await expectReplacedStage(page)
+          await expectNewResult(page, session, 'result.txt', 'Write')
+          await expectNewResult(page, session, 'result.txt', 'Edit')
+          for (const tool of ['Write', 'Edit']) {
+            const approval = change(page, 'Вопросы и запросы', `${tool}: `)
+            await expect(approval).toContainText('Запрос одобрения')
+            await expect(approval).toContainText('по правилу aang')
+            await expect(approval).toContainText('закрыт')
+          }
+          await expectObserverQuestion(page)
+          await expectCardToOriginal(page, claudeFinalText)
+          await expectCountedChanges(page)
+        })
       })
     }
   })
@@ -212,45 +220,53 @@ test.describe('with the observer', () => {
     test.use({ codexScenario: observerScenarios['since-last-view'].before })
 
     for (const surface of codexSurfaces) {
-      test(`Codex ${surface.name}: a turn continued after the mark shows the replaced stage and the new result (E2E 4)`, async ({
-        page,
-        player,
-        fakeCodex,
-      }) => {
-        const session = await continuedAfterTheMark(page, player, fakeCodex, {
-          runtime: 'codex',
-          surface,
-          scenario: 'tools',
-          firstToolAfterTheMark: 'apply_patch',
-        })
+      test.describe(() => {
+        checkedOnThisOs(surface)
 
-        await expectReplacedStage(page)
-        await expectNewResult(page, session, 'result.json', 'apply_patch')
-        await expectCountedChanges(page)
+        test(`Codex ${surface.name}: a turn continued after the mark shows the replaced stage and the new result (E2E 4)`, async ({
+          page,
+          player,
+          fakeCodex,
+        }) => {
+          const session = await continuedAfterTheMark(page, player, fakeCodex, {
+            runtime: 'codex',
+            surface,
+            scenario: 'tools',
+            firstToolAfterTheMark: 'apply_patch',
+          })
+
+          await expectReplacedStage(page)
+          await expectNewResult(page, session, 'result.json', 'apply_patch')
+          await expectCountedChanges(page)
+        })
       })
     }
 
     for (const surface of codexSurfacesWithQuestions) {
-      test(`Codex ${surface.name}: a question asked after the mark shows the replaced stage, the solver and observer questions and the card to the original (E2E 4)`, async ({
-        page,
-        player,
-        fakeCodex,
-      }) => {
-        await continuedAfterTheMark(page, player, fakeCodex, {
-          runtime: 'codex',
-          surface,
-          scenario: 'question',
-          firstToolAfterTheMark: 'request_user_input_async',
-        })
+      test.describe(() => {
+        checkedOnThisOs(surface)
 
-        await expectReplacedStage(page)
-        const asked = change(page, 'Вопросы и запросы', codexQuestionText)
-        await expect(asked).toContainText('открыт', observed)
-        await expect(asked).toContainText('Вопрос')
-        await expect(asked).toContainText('по правилу aang')
-        await expectObserverQuestion(page)
-        await expectCardToOriginal(page, codexQuestionMessage)
-        await expectCountedChanges(page)
+        test(`Codex ${surface.name}: a question asked after the mark shows the replaced stage, the solver and observer questions and the card to the original (E2E 4)`, async ({
+          page,
+          player,
+          fakeCodex,
+        }) => {
+          await continuedAfterTheMark(page, player, fakeCodex, {
+            runtime: 'codex',
+            surface,
+            scenario: 'question',
+            firstToolAfterTheMark: 'request_user_input_async',
+          })
+
+          await expectReplacedStage(page)
+          const asked = change(page, 'Вопросы и запросы', codexQuestionText)
+          await expect(asked).toContainText('открыт', observed)
+          await expect(asked).toContainText('Вопрос')
+          await expect(asked).toContainText('по правилу aang')
+          await expectObserverQuestion(page)
+          await expectCardToOriginal(page, codexQuestionMessage)
+          await expectCountedChanges(page)
+        })
       })
     }
   })
