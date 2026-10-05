@@ -21,6 +21,7 @@
     "test:docker": "vitest run --project tools/docker-image --tags-filter=docker",
     "support:check": "node tools/support/dist/main.js check",
     "support:update": "node tools/support/dist/main.js update",
+    "support:isolation": "node tools/support/dist/main.js isolation",
     "e2e": "playwright test"
   },
   "devDependencies": {
