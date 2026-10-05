@@ -1,5 +1,13 @@
 import { join } from 'node:path'
-import { type ChatMessage, ChatQuestionResponse, type SessionKey } from '@aang/contract'
+import {
+  type ChatMessage,
+  ChatHistoryResponse,
+  ChatQuestionResponse,
+  endpoints,
+  type JsonValue,
+  type RunDelta,
+  type SessionKey,
+} from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import { type CodexReply, installFakeCodex } from '@aang/testkit'
 import { test } from 'vitest'
@@ -116,4 +124,127 @@ test('a chat question is answered over the stream on its map version, with uncon
     error: { code: 'invalid_request', message: `stage missing-stage is not in the chat scope of run ${run}` },
   })
   expect(((await (await fetch(chatUrl, { headers })).json()) as { messages: unknown[] }).messages).toHaveLength(1)
+})
+
+const stageOfInput = { $input: '/model/stages/0/id' }
+
+const chatReply = (fields: Record<string, JsonValue>): CodexReply => ({
+  kind: 'answer',
+  output: { needs: [], answer: null, citations: [], insufficient_data: false, view_rule: null, ...fields },
+})
+
+test('a view rule of a chat answer applies with the answer over the stream, counts its elements and is revoked from the list, and an invalid selector is rejected with an explanation', async ({
+  expect,
+  onTestFinished,
+}) => {
+  const { home, workspace } = await watchedHome(onTestFinished)
+  const codex = installFakeCodex(join(home.root, 'fake-cli'), {
+    replies: [staged],
+    chatReplies: [
+      chatReply({
+        needs: [{ kind: 'journal', entity: { kind: 'stage', id: stageOfInput } }],
+        view_rule: { action: 'hide', selector: { kind: 'stage_ids', stages: [stageOfInput] }, params: null },
+      }),
+      chatReply({
+        answer: 'The review stage is collapsed into one node.',
+        citations: [{ kind: 'stage', id: stageOfInput }],
+        view_rule: { action: 'collapse', selector: { kind: 'stage_ids', stages: [stageOfInput] }, params: null },
+      }),
+      chatReply({
+        answer: 'The deploy stage is hidden.',
+        view_rule: { action: 'hide', selector: { kind: 'stage_ids', stages: ['k2-missing-stage'] }, params: null },
+      }),
+    ],
+  })
+  await installLauncher(home)
+  await configure(home, workspace, { cli: { codex: codex.path } })
+  const session = codexKey('thread-k2-rule')
+  const run = runId(session)
+  const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
+  const headers = { ...bearer(home.token), 'content-type': 'application/json' }
+  const runUrl = `${daemon.base}/api/runs/${run}`
+  const ask = async (question: string): Promise<ChatMessage> => {
+    const response = await fetch(`${runUrl}/chat`, { method: 'POST', headers, body: JSON.stringify({ question, stage: null }) })
+    expect(response.status).toBe(200)
+    return ChatQuestionResponse.parse(await response.json()).message
+  }
+  const snapshotOf = async () => endpoints.run.response.parse(await (await fetch(runUrl, { headers })).json())
+
+  await enqueue(
+    home,
+    'codex',
+    [codexHook('SessionStart.startup', session.session, workspace), codexHook('PermissionRequest', session.session, workspace)],
+    'codex',
+  )
+  await waitUntil(() => settled(progressOf(home, run)))
+  const seen = await snapshotOf()
+  const [stage] = seen.model.stages
+  if (stage === undefined) {
+    throw new Error('the observer must create the review stage')
+  }
+  const stream = await openStream(daemon.base, home.token, { run, lastEventId: String(seen.change_seq) })
+  onTestFinished(() => stream.close())
+  const answered = (question: ChatMessage): ChatMessage | undefined =>
+    stream.events
+      .flatMap((event) => (event.event === 'chat' ? [event.data.message] : []))
+      .find(({ id, status }) => id === question.id && status === 'answered')
+  const latestRun = (): RunDelta | undefined =>
+    stream.events.flatMap((event) => (event.event === 'run' ? [event.data] : [])).at(-1)
+
+  const collapse = await ask('Collapse the review stage')
+  await stream.until(() => answered(collapse) !== undefined)
+  const applied = answered(collapse)
+  const id = applied?.view_rule
+  expect(applied).toMatchObject({
+    answer: 'The review stage is collapsed into one node.',
+    citations: [{ kind: 'stage', id: stage.id }],
+    view_rule: expect.any(String) as unknown,
+    view_rule_error: null,
+  })
+  const rule = {
+    id,
+    run,
+    source: 'chat',
+    action: 'collapse',
+    selector: { kind: 'stage_ids', stages: [stage.id] },
+    params: null,
+    created_at: applied?.answered_at,
+    revoked_at: null,
+  }
+  await stream.until(() => latestRun()?.view.rules.length === 1)
+  expect(latestRun()?.view.rules).toEqual([{ rule, affected: [{ kind: 'stage', id: stage.id }] }])
+  const collapsed = await snapshotOf()
+  expect(collapsed.view.rules).toEqual([{ rule, affected: [{ kind: 'stage', id: stage.id }] }])
+  expect(collapsed.view.placements).toMatchObject([
+    { element: { kind: 'stage', id: stage.id }, visibility: { state: 'collapsed', rule: id } },
+  ])
+  expect(collapsed.model).toEqual(seen.model)
+  expect(collapsed.summary.version).toBe(seen.summary.version)
+  expect(codex.calls().filter(({ purpose }) => purpose === 'chat')).toHaveLength(2)
+
+  const revoked = await fetch(`${runUrl}/view-rules/${String(id)}`, { method: 'DELETE', headers: bearer(home.token) })
+  expect(revoked.status).toBe(200)
+  expect(endpoints.revokeViewRule.response.parse(await revoked.json()).rule).toEqual({
+    ...rule,
+    revoked_at: expect.any(BigInt) as unknown,
+  })
+  await stream.until(() => latestRun()?.view.rules.length === 0)
+  expect((await snapshotOf()).view.placements).toEqual([])
+
+  const hide = await ask('Hide the deploy stage')
+  await stream.until(() => answered(hide) !== undefined)
+  expect(answered(hide)).toMatchObject({
+    answer: 'The deploy stage is hidden.',
+    view_rule: null,
+    view_rule_error: 'invalid_selector: the run has no stages k2-missing-stage',
+  })
+  const after = await snapshotOf()
+  expect(after.view.rules).toEqual([])
+  expect(after.summary.version).toBe(seen.summary.version)
+  const history = ChatHistoryResponse.parse(await (await fetch(`${runUrl}/chat`, { headers })).json())
+  expect(history.messages.map(({ view_rule: ruleId, view_rule_error: reason }) => [ruleId, reason])).toEqual([
+    [id, null],
+    [null, 'invalid_selector: the run has no stages k2-missing-stage'],
+  ])
+  expect(codex.calls().filter(({ purpose }) => purpose === 'chat')).toHaveLength(3)
 })

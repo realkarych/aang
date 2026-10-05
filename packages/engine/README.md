@@ -756,6 +756,15 @@ marked `insufficient_data`. `failChat` ends a question with an error, and
 `failInterruptedChats` ends the questions a stopped process left `pending`. Both and
 `answerChat` leave a question that is no longer pending alone and return `null`.
 
+The view rule of an answer (K.2, ADR-0008) goes through `addViewRule` with the source
+`chat` and the time of the answer, in the transaction of the answer. An applied rule
+is the `view_rule` of the message; it changes the view at once, also for elements that
+appear later, and is revoked like any rule. A rule the run cannot hold is not stored:
+the message keeps the answer and its citations and explains the refusal in
+`view_rule_error`, as `<code>: <explanation>` of the `ViewRuleError`, for example
+`invalid_selector: the run has no stages …`. A question that is no longer pending
+applies no rule.
+
 The run feed carries the chat of the run: each question that changed after the
 position is a `chat` event with the message in its latest state and its
 `change_seq`. `reads.chat(run)` returns the history of the run, or `null` for an
@@ -1369,7 +1378,8 @@ usage and the attention zone stay as they are (ADR-0008). A rule belongs to one 
   explains it and stores nothing: `invalid_rule` when it does not match the schema,
   `invalid_selector` for an empty text, an empty stage list or a stage the run does
   not have, `invalid_params` for an empty group name. An unknown run gives `null`.
-  The caller's transaction lets a chat answer and its rule commit together.
+  The caller's transaction lets a chat answer and its rule commit together:
+  `answerChat` applies the rule of an answer this way (see «Chat input and answers»).
 - `revokeViewRule(transaction, { run, id, at })` records the revocation once, with
   a new `change_seq`, and returns the rule; a revocation is never before the
   creation of its rule. A revoked rule stays in the store. An unknown rule or a rule
