@@ -75,7 +75,7 @@ await session.checkpoint(
 )
 ```
 
-Hook selectors also accept `sessionId`. Labels must be unique and each selected step may have one label. Checkpoints are added after awaiting the command. Expected map changes are descriptions for an annotator, as permitted by ADR-0007. Hook control events use the spool file's receipt time; file events use the time the recorder first observed the content.
+Hook selectors also accept `sessionId` and, for `Notification` hooks, `notificationType`. Labels must be unique and each selected step may have one label. Checkpoints are added after awaiting the command. Expected map changes are descriptions for an annotator, as permitted by ADR-0007. Hook control events use the spool file's receipt time; file events use the time the recorder first observed the content.
 
 `manifest.json` stores versions, OS, recording time, expected facts, control events, and artifacts with `observed_at` and original nanosecond `mtime_ns`. `playback.json` uses the existing strict `PlayerManifest`, so it can be passed directly to `loadManifest` and `createPlayer`. The metadata wrapper does not change the shared contract or player format.
 
@@ -101,7 +101,7 @@ Verification examines every file, including files absent from the manifest, with
 
 Core tests use synthetic external processes, the actual hook binary, existing format samples, and the actual player. They do not invoke real model CLIs.
 
-## Scenarios (R.2, R.3)
+## Scenarios (R.2, R.2b, R.3)
 
 The catalog drives the installed runtimes. Each scenario asserts that its behavior really happened (transcripts, rollouts, hooks, OTel, host summaries) and fails instead of publishing a misleading recording; each sets two or three checkpoints with the expected map change.
 
@@ -117,15 +117,19 @@ node tools/record/dist/main.js scenario claude_cli tools resume --model live --c
 | Surface | OS | Model | Scenarios |
 | --- | --- | --- | --- |
 | `claude_cli` | macOS, Linux, Windows | stub, live | `tools`, `subagents`, `resume`, `compaction`, `fork`, `plan`, `approval`, `question`, `interrupt`, `reconnect`, `source-loss` |
-| `claude_sdk` | macOS, Linux, Windows | stub, live | the same |
-| `claude_desktop` | macOS | stub, live | the same |
+| `claude_cli` | macOS, Linux, Windows | stub | `elicitation`, `workflow` |
+| `claude_cli` (interactive TUI) | macOS, Linux | stub | `teammates`, `input-dialogs` |
+| `claude_sdk` | macOS, Linux, Windows | stub, live | the scenarios of the first `claude_cli` row |
+| `claude_sdk` | macOS, Linux, Windows | stub | `elicitation`, `workflow` |
+| `claude_desktop` | macOS | stub, live | the scenarios of the first `claude_cli` row |
+| `claude_desktop` | macOS | stub | `elicitation` (engine 2.1.288 or later), `workflow` |
 | `codex_exec` | macOS, Linux, Windows | stub | `tools`, `subagents`, `fork`, `question`, `plan`, `compaction`, `source-loss`, `reconnect` |
 | `codex_exec` | macOS, Linux, Windows | live | `resume-compaction` |
 | `codex_tui` | macOS, Linux | stub | `tools`, `approval`, `interrupt` |
 | `codex_sdk` | macOS, Linux, Windows | stub | `tools`, `subagents`, `question`, `resume` |
 | `codex_desktop` | macOS | stub | `tools`, `approval`, `subagents` |
 
-The model stub is the only replaced boundary. It is a local Anthropic Messages or OpenAI Responses endpoint scripted by markers: a prompt carries `[aang:<key>]`, and the n-th model response after that prompt returns the n-th scripted step for the key (Codex subagents are keyed by their task name). Requests without tools, prompts without a marker, and steps past the script get a plain text reply. In `live` mode the same prompts go to the real model.
+The model stub is the only replaced boundary, apart from the `tmux`, `it2` and login shell stand-ins of `input-dialogs`. It is a local Anthropic Messages or OpenAI Responses endpoint scripted by markers: a prompt carries `[aang:<key>]`, and the n-th model response after that prompt returns the n-th scripted step for the key (Codex subagents are keyed by their task name). Requests without tools, prompts without a marker, and steps past the script get a plain text reply. In `live` mode the same prompts go to the real model.
 
 Claude:
 
@@ -133,6 +137,11 @@ Claude:
 - `claude_sdk` loads `@anthropic-ai/claude-agent-sdk` from the given package and runs `query()` with its bundled engine, `plugins` for the recording plugin, `canUseTool`, `resume`, `forkSession` and `interrupt()`.
 - `claude_desktop` emulates the Desktop: the engine bundled in Claude.app with `CLAUDE_CODE_ENTRYPOINT=claude-desktop`, the SDK environment the application sets, the Desktop flags and `initialize`. It is not a Desktop session; the owner's manual checklist still applies (ADR-0010). Desktop on Windows is not verified in the MVP (ADR-0013).
 - Live mode needs `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in the environment: the temporary `CLAUDE_CONFIG_DIR` has no login and none is copied. With `--claude-home regular` the owner's login of the regular Claude home is used instead.
+- `elicitation` connects the stdio MCP server `aang-elicitation` from `tools/record` (`--mcp-config` for the CLI and the Desktop engine, `mcpServers` for the SDK). Its tool `choose_greeting` asks for a greeting through a form elicitation, and `confirm_link` asks the user to open a local link through a URL elicitation; the server serves that link itself and sends `notifications/elicitation/complete` after the link is opened. The host answers `elicitation` control requests (`onElicitation` in the SDK), opens the link the way a browser would, and records the `elicitation_complete` system message. The server sends a URL elicitation only to a client that declares the capability: Claude 2.1.286 declares form elicitation only, so the scenario reports that engine as unable to run it.
+- `workflow` runs the workflow `aang-echo` with the `Workflow` tool: two agents in parallel in phase Echo, then one agent in phase Report. The scenario checks the workflow snapshot, its journal and the meta of every agent.
+- `teammates` and `input-dialogs` drive the interactive TUI of `claude_cli` through `expect` in a pseudo-terminal, because Claude starts the session team of agent teams only in interactive sessions (not in `-p`, the SDK or the Desktop engine) and shows the input dialogs that send `elicitation_dialog`, `elicitation_url_dialog` and `agent_needs_input` notifications only in the TUI; the notification follows ~6 s after the dialog appears. The temporary `CLAUDE_CONFIG_DIR` gets a completed onboarding, the approval of the stub API key and trust of the temporary project, nothing from the owner's configuration. The steps wait for hook records in the spool or for a file, type the prompt and press keys. The session runs in the pseudo-terminal of `expect`, not in the recorder's terminal, so the driver clears the inherited terminal identity (`TMUX`, `TMUX_PANE`, `STY`, `ZELLIJ`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `ITERM_SESSION_ID`, `LC_TERMINAL`, `LC_TERMINAL_VERSION`); a scenario sets what it needs on top. On Windows these scenarios need a ConPTY host: their cells are `unverified` or recorded manually by the owner, as Codex TUI in R.3.
+- `teammates` runs with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and `--teammate-mode in-process`: the lead creates a task and spawns the teammate `helper`, which creates and completes tasks of the team task list and becomes idle. The team config exists only while the session runs and is captured then.
+- `input-dialogs` answers the MCP form and accepts the link from the keyboard; `BROWSER` is a script in the scratch directory that fetches the link. Then it spawns `helper` with `--teammate-mode auto` and `TERM_PROGRAM=iTerm.app`: without the `it2` CLI and with `tmux` available Claude asks for teammate setup (`agent_needs_input`), and the user cancels. The stand-ins live in the scratch directory at the front of `PATH`: `tmux` only answers `tmux -V` and is never asked to open a pane; `it2` always fails, so an `it2` installed on the machine is never reached; `SHELL` is a script that runs `-lc` commands as `/bin/sh -c`, so Claude's login shell lookup of `it2` sees the scenario's `PATH` instead of the one the system profiles build. `pnpm scenarios` also records this scenario from a recorder started inside tmux (`TMUX`, `TMUX_PANE`) with a working `it2` on `PATH` and on the login shell's `PATH`.
 
 Codex:
 
@@ -141,4 +150,19 @@ Codex:
 - `codex_desktop` emulates the Desktop: the engine bundled in ChatGPT.app as `app-server` over stdio with client `codex_desktop` and `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=Codex Desktop`; the host answers approvals.
 - `resume-compaction` is the live scenario of ADR-0010: the owner's regular Codex home, `--ignore-user-config --disable hooks`, no hooks and no copied authorization; resume runs with a low `model_auto_compact_token_limit` so a remote compaction happens. It leaves its thread in the owner's history; delete it with `codex delete --force <id>` if unwanted.
 
-`pnpm scenarios` runs the catalog with the stub model as integration tests tagged `runtime` (excluded from `pnpm test`); a surface whose engine is not installed is skipped unless it is listed in `AANG_RECORD_REQUIRE`, and `AANG_RECORD_FIXTURES` keeps the recordings. The `Scenarios` workflow runs it on macOS, Linux and Windows with pinned CLI and SDK versions and uploads the recordings; Desktop surfaces are verified locally on macOS. Recordings for the repository with current versions are R.4.
+`pnpm scenarios` runs the catalog with the stub model as integration tests tagged `runtime` (excluded from `pnpm test`); a surface whose engine is not installed, or a scenario that the installed engine or tools (such as `expect`) cannot run, is skipped unless the surface is listed in `AANG_RECORD_REQUIRE`, and `AANG_RECORD_FIXTURES` keeps the recordings. The `Scenarios` workflow runs it on macOS, Linux and Windows with pinned CLI and SDK versions and uploads the recordings; Desktop surfaces are verified locally on macOS. Recordings for the repository with current versions are R.4.
+
+### Applicability of R.2b
+
+Owner's decision of 2026-10-04: the scope of R.2b follows what the engines do.
+
+| Scenario | `claude_cli` | `claude_sdk` | `claude_desktop` (engine emulation) |
+| --- | --- | --- | --- |
+| `elicitation` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS, engine 2.1.288 or later (2.1.286 declares form elicitation only, without URL) |
+| `workflow` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS |
+| `teammates` | TUI: macOS, Linux; Windows: `unverified` or recorded manually by the owner | not applicable: no session team outside the interactive CLI | not applicable: no session team outside the interactive CLI |
+| `input-dialogs` | TUI: macOS, Linux; Windows: `unverified` or recorded manually by the owner | not applicable: the dialogs exist only in the TUI | not applicable: the dialogs exist only in the TUI |
+
+- R.2b: the catalog covers exactly these cells. The `Scenarios` workflow requires `claude_cli` and `claude_sdk` (`AANG_RECORD_REQUIRE`), so every CLI and SDK cell of its OS must record and verify, the TUI cells on macOS and Linux included; the Desktop cells are verified locally on macOS.
+- R.4b: records these cells with the versions of R.4; the Desktop `elicitation` cell needs a Desktop engine 2.1.288 or later. A Windows TUI cell gets a manual recording by the owner or none.
+- B.8: makes the R.4b recordings of these cells mandatory in the contract run. Cells that are not applicable have no recordings and nothing to verify. Without a manual recording, teammates and the dialog notifications stay `unverified` on Windows (ADR-0010). `elicitation_dialog`, `elicitation_url_dialog` and `agent_needs_input` come only from the TUI cells; in `-p`, the SDK and the Desktop engine the host gets `elicitation` control requests and the stream carries `elicitation_response` and `elicitation_complete` instead.

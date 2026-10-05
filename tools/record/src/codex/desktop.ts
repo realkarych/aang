@@ -1,10 +1,11 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { hookRecords, hooksNamed } from '../hooks.js'
 import type { RunOutput } from '../record.js'
 import type { Scenario, ScenarioSession } from '../scenario.js'
 import { checkSubagents, exists, shell, subagentFacts, subagentScript, toolSteps } from './calls.js'
 import { hostScript, stubScenario } from './harness.js'
-import { check, completedItems, finished, hookRecords, hooksNamed, jsonLines, type Json, rolloutOf, sessionMeta } from './rollout.js'
+import { check, completedItems, finished, jsonLines, type Json, rolloutOf, sessionMeta } from './rollout.js'
 import { logRecords } from './telemetry.js'
 
 const surface = 'codex_desktop'
