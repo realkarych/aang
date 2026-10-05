@@ -5,7 +5,14 @@ import type { ReactElement } from 'react'
 import { BasisBadge, DecisionBadge, ExecutionBadge, executionTone } from './badges.js'
 import { plural } from './format.js'
 import { DisclosureGlyph } from './glyphs.js'
-import { actionForms, agentRoleLabel, serviceAgentLabel, stageOriginLabel, substageForms } from './labels.js'
+import {
+  actionForms,
+  agentRoleLabel,
+  serviceAgentLabel,
+  stageForms,
+  stageOriginLabel,
+  substageForms,
+} from './labels.js'
 import type { EdgeKind, MapStage } from './map-graph.js'
 import { detailLevelLabel, totalsText } from './view-labels.js'
 
@@ -29,6 +36,13 @@ type StageNodeData = {
 }
 
 export type StageFlowNode = Node<StageNodeData, 'stage'>
+
+type GroupNodeData = {
+  readonly name: string
+  readonly members: number
+}
+
+export type GroupFlowNode = Node<GroupNodeData, 'frame'>
 
 type RouteEdgeData = {
   readonly kind: EdgeKind
@@ -95,7 +109,6 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
         </li>
       </ul>
       <p className="stage-meta">
-        {view.group === null ? null : <span>{`группа «${view.group}»`}</span>}
         {view.detail === null ? null : <span>{`детализация: ${detailLevelLabel[view.detail]}`}</span>}
         {view.folded === null ? (
           <>
@@ -123,6 +136,14 @@ export const StageNode = ({ data }: NodeProps<StageFlowNode>): ReactElement => (
     <Handle type="target" position={Position.Left} isConnectable={false} className="map-handle" />
     <StageCard {...data} />
     <Handle type="source" position={Position.Right} isConnectable={false} className="map-handle" />
+  </div>
+)
+
+export const GroupNode = ({ data }: NodeProps<GroupFlowNode>): ReactElement => (
+  <div className="map-group">
+    <p className="map-group-name" title={data.name}>
+      {`Группа «${data.name}» · ${plural(data.members, stageForms)}`}
+    </p>
   </div>
 )
 

@@ -34,9 +34,12 @@ export const grouped = <T>(items: readonly T[], groupOf: (item: T) => string | n
   return entries
 }
 
+const foldsInside = (placed: ViewPlacement | null): boolean =>
+  placed !== null && (placed.visibility !== null || (placed.detail?.level ?? 'all_actions') !== 'all_actions')
+
 export const concealedActions = (actions: readonly Action[], placement: PlacementOf): ReadonlySet<ActionId> => {
   const containers = new Map(actions.map(({ id, container }) => [id, container]))
-  const folded = (id: ActionId): boolean => (placement({ kind: 'action', id })?.visibility ?? null) !== null
+  const folded = (id: ActionId): boolean => foldsInside(placement({ kind: 'action', id }))
   const concealed = new Set<ActionId>()
   for (const action of actions) {
     const passed = new Set<ActionId>()

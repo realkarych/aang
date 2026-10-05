@@ -141,6 +141,7 @@ const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): Reac
         <ChatPanel
           snapshot={snapshot}
           messages={feed.chat}
+          history={feed.history}
           record={feed.record}
           choice={choice}
           now={now}

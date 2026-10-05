@@ -1,4 +1,4 @@
-import type { ChatCitation, Fact, FactKind, Speaker, VersionRetention } from '@aang/contract'
+import type { ArtifactContent, ChatCitation, Fact, FactKind, Speaker, VersionRetention } from '@aang/contract'
 import { detailOf } from './action-input.js'
 
 export const citationKindLabel: Readonly<Record<ChatCitation['kind'], string>> = {
@@ -57,6 +57,20 @@ export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> 
   hash_only: 'сохранён только хэш содержимого',
   reference: 'только ссылка',
 }
+
+export const contentSourceLabel: Readonly<Record<Extract<ArtifactContent, { kind: 'stored' }>['source'], string>> = {
+  action_payload: 'содержимое, которое записало действие',
+  file_read: 'состояние файла на момент чтения',
+  commit: 'содержимое коммита',
+}
+
+export const contentMissingLabel: Readonly<Record<Extract<ArtifactContent, { kind: 'unavailable' }>['reason'], string>> =
+  {
+    reference_only: 'известна только ссылка, содержимое aang не сохранял',
+    hash_only: 'сохранён только хэш содержимого',
+    commit_missing: 'коммита этой версии больше нет в репозитории',
+    blob_missing: 'содержимое пропало из хранилища aang',
+  }
 
 const joined = (parts: readonly (string | null)[]): string | null => {
   const present = parts.filter((part): part is string => part !== null && part.trim() !== '')

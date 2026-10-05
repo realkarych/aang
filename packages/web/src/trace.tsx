@@ -164,8 +164,11 @@ const ActionStep = ({
   readonly now: bigint
 }): ReactElement => {
   const step: Step = { kind: 'action', action }
-  const visibility = placement({ kind: 'action', id: action.id })?.visibility ?? null
-  const inside = visibility?.state === 'collapsed' ? visibility.totals.actions - 1 : null
+  const placed = placement({ kind: 'action', id: action.id })
+  const visibility = placed?.visibility ?? null
+  const folded = visibility?.state === 'collapsed' ? visibility.totals : null
+  const detail = placed?.detail ?? null
+  const inside = placed?.attention.length ?? 0
   return (
     <li className="step">
       <span className="step-state">
@@ -179,10 +182,14 @@ const ActionStep = ({
           </Suspense>
         )}
         {action.inherited ? <span className="step-note">унаследовано из исходной сессии</span> : null}
-        {inside === null ? null : (
-          <span className="step-note">
-            {inside === 0 ? 'свёрнуто правилом вида' : `свёрнуто правилом вида, внутри ${plural(inside, actionForms)}`}
-          </span>
+        {folded === null ? null : (
+          <span className="step-note">{`свёрнуто правилом вида: ${totalsText(folded)}`}</span>
+        )}
+        {detail === null ? null : (
+          <span className="step-note">{`детализация: ${detailLevelLabel[detail.level]}`}</span>
+        )}
+        {inside === 0 ? null : (
+          <span className="step-note">{`${plural(inside, attentionForms)} внутри — в зоне внимания`}</span>
         )}
       </span>
       <StepTime at={stepAt(step)} active={isActive(step)} now={now} />

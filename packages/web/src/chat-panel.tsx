@@ -1,5 +1,6 @@
 import type {
   Action,
+  ArtifactContent,
   ArtifactRef,
   ArtifactVersionId,
   AttentionItem,
@@ -24,21 +25,31 @@ import {
 import { askChat, failureText, SignedOut } from './api.js'
 import { attentionAnchor } from './attention-zone.js'
 import { ActionBadge } from './badges.js'
-import { citationKindLabel, factGist, factKindLabel, retentionLabel, speakerLabel } from './chat-labels.js'
+import {
+  citationKindLabel,
+  contentMissingLabel,
+  contentSourceLabel,
+  factGist,
+  factKindLabel,
+  retentionLabel,
+  speakerLabel,
+} from './chat-labels.js'
 import { factRead, versionRead } from './cached-read.js'
-import { clockTime } from './format.js'
+import { absoluteTime, bytes, clockTime } from './format.js'
 import { LevelGlyph } from './glyphs.js'
 import { attentionKindLabel, stageRevisionLabel } from './labels.js'
 import { mapHeading, type StageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { factPlace, placeOf } from './objects.js'
 import { isPlainClick, runHref } from './route.js'
+import type { ChatHistory } from './use-run-feed.js'
 import { ruleText } from './view-labels.js'
 import './chat.css'
 
 interface ChatPanelProps {
   readonly snapshot: RunSnapshot
   readonly messages: readonly ChatMessage[]
+  readonly history: ChatHistory
   readonly record: (message: ChatMessage) => void
   readonly choice: StageChoice
   readonly now: bigint
@@ -194,6 +205,22 @@ const FactCite = ({ id, context }: { readonly id: FactId; readonly context: Cite
 const refName = (ref: ArtifactRef): string =>
   ref.kind === 'file' ? ref.path : ref.kind === 'commit' ? `${ref.repository}@${ref.sha}` : ref.url
 
+const VersionContent = ({ content }: { readonly content: ArtifactContent }): ReactElement =>
+  content.kind === 'unavailable' ? (
+    <span>{`Содержимое недоступно: ${contentMissingLabel[content.reason]}`}</span>
+  ) : (
+    <>
+      <span>{contentSourceLabel[content.source]}</span>
+      {content.read_at === null ? null : <span>{absoluteTime(content.read_at)}</span>}
+      <span>{bytes(content.size_bytes)}</span>
+      {content.encoding === 'utf8' ? (
+        <pre className="cite-content">{content.data}</pre>
+      ) : (
+        <span className="cite-gist">Содержимое двоичное, текстом его не показать.</span>
+      )}
+    </>
+  )
+
 const VersionCite = ({ id, now }: { readonly id: ArtifactVersionId; readonly now: bigint }): ReactElement => {
   const read = use(versionRead(id, now))
   return read === null ? (
@@ -202,11 +229,17 @@ const VersionCite = ({ id, now }: { readonly id: ArtifactVersionId; readonly now
       <span className="cite-note">не прочитана, повтор через несколько секунд</span>
     </span>
   ) : (
-    <span className="chat-cite" data-closed="true">
-      <CiteKind label={citationKindLabel.artifact_version} />
-      <code className="cite-text">{refName(read.version.ref)}</code>
-      <span className="cite-note">{`, ${retentionLabel[read.version.retention.kind]}`}</span>
-    </span>
+    <Disclosure
+      label={
+        <>
+          <CiteKind label={citationKindLabel.artifact_version} />
+          <code className="cite-text">{refName(read.version.ref)}</code>
+          <span className="cite-note">{`, ${retentionLabel[read.version.retention.kind]}`}</span>
+        </>
+      }
+    >
+      <VersionContent content={read.content} />
+    </Disclosure>
   )
 }
 
@@ -459,7 +492,36 @@ const AskForm = ({
   )
 }
 
-export const ChatPanel = ({ snapshot, messages, record, choice, now, onSignedOut }: ChatPanelProps): ReactElement => {
+const HistoryNote = ({
+  history,
+  empty,
+}: {
+  readonly history: ChatHistory
+  readonly empty: boolean
+}): ReactElement | null => {
+  switch (history.state) {
+    case 'failed':
+      return (
+        <p className="chat-trouble" role="status">
+          {`История чата не загружена: ${history.reason}. aang повторяет запрос.`}
+        </p>
+      )
+    case 'loading':
+      return empty ? <p className="chat-empty">История чата загружается…</p> : null
+    case 'ready':
+      return empty ? <p className="chat-empty">Вопросов по этому прогону ещё не было.</p> : null
+  }
+}
+
+export const ChatPanel = ({
+  snapshot,
+  messages,
+  history,
+  record,
+  choice,
+  now,
+  onSignedOut,
+}: ChatPanelProps): ReactElement => {
   const heading = useId()
   const context: CiteContext = { snapshot, choose: choice.choose, now }
   return (
@@ -471,9 +533,8 @@ export const ChatPanel = ({ snapshot, messages, record, choice, now, onSignedOut
         Отвечает наблюдатель по снимку карты и ссылается на этапы, факты и действия. Чат не меняет карту и ничего не
         отправляет решателю; правило вида из ответа применяется сразу, отменить его можно в списке правил.
       </p>
-      {messages.length === 0 ? (
-        <p className="chat-empty">Вопросов по этому прогону ещё не было.</p>
-      ) : (
+      <HistoryNote history={history} empty={messages.length === 0} />
+      {messages.length === 0 ? null : (
         <ol className="chat-log" aria-label="Вопросы и ответы">
           {messages.map((message) => (
             <Entry key={message.id} message={message} context={context} />
