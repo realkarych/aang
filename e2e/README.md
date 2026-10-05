@@ -43,7 +43,8 @@ test('прогон из образца виден в API', async ({ player, page
 | `signedIn` | `true` | `false` оставляет `context` и `page` анонимными |
 
 - Корни рантаймов в свежем профиле ещё не существуют, поэтому их обход ускорен: `collector.rootsScanIntervalMs` — 250 мс, если тест не задал свой.
-- Путь поддельного CLI попадает в `cli.claude` и `cli.codex` конфига, только когда для запуска хватает одного пути (macOS и Linux). На Windows поддельный CLI запускается как `node <скрипт> <состояние>`, и в конфиг он не записывается.
+- Путь поддельного CLI (`fakeClaude.path`, `fakeCodex.path`) записан в `cli.claude` и `cli.codex` конфига на всех ОС, и демон запускает его как настоящий CLI. На macOS и Linux это исполняемый скрипт. На Windows поддельный `claude` — `claude.exe` (exe-шим `testkit` запускает `node` со скриптом поддельного CLI), а поддельный `codex` — раскладка npm-пакета (`codex.cmd` и `node_modules/@openai/codex/bin/codex.js`), которую наблюдатель запускает как `node` со скриптом пакета (ADR-0013).
+- Лаунчер `aang-hook` лежит в `AANG_HOME/bin`, как после `aang install`: через него наблюдатель запускает CLI на Windows (`aang-hook launch`, Job Object, ADR-0013).
 - OTLP-шаги проигрывателю пока недоступны: токен приёмника OTel наружу отдаст `otel-config` (G.12).
 
 ## Покрытие
