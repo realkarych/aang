@@ -162,7 +162,7 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
   if (admission) {
     const cleanup = await claudeAdmissionArtifacts(session.sessionId, scenario.admissionMs, scenario.admissionFault)
     try {
-      const controlled = runAdmissionHook('claude', options, scenario.admissionFault) && options.flags.has('include-hook-events')
+      const controlled = await runAdmissionHook('claude', options, scenario.admissionFault) && options.flags.has('include-hook-events')
       respond(controlled ? { ...session, hooks: [...session.hooks, 'SessionStart:startup'] } : session, reply, input)
     } finally { cleanup() }
     return
