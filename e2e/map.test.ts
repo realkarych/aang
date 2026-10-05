@@ -490,18 +490,41 @@ test.describe('with the observer revising the map', () => {
     await expect(continued).toBeVisible(observed)
     await expect(main).toHaveCount(0)
     await expect(pick(continued, continuedStageTitle)).toHaveAttribute('aria-pressed', 'true')
-    await expect(notice).toHaveText(
-      `Этап «${mainStageTitle}» заменён. Выбор перешёл к преемнику «${continuedStageTitle}».`,
-    )
+    const replacedNote = `Этап «${mainStageTitle}» заменён. Выбор перешёл к преемнику «${continuedStageTitle}».`
+    await expect(notice).toHaveText(replacedNote)
     const revised = await snapshotOf(page, claudeRun)
-    expect(stageTitled(revised, mainStageTitle).lifecycle).toEqual({
-      state: 'replaced',
-      by: [stageTitled(revised, continuedStageTitle).id],
-    })
-    expect(stageInAddress()).toBe(stageTitled(revised, continuedStageTitle).id)
+    const [mainId, continuedId] = [stageTitled(revised, mainStageTitle).id, stageTitled(revised, continuedStageTitle).id]
+    expect(stageTitled(revised, mainStageTitle).lifecycle).toEqual({ state: 'replaced', by: [continuedId] })
+    expect(stageInAddress()).toBe(continuedId)
     await expect(inspected(page)).toHaveText(continuedStageTitle)
     const handed = await settled(continued)
     near(handed, read)
+
+    await map(page).getByRole('button', { name: 'Скрыть' }).click()
+    await expect(notice).toBeEmpty()
+    const predecessor = page
+      .getByRole('complementary')
+      .getByRole('region', { name: /^Связи/ })
+      .getByRole('link', { name: mainStageTitle, exact: true })
+    await predecessor.click()
+    await expect(notice).toHaveText(replacedNote)
+    await expect.poll(stageInAddress).toBe(continuedId)
+    await expect(inspected(page)).toHaveText(continuedStageTitle)
+    await expect(predecessor).toBeVisible()
+    expect(stageInAddress()).toBe(continuedId)
+    await expect(pick(continued, continuedStageTitle)).toHaveAttribute('aria-pressed', 'true')
+
+    const fromPredecessor = await page.context().newPage()
+    await fromPredecessor.goto(`/?run=${claudeRun}&stage=${mainId}`)
+    await expect(pick(stage(fromPredecessor, continuedStageTitle), continuedStageTitle)).toHaveAttribute(
+      'aria-pressed',
+      'true',
+      observed,
+    )
+    await expect(map(fromPredecessor).getByRole('status')).toHaveText(replacedNote)
+    await expect(inspected(fromPredecessor)).toHaveText(continuedStageTitle)
+    await expect.poll(() => new URL(fromPredecessor.url()).searchParams.get('stage')).toBe(continuedId)
+    await fromPredecessor.close()
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].split)
     await played.play({ until: 'compaction' })

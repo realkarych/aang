@@ -38,16 +38,16 @@ export const MapSection = ({ snapshot }: { readonly snapshot: RunSnapshot }): Re
     [snapshot.model.stages, chosen],
   )
   const selected = selection?.stage.id ?? null
+  const shown = selection === null ? chosen : selected
   if (routed !== seen) {
     setSeen(routed)
-    if (routed !== selected) {
+    if (routed !== shown) {
       setChosen(routed)
     }
   }
-  const shown = selection === null ? chosen : selected
   useEffect(() => {
     replaceStage(run, shown)
-  }, [run, shown])
+  }, [run, routed, shown])
   const select = useCallback(
     (stage: StageId | null) => {
       selectStage(run, stage)
