@@ -1,8 +1,10 @@
+import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { mkdtemp, realpath, mkdir, readFile, rm, writeFile, symlink } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { promisify } from 'node:util'
 import { expect, test, type TestContext } from 'vitest'
 import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
 import { installFakeClaude, installFakeCodex, type ClaudeScenario } from '@aang/testkit'
@@ -261,6 +263,18 @@ test.skipIf(process.platform === 'win32')('Codex fails admission when its profil
   expect(await backend.admit()).toMatchObject({ admitted: false, reason: expect.stringMatching(/^CLI descendant left its process group: /) as unknown })
   expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
   expect(fake.calls().filter((call) => call.prompt !== null)).toHaveLength(1)
+})
+
+test.skipIf(process.platform === 'win32')('Codex fails admission when a process of the control hook session visits another group and returns to the hook group', async (context) => {
+  const { root, options } = await sandbox(context)
+  const helper = join(root, 'group-return')
+  const returned = join(root, 'returned.pid')
+  await promisify(execFile)('cc', [fileURLToPath(new URL('group-return.c', import.meta.url)), '-o', helper])
+  const fake = installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
+  const backend = createCodexBackend({ ...options, cli: wrapped('hook-session-wrapper.ts', `'${helper}' 500 '${returned}'`, fake.command, ...fake.args), model: 'gpt-6.1-sol' })
+  expect(await backend.admit()).toMatchObject({ admitted: false, reason: 'CLI descendant left its process group: group-return' })
+  expect(existsSync(returned)).toBe(true)
+  expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
 })
 
 for (const runtime of ['claude', 'codex'] as const) {
