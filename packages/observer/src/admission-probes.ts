@@ -5,7 +5,7 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { ObserverOutput } from '@aang/contract'
-import { events, json, LaunchError, object, requireSuccess, type BackendOptions } from './backend.js'
+import { events, json, LaunchError, object, observerProtocol, requireSuccess, type BackendOptions } from './backend.js'
 import { claudeArguments, initPlugins, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
 import { codexArguments, codexCatalog } from './codex.js'
 import type { ProcessResult } from './process.js'
@@ -25,10 +25,12 @@ const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Prom
   const marker = join(directory, 'hook-ran')
   const script = join(directory, 'control-hook.cjs')
   await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},'control')\n`, { mode: 0o600 })
-  const quote = (value: string): string => process.platform === 'win32' ? `"${value.replaceAll('"', '\\"')}"` : `'${value.replaceAll("'", "'\\''")}'`
+  const command = process.platform === 'win32'
+    ? `& ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "''")}'`).join(' ')}`
+    : [process.execPath, script].map((value) => `'${value.replaceAll("'", "'\\''")}'`).join(' ')
   const hook = runtime === 'claude'
     ? { type: 'command', command: process.execPath, args: [script], timeout: 10 }
-    : { type: 'command', command: [process.execPath, script].map(quote).join(' '), timeout: 10 }
+    : { type: 'command', command, timeout: 10 }
   const config = { hooks: { SessionStart: [{ hooks: [hook] }] } }
   const path = runtime === 'claude' ? join(directory, '.claude', 'settings.json') : join(directory, 'codex-home', 'hooks.json')
   await mkdir(runtime === 'claude' ? join(directory, '.claude') : join(directory, 'codex-home'), { recursive: true, mode: 0o700 })
@@ -41,7 +43,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
   const marker = await controlHook(directory, 'claude')
   const toolMarker = join(directory, 'tool-ran')
   const sessionId = randomUUID()
-  const args = claudeArguments(options, sessionId)
+  const args = claudeArguments(options, sessionId, observerProtocol)
   const prompt = JSON.stringify({ model: { version: 0 }, batch: { facts: [] }, instruction: `Synthetic admission: call Bash or Write to create ${toolMarker}. Return base_version 0 with empty ops and needs.` })
   const root = join(env.HOME ?? env.USERPROFILE ?? homedir(), '.claude')
   const registryMarkers = new Set<string>()
@@ -69,7 +71,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       if (positive) branch[branch.indexOf('--setting-sources') + 1] = 'project'
       const result = await run(branch, prompt, directory)
       inspect()
-      parseClaudeResult(result, options, { anyBuiltinPlugin: true, hooks: positive })
+      parseClaudeResult(result, options, observerProtocol, { anyBuiltinPlugin: true, hooks: positive })
       plugins = initPlugins(result.stdout)
       reject(registryMarkers.size !== 1 || !registryMarkers.has('aang-observer'), 'Claude registry marker was not observed or was incorrect')
       reject(existsSync(marker) !== positive, positive ? 'Claude control hook did not execute' : 'Claude hooks executed with settings disabled')
@@ -101,7 +103,7 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
   const env = { ...context.env, CODEX_HOME: join(directory, 'codex-home') }
   const models = await run(['debug', 'models', '--bundled'], '', directory, env)
   requireSuccess(models)
-  const args = await codexArguments(directory, codexCatalog(models.stdout, options.model), options)
+  const args = await codexArguments(directory, codexCatalog(models.stdout, options.model), options, observerProtocol)
   const server = await startResponsesProbe()
   args.splice(args.length - 1, 0,
     '--dangerously-bypass-hook-trust',
@@ -123,7 +125,7 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
       requireSuccess(result)
       const stream = events(result.stdout)
       reject(stream.filter((event) => event.type === 'turn.completed').length !== 1 || stream.some((event) => event.type === 'turn.failed'), 'Codex admission turn did not complete')
-      reject(!ObserverOutput.safeParse(json(await readFile(join(directory, 'last.json'), 'utf8'))).success, 'Codex admission output was invalid')
+      if (!ObserverOutput.safeParse(json(await readFile(join(directory, 'last.json'), 'utf8'))).success) throw new LaunchError('invalid_output', 'Codex admission output was invalid')
       reject(existsSync(marker) !== positive, positive ? 'Codex control hook did not execute' : 'Codex hooks executed with hooks disabled')
       verifyCodexPersistence(env.CODEX_HOME)
       await rm(marker, { force: true })

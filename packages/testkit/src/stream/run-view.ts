@@ -1,6 +1,7 @@
 import type {
   AttentionDelta,
   ChangeSeq,
+  ChatDelta,
   FactsDelta,
   ModelChange,
   ModelDelta,
@@ -15,6 +16,7 @@ export type FeedEvent =
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
   | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
+  | { readonly event: 'chat'; readonly id: ChangeSeq; readonly data: ChatDelta }
 
 export interface FeedSegment {
   readonly position: ChangeSeq
@@ -157,6 +159,8 @@ export const applyFeed = (snapshot: RunSnapshot, feed: FeedSegment): RunSnapshot
         return event.data.changes.reduce(applyChange, view)
       case 'attention':
         return applyAttention(view, event.data)
+      case 'chat':
+        return view
     }
   }, snapshot)
   return {

@@ -6,6 +6,7 @@ import { readSupportMatrix } from '@aang/contract/support-file'
 import { createReadQueries } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
+import { chatRoutes } from './chat.js'
 import { type HookChecks, startHookChecks } from './hooks.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
@@ -216,7 +217,11 @@ const serve = async ({
           observer: observer.backends,
         })
         status.resolve(read)
-        return [...readRoutes({ store, reads, status: read }), ...writeRoutes({ store, bindings: ingestion.bindings })]
+        return [
+          ...readRoutes({ store, reads, status: read }),
+          ...writeRoutes({ store, bindings: ingestion.bindings }),
+          ...chatRoutes({ reads, ask: observer.ask }),
+        ]
       },
       streams,
       reparse: ingestion.reparse,

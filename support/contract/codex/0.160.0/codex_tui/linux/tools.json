@@ -117,7 +117,7 @@
     {
       "channel": "rollout",
       "type": "world_state",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 1
     }
   ],
@@ -1573,7 +1573,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 1,
+      "unknown_records": 0,
       "cost_state": null,
       "started_at": "<time>",
       "last_event_at": "<time>"
@@ -1794,21 +1794,6 @@
       "details": "Session files are available without hook events",
       "detected_at": "<time>",
       "closed_at": "<time>"
-    },
-    {
-      "id": "#46",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "41da3b32a760060efde2a0baaab887b8"
-      },
-      "kind": "unknown_records",
-      "run": "#36",
-      "session": "#35",
-      "stream": null,
-      "details": "1 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
     }
   ],
   "removals": [],

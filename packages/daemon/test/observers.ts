@@ -25,6 +25,8 @@ const briefing = {
 
 export const briefed: ClaudeReply & CodexReply = { kind: 'answer', output: briefing }
 
+export const admissionMs = 1000
+
 export const toolAttempt: CodexReply = { kind: 'answer', output: briefing, toolAttempts: ['exec'] }
 
 export const heldToolAttempt = (gate: string): CodexReply => ({ ...toolAttempt, gate })

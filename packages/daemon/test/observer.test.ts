@@ -12,6 +12,7 @@ import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 import { type TestContext, test } from 'vitest'
 import { bearer, createHome, type Home, startDaemon } from './daemon.js'
 import {
+  admissionMs,
   admissionOf,
   briefed,
   configure,
@@ -86,7 +87,7 @@ test(
   'each run goes to the observer of its root session vendor, and Claude runs with the unverified isolation mark',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
     await installLauncher(home)
     await configure(home, workspace, { cli: { claude: claude.path, codex: codex.path } })
@@ -123,7 +124,7 @@ const adapters = new Map<Runtime, Adapter>([
 
 const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: TestContext) => {
   const { home, workspace } = await watchedHome(onTestFinished)
-  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
   await installLauncher(home)
   const root = claudeKey('session-g6-root')
   const attached = codexKey('thread-g6-attached')
@@ -216,7 +217,7 @@ test(
   'a binding wakes the observer, which interprets the facts of the moved session in the target run without another intake',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
     await installLauncher(home)
     await configure(home, workspace, { cli: { claude: claude.path } })
     const root = claudeKey('session-g8-bind-root')

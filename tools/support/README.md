@@ -14,7 +14,7 @@ CI runs the same check as contract tests: `tools/support/test/contract.test.ts` 
 
 ## Which recordings run
 
-Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<os>/<scenario>/` is verified with the recorder's `verifyRecording` and replayed on every OS, whatever OS recorded it. The run leaves out the Codex `plan` and `question` (plans and answers to questions) until C.6 adds them; B.7 added the Claude ones, and R.5b makes the whole set mandatory. Teammates, workflows and MCP elicitation have no recorded scenarios yet: R.2b adds the scenarios, R.4b records them, and B.8 adds them to the run as mandatory.
+Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<os>/<scenario>/` is verified with the recorder's `verifyRecording` and replayed on every OS, whatever OS recorded it. The R.5a subset left out `plan` and `question` (plans and answers to questions): C.6 added them for Codex, B.7 added them for Claude, and R.5b makes the whole set mandatory. Teammates, workflows and MCP elicitation have no recorded scenarios yet: R.2b adds the scenarios, R.4b records them, and B.8 adds them to the run as mandatory.
 
 ## Playback
 
@@ -62,6 +62,28 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 
 A key outside the matrix reads as `unverified` through `supportStatusOf` from `@aang/contract`.
 
+## Observer isolation (F.10)
+
+```sh
+pnpm support:isolation codex [--cli <codex>] [--support <directory>] [--hook <aang-hook>]
+pnpm support:isolation import <matrix.json>... [--support <directory>]
+```
+
+`isolation codex` runs the automatic admission of ADR-0007 from `@aang/observer` (F.6) on the installed Codex CLI, `codex` from `PATH` by default: the observer profile against the local Responses stub in a temporary `CODEX_HOME`, without authorization and without the user's Codex home. It writes the result into the `observer` column of the row `(codex, codex_exec, <this OS>, local, <CLI version>)`: the observer runs `codex exec`, so the column belongs to that surface.
+
+- `admission` is `passed` when the admission passes and `failed` when the admission disables the backend for isolation: tools in the request, a tool call that is not rejected, a turn that does not complete, a control hook that runs with hooks disabled, a rollout or SQLite rows after `--ephemeral`. A failed admission is written and the command exits with 1.
+- Any other admission failure (the CLI is missing or reports no version, a launch failure or timeout, output that is missing or invalid) is no verdict: nothing is written and the command exits with 1.
+- `cross_session_inbound` stays `not_run` for Codex, which has no inbox for other sessions; `builtins` stays empty.
+- A new row is a row without recordings, as `update` would generate it. `check` and `update` keep the column from the previous matrix.
+
+CI installs `@openai/codex@$CODEX_VERSION` (`.github/workflows/ci.yml`) on all three runners and sets `AANG_ISOLATION_CODEX=codex`, which turns on the contract test in `tools/support/test/isolation.test.ts`. The test runs `isolation codex` into a temporary directory and requires `support/matrix.json` to hold the same `observer` column for the runner's OS and CLI version, so a profile change that breaks isolation, or a Codex version whose result is not recorded, fails CI. When the job fails, it runs `isolation codex` into a temporary directory of the runner and uploads that matrix as the `support-isolation-<os>` artifact.
+
+`isolation import` copies the `observer` column of every row of the given matrices whose admission or cross-session check has run into `support/matrix.json`. A new Codex version is recorded by changing `CODEX_VERSION`, running `isolation codex` locally, and importing the `support-isolation-<os>` matrices of the other runners from the failed CI job.
+
+Claude rows keep `not_run` in the `observer` column: the local Claude check, the admission on the authorized CLI with a peer session for `crossSessionInbound` (ADR-0010), is not part of the tool.
+
 ## Tests
 
 `tools/support/test/run.test.ts` records sessions from the spike samples with the real recorder: `spike-runtime.ts` plays the testkit sample scenarios, fires hooks built from the spike hook samples, writes and removes a session registry entry from the spike sample, moves and deletes the transcript, writes a JSONL file under `tool-results`, pauses so that the recorder captures the transcript in parts, and sends the spike OTLP requests. The reconnect recording puts its `daemon-restart` checkpoint on the first part of the transcript, and its snapshot must equal the snapshot of the same recording replayed without the restart. The tests place copies under several OS directories and run the CLI. `test/portable/` holds four such recordings made on macOS with their snapshots, so every CI runner checks that a recording of another OS replays to the same snapshot.
+
+`tools/support/test/isolation.test.ts` runs `isolation codex` with the fake `codex` of `@aang/testkit` in place of the CLI: a passed admission, a hook that runs with hooks disabled, and checks without a verdict; it imports matrices written for other OSes, and with `AANG_ISOLATION_CODEX` set it runs the contract test on the installed CLI.
