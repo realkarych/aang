@@ -433,7 +433,7 @@ describe.concurrent('Claude hooks: compaction and instructions', () => {
 describe.concurrent('Claude hooks: plan tasks', () => {
   const task = { ...common, prompt_id: 'p1', task_id: '3', task_subject: 'Write the parser' }
 
-  test('a created and a completed task are unverified plan updates of the solver', ({ expect }) => {
+  test('a created and a completed task of the session are verified plan updates of the solver', ({ expect }) => {
     const [created] = factsOf(
       synthetic({ ...task, hook_event_name: 'TaskCreated', task_description: 'Parse the hook payloads' }),
     )
@@ -444,13 +444,14 @@ describe.concurrent('Claude hooks: plan tasks', () => {
       entity_key: { kind: 'session', session },
       speaker: 'solver',
       urgent: true,
-      format_verified: false,
+      format_verified: true,
       payload: {
         source: 'task_hook',
         text: 'Parse the hook payloads',
         items: [{ id: '3', text: 'Write the parser', status: 'pending' }],
       },
     })
+    expect(completed).toMatchObject({ format_verified: true })
     expect(completed?.payload).toEqual({
       source: 'task_hook',
       text: null,
@@ -458,7 +459,9 @@ describe.concurrent('Claude hooks: plan tasks', () => {
     })
   })
 
-  test('a task of a teammate belongs to the teammate, a task inside a subagent to the subagent', ({ expect }) => {
+  test('a task of a teammate belongs to the teammate, unverified, a task inside a subagent to the subagent', ({
+    expect,
+  }) => {
     const [teammate] = factsOf(
       synthetic({ ...task, hook_event_name: 'TaskCreated', teammate_name: 'reviewer', team_name: 'core' }),
     )
@@ -470,12 +473,14 @@ describe.concurrent('Claude hooks: plan tasks', () => {
       session,
       agent: { kind: 'teammate', name: 'reviewer', team: 'core' },
     })
+    expect(teammate?.format_verified).toBe(false)
     expect(subagent?.entity_key).toEqual({
       kind: 'agent',
       runtime: 'claude',
       session,
       agent: { kind: 'subagent', agent_id: 'a1' },
     })
+    expect(subagent?.format_verified).toBe(true)
   })
 
   test('a task without its id is invalid', ({ expect }) => {

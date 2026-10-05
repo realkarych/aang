@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url'
 import { runDaemon } from '@aang/daemon'
 
 const [aangHome, homedir] = process.argv.slice(2)
@@ -10,6 +11,8 @@ await runDaemon({
   environment: { env: { AANG_HOME: aangHome }, homedir },
   bind: null,
   staticRoot: null,
+  supportMatrix: fileURLToPath(new URL('../../../support/matrix.json', import.meta.url)),
+  placement: 'local',
   signal: new AbortController().signal,
   onReady: (ready) => {
     process.stdout.write(`${JSON.stringify(ready)}\n`)

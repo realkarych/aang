@@ -1,4 +1,4 @@
-import type { InputFact, ModelSnapshot, ObserverInput, RunDescription, Truncation } from '@aang/contract'
+import type { ChatInput, InputFact, JsonValue, ModelSnapshot, ObserverInput, RunDescription, Truncation } from '@aang/contract'
 import { clipJson, jsonBytes, prefixOf } from './materials.js'
 
 export interface Packing {
@@ -26,7 +26,7 @@ const stateTextFloor = 64
 
 const clipMark = '…'
 
-export const observerInputTokens = (input: ObserverInput): number =>
+export const observerInputTokens = (input: ObserverInput | ChatInput): number =>
   Math.ceil(Buffer.byteLength(JSON.stringify(input)) / bytesPerToken)
 
 export const firstCallTokens = (tokens: number): number => tokens - Math.floor(tokens / materialShare)
@@ -51,12 +51,12 @@ const largest = (low: number, high: number, fits: (value: number) => boolean): n
   return found
 }
 
-export const packObserverInput = (
+export const packInput = <T extends ObserverInput | ChatInput>(
   range: PackingRange,
   tokens: number,
-  render: (packing: Packing) => ObserverInput,
-): ObserverInput | null => {
-  const attempt = (packing: Packing): ObserverInput | null => {
+  render: (packing: Packing) => T,
+): T | null => {
+  const attempt = (packing: Packing): T | null => {
     const input = render(packing)
     return observerInputTokens(input) <= tokens ? input : null
   }
@@ -87,7 +87,7 @@ export const packObserverInput = (
   return last === null ? null : attempt({ count: range.minimumCount, batchText: batchFloor, stateText: last })
 }
 
-const mergedTruncation = (previous: readonly Truncation[], next: readonly Truncation[]): Truncation[] => {
+export const mergedTruncation = (previous: readonly Truncation[], next: readonly Truncation[]): Truncation[] => {
   const original = new Map(previous.map((entry) => [entry.path, entry.length]))
   const paths = new Set(next.map(({ path }) => path))
   return [
@@ -101,7 +101,7 @@ export const clipInputFact = (fact: InputFact, limit: number): InputFact => {
   return { ...fact, payload: payload.value, truncated: mergedTruncation(fact.truncated, payload.truncated) }
 }
 
-const clipNote = (text: string, limit: number): string => {
+export const clipNote = (text: string, limit: number): string => {
   if (text.length <= limit) {
     return text
   }
@@ -109,7 +109,19 @@ const clipNote = (text: string, limit: number): string => {
   return jsonBytes(clipped) < jsonBytes(text) ? clipped : text
 }
 
-const clipOptional = (text: string | null, limit: number): string | null =>
+export const clipNotes = (value: JsonValue, limit: number): JsonValue => {
+  if (typeof value === 'string') {
+    return clipNote(value, limit)
+  }
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+  return Array.isArray(value)
+    ? value.map((member) => clipNotes(member, limit))
+    : Object.fromEntries(Object.entries(value).map(([key, member]) => [key, clipNotes(member, limit)]))
+}
+
+export const clipOptional = (text: string | null, limit: number): string | null =>
   text === null ? null : clipNote(text, limit)
 
 export const clipRun = (run: RunDescription, limit: number): RunDescription => ({

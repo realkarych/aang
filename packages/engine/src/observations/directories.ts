@@ -1,4 +1,4 @@
-import { isAbsolute, resolve } from 'node:path'
+import { posix, win32 } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { FactOf, JsonValue } from '@aang/contract'
 import { fieldOf } from '../checks/commands.js'
@@ -7,25 +7,47 @@ type Start = FactOf<'action_start'>
 
 const present = (path: string | null): string | null => (path === '' ? null : path)
 
-const pathOf = (value: JsonValue | undefined): string | null => {
-  if (typeof value !== 'string' || value === '') {
-    return null
-  }
-  if (!value.startsWith('file:')) {
-    return value
-  }
+const windowsAbsolute = /^(?:[A-Za-z]:[\\/]|[\\/]{2}[^\\/])/
+
+const windowsDrive = /^\/[A-Za-z](?::|%3A)/i
+
+export const isWindowsPath = (path: string): boolean => windowsAbsolute.test(path)
+
+const driveOf = (path: string): string | undefined => /^[A-Za-z]:/.exec(path)?.[0].toUpperCase()
+
+const fileUrlPath = (value: string): string | null => {
   try {
-    return fileURLToPath(value)
+    const url = new URL(value)
+    const remote = url.hostname !== '' && url.hostname !== 'localhost'
+    return fileURLToPath(url, { windows: remote || windowsDrive.test(url.pathname) })
   } catch {
     return null
   }
 }
 
+const pathOf = (value: JsonValue | undefined): string | null => {
+  if (typeof value !== 'string' || value === '') {
+    return null
+  }
+  return value.startsWith('file:') ? fileUrlPath(value) : value
+}
+
 const explicitOf = ({ payload }: Start): string | null =>
   pathOf(fieldOf(payload.input, 'workdir')) ?? pathOf(fieldOf(payload.input, 'cwd'))
 
-export const resolvedPath = (path: string, base: string | null): string | null =>
-  isAbsolute(path) ? resolve(path) : base === null ? null : resolve(base, path)
+export const resolvedPath = (path: string, base: string | null): string | null => {
+  if (isWindowsPath(path)) {
+    return win32.resolve(path)
+  }
+  if (base !== null && isWindowsPath(base)) {
+    const drive = driveOf(path)
+    return drive === undefined || drive === driveOf(base) ? win32.resolve(base, path) : null
+  }
+  if (posix.isAbsolute(path)) {
+    return posix.resolve(path)
+  }
+  return base !== null && posix.isAbsolute(base) ? posix.resolve(base, path) : null
+}
 
 export const actionDirectory = (starts: readonly Start[], session: string | null): string | null => {
   const ambient = starts.map(({ runtime_env }) => present(runtime_env.cwd)).find((cwd) => cwd !== null) ?? present(session)

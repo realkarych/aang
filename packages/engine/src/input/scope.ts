@@ -2,6 +2,7 @@ import {
   type Action,
   type ActionId,
   type AgentId,
+  type ArtifactVersion,
   type Fact,
   type FactId,
   type MaterialUnavailableReason,
@@ -18,7 +19,14 @@ import {
   type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import type { FactReader, ModelReader, ObservationReader, ObserverCallReader, RawRecordReader } from '@aang/store'
+import type {
+  ArtifactReader,
+  FactReader,
+  ModelReader,
+  ObservationReader,
+  ObserverCallReader,
+  RawRecordReader,
+} from '@aang/store'
 
 export interface ScopeReader {
   readonly facts: FactReader
@@ -26,6 +34,7 @@ export interface ScopeReader {
   readonly observations: ObservationReader
   readonly model: ModelReader
   readonly observerCalls: ObserverCallReader
+  readonly artifacts: ArtifactReader
 }
 
 export interface InputScopeOptions {
@@ -40,6 +49,7 @@ export interface InputScope extends InputScopeOptions {
   readonly fact: (fact: Fact) => ScopeExclusion | null
   readonly record: (record: RawRecord) => ScopeExclusion | null
   readonly action: (action: Action) => ScopeExclusion | null
+  readonly version: (version: ArtifactVersion) => ScopeExclusion | null
   readonly session: (session: SessionId) => ScopeExclusion | null
   readonly agent: (agent: AgentId) => ScopeExclusion | null
   readonly grounds: (evidence: readonly FactId[], owner: ModelEntityRef) => ScopeExclusion | null
@@ -82,6 +92,14 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
     return exclusions.includes('cross_vendor') ? 'cross_vendor' : null
   }
   const fact = (value: Fact): ScopeExclusion | null => (value.kind === 'context' ? recordOf(value.seq) : own(value))
+  const action = (value: Action): ScopeExclusion | null => admit(value.session, value.key.runtime)
+  const version = (value: ArtifactVersion): ScopeExclusion | null => {
+    if (reader.model.objectRun('artifact_version', value.id) !== run) {
+      return 'out_of_scope'
+    }
+    const producer = value.produced_by === null ? null : reader.observations.getAction(value.produced_by)
+    return producer === null ? 'out_of_scope' : action(producer)
+  }
   const sent = new Map<ObserverCallId, ReadonlyMap<FactId, RawSeq>>()
   const sentFacts = (call: ObserverCallId): ReadonlyMap<FactId, RawSeq> => {
     const known = sent.get(call)
@@ -122,7 +140,8 @@ export const inputScope = (reader: ScopeReader, options: InputScopeOptions): Inp
     backend,
     crossVendor,
     fact,
-    action: (action) => admit(action.session, action.key.runtime),
+    action,
+    version,
     session: (id) => {
       const session = reader.observations.getSession(id)
       return session === null ? 'out_of_scope' : admit(id, session.key.runtime)
@@ -211,10 +230,8 @@ export const inputViolations = (reader: ScopeReader, scope: InputScope, input: O
     agent(value.agent)
   }
   for (const value of batch.artifact_versions) {
-    check(
-      `artifact version ${value.id}`,
-      reader.model.objectRun('artifact_version', value.id) === scope.run ? null : 'out_of_scope',
-    )
+    const stored = reader.artifacts.getVersion(value.id)
+    check(`artifact version ${value.id}`, stored === null ? 'out_of_scope' : scope.version(stored))
     action(value.produced_by)
   }
   return violations

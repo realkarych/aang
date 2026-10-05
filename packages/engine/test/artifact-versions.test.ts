@@ -610,6 +610,142 @@ test('Codex commands and patches without a workdir resolve relative paths where 
   expect(retainedAs(store, notes.id)).toEqual({ kind: 'action_payload', text: 'relative\n' })
 })
 
+const windowsSession = {
+  os: 'Windows',
+  cwd: 'C:\\work\\project',
+  shell: ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-Command'],
+  changed: ['C:\\work\\project\\notes\\result.txt', 'C:\\work\\project\\rooted.txt'],
+  paths: ['C:\\work\\project\\nested\\out.txt', 'C:\\work\\project\\notes\\result.txt', 'C:\\work\\project\\rooted.txt'],
+}
+
+const posixSession = {
+  os: 'POSIX',
+  cwd: '/work/project',
+  shell: ['/bin/zsh', '-lc'],
+  changed: ['/work/project/notes/result.txt', '/work/project/rooted.txt'],
+  paths: ['/work/project/nested/out.txt', '/work/project/notes/result.txt', '/work/project/rooted.txt'],
+}
+
+test.for([
+  { ...windowsSession, nested: 'file:///C:/work/project/nested' },
+  { ...windowsSession, nested: 'file://localhost/C:/work/project/nested' },
+  { ...windowsSession, nested: 'file:///C%3A/work/project/nested' },
+  { ...posixSession, nested: 'file:///work/project/nested' },
+  { ...posixSession, nested: 'file://localhost/work/project/nested' },
+])(
+  'paths written in a $os session with the working directory $nested keep its path dialect on a daemon of any OS',
+  async ({ cwd, nested, shell, changed, paths }, { onTestFinished }) => {
+    const { store, engine, project } = await setup(onTestFinished)
+    const lines = [
+      codexRollout({ thread: codexThread, cwd })[0] ?? '',
+      ...codexPatchCall(1, 'call_relative', '*** Begin Patch\n*** Add File: notes/result.txt\n+ok\n*** End Patch\n'),
+      ...codexPatchCall(3, 'call_rooted', '*** Begin Patch\n*** Add File: /work/project/rooted.txt\n+ok\n*** End Patch\n'),
+      codexItem(5, {
+        type: 'FileChange',
+        id: 'call_absolute',
+        changes: Object.fromEntries(changed.map((path) => [path, { type: 'add', content: 'ok\n' }])),
+        status: 'completed',
+      }),
+      codexItem(6, {
+        type: 'CommandExecution',
+        id: 'exec-nested',
+        command: [...shell, 'echo x > out.txt'],
+        cwd: nested,
+        status: 'completed',
+        aggregated_output: '',
+        exit_code: 0,
+      }),
+    ]
+    await engine.ingest(jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 31n }).batch(1, lines.length))
+
+    const versions = store.artifacts.versions(runId(codexKey))
+    expect(versions.flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : [])).sort()).toEqual(paths)
+  },
+)
+
+test.for([
+  {
+    name: 'a drive',
+    cwd: 'C:\\work\\project',
+    paths: ['C:\\work\\project\\local.txt', 'C:\\work\\project\\nested\\nested.txt', 'C:\\work\\project\\out.txt'],
+  },
+  { name: 'a UNC share', cwd: '\\\\server\\share\\project', paths: ['\\\\server\\share\\project\\out.txt'] },
+])(
+  'a drive-relative path in a Windows session on $name resolves only against a directory on its drive, never against the daemon',
+  async ({ cwd, paths }, { onTestFinished }) => {
+    const { store, engine, project } = await setup(onTestFinished)
+    const writes = [
+      { target: 'out.txt' },
+      { target: 'C:local.txt' },
+      { target: 'D:report.txt' },
+      { target: 'nested.txt', cwd: 'C:nested' },
+      { target: 'elsewhere.txt', cwd: 'D:nested' },
+    ]
+    const lines = [
+      codexRollout({ thread: codexThread, cwd })[0] ?? '',
+      ...writes.map(({ target, cwd: directory }, index) =>
+        codexItem(index + 1, {
+          type: 'CommandExecution',
+          id: `exec-${target}`,
+          command: ['C:\\Program Files\\PowerShell\\7\\pwsh.exe', '-Command', `echo hi > ${target}`],
+          ...(directory === undefined ? {} : { cwd: directory }),
+          status: 'completed',
+          aggregated_output: '',
+          exit_code: 0,
+        }),
+      ),
+    ]
+    await engine.ingest(jsonlFile({ runtime: 'codex', path: join(project, 'rollout.jsonl'), lines, ino: 32n }).batch(1, lines.length))
+
+    const versions = store.artifacts.versions(runId(codexKey))
+    expect(versions.flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : [])).sort()).toEqual(paths)
+  },
+)
+
+test('the paths of a session recorded on another OS keep the style of that OS on every host', async ({ onTestFinished }) => {
+  const { store, engine } = await setup(onTestFinished)
+  const windows = { session: 'windows-session', cwd: 'C:\\fixture\\project' }
+  const unix = { session: 'unix-session', cwd: '/fixture/project' }
+  await ingestCalls(engine, windows, [
+    write('toolu_windows_write', 'C:\\fixture\\project\\checklist.txt', 'steps\n'),
+    write('toolu_windows_plan', 'C:/Users/USER/.claude/plans/plan.md', '# Plan\n'),
+    bash('toolu_windows_bash', 'echo hi > notes.txt; echo root > /root.txt'),
+  ])
+  await ingestCalls(
+    engine,
+    unix,
+    [write('toolu_unix_write', '/fixture/project/checklist.txt', 'steps\n'), bash('toolu_unix_bash', 'echo hi > ../notes.txt')],
+    8n,
+  )
+  expect(pathsOf(store, windows)).toEqual([
+    'C:\\Users\\USER\\.claude\\plans\\plan.md',
+    'C:\\fixture\\project\\checklist.txt',
+    'C:\\fixture\\project\\notes.txt',
+    'C:\\root.txt',
+  ])
+  expect(pathsOf(store, unix)).toEqual(['/fixture/notes.txt', '/fixture/project/checklist.txt'])
+
+  await ingestCodex(engine, windows.cwd, [
+    codexExec(1, 'call_windows', { cmd: 'echo x > out\\file.txt' }),
+    codexLine(2, 'response_item', { type: 'function_call_output', call_id: 'call_windows', output: 'done' }),
+    codexItem(3, {
+      type: 'CommandExecution',
+      id: 'exec-windows',
+      command: ['C:\\Windows\\System32\\cmd.exe', '/c', 'echo x > cmd.txt'],
+      cwd: 'file:///C:/fixture/project/sub',
+      status: 'completed',
+      aggregated_output: '',
+      exit_code: 0,
+    }),
+  ])
+  expect(
+    store.artifacts
+      .versions(runId(codexKey))
+      .flatMap(({ ref }) => (ref.kind === 'file' ? [ref.path] : []))
+      .sort(),
+  ).toEqual(['C:\\fixture\\project\\out\\file.txt', 'C:\\fixture\\project\\sub\\cmd.txt'])
+})
+
 type Shell = 'Bash' | 'PowerShell' | 'cmd' | 'exec_command'
 
 const runShell = async (engine: Engine, project: string, shell: Shell, command: string): Promise<RunId> => {

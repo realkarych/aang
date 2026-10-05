@@ -229,9 +229,11 @@ describe('Claude usage records', () => {
     expect(journal.sessions).toEqual([
       {
         session: sessionOf('claude', parallel),
+        fork: false,
         totals: totals(6, tokens(6, 360, 5), true),
         cost_state: null,
         cost_state_final: false,
+        thread_totals: [],
       },
     ])
   })
@@ -416,15 +418,29 @@ describe('Claude fork', () => {
 
     expect(sessions(runOf('claude', original))).toEqual([
       expect.objectContaining({
+        fork: false,
         cost_state: expect.objectContaining({ total_cost_usd: 0.19517879999999999 }) as unknown,
         cost_state_final: true,
       }),
     ])
     expect(sessions(runOf('claude', fork))).toEqual([
       expect.objectContaining({
+        fork: true,
         cost_state: expect.objectContaining({ total_cost_usd: 0.102586 }) as unknown,
         cost_state_final: true,
       }),
+    ])
+  })
+
+  test.each([
+    ['after the original', () => [originalFile(), forkFile()]],
+    ['before the original', () => [forkFile(), originalFile()]],
+    ['without the original', () => [forkFile()]],
+  ])('marks the fork, whose cost-state includes the copied history, when read %s', async (_, batches) => {
+    const { store } = await ingested(batches())
+
+    expect(solverUsage(store, runOf('claude', fork)).journal.sessions).toEqual([
+      expect.objectContaining({ session: sessionOf('claude', fork), fork: true, thread_totals: [] }),
     ])
   })
 
@@ -709,6 +725,7 @@ describe('Codex usage records', () => {
       null,
       null,
     ])
+    expect(journal.sessions).toEqual([expect.objectContaining({ fork: false, thread_totals: [] })])
   })
 
   const parent = 'codex-parent'
@@ -786,6 +803,37 @@ describe('Codex usage records', () => {
     expect(store.observations.getAgent(mainOf('codex', root))?.thread_total).toEqual(lastTokenCount(lines))
     expect(solverUsage(store, runOf('codex', root)).journal.totals.records).toBe(0)
     expect(store.observations.getAgent(mainOf('codex', forked))?.thread_total).toBeNull()
+    expect(solverUsage(store, runOf('codex', root)).journal.sessions).toEqual([
+      expect.objectContaining({
+        session: sessionOf('codex', root),
+        fork: false,
+        totals: totals(0, tokens(0, 0)),
+        thread_totals: [{ agent: mainOf('codex', root), tokens: lastTokenCount(lines) }],
+      }),
+    ])
+    expect(solverUsage(store, runOf('codex', forked)).journal.sessions).toEqual([
+      expect.objectContaining({ session: sessionOf('codex', forked), fork: true, thread_totals: [] }),
+    ])
+  })
+
+  test('of a session without token_usage_record give the total of each of its threads', async () => {
+    const lines = withoutRecords(codexRollout({ thread: root, cwd }))
+    const childLines = withoutRecords([
+      ...codexChildRollout({ root, thread: child, cwd }).slice(0, 1),
+      ...codexRollout({ thread: child, cwd }).slice(1, Math.floor(lines.length / 2)),
+    ])
+    const { store } = await ingested([codexFile(root, lines, 1n), codexFile(child, childLines, 2n)])
+
+    expect(lastTokenCount(childLines)).not.toEqual(lastTokenCount(lines))
+    expect(solverUsage(store, runOf('codex', root)).journal.sessions).toEqual([
+      expect.objectContaining({
+        thread_totals: expect.arrayContaining([
+          { agent: mainOf('codex', root), tokens: lastTokenCount(lines) },
+          { agent: threadOf(root, child), tokens: lastTokenCount(childLines) },
+        ]) as unknown,
+      }),
+    ])
+    expect(solverUsage(store, runOf('codex', root)).journal.sessions[0]?.thread_totals).toHaveLength(2)
   })
 
   test('of a thread without token_usage_record keep the total of its last ordinal when the earlier file is read last', async () => {

@@ -340,7 +340,7 @@ const StageChange = ({
             before={moved ? <ExecutionBadge execution={before.execution.value} /> : null}
             after={<ExecutionBadge execution={after.execution.value} />}
           />
-          {decided ? <DecisionBadge decision={after.decision} /> : null}
+          {decided ? <DecisionBadge decision={after.decision.value} basis={after.decision.basis} /> : null}
         </p>
         {detail === null ? null : <p className="change-detail">{detail}</p>}
         <StageGrounds transition={transition} grounds={grounds} context={context} />

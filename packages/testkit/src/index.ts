@@ -1,4 +1,4 @@
-export { installFakeClaude, installFakeCodex, type FakeCli } from './fake-cli/install.js'
+export { installFakeClaude, installFakeCodex, type FakeCli, type FakeCliHold } from './fake-cli/install.js'
 export {
   fakeCliExitCodes,
   type ClaudeReply,
@@ -13,14 +13,21 @@ export {
 } from './fake-cli/scenario.js'
 export {
   agentStageTitle,
+  branchStageTitles,
   checkedCriterionText,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
+  mergedStageTitle,
+  nestedStageTitles,
   outlineStageTitles,
+  preparationStageTitle,
   renamedStageTitle,
+  reportQuestionText,
+  reportStageTitle,
   reshapedStageTitles,
+  splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {
   type ObserverScenarioName,

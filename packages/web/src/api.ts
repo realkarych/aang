@@ -11,6 +11,8 @@ import {
   type StageId,
   type StageInspector,
   type StatusResponse,
+  type UsageQuery,
+  type UsageReport,
   type ViewPosition,
 } from '@aang/contract'
 
@@ -115,3 +117,15 @@ export const markViewed = (run: RunId, position: ViewPosition, signal: AbortSign
     endpoints.markViewed.response,
     signal,
   )
+
+const usageSearch = ({ run, from, to }: UsageQuery): string => {
+  const search = new URLSearchParams({
+    ...(run === undefined ? {} : { run }),
+    ...(from === undefined ? {} : { from: from.toString() }),
+    ...(to === undefined ? {} : { to: to.toString() }),
+  }).toString()
+  return search === '' ? '' : `?${search}`
+}
+
+export const readUsage = (query: UsageQuery, signal: AbortSignal): Promise<UsageReport> =>
+  read(`${endpoints.usage.path}${usageSearch(query)}`, endpoints.usage.response, signal)

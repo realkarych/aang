@@ -4,7 +4,7 @@ import type { RunId, Runtime } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import { openStore, type Store } from '@aang/store'
 import { describe, test } from 'vitest'
-import { type Home, spawnDaemon } from './daemon.js'
+import { type Home, missingCli, spawnDaemon } from './daemon.js'
 import {
   admin,
   claudeHook,
@@ -408,6 +408,7 @@ describe.concurrent('aang prune deletes runs and keeps the deleted history from 
         JSON.stringify({
           api: { port: 0 },
           otel: { port: 0 },
+          cli: missingCli(home.root),
           collector: { rootsScanIntervalMs: 200 },
           watch: { roots: [{ path: root }], lookbackDays: 3650 },
         }),

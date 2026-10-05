@@ -1,4 +1,6 @@
 import {
+  type CallUsage,
+  type EpochNs,
   type FactId,
   JsonValue,
   type ModelVersion,
@@ -8,8 +10,9 @@ import {
   type ObserverCallOutcome,
   type RunId,
 } from '@aang/contract'
-import type { StoredObserverCall } from '@aang/store'
+import type { Store, StoredObserverCall } from '@aang/store'
 import { batchFacts } from '../model/observer-context.js'
+import { combinedUsage } from '../usage/calls.js'
 import { origin, type ReadContext, runOf } from './context.js'
 
 const nanosecondsPerMillisecond = 1_000_000n
@@ -17,6 +20,13 @@ const nanosecondsPerMillisecond = 1_000_000n
 interface LogicalCall {
   readonly call: StoredObserverCall
   readonly needs: StoredObserverCall | null
+}
+
+export interface ObserverCallSpan extends LogicalCall {
+  readonly holding: boolean
+  readonly started_at: EpochNs
+  readonly ended_at: EpochNs | null
+  readonly usages: readonly CallUsage[]
 }
 
 const outcomeOf = ({ verdict }: StoredObserverCall, holding: boolean): ObserverCallOutcome => {
@@ -84,20 +94,34 @@ const resultsOf = (
   return results
 }
 
-export const observerCallsOf = ({ store }: ReadContext, run: RunId): ObserverCall[] => {
-  const calls = store.observerCalls.ofRun(run)
-  const attempts = attemptsOf(calls)
-  const results = resultsOf(calls, store.model.versions(run, origin))
+const spansOf = (store: Store, run: RunId, calls: readonly StoredObserverCall[]): ObserverCallSpan[] => {
   const holders = new Set(
     store.interpretations
       .ofRun(run)
       .flatMap(({ status, observer_call: call }) => (status === 'in_call' && call !== null ? [call] : [])),
   )
-  return logicalCalls(calls).map(({ call, needs }): ObserverCall => {
+  return logicalCalls(calls).map(({ call, needs }) => {
     const holding = holders.has(call.id)
-    const started = needs?.started_at ?? call.started_at
-    const ended = holding ? null : call.finished_at
     return {
+      call,
+      needs,
+      holding,
+      started_at: needs?.started_at ?? call.started_at,
+      ended_at: holding ? null : call.finished_at,
+      usages: [needs?.usage ?? null, call.usage].filter((usage): usage is CallUsage => usage !== null),
+    }
+  })
+}
+
+export const observerCallSpans = (store: Store, run: RunId): ObserverCallSpan[] =>
+  spansOf(store, run, store.observerCalls.ofRun(run))
+
+export const observerCallsOf = ({ store }: ReadContext, run: RunId): ObserverCall[] => {
+  const calls = store.observerCalls.ofRun(run)
+  const attempts = attemptsOf(calls)
+  const results = resultsOf(calls, store.model.versions(run, origin))
+  return spansOf(store, run, calls).map(
+    ({ call, needs, holding, started_at: started, ended_at: ended, usages }): ObserverCall => ({
       id: call.id,
       run: call.run,
       kind: 'batch',
@@ -112,14 +136,14 @@ export const observerCallsOf = ({ store }: ReadContext, run: RunId): ObserverCal
       error: null,
       rejections: call.reasons,
       output: JsonValue.nullable().catch(null).parse(call.output),
-      usage: null,
+      usage: combinedUsage(usages),
       started_at: started,
       ended_at: ended,
       latency_ms: ended === null ? null : millisecondsBetween(started, ended),
       needs_latency_ms:
         needs === null || call.finished_at === null ? null : millisecondsBetween(call.started_at, call.finished_at),
-    }
-  })
+    }),
+  )
 }
 
 export const runObserverCalls = (context: ReadContext, run: RunId): ObserverCall[] | null =>

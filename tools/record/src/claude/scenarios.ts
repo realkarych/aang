@@ -1,35 +1,18 @@
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, relative } from 'node:path'
+import { readFile, writeFile } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
+import type { OperatingSystem } from '@aang/contract'
 import { z } from 'zod'
-import type { Scenario, ScenarioSession } from '../scenario.js'
-import type { HostSummary } from './plan.js'
+import type { Scenario } from '../scenario.js'
+import { bash, check, type Definition, exists, playerPath, present, sessionOf, taskFiles } from './definition.js'
+import { inputDialogs } from './dialogs.js'
+import { elicitation } from './elicitation.js'
 import { planFilePlaceholder, type StubBlock, type StubScript } from './stub.js'
-import { type ClaudeRun, type ClaudeSurface, withClaude } from './surfaces.js'
+import { type ClaudeSurface, withClaude } from './surfaces.js'
+import { teammates } from './teammates.js'
 import {
   commandOf, findTranscript, named, subagentTranscripts, toolResult, toolUses, type ToolUse, type Transcript, transcriptFiles, userTexts,
 } from './transcripts.js'
-
-interface Definition {
-  readonly name: string
-  readonly expectedFacts: readonly string[]
-  readonly script: (session: ScenarioSession) => StubScript
-  readonly run: (run: ClaudeRun) => Promise<void>
-}
-
-const check = (condition: boolean, message: string): void => {
-  if (!condition) throw new Error(message)
-}
-
-const present = <T>(value: T | undefined, message: string): T => {
-  if (value === undefined) throw new Error(message)
-  return value
-}
-
-const exists = (path: string): Promise<boolean> => stat(path).then(() => true, () => false)
-
-const sessionOf = (summary: HostSummary): string => present(summary.results.at(-1)?.sessionId, 'The host saw no result')
-
-const bash = (command: string, description: string): StubBlock => ({ tool: 'Bash', input: { command, description } })
+import { workflow } from './workflow.js'
 
 const echo = (key: string, word: string): { readonly prompt: string; readonly script: StubScript } => ({
   prompt: `[aang:${key}] Run \`echo ${word}\` with the Bash tool and reply with its output.`,
@@ -44,17 +27,7 @@ const echoUse = (transcript: Transcript, word: string): ToolUse => present(
 const entryIndex = (transcript: Transcript, toolUseId: string): number => transcript.entries.findIndex((entry) =>
   Array.isArray(entry.message?.content) && entry.message.content.some((block) => block.type === 'tool_result' && block.tool_use_id === toolUseId))
 
-const playerPath = (session: ScenarioSession, file: string): { readonly root: 'claude'; readonly path: string } =>
-  ({ root: 'claude', path: relative(session.claude, file).replaceAll('\\', '/') })
-
-const Task = z.looseObject({ id: z.string(), subject: z.string(), status: z.string() })
 const TaskUpdate = z.looseObject({ taskId: z.string(), status: z.string().optional() })
-
-const taskFiles = async (session: ScenarioSession, sessionId: string): Promise<{ readonly file: string; readonly task: z.infer<typeof Task> }[]> => {
-  const directory = join(session.claude, 'tasks', sessionId)
-  const names = (await readdir(directory).catch(() => [])).filter((name) => name.endsWith('.json'))
-  return Promise.all(names.map(async (name) => ({ file: join(directory, name), task: Task.parse(JSON.parse(await readFile(join(directory, name), 'utf8'))) })))
-}
 
 const tools: Definition = {
   name: 'tools',
@@ -79,7 +52,7 @@ const tools: Definition = {
       decisions: [{ tool: 'Write', behavior: 'allow', delayMs: 500 }, { tool: 'Edit', behavior: 'allow', delayMs: 500 }],
     })
     const sessionId = sessionOf(summary)
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const uses = toolUses(transcript)
     const order = ['Read', 'Bash', 'Write', 'Edit'].map((name) => uses.findIndex((use) => use.name === name))
     check(order.every((index, position) => index >= 0 && index > (order[position - 1] ?? -1)), `The session did not run Read, Bash, Write and Edit in order: ${uses.map(({ name }) => name).join(', ')}`)
@@ -131,7 +104,7 @@ const subagents: Definition = {
       }],
     })
     const sessionId = sessionOf(summary)
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const agents = toolUses(transcript).filter(({ name }) => name === 'Agent' || name === 'Task')
     const foreground = agents.filter((use) => backgroundOf(use) === false)
     const background = agents.filter((use) => backgroundOf(use) !== false)
@@ -167,15 +140,15 @@ const resume: Definition = {
   script: () => ({ ...resumeFirst.script, ...resumeSecond.script }),
   run: async ({ session, stage }) => {
     const sessionId = sessionOf(await stage('first', { turns: [{ prompt: resumeFirst.prompt }] }))
-    const before = await findTranscript(session.claude, sessionId)
+    const before = await findTranscript(session, sessionId)
     echoUse(before, 'first')
     await session.checkpoint('first-run-idle', before.target, 'Session S is idle after its first run and its process has exited')
     const resumed = sessionOf(await stage('resumed', { turns: [{ prompt: resumeSecond.prompt }], resume: sessionId }))
     check(resumed === sessionId, `The resumed run reported session ${resumed} instead of ${sessionId}`)
-    const after = await findTranscript(session.claude, sessionId)
+    const after = await findTranscript(session, sessionId)
     echoUse(after, 'first')
     const action = echoUse(after, 'second')
-    check((await transcriptFiles(session.claude)).length === 1, 'Resume created another root transcript')
+    check((await transcriptFiles(session)).length === 1, 'Resume created another root transcript')
     await session.checkpoint('resumed-action', { hook: { event: 'PostToolUse', toolUseId: action.id } },
       'The resumed run appends a new action to session S; no second root session appears')
   },
@@ -196,7 +169,7 @@ const compaction: Definition = {
     const summary = await stage('compaction', { turns: [{ prompt: compactWork.prompt }, { prompt: '/compact' }, { prompt: compactAfter.prompt }] })
     const sessionId = sessionOf(summary)
     check(summary.results.every((result) => result.sessionId === sessionId), 'Compaction changed the session id')
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const boundary = transcript.entries.findIndex((entry) => entry.type === 'system' && entry.subtype === 'compact_boundary')
     check(boundary >= 0, 'The transcript has no compact_boundary')
     check(transcript.entries[boundary]?.compactMetadata?.trigger === 'manual', 'The compaction was not manual')
@@ -224,15 +197,15 @@ const fork: Definition = {
   script: () => ({ ...forkBase.script, ...forkBranch.script }),
   run: async ({ session, stage }) => {
     const parent = sessionOf(await stage('base', { turns: [{ prompt: forkBase.prompt }] }))
-    const original = await findTranscript(session.claude, parent)
+    const original = await findTranscript(session, parent)
     echoUse(original, 'base')
     await session.checkpoint('base-idle', original.target, 'Session S is idle after its first run')
     const forked = sessionOf(await stage('fork', { turns: [{ prompt: forkBranch.prompt }], resume: parent, fork: true }))
     check(forked !== parent, 'The fork kept the parent session id')
-    const copy = await findTranscript(session.claude, forked)
+    const copy = await findTranscript(session, forked)
     echoUse(copy, 'base')
     const action = echoUse(copy, 'branch')
-    const unchanged = await findTranscript(session.claude, parent)
+    const unchanged = await findTranscript(session, parent)
     check(unchanged.entries.length === original.entries.length && !userTexts(unchanged).some((text) => text.includes('[aang:fork-branch]')),
       'The fork changed the parent transcript')
     await session.checkpoint('fork-started', { hook: { event: 'SessionStart', sessionId: forked } },
@@ -271,7 +244,7 @@ const plan: Definition = {
     })
     check(summary.tools.includes('TaskCreate') && summary.tools.includes('ExitPlanMode'), 'The engine offered no TaskCreate or ExitPlanMode tool')
     const sessionId = sessionOf(summary)
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     const uses = toolUses(transcript)
     check(named(uses, 'TaskCreate').length >= 2, 'The plan has fewer than two tasks')
     const exit = present(named(uses, 'ExitPlanMode').at(-1), 'The session never called ExitPlanMode')
@@ -319,7 +292,7 @@ const approval: Definition = {
     check(approved.behavior === 'allow' && approved.waitedMs >= 1900 && denied.behavior === 'deny', 'The host did not approve and then deny the commands')
     check(await exists(join(session.project, 'approved.txt')), 'The approved command did not run')
     check(!await exists(join(session.project, 'denied.txt')), 'The denied command ran')
-    const transcript = await findTranscript(session.claude, sessionOf(summary))
+    const transcript = await findTranscript(session, sessionOf(summary))
     const approvedId = present(approved.toolUseId ?? undefined, 'The approval has no tool use id')
     const deniedId = present(denied.toolUseId ?? undefined, 'The denial has no tool use id')
     check(toolResult(transcript, approvedId)?.isError === false, 'The approved command failed')
@@ -365,7 +338,7 @@ const question: Definition = {
     const asked = present(summary.decisions.find(({ tool }) => tool === 'AskUserQuestion'), 'The session asked no question')
     const answer = present(Object.values(asked.answers ?? {})[0], 'The host gave no answer')
     const askedId = present(asked.toolUseId ?? undefined, 'The question has no tool use id')
-    const transcript = await findTranscript(session.claude, sessionOf(summary))
+    const transcript = await findTranscript(session, sessionOf(summary))
     const result = present(toolResult(transcript, askedId), 'The question has no result')
     check(!result.isError && result.text.includes(answer), `The question result does not carry the answer: ${result.text}`)
     check((await readFile(join(session.project, 'greeting.txt'), 'utf8')).includes(answer), 'greeting.txt does not contain the answer')
@@ -392,7 +365,7 @@ const interrupt: Definition = {
     check(Date.now() - started < 28_000, 'The sleep was not interrupted')
     const sleep = present(summary.interrupts[0], 'The host sent no interrupt')
     check(summary.results.length === 1 && summary.results[0]?.isError === true, 'The interrupted turn did not end with an error result')
-    const transcript = await findTranscript(session.claude, sessionOf(summary))
+    const transcript = await findTranscript(session, sessionOf(summary))
     check(userTexts(transcript).some((text) => text.includes('[Request interrupted by user')), 'The transcript does not record the interruption')
     check(toolResult(transcript, sleep.toolUseId)?.isError === true, 'The interrupted action has no error result')
     await session.checkpoint('command-running', { hook: { event: 'PreToolUse', toolUseId: sleep.toolUseId } },
@@ -417,7 +390,7 @@ const reconnect: Definition = {
     const summary = await stage('reconnect', { turns: [{ prompt: reconnectBefore.prompt }, { prompt: reconnectAfter.prompt, pauseMs: 5000 }] })
     const sessionId = sessionOf(summary)
     check(summary.results.length === 2 && summary.results.every((result) => result.sessionId === sessionId && !result.isError), 'The two turns did not finish in one session')
-    const transcript = await findTranscript(session.claude, sessionId)
+    const transcript = await findTranscript(session, sessionId)
     echoUse(transcript, 'before')
     const after = echoUse(transcript, 'after')
     await session.checkpoint('daemon-restart', { hook: { event: 'Stop', sessionId }, occurrence: 'first' },
@@ -442,8 +415,8 @@ const sourceLoss: Definition = {
     const removed = sessionOf(await stage('removed-session', { turns: [{ prompt: lossRemoved.prompt }] }))
     const moved = sessionOf(await stage('moved-session', { turns: [{ prompt: lossMoved.prompt }] }))
     check(removed !== moved, 'Both runs reported the same session')
-    const lost = await findTranscript(session.claude, removed)
-    const kept = await findTranscript(session.claude, moved)
+    const lost = await findTranscript(session, removed)
+    const kept = await findTranscript(session, moved)
     echoUse(lost, 'removed')
     echoUse(kept, 'moved')
     await remove(lost.file)
@@ -458,13 +431,23 @@ const sourceLoss: Definition = {
   },
 }
 
-const definitions: readonly Definition[] = [tools, subagents, resume, compaction, fork, plan, approval, question, interrupt, reconnect, sourceLoss]
+const definitions: readonly Definition[] = [
+  tools, subagents, resume, compaction, fork, plan, approval, question, interrupt, reconnect, sourceLoss, elicitation, workflow, teammates, inputDialogs,
+]
 
-export const scenariosFor = (surface: ClaudeSurface): Scenario[] => definitions.map((definition) => ({
-  name: definition.name,
-  surface: surface.surface,
-  models: ['stub', 'live'],
-  ...surface.os === undefined ? {} : { os: surface.os },
-  expectedFacts: definition.expectedFacts,
-  run: withClaude(surface, definition.script, definition.run),
-}))
+const osOf = (definition: Definition, surface: ClaudeSurface): readonly OperatingSystem[] | undefined =>
+  definition.os === undefined ? surface.os : surface.os === undefined ? definition.os : definition.os.filter((os) => surface.os?.includes(os))
+
+export const scenariosFor = (surface: ClaudeSurface): Scenario[] => definitions
+  .filter((definition) => definition.surfaces?.includes(surface.surface) ?? true)
+  .map((definition) => {
+    const os = osOf(definition, surface)
+    return {
+      name: definition.name,
+      surface: surface.surface,
+      models: definition.models ?? ['stub', 'live'],
+      ...os === undefined ? {} : { os },
+      expectedFacts: definition.expectedFacts,
+      run: withClaude(surface, definition.script, definition.run),
+    }
+  })

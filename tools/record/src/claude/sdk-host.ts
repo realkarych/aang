@@ -1,6 +1,6 @@
 import { pathToFileURL } from 'node:url'
-import { createConversation, hostArguments, type PermissionResponse } from './conversation.js'
-import { pluginDirectory } from './plan.js'
+import { createConversation, type ElicitationResponse, hostArguments, type PermissionResponse } from './conversation.js'
+import { forwardedSettings, pluginDirectory, type SettingSource } from './plan.js'
 
 interface SdkUserMessage {
   readonly type: 'user'
@@ -14,10 +14,21 @@ interface SdkOptions {
   readonly env: Readonly<Record<string, string | undefined>>
   readonly plugins: readonly { readonly type: 'local'; readonly path: string }[]
   readonly permissionMode: 'default' | 'plan'
+  readonly settingSources?: readonly SettingSource[]
+  readonly strictMcpConfig?: boolean
   readonly resume?: string
   readonly forkSession?: boolean
   readonly stderr: (data: string) => void
   readonly canUseTool: (tool: string, input: Record<string, unknown>, options: { readonly toolUseID?: string }) => Promise<PermissionResponse>
+  readonly mcpServers: Readonly<Record<string, { readonly type: 'stdio'; readonly command: string; readonly args: readonly string[] }>>
+  readonly onElicitation: (request: SdkElicitation) => Promise<ElicitationResponse>
+}
+
+interface SdkElicitation {
+  readonly serverName: string
+  readonly mode?: 'form' | 'url'
+  readonly url?: string
+  readonly elicitationId?: string
 }
 
 interface SdkQuery extends AsyncIterable<unknown> {
@@ -74,6 +85,7 @@ const conversation = createConversation(plan, summary, async () => {
 const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
   const sdk: unknown = await import(pathToFileURL(plan.engine).href)
   if (!isSdk(sdk)) throw new Error(`${plan.engine} does not export query()`)
+  const { settingSources, strictMcpConfig } = forwardedSettings(forwarded)
   const query = sdk.query({
     prompt: prompts.messages,
     options: {
@@ -81,12 +93,21 @@ const start = async (): Promise<{ readonly streamed: Promise<void> }> => {
       env: { ...process.env, ...plan.env },
       plugins: [{ type: 'local', path: pluginDirectory(forwarded) }],
       permissionMode: plan.permissionMode,
+      ...settingSources === undefined ? {} : { settingSources },
+      ...strictMcpConfig ? { strictMcpConfig: true } : {},
       ...plan.resume === undefined ? {} : { resume: plan.resume },
       ...plan.fork ? { forkSession: true } : {},
       stderr: (data) => {
         process.stderr.write(data)
       },
       canUseTool: (tool, input, { toolUseID }) => conversation.permission(tool, toolUseID ?? null, input),
+      mcpServers: Object.fromEntries(Object.entries(plan.mcpServers).map(([name, server]) => [name, { type: 'stdio', ...server }])),
+      onElicitation: (request) => conversation.elicit({
+        server: request.serverName,
+        mode: request.mode ?? 'form',
+        url: request.url ?? null,
+        elicitationId: request.elicitationId ?? null,
+      }),
     },
   })
   handle.query = query

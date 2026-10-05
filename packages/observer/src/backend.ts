@@ -1,8 +1,10 @@
 import { mkdtemp, rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { ObserverOutput, type CallUsage, type JsonValue, type ObserverDisabledReason, type ObserverErrorClass, type ObserverState, type Runtime } from '@aang/contract'
+import { ChatOutput, chatOutputJsonSchema, ObserverOutput, observerOutputJsonSchema, type CallUsage, type JsonValue, type LlmJsonSchema, type ObserverDisabledReason, type ObserverErrorClass, type ObserverState, type Runtime } from '@aang/contract'
+import type { z } from 'zod'
 import { cleanEnvironment, prepareWorkspace, resolveCli, type InheritedEnvironment } from './environment.js'
 import { createProcessRunner, type CliCommand, type LaunchStatus, type ProcessRequest, type ProcessResult, type ProcessRunnerOptions } from './process.js'
+import { chatSystemPrompt, observerSystemPrompt } from './prompt.js'
 
 export interface BackendOptions extends ProcessRunnerOptions {
   readonly cli: string | CliCommand
@@ -25,11 +27,38 @@ export interface LaunchFailure {
   readonly resetsAt?: number
 }
 
-export type ObserverOutcome =
-  | { readonly ok: true; readonly output: ObserverOutput; readonly usage: CallUsage }
+export interface CallProtocol<T> {
+  readonly name: string
+  readonly systemPrompt: string
+  readonly schema: LlmJsonSchema
+  readonly output: z.ZodType<T>
+}
+
+export const observerProtocol: CallProtocol<ObserverOutput> = {
+  name: 'Observer',
+  systemPrompt: observerSystemPrompt,
+  schema: observerOutputJsonSchema(),
+  output: ObserverOutput,
+}
+
+export const chatProtocol: CallProtocol<ChatOutput> = {
+  name: 'Chat',
+  systemPrompt: chatSystemPrompt,
+  schema: chatOutputJsonSchema(),
+  output: ChatOutput,
+}
+
+export type CallOutcome<T> =
+  | { readonly ok: true; readonly output: T; readonly usage: CallUsage }
   | { readonly ok: false; readonly error: LaunchFailure; readonly usage: CallUsage | null }
 
-export type ObserverResult = ObserverOutcome & { readonly stopped: Promise<void> }
+export type CallResult<T> = CallOutcome<T> & { readonly stopped: Promise<void> }
+
+export type ObserverOutcome = CallOutcome<ObserverOutput>
+
+export type ObserverResult = CallResult<ObserverOutput>
+
+export type ChatResult = CallResult<ChatOutput>
 
 export type AuthOutcome = { readonly ok: true } | { readonly ok: false; readonly error: LaunchFailure }
 
@@ -59,9 +88,9 @@ export const events = (text: string): JsonObject[] => text.split(/\r?\n/).filter
 
 export const number = (value: JsonValue | undefined): number | null => typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : null
 
-export const validateOutput = (value: JsonValue | undefined, usage: CallUsage): ObserverOutcome => {
-  const parsed = ObserverOutput.safeParse(value)
-  if (!parsed.success) throw new LaunchError('invalid_output', 'Observer output does not match its schema', usage)
+export const validateOutput = <T>(protocol: CallProtocol<T>, value: JsonValue | undefined, usage: CallUsage): CallOutcome<T> => {
+  const parsed = protocol.output.safeParse(value)
+  if (!parsed.success) throw new LaunchError('invalid_output', `${protocol.name} output does not match its schema`, usage)
   return { ok: true, output: parsed.data, usage }
 }
 
@@ -92,11 +121,14 @@ export const authenticate = async (runtime: Runtime, run: (args: readonly string
   if (typeof status !== 'object' || status === null || !('loggedIn' in status) || status.loggedIn !== true) throw new LaunchError('auth', `${name} is not logged in`)
 }
 
-export interface Invocation {
+export interface Invocation<T> {
   readonly directory: string
   readonly input: string
+  readonly protocol: CallProtocol<T>
   readonly run: (args: readonly string[], input?: string) => Promise<ProcessResult>
 }
+
+export type Perform = <T>(invocation: Invocation<T>) => Promise<CallOutcome<T>>
 
 const disabling = (kind: LaunchErrorClass): kind is LaunchErrorClass & ObserverDisabledReason =>
   kind === 'isolation' || kind === 'unsafe_workdir' || kind === 'cli_missing' || kind === 'launcher_unavailable'
@@ -104,7 +136,7 @@ const disabling = (kind: LaunchErrorClass): kind is LaunchErrorClass & ObserverD
 export const createBackend = (
   runtime: Runtime,
   options: BackendOptions,
-  perform: (invocation: Invocation) => Promise<ObserverOutcome>,
+  perform: Perform,
 ) => {
   const runner = createProcessRunner(options)
   let disabled: Extract<ObserverState, { state: 'disabled' }> | undefined
@@ -153,14 +185,14 @@ export const createBackend = (
     }
     return { cwd, run }
   }
-  const attempt = async (request: ObserverRequest, pending: Promise<void>[]): Promise<ObserverOutcome> => {
+  const attempt = async <T>(protocol: CallProtocol<T>, request: ObserverRequest, pending: Promise<void>[]): Promise<CallOutcome<T>> => {
     const refused = refusal()
     if (refused !== null) return { ok: false, error: refused.failure, usage: null }
     let directory: string | undefined
     try {
       const { cwd, run } = prepare(request.signal, pending)
       directory = await mkdtemp(join(dirname(cwd), 'call-'))
-      return await perform({ directory, run, input: JSON.stringify(request.input) })
+      return await perform({ directory, run, protocol, input: JSON.stringify(request.input) })
     } catch (error) {
       const problem = fail(error)
       return { ok: false, error: problem.failure, usage: problem.usage }
@@ -183,16 +215,18 @@ export const createBackend = (
       return { ok: false, error: fail(error).failure }
     }
   }
-  const execute = async (request: ObserverRequest): Promise<ObserverResult> => {
+  const call = async <T>(protocol: CallProtocol<T>, request: ObserverRequest): Promise<CallResult<T>> => {
     const pending: Promise<void>[] = []
-    return { ...(await attempt(request, pending)), stopped: stoppedAll(pending) }
+    return { ...(await attempt(protocol, request, pending)), stopped: stoppedAll(pending) }
   }
   const authStatus = async (signal?: AbortSignal): Promise<AuthResult> => {
     const pending: Promise<void>[] = []
     return { ...(await check(signal, pending)), stopped: stoppedAll(pending) }
   }
   return {
-    execute,
+    call,
+    execute: (request: ObserverRequest): Promise<ObserverResult> => call(observerProtocol, request),
+    chat: (request: ObserverRequest): Promise<ChatResult> => call(chatProtocol, request),
     authStatus,
     status,
     subscribe: (listener: (snapshot: LaunchStatus) => void): (() => void) => {

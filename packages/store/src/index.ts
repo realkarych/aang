@@ -7,6 +7,16 @@ export type {
   RetainedContent,
 } from './artifacts.js'
 export type { Change, ChangeFeed } from './changes.js'
+export type {
+  ChatAnswer,
+  ChatChange,
+  ChatFailure,
+  ChatQuestion,
+  ChatReader,
+  ChatScope,
+  ChatWriter,
+  ScopedChatMessage,
+} from './chat.js'
 export type { CursorReader, CursorWriter } from './cursors.js'
 export { MissingRawRecordError, StoreLockedError, StoreVersionError } from './errors.js'
 export type { FactReader, FactRevision, FactWriter, RunFact } from './facts.js'
@@ -18,6 +28,7 @@ export type { RawInsertResult, RawRecordReader, RawRecordWriter } from './raw-re
 export type { ScopeReader, ScopeWriter, SessionDecision, SessionScope, StreamScope } from './scopes.js'
 export type { SettingReader, SettingWriter } from './settings.js'
 export type {
+  ChatCallRecord,
   LatestObserverCall,
   ObserverCallError,
   ObserverCallProgress,
@@ -29,6 +40,7 @@ export type {
   ObserverCheck,
   ObserverCheckKind,
   ObserverSpending,
+  StoredChatCall,
   StoredObserverCall,
 } from './observer-calls.js'
 export type {
