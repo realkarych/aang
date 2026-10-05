@@ -1,0 +1,143 @@
+.rules-empty,
+.rules-note {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.rules-note {
+  margin-top: 10px;
+}
+
+.rules-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rule {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 2px 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--rule);
+}
+
+.rule-text {
+  grid-column: 1;
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+.rule-meta {
+  display: flex;
+  flex-wrap: wrap;
+  grid-column: 1;
+  gap: 2px 12px;
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.rule-revoke {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  padding: 4px 10px;
+  border: 1px solid var(--rule-strong);
+  border-radius: 3px;
+  background: var(--sheet);
+  color: var(--ink);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+}
+
+.rule-revoke:hover:not(:disabled) {
+  border-color: var(--tone-fail);
+  color: var(--tone-fail);
+}
+
+.rule-revoke:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.rules-error {
+  margin: 8px 0 0;
+  color: var(--tone-fail);
+  font-size: 12.5px;
+}
+
+.session-hidden {
+  margin: 8px 0 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.agent-fold {
+  padding: 0 6px;
+  border: 1px dashed var(--rule-strong);
+  border-radius: 3px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.agent-totals,
+.agent-attention {
+  max-width: 80ch;
+  margin: 2px 0 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+}
+
+.agent-attention {
+  color: var(--tone-ask);
+}
+
+.agent + .agent-group,
+.agent-group + .agent,
+.agent-group + .agent-group {
+  margin-top: 14px;
+}
+
+.group-name {
+  margin: 0;
+  color: var(--ink-soft);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.agent-group > .agents {
+  margin: 6px 0 0 5px;
+  padding-left: 20px;
+  border-left: 1px dashed var(--rule-strong);
+}
+
+.step-group {
+  padding: 5px 0;
+  border-bottom: 1px solid var(--rule);
+}
+
+.step-group > .steps {
+  margin-left: 12px;
+}
+
+.step-group > .steps > .step:last-child {
+  border-bottom: 0;
+}
+
+.stage-card[data-folded='true'] {
+  background: color-mix(in srgb, var(--ink) 4%, var(--sheet));
+}
+
+.stage-meta .stage-folded {
+  white-space: normal;
+}
+
+@media (max-width: 760px) {
+  .agent-group > .agents {
+    padding-left: 12px;
+  }
+}

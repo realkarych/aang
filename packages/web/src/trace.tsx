@@ -1,8 +1,10 @@
 import type {
   Action,
+  ActionId,
   Agent,
   AgentId,
   AttentionItem,
+  DetailLevel,
   EpochNs,
   FactId,
   ObservationObjects,
@@ -11,11 +13,13 @@ import type {
   RunSnapshot,
   Session,
 } from '@aang/contract'
-import { type ReactElement, Suspense, use, useId, useState } from 'react'
+import { type ReactElement, Suspense, use, useId, useMemo, useState } from 'react'
 import { actionInput } from './action-input.js'
 import { ActionBadge, DecisionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { absoluteTime, clockTime, dayTime, duration, plural } from './format.js'
 import {
+  actionForms,
+  agentForms,
   agentRoleLabel,
   launchLabel,
   questionKindLabel,
@@ -27,6 +31,8 @@ import {
 import { LongText } from './long-text.js'
 import { Moment } from './moment.js'
 import { agentTitle, sessionTitle, shortSession } from './objects.js'
+import { attentionForms, detailLevelLabel, totalsText } from './view-labels.js'
+import { concealedActions, grouped, type Grouped, isHidden, type PlacementOf, placementsOf } from './view-placement.js'
 
 type Step =
   | { readonly kind: 'action'; readonly action: Action }
@@ -70,7 +76,11 @@ const agentOrder = (left: Agent, right: Agent): number =>
   compareMoments(left.started_at, right.started_at) ||
   compareIds(left.id, right.id)
 
-const stepsBySession = (objects: ObservationObjects, session: Session): Map<AgentId | null, Step[]> => {
+const stepsBySession = (
+  objects: ObservationObjects,
+  session: Session,
+  concealed: ReadonlySet<ActionId>,
+): Map<AgentId | null, Step[]> => {
   const agents = new Set(objects.agents.filter((agent) => agent.session === session.id).map(({ id }) => id))
   const steps = new Map<AgentId | null, Step[]>()
   const add = (agent: AgentId | null, step: Step): void => {
@@ -83,7 +93,7 @@ const stepsBySession = (objects: ObservationObjects, session: Session): Map<Agen
     }
   }
   for (const action of objects.actions) {
-    if (action.session === session.id) {
+    if (action.session === session.id && !concealed.has(action.id)) {
       add(action.agent, { kind: 'action', action })
     }
   }
@@ -144,8 +154,18 @@ const StepTime = ({
     </time>
   )
 
-const ActionStep = ({ action, now }: { readonly action: Action; readonly now: bigint }): ReactElement => {
+const ActionStep = ({
+  action,
+  placement,
+  now,
+}: {
+  readonly action: Action
+  readonly placement: PlacementOf
+  readonly now: bigint
+}): ReactElement => {
   const step: Step = { kind: 'action', action }
+  const visibility = placement({ kind: 'action', id: action.id })?.visibility ?? null
+  const inside = visibility?.state === 'collapsed' ? visibility.totals.actions - 1 : null
   return (
     <li className="step">
       <span className="step-state">
@@ -159,6 +179,11 @@ const ActionStep = ({ action, now }: { readonly action: Action; readonly now: bi
           </Suspense>
         )}
         {action.inherited ? <span className="step-note">унаследовано из исходной сессии</span> : null}
+        {inside === null ? null : (
+          <span className="step-note">
+            {inside === 0 ? 'свёрнуто правилом вида' : `свёрнуто правилом вида, внутри ${plural(inside, actionForms)}`}
+          </span>
+        )}
       </span>
       <StepTime at={stepAt(step)} active={isActive(step)} now={now} />
     </li>
@@ -184,21 +209,46 @@ const QuestionStep = ({
   </li>
 )
 
-interface StepsProps {
-  readonly steps: readonly Step[]
-  readonly label: string
+interface TraceContext {
   readonly asked: ReadonlyMap<QuestionId, string>
+  readonly placement: PlacementOf
   readonly now: bigint
 }
 
-const Steps = ({ steps, label, asked, now }: StepsProps): ReactElement | null => {
+const StepItem = ({ step, context }: { readonly step: Step; readonly context: TraceContext }): ReactElement =>
+  step.kind === 'action' ? (
+    <ActionStep action={step.action} placement={context.placement} now={context.now} />
+  ) : (
+    <QuestionStep
+      question={step.question}
+      text={step.question.text ?? context.asked.get(step.question.id) ?? null}
+      now={context.now}
+    />
+  )
+
+const stepGroup = (placement: PlacementOf, step: Step): string | null =>
+  step.kind === 'action' ? (placement({ kind: 'action', id: step.action.id })?.group?.name ?? null) : null
+
+const entryActive = (entry: Grouped<Step>): boolean =>
+  entry.kind === 'one' ? isActive(entry.item) : entry.items.some(isActive)
+
+const groupStepForms = { one: 'шаг', few: 'шага', many: 'шагов' } as const
+
+interface StepsProps {
+  readonly steps: readonly Step[]
+  readonly label: string
+  readonly context: TraceContext
+}
+
+const Steps = ({ steps, label, context }: StepsProps): ReactElement | null => {
   const [expanded, setExpanded] = useState(false)
   if (steps.length === 0) {
     return null
   }
-  const cut = steps.length - recentSteps
-  const shown = expanded ? steps : steps.filter((step, index) => index >= cut || isActive(step))
-  const hidden = steps.length - shown.length
+  const entries = grouped(steps, (step) => stepGroup(context.placement, step))
+  const cut = entries.length - recentSteps
+  const shown = expanded ? entries : entries.filter((entry, index) => index >= cut || entryActive(entry))
+  const hidden = entries.length - shown.length
   return (
     <ol className="steps" aria-label={`Шаги: ${label}`}>
       {hidden === 0 && !expanded ? null : (
@@ -214,16 +264,18 @@ const Steps = ({ steps, label, asked, now }: StepsProps): ReactElement | null =>
           </button>
         </li>
       )}
-      {shown.map((step) =>
-        step.kind === 'action' ? (
-          <ActionStep key={step.action.id} action={step.action} now={now} />
+      {shown.map((entry) =>
+        entry.kind === 'one' ? (
+          <StepItem key={stepId(entry.item)} step={entry.item} context={context} />
         ) : (
-          <QuestionStep
-            key={step.question.id}
-            question={step.question}
-            text={step.question.text ?? asked.get(step.question.id) ?? null}
-            now={now}
-          />
+          <li key={`group:${entry.name}`} className="step-group">
+            <p className="group-name">{`Группа «${entry.name}» · ${plural(entry.items.length, groupStepForms)}`}</p>
+            <ol className="steps" aria-label={`Шаги группы «${entry.name}»`}>
+              {entry.items.map((step) => (
+                <StepItem key={stepId(step)} step={step} context={context} />
+              ))}
+            </ol>
+          </li>
         ),
       )}
     </ol>
@@ -232,16 +284,22 @@ const Steps = ({ steps, label, asked, now }: StepsProps): ReactElement | null =>
 
 const AgentNode = ({
   tree,
-  asked,
-  now,
+  level,
+  context,
 }: {
   readonly tree: AgentTree
-  readonly asked: ReadonlyMap<QuestionId, string>
-  readonly now: bigint
+  readonly level: DetailLevel
+  readonly context: TraceContext
 }): ReactElement => {
   const { agent } = tree
   const title = agentTitle(agent)
   const name = useId()
+  const placed = context.placement({ kind: 'agent', id: agent.id })
+  const visibility = placed?.visibility ?? null
+  const folded = visibility?.state === 'collapsed' ? visibility : null
+  const detail = placed?.detail ?? null
+  const depth = detail?.level ?? level
+  const inside = placed?.attention.length ?? 0
   return (
     <li className="agent" data-role={agent.role} aria-labelledby={name}>
       <div className="agent-head">
@@ -250,17 +308,63 @@ const AgentNode = ({
         </span>
         {agent.role === 'main' ? null : <span className="agent-role">{agentRoleLabel[agent.role]}</span>}
         <ExecutionBadge execution={agent.execution} />
+        {folded === null ? null : (
+          <span className="agent-fold">{folded.rule === null ? 'свёрнут по умолчанию' : 'свёрнут правилом вида'}</span>
+        )}
+        {detail === null ? null : (
+          <span className="agent-fold">{`детализация: ${detailLevelLabel[detail.level]}`}</span>
+        )}
       </div>
       {agent.description === null ? null : <p className="agent-description">{agent.description}</p>}
-      <Steps steps={tree.steps} label={title} asked={asked} now={now} />
-      {tree.children.length === 0 ? null : (
-        <ul className="agents" aria-label={`Агенты, запущенные: ${title}`}>
-          {tree.children.map((child) => (
-            <AgentNode key={child.agent.id} tree={child} asked={asked} now={now} />
-          ))}
-        </ul>
+      {folded === null ? (
+        <>
+          {depth === 'all_actions' ? <Steps steps={tree.steps} label={title} context={context} /> : null}
+          {depth === 'stages' ? null : (
+            <AgentList trees={tree.children} label={`Агенты, запущенные: ${title}`} level={depth} context={context} />
+          )}
+        </>
+      ) : (
+        <p className="agent-totals">{totalsText(folded.totals)}</p>
+      )}
+      {inside === 0 ? null : (
+        <p className="agent-attention">{`${plural(inside, attentionForms)} внутри — в зоне внимания`}</p>
       )}
     </li>
+  )
+}
+
+const AgentList = ({
+  trees,
+  label,
+  level,
+  context,
+  always = false,
+}: {
+  readonly trees: readonly AgentTree[]
+  readonly label: string
+  readonly level: DetailLevel
+  readonly context: TraceContext
+  readonly always?: boolean
+}): ReactElement | null => {
+  const shown = trees.filter(({ agent }) => !isHidden(context.placement({ kind: 'agent', id: agent.id })))
+  const entries = grouped(shown, ({ agent }) => context.placement({ kind: 'agent', id: agent.id })?.group?.name ?? null)
+  return entries.length === 0 && !always ? null : (
+    <ul className="agents" aria-label={label}>
+      {entries.map((entry) =>
+        entry.kind === 'one' ? (
+          <AgentNode key={entry.item.agent.id} tree={entry.item} level={level} context={context} />
+        ) : (
+          <li key={`group:${entry.name}`} className="agent-group">
+            <p className="group-name">{`Группа «${entry.name}» · ${plural(entry.items.length, agentForms)}`}</p>
+            <ul className="agents" aria-label={`Агенты группы «${entry.name}»`}>
+              {entry.items.map((tree) => (
+                <AgentNode key={tree.agent.id} tree={tree} level={level} context={context} />
+              ))}
+            </ul>
+          </li>
+        ),
+      )}
+    </ul>
   )
 }
 
@@ -311,33 +415,51 @@ const SessionHead = ({
   </header>
 )
 
+const hiddenText = (objects: ObservationObjects, session: Session, placement: PlacementOf): string | null => {
+  const agents = objects.agents.filter(
+    ({ id, session: owner }) => owner === session.id && isHidden(placement({ kind: 'agent', id })),
+  ).length
+  const actions = objects.actions.filter(
+    ({ id, session: owner }) => owner === session.id && isHidden(placement({ kind: 'action', id })),
+  ).length
+  const parts = [
+    ...(agents === 0 ? [] : [plural(agents, agentForms)]),
+    ...(actions === 0 ? [] : [plural(actions, actionForms)]),
+  ]
+  return parts.length === 0 ? null : `Скрыто правилами вида: ${parts.join(', ')}. Их вопросы остаются в зоне внимания.`
+}
+
 const SessionBlock = ({
   session,
   objects,
-  asked,
-  now,
+  concealed,
+  context,
 }: {
   readonly session: Session
   readonly objects: ObservationObjects
-  readonly asked: ReadonlyMap<QuestionId, string>
-  readonly now: bigint
+  readonly concealed: ReadonlySet<ActionId>
+  readonly context: TraceContext
 }): ReactElement => {
   const heading = useId()
-  const steps = stepsBySession(objects, session)
+  const steps = stepsBySession(objects, session, concealed)
   const loose = (steps.get(null) ?? []).toSorted(chronological)
   const title = sessionTitle(session)
+  const hidden = hiddenText(objects, session, context.placement)
   return (
     <li className="session" aria-labelledby={heading}>
-      <SessionHead session={session} heading={heading} now={now} />
-      <ul className="agents" aria-label={`Агенты: ${title}`}>
-        {agentTrees(objects, session, steps).map((tree) => (
-          <AgentNode key={tree.agent.id} tree={tree} asked={asked} now={now} />
-        ))}
-      </ul>
+      <SessionHead session={session} heading={heading} now={context.now} />
+      {hidden === null ? null : <p className="session-hidden">{hidden}</p>}
+      <AgentList
+        trees={agentTrees(objects, session, steps)}
+        label={`Агенты: ${title}`}
+        level="all_actions"
+        context={context}
+        always
+      />
       {loose.length === 0 ? null : (
         <div className="loose">
           <p className="agent-name">Шаги без известного агента</p>
-          <Steps steps={loose} label={`${title} без агента`} asked={asked} now={now} />
+          <Steps steps={loose} label={`${title} без агента`} context={context} />
         </div>
       )}
     </li>
@@ -350,7 +472,9 @@ const askedTexts = (items: readonly AttentionItem[]): Map<QuestionId, string> =>
 export const Trace = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now: bigint }): ReactElement => {
   const heading = useId()
   const { objects } = snapshot
-  const asked = askedTexts(snapshot.attention.items)
+  const placement = useMemo(() => placementsOf(snapshot.view), [snapshot.view])
+  const concealed = useMemo(() => concealedActions(objects.actions, placement), [objects.actions, placement])
+  const context: TraceContext = { asked: askedTexts(snapshot.attention.items), placement, now }
   return (
     <section className="trace" aria-labelledby={heading}>
       <h2 id={heading} className="section-title">
@@ -358,7 +482,7 @@ export const Trace = ({ snapshot, now }: { readonly snapshot: RunSnapshot; reado
       </h2>
       <ol className="sessions">
         {objects.sessions.map((session) => (
-          <SessionBlock key={session.id} session={session} objects={objects} asked={asked} now={now} />
+          <SessionBlock key={session.id} session={session} objects={objects} concealed={concealed} context={context} />
         ))}
       </ol>
     </section>

@@ -1,5 +1,6 @@
 import type { Action, Agent, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@aang/contract'
 import { predecessorsOf } from './stage-lineage.js'
+import { isHidden, placementsOf } from './view-placement.js'
 
 export interface Span {
   readonly start: bigint
@@ -99,8 +100,21 @@ export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
   const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))
   const predecessors = predecessorsOf(snapshot.model.stages)
   const placeOf = inheritedPlaces(all, predecessors)
+  const placement = placementsOf(snapshot.view)
+  const concealed = (stage: Stage): boolean => {
+    const passed = new Set<StageId>()
+    let next: Stage | undefined = stage
+    while (next !== undefined && !passed.has(next.id)) {
+      if (isHidden(placement({ kind: 'stage', id: next.id }))) {
+        return true
+      }
+      passed.add(next.id)
+      next = next.parent === null ? undefined : all.get(next.parent)
+    }
+    return false
+  }
   const active = snapshot.model.stages
-    .filter(({ lifecycle }) => lifecycle.state === 'active')
+    .filter((stage) => stage.lifecycle.state === 'active' && !concealed(stage))
     .sort((left, right) => byModelOrder(placeOf(left), placeOf(right)) || byModelOrder(left, right))
   const shown = new Set(active.map(({ id }) => id))
   const actions = new Map(snapshot.objects.actions.map((action) => [action.id, action]))

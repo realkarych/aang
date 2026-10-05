@@ -1,4 +1,4 @@
-import type { AttentionItem, ObservationObjects, RunSnapshot } from '@aang/contract'
+import type { AttentionItem, AttentionItemId, ObservationObjects, RunSnapshot } from '@aang/contract'
 import { type ReactElement, useId } from 'react'
 import { AttentionGlyph, LevelGlyph } from './glyphs.js'
 import { attentionAuthorLabel, attentionKindLabel } from './labels.js'
@@ -7,6 +7,8 @@ import { Moment } from './moment.js'
 import { placeOf } from './objects.js'
 
 const waiting = (item: AttentionItem): boolean => item.runtime_wait === 'active'
+
+export const attentionAnchor = (item: AttentionItemId): string => `attention-${item}`
 
 const urgency = (left: AttentionItem, right: AttentionItem): number =>
   Number(waiting(right)) - Number(waiting(left)) ||
@@ -31,7 +33,7 @@ const ZoneItem = ({
 }): ReactElement => {
   const place = itemPlace(objects, item)
   return (
-    <li className="zone-item" data-kind={item.kind} data-waiting={waiting(item)}>
+    <li id={attentionAnchor(item.id)} className="zone-item" data-kind={item.kind} data-waiting={waiting(item)}>
       <p className="zone-kind">
         <AttentionGlyph kind={item.kind} />
         <span>{attentionKindLabel[item.kind]}</span>

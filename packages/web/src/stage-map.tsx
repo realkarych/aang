@@ -1,5 +1,5 @@
 import '@xyflow/react/dist/base.css'
-import type { RunSnapshot, StageId } from '@aang/contract'
+import type { DetailLevel, RunSnapshot, StageId } from '@aang/contract'
 import {
   Background,
   BackgroundVariant,
@@ -11,10 +11,18 @@ import {
 } from '@xyflow/react'
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { basisLabel } from './labels.js'
-import { type MapEdge, type MapStage, stageGraph, type VisibleMap, visibleMap } from './map-graph.js'
+import { type MapEdge, type MapStage, type StageGraph, stageGraph, type VisibleMap, visibleMap } from './map-graph.js'
 import { keptViewport, layoutMap, type MapDirection, type MapLayout, revealedViewport } from './map-layout.js'
-import { RouteEdge, type RouteFlowEdge, type Selection, StageNode, type StageFlowNode } from './map-node.js'
+import {
+  RouteEdge,
+  type RouteFlowEdge,
+  type Selection,
+  StageNode,
+  type StageFlowNode,
+  type StageView,
+} from './map-node.js'
 import type { StageSelection } from './stage-lineage.js'
+import { type PlacementOf, placementsOf } from './view-placement.js'
 
 const nodeTypes = { stage: StageNode }
 
@@ -115,6 +123,31 @@ const KeepPlace = ({ layout, following, selection }: KeepPlaceProps): null => {
 
 const openByDefault = ({ depth }: MapStage): boolean => depth === 0
 
+const plainView: StageView = { folded: null, group: null, detail: null, level: 'all_actions' }
+
+const stageViews = (graph: StageGraph, placement: PlacementOf): ReadonlyMap<StageId, StageView> => {
+  const views = new Map<StageId, StageView>()
+  const visit = (node: MapStage, level: DetailLevel): void => {
+    const placed = placement({ kind: 'stage', id: node.stage.id })
+    const visibility = placed?.visibility ?? null
+    const detail = placed?.detail?.level ?? null
+    const own = detail ?? level
+    views.set(node.stage.id, {
+      folded: visibility?.state === 'collapsed' ? visibility.totals : null,
+      group: placed?.group?.name ?? null,
+      detail,
+      level: own,
+    })
+    for (const child of node.children) {
+      visit(child, own)
+    }
+  }
+  for (const root of graph.roots) {
+    visit(root, plainView.level)
+  }
+  return views
+}
+
 const edgeLabel = ({ kind, from, to, bases }: MapEdge, titles: ReadonlyMap<string, string>): string => {
   const source = `«${titles.get(from) ?? from}»`
   const target = `«${titles.get(to) ?? to}»`
@@ -134,6 +167,7 @@ const selectionOf = ({ source }: MapLayout, node: StageId, selected: StageId | n
 const flowNodes = (
   layout: MapLayout,
   selected: StageId | null,
+  views: ReadonlyMap<StageId, StageView>,
   { onToggle, onSelect }: NodeActions,
 ): StageFlowNode[] =>
   layout.source.stages.map(({ node, parent, open }) => {
@@ -148,6 +182,7 @@ const flowNodes = (
       ...(parent === null ? {} : { parentId: parent }),
       data: {
         node,
+        view: views.get(node.stage.id) ?? plainView,
         open,
         selection: selectionOf(layout, node.stage.id, selected),
         onToggle,
@@ -236,19 +271,22 @@ interface StageMapProps {
 export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): ReactElement => {
   const selected = selection?.stage.id ?? null
   const graph = useMemo(() => stageGraph(snapshot), [snapshot])
+  const placement = useMemo(() => placementsOf(snapshot.view), [snapshot.view])
+  const views = useMemo(() => stageViews(graph, placement), [graph, placement])
   const [toggled, setToggled] = useState<ReadonlyMap<StageId, boolean>>(() => new Map())
-  const visible = useMemo(
-    () => visibleMap(graph, (stage) => toggled.get(stage.stage.id) ?? openByDefault(stage)),
-    [graph, toggled],
-  )
+  const visible = useMemo(() => {
+    const folded = (stage: MapStage): boolean => (views.get(stage.stage.id)?.folded ?? null) !== null
+    return visibleMap(graph, (stage) => !folded(stage) && (toggled.get(stage.stage.id) ?? openByDefault(stage)))
+  }, [graph, toggled, views])
   const layout = useLayout(visible)
   const [following, setFollowing] = useState(true)
   const onToggle = useCallback((stage: StageId, open: boolean) => {
     setToggled((current) => new Map(current).set(stage, open))
   }, [])
   const nodes = useMemo(
-    () => (layout instanceof Error || layout === null ? [] : flowNodes(layout, selected, { onToggle, onSelect })),
-    [layout, selected, onToggle, onSelect],
+    () =>
+      layout instanceof Error || layout === null ? [] : flowNodes(layout, selected, views, { onToggle, onSelect }),
+    [layout, selected, views, onToggle, onSelect],
   )
   const edges = useMemo(() => (layout instanceof Error || layout === null ? [] : flowEdges(layout)), [layout])
   if (layout === null) {

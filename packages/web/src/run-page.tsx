@@ -2,15 +2,17 @@ import type { RunSnapshot } from '@aang/contract'
 import type { ReactElement } from 'react'
 import { AttentionZone } from './attention-zone.js'
 import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
+import { ChatPanel } from './chat-panel.js'
 import { absoluteTime } from './format.js'
 import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
-import { MapSection } from './map-section.js'
+import { MapSection, useStageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
 import { listHref, runHref, usageHref, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
 import { Trace } from './trace.js'
-import type { RunFeedState } from './use-run-feed.js'
+import type { RunFeed } from './use-run-feed.js'
+import { ViewRules } from './view-rules.js'
 
 const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now: bigint }): ReactElement => {
   const navigate = useNavigate()
@@ -107,11 +109,15 @@ export const Missing = (): ReactElement => {
   )
 }
 
-export const RunPage = ({ feed, now }: { readonly feed: RunFeedState; readonly now: bigint }): ReactElement => {
-  const { snapshot, connection } = feed
-  if (snapshot === null) {
-    return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
-  }
+interface RunContentProps {
+  readonly snapshot: RunSnapshot
+  readonly feed: RunFeed
+  readonly now: bigint
+  readonly onSignedOut: () => void
+}
+
+const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): ReactElement => {
+  const choice = useStageChoice(snapshot.model.stages)
   const { summary, run } = snapshot
   const title = runTitle(summary)
   return (
@@ -130,11 +136,38 @@ export const RunPage = ({ feed, now }: { readonly feed: RunFeedState; readonly n
         <Facts snapshot={snapshot} now={now} />
       </header>
       <AttentionZone snapshot={snapshot} now={now} />
-      <MapSection snapshot={snapshot} />
+      <MapSection snapshot={snapshot} choice={choice} />
+      <div className="run-talk">
+        <ChatPanel
+          snapshot={snapshot}
+          messages={feed.chat}
+          record={feed.record}
+          choice={choice}
+          now={now}
+          onSignedOut={onSignedOut}
+        />
+        <ViewRules snapshot={snapshot} now={now} onSignedOut={onSignedOut} />
+      </div>
       <div className="run-body">
         <Trace snapshot={snapshot} now={now} />
         <PlanFacts snapshot={snapshot} now={now} />
       </div>
     </article>
   )
+}
+
+export const RunPage = ({
+  feed,
+  now,
+  onSignedOut,
+}: {
+  readonly feed: RunFeed
+  readonly now: bigint
+  readonly onSignedOut: () => void
+}): ReactElement => {
+  const { snapshot, connection } = feed
+  if (snapshot === null) {
+    return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
+  }
+  return <RunContent snapshot={snapshot} feed={feed} now={now} onSignedOut={onSignedOut} />
 }

@@ -68,7 +68,7 @@ export const routeStage = (stage: StageId | null): void => {
   }
 }
 
-const isPlainClick = (event: MouseEvent): boolean =>
+export const isPlainClick = (event: MouseEvent): boolean =>
   event.button === 0 && !event.metaKey && !event.ctrlKey && !event.shiftKey && !event.altKey
 
 export const useNavigate = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>

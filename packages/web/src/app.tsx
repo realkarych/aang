@@ -137,7 +137,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <Masthead trail={[{ label: title ?? 'Прогон' }]} />
       <StatusStrip lamps={lamps} />
       <main className="page">
-        <RunPage feed={feed} now={now} />
+        <RunPage feed={feed} now={now} onSignedOut={onSignedOut} />
       </main>
     </>
   )
