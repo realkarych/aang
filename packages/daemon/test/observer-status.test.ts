@@ -17,6 +17,7 @@ import { test } from 'vitest'
 import type { z } from 'zod'
 import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'
 import {
+  admissionMs,
   briefed,
   configure,
   installLauncher,
@@ -211,7 +212,7 @@ test(
   'a Claude run carries the unverified isolation mark in its summary and stream, and the status shows which admission left it',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
     await installLauncher(home)
     await configure(home, workspace, { cli: { claude: claude.path, codex: codex.path } })

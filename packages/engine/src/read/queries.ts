@@ -3,6 +3,7 @@ import type {
   ArtifactVersionResponse,
   ChangeSeq,
   ChangesResponse,
+  ChatHistoryResponse,
   ObserverCallsResponse,
   RunId,
   RunSnapshot,
@@ -16,7 +17,7 @@ import type {
 import { artifactVersion } from './artifact-version.js'
 import { usageReport } from '../usage/report.js'
 import { runChanges } from './changes.js'
-import type { ReadContext } from './context.js'
+import { type ReadContext, runOf } from './context.js'
 import { stageInspector } from './inspector.js'
 import { runObserverCalls } from './observer-calls.js'
 import { listRuns, type RunFeed, runFeed, runSnapshot } from './snapshot.js'
@@ -31,6 +32,7 @@ export interface ReadQueries {
   readonly changes: (run: RunId, from: ViewPosition) => ChangesResponse | null
   readonly observerCalls: (run: RunId) => ObserverCallsResponse | null
   readonly artifactVersion: (id: ArtifactVersionId) => Promise<ArtifactVersionResponse | null>
+  readonly chat: (run: RunId) => ChatHistoryResponse | null
   readonly usage: (query: UsageQuery) => UsageReport | null
 }
 
@@ -48,6 +50,7 @@ export const createReadQueries = (context: ReadQueriesOptions): ReadQueries => {
         return calls === null ? null : { calls }
       }),
     artifactVersion: (id) => artifactVersion(context, id),
+    chat: (run) => store.read(() => (runOf(store, run) === null ? null : { messages: store.chat.messages(run) })),
     usage: (query) => store.read(() => usageReport(store, query)),
   }
 }

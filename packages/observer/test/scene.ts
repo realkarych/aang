@@ -208,6 +208,8 @@ export interface SceneLaunch {
 export interface SceneOptions {
   readonly claude?: readonly ClaudeReply[]
   readonly codex?: readonly CodexReply[]
+  readonly claudeChat?: readonly ClaudeReply[]
+  readonly codexChat?: readonly CodexReply[]
   readonly admit?: readonly Runtime[]
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
@@ -224,8 +226,8 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
   const workspace = join(root, 'workspace')
   await mkdir(home)
   await mkdir(workspace)
-  const fakeClaude = installFakeClaude(root, { replies: [...(options.claude ?? [])] })
-  const fakeCodex = installFakeCodex(root, { replies: [...(options.codex ?? [])] })
+  const fakeClaude = installFakeClaude(root, { replies: [...(options.claude ?? [])], chatReplies: [...(options.claudeChat ?? [])] })
+  const fakeCodex = installFakeCodex(root, { replies: [...(options.codex ?? [])], chatReplies: [...(options.codexChat ?? [])] })
   const launch = {
     temporaryDirectory: root,
     environment: { ...process.env, HOME: home, USERPROFILE: home },
