@@ -5,7 +5,7 @@ import { randomBytes } from 'node:crypto'
 import { readSpoolState } from '@aang/contract/home'
 import { BindAddressError, DaemonAlreadyRunningError, runDaemon } from '@aang/daemon'
 import { describe, test } from 'vitest'
-import { bearer, createHome, type Home, startDaemon, testVersion } from './daemon.js'
+import { bearer, createHome, type Home, repositoryMatrix, startDaemon, testVersion } from './daemon.js'
 
 const rawGet = (base: string, path: string, headers: Record<string, string>): Promise<number> =>
   new Promise((resolve, reject) => {
@@ -186,6 +186,8 @@ describe.concurrent('the daemon serves the UI and the API only to holders of the
           environment: { env: { AANG_HOME: home.paths.home }, homedir: home.root },
           bind,
           staticRoot: null,
+          supportMatrix: repositoryMatrix,
+          placement: 'local',
           signal: new AbortController().signal,
           onReady: () => undefined,
         }),

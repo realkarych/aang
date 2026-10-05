@@ -9,6 +9,8 @@ import {
   type RunSnapshot,
   type RunsResponse,
   type StatusResponse,
+  type UsageQuery,
+  type UsageReport,
 } from '@aang/contract'
 
 export class SignedOut extends Error {
@@ -96,3 +98,15 @@ export const markAttentionViewed = async (run: RunId, item: AttentionItemId): Pr
 
 export const dismissAttention = async (run: RunId, item: AttentionItemId): Promise<AttentionView> =>
   (await post(withItem(endpoints.attentionDismiss.path, run, item), endpoints.attentionDismiss.response)).view
+
+const usageSearch = ({ run, from, to }: UsageQuery): string => {
+  const search = new URLSearchParams({
+    ...(run === undefined ? {} : { run }),
+    ...(from === undefined ? {} : { from: from.toString() }),
+    ...(to === undefined ? {} : { to: to.toString() }),
+  }).toString()
+  return search === '' ? '' : `?${search}`
+}
+
+export const readUsage = (query: UsageQuery, signal: AbortSignal): Promise<UsageReport> =>
+  read(`${endpoints.usage.path}${usageSearch(query)}`, endpoints.usage.response, signal)

@@ -1,6 +1,7 @@
 import {
   type Action,
   type Agent,
+  type AttentionItem,
   type AgentId,
   type BacklogSummary,
   type EpochNs,
@@ -20,6 +21,9 @@ import {
   type Runtime,
   type Session,
   type SessionId,
+  type SnapshotAttentionItem,
+  type SnapshotStage,
+  type Stage,
   type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
@@ -37,10 +41,10 @@ import {
   firstCallTokens,
   longestStateText,
   type Packing,
-  packObserverInput,
+  packInput,
 } from './fit.js'
 import { type Clipped, clipContext, clipJson, isoTime } from './materials.js'
-import { factSession, type InputScope, inputScope, type ScopeExclusion } from './scope.js'
+import { factSession, type InputScope, inputScope, type ScopeExclusion, type ScopeReader } from './scope.js'
 
 export interface BatchLimits {
   readonly facts: number
@@ -65,11 +69,15 @@ interface Queued {
   readonly fact: Fact
 }
 
-interface Prepared {
-  readonly queued: Queued
+interface Described {
+  readonly fact: Fact
   readonly action: Action | null
   readonly agent: AgentId | null
   readonly payload: JsonValue
+}
+
+interface Prepared extends Described {
+  readonly queued: Queued
 }
 
 interface Excluded {
@@ -89,7 +97,7 @@ interface Selection {
 
 const nanosecondsPerMillisecond = 1_000_000n
 
-const jsonOf = (value: unknown): JsonValue =>
+export const jsonOf = (value: unknown): JsonValue =>
   JsonValue.parse(
     JSON.parse(JSON.stringify(value, (_key, member: unknown) => (typeof member === 'bigint' ? member.toString() : member))),
   )
@@ -114,7 +122,7 @@ const agentBrief = (scope: InputScope, agent: Agent): RunDescription['agents'][n
   parent: agent.parent !== null && scope.agent(agent.parent) === null ? agent.parent : null,
 })
 
-const describeRun = (transaction: Transaction, scope: InputScope, run: Run): RunDescription => {
+export const describeRun = (transaction: Pick<ScopeReader, 'observations'>, scope: InputScope, run: Run): RunDescription => {
   const sessions = transaction.observations.sessions().filter((session) => scope.session(session.id) === null)
   const owner = { kind: 'run', id: run.id } as const
   return {
@@ -143,27 +151,36 @@ const admitted = (scope: InputScope, entity: ModelEntity): boolean => {
   }
 }
 
-const snapshotOf = (transaction: Transaction, scope: InputScope): ModelSnapshot => {
+export const snapshotStage = (stage: Stage, parent: StageId | null): SnapshotStage => ({
+  id: stage.id,
+  title: stage.title,
+  expected_result: stage.expected_result,
+  summary: stage.summary,
+  parent,
+  origin: stage.origin,
+  execution: stage.execution.value,
+  decision: stage.decision.value,
+})
+
+export const snapshotAttentionItem = (item: AttentionItem, stage: StageId | null): SnapshotAttentionItem => ({
+  id: item.id,
+  kind: item.kind,
+  author: item.author,
+  text: item.text,
+  stage,
+  runtime_wait: item.runtime_wait,
+  resolution: item.resolution,
+  likely_resolved: item.likely_resolved !== null,
+})
+
+export const snapshotOf = (transaction: Pick<ScopeReader, 'model'>, scope: InputScope): ModelSnapshot => {
   const entities = transaction.model.entities(scope.run).filter((entity) => admitted(scope, entity))
   const stages = new Set(entities.flatMap((entity) => (entity.kind === 'stage' ? [entity.value.id] : [])))
   const stageOf = (id: StageId | null): StageId | null => (id !== null && stages.has(id) ? id : null)
   return {
     version: transaction.model.head(scope.run),
     stages: entities.flatMap((entity) =>
-      entity.kind === 'stage'
-        ? [
-            {
-              id: entity.value.id,
-              title: entity.value.title,
-              expected_result: entity.value.expected_result,
-              summary: entity.value.summary,
-              parent: stageOf(entity.value.parent),
-              origin: entity.value.origin,
-              execution: entity.value.execution.value,
-              decision: entity.value.decision.value,
-            },
-          ]
-        : [],
+      entity.kind === 'stage' ? [snapshotStage(entity.value, stageOf(entity.value.parent))] : [],
     ),
     criteria: entities.flatMap((entity) =>
       entity.kind === 'criterion'
@@ -179,25 +196,12 @@ const snapshotOf = (transaction: Transaction, scope: InputScope): ModelSnapshot 
         : [],
     ),
     attention: entities.flatMap((entity) =>
-      entity.kind === 'attention_item'
-        ? [
-            {
-              id: entity.value.id,
-              kind: entity.value.kind,
-              author: entity.value.author,
-              text: entity.value.text,
-              stage: stageOf(entity.value.stage),
-              runtime_wait: entity.value.runtime_wait,
-              resolution: entity.value.resolution,
-              likely_resolved: entity.value.likely_resolved !== null,
-            },
-          ]
-        : [],
+      entity.kind === 'attention_item' ? [snapshotAttentionItem(entity.value, stageOf(entity.value.stage))] : [],
     ),
   }
 }
 
-const actionOf = (transaction: Transaction, scope: InputScope, fact: Fact): Action | null => {
+const actionOf = (transaction: Pick<ScopeReader, 'observations'>, scope: InputScope, fact: Fact): Action | null => {
   const key = fact.entity_key
   const action = key.kind === 'action' ? transaction.observations.getAction(objectId(key)) : null
   return action !== null && scope.action(action) === null ? action : null
@@ -209,27 +213,27 @@ const agentOf = (scope: InputScope, fact: Fact, action: Action | null): AgentId 
   return agent !== null && scope.agent(agent) === null ? agent : null
 }
 
-const prepare = (transaction: Transaction, scope: InputScope, queued: Queued): Prepared => {
-  const { fact } = queued
-  const action = actionOf(transaction, scope, fact)
+const describe = (reader: Pick<ScopeReader, 'observations'>, scope: InputScope, fact: Fact): Described => {
+  const action = actionOf(reader, scope, fact)
   return {
-    queued,
+    fact,
     action,
     agent: agentOf(scope, fact, action),
     payload: jsonOf(fact.payload),
   }
 }
 
+const prepare = (reader: Pick<ScopeReader, 'observations'>, scope: InputScope, queued: Queued): Prepared => ({
+  ...describe(reader, scope, queued.fact),
+  queued,
+})
+
 const omittedPayload = (payload: JsonValue): Clipped<JsonValue> => ({
   value: null,
   truncated: [{ path: 'payload', length: JSON.stringify(payload).length }],
 })
 
-const inputFact = (
-  { queued: { fact }, action, agent, payload }: Prepared,
-  textLength: number,
-  omitted: boolean,
-): InputFact => {
+const inputFact = ({ fact, action, agent, payload }: Described, textLength: number, omitted: boolean): InputFact => {
   const clipped = omitted ? omittedPayload(payload) : clipJson(payload, 'payload', textLength)
   return {
     id: fact.id,
@@ -245,6 +249,13 @@ const inputFact = (
     truncated: clipped.truncated,
   }
 }
+
+export const factInput = (
+  reader: Pick<ScopeReader, 'observations'>,
+  scope: InputScope,
+  fact: Fact,
+  textLength: number,
+): InputFact => inputFact(describe(reader, scope, fact), textLength, false)
 
 const openGap = (
   transaction: Transaction,
@@ -460,7 +471,7 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     }
   const longest = longestStateText({ run: description, model, previous_attempt: joinAttempts([previousAttempt(transaction, batch), retried]) })
   const pack = (count: number, omitted: boolean): ObserverInput | null =>
-    packObserverInput(
+    packInput(
       { count, minimumCount: 1, batchText: limits.textLength, stateText: longest },
       firstCallTokens(limits.inputTokens),
       render(omitted),

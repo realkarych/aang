@@ -1,6 +1,7 @@
 import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
+import type { CreatedEntries } from './capture.js'
 import { recordSession, type RecordContext } from './record.js'
-import { type CodexHome, type ModelMode, recordingOs } from './schema.js'
+import { type ModelMode, type ProfileHome, recordingOs } from './schema.js'
 
 export interface EngineSelection {
   readonly claude?: string | undefined
@@ -32,7 +33,7 @@ export interface Scenario {
   readonly surface: Surface
   readonly models: readonly ModelMode[]
   readonly os?: readonly OperatingSystem[] | undefined
-  readonly codexHome?: CodexHome | undefined
+  readonly codexHome?: ProfileHome | undefined
   readonly expectedFacts: readonly string[]
   readonly run: (session: ScenarioSession) => Promise<void>
 }
@@ -48,11 +49,16 @@ export interface ScenarioOptions {
   readonly fixturesRoot: string
   readonly hookBinary: string
   readonly model?: ModelMode | undefined
+  readonly claudeHome?: ProfileHome | undefined
+  readonly created?: ((entries: CreatedEntries) => void) | undefined
   readonly selection: EngineSelection
 }
 
 export const scenarioModel = (scenario: Scenario, requested: ModelMode | undefined): ModelMode | undefined =>
   requested === undefined ? scenario.models[0] : scenario.models.includes(requested) ? requested : undefined
+
+const recordedName = (scenario: Scenario, model: ModelMode): string =>
+  model === scenario.models[0] ? scenario.name : `${scenario.name}-${model}`
 
 export const supportsOs = (scenario: Scenario, driver: SurfaceDriver, os: OperatingSystem): boolean =>
   (scenario.os ?? driver.os ?? [os]).includes(os) && (driver.os ?? [os]).includes(os)
@@ -69,11 +75,13 @@ export const recordScenario = async (scenario: Scenario, driver: SurfaceDriver, 
     engineVersion: engine.version,
     appVersion: engine.appVersion,
     surface: scenario.surface,
-    scenario: scenario.name,
+    scenario: recordedName(scenario, model),
     model,
     expectedFacts: scenario.expectedFacts,
     fixturesRoot: options.fixturesRoot,
     hookBinary: options.hookBinary,
     codexHome: scenario.codexHome,
+    claudeHome: options.claudeHome,
+    created: options.created,
   }, (context) => scenario.run({ ...context, model, engine }))
 }

@@ -1,4 +1,5 @@
-import { readFile, stat } from 'node:fs/promises'
+import type { Dirent } from 'node:fs'
+import { readdir, readFile, stat } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang/testkit'
 import { filesIn, isMissing } from './files.js'
@@ -6,11 +7,17 @@ import type { Artifact, ControlEvent } from './schema.js'
 
 export type ControlTarget = (
   | (Target & { readonly contains?: string })
-  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string } }
+  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string; readonly notificationType?: string } }
 ) & { readonly occurrence?: 'first' | 'last' }
 
 export interface CapturedArtifact extends Artifact {
   readonly content: string
+}
+
+export interface CreatedEntries {
+  readonly sessions: readonly string[]
+  readonly paths: readonly string[]
+  readonly unreadable: readonly string[]
 }
 
 export interface Capture {
@@ -21,11 +28,29 @@ export interface Capture {
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
   readonly output: (text: string) => void
   readonly otlp: (body: string, receivedAt: number) => void
+  readonly created: () => Promise<CreatedEntries>
+}
+
+export interface RegularProfiles {
+  readonly project: string
+  readonly plugin: string
+  readonly claude: boolean
+  readonly codex: boolean
 }
 
 export interface CaptureOptions {
-  readonly codexOwner?: (first: unknown) => boolean
+  readonly regular?: RegularProfiles
 }
+
+interface Location {
+  readonly root: keyof PlayerRoots
+  readonly directory: string
+  readonly prefix: string
+  readonly admit?: (entry: string) => boolean
+  readonly owner?: (document: unknown) => boolean
+}
+
+export const claudeProjectName = (path: string): string => path.replaceAll(/[^a-zA-Z0-9]/g, '-')
 
 const jsonLines = (bytes: Buffer, final: boolean): Buffer => {
   const end = bytes.lastIndexOf(0x0a) + 1
@@ -45,6 +70,39 @@ const firstLine = (bytes: Buffer): unknown => {
   }
 }
 
+const wholeDocument = (bytes: Buffer): unknown => {
+  try {
+    return JSON.parse(bytes.toString('utf8'))
+  } catch {
+    return undefined
+  }
+}
+
+const fieldsOf = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Readonly<Record<string, unknown>> : undefined
+
+const entriesOf = async (directory: string): Promise<Dirent[]> => (await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
+  if (isMissing(error)) return []
+  throw error
+})).sort((a, b) => a.name.localeCompare(b.name))
+
+const sessionName = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+const sessionOf = (entry: string): string | undefined => {
+  const name = entry.replace(/\.jsonl$/, '')
+  return sessionName.test(name) ? name : undefined
+}
+
+const exists = (path: string): Promise<boolean> => stat(path).then(() => true, (error: unknown) => {
+  if (isMissing(error)) return false
+  throw error
+})
+
+const readBytes = (file: string): Promise<Buffer> => readFile(file).catch((error: unknown) => {
+  if (isMissing(error)) return Buffer.alloc(0)
+  throw error
+})
+
 export const createCapture = async (roots: PlayerRoots, spool: string, started: number, options: CaptureOptions = {}): Promise<Capture> => {
   const artifacts: CapturedArtifact[] = []
   const steps: PlayerStep[] = []
@@ -58,34 +116,53 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     artifacts.push({ source, content, observed_at: new Date(started + observed).toISOString(), mtime_ns: String(mtime) })
     return source
   }
-  const locations: readonly { root: keyof PlayerRoots; directory: string; prefix: string }[] = [
-    { root: 'claude', directory: join(roots.claude, 'projects'), prefix: 'projects' },
-    { root: 'claude', directory: join(roots.claude, 'teams'), prefix: 'teams' },
-    { root: 'claude', directory: join(roots.claude, 'sessions'), prefix: 'sessions' },
-    { root: 'claude', directory: join(roots.claude, 'tasks'), prefix: 'tasks' },
-    { root: 'codex', directory: join(roots.codex, 'sessions'), prefix: 'sessions' },
-    { root: 'codex', directory: join(roots.codex, 'archived_sessions'), prefix: 'archived_sessions' },
+  const { regular } = options
+  const projectName = regular === undefined ? '' : claudeProjectName(regular.project)
+  const sessions = new Set<string>()
+  const ownProject = (entry: string): boolean => entry === projectName || entry.startsWith(`${projectName}-`)
+  const claudeRegistry = (document: unknown): boolean => fieldsOf(document)?.['cwd'] === regular?.project
+  const codexRollout = (document: unknown): boolean => {
+    const line = fieldsOf(document)
+    return line?.['type'] === 'session_meta' && fieldsOf(line['payload'])?.['cwd'] === regular?.project
+  }
+  const claudeRegular = regular?.claude === true
+  const codexRegular = regular?.codex === true
+  const locations: readonly Location[] = [
+    { root: 'claude', directory: join(roots.claude, 'projects'), prefix: 'projects', ...claudeRegular ? { admit: ownProject } : {} },
+    { root: 'claude', directory: join(roots.claude, 'teams'), prefix: 'teams', ...claudeRegular ? { admit: () => false } : {} },
+    { root: 'claude', directory: join(roots.claude, 'sessions'), prefix: 'sessions', ...claudeRegular ? { owner: claudeRegistry } : {} },
+    { root: 'claude', directory: join(roots.claude, 'tasks'), prefix: 'tasks', ...claudeRegular ? { admit: (entry: string) => sessions.has(entry) } : {} },
+    { root: 'codex', directory: join(roots.codex, 'sessions'), prefix: 'sessions', ...codexRegular ? { owner: codexRollout } : {} },
+    { root: 'codex', directory: join(roots.codex, 'archived_sessions'), prefix: 'archived_sessions', ...codexRegular ? { owner: codexRollout } : {} },
     { root: 'home', directory: join(roots.home, 'project'), prefix: 'project' },
   ]
-  const { codexOwner } = options
-  const ignored = new Set<string>()
-  if (codexOwner !== undefined) {
-    for (const location of locations.filter(({ root }) => root === 'codex')) {
-      for (const file of await filesIn(location.directory)) ignored.add(file)
+  const listed = async (location: Location): Promise<string[]> => {
+    const { admit } = location
+    if (admit === undefined) return filesIn(location.directory)
+    const files: string[] = []
+    for (const entry of (await entriesOf(location.directory)).filter(({ name }) => admit(name))) {
+      const path = join(location.directory, entry.name)
+      files.push(...entry.isFile() ? [path] : await filesIn(path))
     }
+    return files
   }
-  const owned = new Set<string>()
-  const foreign = async (file: string, root: keyof PlayerRoots, final: boolean): Promise<boolean> => {
-    if (codexOwner === undefined || root !== 'codex' || owned.has(file)) return false
+  const ignored = new Set<string>()
+  for (const location of locations.filter(({ owner }) => owner !== undefined)) {
+    for (const file of await filesIn(location.directory)) ignored.add(file)
+  }
+  const owned = new Map<string, Location['root']>()
+  const pluginData = join(roots.claude, 'plugins', 'data')
+  const ownPluginData = (name: string): boolean => name === regular?.plugin || name.startsWith(`${regular?.plugin ?? ''}-`)
+  const existingPluginData = new Set(claudeRegular ? (await entriesOf(pluginData)).map(({ name }) => name) : [])
+  const foreign = async (file: string, location: Location, final: boolean): Promise<boolean> => {
+    const { owner } = location
+    if (owner === undefined || owned.has(file)) return false
     if (ignored.has(file)) return true
-    const bytes = await readFile(file).catch((error: unknown) => {
-      if (isMissing(error)) return Buffer.alloc(0)
-      throw error
-    })
-    const first = firstLine(bytes)
-    if (first === undefined && !final) return true
-    if (first !== undefined && first !== null && codexOwner(first)) {
-      owned.add(file)
+    const bytes = await readBytes(file)
+    const document = file.endsWith('.jsonl') ? firstLine(bytes) : wholeDocument(bytes)
+    if (document === undefined && !final) return true
+    if (document !== undefined && document !== null && owner(document)) {
+      owned.set(file, location.root)
       return false
     }
     ignored.add(file)
@@ -94,10 +171,14 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   const scan = async (final = false): Promise<void> => {
     const present = new Set<string>()
     for (const location of locations) {
-      for (const file of await filesIn(location.directory)) {
+      for (const file of await listed(location)) {
         if (!/\.jsonl?$/.test(file)) continue
-        if (await foreign(file, location.root, final)) continue
+        if (await foreign(file, location, final)) continue
         present.add(file)
+        if (location.root === 'claude' && location.prefix === 'projects') {
+          const session = sessionOf(relative(location.directory, file).split(/[\\/]/)[1] ?? '')
+          if (session !== undefined) sessions.add(session)
+        }
         const result = await Promise.all([readFile(file), stat(file, { bigint: true })]).catch((error: unknown) => {
           if (isMissing(error)) return undefined
           throw error
@@ -147,8 +228,45 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
       if (event) controlEvents[index] = { ...event, step: steps.findIndex((step) => step.label === event.label) }
     }
   }
+  const created = async (): Promise<CreatedEntries> => {
+    const ids = new Set<string>()
+    const paths = new Set<string>()
+    const unreadable = new Set<string>()
+    const readable = <T>(path: string, read: Promise<T>, fallback: T): Promise<T> => read.catch(() => {
+      unreadable.add(path)
+      return fallback
+    })
+    const listing = (directory: string): Promise<Dirent[]> => readable(directory, entriesOf(directory), [])
+    if (claudeRegular) {
+      const projects = join(roots.claude, 'projects')
+      for (const { name } of (await listing(projects)).filter(({ name }) => ownProject(name))) {
+        paths.add(join(projects, name))
+        for (const entry of await listing(join(projects, name))) {
+          const session = sessionOf(entry.name)
+          if (session !== undefined) ids.add(session)
+        }
+      }
+      for (const session of sessions) ids.add(session)
+      for (const { name } of await listing(pluginData)) {
+        if (ownPluginData(name) && !existingPluginData.has(name)) paths.add(join(pluginData, name))
+      }
+      for (const directory of await listing(roots.claude)) {
+        if (!directory.isDirectory() || directory.name === 'projects') continue
+        for (const { name } of await listing(join(roots.claude, directory.name))) {
+          if ([...ids].some((id) => name.includes(id))) paths.add(join(roots.claude, directory.name, name))
+        }
+      }
+    }
+    for (const [file, root] of owned) {
+      if (!await readable(file, exists(file), true)) continue
+      paths.add(file)
+      const thread = root === 'codex' ? fieldsOf(fieldsOf(firstLine(await readable(file, readBytes(file), Buffer.alloc(0))))?.['payload'])?.['id'] : undefined
+      if (typeof thread === 'string') ids.add(thread)
+    }
+    return { sessions: [...ids].sort(), paths: [...paths].sort(), unreadable: [...unreadable].sort() }
+  }
   return {
-    artifacts, steps, controlEvents, scan,
+    artifacts, steps, controlEvents, scan, created,
     checkpoint: async (label, target, expectedMapChange) => {
       await scan(true)
       const content = (step: PlayerStep): string | undefined => 'source' in step ? artifacts.find((artifact) => artifact.source === step.source)?.content : undefined
@@ -162,7 +280,8 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
         return payload !== null && typeof payload === 'object' &&
           'hook_event_name' in payload && payload.hook_event_name === target.hook.event &&
           (target.hook.sessionId === undefined || ('session_id' in payload && payload.session_id === target.hook.sessionId)) &&
-          (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId))
+          (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId)) &&
+          (target.hook.notificationType === undefined || ('notification_type' in payload && payload.notification_type === target.hook.notificationType))
       }
       const index = target.occurrence === 'first' ? steps.findIndex(matches) : steps.findLastIndex(matches)
       const step = steps[index]

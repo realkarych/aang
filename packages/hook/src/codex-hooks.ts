@@ -2,10 +2,9 @@ import { randomBytes } from 'node:crypto'
 import type { BigIntStats } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
-import type { RegistrationTag, Runtime } from '@aang/contract'
 import { deployHookBinary } from './binary.js'
 import { listCodexHooks, type CodexAppServerOptions } from './codex-app-server.js'
-import { isAangCommand } from './codex-command.js'
+import { codexHookCommand, isAangCommand } from './codex-command.js'
 import { verifyForeignTrust } from './codex-state.js'
 import { HookInstallError, requireHookInstallSupport } from './errors.js'
 import {
@@ -18,7 +17,6 @@ import {
 } from './files.js'
 import { hookInstallPaths } from './layout.js'
 import { acquireLock } from './lock.js'
-import { posixQuote } from './shell.js'
 
 const codexHookEvents: readonly string[] = [
   'SessionStart',
@@ -35,8 +33,6 @@ const codexHookEvents: readonly string[] = [
   'Interrupt',
 ]
 
-const runtime: Runtime = 'codex'
-const registration: RegistrationTag = 'user'
 const hookTimeoutSeconds = 2
 const neutralCommand = 'true'
 const hooksFileName = 'hooks.json'
@@ -324,7 +320,7 @@ export const installCodexHooks = async (options: CodexHooksInstallOptions): Prom
   const { aangHome, codexHome } = options
   const initial = await readHooks(codexHome)
   const binary = hookInstallPaths(aangHome).binary
-  const command = [posixQuote(binary), runtime, registration, posixQuote(hookInstallPaths(aangHome).spool)].join(' ')
+  const command = codexHookCommand(aangHome)
   const backup = await changeHooksFile(codexHome, initial, (document) => registerAang(document, command), {
     options,
     prepare: () => deployHookBinary(options),

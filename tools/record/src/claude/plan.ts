@@ -10,11 +10,24 @@ export const Decision = z.strictObject({
 })
 export type Decision = z.infer<typeof Decision>
 
+export const ElicitationAnswer = z.strictObject({
+  mode: z.enum(['form', 'url']),
+  action: z.enum(['accept', 'decline', 'cancel']),
+  content: z.record(z.string(), z.unknown()).optional(),
+  delayMs: z.int().nonnegative().default(0),
+})
+export type ElicitationAnswer = z.infer<typeof ElicitationAnswer>
+
+const McpServer = z.strictObject({ command: z.string().min(1), args: z.array(z.string()).default([]) })
+
 const Turn = z.strictObject({
   prompt: z.string().min(1),
   pauseMs: z.int().nonnegative().default(0),
   interrupt: z.strictObject({ tool: z.string().min(1), delayMs: z.int().nonnegative() }).optional(),
 })
+
+export const SettingSource = z.enum(['user', 'project', 'local'])
+export type SettingSource = z.infer<typeof SettingSource>
 
 export const HostPlan = z.strictObject({
   engine: z.string().min(1),
@@ -26,6 +39,8 @@ export const HostPlan = z.strictObject({
   permissionMode: z.enum(['default', 'plan']).default('default'),
   turns: z.array(Turn).min(1),
   decisions: z.array(Decision).default([]),
+  mcpServers: z.record(z.string(), McpServer).default({}),
+  elicitations: z.array(ElicitationAnswer).default([]),
   turnTimeoutMs: z.int().positive().default(240_000),
 })
 export type HostPlan = z.infer<typeof HostPlan>
@@ -44,13 +59,23 @@ export const HostSummary = z.strictObject({
     answers: z.record(z.string(), z.string()).nullable(),
   })),
   interrupts: z.array(z.strictObject({ tool: z.string(), toolUseId: z.string() })),
+  elicitations: z.array(z.strictObject({
+    server: z.string(),
+    mode: z.enum(['form', 'url']),
+    elicitationId: z.string().nullable(),
+    action: z.enum(['accept', 'decline', 'cancel']),
+    opened: z.boolean(),
+    waitedMs: z.number(),
+  })),
+  completedElicitations: z.array(z.string()),
   error: z.string().nullable(),
 })
 export type HostSummary = z.infer<typeof HostSummary>
 
 export const readPlan = async (path: string): Promise<HostPlan> => HostPlan.parse(JSON.parse(await readFile(path, 'utf8')))
 
-export const emptySummary = (): HostSummary => ({ sessionIds: [], tools: [], results: [], toolUses: [], decisions: [], interrupts: [], error: null })
+export const emptySummary = (): HostSummary =>
+  ({ sessionIds: [], tools: [], results: [], toolUses: [], decisions: [], interrupts: [], elicitations: [], completedElicitations: [], error: null })
 
 export const writeSummary = (path: string, summary: HostSummary): Promise<void> => writeFile(path, `${JSON.stringify(summary, null, 2)}\n`)
 
@@ -64,6 +89,15 @@ export const pluginDirectory = (argv: readonly string[]): string => {
   const directory = argv[index + 1]
   if (index < 0 || directory === undefined) throw new Error('The recorder did not pass --plugin-dir')
   return directory
+}
+
+export const forwardedSettings = (argv: readonly string[]): { readonly settingSources?: SettingSource[]; readonly strictMcpConfig: boolean } => {
+  const index = argv.lastIndexOf('--setting-sources')
+  const sources = index < 0 ? undefined : argv[index + 1]
+  return {
+    ...sources === undefined ? {} : { settingSources: z.array(SettingSource).min(1).parse(sources.split(',')) },
+    strictMcpConfig: argv.includes('--strict-mcp-config'),
+  }
 }
 
 const answersFor = (input: Readonly<Record<string, unknown>>, choice: number): Record<string, string> => {

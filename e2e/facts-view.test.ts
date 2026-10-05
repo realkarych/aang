@@ -257,6 +257,7 @@ test.describe('with a fast spool scan', () => {
     await expect(updates).toHaveCount(2)
     await expect(updates.nth(0)).toContainText('План на одобрение')
     await expect(updates.nth(0)).toContainText('Сначала тесты.')
+    await expect(updates.nth(0)).not.toContainText('формат записи не проверен')
     await expect(updates.nth(1)).toContainText('Задачи решателя')
     await expect(updates.nth(1)).toContainText('Сессия 86f93ed5, основной агент')
     await expect(updates.nth(1)).toContainText('формат записи не проверен')

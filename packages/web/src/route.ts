@@ -1,4 +1,4 @@
-import { RunId } from '@aang/contract'
+import { RunId, StageId } from '@aang/contract'
 import { type MouseEvent, useCallback, useSyncExternalStore } from 'react'
 
 const navigated = 'aang:navigate'
@@ -14,14 +14,58 @@ const subscribe = (notify: () => void): (() => void) => {
 
 const currentSearch = (): string => window.location.search
 
+export const usagePeriods = ['all', 'day', 'week', 'month'] as const
+export type UsagePeriod = (typeof usagePeriods)[number]
+
+export type Route =
+  | { readonly screen: 'runs' }
+  | { readonly screen: 'run'; readonly run: RunId }
+  | { readonly screen: 'usage'; readonly run: RunId | null; readonly period: UsagePeriod }
+
+const usageView = 'usage'
+
+const isPeriod = (value: string | null): value is UsagePeriod => usagePeriods.some((period) => period === value)
+
+const routeOf = (search: string): Route => {
+  const params = new URLSearchParams(search)
+  const parsed = RunId.safeParse(params.get('run'))
+  const run = parsed.success ? parsed.data : null
+  if (params.get('view') === usageView) {
+    const period = params.get('period')
+    return { screen: 'usage', run, period: isPeriod(period) ? period : 'all' }
+  }
+  return run === null ? { screen: 'runs' } : { screen: 'run', run }
+}
+
 export const runHref = (run: RunId): string => `?${new URLSearchParams({ run }).toString()}`
+
+export const usageHref = (run: RunId | null, period: UsagePeriod = 'all'): string =>
+  `?${new URLSearchParams({
+    view: usageView,
+    ...(run === null ? {} : { run }),
+    ...(period === 'all' ? {} : { period }),
+  }).toString()}`
 
 export const listHref = '/'
 
-export const useRoutedRun = (): RunId | null => {
-  const search = useSyncExternalStore(subscribe, currentSearch)
-  const parsed = RunId.safeParse(new URLSearchParams(search).get('run'))
+export const useRoute = (): Route => routeOf(useSyncExternalStore(subscribe, currentSearch))
+
+export const routedStage = (): StageId | null => {
+  const parsed = StageId.safeParse(new URLSearchParams(currentSearch()).get('stage'))
   return parsed.success ? parsed.data : null
+}
+
+export const routeStage = (stage: StageId | null): void => {
+  const params = new URLSearchParams(currentSearch())
+  if (stage === null) {
+    params.delete('stage')
+  } else {
+    params.set('stage', stage)
+  }
+  const search = `?${params.toString()}`
+  if (search !== currentSearch()) {
+    window.history.replaceState(window.history.state, '', search)
+  }
 }
 
 const isPlainClick = (event: MouseEvent): boolean =>

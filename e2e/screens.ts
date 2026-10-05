@@ -82,3 +82,11 @@ export const historyToggle = (page: Page): Locator => zone(page).getByRole('butt
 
 export const history = (page: Page): Locator =>
   zone(page).getByRole('list', { name: 'История зоны внимания', exact: true }).getByRole('listitem')
+
+export const lampDetails = async (page: Page, label: string): Promise<Locator> => {
+  const button = lamp(page, label).getByRole('button')
+  if ((await button.getAttribute('aria-expanded')) !== 'true') {
+    await button.click()
+  }
+  return page.getByRole('region', { name: `${label}: подробности`, exact: true })
+}

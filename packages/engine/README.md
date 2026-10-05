@@ -495,7 +495,11 @@ through the stored input of the observer call that wrote a change of the entity:
 input keeps the raw record of every batch fact, and the raw record keeps its
 runtime. A ground whose vendor cannot be established this way, such as a deleted
 fact cited by a rule, excludes the entity without `crossVendor`. The run goal and
-brief follow the same rule through the journal of the run.
+brief follow the same rule through the journal of the run. An artifact version is in
+scope only when it is bound to the run and the action that produced it is stored and
+in scope itself. A version whose producer is gone, such as an action of a session
+moved to another run that was then pruned, is `out_of_scope` whatever the backend and
+`crossVendor`: its vendor and session can no longer be established.
 
 `inputViolations(reader, scope, input)` applies the scope to the whole input: the
 sessions and agents of the run description, the context record, the stages,
@@ -508,7 +512,7 @@ run of the root session and one for every other
 session whose data the context was assembled from (F.7a). A context that read a
 session of another vendor is therefore refused without `crossVendor`, whether it is
 the context of the input, the input checked again before a follow-up or a requested
-raw record. An artifact version must be bound to the run, as E.7b stores it.
+raw record. An artifact version must be stored and pass the version rule above.
 `beginObserverCall` refuses an input with any violation and a first call that already
 carries materials; `beginObserverFollowUp` checks the stored input
 again with the current `crossVendor`. The call records the backend it was started
@@ -530,9 +534,12 @@ such as an edit patch or an MCP result, the output is the JSON text
 `MaterialLimits.textLength` are cut, each string of a structured value separately,
 and report their path and original length. A string is cut only when the cut text
 and its truncation entry together are shorter in JSON than the whole string, so a
-cut never lengthens a material, and a cut never splits a surrogate pair. Artifact
-versions answer `not_found`
-until E.7b provides their storage. A context request returns the stored run context
+cut never lengthens a material, and a cut never splits a surrogate pair. An
+artifact version of the run (E.7b) is sent with its retained content, decoded as
+UTF-8 and cut like a record payload, with its retention (`action_payload` or
+`file_read`) and the read time of a file read; a version out of scope by the version
+rule answers that exclusion, and a version whose content is not stored (a reference,
+a hash only or a missing blob) `not_retained`. A context request returns the stored run context
 of F.7a with its entries cut at `MaterialLimits.textLength`; a record of another
 channel answers `not_found`, a context out of scope its exclusion.
 
@@ -692,6 +699,67 @@ with them, so a summary rejected `attempts` times stops being sent.
 rest, the oldest beyond `bounds.facts`, opens the run gap `summarized_backlog` when it
 defers any, and returns the active queue. Deferred facts reach the observer only in
 the backlog summary of a later call.
+
+## Chat input and answers
+
+The chat (K.1, ADR-0008) answers on one version of the map. `startChat(transaction,
+{ run, stage, question, backend, crossVendor, at, limits? })` builds the input and
+records the question `pending` with the current version V and the backend and
+`crossVendor` of its input in the same transaction; it returns `null` for an unknown
+run. The input passes the same scope as the observer input (`inputScope` with the
+backend and `crossVendor` of the call):
+
+- `history` — the latest answered questions of the run (`limits.history`, 10), with
+  the version each was answered on; failed and pending questions are left out. An
+  answer carries the data of the input it was built from, so without `crossVendor`
+  only answers to questions asked for the same backend without `crossVendor` are
+  kept; an answer built for another backend or with `crossVendor` is left out of the
+  input and stays in the history of the run;
+- `run` and `model` — the run description and the snapshot of version V, as in a
+  batch;
+- `focus` with a stage — the stage of the run in scope (any lifecycle) with its
+  current evidence and the input and output facts of the actions assigned to it,
+  ordered by time, these actions with their input and output, and the artifact
+  versions linked to it in scope, `retained` when their content is stored. A stage outside
+  the run or out of scope is refused with `ChatError` `unknown_stage`;
+- `focus` without a stage — the attention zone in its order, with items in scope, and
+  the journal changes of stages, criteria, cards and attention items in scope of the
+  last `limits.focus` (20) versions, with their states and evidence.
+
+The first input is packed within seven eighths of `limits.inputTokens` like a batch:
+the strings of facts, actions and journal states are cut first, then the texts of the
+run, the snapshot and the history, then the focus keeps fewer entries (the first items
+of the zone, the latest facts, actions, versions and changes), down to none. A
+question that does not fit even so is refused with `ChatError` `input_limit` and
+nothing is recorded.
+
+`followUpChat(reader, { input, needs, backend, crossVendor, limits? })` builds the
+only follow-up: the same input of version V with the resolved materials, packed within
+`limits.inputTokens` with at least one material, or `null` when none fits. Up to
+`limits.needs` (8) distinct needs are answered in order. Stages and journals are
+answered as of version V: a stage with its state and lifecycle at V, including a
+replaced one, and the journal entries of a stage, criterion, card or attention item up
+to V; an entity created after V answers `not_found`. Facts, raw records, actions and
+artifact versions are answered as for the observer; facts and records keep the scope
+and thinking rules above. An entity, fact, action or version outside the run or out
+of scope answers its exclusion.
+
+`answerChat(transaction, { run, message, input, output, at })` stores the answer with
+version V. `verifyCitations(input, citations)` keeps a citation only when the input of
+the answer holds its id under its kind: stages of the snapshot, the focus, materials
+and journal targets; facts of the focus, materials and evidence lists; actions of
+facts, actions, materials and producers of versions; artifact versions of the focus
+and materials; attention items of the snapshot, the zone and journal targets.
+Repeated citations are kept once. Removed citations mark the answer
+`unconfirmed_citations`, and an answer without text or with `insufficient_data` is
+marked `insufficient_data`. `failChat` ends a question with an error, and
+`failInterruptedChats` ends the questions a stopped process left `pending`. Both and
+`answerChat` leave a question that is no longer pending alone and return `null`.
+
+The run feed carries the chat of the run: each question that changed after the
+position is a `chat` event with the message in its latest state and its
+`change_seq`. `reads.chat(run)` returns the history of the run, or `null` for an
+unknown run.
 
 ## Forks, bindings and session transfer
 
@@ -988,8 +1056,10 @@ counts come from the interpretation statuses.
   - consecutive changes of facts, observation objects, gaps and retractions form one
     `facts` event, consecutive views and dismissals of attention items one
     `attention` event with their views, every model version forms one `model`
-    event, and a new view mark forms one `run` event at the `change_seq` of the mark.
-    An event id is the last `change_seq` it contains, so ids grow and never repeat;
+    event, a new view mark forms one `run` event at the `change_seq` of the mark, and
+    every chat message changed after the position forms one `chat` event with the
+    message in its latest state. An event id is the last `change_seq` it contains, so
+    ids grow and never repeat;
   - objects and gaps arrive in their current state, `removed` names retracted agents
     and their replacements, and `facts` carries plan facts, the only facts of the
     snapshot;
@@ -1006,9 +1076,9 @@ counts come from the interpretation statuses.
   - a position ahead of the change feed is an `InvalidPositionError` with reason
     `stale_position`; a position before the reparse boundary is one with reason
     `reparsed`.
-- `inspector(run, stage)`, `changes(run, { version, change_seq })` and
-  `observerCalls(run)` serve the inspector, the changes since a view mark and the
-  observer calls.
+- `inspector(run, stage)`, `changes(run, { version, change_seq })`,
+  `observerCalls(run)` and `chat(run)` serve the inspector, the changes since a view
+  mark, the observer calls and the chat history.
 
 The run summary:
 
@@ -1058,8 +1128,10 @@ rule changes that follow its operations, as returned by `applyObserverResponse`.
 
 Some parts of the contract have no source yet and stay empty: the artifact versions
 and git snapshots of the snapshot and the feed, stage inputs and outputs and
-criterion snapshots (E.7b, E.7c); the CLI version, model, usage and error of
-observer calls (F.8, F.9). The usage records of a run come with its objects,
+criterion snapshots (E.7b, E.7c); the CLI version, model and error of observer calls
+(F.8, F.9). The usage of an observer call is what the CLI results of the call
+reported: a request for materials and its follow-up add up (Observer and chat
+usage). The usage records of a run come with its objects,
 and the inspector shows the usage of a stage as `stageUsage` gives it (Solver usage).
 The queue of a run counts every fact of it that is `pending` or in a call, since the
 ingest transaction queues each new fact (Observer queue).
@@ -1162,6 +1234,57 @@ and the session facts; `source` is the store or a transaction:
   sum is not the duration of the run.
 - A transfer projects the session again with its new run, so both runs read the
   moved usage on the next query.
+
+## Observer and chat usage
+
+The observer and the chat keep their journals in `observer_calls`, apart from the
+solver journal and from each other (ADR-0009). The usage of a call is what its CLI
+result reported (`usage`, `modelUsage` and `total_cost_usd` of Claude,
+`turn.completed.usage` of Codex); a call is ephemeral, so nothing accumulates.
+
+- The observer journal of a run is its batch calls. A call that asked for materials
+  and its follow-up are one call, as in the observer calls of the run (Read
+  queries): it starts with the request, ends with the follow-up and spends the usage
+  of both. A call counts once it has ended: a call that still holds its batch is
+  running. The lag of a call is the delay of its accepted batch, from the reading of
+  its oldest fact to the model version (`delay_ms`, ADR-0007).
+- Probes on the synthetic input spend the observer usage of no run. Authorization
+  checks spend nothing.
+- The chat journal of a run is its chat calls (K.1 writes them with
+  `observerCalls.chat`). A follow-up that resolves `needs` names the call it
+  continues, and the chain is one call from the first start to the last end.
+
+`usage(query)` of the read queries gives the usage report of `aang usage` and the
+usage panel; `query` takes a run, a period from `from` (inclusive) to `to`
+(exclusive), or both, and an unknown run gives `null`:
+
+- A solver record counts in the period of its time and a call in the period of its
+  end. The activity of the solver counts in the period of its time, so the duration
+  of a run in the report runs from its first to its last activity in the period, and
+  the agents and stages of `solverUsage(source, run, { period })` take the same
+  records and activity.
+- Without a run the report lists every run with solver records, solver activity,
+  observer calls or chat calls in the period, the earliest activity first; a run
+  with only calls comes last. With a run it lists that run and has no probes,
+  which belong to no run.
+- `observer` and `chat` are the journals over the listed runs, `probes` the probes
+  of the period. The latency of calls and the lag of batches are the nearest-rank
+  50th and 95th percentiles and the maximum, in milliseconds. `records` of a call
+  journal counts the CLI results that reported usage; their output is never a lower
+  bound. `cost_usd` adds the money the CLI reported and is `null` when no call
+  reported any, as for Codex.
+- The sessions of a run come as `solverUsage` gives them: the Claude Code total
+  (`cost_state`) and whether it is final, whether the session is a fork, whose
+  Claude Code total includes the inherited usage, and the thread totals of Codex
+  threads without usage records. The Claude Code total and the thread totals are
+  cumulative over the whole session or thread, so a period does not cut them, and
+  they are never added to a journal.
+- `totals` sums each journal: the solver over the runs, the observer over the runs
+  and the probes, the chat over the runs. The journals are never added together.
+- An active hour is a clock hour of UTC in which the solver of a listed run was
+  active; the observer and the chat do not make an hour active. Two runs active in
+  the same hour count it once. `per_active_hour` divides each journal by the active
+  hours of the report and is `null` without them.
 
 ## Watch and prune
 

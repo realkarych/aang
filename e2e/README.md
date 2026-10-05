@@ -31,10 +31,11 @@ test('прогон из образца виден в API', async ({ player, page
 | `request` | встроенный анонимный `APIRequestContext`, для проверок 401 |
 | `aang(...args)` | команда собранного `aang` в окружении профиля; возвращает stdout |
 | `signInLink()` | новая неиспользованная одноразовая ссылка от `aang open` |
-| `player(manifest, { timeScale })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля |
+| `player(manifest, { timeScale, recordTime, otlp })` | проигрыватель `testkit` с корнями профиля и настоящим `aang-hook`, который пишет в spool профиля; `manifest` — путь или загруженный манифест; `recordTime: 'playback'` сдвигает время записей к моменту проигрывания, `{ startsAt }` — к заданному моменту |
+| `otelEndpoint()` | адрес приёмника OTel запущенного демона с его токеном приёма — для `otlp` проигрывателя |
 | `hook.claude(sample, fields)`, `hook.codex(sample, fields)` | вызов настоящего `aang-hook` с payload образца из `docs/research/samples/claude-code-hooks` или `codex-cli/hooks` (поле `stdin`), поля которого заменены на `fields` |
 
-Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`.
+Сессии образцов и их файлы в профиле — в `e2e/samples.ts` (`hookFields` даёт `session_id`, `cwd` и `transcript_path` для hook-событий этих сессий), общие локаторы экрана — в `e2e/screens.ts`. Эталонные записи R.4 выбирает `e2e/recordings.ts`: запись ОС раннера, а если её нет — macOS; `through` и `after` режут запись по метке контрольного события, `filesOnly` оставляет в ней только файлы сессии, без hook-событий и OTLP, `threadsOf` перечисляет треды Codex в порядке их rollout.
 
 | Опция (`test.use`) | По умолчанию | Смысл |
 | --- | --- | --- |
@@ -43,9 +44,10 @@ test('прогон из образца виден в API', async ({ player, page
 | `signedIn` | `true` | `false` оставляет `context` и `page` анонимными |
 
 - Корни рантаймов в свежем профиле ещё не существуют, поэтому их обход ускорен: `collector.rootsScanIntervalMs` — 250 мс, если тест не задал свой.
+- Допускной вызов поддельного Claude длится 1 с (`admissionMs`), если сценарий не задал своё, в том числе после `setScenario`. Пока идёт вызов, существует его запись реестра `~/.claude/sessions/<pid>.json`, и проверка допуска замечает её опросом в цикле событий демона. По умолчанию у `testkit` вызов длится 100 мс; под нагрузкой браузера и приёма записей цикл демона бывает занят дольше, проверка не видит запись, и допуск отклоняется как нарушение изоляции. Поэтому тесты с работающим наблюдателем (`map.test.ts`) в `beforeEach` ждут исхода допуска Claude в `/api/status` и требуют `admitted`: допуск проходит до проигрывания записей и открытия страницы, а не одновременно с ними.
 - Путь поддельного CLI (`fakeClaude.path`, `fakeCodex.path`) записан в `cli.claude` и `cli.codex` конфига на всех ОС, и демон запускает его как настоящий CLI. На macOS и Linux это исполняемый скрипт. На Windows поддельный `claude` — `claude.exe` (exe-шим `testkit` запускает `node` со скриптом поддельного CLI), а поддельный `codex` — раскладка npm-пакета (`codex.cmd` и `node_modules/@openai/codex/bin/codex.js`), которую наблюдатель запускает как `node` со скриптом пакета (ADR-0013).
 - Лаунчер `aang-hook` лежит в `AANG_HOME/bin`, как после `aang install`: через него наблюдатель запускает CLI на Windows (`aang-hook launch`, Job Object, ADR-0013).
-- OTLP-шаги проигрывателю пока недоступны: токен приёмника OTel наружу отдаст `otel-config` (G.12).
+- Токен приёмника OTel наружу отдаст `otel-config` (G.12). До него `otelEndpoint()` читает токен из настроек хранилища демона (только чтение), а порт — из `/api/status`.
 
 ## Покрытие
 

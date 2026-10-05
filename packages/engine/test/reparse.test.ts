@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict'
 import { cp, mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
+import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import {
+  type Adapter,
   type AgentKey,
   type AttentionItem,
   ChangeSeq,
@@ -11,8 +13,10 @@ import {
   type Fact,
   FactDraft,
   type FactId,
+  type JsonValue,
   type Link,
   ModelVersion,
+  NormalizerVersion,
   type RunId,
   type SessionKey,
 } from '@aang/contract'
@@ -21,7 +25,16 @@ import { applyChangeSet, createEngine, resolveEvidence } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, onTestFinished, test } from 'vitest'
 import { anotherVersion, draftOf, reversedFactGroups, sameFacts, storeAnotherNormalizer } from './another-normalizer.js'
-import { attentionChanges, claudeHooks, itemOf, millisecond, questionOf } from './attention-fixtures.js'
+import {
+  attentionChanges,
+  claudeHooks,
+  codexHooks,
+  factOf,
+  itemOf,
+  millisecond,
+  otelDecision,
+  questionOf,
+} from './attention-fixtures.js'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
 import { adapters, expectedOf, factsOf, recordsOf, removalsOf, sessionKey, startEngine, streamOf } from './harness.js'
 import { createHome } from './home.js'
@@ -872,6 +885,62 @@ test('resolves OTel decisions of known threads in one reparse and leaves one wit
   expect(otel(pending)).toEqual({ parse_state: 'parsed', stream: streamOf('codex', child(later)) })
 })
 
+const justifiedRequests: Adapter = {
+  ...codexAdapter,
+  normalizerVersion: NormalizerVersion.parse(1),
+  parse: (record) => {
+    const result = codexAdapter.parse(record)
+    if (result.parse_state !== 'parsed') {
+      return result
+    }
+    const { tool_input: input } = JSON.parse(record.payload) as { readonly tool_input?: JsonValue }
+    return {
+      ...result,
+      facts: result.facts.map((fact) =>
+        fact.kind === 'permission_request' && input !== undefined ? { ...fact, payload: { ...fact.payload, input } } : fact,
+      ),
+    }
+  },
+}
+
+test('reparse drops the escalation justification that the first Codex normalizer kept in a stored permission request and links the request to its call and OTel decision', async () => {
+  const home = await createHome(onTestFinished)
+  const asking = sessionKey('codex', 'reparse-justification')
+  const hooks = codexHooks(asking.session)
+  let store = home.open()
+  const previous = createEngine({
+    store,
+    adapters: new Map([...adapters, ['codex', justifiedRequests]]),
+    watch: { all: true, roots: [] },
+  })
+  await previous.ingest(hookBatch(hooks.start(), hooks.pre('pre.evt', 'call', millisecond), hooks.request('request.evt', 2 * millisecond)))
+  await previous.ingest(otelDecision(asking.session, 'call', 'User', 'approved', 3 * millisecond))
+  const request = factOf(store, 'request.evt')
+  assert(request.kind === 'permission_request')
+  expect(request.normalizer_version).toBe(justifiedRequests.normalizerVersion)
+  expect(request.payload.input).toEqual({ ...hooks.input, description: expect.any(String) as unknown })
+  expect(questionOf(store, asking, 'request.evt')).toMatchObject({ action: null, decision: { value: 'requested' } })
+  expect(itemOf(store, asking, 'request.evt')).toMatchObject({ resolution: 'open', closed_at: null })
+  store.close()
+
+  store = home.open()
+  const reparsing = startEngine(store, { all: true })
+  const result = await reparsing.reparse()
+  expect(result).toMatchObject({ facts_missing: 0 })
+  const reparsed = factOf(store, 'request.evt')
+  expect(reparsed).toMatchObject({ id: request.id, normalizer_version: codexAdapter.normalizerVersion })
+  expect(reparsed.payload).toEqual({ tool: request.payload.tool, input: hooks.input })
+  const decision = factsOf(store).find(({ kind }) => kind === 'permission_decision')
+  assert(decision !== undefined)
+  expect(questionOf(store, asking, 'request.evt')).toMatchObject({
+    action: { action: objectId({ kind: 'action', runtime: 'codex', session: asking.session, call: 'call' }), ambiguous: false },
+    decision: { value: 'approved', evidence: [decision.id] },
+    answered_at: decision.at,
+  })
+  expect(itemOf(store, asking, 'request.evt')).toMatchObject({ resolution: 'answered', closed_at: decision.at })
+  expect((await reparsing.reparse()).head).toBe(result.head)
+})
+
 test('a SIGKILL during reparse leaves either the stored state of the other normalizer version or the reparsed one', async () => {
   const copies = 20
   const home = await createHome(onTestFinished)
@@ -899,7 +968,7 @@ test('a SIGKILL during reparse leaves either the stored state of the other norma
   await startEngine(expected, { all: true }).reparse()
   const reparsed = stateOf(expected)
   expect(new Set(reparsed.facts.map(({ normalizer_version }) => normalizer_version))).toEqual(
-    new Set([codexAdapter.normalizerVersion]),
+    new Set([claudeAdapter.normalizerVersion]),
   )
 
   const reparsing = await home.startReparse()
