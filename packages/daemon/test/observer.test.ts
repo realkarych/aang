@@ -212,12 +212,13 @@ test(
   },
 )
 
-test.skipIf(!singlePathClaude)(
+test(
   'a binding wakes the observer, which interprets the facts of the moved session in the target run without another intake',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
     const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
-    await configure(home, workspace, { cli: { claude: claude.command } })
+    await installLauncher(home)
+    await configure(home, workspace, { cli: { claude: claude.path } })
     const root = claudeKey('session-g8-bind-root')
     const moved = claudeKey('session-g8-bind-moved')
     const target = runId(root)
