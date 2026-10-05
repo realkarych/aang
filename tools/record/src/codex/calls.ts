@@ -1,6 +1,7 @@
 import { stat } from 'node:fs/promises'
+import { hookRecords, hooksNamed } from '../hooks.js'
 import type { ScenarioSession } from '../scenario.js'
-import { allRollouts, check, completedItems, events, hookRecords, hooksNamed, items, records, type Rollout, sessionMeta } from './rollout.js'
+import { allRollouts, check, completedItems, events, items, records, type Rollout, sessionMeta } from './rollout.js'
 import type { StubCall, StubReply, StubScript } from './stub.js'
 
 export const shell = (cmd: string, extra: Readonly<Record<string, unknown>> = {}): StubCall => ({ type: 'function_call', name: 'exec_command', arguments: { cmd, ...extra } })

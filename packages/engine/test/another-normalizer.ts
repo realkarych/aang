@@ -1,9 +1,11 @@
 import { type Fact, FactDraft, NormalizerVersion, type RawRecord } from '@aang/contract'
 import { canonicalJson } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
-import { recordsOf } from './harness.js'
+import { adapters, recordsOf } from './harness.js'
 
-export const anotherVersion = NormalizerVersion.parse(2)
+export const anotherVersion = NormalizerVersion.parse(
+  Math.max(...[...adapters.values()].map(({ normalizerVersion }) => normalizerVersion)) + 1,
+)
 
 export type AnotherParse = (drafts: readonly FactDraft[], record: RawRecord) => readonly FactDraft[] | 'invalid'
 

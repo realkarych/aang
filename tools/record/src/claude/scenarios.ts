@@ -1,35 +1,18 @@
-import { readdir, readFile, stat, writeFile } from 'node:fs/promises'
-import { basename, dirname, join, relative } from 'node:path'
+import { readFile, writeFile } from 'node:fs/promises'
+import { basename, dirname, join } from 'node:path'
+import type { OperatingSystem } from '@aang/contract'
 import { z } from 'zod'
-import type { Scenario, ScenarioSession } from '../scenario.js'
-import type { HostSummary } from './plan.js'
+import type { Scenario } from '../scenario.js'
+import { bash, check, type Definition, exists, playerPath, present, sessionOf, taskFiles } from './definition.js'
+import { inputDialogs } from './dialogs.js'
+import { elicitation } from './elicitation.js'
 import { planFilePlaceholder, type StubBlock, type StubScript } from './stub.js'
-import { type ClaudeRun, type ClaudeSurface, withClaude } from './surfaces.js'
+import { type ClaudeSurface, withClaude } from './surfaces.js'
+import { teammates } from './teammates.js'
 import {
   commandOf, findTranscript, named, subagentTranscripts, toolResult, toolUses, type ToolUse, type Transcript, transcriptFiles, userTexts,
 } from './transcripts.js'
-
-interface Definition {
-  readonly name: string
-  readonly expectedFacts: readonly string[]
-  readonly script: (session: ScenarioSession) => StubScript
-  readonly run: (run: ClaudeRun) => Promise<void>
-}
-
-const check = (condition: boolean, message: string): void => {
-  if (!condition) throw new Error(message)
-}
-
-const present = <T>(value: T | undefined, message: string): T => {
-  if (value === undefined) throw new Error(message)
-  return value
-}
-
-const exists = (path: string): Promise<boolean> => stat(path).then(() => true, () => false)
-
-const sessionOf = (summary: HostSummary): string => present(summary.results.at(-1)?.sessionId, 'The host saw no result')
-
-const bash = (command: string, description: string): StubBlock => ({ tool: 'Bash', input: { command, description } })
+import { workflow } from './workflow.js'
 
 const echo = (key: string, word: string): { readonly prompt: string; readonly script: StubScript } => ({
   prompt: `[aang:${key}] Run \`echo ${word}\` with the Bash tool and reply with its output.`,
@@ -44,17 +27,7 @@ const echoUse = (transcript: Transcript, word: string): ToolUse => present(
 const entryIndex = (transcript: Transcript, toolUseId: string): number => transcript.entries.findIndex((entry) =>
   Array.isArray(entry.message?.content) && entry.message.content.some((block) => block.type === 'tool_result' && block.tool_use_id === toolUseId))
 
-const playerPath = (session: ScenarioSession, file: string): { readonly root: 'claude'; readonly path: string } =>
-  ({ root: 'claude', path: relative(session.claude, file).replaceAll('\\', '/') })
-
-const Task = z.looseObject({ id: z.string(), subject: z.string(), status: z.string() })
 const TaskUpdate = z.looseObject({ taskId: z.string(), status: z.string().optional() })
-
-const taskFiles = async (session: ScenarioSession, sessionId: string): Promise<{ readonly file: string; readonly task: z.infer<typeof Task> }[]> => {
-  const directory = join(session.claude, 'tasks', sessionId)
-  const names = (await readdir(directory).catch(() => [])).filter((name) => name.endsWith('.json'))
-  return Promise.all(names.map(async (name) => ({ file: join(directory, name), task: Task.parse(JSON.parse(await readFile(join(directory, name), 'utf8'))) })))
-}
 
 const tools: Definition = {
   name: 'tools',
@@ -458,13 +431,23 @@ const sourceLoss: Definition = {
   },
 }
 
-const definitions: readonly Definition[] = [tools, subagents, resume, compaction, fork, plan, approval, question, interrupt, reconnect, sourceLoss]
+const definitions: readonly Definition[] = [
+  tools, subagents, resume, compaction, fork, plan, approval, question, interrupt, reconnect, sourceLoss, elicitation, workflow, teammates, inputDialogs,
+]
 
-export const scenariosFor = (surface: ClaudeSurface): Scenario[] => definitions.map((definition) => ({
-  name: definition.name,
-  surface: surface.surface,
-  models: ['stub', 'live'],
-  ...surface.os === undefined ? {} : { os: surface.os },
-  expectedFacts: definition.expectedFacts,
-  run: withClaude(surface, definition.script, definition.run),
-}))
+const osOf = (definition: Definition, surface: ClaudeSurface): readonly OperatingSystem[] | undefined =>
+  definition.os === undefined ? surface.os : surface.os === undefined ? definition.os : definition.os.filter((os) => surface.os?.includes(os))
+
+export const scenariosFor = (surface: ClaudeSurface): Scenario[] => definitions
+  .filter((definition) => definition.surfaces?.includes(surface.surface) ?? true)
+  .map((definition) => {
+    const os = osOf(definition, surface)
+    return {
+      name: definition.name,
+      surface: surface.surface,
+      models: definition.models ?? ['stub', 'live'],
+      ...os === undefined ? {} : { os },
+      expectedFacts: definition.expectedFacts,
+      run: withClaude(surface, definition.script, definition.run),
+    }
+  })

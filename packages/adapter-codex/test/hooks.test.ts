@@ -123,7 +123,7 @@ const expectations: Readonly<Record<string, readonly Record<string, unknown>[]>>
       runtime_ids: { turn_id: '01a0f75b-8065-7f92-8294-0a64a7930991', call_id: null },
       payload: {
         tool: 'Bash',
-        input: { command: 'touch /tmp/aang-spike-escalate-probe', description: 'aang spike approval probe' },
+        input: { command: 'touch /tmp/aang-spike-escalate-probe' },
       },
     },
   ],
