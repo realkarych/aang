@@ -24,7 +24,11 @@ export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOpt
     for (const hook of group.hooks) {
       if (!isJsonObject(hook) || typeof hook.command !== 'string') throw new Error('Invalid hook command')
       const args = Array.isArray(hook.args) ? hook.args.map(String) : []
-      const result = spawnSync(hook.command, args, { shell: !Array.isArray(hook.args), windowsHide: true, input: '{}', encoding: 'utf8' })
+      const powershell = join(process.env.SystemRoot ?? 'C:\\Windows', 'System32', 'WindowsPowerShell', 'v1.0', 'powershell.exe')
+      const launch = runtime === 'codex' && process.platform === 'win32'
+        ? { command: powershell, args: ['-NoProfile', '-Command', hook.command], shell: false }
+        : { command: hook.command, args, shell: !Array.isArray(hook.args) }
+      const result = spawnSync(launch.command, launch.args, { shell: launch.shell, windowsHide: true, input: '{}', encoding: 'utf8' })
       if (result.status !== 0) throw new Error(`Control hook failed: ${result.stderr}`)
     }
   }

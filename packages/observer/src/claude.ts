@@ -1,7 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { observerOutputJsonSchema, type CallUsage, type JsonValue } from '@aang/contract'
-import { authenticate, createBackend, events, failureClass, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type ObserverOutcome, type JsonObject } from './backend.js'
-import { observerSystemPrompt } from './prompt.js'
+import type { CallUsage, JsonValue } from '@aang/contract'
+import { authenticate, createBackend, events, failureClass, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type CallOutcome, type CallProtocol, type Invocation, type JsonObject } from './backend.js'
 
 import type { ProcessResult } from './process.js'
 
@@ -69,7 +68,7 @@ const usageOf = (result: JsonObject, model: string): CallUsage => {
 
 export const createClaudeLauncher = (options: ClaudeBackendOptions, admittedVersion?: string) => {
   let authenticated = false
-  return createBackend('claude', options, async ({ run, input }) => {
+  return createBackend('claude', options, async <T>({ run, input, protocol }: Invocation<T>): Promise<CallOutcome<T>> => {
     if (admittedVersion !== undefined) {
       const version = await run(['--version'])
       requireSuccess(version)
@@ -79,8 +78,8 @@ export const createClaudeLauncher = (options: ClaudeBackendOptions, admittedVers
       await authenticate('claude', run)
       authenticated = true
     }
-    const result = await run(claudeArguments(options, randomUUID()), input)
-    try { return parseClaudeResult(result, options) }
+    const result = await run(claudeArguments(options, randomUUID(), protocol), input)
+    try { return parseClaudeResult(result, options, protocol) }
     catch (error) {
       if (error instanceof LaunchError && error.kind === 'auth') authenticated = false
       throw error
@@ -88,18 +87,18 @@ export const createClaudeLauncher = (options: ClaudeBackendOptions, admittedVers
   })
 }
 
-export const claudeArguments = (options: ClaudeBackendOptions, sessionId: string): string[] => [
+export const claudeArguments = <T>(options: ClaudeBackendOptions, sessionId: string, protocol: CallProtocol<T>): string[] => [
   '-p', '--output-format', 'stream-json', '--verbose', '--include-hook-events',
-  '--json-schema', JSON.stringify(observerOutputJsonSchema()),
+  '--json-schema', JSON.stringify(protocol.schema),
   '--model', options.model,
   ...(options.effort === undefined ? [] : ['--effort', options.effort]),
   '--setting-sources', '', '--strict-mcp-config', '--mcp-config', '{"mcpServers":{}}',
   '--tools', '', '--disallowedTools', 'mcp__*', '--disable-slash-commands',
-  '--system-prompt', observerSystemPrompt, '--no-session-persistence', '--permission-mode', 'dontAsk',
+  '--system-prompt', protocol.systemPrompt, '--no-session-persistence', '--permission-mode', 'dontAsk',
   '--settings', '{"crossSessionInbound":"hold"}', '--session-id', sessionId,
 ]
 
-export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendOptions, check: ClaudeInitCheck = workingCall): ObserverOutcome => {
+export const parseClaudeResult = <T>(result: ProcessResult, options: ClaudeBackendOptions, protocol: CallProtocol<T>, check: ClaudeInitCheck = workingCall): CallOutcome<T> => {
   const allowed = options.builtins ?? { mcpServers: [], skills: [], plugins: [] }
   const { stream, parseError } = streamOf(result.stdout)
   const init = initsOf(stream)
@@ -119,5 +118,5 @@ export const parseClaudeResult = (result: ProcessResult, options: ClaudeBackendO
     const resets = object(limit) ? number(limit.resetsAt) : null
     throw new LaunchError(kind, `Claude did not produce a successful result${message === '' ? '' : `: ${message}`}`, usage, kind !== 'limit' ? null : resets === null ? resetTime(message) : resets * 1000)
   }
-  return validateOutput(response.structured_output, usageOf(response, options.model))
+  return validateOutput(protocol, response.structured_output, usageOf(response, options.model))
 }

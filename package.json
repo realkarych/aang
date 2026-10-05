@@ -21,12 +21,17 @@
     "test:docker": "vitest run --project tools/docker-image --tags-filter=docker",
     "support:check": "node tools/support/dist/main.js check",
     "support:update": "node tools/support/dist/main.js update",
+    "support:isolation": "node tools/support/dist/main.js isolation",
     "e2e": "playwright test"
   },
   "devDependencies": {
+    "@aang/adapter-claude": "workspace:*",
+    "@aang/adapter-codex": "workspace:*",
     "@aang/contract": "workspace:*",
+    "@aang/engine": "workspace:*",
     "@aang/eslint-plugin": "workspace:*",
     "@aang/hook": "workspace:*",
+    "@aang/store": "workspace:*",
     "@aang/testkit": "workspace:*",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "~1.63.0",
