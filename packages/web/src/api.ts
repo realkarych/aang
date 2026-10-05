@@ -13,6 +13,8 @@ import {
   type StageId,
   type StageInspector,
   type StatusResponse,
+  type UsageQuery,
+  type UsageReport,
 } from '@aang/contract'
 
 export class SignedOut extends Error {
@@ -94,3 +96,15 @@ export const readRaw = async (seq: RawSeq, signal: AbortSignal): Promise<RawReco
 
 export const readArtifactVersion = (id: ArtifactVersionId, signal: AbortSignal): Promise<ArtifactVersionResponse> =>
   read(endpoints.artifactVersion.path.replace(':id', encodeURIComponent(id)), endpoints.artifactVersion.response, signal)
+
+const usageSearch = ({ run, from, to }: UsageQuery): string => {
+  const search = new URLSearchParams({
+    ...(run === undefined ? {} : { run }),
+    ...(from === undefined ? {} : { from: from.toString() }),
+    ...(to === undefined ? {} : { to: to.toString() }),
+  }).toString()
+  return search === '' ? '' : `?${search}`
+}
+
+export const readUsage = (query: UsageQuery, signal: AbortSignal): Promise<UsageReport> =>
+  read(`${endpoints.usage.path}${usageSearch(query)}`, endpoints.usage.response, signal)

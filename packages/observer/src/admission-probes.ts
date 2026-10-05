@@ -25,10 +25,12 @@ const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Prom
   const marker = join(directory, 'hook-ran')
   const script = join(directory, 'control-hook.cjs')
   await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},'control')\n`, { mode: 0o600 })
-  const quote = (value: string): string => process.platform === 'win32' ? `"${value.replaceAll('"', '\\"')}"` : `'${value.replaceAll("'", "'\\''")}'`
+  const command = process.platform === 'win32'
+    ? `& ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "''")}'`).join(' ')}`
+    : [process.execPath, script].map((value) => `'${value.replaceAll("'", "'\\''")}'`).join(' ')
   const hook = runtime === 'claude'
     ? { type: 'command', command: process.execPath, args: [script], timeout: 10 }
-    : { type: 'command', command: [process.execPath, script].map(quote).join(' '), timeout: 10 }
+    : { type: 'command', command, timeout: 10 }
   const config = { hooks: { SessionStart: [{ hooks: [hook] }] } }
   const path = runtime === 'claude' ? join(directory, '.claude', 'settings.json') : join(directory, 'codex-home', 'hooks.json')
   await mkdir(runtime === 'claude' ? join(directory, '.claude') : join(directory, 'codex-home'), { recursive: true, mode: 0o700 })
@@ -123,7 +125,7 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
       requireSuccess(result)
       const stream = events(result.stdout)
       reject(stream.filter((event) => event.type === 'turn.completed').length !== 1 || stream.some((event) => event.type === 'turn.failed'), 'Codex admission turn did not complete')
-      reject(!ObserverOutput.safeParse(json(await readFile(join(directory, 'last.json'), 'utf8'))).success, 'Codex admission output was invalid')
+      if (!ObserverOutput.safeParse(json(await readFile(join(directory, 'last.json'), 'utf8'))).success) throw new LaunchError('invalid_output', 'Codex admission output was invalid')
       reject(existsSync(marker) !== positive, positive ? 'Codex control hook did not execute' : 'Codex hooks executed with hooks disabled')
       verifyCodexPersistence(env.CODEX_HOME)
       await rm(marker, { force: true })

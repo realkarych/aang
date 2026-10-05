@@ -97,7 +97,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
 export type CodexReply = z.input<typeof CodexReply>
 
 export const CodexScenario = z.strictObject({
-  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last']).optional(),
+  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last', 'off_schema_last']).optional(),
   descendant: Descendant.optional(),
   groupEscape: GroupEscape.optional(),
   version: z.string().default('0.159.3'),
