@@ -15,6 +15,7 @@ export interface ProcessRequest extends CliCommand {
   readonly input: string
   readonly timeoutMs: number
   readonly signal?: AbortSignal
+  readonly onProcessGroup?: (pgid: number) => void
 }
 
 export type ProcessFailure = 'timeout' | 'cancelled' | 'cli_missing' | 'launcher_unavailable' | 'process_stuck' | 'invalid_output'
@@ -104,6 +105,7 @@ export const createProcessRunner = (options: ProcessRunnerOptions = {}) => {
     const id = Symbol()
     active.add(id)
     notify()
+    if (!windows && child.pid !== undefined) request.onProcessGroup?.(child.pid)
     return new Promise<ProcessResult>((resolve) => {
       let stdout = ''
       let stderr = ''

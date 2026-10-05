@@ -12,7 +12,7 @@ const environmentValue = (env: InheritedEnvironment, name: string): string | und
 export const cleanEnvironment = (runtime: Runtime, source: InheritedEnvironment): Record<string, string> => {
   const windows = process.platform === 'win32'
   const names = windows
-    ? ['USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'TEMP', 'TMP', 'USERNAME']
+    ? ['USERPROFILE', 'HOMEDRIVE', 'HOMEPATH', 'APPDATA', 'LOCALAPPDATA', 'SystemRoot', 'TEMP', 'TMP', 'USERNAME', 'PATHEXT']
     : ['HOME', 'USER', 'LOGNAME', 'LANG']
   const environment: Record<string, string> = {}
   for (const name of names) {

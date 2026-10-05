@@ -1,7 +1,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const [mode, target] = process.argv.slice(2)
+const [mode, target, lines] = process.argv.slice(2)
 if (!target) {
   throw new Error('Missing target')
 }
@@ -42,6 +42,27 @@ switch (mode) {
     await writeFile(join(day, 'rollout-partial.jsonl'), '{"type":"session_meta"')
     await appendFile(join(codexHome, 'sessions', 'existing.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'later' } })}\n`)
     process.stdout.write(JSON.stringify({ home: process.env['HOME'], codexHome }))
+    break
+  }
+  case 'rules': {
+    const codexHome = process.env['CODEX_HOME']
+    if (!codexHome) throw new Error('Missing CODEX_HOME')
+    const day = join(codexHome, 'sessions', '2026', '10', '04')
+    await mkdir(day, { recursive: true })
+    const tool = ['/opt/owner-tools/bin/tool', 'view']
+    const add = ['git', 'add', 'pkg/private-project/main.go']
+    const commit = ['git', 'commit', '-m', 'private commit text']
+    const end = lines === 'crlf' ? '\r\n' : '\n'
+    const listed = [commit, tool].map((prefix) => `- [${prefix.map((part) => JSON.stringify(part)).join(', ')}]`).join(end)
+    const instructions = ['<permissions instructions>', '## Approved command prefixes', `The following prefix rules have already been approved: ${listed}`, '', 'Approval policy is `on-request`.', '</permissions instructions>'].join(end)
+    const records = [
+      { type: 'session_meta', payload: { id: target, cwd: process.cwd() } },
+      { type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: instructions }] } },
+      { type: 'world_state', payload: { full: true, state: { permissions: { instructions: 'fed2f53df24dd05a', approved_command_prefixes: [tool, add, commit] } } } },
+      { type: 'event_msg', payload: { type: 'exec_approval_request', proposed_execpolicy_amendment: ['touch', 'approved.txt'] } },
+    ]
+    await writeFile(join(day, 'rollout-rules.jsonl'), records.map((record) => `${JSON.stringify(record)}\n`).join(''))
+    process.stdout.write(instructions)
     break
   }
   case 'regular-claude': {

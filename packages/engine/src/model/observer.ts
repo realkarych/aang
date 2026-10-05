@@ -21,7 +21,7 @@ import {
   defaultInputTokens,
   longestStateText,
   type Packing,
-  packObserverInput,
+  packInput,
 } from '../input/fit.js'
 import { clipContext, defaultMaterialLimits, type MaterialLimits, resolveObserverNeeds } from '../input/materials.js'
 import { type InputScope, inputScope, inputViolations } from '../input/scope.js'
@@ -148,7 +148,7 @@ const followUpInput = (
     batchText: limits.textLength,
     stateText: longestStateText(base),
   }
-  return packObserverInput(range, tokens, render)
+  return packInput(range, tokens, render)
 }
 
 export const beginObserverFollowUp = (transaction: Transaction, followUp: ObserverFollowUp): ObserverInput => {

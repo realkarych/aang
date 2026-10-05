@@ -1,10 +1,9 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { observerOutputJsonSchema, type CallUsage } from '@aang/contract'
-import { authenticate, createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type JsonObject } from './backend.js'
-import { observerSystemPrompt } from './prompt.js'
+import type { CallUsage } from '@aang/contract'
+import { authenticate, createBackend, events, failureClass, json, LaunchError, number, object, requireSuccess, resetTime, validateOutput, type BackendOptions, type CallOutcome, type CallProtocol, type Invocation, type JsonObject } from './backend.js'
 
-const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins']
+const disabledFeatures = ['hooks', 'plugins', 'apps', 'multi_agent', 'multi_agent_v2', 'shell_tool', 'unified_exec', 'browser_use', 'browser_use_external', 'computer_use', 'image_generation', 'view_image', 'goals', 'sleep_tool', 'tool_suggest', 'skill_search', 'recommended_plugins', 'shell_snapshot']
 const settings = [
   'include_environment_context=false', 'include_permissions_instructions=false', 'include_apps_instructions=false',
   'include_collaboration_mode_instructions=false', 'project_doc_max_bytes=0', 'web_search="disabled"',
@@ -34,7 +33,7 @@ export const createCodexLauncher = (options: BackendOptions, admittedVersion?: s
   let authenticated = false
   let catalogVersion: string | undefined
   let catalog: JsonObject | undefined
-  return createBackend('codex', options, async ({ directory, run, input }) => {
+  return createBackend('codex', options, async <T>({ directory, run, input, protocol }: Invocation<T>): Promise<CallOutcome<T>> => {
     if (!authenticated) {
       await authenticate('codex', run)
       authenticated = true
@@ -48,7 +47,7 @@ export const createCodexLauncher = (options: BackendOptions, admittedVersion?: s
       catalog = codexCatalog(models.stdout, options.model)
       catalogVersion = version.stdout.trim()
     }
-    const args = await codexArguments(directory, catalog, options)
+    const args = await codexArguments(directory, catalog, options, protocol)
     const lastPath = join(directory, 'last.json')
     const result = await run(args, input)
     const unsupported = result.stderr.includes('codex_core::tools::router: error=unsupported')
@@ -73,19 +72,19 @@ export const createCodexLauncher = (options: BackendOptions, admittedVersion?: s
     let output
     try { output = json(await readFile(lastPath, 'utf8')) }
     catch { throw new LaunchError('invalid_output', 'Codex last.json is missing or invalid', usage) }
-    return validateOutput(output, usage)
+    return validateOutput(protocol, output, usage)
   })
 }
 
-export const codexArguments = async (directory: string, catalog: JsonObject, options: BackendOptions): Promise<string[]> => {
+export const codexArguments = async <T>(directory: string, catalog: JsonObject, options: BackendOptions, protocol: CallProtocol<T>): Promise<string[]> => {
   const catalogPath = join(directory, 'models.json')
   const promptPath = join(directory, 'instructions.txt')
   const schemaPath = join(directory, 'schema.json')
   const lastPath = join(directory, 'last.json')
   await Promise.all([
     writeFile(catalogPath, JSON.stringify(catalog), { mode: 0o600 }),
-    writeFile(promptPath, observerSystemPrompt, { mode: 0o600 }),
-    writeFile(schemaPath, JSON.stringify(observerOutputJsonSchema()), { mode: 0o600 }),
+    writeFile(promptPath, protocol.systemPrompt, { mode: 0o600 }),
+    writeFile(schemaPath, JSON.stringify(protocol.schema), { mode: 0o600 }),
   ])
   return [
     'exec', '--json', '--ephemeral', '--ignore-user-config', '--ignore-rules', '--skip-git-repo-check', '-s', 'read-only',

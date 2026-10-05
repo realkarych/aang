@@ -39,6 +39,11 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await expect(page.getByRole('region', { name: 'Hooks: подробности' })).toContainText(
     'Claude Code: hooks не активны в 1 сессии, режим «только файлы».',
   )
+  await expect(lamp(page, 'Версии')).toHaveText('Версии 1 версия без полной поддержки')
+  await lamp(page, 'Версии').getByRole('button').click()
+  await expect(page.getByRole('region', { name: 'Версии: подробности' })).toHaveText(
+    /^Claude Code \d+\.\d+\.\d+ \(поверхность не определена\), (macos|linux|windows), local: не проверена, 1 сессия\.$/,
+  )
 
   await row.getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?run=${claudeRun}$`))

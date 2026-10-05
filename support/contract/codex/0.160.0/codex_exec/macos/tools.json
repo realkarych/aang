@@ -117,7 +117,7 @@
     {
       "channel": "rollout",
       "type": "world_state",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 1
     }
   ],
@@ -2002,7 +2002,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 1,
+      "unknown_records": 0,
       "cost_state": null,
       "started_at": "<time>",
       "last_event_at": "<time>"
@@ -2298,23 +2298,7 @@
       "observed_at": "<time>"
     }
   ],
-  "gaps": [
-    {
-      "id": "#58",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "eabf063da290e5a8e0c66415be7c55a6"
-      },
-      "kind": "unknown_records",
-      "run": "#46",
-      "session": "#45",
-      "stream": null,
-      "details": "1 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
-    }
-  ],
+  "gaps": [],
   "removals": [],
   "runs": [
     {

@@ -116,8 +116,6 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
     const connected = await connect(onTestFinished)
     const { sandbox, workspace, claude, codex, codexHome, pluginHooks, codexHooks, hookBinary } = connected
     const pluginDirectory = join(sandbox.aangHome, 'claude-plugin')
-    expect((await sandbox.aang('start')).code).toBe(0)
-
     const installed = await sandbox.aang('install')
 
     expect(installed).toEqual({
@@ -151,6 +149,7 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
     expect(codexHandlers).toEqual([
       { type: 'command', command: `'${hookBinary}' codex user '${sandbox.spool}'`, timeout: 2 },
     ])
+    expect((await sandbox.aang('start')).code).toBe(0)
     const claudeStart = await sample('claude-code-hooks/SessionStart.startup.json')
     const { stdin: codexStart } = (await sample('codex-cli/hooks/SessionStart.startup.json')) as {
       readonly stdin: Record<string, unknown>
