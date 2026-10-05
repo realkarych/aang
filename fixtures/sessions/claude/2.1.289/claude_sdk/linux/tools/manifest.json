@@ -1,0 +1,282 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "claude",
+  "engine_version": "2.1.289",
+  "app_version": "0.3.289",
+  "surface": "claude_sdk",
+  "os": "linux",
+  "scenario": "tools",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:20:59.669Z",
+  "expected_facts": [
+    "One turn of the root session runs Read, Bash, Write and Edit tool actions in order",
+    "Write and Edit are approved through the host permission prompt after ~0.5 s each",
+    "Every assistant message of the turn carries usage"
+  ],
+  "control_events": [
+    {
+      "label": "edit-finished",
+      "step": 24,
+      "observed_at": "2026-10-04T01:21:01.411Z",
+      "expected_map_change": {
+        "description": "The Edit action on result.txt is finished; Read, Bash, Write and Edit are listed as completed actions of the root session"
+      }
+    },
+    {
+      "label": "turn-finished",
+      "step": 27,
+      "observed_at": "2026-10-04T01:21:01.434Z",
+      "expected_map_change": {
+        "description": "The turn ends: the root session becomes idle and shows token usage for the turn"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.json",
+      "observed_at": "2026-10-04T01:21:00.051Z",
+      "mtime_ns": "1791076860041083632"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-04T01:21:00.044Z",
+      "mtime_ns": "1791076860044083693"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-04T01:21:00.044Z",
+      "mtime_ns": "1791076860044083693"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-04T01:21:00.076Z",
+      "mtime_ns": "1791076860058083976"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-04T01:21:00.101Z",
+      "mtime_ns": "1791076860084084501"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-04T01:21:00.086Z",
+      "mtime_ns": "1791076860086084541"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-04T01:21:00.086Z",
+      "mtime_ns": "1791076860086084541"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-04T01:21:00.140Z",
+      "mtime_ns": "1791076860140085631"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-04T01:21:00.140Z",
+      "mtime_ns": "1791076860140085631"
+    },
+    {
+      "source": "spool/000010.spool",
+      "observed_at": "2026-10-04T01:21:00.167Z",
+      "mtime_ns": "1791076860167086177"
+    },
+    {
+      "source": "data/000011.json",
+      "observed_at": "2026-10-04T01:21:00.167Z",
+      "mtime_ns": "1791076860167086177"
+    },
+    {
+      "source": "data/000012.jsonl",
+      "observed_at": "2026-10-04T01:21:00.274Z",
+      "mtime_ns": "1791076860273088321"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-04T01:21:00.272Z",
+      "mtime_ns": "1791076860272088301"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:21:00.272Z",
+      "mtime_ns": "1791076860272088301"
+    },
+    {
+      "source": "data/000015.jsonl",
+      "observed_at": "2026-10-04T01:21:00.276Z",
+      "mtime_ns": "1791076860274088341"
+    },
+    {
+      "source": "spool/000016.spool",
+      "observed_at": "2026-10-04T01:21:00.297Z",
+      "mtime_ns": "1791076860297088805"
+    },
+    {
+      "source": "data/000017.json",
+      "observed_at": "2026-10-04T01:21:00.297Z",
+      "mtime_ns": "1791076860297088805"
+    },
+    {
+      "source": "spool/000018.spool",
+      "observed_at": "2026-10-04T01:21:00.327Z",
+      "mtime_ns": "1791076860327089411"
+    },
+    {
+      "source": "data/000019.json",
+      "observed_at": "2026-10-04T01:21:00.327Z",
+      "mtime_ns": "1791076860327089411"
+    },
+    {
+      "source": "spool/000020.spool",
+      "observed_at": "2026-10-04T01:21:00.332Z",
+      "mtime_ns": "1791076860332089512"
+    },
+    {
+      "source": "data/000021.json",
+      "observed_at": "2026-10-04T01:21:00.332Z",
+      "mtime_ns": "1791076860332089512"
+    },
+    {
+      "source": "spool/000022.spool",
+      "observed_at": "2026-10-04T01:21:00.348Z",
+      "mtime_ns": "1791076860348089835"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-04T01:21:00.348Z",
+      "mtime_ns": "1791076860348089835"
+    },
+    {
+      "source": "data/000024.json",
+      "observed_at": "2026-10-04T01:21:00.378Z",
+      "mtime_ns": "1791076860355089976"
+    },
+    {
+      "source": "spool/000025.spool",
+      "observed_at": "2026-10-04T01:21:00.357Z",
+      "mtime_ns": "1791076860357090017"
+    },
+    {
+      "source": "data/000026.json",
+      "observed_at": "2026-10-04T01:21:00.357Z",
+      "mtime_ns": "1791076860357090017"
+    },
+    {
+      "source": "data/000027.jsonl",
+      "observed_at": "2026-10-04T01:21:00.404Z",
+      "mtime_ns": "1791076860380090481"
+    },
+    {
+      "source": "data/000028.json",
+      "observed_at": "2026-10-04T01:21:00.888Z",
+      "mtime_ns": "1791076860870100375"
+    },
+    {
+      "source": "spool/000029.spool",
+      "observed_at": "2026-10-04T01:21:00.876Z",
+      "mtime_ns": "1791076860876100496"
+    },
+    {
+      "source": "data/000030.json",
+      "observed_at": "2026-10-04T01:21:00.876Z",
+      "mtime_ns": "1791076860876100496"
+    },
+    {
+      "source": "spool/000031.spool",
+      "observed_at": "2026-10-04T01:21:00.881Z",
+      "mtime_ns": "1791076860881100597"
+    },
+    {
+      "source": "data/000032.json",
+      "observed_at": "2026-10-04T01:21:00.881Z",
+      "mtime_ns": "1791076860881100597"
+    },
+    {
+      "source": "data/000033.json",
+      "observed_at": "2026-10-04T01:21:00.913Z",
+      "mtime_ns": "1791076860902101021"
+    },
+    {
+      "source": "spool/000034.spool",
+      "observed_at": "2026-10-04T01:21:00.899Z",
+      "mtime_ns": "1791076860899100960"
+    },
+    {
+      "source": "data/000035.json",
+      "observed_at": "2026-10-04T01:21:00.899Z",
+      "mtime_ns": "1791076860899100960"
+    },
+    {
+      "source": "spool/000036.spool",
+      "observed_at": "2026-10-04T01:21:00.904Z",
+      "mtime_ns": "1791076860904101061"
+    },
+    {
+      "source": "data/000037.json",
+      "observed_at": "2026-10-04T01:21:00.904Z",
+      "mtime_ns": "1791076860904101061"
+    },
+    {
+      "source": "data/000038.jsonl",
+      "observed_at": "2026-10-04T01:21:00.987Z",
+      "mtime_ns": "1791076860978102555"
+    },
+    {
+      "source": "data/000039.json",
+      "observed_at": "2026-10-04T01:21:01.420Z",
+      "mtime_ns": "1791076861405111177"
+    },
+    {
+      "source": "spool/000040.spool",
+      "observed_at": "2026-10-04T01:21:01.411Z",
+      "mtime_ns": "1791076861411111298"
+    },
+    {
+      "source": "data/000041.json",
+      "observed_at": "2026-10-04T01:21:01.411Z",
+      "mtime_ns": "1791076861411111298"
+    },
+    {
+      "source": "spool/000042.spool",
+      "observed_at": "2026-10-04T01:21:01.416Z",
+      "mtime_ns": "1791076861416111399"
+    },
+    {
+      "source": "data/000043.json",
+      "observed_at": "2026-10-04T01:21:01.416Z",
+      "mtime_ns": "1791076861416111399"
+    },
+    {
+      "source": "data/000044.jsonl",
+      "observed_at": "2026-10-04T01:21:01.451Z",
+      "mtime_ns": "1791076861442111924"
+    },
+    {
+      "source": "spool/000045.spool",
+      "observed_at": "2026-10-04T01:21:01.434Z",
+      "mtime_ns": "1791076861434111763"
+    },
+    {
+      "source": "data/000046.json",
+      "observed_at": "2026-10-04T01:21:01.434Z",
+      "mtime_ns": "1791076861434111763"
+    },
+    {
+      "source": "spool/000047.spool",
+      "observed_at": "2026-10-04T01:21:01.454Z",
+      "mtime_ns": "1791076861454112166"
+    },
+    {
+      "source": "data/000048.json",
+      "observed_at": "2026-10-04T01:21:01.454Z",
+      "mtime_ns": "1791076861454112166"
+    },
+    {
+      "source": "output/000049.txt",
+      "observed_at": "2026-10-04T01:21:01.494Z",
+      "mtime_ns": "1791076861494000000"
+    }
+  ],
+  "playback": "playback.json"
+}
