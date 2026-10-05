@@ -268,7 +268,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     }
     const entry = catalogEntry({ options, catalog })
     if (admission) {
-      runAdmissionHook('codex', options, scenario.admissionFault)
+      await runAdmissionHook('codex', options, scenario.admissionFault)
       codexAdmissionArtifacts(scenario.admissionFault)
     }
     if (scenario.admissionFault === 'no_http') { completeTurn(turn, '{"base_version":0,"ops":[],"needs":[]}', defaultCodexUsage); return }
