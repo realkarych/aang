@@ -7,6 +7,7 @@ export const Decision = z.strictObject({
   delayMs: z.int().nonnegative().default(0),
   message: z.string().default('The user denied this action'),
   answer: z.int().nonnegative().optional(),
+  optional: z.boolean().default(false),
 })
 export type Decision = z.infer<typeof Decision>
 
@@ -19,6 +20,13 @@ export const ElicitationAnswer = z.strictObject({
 export type ElicitationAnswer = z.infer<typeof ElicitationAnswer>
 
 const McpServer = z.strictObject({ command: z.string().min(1), args: z.array(z.string()).default([]) })
+
+export const AgentDefinition = z.strictObject({
+  description: z.string().min(1),
+  prompt: z.string().min(1),
+  tools: z.array(z.string().min(1)).optional(),
+})
+export type AgentDefinition = z.infer<typeof AgentDefinition>
 
 const Turn = z.strictObject({
   prompt: z.string().min(1),
@@ -40,6 +48,9 @@ export const HostPlan = z.strictObject({
   turns: z.array(Turn).min(1),
   decisions: z.array(Decision).default([]),
   mcpServers: z.record(z.string(), McpServer).default({}),
+  plugins: z.array(z.string().min(1)).default([]),
+  agents: z.record(z.string(), AgentDefinition).default({}),
+  settings: z.string().min(1).optional(),
   elicitations: z.array(ElicitationAnswer).default([]),
   turnTimeoutMs: z.int().positive().default(240_000),
 })

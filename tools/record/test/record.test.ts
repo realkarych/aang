@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -172,6 +172,52 @@ test('captures removal and truncation, refuses replacement of an existing record
   }
   await expect(recordSession(config, () => Promise.resolve())).rejects.toThrow(/already exists/)
   await verifyRecording(directory)
+})
+
+test('kept TOML definition files of a temporary profile are checked before publication and replayed at their paths', async () => {
+  const config = await options('codex')
+  const canonicalHome = os === 'windows' ? 'C:/Users/USER' : os === 'macos' ? '/Users/USER' : '/home/USER'
+  const declaration = '[agents.reviewer]\ndescription = "Reviews the notes"\nconfig_file = "agents/reviewer.toml"\n'
+  let staged = ''
+  const directory = await recordSession({ ...config, check: async (recording) => { staged = await readFile(join(recording, 'playback.json'), 'utf8') } }, async (session) => {
+    await writeFile(join(session.codex, 'config.toml'), declaration)
+    await mkdir(join(session.codex, 'agents'))
+    await writeFile(join(session.codex, 'agents', 'reviewer.toml'), `developer_instructions = "Read ${join(session.home, 'notes.md').replaceAll('\\', '/')}"\n`)
+    await writeFile(join(session.codex, 'hooks.toml'), 'kept = false\n')
+    await expect(session.keep({ root: 'codex', path: 'hooks.json' })).rejects.toThrow(/TOML/)
+    await expect(session.keep({ root: 'codex', path: '../config.toml' })).rejects.toThrow(/TOML/)
+    await expect(session.keep({ root: 'codex', path: 'missing.toml' })).rejects.toMatchObject({ code: 'ENOENT' })
+    await session.keep({ root: 'codex', path: 'config.toml' })
+    await session.keep({ root: 'codex', path: 'agents/reviewer.toml' })
+    await session.run(process.execPath, [runtimeScript, 'codex', 'first'])
+    await appendFile(join(session.codex, 'config.toml'), '\n[features]\nhooks = true\n')
+    await session.run(process.execPath, [runtimeScript, 'codex', 'second'])
+  })
+  await verifyRecording(directory)
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const kept = playback.steps.flatMap((step) => step.kind === 'write' && step.target.root === 'codex' ? [step.target.path] : [])
+  expect(kept).toEqual(['config.toml', 'agents/reviewer.toml', 'config.toml'])
+  expect(staged).toBe(await readFile(join(directory, 'playback.json'), 'utf8'))
+  const profile = await createProfile()
+  try {
+    await createPlayer(playback, { roots: profile, timeScale: 0 }).play()
+    expect(await readFile(join(profile.codex, 'config.toml'), 'utf8')).toBe(`${declaration}\n[features]\nhooks = true\n`)
+    expect(await readFile(join(profile.codex, 'agents', 'reviewer.toml'), 'utf8')).toBe(`developer_instructions = "Read ${canonicalHome}/notes.md"\n`)
+    await expect(stat(join(profile.codex, 'hooks.toml'))).rejects.toMatchObject({ code: 'ENOENT' })
+  } finally {
+    await profile.dispose()
+  }
+  await expect(recordSession({ ...config, scenario: 'rejected', check: () => Promise.reject(new Error('The role is missing')) }, async (session) => {
+    await session.run(process.execPath, [runtimeScript, 'codex', 'first'])
+  })).rejects.toThrow('The role is missing')
+  await expect(stat(join(config.fixturesRoot, 'codex', '0.0.1', 'codex_exec', os, 'rejected'))).rejects.toMatchObject({ code: 'ENOENT' })
+  const owner = join(dirname(config.fixturesRoot), 'owner-codex')
+  await mkdir(owner)
+  await writeFile(join(owner, 'config.toml'), 'model = "owner"\n')
+  vi.stubEnv('CODEX_HOME', owner)
+  await expect(recordSession({ ...config, scenario: 'regular', codexHome: 'regular' }, async (session) => {
+    await expect(session.keep({ root: 'codex', path: 'config.toml' })).rejects.toThrow(/temporary profile/)
+  })).rejects.toThrow(/no captured events/)
 })
 
 test.each([

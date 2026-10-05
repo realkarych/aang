@@ -14,7 +14,7 @@ const codeCell = (cmd: string): StubCall => ({
   type: 'custom_tool_call', name: 'exec', input: `const result = await tools.exec_command({ cmd: ${JSON.stringify(cmd)} });\ntext(result.output);`,
 })
 
-const collaboration = (name: string, args: Readonly<Record<string, unknown>>): StubCall => ({ type: 'function_call', namespace: 'collaboration', name, arguments: args })
+export const collaboration = (name: string, args: Readonly<Record<string, unknown>>): StubCall => ({ type: 'function_call', namespace: 'collaboration', name, arguments: args })
 
 export const plan = (steps: readonly (readonly [string, string])[]): StubCall => ({
   type: 'function_call', name: 'update_plan', arguments: { plan: steps.map(([step, status]) => ({ step, status })) },
@@ -31,7 +31,7 @@ export const commandOutputs = (stdout: string): string[] =>
 
 export const toolSteps: readonly (readonly StubCall[])[] = [[shell('echo hi')], [patch('result.json', '{"status": "ok"}')], [codeCell('echo code')]]
 
-const childrenFinished = (session: ScenarioSession, count: number) => async (): Promise<boolean> =>
+export const childrenFinished = (session: ScenarioSession, count: number) => async (): Promise<boolean> =>
   (await allRollouts(session.codex)).filter((rollout) => typeof records(rollout, 'session_meta')[0]?.['parent_thread_id'] === 'string' && events(rollout, 'task_complete').length > 0).length >= count
 
 export const subagentScript = (session: ScenarioSession, key: string): StubScript => ({

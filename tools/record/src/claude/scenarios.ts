@@ -3,15 +3,18 @@ import { basename, dirname, join } from 'node:path'
 import type { OperatingSystem } from '@aang/contract'
 import { z } from 'zod'
 import type { Scenario } from '../scenario.js'
+import { agentsFlag } from './agents-flag.js'
 import { bash, check, type Definition, exists, playerPath, present, sessionOf, taskFiles } from './definition.js'
 import { inputDialogs } from './dialogs.js'
 import { elicitation } from './elicitation.js'
+import { plugin } from './plugin.js'
 import { planFilePlaceholder, type StubBlock, type StubScript } from './stub.js'
 import { type ClaudeSurface, withClaude } from './surfaces.js'
 import { teammates } from './teammates.js'
 import {
   commandOf, findTranscript, named, subagentTranscripts, toolResult, toolUses, type ToolUse, type Transcript, transcriptFiles, userTexts,
 } from './transcripts.js'
+import { userHooks } from './user-hooks.js'
 import { workflow } from './workflow.js'
 
 const echo = (key: string, word: string): { readonly prompt: string; readonly script: StubScript } => ({
@@ -433,6 +436,7 @@ const sourceLoss: Definition = {
 
 const definitions: readonly Definition[] = [
   tools, subagents, resume, compaction, fork, plan, approval, question, interrupt, reconnect, sourceLoss, elicitation, workflow, teammates, inputDialogs,
+  plugin, agentsFlag, userHooks,
 ]
 
 const osOf = (definition: Definition, surface: ClaudeSurface): readonly OperatingSystem[] | undefined =>
