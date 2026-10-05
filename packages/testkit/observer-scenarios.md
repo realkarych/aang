@@ -45,7 +45,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | 1, карта H.4: три уровня | `map-nested.live` | образец `claude-subagent`: порция до субагента, затем остальное |
 | 3 | `claimed-done.live` | транскрипт образца Claude, упавший `pnpm test` по контракту и финальный текст «All done»; пункт `failed_check` остаётся открытым |
 | 4 | `since-last-view.before`, затем `.after` | образец `claude-fork` до `resume`, затем до `continue` и до `fork`; образец `codex-resume-compaction` до `resume` и после |
-| 5 | `chat.live` | транскрипт образца Claude с субагентом типа `code-reviewer` и его `PermissionRequest` |
+| 5 | `chat.live` | транскрипт образца Claude с субагентом типа `code-reviewer` и его `PermissionRequest`; вариант Codex (H.12) — запись R.4 `codex_exec/subagents`, где задача субагента `scout` переименована в `reviewer`, и `PermissionRequest` этого субагента |
 | 18 | `old-ground.live` | образцы `claude-subagent` (до субагента, до его результата) и `codex-resume-compaction` (до `resume`, до `compaction`): вопрос по этапу `Main work`, когда его свидетельства уже заменены следующей порцией |
 | 7 | `llm-failure.healthy`, `.failing`, `.recovered` | образец `codex-resume-compaction`: порция до `resume`; в `failing` только отказ `limit`; в `recovered` — факты после сводки ранних фактов и свёрнутые счётчики токенов |
 | 8 | `live-map.live` | rollout Codex с запуском субагента, затем rollout субагента, hooks с `PermissionRequest`, решение через OTel (`source: User`) и fork отдельным прогоном |
