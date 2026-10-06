@@ -66,8 +66,6 @@ export const definitionPaths = (
 
 const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/
 
-const field = /^description\s*:(.*)$/
-
 const blockIndicator = /^([|>])[+-]?\d*$/
 
 const indented = (line: string): boolean => line.trim() === '' || /^\s/.test(line)
@@ -76,19 +74,70 @@ const quoted = /^(["'])(.*)\1$/
 
 const unquoted = (value: string): string => quoted.exec(value)?.[2] ?? value
 
-export const frontmatterDescription = (text: string): string | null => {
+interface Field {
+  readonly value: string
+  readonly following: readonly string[]
+}
+
+const frontmatterField = (text: string, key: string): Field | null => {
   const lines = frontmatter.exec(text)?.[1]?.split(/\r?\n/) ?? []
-  const index = lines.findIndex((line) => field.test(line))
-  const value = field.exec(lines[index] ?? '')?.[1]?.trim()
-  if (value === undefined) {
+  const pattern = new RegExp(`^${key}\\s*:(.*)$`)
+  const index = lines.findIndex((line) => pattern.test(line))
+  const value = pattern.exec(lines[index] ?? '')?.[1]?.trim()
+  return value === undefined ? null : { value, following: lines.slice(index + 1) }
+}
+
+const leading = (lines: readonly string[], kept: (line: string) => boolean): readonly string[] => {
+  const end = lines.findIndex((line) => !kept(line))
+  return end < 0 ? lines : lines.slice(0, end)
+}
+
+export const frontmatterDescription = (text: string): string | null => {
+  const field = frontmatterField(text, 'description')
+  if (field === null) {
     return null
   }
-  const following = lines.slice(index + 1)
-  const end = following.findIndex((line) => !indented(line))
-  const continuation = (end < 0 ? following : following.slice(0, end)).map((line) => line.trim())
-  const style = blockIndicator.exec(value)?.[1]
+  const continuation = leading(field.following, indented).map((line) => line.trim())
+  const style = blockIndicator.exec(field.value)?.[1]
   if (style !== undefined) {
     return continuation.join(style === '|' ? '\n' : ' ').trim()
   }
-  return unquoted([value, ...continuation.filter((line) => line !== '')].join(' '))
+  return unquoted([field.value, ...continuation.filter((line) => line !== '')].join(' '))
+}
+
+const flowSequence = /^\[(.*)\]$/
+
+const sequenceItem = /^\s*-\s+(.*)$/
+
+const toolName = /(?:\([^)]*\)?|[^\s,(])+/g
+
+const allTools = '*'
+
+const fieldItems = ({ value, following }: Field): readonly string[] => {
+  const flow = flowSequence.exec(value)?.[1]
+  if (flow !== undefined) {
+    return flow.split(',')
+  }
+  if (value !== '') {
+    return [value]
+  }
+  return leading(following, (line) => sequenceItem.test(line)).map((line) => line.replace(sequenceItem, '$1'))
+}
+
+const frontmatterTools = (text: string, key: string): readonly string[] => {
+  const field = frontmatterField(text, key)
+  const names = (field === null ? [] : fieldItems(field)).flatMap(
+    (item) => unquoted(item.trim()).match(toolName) ?? [],
+  )
+  return names.includes(allTools) ? [] : names
+}
+
+export const listedTools = (text: string): string => {
+  const allowed = frontmatterTools(text, 'tools')
+  const disallowed = frontmatterTools(text, 'disallowedTools')
+  if (allowed.length === 0) {
+    return disallowed.length === 0 ? 'All tools' : `All tools except ${disallowed.join(', ')}`
+  }
+  const kept = allowed.filter((tool) => !disallowed.includes(tool))
+  return kept.length === 0 ? 'None' : kept.join(', ')
 }

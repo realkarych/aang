@@ -1096,21 +1096,31 @@ test('a session that does not list the subagent or the skill takes nothing from 
   )
 })
 
-test('a file of the subagent type is its definition only when the listing of the session gives its description', async ({
+test('a file of the subagent type is its definition only when it gives the description and the tools the listing of the session gives', async ({
   onTestFinished,
 }) => {
   const workspace = await setup(onTestFinished)
   const { project, cwd, claudeHome } = workspace
   const reviewerFile = join(project, '.claude', 'agents', 'reviewer.md')
-  const reviewer = '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash\n---\nReview the notes.\n'
+  const reviewer = '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\nReview the notes.\n'
   await write(join(cwd, '.claude', 'agents', 'reviewer.md'), '---\ndescription: Reviews the package.\n---\nReview.\n')
+  await write(
+    join(cwd, '..', '.claude', 'agents', 'reviewer.md'),
+    '---\ndescription: Reviews the notes.\ntools: Bash\n---\nRun.\n',
+  )
   await write(reviewerFile, reviewer)
-  await write(join(project, '.claude', 'agents', `${checker}.md`), '---\ndescription: Checks the project.\n---\nCheck.\n')
-  await write(join(claudeHome, 'agents', `${checker}.md`), '---\ndescription: Checks the notes\n---\nCheck the notes.\n')
+  await write(
+    join(project, '.claude', 'agents', `${checker}.md`),
+    '---\ndescription: Checks the notes given for the run.\n---\nCheck the project.\n',
+  )
+  await write(
+    join(claudeHome, 'agents', `${checker}.md`),
+    '---\ndescription: Checks the notes given for the run.\ntools: Read, Bash\n---\nCheck the user notes.\n',
+  )
   const source = { session: 'file-session', cwd }
 
   const context = await definedRun(workspace, [
-    { source, agents: { reviewer: 'Reviews the notes. (Tools: Bash)', [checker]: checksFlag }, skills: {} },
+    { source, agents: { reviewer: 'Reviews the notes. (Tools: Bash, Read)', [checker]: checksFlag }, skills: {} },
   ])
 
   expect(ofKind(context, 'agent_definition')).toEqual(
@@ -1118,6 +1128,40 @@ test('a file of the subagent type is its definition only when the listing of the
       entry('agent_definition', reviewerFile, reviewer),
       entry('agent_definition', listedRef(checker, source), checksFlag),
     ].sort(byRef),
+  )
+})
+
+test('a file stands for a listed subagent in each form of its tools and disallowed tools', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { project, cwd } = workspace
+  const forms = {
+    'every-tool': ['', 'All tools'],
+    'any-tool': ['tools: "*"\n', 'All tools'],
+    'flow-tools': ['tools: [Read, "Grep", ]\n', 'Read, Grep'],
+    'block-tools': ["tools:\n  - Read\n  - 'Bash(git log:*)'\n", 'Read, Bash(git log:*)'],
+    'denied-tools': ['disallowedTools: Write, Edit\n', 'All tools except Write, Edit'],
+    'kept-tools': ['tools: Read Grep Write\ndisallowedTools: [Write]\n', 'Read, Grep'],
+    'no-tool': ['tools: Write\ndisallowedTools:\n- Write\n', 'None'],
+  } as const
+  const files = Object.entries(forms).map(([type, [fields]]) => ({
+    path: join(project, '.claude', 'agents', `${type}.md`),
+    text: `---\ndescription: Works with ${type}.\n${fields}---\nWork.\n`,
+  }))
+  for (const { path, text } of files) {
+    await write(path, text)
+  }
+  const listed = Object.fromEntries(
+    Object.entries(forms).map(([type, [, tools]]) => [type, `Works with ${type}. (Tools: ${tools})`]),
+  )
+
+  const context = await definedRun(workspace, [
+    { source: { session: 'forms-session', cwd }, agents: listed, skills: {} },
+  ])
+
+  expect(ofKind(context, 'agent_definition')).toEqual(
+    files.map(({ path, text }) => entry('agent_definition', path, text)).sort(byRef),
   )
 })
 

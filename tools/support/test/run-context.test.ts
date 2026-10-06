@@ -179,7 +179,7 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
   )
 
   test.for(ofScenario('agents-flag'))(
-    '%s: the subagent defined for one run gets its listed definition, and a file of its name does not stand in for it',
+    '%s: the subagent defined for one run gets its listed definition, and a file of its name and description with other tools does not stand in for it',
     async ([, recording], { expect, onTestFinished }) => {
       const { store, roots, run, session, context } = await play(recording, onTestFinished)
       const flagDefinition = entry(
@@ -194,7 +194,7 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
       await mkdir(join(roots.claude, 'agents'), { recursive: true })
       await writeFile(
         join(roots.claude, 'agents', 'notes-checker.md'),
-        '---\nname: notes-checker\ndescription: Checks the notes of the user files.\ntools: Read\n---\nRead the user notes.\n',
+        '---\nname: notes-checker\ndescription: Checks the project notes and reports the result. Use it to check the notes.\ntools: Read\n---\nRead the user notes.\n',
       )
       const withFile = await contextOf(recording, store, roots, run)
       expect(entriesOf(withFile, 'agent_definition')).toEqual([flagDefinition])

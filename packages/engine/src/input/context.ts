@@ -32,6 +32,7 @@ import {
   type FileText,
   firstText,
   frontmatterDescription,
+  listedTools,
   readText,
   safeName,
 } from './context-files.js'
@@ -216,12 +217,12 @@ const attributed = (resolved: readonly Resolved[]): Source[] => {
   )
 }
 
-const listedTools = ' (Tools: '
-
-const confirms = (listed: string | null, file: FileText): boolean => {
+const listedLine = (file: FileText): string | null => {
   const description = frontmatterDescription(file.text)
-  return listed === null || (description !== null && listed.startsWith(`${description}${listedTools}`))
+  return description === null ? null : `${description} (Tools: ${listedTools(file.text)})`
 }
+
+const confirms = (listed: string | null, file: FileText): boolean => listed === null || listed === listedLine(file)
 
 const agentDefinitionSources = async (
   reader: ContextReader,

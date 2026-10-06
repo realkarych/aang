@@ -1004,10 +1004,16 @@ sources only:
     `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
     hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
     file. When the session's agent listing (`definition_listing` fact of the `agents`
-    catalog) has the type, only a file whose `description` the listing gives (the
-    listed text is the description followed by ` (Tools: …)`) is its definition: an
-    agent given for one run (`--agents`, the `agents` option of the SDK) takes
-    precedence over a file of the same name, and its file does not stand in for it.
+    catalog) has the type, only a file that gives the whole listed text is its
+    definition: its `description` followed by ` (Tools: …)` with the tools Claude Code
+    derives from `tools` and `disallowedTools` (a string or a list, names split at
+    commas and spaces outside parentheses, `*` for every tool): the allowed tools
+    without the disallowed ones, `None` when none is left, `All tools except …` with
+    only disallowed tools and `All tools` with neither. An agent given for one run
+    (`--agents`, the `agents` option of the SDK) takes precedence over a file of the
+    same name, so a file whose description or tools differ from the listing does not
+    stand in for it. The listing does not carry the instructions, so a file with the
+    listed description and tools is taken for the definition.
     A type without such a file, such as a built-in agent, a plugin agent
     (`<plugin>:<agent>`) or an agent given for one run, takes the latest definition
     the session's listing has for it: the text is the listed description with its
