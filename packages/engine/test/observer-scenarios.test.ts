@@ -1,4 +1,4 @@
-import { mkdir } from 'node:fs/promises'
+import { mkdir, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type AgentId,
@@ -12,7 +12,7 @@ import {
   type StageId,
 } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
-import { createEngine, startChat, verifyCitations } from '@aang/engine'
+import { createEngine, createReadQueries, startChat, verifyCitations } from '@aang/engine'
 import type { Store } from '@aang/store'
 import {
   agentStageTitle,
@@ -39,6 +39,7 @@ import {
   answerChat,
   type ObservedCall,
   observeBatch,
+  observeQueued,
   pendingFacts,
   runDescription,
   valuesOf,
@@ -122,6 +123,9 @@ const claudeAction = (session: string, call: string) => objectId({ kind: 'action
 const codexAction = (session: string, call: string) => objectId({ kind: 'action', runtime: 'codex', session, call })
 
 const attentionOf = (store: Store, run: RunId) => valuesOf(store, run, 'attention_item')
+
+const readsOf = (store: Store) =>
+  createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
 
 describe('observer scenarios pass the operation checks of M.2 and M.3 on the records of their E2E (T.6)', () => {
   test('E2E 1: the live map nests the subagent stage under the main work and grounds every operation in raw records', async () => {
@@ -614,5 +618,109 @@ describe('observer scenarios pass the operation checks of M.2 and M.3 on the rec
     expect(valuesOf(store, forkRun, 'stage').map(({ title }) => title)).toEqual([mainStageTitle])
     expectGroundedInRecords(store, rootRun)
     expectGroundedInRecords(store, forkRun)
+  })
+
+  test('E2E 17: the report written through Bash becomes an output of the main work and stays readable after the file is gone', async () => {
+    const home = await createHome(onTestFinished)
+    const project = join(home.path, '..', 'project')
+    await mkdir(join(project, 'reports'), { recursive: true })
+    const report = join(project, 'reports', 'summary.md')
+    const content = '# Summary\n\n14 tests passed\n'
+    await writeFile(report, content)
+    const store = home.open()
+    const engine = startEngine(store, { all: true })
+    const session = 'report-session'
+    const line = (uuid: string, type: 'assistant' | 'user', message: JsonValue): string =>
+      JSON.stringify({ type, sessionId: session, uuid, timestamp: '2026-10-01T12:00:00.000Z', cwd: project, message })
+    const lines = [
+      ...claudeTranscript({ session, cwd: project }),
+      line('report-call', 'assistant', {
+        id: 'message-report-call',
+        role: 'assistant',
+        content: [
+          { type: 'tool_use', id: 'toolu_report', name: 'Bash', input: { command: 'node scripts/report.js > reports/summary.md' } },
+        ],
+      }),
+      line('report-result', 'user', {
+        role: 'user',
+        content: [{ type: 'tool_result', tool_use_id: 'toolu_report', content: 'done', is_error: false }],
+      }),
+    ]
+    await engine.ingest(
+      jsonlFile({ runtime: 'claude', path: `${project}/${session}.jsonl`, lines, ino: 7n }).batch(1, lines.length),
+    )
+    const run = runId(sessionKey('claude', session))
+    const action = claudeAction(session, 'toolu_report')
+    const version = store.artifacts.versions(run).find(({ ref }) => ref.kind === 'file' && ref.path === report)
+    const start = factsOf(store).find(({ kind, entity_key: key }) => kind === 'action_start' && key.kind === 'action' && key.call === 'toolu_report')
+    if (version === undefined || start === undefined) {
+      throw new Error('the command must write the report')
+    }
+    const [reply] = observerScenarios.report.live.replies
+    const queue = pendingFacts(store, run)
+
+    const started = observeQueued(store, run, 'claude', reply, at(10), queue.findIndex(({ id }) => id === start.id) + 1)
+    const ended = observeQueued(store, run, 'claude', reply, at(20))
+
+    accepted(started, ended)
+    const sent = { id: version.id, ref: version.ref, produced_by: action, retained: false }
+    expect([started.input.batch.artifact_versions, ended.input.batch.artifact_versions]).toEqual([[sent], [sent]])
+    const main = stageTitled(store, run, mainStageTitle)
+    const outputs = linksOf(store, run).filter((link) => link.kind === 'artifact')
+    expect(outputs).toMatchObject([{ stage: main.id, version: version.id, direction: 'output' }])
+    expect(assignedTo(store, run, main)).toContain(action)
+    expect(pendingFacts(store, run)).toEqual([])
+    expectGroundedInRecords(store, run)
+
+    expect(await engine.retainBases()).toMatchObject([{ id: version.id, retention: { kind: 'file_read' } }])
+    await writeFile(report, '# Rewritten\n')
+    await rm(report)
+    store.close()
+    const reopened = home.open()
+    const [output, ...others] = readsOf(reopened).inspector(run, main.id)?.outputs ?? []
+    expect(others).toEqual([])
+    expect(output?.version).toMatchObject({ id: version.id, produced_by: action, retention: { kind: 'file_read' } })
+    const retention = output?.version.retention
+    const blob = retention?.kind === 'file_read' ? reopened.artifacts.blob(retention.blob) : null
+    expect(blob === null ? null : Buffer.from(blob).toString('utf8')).toBe(content)
+  })
+
+  test('rejected answer: the observer nests the main work under itself, the inspector shows it, and the retried batch is mapped', async () => {
+    const sample = await playSample('claude-subagent')
+    const { store } = sample
+    const run = runId(sessionKey('claude', original))
+    const [map, rejected, retry] = observerScenarios['rejected-answer'].live.replies
+
+    await sample.play({ until: 'subagent' })
+    const first = observeBatch(store, run, 'claude', map, at(10))
+    await sample.play()
+    const queued = pendingFacts(store, run)
+    const refused = observeBatch(store, run, 'claude', rejected, at(20))
+    const main = stageTitled(store, run, mainStageTitle)
+
+    expect(refused.result).toEqual({
+      status: 'rejected',
+      rejections: [{ op_index: 0, cause: 'invariant', message: 'cycle in stage nesting' }],
+    })
+    expect(refused.output.ops).toMatchObject([
+      { op: 'stage.nest', stage: { kind: 'existing', id: main.id }, parent: { kind: 'existing', id: main.id } },
+    ])
+    expect(pendingFacts(store, run)).toEqual(queued)
+    expect(readsOf(store).inspector(run, main.id)?.observer_calls.map(({ outcome, attempt }) => [outcome, attempt])).toEqual([
+      ['accepted', 1],
+      ['rejected', 1],
+    ])
+
+    const retried = observeBatch(store, run, 'claude', retry, at(30))
+
+    accepted(first, retried)
+    expect(stageTitled(store, run, mainStageTitle)).toMatchObject({ id: main.id, parent: null })
+    expect(pendingFacts(store, run)).toEqual([])
+    expect(readsOf(store).inspector(run, main.id)?.observer_calls.map(({ outcome, attempt }) => [outcome, attempt])).toEqual([
+      ['accepted', 1],
+      ['rejected', 1],
+      ['accepted', 2],
+    ])
+    expectGroundedInRecords(store, run)
   })
 })
