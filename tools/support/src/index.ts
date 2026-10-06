@@ -1,5 +1,20 @@
 export { invariantViolations } from './invariants.js'
-export { generateMatrix, type MatrixOptions, type RecordingOutcome, serializeMatrix, supportGaps } from './matrix.js'
+export {
+  checkCodexIsolation,
+  type CodexIsolationOptions,
+  importIsolation,
+  type IsolationCheck,
+  recordIsolation,
+} from './isolation.js'
+export {
+  generateMatrix,
+  importObservers,
+  type MatrixOptions,
+  type RecordingOutcome,
+  serializeMatrix,
+  supportGaps,
+  withObserver,
+} from './matrix.js'
 export { playRecording, type Played, type PlaybackRoots, type PlayOptions, removeRoots, restartLabel } from './play.js'
 export { findRecordings, type Recording, recordingName } from './recordings.js'
 export {

@@ -37,7 +37,16 @@ const EmptyList = ({ watch }: { readonly watch: WatchState | null }): ReactEleme
   </div>
 )
 
-const RunRow = ({ run, now }: { readonly run: RunSummary; readonly now: bigint }): ReactElement => {
+const forkOrigin = (source: RunSummary | undefined): string =>
+  source === undefined ? 'ответвление' : `ответвление от «${runTitle(source) ?? untitledRun(source)}»`
+
+interface RunRowProps {
+  readonly run: RunSummary
+  readonly runs: readonly RunSummary[]
+  readonly now: bigint
+}
+
+const RunRow = ({ run, runs, now }: RunRowProps): ReactElement => {
   const navigate = useNavigate()
   const title = runTitle(run)
   return (
@@ -51,7 +60,9 @@ const RunRow = ({ run, now }: { readonly run: RunSummary; readonly now: bigint }
         </a>
         <span className="run-origin">
           {title === null ? <span>цель не определена</span> : <span>{runtimeLabel[run.runtime]}</span>}
-          {run.forked_from === null ? null : <span>ответвление</span>}
+          {run.forked_from === null ? null : (
+            <span>{forkOrigin(runs.find(({ id }) => id === run.forked_from))}</span>
+          )}
           {run.start_pruned ? <span>начало удалено</span> : null}
         </span>
       </td>
@@ -103,7 +114,7 @@ const RunTable = ({ runs, now }: { readonly runs: readonly RunSummary[]; readonl
     </thead>
     <tbody>
       {runs.map((run) => (
-        <RunRow key={run.id} run={run} now={now} />
+        <RunRow key={run.id} run={run} runs={runs} now={now} />
       ))}
     </tbody>
   </table>

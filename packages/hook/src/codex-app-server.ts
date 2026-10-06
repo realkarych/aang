@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
 import { HookInstallError } from './errors.js'
 import { isErrorCode } from './files.js'
@@ -13,6 +14,7 @@ export interface CodexAppServerOptions {
   readonly codexHome: string
   readonly codex: CodexCli
   readonly timeoutMs?: number
+  readonly signal?: AbortSignal
 }
 
 const HookEntry = z.looseObject({
@@ -46,6 +48,29 @@ const timeoutDefaultMs = 10_000
 const maximumOutputBytes = 64 * 1024 * 1024
 const maximumStderrChars = 8192
 
+const treeStopTimeoutMs = 10_000
+const treeStopPollMs = 25
+
+const groupEmpty = (pid: number): boolean => {
+  try {
+    process.kill(-pid, 0)
+    return false
+  } catch (error) {
+    return isErrorCode(error, 'ESRCH')
+  }
+}
+
+const treeStopped = async (pid: number | undefined): Promise<boolean> => {
+  const deadline = Date.now() + treeStopTimeoutMs
+  while (pid !== undefined && !groupEmpty(pid)) {
+    if (Date.now() >= deadline) {
+      return false
+    }
+    await sleep(treeStopPollMs)
+  }
+  return true
+}
+
 const failure = (message: string, cause?: unknown): HookInstallError =>
   new HookInstallError('codex_app_server', `codex app-server: ${message}`, { cause })
 
@@ -74,7 +99,7 @@ const Message = z.looseObject({
   error: z.unknown().optional(),
 })
 
-export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs }: CodexAppServerOptions): Promise<CodexHookListing> =>
+export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs, signal }: CodexAppServerOptions): Promise<CodexHookListing> =>
   new Promise((complete, reject) => {
     if (process.platform === 'win32') {
       reject(new HookInstallError(
@@ -85,6 +110,10 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
     }
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       reject(failure('timeoutMs must be positive and finite'))
+      return
+    }
+    if (signal?.aborted === true) {
+      reject(failure('cancelled'))
       return
     }
     const home = resolve(codexHome)
@@ -139,6 +168,10 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
     const timer = setTimeout(() => {
       fail(`timed out after ${String(timeoutMs)} ms`)
     }, timeoutMs)
+    const cancel = (): void => {
+      fail('cancelled')
+    }
+    signal?.addEventListener('abort', cancel, { once: true })
     const send = (message: unknown): void => {
       child.stdin.write(`${JSON.stringify(message)}\n`)
     }
@@ -199,16 +232,21 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs 
         }
       }
     })
-    child.on('close', (code, signal) => {
+    child.on('close', (code, exitSignal) => {
       clearTimeout(timer)
+      signal?.removeEventListener('abort', cancel)
       terminate()
-      if (outcome === undefined) {
-        reject(failure(`exited before hooks/list completed (${String(code ?? signal)})${stderr === '' ? '' : `: ${stderr.trim()}`}`))
-      } else if ('error' in outcome) {
-        reject(outcome.error)
-      } else {
-        complete(outcome.value)
-      }
+      void treeStopped(child.pid).then((stopped) => {
+        if (!stopped) {
+          reject(failure('the app-server process tree did not stop'))
+        } else if (outcome === undefined) {
+          reject(failure(`exited before hooks/list completed (${String(code ?? exitSignal)})${stderr === '' ? '' : `: ${stderr.trim()}`}`))
+        } else if ('error' in outcome) {
+          reject(outcome.error)
+        } else {
+          complete(outcome.value)
+        }
+      })
     })
     send({
       id: requestId,

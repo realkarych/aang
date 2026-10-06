@@ -22,7 +22,7 @@ import { applyObserverResponse, beginObserverCall } from '@aang/engine'
 import { openStore, type Store } from '@aang/store'
 import { describe, test } from 'vitest'
 import type { z } from 'zod'
-import { bearer, createHome, type Home, startDaemon, testVersion } from './daemon.js'
+import { bearer, createHome, type Home, missingCli, startDaemon, testVersion } from './daemon.js'
 import {
   claudeHook,
   claudeSession,
@@ -517,7 +517,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
       versions: [],
       unknown_records: 0,
       gaps: [],
-      not_observable: [],
+      not_observable: ['claude_cowork', 'claude_cloud', 'codex_cloud', 'work_cloud'],
     })
 
     const admitted = await api.until('/api/status', endpoints.status.response, ({ observer }) =>
@@ -527,7 +527,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
       (['claude', 'codex'] as const).map((vendor) => ({
         vendor,
         state: { state: 'disabled', reason: 'cli_missing' },
-        cli_path: null,
+        cli_path: missingCli(home.root)[vendor],
         cli_version: null,
         model: vendor === 'claude' ? 'claude-opus-5-5' : 'gpt-6.1-sol',
         effort: null,

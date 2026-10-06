@@ -84,7 +84,7 @@ const installCodex =
   async ({ aangHome, codex, codexHome }, output) => {
     const { hooksFile, backup } = await installCodexHooks({ aangHome, hookBinarySource, codexHome, codex })
     output.out(`codex: aang hooks registered in ${hooksFile}${backup === null ? '' : `; the previous file is kept in ${backup}`}`)
-    const { status } = await codexHooksState({ codexHome, codex })
+    const { status } = await codexHooksState({ aangHome, codexHome, codex })
     output.out(`codex: aang hooks are ${codexHooksNotes[status]}`)
     return status !== 'not_installed'
   }

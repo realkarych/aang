@@ -7,7 +7,7 @@ import { readDaemonState, readSpoolState } from '@aang/contract/home'
 import { objectId } from '@aang/contract/ids'
 import { openStore } from '@aang/store'
 import { describe, test } from 'vitest'
-import { bearer, createHome, spawnDaemon, startDaemon } from './daemon.js'
+import { bearer, createHome, missingCli, spawnDaemon, startDaemon } from './daemon.js'
 import {
   claudeHook,
   claudeSession,
@@ -259,7 +259,10 @@ describe.concurrent('the daemon takes collected records through the engine and a
 
     expect((await readSpoolState(home.paths.spool)).leaseExpiresAt).toBeNull()
     expect(await readDaemonState(home.paths.daemonState)).toBeNull()
-    await writeFile(join(home.paths.home, 'config.json'), JSON.stringify({ api: { port: 0 }, otel: { port: 0 } }))
+    await writeFile(
+      join(home.paths.home, 'config.json'),
+      JSON.stringify({ api: { port: 0 }, otel: { port: 0 }, cli: missingCli(home.root) }),
+    )
     const daemon = await startDaemon(home, onTestFinished)
     expect(daemon.ready.otel.port).not.toBe(port)
   })

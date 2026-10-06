@@ -3,6 +3,7 @@ import type {
   GapKind,
   HookInstallation,
   ObserverBackendStatus,
+  ObserverRunState,
   ObserverState,
   RunSummary,
   RuntimeStatus,
@@ -12,12 +13,14 @@ import type {
 } from '@aang/contract'
 import { absoluteTime, bytes, clockTime, duration, plural, relativeTime } from './format.js'
 import {
+  earlyFactForms,
   factForms,
   fileForms,
   gapLabel,
   hookInstallationLabel,
   notObservableLabel,
   observerStateLabel,
+  retryLabel,
   runInForms,
   runtimeLabel,
   sessionForms,
@@ -108,13 +111,35 @@ const spoolGapKinds: ReadonlySet<GapKind> = new Set(['spool_over_threshold', 'sp
 const observerLevel = ({ state }: ObserverState): Level =>
   state === 'ok' ? 'normal' : state === 'unavailable' ? 'warning' : 'caution'
 
+const interpreting = ({ state }: ObserverState): boolean => state === 'ok' || state === 'lagging'
+
+const retryDetails = (state: ObserverState): LampDetail[] =>
+  state.state === 'unavailable' && state.retry_at !== null
+    ? [detail(`${retryLabel[state.reason]} — в ${clockTime(state.retry_at)}.`, 'warning')]
+    : []
+
+const pausedDetails = (state: ObserverState): LampDetail[] =>
+  interpreting(state)
+    ? []
+    : [detail('Факты и пункты внимания продолжают поступать, этапы обновятся, когда наблюдатель вернётся.')]
+
+const catchUpDetails = ({ deferred_facts: deferred }: ObserverRunState): LampDetail[] =>
+  deferred === 0
+    ? []
+    : [
+        detail(
+          `Догоняющий режим: ${plural(deferred, earlyFactForms)} наблюдатель видит только сводкой — счётчиками по агентам и инструментам, без подробностей.`,
+          'caution',
+        ),
+      ]
+
 const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
   if (statusFailing) {
     return lamp('link', 'Связь', 'нет связи с демоном', 'warning', [
       detail('Демон не отвечает. Проверьте его командой aang status; данные на экране могут устареть.', 'warning'),
     ])
   }
-  if (runsFailing) {
+  if (runsFailing && focus === null) {
     return lamp('link', 'Связь', 'список не обновляется', 'warning', [
       detail('Демон не отдал список прогонов. aang повторяет запрос; список на экране может устареть.', 'warning'),
     ])
@@ -125,9 +150,17 @@ const linkLamp = ({ statusFailing, runsFailing, focus }: LampInput): Lamp => {
     case 'loading':
       return lamp('link', 'Связь', 'подключение', 'normal')
     case 'live':
-      return lamp('link', 'Связь', 'поток подключён', 'normal', [
-        detail('Изменения прогона приходят по мере записи событий.'),
-      ])
+      return runsFailing
+        ? lamp('link', 'Связь', 'ответвления не обновляются', 'caution', [
+            detail('Изменения прогона приходят по мере записи событий.'),
+            detail(
+              'Демон не отдал список прогонов. aang повторяет запрос; ответвления и названия связанных прогонов могут устареть.',
+              'caution',
+            ),
+          ])
+        : lamp('link', 'Связь', 'поток подключён', 'normal', [
+            detail('Изменения прогона приходят по мере записи событий.'),
+          ])
     case 'reconnecting':
       return lamp('link', 'Связь', 'переподключение', 'caution', [
         detail('Поток изменений прерван. aang переподключится и дочитает пропущенное.', 'caution'),
@@ -157,8 +190,10 @@ const observerLamp = ({ status, runs, focus }: LampInput): Lamp => {
   if (focused !== null) {
     const { observer } = focused.summary
     return lamp('observer', 'Наблюдатель', observerStateLabel(observer.state), observerLevel(observer.state), [
+      ...retryDetails(observer.state),
+      ...pausedDetails(observer.state),
       ...(observer.isolation_unverified ? [detail('Изоляция наблюдателя не подтверждена.', 'caution')] : []),
-      ...(observer.deferred_facts > 0 ? [detail(`Отложено: ${plural(observer.deferred_facts, factForms)}.`)] : []),
+      ...catchUpDetails(observer),
       ...(observer.not_interpreted_facts > 0
         ? [detail(`Не интерпретировано: ${plural(observer.not_interpreted_facts, factForms)}.`, 'caution')]
         : []),
@@ -190,7 +225,7 @@ const modelLamp = ({ summary }: FocusedRun, now: bigint): Lamp => {
   const { observer, version } = summary
   const updated = observer.last_success_at
   const oldest = observer.pending_facts > 0 ? observer.oldest_pending_at : null
-  const lagging = oldest !== null && now - oldest >= modelLagLimitNs
+  const lagging = oldest !== null && (now - oldest >= modelLagLimitNs || !interpreting(observer.state))
   const unbuilt = updated === null && (observer.pending_facts > 0 || observer.state.state !== 'ok')
   const pending =
     oldest === null
@@ -210,6 +245,9 @@ const modelLamp = ({ summary }: FocusedRun, now: bigint): Lamp => {
       detail(`Версия карты ${String(version)}.`),
       ...(updated === null ? [] : [detail(`Последнее обновление: ${absoluteTime(updated)}.`)]),
       ...pending,
+      ...(observer.deferred_facts === 0
+        ? []
+        : [detail('Ранние факты карта учитывает только по сводке, с пониженной детализацией.', 'caution')]),
     ],
   )
 }

@@ -70,12 +70,6 @@ export const resolveCodex = async (selected: string | undefined): Promise<Engine
   return { executable, version: await versionOf(executable) }
 }
 
-export const resolveExpect = async (): Promise<string> => {
-  const expect = await onPath('expect')
-  if (expect === undefined) throw new EngineUnavailableError('expect is not on PATH; the Codex TUI is driven through expect')
-  return expect
-}
-
 const SdkManifest = z.looseObject({
   name: z.literal('@openai/codex-sdk'),
   version: z.string(),

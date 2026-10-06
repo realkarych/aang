@@ -4,6 +4,7 @@ import {
   type AttentionDelta,
   type AttentionView,
   type ChangeSeq,
+  type ChatDelta,
   type Fact,
   type FactsDelta,
   type Gap,
@@ -37,6 +38,7 @@ export type RunFeedEvent =
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
   | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
+  | { readonly event: 'chat'; readonly id: ChangeSeq; readonly data: ChatDelta }
 
 export interface RunFeed {
   readonly position: ChangeSeq
@@ -148,6 +150,7 @@ type FeedItem =
   | { readonly kind: 'model'; readonly seq: ChangeSeq; readonly version: ModelVersionRecord }
   | { readonly kind: 'view'; readonly seq: ChangeSeq; readonly view: AttentionView }
   | { readonly kind: 'mark'; readonly seq: ChangeSeq }
+  | { readonly kind: 'chat'; readonly seq: ChangeSeq; readonly delta: ChatDelta }
 
 const removalOf = ({ kind, id, replaced_by: replacedBy }: StoredObservationRemoval): ObservationRemoval => ({
   kind,
@@ -230,6 +233,9 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
     ...versions.map((version): FeedItem => ({ kind: 'model', seq: version.change_seq, version })),
     ...store.views.attention(id, after).map((view): FeedItem => ({ kind: 'view', seq: view.change_seq, view })),
     ...(marked !== null && marked > after ? [{ kind: 'mark', seq: marked } as const] : []),
+    ...store.chat
+      .changed(id, after)
+      .map(({ change_seq: seq, message }): FeedItem => ({ kind: 'chat', seq, delta: { message } })),
   ].sort((left, right) => left.seq - right.seq)
   const delta = runDelta(context, summaryStateOf(context, run))
   const events: RunFeedEvent[] = []
@@ -268,6 +274,11 @@ export const runFeed = (context: ReadContext, id: RunId, after: ChangeSeq): RunF
         flushFacts()
         flushViews()
         events.push({ event: 'run', id: item.seq, data: delta })
+        break
+      case 'chat':
+        flushFacts()
+        flushViews()
+        events.push({ event: 'chat', id: item.seq, data: item.delta })
         break
       default:
         flushViews()

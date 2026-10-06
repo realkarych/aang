@@ -166,15 +166,27 @@ importers:
 
   .:
     devDependencies:
+      '@aang/adapter-claude':
+        specifier: workspace:*
+        version: link:packages/adapter-claude
+      '@aang/adapter-codex':
+        specifier: workspace:*
+        version: link:packages/adapter-codex
       '@aang/contract':
         specifier: workspace:*
         version: link:packages/contract
+      '@aang/engine':
+        specifier: workspace:*
+        version: link:packages/engine
       '@aang/eslint-plugin':
         specifier: workspace:*
         version: link:tools/eslint-plugin
       '@aang/hook':
         specifier: workspace:*
         version: link:packages/hook
+      '@aang/store':
+        specifier: workspace:*
+        version: link:packages/store
       '@aang/testkit':
         specifier: workspace:*
         version: link:packages/testkit
@@ -429,6 +441,15 @@ importers:
         specifier: ^2.9.1
         version: 2.9.1
 
+  tools/docker-image:
+    dependencies:
+      '@aang/contract':
+        specifier: workspace:*
+        version: link:../../packages/contract
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+
   tools/eslint-plugin:
     dependencies:
       '@typescript-eslint/utils':
@@ -517,6 +538,9 @@ importers:
       '@aang/engine':
         specifier: workspace:*
         version: link:../../packages/engine
+      '@aang/observer':
+        specifier: workspace:*
+        version: link:../../packages/observer
       '@aang/record':
         specifier: workspace:*
         version: link:../record

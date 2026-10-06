@@ -10,6 +10,7 @@ import {
   type OtelConfigResponse,
   type ReparseResponse,
   type ShutdownResponse,
+  type StatusResponse,
   streamPath,
 } from '@aang/contract'
 import { z } from 'zod'
@@ -30,6 +31,7 @@ export interface ServerOptions {
   readonly reparse: () => Promise<ReparseResponse | null>
   readonly admin: Admin
   readonly otelConfig: (request: OtelConfigRequest) => OtelConfigResponse
+  readonly hooksCheck: () => Promise<StatusResponse>
   readonly onShutdown: () => void
 }
 
@@ -104,6 +106,7 @@ export const startServer = async ({
   reparse,
   admin,
   otelConfig,
+  hooksCheck,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
   const acceptsBody = async (
@@ -190,6 +193,7 @@ export const startServer = async ({
     adminRoute(endpoints.unwatch, admin.unwatch),
     adminRoute(endpoints.prune, admin.prune),
     adminRoute(endpoints.otelConfig, (body) => Promise.resolve(otelConfig(body))),
+    adminRoute(endpoints.hooksCheck, hooksCheck),
   ]
 
   const routeApi = async (
@@ -225,8 +229,15 @@ export const startServer = async ({
       sendError(response, 'not_found', `no route for ${method} ${pathname}`)
       return
     }
+    const body = async (): Promise<unknown> => {
+      try {
+        return await readJson(request)
+      } catch (error) {
+        throw new ApiFailure('invalid_request', error instanceof Error ? error.message : String(error))
+      }
+    }
     try {
-      sendJson(response, 200, await match.route.serve({ pathname, params: match.params, search }))
+      sendJson(response, 200, await match.route.serve({ pathname, params: match.params, search, body }))
     } catch (error) {
       if (error instanceof ApiFailure) {
         sendError(response, error.code, error.message)

@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
+import { DatabaseSync } from 'node:sqlite'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import { type Adapter, EpochNs, type Runtime, type SessionKey } from '@aang/contract'
@@ -9,8 +10,9 @@ import { createEngine, observerInputTokens } from '@aang/engine'
 import { openStore } from '@aang/store'
 import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 import { type TestContext, test } from 'vitest'
-import { createHome, type Home, startDaemon } from './daemon.js'
+import { bearer, createHome, type Home, startDaemon } from './daemon.js'
 import {
+  admissionMs,
   admissionOf,
   briefed,
   configure,
@@ -85,7 +87,7 @@ test(
   'each run goes to the observer of its root session vendor, and Claude runs with the unverified isolation mark',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
     await installLauncher(home)
     await configure(home, workspace, { cli: { claude: claude.path, codex: codex.path } })
@@ -122,7 +124,7 @@ const adapters = new Map<Runtime, Adapter>([
 
 const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: TestContext) => {
   const { home, workspace } = await watchedHome(onTestFinished)
-  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
   await installLauncher(home)
   const root = claudeKey('session-g6-root')
   const attached = codexKey('thread-g6-attached')
@@ -208,6 +210,56 @@ test(
       ],
       gaps: [],
     })
+  },
+)
+
+test(
+  'a binding wakes the observer, which interprets the facts of the moved session in the target run without another intake',
+  async ({ expect, onTestFinished }) => {
+    const { home, workspace } = await watchedHome(onTestFinished)
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
+    await installLauncher(home)
+    await configure(home, workspace, { cli: { claude: claude.path } })
+    const root = claudeKey('session-g8-bind-root')
+    const moved = claudeKey('session-g8-bind-moved')
+    const target = runId(root)
+    const source = runId(moved)
+    const factsOf = (key: SessionKey): string[] => {
+      const database = new DatabaseSync(join(home.paths.home, 'aang.db'), { readOnly: true })
+      try {
+        return database
+          .prepare("SELECT id FROM facts WHERE json_extract(entity_key, '$.session') = ? ORDER BY id")
+          .all(key.session)
+          .map((row) => String(row['id']))
+      } finally {
+        database.close()
+      }
+    }
+
+    const daemon = await startDaemon(home, onTestFinished, { env: observerEnvironment(home) })
+    await enqueue(home, 'root', claudeEvents(root.session, workspace))
+    await enqueue(home, 'moved', claudeEvents(moved.session, workspace))
+    await waitUntil(() => settled(progressOf(home, target)) && settled(progressOf(home, source)))
+    const interpretedBefore = observerInputs(claude, target).length
+    const response = await fetch(`${daemon.base}/api/bindings`, {
+      method: 'POST',
+      headers: { ...bearer(home.token), 'content-type': 'application/json' },
+      body: JSON.stringify({ kind: 'attach', session: objectId(moved), run: target }),
+    })
+    expect(response.status).toBe(200)
+    const expected = [...factsOf(root), ...factsOf(moved)].length
+    await waitUntil(() => {
+      const progress = progressOf(home, target)
+      return progress.statuses.length === expected && settled(progress)
+    })
+    daemon.abort()
+    await daemon.stopped
+
+    expect(progressOf(home, target).statuses).toEqual(Array.from({ length: expected }, () => 'interpreted'))
+    const sent = observerInputs(claude, target)
+      .slice(interpretedBefore)
+      .flatMap(({ batch }) => batch.facts.map(({ id }) => id))
+    expect(sent.sort()).toEqual(factsOf(moved))
   },
 )
 

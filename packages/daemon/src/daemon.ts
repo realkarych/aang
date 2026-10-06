@@ -1,10 +1,13 @@
 import { rm } from 'node:fs/promises'
-import type { Config, Listener, Runtime, StatusResponse } from '@aang/contract'
+import type { Config, Listener, OperatingSystem, Placement, Runtime, StatusResponse, SupportMatrix } from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
+import { readSupportMatrix } from '@aang/contract/support-file'
 import { createReadQueries } from '@aang/engine'
 import { openStore, type Store, StoreLockedError } from '@aang/store'
 import { createAuthenticator } from './auth.js'
+import { chatRoutes } from './chat.js'
+import { type HookChecks, startHookChecks } from './hooks.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
 import { startObserver } from './observer.js'
@@ -12,8 +15,9 @@ import { otelEndpoint, otelToken, rotateOtelToken } from './otel-token.js'
 import { readRoutes } from './reads.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
-import { createStatus } from './status.js'
+import { createStatus, type SupportHost } from './status.js'
 import { createStreams } from './stream.js'
+import { writeRoutes } from './writes.js'
 
 export interface DaemonReady {
   readonly pid: number
@@ -28,6 +32,8 @@ export interface DaemonOptions {
   readonly environment: ConfigEnvironment
   readonly bind: string | null
   readonly staticRoot: string | null
+  readonly supportMatrix: string
+  readonly placement: Placement
   readonly signal: AbortSignal
   readonly onReady: (ready: DaemonReady) => void
 }
@@ -47,6 +53,9 @@ const openExclusive = (home: string): Store => {
     throw error instanceof StoreLockedError ? new DaemonAlreadyRunningError(home) : error
   }
 }
+
+const hostOs = (): OperatingSystem =>
+  process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux'
 
 const notifying = (store: Store, listeners: ReadonlySet<() => void>): Store => ({
   ...store,
@@ -111,6 +120,7 @@ interface Session {
   readonly paths: AangHomePaths
   readonly listener: Listener
   readonly store: Store
+  readonly matrix: SupportMatrix
 }
 
 const serve = async ({
@@ -120,6 +130,7 @@ const serve = async ({
   paths,
   listener,
   store: opened,
+  matrix,
 }: Session): Promise<DaemonStopReason> => {
   await prepareSpool(paths)
   const committed = new Set<() => void>()
@@ -168,6 +179,7 @@ const serve = async ({
     runtimeRoots,
     otelToken: otelToken(store),
     onIngested: observer.wake,
+    onBound: observer.wake,
   }).catch(async (error: unknown) => {
     await observer.close()
     throw error
@@ -177,18 +189,39 @@ const serve = async ({
   })
   const worker = createWorker()
   const timers: NodeJS.Timeout[] = []
-  const running: { server: RunningServer | null; spool: SpoolSupervisor | null } = { server: null, spool: null }
+  const running: { server: RunningServer | null; spool: SpoolSupervisor | null; hooks: HookChecks | null } = {
+    server: null,
+    spool: null,
+    hooks: null,
+  }
   const startedAt = epochNow()
+  const host: SupportHost = { os: hostOs(), placement: config.placement ?? options.placement }
   try {
+    const hooks = startHookChecks({ aangHome: paths.home, config, runtimeRoots })
+    running.hooks = hooks
     const server = await startServer({
       listener,
       auth,
       staticRoot: options.staticRoot,
       routes: (api) => {
         const daemon = { version: options.version, pid: process.pid, started_at: startedAt, api, otel: ingestion.otel }
-        const read = createStatus({ daemon, store, config, runtimeRoots, paths, observer: observer.backends })
+        const read = createStatus({
+          daemon,
+          store,
+          config,
+          runtimeRoots,
+          paths,
+          hooks: hooks.installations,
+          matrix,
+          host,
+          observer: observer.backends,
+        })
         status.resolve(read)
-        return readRoutes({ store, reads, status: read })
+        return [
+          ...readRoutes({ store, reads, status: read }),
+          ...writeRoutes({ store, bindings: ingestion.bindings }),
+          ...chatRoutes({ reads, ask: observer.ask }),
+        ]
       },
       streams,
       reparse: ingestion.reparse,
@@ -198,6 +231,10 @@ const serve = async ({
           ingestion.setOtelToken(rotateOtelToken(store))
         }
         return { endpoint: otelEndpoint(ingestion.otel, otelToken(store)) }
+      },
+      hooksCheck: async () => {
+        await hooks.check()
+        return (await status.promise)()
       },
       onShutdown: () => {
         requestStop('shutdown')
@@ -261,6 +298,9 @@ const serve = async ({
       async () => {
         await running.server?.close()
       },
+      async () => {
+        await running.hooks?.close()
+      },
       () => rm(paths.daemonState, { force: true }),
     ])
   }
@@ -270,9 +310,10 @@ export const runDaemon = async (options: DaemonOptions): Promise<DaemonStopReaso
   const { aangHome, config, runtimeRoots } = await loadConfig(options.environment)
   const paths = aangHomePaths(aangHome)
   const listener = resolveListener(config.api, options.bind)
+  const matrix = await readSupportMatrix(options.supportMatrix)
   const store = openExclusive(aangHome)
   try {
-    return await serve({ options, config, runtimeRoots, paths, listener, store })
+    return await serve({ options, config, runtimeRoots, paths, listener, store, matrix })
   } finally {
     store.close()
   }

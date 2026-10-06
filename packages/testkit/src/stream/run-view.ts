@@ -1,6 +1,7 @@
 import type {
   AttentionDelta,
   ChangeSeq,
+  ChatDelta,
   FactsDelta,
   ModelChange,
   ModelDelta,
@@ -8,12 +9,14 @@ import type {
   RunSnapshot,
   SessionId,
 } from '@aang/contract'
+import { objectId } from '@aang/contract/ids'
 
 export type FeedEvent =
   | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
   | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
+  | { readonly event: 'chat'; readonly id: ChangeSeq; readonly data: ChatDelta }
 
 export interface FeedSegment {
   readonly position: ChangeSeq
@@ -50,6 +53,9 @@ const withoutSession = (snapshot: RunSnapshot, session: SessionId): RunSnapshot 
     list.filter((entry) => entry.session !== session)
   return {
     ...snapshot,
+    plan_facts: snapshot.plan_facts.filter(
+      ({ entity_key: { runtime, session: name } }) => objectId({ kind: 'session', runtime, session: name }) !== session,
+    ),
     objects: {
       ...objects,
       sessions: objects.sessions.filter(({ id }) => id !== session),
@@ -153,6 +159,8 @@ export const applyFeed = (snapshot: RunSnapshot, feed: FeedSegment): RunSnapshot
         return event.data.changes.reduce(applyChange, view)
       case 'attention':
         return applyAttention(view, event.data)
+      case 'chat':
+        return view
     }
   }, snapshot)
   return {
