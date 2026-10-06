@@ -11,7 +11,7 @@ import { listHref, runHref, usageHref, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
 import { SinceLastView } from './since.js'
 import { Trace } from './trace.js'
-import type { RunFeedState } from './use-run-feed.js'
+import type { RunFeed } from './use-run-feed.js'
 
 interface RunLinkProps {
   readonly id: RunId
@@ -144,14 +144,14 @@ export const Missing = (): ReactElement => {
 }
 
 export interface RunPageProps {
-  readonly feed: RunFeedState
+  readonly feed: RunFeed
   readonly runs: readonly RunSummary[] | null
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
 export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
-  const { snapshot, connection } = feed
+  const { snapshot, connection, noteView } = feed
   if (snapshot === null) {
     return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
   }
@@ -172,7 +172,7 @@ export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactEl
         )}
         <Facts snapshot={snapshot} runs={runs} now={now} />
       </header>
-      <AttentionZone snapshot={snapshot} now={now} />
+      <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: noteView, onSignedOut }} />
       <MapSection snapshot={snapshot} />
       <SinceLastView snapshot={snapshot} now={now} onSignedOut={onSignedOut}>
         <div className="run-body">
