@@ -92,7 +92,7 @@ switch (mode) {
     break
   }
   case 'append':
-    await appendFile(join(process.cwd(), 'events.jsonl'), `${JSON.stringify({ type: 'event', word: target })}\n`)
+    await appendFile(join(process.cwd(), 'events.jsonl'), target.split(',').map((word) => `${JSON.stringify({ type: 'event', word })}\n`).join(''))
     break
   case 'tasks': {
     const tasks = join(String(process.env['CLAUDE_CONFIG_DIR']), 'tasks', target)

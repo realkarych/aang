@@ -338,6 +338,33 @@ test('checkpoints select the first or a content-matching event, tasks are captur
   })).rejects.toThrow(/Recording command failed: 3\n[\s\S]*the engine reported quota exhausted$/)
 })
 
+test('checkpoints inside one appended chunk split it after their lines and playback restores the whole file', async () => {
+  const words = ['asked', 'done', 'hello', 'done']
+  const events = { root: 'home' as const, path: 'project/events.jsonl' }
+  const recording = await recordSession({ ...await options(), scenario: 'chunk' }, async (session) => {
+    await session.run(process.execPath, [script, 'append', words.join(',')])
+    await session.checkpoint('question-asked', { ...events, contains: '"asked"' }, 'The question is visible')
+    await session.checkpoint('final-answer', { ...events, contains: '"done"', occurrence: 'first' }, 'The first turn ends with its final answer')
+    await session.checkpoint('question-reply', { ...events, contains: '"done"' }, 'The reply turn ends')
+  })
+  const playback = await loadManifest(join(recording, 'playback.json'))
+  const chunks = playback.steps.flatMap((step) => step.kind === 'append'
+    ? [[step.label, (playback.sources.get(step.source)?.toString() ?? '').trim().split('\n').map((line) => (JSON.parse(line) as { word: string }).word)]]
+    : [])
+  expect(chunks).toEqual([['question-asked', ['asked']], ['final-answer', ['done']], ['question-reply', ['hello', 'done']]])
+  const manifest = JSON.parse(await readFile(join(recording, 'manifest.json'), 'utf8')) as { control_events: { label: string; step: number }[] }
+  expect(manifest.control_events.map(({ label, step }) => [label, playback.steps[step]?.label])).toEqual([
+    ['question-asked', 'question-asked'], ['final-answer', 'final-answer'], ['question-reply', 'question-reply'],
+  ])
+  const profile = await createProfile()
+  try {
+    await createPlayer(playback, { roots: profile, timeScale: 0 }).play()
+    expect(await readFile(join(profile.home, 'project/events.jsonl'), 'utf8')).toBe(words.map((word) => `${JSON.stringify({ type: 'event', word })}\n`).join(''))
+  } finally {
+    await profile.dispose()
+  }
+})
+
 const driver: SurfaceDriver = {
   surface: 'codex_exec',
   runtime: 'codex',

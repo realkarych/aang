@@ -61,7 +61,7 @@ The recorder scans during commands every 25 ms and at command boundaries and exp
 
 Auth files, runtime configuration other than kept files, databases, and arbitrary files outside these source directories are not collected. Symbolic links are rejected. Complete JSONL lines become append steps; changed JSON files and truncated JSONL become snapshots. Removals become remove steps. The final scan rejects unfinished JSON/JSONL. A move appears as removal plus a write at its new path. Intermediate states that appear and disappear between scans cannot be recovered; use separate awaited commands or checkpoints for transitions that must be retained.
 
-`session.checkpoint(label, target, expectedMapChange)` selects the latest captured event for a file or a matching hook; `occurrence: 'first'` selects the earliest one instead, and a file target with `contains` only matches steps whose content includes that text. File targets use the player's relative paths, for example:
+`session.checkpoint(label, target, expectedMapChange)` selects the latest captured event for a file or a matching hook; `occurrence: 'first'` selects the earliest one instead, and a file target with `contains` only matches steps whose content includes that text. One scan can capture several JSONL lines as one append step; a `contains` checkpoint then splits that step after its matching line (the first or the last, as `occurrence` selects), so the later lines stay free for the next checkpoint and events that arrive within one scan still get separate checkpoints. File targets use the player's relative paths, for example:
 
 ```js
 await session.checkpoint(
