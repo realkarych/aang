@@ -250,9 +250,6 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     const codexHooks = join(codexHome, 'hooks.json')
     const hookBinary = join(profile.aangHome, 'bin', 'aang-hook')
     const packagedBinary = join(installed().packageDirectory, 'node_modules', `aang-hook-${hostPlatform}`, 'aang-hook')
-    const start = await installed().run('aang', ['start'], { env })
-    const [, pid = '', url = ''] = started.exec(start.stdout) ?? []
-    expect(start.code, start.stderr).toBe(0)
 
     const connected = await installed().run('aang', ['install'], { env })
 
@@ -280,6 +277,9 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(pluginHandler).toEqual({ type: 'command', command: hookBinary, args: ['claude', 'plugin', profile.spool], timeout: 2 })
     const codexHandlers = await sessionStartHandlers(codexHooks)
     expect(codexHandlers).toEqual([{ type: 'command', command: `'${hookBinary}' codex user '${profile.spool}'`, timeout: 2 }])
+    const start = await installed().run('aang', ['start'], { env })
+    const [, pid = '', url = ''] = started.exec(start.stdout) ?? []
+    expect(start.code, start.stderr).toBe(0)
 
     const fromClaude = await run(pluginHandler?.command ?? '', pluginHandler?.args ?? [], {
       env,
