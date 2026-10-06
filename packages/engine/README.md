@@ -569,7 +569,9 @@ The ingest transaction queues every new fact as `pending` in the run of its sess
 after the observation projection, including the facts of OTel records normalized in
 that transaction (ADR-0005). `context` and `git_snapshot` facts are never queued: the daemon writes
 them as run context, which reaches the observer through the context of the run (ADR-0007), not
-through a batch. A redelivered record adds no facts and queues nothing.
+through a batch. `definition_listing` facts are never queued either: the catalog of agents and
+skills is only a source of definitions of the run context, and an agent or skill that is listed
+but not used never reaches the observer (ADR-0007). A redelivered record adds no facts and queues nothing.
 A reparse queues the facts it adds the same way after it rebuilds the projections,
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
@@ -577,7 +579,7 @@ attempts.
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context, catchUpMs? })`
 starts the next call of a run from its pending facts in the order of their records:
 
-- a queued `context` or `git_snapshot` fact leaves the queue without a status;
+- a queued `context`, `git_snapshot` or `definition_listing` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
@@ -838,8 +840,8 @@ binding's transaction:
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run. Its `context` and `git_snapshot` facts are not queued:
-  they are run context and are never interpreted as facts;
+  queue of the source run. Its `context`, `git_snapshot` and `definition_listing`
+  facts are not queued: they are run context and are never interpreted as facts;
 - an observer call of the source run whose batch or summary holds any of these
   facts or whose input describes the session is ended as `rejected` with a `scope`
   reason, a call with the summary alone included: the rest of its batch returns to
@@ -988,7 +990,7 @@ keeps do not change.
 
 ## Run context
 
-`recordRunContext(store, { run, backend, crossVendor, at, claudeConfigDir, limits })`
+`recordRunContext(store, { run, backend, crossVendor, at, claudeConfigDir, codexHome, limits })`
 collects the context of a run for the observer input (ADR-0007) from the allowed
 sources only:
 
@@ -997,18 +999,36 @@ sources only:
 - `instructions`: the files named by `InstructionsLoaded` facts of a session, or,
   when a session has none, `CLAUDE.md` (Claude) or `AGENTS.md` (Codex) in its `cwd`
   and every ancestor directory; `ref` is the path.
-- `agent_definition`: for each subagent or teammate type of a Claude session, the
-  file `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
-  hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
-  file. Types without such a file, such as built-in and plugin agents, have no entry.
+- `agent_definition`:
+  - for each subagent or teammate type of a Claude session, the file
+    `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
+    hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
+    file. A type without such a file, such as a built-in agent, a plugin agent
+    (`<plugin>:<agent>`) or an agent given for one run (`--agents`, the `agents`
+    option of the SDK), takes the latest definition the session's agent listing
+    (`definition_listing` fact of the `agents` catalog) has for it: `ref` is the type
+    and the text is the listed description with its tools. A type that is neither in
+    a file nor listed has no entry;
+  - for each role of a Codex subagent (`agent_role`), the table `[agents.<role>]` of
+    `config.toml` in `codexHome`: its `description` and the `developer_instructions`
+    of its `config_file`, resolved against the directory of `config.toml`. `ref` is
+    `<path of config.toml> [agents.<role>]`. A subagent without a role, or a role
+    that `config.toml` does not declare, has no entry.
 - `skill`: only skills invoked through the `Skill` tool of a Claude session, except
   calls that ended with an error or were denied. A skill listed in the catalog but
   not invoked is never included. The text is the `description` of `SKILL.md` in
   `.claude/skills/<name>/` of the nearest directory of the session's `cwd` hierarchy
   or in `skills/<name>/` of `claudeConfigDir`, and `ref` is the path of that file.
-  When there is no such file, `ref` is the name of the skill and the text is empty.
+  When there is no such file, as for a plugin skill (`<plugin>:<skill>`), `ref` is the
+  name of the skill and the text is the latest description the session's skill
+  listing (`definition_listing` fact of the `skills` catalog) has for it, or empty
+  when the listing has none.
   Codex has no skill tool, so a Codex run has no skill entries.
 - `mcp_server`: the servers of MCP actions with the names of the tools called.
+- `hook`: the hooks of the solver that ran in a session, from its `hook_run` facts
+  that carry the hook's command; `ref` is the command and the text lists where it
+  ran (the runtime's trigger, such as `PostToolUse:Bash`, or the event). The aang
+  hook is not a hook of the solver: the adapter gives it no `hook_run` fact.
 - `git`: one entry per worktree, whose `ref` is the top of the worktree (or the `cwd`
   of a session outside git): the branch of each session working there and, for each
   set of masks, the latest git snapshot (`git_snapshot` fact of the run): the masks,
@@ -1031,10 +1051,12 @@ Each text is cut to `limits.textLength` characters (4000 by default) and reports
 original length; files are read up to 1 MiB, and a larger file reports its size in
 bytes.
 
-Names of the solver's hooks, definitions of plugin agents, of agents given by the
-`--agents` flag and of Codex roles, and descriptions of plugin skills are allowed
-sources that need facts or formats the adapters do not provide yet; plan item F.7d
-adds them.
+Only sources whose format a reference session confirms enter the context (F.7d):
+`hook_run` and `definition_listing` facts count only with `format_verified`, and of
+a Codex role only the keys recorded by the `agent-role` reference session are read.
+Codex reference sessions record no hook of the solver (the rollout carries no hook
+events), so a Codex session names no hooks. A listed skill that was not invoked and
+a listed agent that never ran stay out.
 
 Entries are ordered by kind and `ref`, and `content_hash` is the SHA-256 of their
 canonical JSON. A nonempty context is stored as a raw record of the `context` channel

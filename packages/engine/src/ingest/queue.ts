@@ -2,7 +2,7 @@ import type { Fact, FactId, RunId, SessionId } from '@aang/contract'
 import type { Transaction } from '@aang/store'
 import { factSession } from '../input/scope.js'
 
-const runContextKinds: ReadonlySet<Fact['kind']> = new Set(['context', 'git_snapshot'])
+const runContextKinds: ReadonlySet<Fact['kind']> = new Set(['context', 'git_snapshot', 'definition_listing'])
 
 export const interpretable = (fact: Fact): boolean => !runContextKinds.has(fact.kind)
 

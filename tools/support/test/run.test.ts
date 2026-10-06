@@ -336,11 +336,10 @@ describe('the contract run over recordings generated from the spike samples', ()
     await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   }, 120_000)
 
-  test('a record that the adapters leave unknown or invalid fails the run unless its type is listed as not covered yet, and update refuses to write', async () => {
+  test('a record that the adapters leave unknown or invalid fails the run, and update refuses to write', async () => {
     const { sessions, support } = await workspace()
     const claude = await placeRecording(recorded(claudeSubagents), sessions)
     const rewrites = new Map([
-      ['"type": "atis-latch"', '"type": "system", "subtype": "stop_hook_summary"'],
       ['"type": "last-prompt"', '"type": "next-prompt"'],
       ['"operation": "dequeue"', '"operation": 7'],
     ])
@@ -399,7 +398,22 @@ const cliKey = (os: SupportKey['os'], placement: SupportKey['placement'] = 'loca
 
 const desktopOnWindows: SupportKey = { ...cliKey('windows'), surface: 'claude_desktop' }
 
-const contractScenarios = ['tools', 'subagents', 'resume', 'compaction', 'fork', 'plan', 'approval', 'question', 'interrupt', 'reconnect', 'source-loss']
+const contractScenarios = [
+  'tools',
+  'subagents',
+  'resume',
+  'compaction',
+  'fork',
+  'plan',
+  'approval',
+  'question',
+  'interrupt',
+  'reconnect',
+  'source-loss',
+  'plugin',
+  'agents-flag',
+  'user-hooks',
+]
 
 describe('the support matrix generated from the contract run', () => {
   test('a row keeps its claimed status only while recordings of its own OS pass every scenario of the run', async () => {

@@ -1,0 +1,211 @@
+import { join, resolve } from 'node:path'
+import { EpochNs, type Fact, type FactOf, type RunContext, type RunContextEntry, type RunId } from '@aang/contract'
+import { recordRunContext } from '@aang/engine'
+import type { Store } from '@aang/store'
+import { type LoadedManifest, loadManifest } from '@aang/testkit'
+import { describe, type OnTestFinishedHandler, test } from 'vitest'
+import {
+  findRecordings,
+  invariantViolations,
+  playRecording,
+  type PlaybackRoots,
+  type Recording,
+  removeRoots,
+} from '../dist/index.js'
+import { hookBinary } from './fixtures.js'
+
+interface PlayedContext {
+  readonly store: Store
+  readonly roots: PlaybackRoots
+  readonly run: RunId
+  readonly context: RunContext
+}
+
+const recordings = await findRecordings(resolve('fixtures/sessions'))
+
+const ofScenario = (scenario: string): (readonly [string, Recording])[] =>
+  recordings
+    .filter(({ manifest }) => manifest.scenario === scenario)
+    .map((recording) => [recording.name, recording] as const)
+
+const recordedAt = EpochNs.parse(1_900_000_000_000_000_000n)
+
+const asRecorded = (manifest: LoadedManifest): LoadedManifest => manifest
+
+type Finished = (handler: OnTestFinishedHandler) => void
+
+const play = async (recording: Recording, onTestFinished: Finished, edit = asRecorded): Promise<PlayedContext> => {
+  const manifest = edit(await loadManifest(join(recording.directory, 'playback.json')))
+  const { store, roots } = await playRecording(manifest, { hookBinary })
+  onTestFinished(async () => {
+    store.close()
+    await removeRoots(roots)
+  })
+  const runs = store.model.runs()
+  const [run] = runs
+  if (run === undefined || runs.length > 1) {
+    throw new Error(`${recording.name} plays into ${String(runs.length)} runs instead of one`)
+  }
+  const context = await recordRunContext(store, {
+    run: run.id,
+    backend: recording.manifest.runtime,
+    crossVendor: false,
+    at: recordedAt,
+    claudeConfigDir: roots.claude,
+    codexHome: roots.codex,
+  })
+  if (context === null) {
+    throw new Error(`${recording.name} has no run context`)
+  }
+  return { store, roots, run: run.id, context }
+}
+
+const entriesOf = (context: RunContext, kind: RunContextEntry['kind']): RunContextEntry[] =>
+  context.entries.filter((entry) => entry.kind === kind)
+
+const entry = (kind: RunContextEntry['kind'], ref: string, text: string): RunContextEntry => ({
+  kind,
+  ref,
+  text,
+  truncated: null,
+})
+
+const factsOf = (store: Store): Fact[] => store.facts.sessions().flatMap((key) => store.facts.ofSession(key))
+
+const hookRuns = (store: Store): FactOf<'hook_run'>[] =>
+  factsOf(store).filter((fact): fact is FactOf<'hook_run'> => fact.kind === 'hook_run')
+
+const lastWord = (command: string): string => command.slice(command.lastIndexOf(' ') + 1)
+
+const hookRunView = ({ payload }: FactOf<'hook_run'>): string =>
+  [
+    payload.name === null ? '-' : lastWord(payload.name),
+    payload.trigger ?? payload.event,
+    payload.outcome,
+    payload.output === null ? '-' : `${payload.output.kind}: ${payload.output.text}`,
+  ].join(' | ')
+
+const notesGuard = 'notes-guard.mjs'
+
+const userHookRuns = [
+  'SessionStart | SessionStart:startup | success | stdout: notes-guard: the project notes greet the reader with Hello.',
+  '- | UserPromptSubmit | success | additional_context: notes-guard: the notes reviewer is on duty.',
+  'PostToolUse | PostToolUse:Bash | success | -',
+  '- | PostToolUse:Bash | success | system_message: notes-guard checked the command',
+  '- | PostToolUse:Bash | success | additional_context: notes-guard: the command output was checked.',
+  'Stop | Stop | error | stderr: Failed with non-blocking status code: notes-guard could not archive the turn',
+  'Stop | Stop | unknown | -',
+]
+
+const unconfirmedHookType = (manifest: LoadedManifest): LoadedManifest => ({
+  ...manifest,
+  sources: new Map(
+    [...manifest.sources].map(([source, bytes]) => [
+      source,
+      source.endsWith('.jsonl')
+        ? Buffer.from(bytes.toString('utf8').replaceAll('"type":"hook_success"', '"type":"hook_blocking_error"'))
+        : bytes,
+    ]),
+  ),
+})
+
+describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () => {
+  test.for(ofScenario('user-hooks'))(
+    '%s: the user hook enters the context by its command, its runs reach the observer, the aang hook is no hook of the solver',
+    async ([, recording], { expect, onTestFinished }) => {
+      const { store, run, context } = await play(recording, onTestFinished)
+
+      const hooks = entriesOf(context, 'hook')
+      expect(hooks.map(({ ref, text }) => [lastWord(ref), text])).toEqual([
+        ['PostToolUse', 'PostToolUse:Bash'],
+        ['SessionStart', 'SessionStart:startup'],
+        ['Stop', 'Stop'],
+      ])
+      expect(hooks.every(({ ref }) => ref.includes(notesGuard))).toBe(true)
+      expect(hookRuns(store).map(hookRunView).toSorted()).toEqual(userHookRuns.toSorted())
+      expect(hookRuns(store).every(({ payload }) => payload.name === null || payload.name.includes(notesGuard))).toBe(true)
+
+      const queued = new Set(store.interpretations.ofRun(run).map(({ fact }) => fact))
+      const listings = factsOf(store).filter(({ kind }) => kind === 'definition_listing')
+      expect(hookRuns(store).every(({ id }) => queued.has(id))).toBe(true)
+      expect(listings.length).toBeGreaterThan(0)
+      expect(listings.filter(({ id }) => queued.has(id))).toEqual([])
+    },
+  )
+
+  test.for(ofScenario('plugin'))(
+    '%s: the plugin subagent gets its listed definition and the invoked plugin skill its description',
+    async ([, recording], { expect, onTestFinished }) => {
+      const { context } = await play(recording, onTestFinished)
+
+      expect(entriesOf(context, 'agent_definition')).toEqual([
+        entry(
+          'agent_definition',
+          'aang-kit:reviewer',
+          'Reviews the project notes and reports what it checked. Use it to review the notes. (Tools: Bash)',
+        ),
+      ])
+      expect(entriesOf(context, 'skill')).toEqual([
+        entry(
+          'skill',
+          'aang-kit:greeting',
+          'Chooses the greeting of the project notes. Use it when asked which greeting the notes use.',
+        ),
+      ])
+      expect(entriesOf(context, 'hook')).toEqual([])
+    },
+  )
+
+  test.for(ofScenario('agents-flag'))(
+    '%s: the subagent defined for one run gets its listed definition',
+    async ([, recording], { expect, onTestFinished }) => {
+      const { context } = await play(recording, onTestFinished)
+
+      expect(entriesOf(context, 'agent_definition')).toEqual([
+        entry(
+          'agent_definition',
+          'notes-checker',
+          'Checks the project notes and reports the result. Use it to check the notes. (Tools: Bash)',
+        ),
+      ])
+      expect(entriesOf(context, 'skill')).toEqual([])
+    },
+  )
+
+  test.for(ofScenario('agent-role'))(
+    '%s: the subagent of the role gets the role definition from config.toml, the subagent without a role none',
+    async ([, recording], { expect, onTestFinished }) => {
+      const { roots, context } = await play(recording, onTestFinished)
+
+      expect(entriesOf(context, 'agent_definition')).toEqual([
+        entry(
+          'agent_definition',
+          `${join(roots.codex, 'config.toml')} [agents.reviewer]`,
+          [
+            'description: Reviews the project notes and reports what it checked.',
+            'developer_instructions: You are the notes reviewer of the aang recording. Run the command from your task and report its output.',
+          ].join('\n'),
+        ),
+      ])
+      expect(entriesOf(context, 'hook')).toEqual([])
+    },
+  )
+
+  test('a hook attachment of a type that no reference session confirms stays unknown and names no hook', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const recording = recordings.find(({ name }) => name === 'claude/2.1.289/claude_cli/macos/user-hooks')
+    if (recording === undefined) {
+      throw new Error('the macOS CLI user-hooks recording is not found')
+    }
+
+    const { store, context } = await play(recording, onTestFinished, unconfirmedHookType)
+
+    expect(invariantViolations(store)).toEqual(['claude transcript records of type attachment are unknown: 2'])
+    expect(entriesOf(context, 'hook').map(({ ref }) => lastWord(ref))).toEqual(['Stop'])
+    expect(hookRuns(store).map(hookRunView).toSorted()).toEqual(
+      userHookRuns.filter((run) => !run.includes('| success | stdout') && !run.startsWith('PostToolUse')).toSorted(),
+    )
+  })
+})

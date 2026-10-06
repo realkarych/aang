@@ -71,6 +71,7 @@ export interface SchedulerOptions {
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
   readonly claudeConfigDir?: string | null
+  readonly codexHome?: string | null
   readonly budgetTokensPerHour?: number | null
   readonly clock?: SchedulerClock
   readonly limits?: Partial<SchedulerLimits>
@@ -180,6 +181,7 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     backend: override = null,
     crossVendor = false,
     claudeConfigDir = null,
+    codexHome = null,
     budgetTokensPerHour: budget = null,
     onAccepted = () => undefined,
   } = options
@@ -350,7 +352,14 @@ export const createObserverScheduler = (options: SchedulerOptions): ObserverSche
     }
     refreshing.add(run)
     const launched = launches.get(run)
-    const recorded = recordRunContext(store, { run, backend, crossVendor, at: epoch(clock.now()), claudeConfigDir })
+    const recorded = recordRunContext(store, {
+      run,
+      backend,
+      crossVendor,
+      at: epoch(clock.now()),
+      claudeConfigDir,
+      codexHome,
+    })
       .then((context) => {
         contexts.set(run, context)
         if (launches.get(run) === launched) {
