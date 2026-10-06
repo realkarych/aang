@@ -176,6 +176,16 @@ const ownFile = ({ key }: Agent): string => {
   }
 }
 
+const participantName = ({ runtime, agentType }: Variant, agent: Agent): string => {
+  if (runtime === 'claude') {
+    return agentType
+  }
+  if (agent.name === null) {
+    throw new Error(`the delegated Codex agent ${agent.id} has no nickname`)
+  }
+  return agent.name
+}
+
 const mapVersion = async (page: Page): Promise<number> => Number(await fact(page, 'Версия карты').textContent())
 
 for (const variant of variants) {
@@ -231,7 +241,7 @@ for (const variant of variants) {
         .getByRole('definition'),
     ).toHaveText(chosen.description)
     const work = section(page, 'Участники и действия')
-    await expect(work.getByRole('list', { name: 'Агенты этапа' })).toContainText(variant.agentType)
+    await expect(work.getByRole('list', { name: 'Агенты этапа' })).toContainText(participantName(variant, agent))
     await expect(work.getByRole('list', { name: 'Действия этапа' })).toContainText(chosen.command)
 
     await section(page, 'Связи').getByRole('link', { name: mainStageTitle, exact: true }).click()
