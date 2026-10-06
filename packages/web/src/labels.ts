@@ -132,9 +132,17 @@ const disabledReason: Readonly<Record<Extract<ObserverState, { state: 'disabled'
   launcher_unavailable: 'запуск недоступен',
 }
 
-const lagReason: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
-  budget: 'исчерпан бюджет',
-  backlog: 'большая очередь',
+const lagLabel: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
+  budget: 'отстаёт: исчерпан бюджет',
+  backlog: 'догоняющий режим',
+}
+
+export const retryLabel: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
+  auth: 'Следующая проверка авторизации CLI',
+  auth_path_broken: 'Следующая проверка авторизации CLI',
+  limit: 'Следующая проба наблюдателя',
+  transient: 'Следующая проба наблюдателя',
+  process_stuck: 'Следующая проба наблюдателя',
 }
 
 export const observerStateLabel = (state: ObserverState): string => {
@@ -142,7 +150,7 @@ export const observerStateLabel = (state: ObserverState): string => {
     case 'ok':
       return 'работает'
     case 'lagging':
-      return `отстаёт: ${lagReason[state.reason]}`
+      return lagLabel[state.reason]
     case 'backoff':
       return `повтор в ${clockTime(state.until)}, попытка ${String(state.attempt)}`
     case 'unavailable':
@@ -254,6 +262,7 @@ export const agentForms = { one: 'агент', few: 'агента', many: 'аг�
 export const runForms = { one: 'прогон', few: 'прогона', many: 'прогонов' } as const
 export const runInForms = { one: 'прогоне', few: 'прогонах', many: 'прогонах' } as const
 export const factForms = { one: 'факт', few: 'факта', many: 'фактов' } as const
+export const earlyFactForms = { one: 'ранний факт', few: 'ранних факта', many: 'ранних фактов' } as const
 export const fileForms = { one: 'файл', few: 'файла', many: 'файлов' } as const
 export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
 export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const

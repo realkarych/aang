@@ -6,9 +6,14 @@
   "bin": {
     "aang": "./dist/main.js"
   },
+  "imports": {
+    "#aang-hook-win32-*": "@aang/hook/bin/aang-hook.exe",
+    "#aang-hook-*": "@aang/hook/bin/aang-hook"
+  },
   "dependencies": {
     "@aang/cli": "workspace:*",
     "@aang/daemon": "workspace:*",
+    "@aang/hook": "workspace:*",
     "@aang/web": "workspace:*"
   },
   "devDependencies": {

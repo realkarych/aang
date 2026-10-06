@@ -2,13 +2,16 @@ import type { RunId, RunSnapshot, RunSummary, StatusResponse, UsageReport } from
 import { type ReactElement, useCallback, useEffect, useState } from 'react'
 import { readRuns, readStatus, readUsage } from './api.js'
 import { nowNs } from './format.js'
+import { GenerationContext } from './generation.js'
 import { type FocusedRun, lampsOf } from './lamps.js'
-import { listHref, runHref, type UsagePeriod, usageHref, useNavigate, useRoute } from './route.js'
+import { listHref, runHref, selectStage, type UsagePeriod, usageHref, useNavigate, useRoute, useRoutedStage } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
 import { Missing, RunPage } from './run-page.js'
+import { StageInspector } from './stage-inspector.js'
 import { StatusStrip } from './status-strip.js'
 import { RunUsagePage, UsageOverview, usageQuery } from './usage-page.js'
 import { type Polled, usePolled } from './use-polled.js'
+import { SignedOutContext } from './use-read.js'
 import { useRunFeed } from './use-run-feed.js'
 
 const useNow = (intervalMs = 1_000): bigint => {
@@ -122,13 +125,18 @@ const focusOf = (snapshot: RunSnapshot | null): FocusedRun | null =>
 
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
+  const runs = usePolled(readRuns, onSignedOut)
+  const stage = useRoutedStage()
+  const close = useCallback(() => {
+    selectStage(run, null)
+  }, [run])
   const title = snapshotTitle(feed.snapshot)
   useTitle(`${title ?? 'Прогон'} — aang`)
   const lamps = lampsOf({
     status: status.value,
     statusFailing: status.failing,
     runs: null,
-    runsFailing: false,
+    runsFailing: runs.failing,
     focus: { connection: feed.connection, run: focusOf(feed.snapshot) },
     now,
   })
@@ -136,8 +144,22 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     <>
       <Masthead trail={[{ label: title ?? 'Прогон' }]} />
       <StatusStrip lamps={lamps} />
-      <main className="page">
-        <RunPage feed={feed} now={now} />
+      <main className="page run-screen" data-inspecting={stage !== null}>
+        <GenerationContext value={feed.generation}>
+          <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} />
+          {stage === null ? null : (
+            <SignedOutContext value={onSignedOut}>
+              <StageInspector
+                key={stage}
+                run={run}
+                stage={stage}
+                feed={feed}
+                onSignedOut={onSignedOut}
+                onClose={close}
+              />
+            </SignedOutContext>
+          )}
+        </GenerationContext>
       </main>
     </>
   )

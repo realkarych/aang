@@ -9,6 +9,8 @@ import {
   mapScript,
   mergeScript,
   readObserverInput,
+  rejectedScript,
+  reportScript,
   revisionScript,
   splitScript,
 } from './observer.js'
@@ -22,6 +24,8 @@ export const ScenarioScript = z.enum([
   'revision',
   'split',
   'merge',
+  'report',
+  'rejected',
   'chat-answer',
   'chat-collapse-reviewers',
 ])
@@ -34,6 +38,8 @@ const scripts: Readonly<Record<ScenarioScript, (input: JsonValue | undefined) =>
   'map-nested': (input) => mapNestedScript(readObserverInput(input)),
   'claimed-done': (input) => claimedDoneScript(readObserverInput(input)),
   revision: (input) => revisionScript(readObserverInput(input)),
+  report: (input) => reportScript(readObserverInput(input)),
+  rejected: (input) => rejectedScript(readObserverInput(input)),
   split: (input) => splitScript(readObserverInput(input)),
   merge: (input) => mergeScript(readObserverInput(input)),
   'chat-answer': (input) => chatAnswerScript(readChatInput(input)),

@@ -100,7 +100,6 @@ describe('the contract run over recordings generated from the spike samples', ()
     await placeRecording(recorded(claudeSubagents), sessions, { os: otherOs })
     await placeRecording(recorded(claudeSourceLoss), sessions)
     await placeRecording(recorded(codexResumeCompaction), sessions)
-    await placeRecording(recorded(codexToolDecisions), sessions)
 
     const update = await supportCli(['update', ...cliOptions(sessions, support)])
     expect(update.stderr).toBe('')
@@ -112,7 +111,6 @@ describe('the contract run over recordings generated from the spike samples', ()
         `claude/2.1.286/claude_cli/${hostOs}/subagents`,
         `claude/2.1.286/claude_cli/${otherOs}/subagents`,
         `codex/0.159.2/codex_exec/${hostOs}/resume-compaction`,
-        `codex/0.159.2/codex_exec/${hostOs}/tools`,
       ].sort(),
     )
     const snapshotText = (path: string): Promise<string> => readFile(join(support, 'contract', `${path}.json`), 'utf8')
@@ -134,11 +132,9 @@ describe('the contract run over recordings generated from the spike samples', ()
     expect(lost.records).toEqual(expect.arrayContaining([expect.objectContaining({ channel: 'registry', parse_state: 'parsed', count: 3 })]))
     const resumed = JSON.parse(await snapshotText(`codex/0.159.2/codex_exec/${hostOs}/resume-compaction`)) as Snapshot
     expect(resumed.facts.map(({ kind }) => kind)).toEqual(expect.arrayContaining(['compaction', 'usage', 'usage_total']))
-    const decisions = JSON.parse(await snapshotText(`codex/0.159.2/codex_exec/${hostOs}/tools`)) as Snapshot
-    expect(decisions.records).toEqual([expect.objectContaining({ channel: 'otel', count: 15 })])
 
     const check = await supportCli(['check', ...cliOptions(sessions, support)])
-    expect(check.stdout).toBe('5 recordings, 0 problems\n')
+    expect(check.stdout).toBe('4 recordings, 0 problems\n')
     expect(check.code).toBe(0)
   }, 120_000)
 
@@ -147,7 +143,7 @@ describe('the contract run over recordings generated from the spike samples', ()
 
     const check = await supportCli(['check', ...cliOptions(join(portable, 'sessions'), join(portable, 'support'))])
 
-    expect(check).toEqual({ code: 0, stdout: '4 recordings, 0 problems\n', stderr: '' })
+    expect(check).toEqual({ code: 0, stdout: '3 recordings, 0 problems\n', stderr: '' })
   }, 120_000)
 
   test('the run refuses an unknown command, a recording outside its own directory and a missing hook binary', async () => {
@@ -339,6 +335,44 @@ describe('the contract run over recordings generated from the spike samples', ()
     expect(update.stderr).toMatch(new RegExp(`${recording.name}: thread [0-9a-f-]+: token_usage_record sum .* differs from the last thread_token_usage`))
     await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   }, 120_000)
+
+  test('a record that the adapters leave unknown or invalid fails the run unless its type is listed as not covered yet, and update refuses to write', async () => {
+    const { sessions, support } = await workspace()
+    const claude = await placeRecording(recorded(claudeSubagents), sessions)
+    const rewrites = new Map([
+      ['"type": "atis-latch"', '"type": "system", "subtype": "stop_hook_summary"'],
+      ['"type": "last-prompt"', '"type": "next-prompt"'],
+      ['"operation": "dequeue"', '"operation": 7'],
+    ])
+    const rewritten = new Map([...rewrites.keys()].map((from) => [from, 0]))
+    for (const name of (await readdir(join(claude, 'data'))).filter((file) => file.endsWith('.jsonl'))) {
+      const path = join(claude, 'data', name)
+      let text = await readFile(path, 'utf8')
+      for (const [from, to] of rewrites) {
+        rewritten.set(from, (rewritten.get(from) ?? 0) + text.split(from).length - 1)
+        text = text.replaceAll(from, to)
+      }
+      await writeFile(path, text)
+    }
+    expect([...rewritten.values()].every((count) => count > 0)).toBe(true)
+    await placeRecording(recorded(codexToolDecisions), sessions)
+    const [claudeRecording, codexRecording] = await findRecordings(sessions)
+    if (claudeRecording === undefined || codexRecording === undefined) {
+      throw new Error('the recordings are not found')
+    }
+
+    const update = await supportCli(['update', ...cliOptions(sessions, support)])
+
+    expect(update.code).toBe(1)
+    expect(update.stderr.split('\n')).toEqual([
+      'invariants are violated, nothing is written:',
+      `${claudeRecording.name}: claude transcript records of type next-prompt are unknown: ${String(rewritten.get('"type": "last-prompt"'))}`,
+      `${claudeRecording.name}: claude transcript records of type queue-operation are invalid: ${String(rewritten.get('"operation": "dequeue"'))}`,
+      `${codexRecording.name}: codex otel records of type - are unknown: 15`,
+      '',
+    ])
+    await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+  }, 120_000)
 })
 
 const notRunContract = { resume: 'not_run', compaction: 'not_run', child_sessions: 'not_run', reconnect: 'not_run' } as const
@@ -374,7 +408,7 @@ describe('the support matrix generated from the contract run', () => {
       await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: hostOs, scenario })
     }
     for (const scenario of ['plan', 'question']) {
-      await placeRecording(recorded(codexToolDecisions), sessions, { os: hostOs, scenario })
+      await placeRecording(recorded(codexResumeCompaction), sessions, { os: hostOs, scenario })
     }
     await placeRecording(recorded(claudeSubagents), sessions, { os: otherOs, scenario: 'subagents' })
     const previous: SupportMatrix = {

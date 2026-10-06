@@ -14,7 +14,7 @@ import { startResponsesProbe } from './responses-probe.js'
 export interface ProbeContext {
   readonly directory: string
   readonly env: Record<string, string>
-  readonly run: (args: readonly string[], input?: string, cwd?: string, env?: Record<string, string>) => Promise<ProcessResult>
+  readonly run: (args: readonly string[], input?: string, cwd?: string, env?: Record<string, string>, hookMarker?: string) => Promise<ProcessResult>
 }
 
 const reject = (condition: boolean, reason: string): void => {
@@ -24,10 +24,10 @@ const reject = (condition: boolean, reason: string): void => {
 const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Promise<string> => {
   const marker = join(directory, 'hook-ran')
   const script = join(directory, 'control-hook.cjs')
-  await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},'control')\n`, { mode: 0o600 })
+  await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},String(process.pid))\n`, { mode: 0o600 })
   const command = process.platform === 'win32'
     ? `& ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "''")}'`).join(' ')}`
-    : [process.execPath, script].map((value) => `'${value.replaceAll("'", "'\\''")}'`).join(' ')
+    : `exec ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "'\\''")}'`).join(' ')}`
   const hook = runtime === 'claude'
     ? { type: 'command', command: process.execPath, args: [script], timeout: 10 }
     : { type: 'command', command, timeout: 10 }
@@ -119,7 +119,7 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
       const branch = [...args]
       if (positive) branch.splice(branch.indexOf('hooks') - 1, 2)
       await rm(join(directory, 'last.json'), { force: true })
-      const result = await run(branch, '{"model":{"version":0},"batch":{"facts":[]}}', directory, env)
+      const result = await run(branch, '{"model":{"version":0},"batch":{"facts":[]}}', directory, env, marker)
       if (result.failure !== null) requireSuccess(result)
       server.verify(index + 1)
       requireSuccess(result)

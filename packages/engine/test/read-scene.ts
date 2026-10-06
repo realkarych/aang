@@ -55,6 +55,7 @@ export interface Scene {
   readonly retainBases: () => Promise<readonly ArtifactVersion[]>
   readonly teammateMeta: (source: Source, agent: string, name: string, team: string) => Promise<void>
   readonly factsOf: (source: Source, kind?: Fact['kind']) => Fact[]
+  readonly retain: () => Promise<readonly ArtifactVersion[]>
   readonly begin: (run: RunId, id: string, facts: readonly Fact[], at: number) => ObserverCallId
   readonly answer: (
     call: ObserverCallId,
@@ -138,6 +139,7 @@ export const openScene = async (register: TestContext['onTestFinished']): Promis
       factsOf(store).filter(
         (fact) => fact.entity_key.session === session && (kind === undefined || fact.kind === kind),
       ),
+    retain: () => engine.retainBases(),
     begin,
     answer,
     observe: (run, id, facts, ops, options) => answer(begin(run, id, facts, options.at - 1), ops, options),

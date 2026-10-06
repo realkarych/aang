@@ -40,18 +40,21 @@ const inputOf = ({ input, description }: ActionStartPayload): ActionInput => {
   return { detail, description: description === detail ? null : description }
 }
 
-const requests = new Map<FactId, Promise<ActionInput | null>>()
+export interface InputCache {
+  readonly requests: Map<FactId, Promise<ActionInput | null>>
+  readonly failures: Map<FactId, bigint>
+}
 
-const failures = new Map<FactId, bigint>()
+export const inputCache = (): InputCache => ({ requests: new Map(), failures: new Map() })
 
-const settled = (id: FactId, now: bigint): boolean => {
+const settled = (failures: InputCache['failures'], id: FactId, now: bigint): boolean => {
   const failedAt = failures.get(id)
   return failedAt === undefined || now - failedAt < factRetryNs
 }
 
-export const actionInput = (id: FactId, now: bigint): Promise<ActionInput | null> => {
+export const actionInput = ({ requests, failures }: InputCache, id: FactId, now: bigint): Promise<ActionInput | null> => {
   const known = requests.get(id)
-  if (known !== undefined && settled(id, now)) {
+  if (known !== undefined && settled(failures, id, now)) {
     return known
   }
   failures.delete(id)
