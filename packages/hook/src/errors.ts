@@ -1,5 +1,4 @@
 export type HookInstallFailure =
-  | 'unsupported_platform'
   | 'claude_cli'
   | 'invalid_hooks_file'
   | 'hooks_file_changed'
@@ -15,14 +14,5 @@ export class HookInstallError extends Error {
   ) {
     super(message, options)
     this.name = 'HookInstallError'
-  }
-}
-
-export const requireHookInstallSupport = (): void => {
-  if (process.platform === 'win32') {
-    throw new HookInstallError(
-      'unsupported_platform',
-      'installing hooks on Windows is not enabled yet: the hook command form for Windows runtimes is unverified',
-    )
   }
 }

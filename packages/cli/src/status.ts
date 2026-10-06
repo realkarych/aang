@@ -4,6 +4,7 @@ import { aangHomePaths, type DaemonState, readDaemonState, readSpoolState, type 
 import { callDaemon, readDaemon } from './admin.js'
 import { daemonUrl, isAlive } from './daemon-process.js'
 import { describeError, type Output } from './output.js'
+import { codexHookSlowdown, codexHooksOffByDefault, onWindows } from './windows.js'
 
 const isoTime = (time: EpochNs): string => new Date(Number(time / 1_000_000n)).toISOString()
 
@@ -58,9 +59,18 @@ const versionName = ({ runtime, surface, engine_version: version }: VersionKey):
 
 const sessionCount = (count: number): string => `${String(count)} ${count === 1 ? 'session' : 'sessions'}`
 
+const windowsCodexNotes: Readonly<Record<HookInstallation, readonly string[]>> = {
+  not_installed: [`codex: ${codexHooksOffByDefault}`],
+  untrusted: [`codex: ${codexHookSlowdown}`],
+  disabled: [`codex: ${codexHookSlowdown}`],
+  active: [`codex: ${codexHookSlowdown}`],
+  unknown: [],
+}
+
 const connectionLines = ({ runtimes, versions, not_observable: unobservable }: StatusResponse): string[] => [
   ...runtimes.flatMap(({ runtime, hooks, hooks_inactive_sessions: inactive, double_registration_sessions: twice }) => [
     `${runtime} hooks: ${hookNotes[hooks]}`,
+    ...(onWindows && runtime === 'codex' ? windowsCodexNotes[hooks] : []),
     ...(inactive.length === 0 ? [] : [`${runtime}: hooks inactive in ${sessionCount(inactive.length)}`]),
     ...(twice.length === 0 ? [] : [`${runtime}: hooks registered twice in ${sessionCount(twice.length)}`]),
   ]),

@@ -1,6 +1,7 @@
 import { listCodexHooks, type CodexAppServerOptions, type CodexHookEntry, type CodexHookListing } from './codex-app-server.js'
 import { codexHookCommand, isAangCommand } from './codex-command.js'
 import { HookInstallError } from './errors.js'
+import { hookInstallPaths } from './layout.js'
 
 export interface CodexHooksStateOptions extends CodexAppServerOptions {
   readonly aangHome: string
@@ -14,7 +15,7 @@ export interface CodexHooksState extends CodexHookListing {
 const isAangHook = (hook: CodexHookEntry): boolean => hook.handlerType === 'command' && isAangCommand(hook.command ?? '')
 
 export const codexHooksState = async ({ aangHome, ...options }: CodexHooksStateOptions): Promise<CodexHooksState> => {
-  const listing = await listCodexHooks(options)
+  const listing = await listCodexHooks(options, hookInstallPaths(aangHome).binary)
   const command = codexHookCommand(aangHome)
   const aang = listing.hooks.filter(isAangHook)
   const hooks = aang.filter((hook) => hook.command === command)

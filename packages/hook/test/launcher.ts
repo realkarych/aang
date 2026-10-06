@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { inject, type TestContext } from 'vitest'
 import { hookEnvironment } from './hook.js'
 
-export type TreeMode = 'echo' | 'orphan' | 'hold'
+export type TreeMode = 'echo' | 'orphan' | 'hold' | 'reply'
 
 export type TreeProcess = 'root' | 'descendant' | 'launcher'
 

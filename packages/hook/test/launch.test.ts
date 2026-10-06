@@ -7,7 +7,7 @@ import { createLaunchSandbox, isAlive, type LaunchSandbox, waitUntil } from './l
 
 const onWindows = test.runIf(process.platform === 'win32')
 
-const launchUsage = 'usage: aang-hook launch <status-file> <input-bytes> <program> [argument ...]\n'
+const launchUsage = 'usage: aang-hook launch <status-file> <input-bytes|stream> <program> [argument ...]\n'
 
 onWindows(
   'passes the first n bytes of its stdin to the CLI unchanged, streams the CLI output and records the root exit code',
@@ -41,6 +41,29 @@ onWindows(
     expect(isAlive(descendant)).toBe(false)
     expect(await sandbox.status()).toEqual({ outcome: 'stopped', exit_code: 0 })
     expect(await launcher.closed).toBe(0)
+  },
+)
+
+onWindows(
+  'in stream mode passes its stdin to the CLI as it arrives, and closing it stops the whole tree',
+  async ({ expect, onTestFinished }) => {
+    const sandbox = await createLaunchSandbox(onTestFinished)
+    const launcher = sandbox.launch([sandbox.statusPath, 'stream', ...sandbox.command('reply')])
+    const root = await sandbox.pid('root')
+    const replies = (): string => launcher.stdout().toString('utf8')
+
+    launcher.stdin.write('first Имя Фамилия\n')
+    await waitUntil(() => replies().includes('reply first Имя Фамилия\n'))
+    launcher.stdin.write('second\n')
+    await waitUntil(() => replies().includes('reply second\n'))
+    expect(isAlive(root)).toBe(true)
+
+    launcher.stdin.end()
+
+    expect(await launcher.closed).toBe(0)
+    expect(replies()).toBe('reply first Имя Фамилия\nreply second\n')
+    expect(await sandbox.status()).toEqual({ outcome: 'stopped', exit_code: 1 })
+    expect(isAlive(root)).toBe(false)
   },
 )
 

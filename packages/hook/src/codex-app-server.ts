@@ -1,5 +1,7 @@
 import { spawn } from 'node:child_process'
-import { resolve } from 'node:path'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
 import { HookInstallError } from './errors.js'
@@ -51,6 +53,32 @@ const maximumStderrChars = 8192
 const treeStopTimeoutMs = 10_000
 const treeStopPollMs = 25
 
+const windows = process.platform === 'win32'
+
+const LauncherStatus = z.discriminatedUnion('outcome', [
+  z.object({ outcome: z.literal('stopped'), exit_code: z.number().int() }),
+  z.object({ outcome: z.literal('not_started'), step: z.string(), error: z.string() }),
+])
+
+type LauncherStatus = z.infer<typeof LauncherStatus>
+
+const readLauncherStatus = (path: string): LauncherStatus | undefined => {
+  try {
+    return LauncherStatus.safeParse(JSON.parse(readFileSync(path, 'utf8'))).data
+  } catch {
+    return undefined
+  }
+}
+
+const windowsExecutable = (command: string): string =>
+  isAbsolute(command)
+    ? command
+    : ((process.env.PATH ?? '')
+        .split(delimiter)
+        .filter((directory) => directory !== '')
+        .flatMap((directory) => ['.com', '.exe'].map((extension) => join(directory, `${command}${extension}`)))
+        .find((candidate) => existsSync(candidate)) ?? command)
+
 const groupEmpty = (pid: number): boolean => {
   try {
     process.kill(-pid, 0)
@@ -60,9 +88,9 @@ const groupEmpty = (pid: number): boolean => {
   }
 }
 
-const treeStopped = async (pid: number | undefined): Promise<boolean> => {
+const treeStopped = async (confirmed: () => boolean): Promise<boolean> => {
   const deadline = Date.now() + treeStopTimeoutMs
-  while (pid !== undefined && !groupEmpty(pid)) {
+  while (!confirmed()) {
     if (Date.now() >= deadline) {
       return false
     }
@@ -99,15 +127,11 @@ const Message = z.looseObject({
   error: z.unknown().optional(),
 })
 
-export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs, signal }: CodexAppServerOptions): Promise<CodexHookListing> =>
+export const listCodexHooks = (
+  { codexHome, codex, timeoutMs = timeoutDefaultMs, signal }: CodexAppServerOptions,
+  launcher: string,
+): Promise<CodexHookListing> =>
   new Promise((complete, reject) => {
-    if (process.platform === 'win32') {
-      reject(new HookInstallError(
-        'unsupported_platform',
-        'checking Codex hook state on Windows is not enabled yet: app-server requires a launcher with confirmed process-tree termination',
-      ))
-      return
-    }
     if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
       reject(failure('timeoutMs must be positive and finite'))
       return
@@ -117,13 +141,13 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs,
       return
     }
     const home = resolve(codexHome)
-    const child = spawn(codex.command, [...(codex.args ?? []), 'app-server'], {
-      cwd: home,
-      env: { ...process.env, CODEX_HOME: home },
-      stdio: 'pipe',
-      windowsHide: true,
-      detached: true,
-    })
+    const command = windows ? windowsExecutable(codex.command) : codex.command
+    const args = [...(codex.args ?? []), 'app-server']
+    const statusPath = windows ? join(mkdtempSync(join(tmpdir(), 'aang-app-server-')), 'status.json') : ''
+    const options = { cwd: home, env: { ...process.env, CODEX_HOME: home }, stdio: 'pipe', windowsHide: true } as const
+    const child = windows
+      ? spawn(launcher, ['launch', statusPath, 'stream', command, ...args], options)
+      : spawn(command, args, { ...options, detached: true })
     let pending = ''
     let stderr = ''
     let outputBytes = 0
@@ -133,6 +157,11 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs,
 
     const terminate = (): void => {
       if (terminated) {
+        return
+      }
+      if (windows) {
+        child.stdin.end()
+        terminated = true
         return
       }
       try {
@@ -232,15 +261,24 @@ export const listCodexHooks = ({ codexHome, codex, timeoutMs = timeoutDefaultMs,
         }
       }
     })
+    const stopConfirmed = (): boolean =>
+      child.pid === undefined || (windows ? readLauncherStatus(statusPath) !== undefined : groupEmpty(child.pid))
     child.on('close', (code, exitSignal) => {
       clearTimeout(timer)
       signal?.removeEventListener('abort', cancel)
       terminate()
-      void treeStopped(child.pid).then((stopped) => {
+      void treeStopped(stopConfirmed).then((stopped) => {
+        const launched = windows ? readLauncherStatus(statusPath) : undefined
+        if (windows) {
+          rmSync(dirname(statusPath), { recursive: true, force: true })
+        }
         if (!stopped) {
           reject(failure('the app-server process tree did not stop'))
+        } else if (launched?.outcome === 'not_started') {
+          reject(failure(`could not start ${codex.command} (${launched.step}): ${launched.error}`))
         } else if (outcome === undefined) {
-          reject(failure(`exited before hooks/list completed (${String(code ?? exitSignal)})${stderr === '' ? '' : `: ${stderr.trim()}`}`))
+          const exit = launched?.exit_code ?? code ?? exitSignal
+          reject(failure(`exited before hooks/list completed (${String(exit)})${stderr === '' ? '' : `: ${stderr.trim()}`}`))
         } else if ('error' in outcome) {
           reject(outcome.error)
         } else {
