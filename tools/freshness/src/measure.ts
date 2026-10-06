@@ -6,9 +6,18 @@ import { configFileName } from '@aang/contract/config-file'
 import { aangHomePaths } from '@aang/contract/home'
 import { hookInstallPaths } from '@aang/hook'
 import { openStore } from '@aang/store'
-import { createPlayer, launchDaemon, type PlayerRoots, profileEnvironment, type RunningDaemon } from '@aang/testkit'
+import {
+  createPlayer,
+  type HookTarget,
+  launchDaemon,
+  type PlayerRoots,
+  playbackShift,
+  profileEnvironment,
+  type RunningDaemon,
+} from '@aang/testkit'
 import type { z } from 'zod'
-import { evaluateEvents, type Played } from './evaluate.js'
+import type { Played } from './control.js'
+import { evaluateEvents } from './evaluate.js'
 import {
   type Annotations,
   createOnce,
@@ -40,15 +49,34 @@ interface Sampler {
   readonly stop: () => Promise<StateSample[]>
 }
 
+interface Plan {
+  readonly profile: LoadProfile
+  readonly scheduled: readonly Scheduled[]
+  readonly roots: PlayerRoots
+  readonly hook: HookTarget
+}
+
+interface Collected {
+  readonly backends: MeasuredBackend[]
+  readonly startedAt: number
+  readonly endedAt: number
+  readonly played: Played[]
+  readonly states: StateSample[]
+  readonly calls: MeasuredCall[]
+  readonly version: string
+}
+
 const pollMs = 250
 const admissionTimeoutMs = 300_000
 const nanosecondsPerMillisecond = 1_000_000n
 
 const millisecondsOf = (value: bigint): number => Number(value / nanosecondsPerMillisecond)
 
-const until = async (time: number): Promise<void> => {
-  await sleep(Math.max(0, time - Date.now()))
+const until = async (time: number, signal?: AbortSignal): Promise<void> => {
+  await sleep(Math.max(0, time - Date.now()), undefined, signal === undefined ? {} : { signal })
 }
+
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 const fetchJson = async <T extends z.ZodType>(
   daemon: RunningDaemon,
@@ -135,6 +163,7 @@ const callsOf = async (daemon: RunningDaemon): Promise<MeasuredCall[]> => {
           run: id,
           runtime,
           outcome: call.outcome,
+          result_version: call.result_version,
           started_at: millisecondsOf(call.started_at),
           ended_at: call.ended_at === null ? null : millisecondsOf(call.ended_at),
           latency_ms: call.latency_ms,
@@ -181,6 +210,72 @@ const schedule = async ({ recordings }: FixedProfile, fixtures: string): Promise
   return scheduled
 }
 
+const playAll = async ({ profile, scheduled, roots, hook }: Plan, startedAt: number, otlp: string): Promise<Played[]> => {
+  const stopping = new AbortController()
+  const plays = scheduled.map(async ({ startMs, recording }): Promise<Played> => {
+    try {
+      await until(startedAt + startMs, stopping.signal)
+      const recordTime = Date.now()
+      const player = createPlayer(recording.playback, {
+        roots,
+        timeScale: profile.time_scale,
+        recordTime: { startsAt: recordTime },
+        hook,
+        otlp,
+      })
+      const startsAt = Date.now()
+      const steps = await player.play({ signal: stopping.signal })
+      return { recording, shift: playbackShift(recording.playback.sources.values(), recordTime), startsAt, steps }
+    } catch (error) {
+      stopping.abort(error)
+      throw error
+    }
+  })
+  const settled = await Promise.allSettled(plays)
+  const failure: unknown = stopping.signal.reason
+  if (stopping.signal.aborted) {
+    throw failure
+  }
+  return settled.flatMap((outcome) => (outcome.status === 'fulfilled' ? [outcome.value] : []))
+}
+
+const collect = async (daemon: RunningDaemon, plan: Plan): Promise<Collected> => {
+  const runtimes = [...new Set(plan.scheduled.map(({ recording }) => recording.manifest.runtime))]
+  const backends = await admitted(daemon, runtimes)
+  const { endpoint } = await fetchJson(daemon, endpoints.otelConfig.path, endpoints.otelConfig.response, {
+    method: endpoints.otelConfig.method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ rotate: false }),
+  })
+  const sampler = sampleStates(daemon)
+  const startedAt = Date.now()
+  const played = await playAll(plan, startedAt, endpoint).catch(async (error: unknown) => {
+    await sampler.stop().catch(() => [])
+    throw error
+  })
+  const controlTimes = played.flatMap(({ recording, steps }) =>
+    recording.events.map(({ index }) => steps[index]?.playedAt ?? startedAt),
+  )
+  await until(Math.max(startedAt, ...controlTimes) + plan.profile.window_ms)
+  const states = await sampler.stop()
+  const calls = await callsOf(daemon)
+  const status = await fetchJson(daemon, endpoints.status.path, endpoints.status.response)
+  return { backends, startedAt, endedAt: Date.now(), played, states, calls, version: status.daemon.version }
+}
+
+const shutDown = async (daemon: RunningDaemon): Promise<void> => {
+  const exit = await daemon.stop().catch(async (error: unknown) => {
+    await daemon.kill()
+    throw new Error(
+      `the daemon did not shut down and was killed, its observer processes may outlive it: ${messageOf(error)}\n${daemon.output()}`,
+      { cause: error },
+    )
+  })
+  if (exit.code !== 0) {
+    throw new Error(`the daemon did not stop cleanly: ${JSON.stringify(exit)}\n${daemon.output()}`)
+  }
+}
+
 export const measure = async (options: MeasureOptions): Promise<Measurement> => {
   const directory = await realpath(options.directory)
   const { fixed, digest } = await readFixed(directory)
@@ -203,50 +298,26 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
   const paths = aangHomePaths(aang)
   const env = profileEnvironment(process.env, { AANG_HOME: aang, CLAUDE_CONFIG_DIR: roots.claude, CODEX_HOME: roots.codex })
   const daemon = await launchDaemon(paths, env, { entry: options.daemonEntry })
-  const collected = await (async () => {
-    const runtimes = [...new Set(scheduled.map(({ recording }) => recording.manifest.runtime))]
-    const backends = await admitted(daemon, runtimes)
-    const { endpoint } = await fetchJson(daemon, endpoints.otelConfig.path, endpoints.otelConfig.response, {
-      method: endpoints.otelConfig.method,
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ rotate: false }),
-    })
-    const sampler = sampleStates(daemon)
-    const startedAt = Date.now()
-    const played = await Promise.all(
-      scheduled.map(async ({ startMs, recording }): Promise<Played> => {
-        await until(startedAt + startMs)
-        const startsAt = Date.now()
-        const player = createPlayer(recording.playback, {
-          roots,
-          timeScale: profile.time_scale,
-          recordTime: { startsAt },
-          hook: { binary: options.hookBinary, spool: paths.spool, env },
-          otlp: endpoint,
-        })
-        return { recording, startsAt, steps: await player.play() }
-      }),
+  const plan: Plan = { profile, scheduled, roots, hook: { binary: options.hookBinary, spool: paths.spool, env } }
+  const collected = await collect(daemon, plan).catch(async (error: unknown) => {
+    const stopped: unknown = await shutDown(daemon).then(
+      () => null,
+      (failure: unknown) => failure,
     )
-    const controlTimes = played.flatMap(({ recording, steps }) =>
-      recording.events.map(({ index }) => steps[index]?.playedAt ?? startedAt),
-    )
-    await until(Math.max(startedAt, ...controlTimes) + profile.window_ms)
-    const states = await sampler.stop()
-    const calls = await callsOf(daemon)
-    const status = await fetchJson(daemon, endpoints.status.path, endpoints.status.response)
-    return { backends, startedAt, played, states, calls, version: status.daemon.version, endedAt: Date.now() }
-  })().catch(async (error: unknown) => {
-    await daemon.kill()
-    throw error
+    throw stopped === null ? error : new Error(`${messageOf(error)}\n${messageOf(stopped)}`, { cause: error })
   })
-  const exit = await daemon.stop()
-  if (exit.code !== 0) {
-    throw new Error(`the daemon did not stop cleanly: ${JSON.stringify(exit)}\n${daemon.output()}`)
-  }
+  await shutDown(daemon)
   const store = openStore({ home: aang })
   const events = (() => {
     try {
-      return evaluateEvents({ store, played: collected.played, roots, windowMs: profile.window_ms })
+      return evaluateEvents({
+        store,
+        played: collected.played,
+        calls: collected.calls,
+        roots,
+        windowMs: profile.window_ms,
+        timeScale: profile.time_scale,
+      })
     } finally {
       store.close()
     }

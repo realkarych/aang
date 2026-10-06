@@ -1,11 +1,25 @@
-import { ChangeSeq, type ModelChange, type ModelEntity, ModelVersion, type ModelVersionRecord, type RunId } from '@aang/contract'
+import {
+  ChangeSeq,
+  type ModelChange,
+  type ModelEntity,
+  ModelVersion,
+  type ModelVersionRecord,
+  type ObserverCallId,
+  type RunId,
+} from '@aang/contract'
 import type { Store } from '@aang/store'
 import type { ModelState } from './predicate.js'
 
 export interface VersionState {
   readonly record: ModelVersionRecord
+  readonly call: ObserverCallId | null
   readonly changes: readonly ModelChange[]
   readonly model: ModelState
+}
+
+interface Transaction {
+  readonly call: ObserverCallId
+  readonly last: number
 }
 
 const entityKey = ({ target }: ModelChange): string => `${target.kind}:${target.id}`
@@ -24,9 +38,14 @@ const stateOf = (entities: ReadonlyMap<string, ModelEntity>): ModelState => {
 
 export const emptyModel: ModelState = stateOf(new Map())
 
-export const versionStates = (store: Store, run: RunId): VersionState[] => {
+export const versionStates = (
+  store: Store,
+  run: RunId,
+  results: ReadonlyMap<ObserverCallId, number>,
+): VersionState[] => {
   const byVersion = Map.groupBy(store.model.changes(run, ModelVersion.parse(0)), ({ version }) => version)
   const entities = new Map<string, ModelEntity>()
+  let transaction: Transaction | null = null
   return store.model.versions(run, ChangeSeq.parse(0)).map((record) => {
     const changes = byVersion.get(record.version) ?? []
     for (const change of changes) {
@@ -36,7 +55,11 @@ export const versionStates = (store: Store, run: RunId): VersionState[] => {
         entities.set(entityKey(change), change.after)
       }
     }
-    return { record, changes, model: stateOf(entities) }
+    if (record.observer_call !== null) {
+      transaction = { call: record.observer_call, last: results.get(record.observer_call) ?? record.version }
+    }
+    const call = transaction !== null && record.version <= transaction.last ? transaction.call : null
+    return { record, call, changes, model: stateOf(entities) }
   })
 }
 

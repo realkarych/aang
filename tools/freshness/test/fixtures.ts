@@ -4,7 +4,7 @@ import { cp, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/p
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { type ClaudeScenario, installFakeClaude } from '@aang/testkit'
+import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@aang/testkit'
 
 export interface Outcome {
   readonly code: number | null
@@ -13,6 +13,25 @@ export interface Outcome {
 }
 
 export type Markup = Readonly<Record<string, unknown>>
+
+export interface RecordedStep {
+  readonly at: number
+  readonly kind: string
+  readonly label?: string | undefined
+  readonly [field: string]: unknown
+}
+
+export interface RecordedEvent {
+  readonly label: string
+  readonly step: number
+  readonly observed_at: string
+  readonly expected_map_change: Record<string, unknown>
+}
+
+export interface Recorded {
+  readonly manifest: { readonly recorded_at: string; readonly control_events: readonly RecordedEvent[] }
+  readonly steps: readonly RecordedStep[]
+}
 
 const repository = (relative: string): string => fileURLToPath(new URL(`../../../${relative}`, import.meta.url))
 
@@ -26,6 +45,22 @@ export const claudeRecording = (scenario: string): string => `claude/2.1.289/cla
 
 export const codexRecording = (scenario: string): string => `codex/0.160.0/codex_exec/${hostOs}/${scenario}`
 
+export const readRecorded = async (fixtures: string, recording: string): Promise<Recorded> => {
+  const directory = join(fixtures, ...recording.split('/'))
+  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as Recorded['manifest']
+  const playback = JSON.parse(await readFile(join(directory, 'playback.json'), 'utf8')) as { steps: RecordedStep[] }
+  return { manifest, steps: playback.steps }
+}
+
+export const isAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return error instanceof Error && 'code' in error && error.code === 'EPERM'
+  }
+}
+
 export interface Workspace {
   readonly root: string
   readonly fixtures: string
@@ -33,7 +68,9 @@ export interface Workspace {
   readonly profile: string
   readonly env: NodeJS.ProcessEnv
   readonly mark: (recording: string, markup: Markup) => Promise<void>
-  readonly fakeClaude: (scenario: ClaudeScenario) => string
+  readonly edit: (recording: string, change: (recorded: Recorded) => Recorded) => Promise<void>
+  readonly fakeClaude: (scenario: ClaudeScenario) => FakeCli<ClaudeScenario>
+  readonly fakeCodex: (scenario: CodexScenario) => FakeCli<CodexScenario>
   readonly writeProfile: (profile: unknown) => Promise<void>
   readonly freshness: (...args: readonly string[]) => Promise<Outcome>
   readonly read: (file: string) => Promise<unknown>
@@ -48,6 +85,7 @@ export const createWorkspace = async (): Promise<Workspace> => {
   const measurement = join(root, 'measurement')
   const profile = join(root, 'profile.json')
   const env: NodeJS.ProcessEnv = { ...process.env, HOME: home, USERPROFILE: home }
+  const json = (value: unknown): string => `${JSON.stringify(value, null, 2)}\n`
   return {
     root,
     fixtures,
@@ -68,9 +106,20 @@ export const createWorkspace = async (): Promise<Workspace> => {
           event.expected_map_change.predicate = predicate
         }
       }
-      await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`)
+      await writeFile(manifestPath, json(manifest))
     },
-    fakeClaude: (scenario) => installFakeClaude(join(root, 'fake-cli'), scenario).path,
+    edit: async (recording, change) => {
+      const directory = join(fixtures, ...recording.split('/'))
+      const manifestPath = join(directory, 'manifest.json')
+      const playbackPath = join(directory, 'playback.json')
+      const manifest = JSON.parse(await readFile(manifestPath, 'utf8')) as Record<string, unknown>
+      const playback = JSON.parse(await readFile(playbackPath, 'utf8')) as Record<string, unknown>
+      const changed = change(await readRecorded(fixtures, recording))
+      await writeFile(manifestPath, json({ ...manifest, ...changed.manifest }))
+      await writeFile(playbackPath, json({ ...playback, steps: changed.steps }))
+    },
+    fakeClaude: (scenario) => installFakeClaude(join(root, 'fake-cli'), scenario),
+    fakeCodex: (scenario) => installFakeCodex(join(root, 'fake-cli'), scenario),
     writeProfile: async (value) => {
       await writeFile(profile, JSON.stringify(value))
     },

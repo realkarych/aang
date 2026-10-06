@@ -5,12 +5,9 @@ import { type ExpectedMapChange, RecordingManifest } from '@aang/record'
 import { type LoadedManifest, loadManifest, type PlayerStep } from '@aang/testkit'
 import type { FixedRecording } from './profile.js'
 
-export type ControlStep = Extract<PlayerStep, { kind: 'hook' | 'append' | 'write' }>
-
 export interface ControlEvent {
   readonly label: string
   readonly index: number
-  readonly step: ControlStep
   readonly expected: ExpectedMapChange
 }
 
@@ -22,8 +19,7 @@ export interface Recording {
   readonly digest: string
 }
 
-const isControlStep = (step: PlayerStep): step is ControlStep =>
-  step.kind === 'hook' || step.kind === 'append' || step.kind === 'write'
+const controlKinds: ReadonlySet<PlayerStep['kind']> = new Set(['hook', 'append', 'write'])
 
 const digestOf = async (directory: string): Promise<string> => {
   const entries = await readdir(directory, { recursive: true, withFileTypes: true })
@@ -49,10 +45,10 @@ export const loadRecording = async (fixtures: string, path: string): Promise<Rec
     if (step?.label !== label) {
       throw new Error(`${path}: control event ${label} does not name step ${String(index)}`)
     }
-    if (!isControlStep(step)) {
+    if (!controlKinds.has(step.kind)) {
       throw new Error(`${path}: control event ${label} is a ${step.kind} step; freshness is measured on hook, append and write steps`)
     }
-    return { label, index, step, expected }
+    return { label, index, expected }
   })
   return { path, manifest, playback, events, digest: await digestOf(directory) }
 }

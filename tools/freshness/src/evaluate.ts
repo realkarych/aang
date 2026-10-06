@@ -1,24 +1,19 @@
-import type { ArtifactRef, ArtifactVersionId, FactId, RunId } from '@aang/contract'
+import type { ArtifactRef, ArtifactVersionId, FactId, ObserverCallId, RunId } from '@aang/contract'
 import type { MapPredicate } from '@aang/record'
 import type { Store } from '@aang/store'
-import type { PlayedStep, PlayerRoots } from '@aang/testkit'
-import { controlRecords, deliveryOf, type IndexedRecord, indexRecords } from './control.js'
-import type { Candidate, Evaluation, MeasuredEvent } from './files.js'
+import type { PlayerRoots } from '@aang/testkit'
+import { controlRecords, deliveryKeys, indexRecords, type Played, type RecordIndex } from './control.js'
+import type { Candidate, Evaluation, MeasuredCall, MeasuredEvent } from './files.js'
 import { describeChange, emptyModel, type VersionState, versionStates } from './journal.js'
 import { holds, type PredicateScope } from './predicate.js'
-import type { Recording } from './recording.js'
-
-export interface Played {
-  readonly recording: Recording
-  readonly startsAt: number
-  readonly steps: readonly PlayedStep[]
-}
 
 export interface EvaluationOptions {
   readonly store: Store
   readonly played: readonly Played[]
+  readonly calls: readonly MeasuredCall[]
   readonly roots: PlayerRoots
   readonly windowMs: number
+  readonly timeScale: number
 }
 
 const nanosecondsPerMillisecond = 1_000_000n
@@ -26,6 +21,11 @@ const nanosecondsPerMillisecond = 1_000_000n
 const millisecondsOf = (value: bigint): number => Number(value / nanosecondsPerMillisecond)
 
 const referenceText = (ref: ArtifactRef): string => (ref.kind === 'file' ? ref.path : ref.kind === 'commit' ? ref.sha : ref.url)
+
+const playbackTime = ({ recording, shift, startsAt }: Played, timeScale: number, sourceAt: bigint): number => {
+  const origin = Date.parse(recording.manifest.recorded_at) + (recording.playback.steps[0]?.at ?? 0)
+  return Math.round(startsAt + (millisecondsOf(sourceAt) - shift.ms - origin) * timeScale)
+}
 
 const judge = (
   run: RunId,
@@ -47,15 +47,18 @@ const judge = (
         version: first.record.version,
         at: millisecondsOf(first.record.created_at),
         author: first.record.author,
-        observer_call: first.record.observer_call,
+        observer_call: first.call,
       }
 }
 
-export const evaluateEvents = ({ store, played, roots, windowMs }: EvaluationOptions): MeasuredEvent[] => {
-  const index: IndexedRecord[] = indexRecords(store)
+export const evaluateEvents = ({ store, played, calls, roots, windowMs, timeScale }: EvaluationOptions): MeasuredEvent[] => {
+  const index: RecordIndex = indexRecords(store)
+  const results = new Map(
+    calls.flatMap(({ id, result_version: last }): [ObserverCallId, number][] => (last === null ? [] : [[id, last]])),
+  )
   const journals = new Map<RunId, VersionState[]>()
   const statesOf = (run: RunId): VersionState[] => {
-    const states = journals.get(run) ?? versionStates(store, run)
+    const states = journals.get(run) ?? versionStates(store, run, results)
     journals.set(run, states)
     return states
   }
@@ -83,21 +86,23 @@ export const evaluateEvents = ({ store, played, roots, windowMs }: EvaluationOpt
       .flatMap((run) =>
         statesOf(run).filter(({ record }) => record.created_at >= start && record.created_at <= end),
       )
-      .map(({ record, changes }) => ({
+      .map(({ record, call, changes }) => ({
         run: record.run,
         version: record.version,
         at: millisecondsOf(record.created_at),
         after_ms: millisecondsOf(record.created_at - start),
         author: record.author,
-        observer_call: record.observer_call,
+        observer_call: call,
         changes: changes.map(describeChange),
       }))
       .toSorted((left, right) => left.at - right.at)
   }
 
-  return played.flatMap(({ recording, startsAt, steps }) =>
-    recording.events.map((event): MeasuredEvent => {
-      const records = controlRecords(index, deliveryOf(recording, event.step, roots, startsAt), steps[event.index - 1], startsAt)
+  return played.flatMap((playback) => {
+    const { recording, startsAt, steps } = playback
+    const keys = deliveryKeys(playback, roots)
+    return recording.events.map((event): MeasuredEvent => {
+      const records = controlRecords(index, playback, keys, event.index, roots)
       const { description, predicate } = event.expected
       const start = records.observedAt
       const evaluation: Evaluation =
@@ -114,10 +119,10 @@ export const evaluateEvents = ({ store, played, roots, windowMs }: EvaluationOpt
         predicate: predicate ?? null,
         played_at: steps[event.index]?.playedAt ?? startsAt,
         observed_at: start === null ? null : millisecondsOf(start),
-        source_at: records.sourceAt === null ? null : millisecondsOf(records.sourceAt),
+        source_at: records.sourceAt === null ? null : playbackTime(playback, timeScale, records.sourceAt),
         runs: [...records.runs],
         evaluation,
       }
-    }),
-  )
+    })
+  })
 }

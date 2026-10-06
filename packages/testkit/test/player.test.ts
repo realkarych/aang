@@ -84,14 +84,23 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
 
     const first = await player.play({ until: 'split character' })
 
+    const lineBytes = (from: number, to: number): number => Buffer.concat(linesOf(transcript).slice(from, to)).length
     expect(first.map((step) => step.index)).toEqual([0, 1, 2, 3])
+    expect(first.map((step) => step.appended)).toEqual([
+      { offset: 0, bytes: lineBytes(0, 1) },
+      { offset: lineBytes(0, 1), bytes: lineBytes(1, 3) },
+      { offset: 0, bytes: 30 },
+      { offset: lineBytes(0, 3), bytes: lineBytes(3, 43) },
+    ])
     expect(player.position()).toBe(4)
     expect(readFileSync(transcriptPath)).toEqual(Buffer.concat(linesOf(transcript).slice(0, 43)))
     expect(readFileSync(awkwardPath)).toEqual(awkward.subarray(0, 30))
 
     const second = await player.play({ until: 'rest' })
 
-    expect(second.map((step) => [step.index, step.label])).toEqual([[4, 'split character']])
+    expect(second.map((step) => [step.index, step.label, step.appended])).toEqual([
+      [4, 'split character', { offset: 30, bytes: 7 }],
+    ])
     expect(readFileSync(awkwardPath)).toEqual(awkward.subarray(0, 37))
     expect(awkward.subarray(0, 37).toString('utf8')).toContain('�')
 

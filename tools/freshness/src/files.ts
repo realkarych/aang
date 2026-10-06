@@ -73,6 +73,7 @@ export const MeasuredCall = z.strictObject({
   run: RunId,
   runtime: Runtime,
   outcome: ObserverCallOutcome,
+  result_version: version.nullable(),
   started_at: epochMs,
   ended_at: epochMs.nullable(),
   latency_ms: z.int().nonnegative().nullable(),
