@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
 import { z } from 'zod'
+import { claudeProjectName } from '../capture.js'
 
 const Block = z.looseObject({
   type: z.string(),
@@ -13,9 +14,13 @@ const Block = z.looseObject({
   content: z.unknown().optional(),
 })
 
+const Attachment = z.looseObject({ type: z.string() })
+export type Attachment = z.infer<typeof Attachment>
+
 const Entry = z.looseObject({
   type: z.string(),
   subtype: z.string().optional(),
+  attachment: Attachment.optional(),
   isCompactSummary: z.boolean().optional(),
   sessionId: z.string().optional(),
   compactMetadata: z.looseObject({ trigger: z.string().optional() }).optional(),
@@ -43,7 +48,7 @@ export interface ToolUse {
 
 const projects = (claude: string): string => join(claude, 'projects')
 
-const readTranscript = async (claude: string, file: string): Promise<Transcript> => {
+export const readTranscript = async (claude: string, file: string): Promise<Transcript> => {
   const lines = (await readFile(file, 'utf8')).split('\n').filter((line) => line.trim() !== '')
   return {
     file,
@@ -52,8 +57,14 @@ const readTranscript = async (claude: string, file: string): Promise<Transcript>
   }
 }
 
-export const transcriptFiles = async (claude: string): Promise<string[]> => {
-  const directories = await readdir(projects(claude)).catch(() => [])
+export interface ClaudeProfile {
+  readonly claude: string
+  readonly project: string
+}
+
+export const transcriptFiles = async ({ claude, project }: ClaudeProfile): Promise<string[]> => {
+  const name = claudeProjectName(project)
+  const directories = (await readdir(projects(claude)).catch(() => [])).filter((directory) => directory === name || directory.startsWith(`${name}-`))
   const files: string[] = []
   for (const directory of directories) {
     const names = await readdir(join(projects(claude), directory)).catch(() => [])
@@ -62,16 +73,30 @@ export const transcriptFiles = async (claude: string): Promise<string[]> => {
   return files
 }
 
-export const findTranscript = async (claude: string, sessionId: string): Promise<Transcript> => {
-  const file = (await transcriptFiles(claude)).find((path) => path.endsWith(`${sessionId}.jsonl`))
+export const findTranscript = async (profile: ClaudeProfile, sessionId: string): Promise<Transcript> => {
+  const file = (await transcriptFiles(profile)).find((path) => path.endsWith(`${sessionId}.jsonl`))
   if (file === undefined) throw new Error(`No transcript for session ${sessionId}`)
-  return readTranscript(claude, file)
+  return readTranscript(profile.claude, file)
 }
 
 export const subagentTranscripts = async (claude: string, transcript: Transcript): Promise<Transcript[]> => {
   const directory = join(transcript.file.slice(0, -'.jsonl'.length), 'subagents')
   const names = (await readdir(directory).catch(() => [])).filter((name) => /^agent-.+\.jsonl$/.test(name))
   return Promise.all(names.map((name) => readTranscript(claude, join(directory, name))))
+}
+
+export const attachments = (transcript: Transcript): Attachment[] =>
+  transcript.entries.flatMap((entry) => entry.type === 'attachment' && entry.attachment !== undefined ? [entry.attachment] : [])
+
+const AgentMeta = z.looseObject({ agentType: z.string(), toolUseId: z.string().optional() })
+
+export const subagentMetas = async (transcript: Transcript): Promise<(z.infer<typeof AgentMeta> & { readonly transcript: string })[]> => {
+  const directory = join(transcript.file.slice(0, -'.jsonl'.length), 'subagents')
+  const names = (await readdir(directory).catch(() => [])).filter((name) => /^agent-.+\.meta\.json$/.test(name))
+  return Promise.all(names.map(async (name) => ({
+    ...AgentMeta.parse(JSON.parse(await readFile(join(directory, name), 'utf8'))),
+    transcript: join(directory, `${name.slice(0, -'.meta.json'.length)}.jsonl`),
+  })))
 }
 
 const blocks = (entry: Entry): z.infer<typeof Block>[] => {

@@ -18,6 +18,7 @@ import type { RetainedContent, Store } from '@aang/store'
 import { fieldOf } from '../checks/commands.js'
 import { applyPatch } from './patches.js'
 import { actionCandidates, type FilePatch } from './references.js'
+import { utf8Text } from './text.js'
 import { actionWrites, type PathWrite } from './versions.js'
 
 export interface RetentionOptions {
@@ -262,15 +263,9 @@ const baseOf = (history: History, write: PathWrite, path: string): Base | null =
   return touched ? null : latest.base
 }
 
-const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true })
-
 const blobText = (store: Store, blob: ContentHash): string | null => {
   const bytes = store.artifacts.blob(blob)
-  try {
-    return bytes === null ? null : decoder.decode(bytes)
-  } catch {
-    return null
-  }
+  return bytes === null ? null : utf8Text(bytes)
 }
 
 const writeKey = ({ action, path }: PathWrite): string => `${action.id}\0${path}`

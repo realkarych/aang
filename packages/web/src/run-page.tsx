@@ -1,20 +1,44 @@
-import type { RunSnapshot } from '@aang/contract'
+import type { RunId, RunSnapshot, RunSummary } from '@aang/contract'
 import type { ReactElement } from 'react'
 import { AttentionZone } from './attention-zone.js'
 import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { absoluteTime } from './format.js'
 import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
+import { MapSection } from './map-section.js'
 import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
-import { listHref, runHref, useNavigate } from './route.js'
+import { listHref, runHref, usageHref, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
 import { SinceLastView } from './since.js'
 import { Trace } from './trace.js'
 import type { RunFeedState } from './use-run-feed.js'
 
-const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now: bigint }): ReactElement => {
+interface RunLinkProps {
+  readonly id: RunId
+  readonly runs: readonly RunSummary[] | null
+  readonly unknown: string
+}
+
+const RunLink = ({ id, runs, unknown }: RunLinkProps): ReactElement => {
+  const navigate = useNavigate()
+  const known = runs?.find((run) => run.id === id)
+  return (
+    <a href={runHref(id)} onClick={navigate}>
+      {known === undefined ? unknown : (runTitle(known) ?? untitledRun(known))}
+    </a>
+  )
+}
+
+interface FactsProps {
+  readonly snapshot: RunSnapshot
+  readonly runs: readonly RunSummary[] | null
+  readonly now: bigint
+}
+
+const Facts = ({ snapshot, runs, now }: FactsProps): ReactElement => {
   const navigate = useNavigate()
   const { summary } = snapshot
+  const forks = (runs ?? []).filter(({ forked_from: source }) => source === summary.id)
   return (
     <dl className="facts">
       <div>
@@ -61,13 +85,33 @@ const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now
           <Moment at={summary.last_event_at} now={now} />
         </dd>
       </div>
+      <div>
+        <dt>Расход</dt>
+        <dd>
+          <a href={usageHref(summary.id)} onClick={navigate}>
+            три журнала
+          </a>
+        </dd>
+      </div>
       {summary.forked_from === null ? null : (
         <div>
-          <dt>Ответвление</dt>
+          <dt>Ответвление от</dt>
           <dd>
-            <a href={runHref(summary.forked_from)} onClick={navigate}>
-              исходный прогон
-            </a>
+            <RunLink id={summary.forked_from} runs={runs} unknown="исходный прогон" />
+          </dd>
+        </div>
+      )}
+      {forks.length === 0 ? null : (
+        <div>
+          <dt>Ответвления</dt>
+          <dd>
+            <ul className="run-links">
+              {forks.map(({ id }) => (
+                <li key={id}>
+                  <RunLink id={id} runs={runs} unknown="ответвление" />
+                </li>
+              ))}
+            </ul>
           </dd>
         </div>
       )}
@@ -81,7 +125,7 @@ const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now
   )
 }
 
-const Missing = (): ReactElement => {
+export const Missing = (): ReactElement => {
   const navigate = useNavigate()
   return (
     <div className="empty">
@@ -101,11 +145,12 @@ const Missing = (): ReactElement => {
 
 export interface RunPageProps {
   readonly feed: RunFeedState
+  readonly runs: readonly RunSummary[] | null
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-export const RunPage = ({ feed, now, onSignedOut }: RunPageProps): ReactElement => {
+export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
   const { snapshot, connection } = feed
   if (snapshot === null) {
     return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
@@ -125,9 +170,10 @@ export const RunPage = ({ feed, now, onSignedOut }: RunPageProps): ReactElement 
             <span className="basis">{basisLabel[run.brief.basis.kind]}</span>
           </p>
         )}
-        <Facts snapshot={snapshot} now={now} />
+        <Facts snapshot={snapshot} runs={runs} now={now} />
       </header>
       <AttentionZone snapshot={snapshot} now={now} />
+      <MapSection snapshot={snapshot} />
       <SinceLastView snapshot={snapshot} now={now} onSignedOut={onSignedOut}>
         <div className="run-body">
           <Trace snapshot={snapshot} now={now} />

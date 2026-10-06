@@ -1,7 +1,6 @@
-import { chmod, copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
-import { pathToFileURL } from 'node:url'
 import { type InterpretationStatus, ObserverInput, type ObserverErrorClass, type RunId, type Runtime } from '@aang/contract'
 import { hookInstallPaths } from '@aang/hook'
 import type { ClaudeReply, CodexReply, FakeCli } from '@aang/testkit'
@@ -13,17 +12,10 @@ export interface Batch {
   readonly error: ObserverErrorClass | null
 }
 
-export interface Hold {
-  readonly gate: string
-  readonly started: string
-}
-
 export interface RunProgress {
   readonly statuses: readonly InterpretationStatus[]
   readonly batches: readonly Batch[]
 }
-
-export const singlePathClaude = process.platform !== 'win32'
 
 const briefing = {
   base_version: { $input: '/model/version' },
@@ -32,6 +24,8 @@ const briefing = {
 }
 
 export const briefed: ClaudeReply & CodexReply = { kind: 'answer', output: briefing }
+
+export const admissionMs = 1000
 
 export const toolAttempt: CodexReply = { kind: 'answer', output: briefing, toolAttempts: ['exec'] }
 
@@ -63,64 +57,6 @@ export const installLauncher = async (home: Home): Promise<void> => {
   const { binary } = hookInstallPaths(home.paths.home)
   await mkdir(dirname(binary), { recursive: true })
   await copyFile(hookBinary, binary)
-}
-
-const shellQuote = (value: string): string => `'${value.replaceAll("'", "'\\''")}'`
-
-const heldShell = async <S>(fake: FakeCli<S>, { gate, started }: Hold): Promise<string> => {
-  const path = join(dirname(fake.command), 'held')
-  await writeFile(
-    path,
-    [
-      '#!/bin/sh',
-      `: > ${shellQuote(started)}`,
-      `while [ ! -e ${shellQuote(gate)} ]; do sleep 0.05; done`,
-      `exec ${shellQuote(fake.command)} "$@"`,
-      '',
-    ].join('\n'),
-  )
-  await chmod(path, 0o755)
-  return path
-}
-
-const heldPrelude = (hold: Hold | null): string[] =>
-  hold === null
-    ? []
-    : [
-        "import { existsSync, writeFileSync } from 'node:fs'",
-        "import { setTimeout as sleep } from 'node:timers/promises'",
-        `writeFileSync(${JSON.stringify(hold.started)}, '')`,
-        `while (!existsSync(${JSON.stringify(hold.gate)})) await sleep(50)`,
-      ]
-
-const npmCodex = async (script: string, state: string, hold: Hold | null): Promise<string> => {
-  const directory = join(dirname(state), 'npm')
-  const bin = join(directory, 'node_modules', '@openai', 'codex', 'bin')
-  await mkdir(bin, { recursive: true })
-  await writeFile(join(dirname(bin), 'package.json'), '{"type":"module"}\n')
-  await writeFile(
-    join(bin, 'codex.js'),
-    [
-      ...heldPrelude(hold),
-      `process.argv.splice(2, 0, ${JSON.stringify(state)})`,
-      `await import(${JSON.stringify(pathToFileURL(script).href)})`,
-      '',
-    ].join('\n'),
-  )
-  const shim = join(directory, 'codex.cmd')
-  await writeFile(shim, '')
-  return shim
-}
-
-export const configuredPath = async <S>(fake: FakeCli<S>, hold: Hold | null = null): Promise<string> => {
-  if (process.platform !== 'win32') {
-    return hold === null ? fake.command : heldShell(fake, hold)
-  }
-  const [script, state] = fake.args
-  if (fake.runtime !== 'codex' || script === undefined || state === undefined) {
-    throw new Error('on Windows only the npm layout of codex runs from one configured path')
-  }
-  return npmCodex(script, state, hold)
 }
 
 const parsedInput = (prompt: string | null): ObserverInput | null => {

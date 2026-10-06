@@ -6,7 +6,7 @@ import { plural } from './format.js'
 import { MarkGlyph } from './glyphs.js'
 import { changeForms } from './labels.js'
 import { Moment } from './moment.js'
-import { type RunMode, runHref, useRoutedMode, useSwitchMode } from './route.js'
+import { type RunMode, useRoutedMode, useRoutedStage, useSwitchMode, viewHref } from './route.js'
 import './since.css'
 import { useChanges } from './use-changes.js'
 
@@ -96,13 +96,14 @@ interface ModesProps {
 
 const Modes = ({ snapshot, mode, changes }: ModesProps): ReactElement => {
   const switchMode = useSwitchMode()
+  const stage = useRoutedStage()
   const run = snapshot.run.id
   const count = changes === null ? 0 : changeCount(changes)
   return (
     <nav className="modes" aria-label="Вид прогона">
       <a
         className="mode"
-        href={runHref(run)}
+        href={viewHref(run, stage, 'trace')}
         aria-current={mode === 'trace' ? 'page' : undefined}
         onClick={switchMode}
       >
@@ -110,7 +111,7 @@ const Modes = ({ snapshot, mode, changes }: ModesProps): ReactElement => {
       </a>
       <a
         className="mode"
-        href={runHref(run, 'changes')}
+        href={viewHref(run, stage, 'changes')}
         aria-current={mode === 'changes' ? 'page' : undefined}
         aria-label={count === 0 ? undefined : `С последнего просмотра, ${plural(count, changeForms)}`}
         onClick={switchMode}

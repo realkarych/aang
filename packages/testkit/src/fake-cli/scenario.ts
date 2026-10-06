@@ -39,6 +39,11 @@ const Descendant = z.strictObject({
   inheritStdio: z.boolean().default(false),
 })
 
+const GroupEscape = z.strictObject({
+  pidFile: z.string().optional(),
+  lifetimeMs: z.int().positive().default(300),
+})
+
 export const ClaudePluginCommand = z.enum([
   'marketplace-add',
   'marketplace-remove',
@@ -51,7 +56,9 @@ export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
 
 export const ClaudeScenario = z.strictObject({
   admissionFault: z.enum(['hook_missing', 'hook_leak', 'registry_missing', 'registry_marker', 'transcript', 'tool_execution']).optional(),
+  admissionMs: z.int().nonnegative().default(100),
   descendant: Descendant.optional(),
+  groupEscape: GroupEscape.optional(),
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
@@ -62,6 +69,8 @@ export const ClaudeScenario = z.strictObject({
   replies: z.array(ClaudeReply).default(() => []),
   chatReplies: z.array(ClaudeReply).default(() => []),
   pluginFailures: z.array(ClaudePluginCommand).default(() => []),
+  pluginHang: z.boolean().default(false),
+  pluginDescendant: Descendant.optional(),
 })
 export type ClaudeScenario = z.input<typeof ClaudeScenario>
 
@@ -88,13 +97,15 @@ export const CodexReply = z.discriminatedUnion('kind', [
 export type CodexReply = z.input<typeof CodexReply>
 
 export const CodexScenario = z.strictObject({
-  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last']).optional(),
+  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last', 'off_schema_last']).optional(),
   descendant: Descendant.optional(),
+  groupEscape: GroupEscape.optional(),
   version: z.string().default('0.159.3'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
   replies: z.array(CodexReply).default(() => []),
   chatReplies: z.array(CodexReply).default(() => []),
+  hooks: z.enum(['untrusted', 'trusted', 'disabled', 'unlisted', 'unanswered']).default('untrusted'),
 })
 export type CodexScenario = z.input<typeof CodexScenario>
 
@@ -106,6 +117,7 @@ export const FakeCommand = z.enum([
   'debug_models',
   'version',
   'plugin',
+  'app_server',
   'unknown',
 ])
 export type FakeCommand = z.infer<typeof FakeCommand>

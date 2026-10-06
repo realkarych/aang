@@ -30,6 +30,15 @@ const probe: Row = {
   finished_at: '1759370001000000000',
 }
 
+const chatCall: Row = {
+  ...observerCall,
+  id: "'ch1'",
+  kind: "'chat'",
+  verdict: "'needs_requested'",
+  usage: '\'{"tokens":null}\'',
+  finished_at: '1759370004000000000',
+}
+
 const modelVersion: Row = {
   run_id: "'r1'",
   version: '1',
@@ -106,12 +115,31 @@ const chatMessage: Row = {
   stage_id: 'NULL',
   model_version: '1',
   question: "'What is left?'",
+  backend: "'claude'",
+  cross_vendor: '0',
+  status: "'pending'",
   answer: 'NULL',
   citations: "'[]'",
-  usage: 'NULL',
+  unconfirmed_citations: '0',
+  insufficient_data: '0',
+  view_rule_id: 'NULL',
+  view_rule_error: 'NULL',
+  error: 'NULL',
   asked_at: '1759370000000000000',
   answered_at: 'NULL',
   change_seq: '3',
+}
+
+const answeredChat: Row = {
+  status: "'answered'",
+  answer: "'Two stages remain.'",
+  answered_at: '1759370005000000000',
+}
+
+const failedChat: Row = {
+  status: "'failed'",
+  error: "'Claude did not produce a successful result'",
+  answered_at: '1759370005000000000',
 }
 
 const setting: Row = {
@@ -170,8 +198,56 @@ const cases: readonly SchemaCase[] = [
   },
   {
     name: 'an observer call of an unknown kind is rejected',
-    statement: insert('observer_calls', observerCall, { id: "'c2'", kind: "'chat'" }),
+    statement: insert('observer_calls', observerCall, { id: "'c2'", kind: "'admission'" }),
     error: /CHECK constraint failed: kind IN/,
+  },
+  {
+    name: 'a chat call is recorded finished, with its run, base version, input, verdict and usage',
+    statement: insert('observer_calls', chatCall),
+  },
+  {
+    name: 'a follow-up chat call refers to the chat call it continues',
+    setup: [insert('observer_calls', chatCall)],
+    statement: insert('observer_calls', chatCall, { id: "'ch2'", previous_id: "'ch1'", verdict: "'accepted'" }),
+  },
+  {
+    name: 'a follow-up chat call refers to an existing call',
+    statement: insert('observer_calls', chatCall, { previous_id: "'missing'" }),
+    error: /FOREIGN KEY constraint failed/,
+  },
+  {
+    name: 'a chat call is continued by one follow-up',
+    setup: [
+      insert('observer_calls', chatCall),
+      insert('observer_calls', chatCall, { id: "'ch2'", previous_id: "'ch1'", verdict: "'accepted'" }),
+    ],
+    statement: insert('observer_calls', chatCall, { id: "'ch3'", previous_id: "'ch1'", verdict: "'accepted'" }),
+    error: /UNIQUE constraint failed: observer_calls\.previous_id/,
+  },
+  {
+    name: 'a chat call does not follow itself',
+    statement: insert('observer_calls', chatCall, { previous_id: "'ch1'" }),
+    error: /CHECK constraint failed: observer_calls_previous/,
+  },
+  {
+    name: 'only a chat call follows another call',
+    statement: insert('observer_calls', observerCall, { id: "'c2'", previous_id: "'c1'" }),
+    error: /CHECK constraint failed: observer_calls_previous/,
+  },
+  ...['run_id', 'base_version', 'input', 'finished_at'].map((column) => ({
+    name: `a chat call needs its ${column}`,
+    statement: insert('observer_calls', chatCall, { [column]: 'NULL' }),
+    error: /CHECK constraint failed: observer_calls_chat/,
+  })),
+  {
+    name: 'a chat call ends with a verdict',
+    statement: insert('observer_calls', chatCall, { verdict: "'running'" }),
+    error: /CHECK constraint failed: observer_calls_chat/,
+  },
+  {
+    name: 'a chat call has no batch delay',
+    statement: insert('observer_calls', chatCall, { verdict: "'accepted'", delay_ms: '0' }),
+    error: /CHECK constraint failed: observer_calls_delay/,
   },
   {
     name: 'a failed observer call keeps the class and message of the backend error',
@@ -523,23 +599,139 @@ const cases: readonly SchemaCase[] = [
     error: /CHECK constraint failed: revoked_at >= created_at/,
   },
   {
-    name: 'an answered chat message keeps its citations and usage',
-    statement: insert('chat_messages', chatMessage, {
+    name: 'a pending chat question waits for its answer',
+    statement: insert('chat_messages', chatMessage),
+  },
+  {
+    name: 'an answered chat message keeps its answer, citations, marks and view rule',
+    statement: insert('chat_messages', chatMessage, answeredChat, {
       stage_id: "'st1'",
-      answer: "'Two stages remain.'",
       citations: '\'[{"kind":"stage","id":"st1"}]\'',
-      usage: '\'{"input_tokens":10}\'',
-      answered_at: '1759370005000000000',
+      unconfirmed_citations: '1',
+      insufficient_data: '1',
+      view_rule_id: '7',
     }),
   },
   {
+    name: 'an answered chat message explains why its proposed view rule was not applied',
+    statement: insert('chat_messages', chatMessage, answeredChat, {
+      view_rule_error: "'invalid_selector: the run has no stages st9'",
+    }),
+  },
+  {
+    name: 'a chat message has either an applied view rule or the reason it was not applied',
+    statement: insert('chat_messages', chatMessage, answeredChat, {
+      view_rule_id: '7',
+      view_rule_error: "'invalid_selector: the run has no stages st9'",
+    }),
+    error: /CHECK constraint failed: chat_messages_view_rule/,
+  },
+  {
+    name: 'the reason a view rule was not applied is not empty',
+    statement: insert('chat_messages', chatMessage, answeredChat, { view_rule_error: "''" }),
+    error: /CHECK constraint failed: view_rule_error <> ''/,
+  },
+  {
+    name: 'an answer may be missing when the data is insufficient',
+    statement: insert('chat_messages', chatMessage, answeredChat, { answer: 'NULL', insufficient_data: '1' }),
+  },
+  {
+    name: 'a failed chat message keeps its error',
+    statement: insert('chat_messages', chatMessage, failedChat),
+  },
+  {
+    name: 'the usage of the chat is kept in its journal, not in chat messages',
+    statement: insert('chat_messages', chatMessage, { usage: '\'{"input_tokens":10}\'' }),
+    error: /table chat_messages has no column named usage/,
+  },
+  {
+    name: 'a chat question is not empty',
+    statement: insert('chat_messages', chatMessage, { question: "''" }),
+    error: /CHECK constraint failed: question <> ''/,
+  },
+  {
+    name: 'a chat question keeps the backend and the cross-vendor setting its input was built for',
+    statement: insert('chat_messages', chatMessage, { backend: "'codex'", cross_vendor: '1' }),
+  },
+  {
+    name: 'a chat question names a known backend',
+    statement: insert('chat_messages', chatMessage, { backend: "'gemini'" }),
+    error: /CHECK constraint failed: backend IN/,
+  },
+  {
+    name: 'a chat question cannot leave its backend unknown',
+    statement: insert('chat_messages', chatMessage, { backend: 'NULL' }),
+    error: /NOT NULL constraint failed: chat_messages\.backend/,
+  },
+  {
+    name: 'the cross-vendor setting of a chat question is a flag',
+    statement: insert('chat_messages', chatMessage, { cross_vendor: '2' }),
+    error: /CHECK constraint failed: cross_vendor IN/,
+  },
+  {
+    name: 'a chat message has a known status',
+    statement: insert('chat_messages', chatMessage, answeredChat, { status: "'cancelled'" }),
+    error: /CHECK constraint failed: status IN/,
+  },
+  {
+    name: 'a pending chat question has no answer time',
+    statement: insert('chat_messages', chatMessage, { answered_at: '1759370005000000000' }),
+    error: /CHECK constraint failed: chat_messages_finished/,
+  },
+  {
+    name: 'a finished chat message has its answer time',
+    statement: insert('chat_messages', chatMessage, answeredChat, { answered_at: 'NULL' }),
+    error: /CHECK constraint failed: chat_messages_finished/,
+  },
+  {
+    name: 'only a failed chat message has an error',
+    statement: insert('chat_messages', chatMessage, answeredChat, { error: "'late'" }),
+    error: /CHECK constraint failed: chat_messages_error/,
+  },
+  {
+    name: 'a failed chat message names its error',
+    statement: insert('chat_messages', chatMessage, failedChat, { error: 'NULL' }),
+    error: /CHECK constraint failed: chat_messages_error/,
+  },
+  ...(
+    [
+      ['an answer', { answer: "'Two stages remain.'" }],
+      ['citations', { citations: '\'[{"kind":"stage","id":"st1"}]\'' }],
+      ['unconfirmed citations', { unconfirmed_citations: '1' }],
+      ['the insufficient data mark', { insufficient_data: '1' }],
+      ['a view rule', { view_rule_id: '7' }],
+      ['a rejected view rule', { view_rule_error: "'invalid_params: the group name must not be empty'" }],
+    ] as const
+  ).flatMap(([part, row]): SchemaCase[] => [
+    {
+      name: `a pending chat question has no ${part}`,
+      statement: insert('chat_messages', chatMessage, row),
+      error: /CHECK constraint failed: chat_messages_unanswered/,
+    },
+    {
+      name: `a failed chat message has no ${part}`,
+      statement: insert('chat_messages', chatMessage, failedChat, row),
+      error: /CHECK constraint failed: chat_messages_unanswered/,
+    },
+  ]),
+  {
+    name: 'chat marks are flags',
+    statement: insert('chat_messages', chatMessage, answeredChat, { insufficient_data: '2' }),
+    error: /CHECK constraint failed: insufficient_data IN/,
+  },
+  {
+    name: 'a chat view rule is a stored rule number',
+    statement: insert('chat_messages', chatMessage, answeredChat, { view_rule_id: '0' }),
+    error: /CHECK constraint failed: view_rule_id > 0/,
+  },
+  {
     name: 'chat citations are a JSON array',
-    statement: insert('chat_messages', chatMessage, { citations: '\'{"kind":"stage"}\'' }),
+    statement: insert('chat_messages', chatMessage, answeredChat, { citations: '\'{"kind":"stage"}\'' }),
     error: /CHECK constraint failed: json_type\(citations\)/,
   },
   {
     name: 'a chat answer cannot precede its question',
-    statement: insert('chat_messages', chatMessage, { answered_at: '1759369999999999999' }),
+    statement: insert('chat_messages', chatMessage, answeredChat, { answered_at: '1759369999999999999' }),
     error: /CHECK constraint failed: answered_at >= asked_at/,
   },
   {

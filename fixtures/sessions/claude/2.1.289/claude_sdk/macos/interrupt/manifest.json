@@ -1,0 +1,112 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "claude",
+  "engine_version": "2.1.289",
+  "app_version": "0.3.289",
+  "surface": "claude_sdk",
+  "os": "macos",
+  "scenario": "interrupt",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:18:23.474Z",
+  "expected_facts": [
+    "A Bash action running sleep 30 is interrupted by the host about 2 s after it starts",
+    "The interrupted turn ends with an error result and the transcript records the interruption",
+    "The session then ends without waiting for the command"
+  ],
+  "control_events": [
+    {
+      "label": "command-running",
+      "step": 4,
+      "observed_at": "2026-10-04T01:18:23.805Z",
+      "expected_map_change": {
+        "description": "A long Bash action is running in the root session"
+      }
+    },
+    {
+      "label": "interrupted",
+      "step": 6,
+      "observed_at": "2026-10-04T01:18:25.833Z",
+      "expected_map_change": {
+        "description": "The user interrupted the turn: the Bash action is cancelled, the turn ends as interrupted and the session is no longer running"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.json",
+      "observed_at": "2026-10-04T01:18:23.759Z",
+      "mtime_ns": "1791076703755324719"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-04T01:18:23.758Z",
+      "mtime_ns": "1791076703758416882"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-04T01:18:23.758Z",
+      "mtime_ns": "1791076703758416882"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-04T01:18:23.784Z",
+      "mtime_ns": "1791076703771203617"
+    },
+    {
+      "source": "spool/000005.spool",
+      "observed_at": "2026-10-04T01:18:23.778Z",
+      "mtime_ns": "1791076703778121276"
+    },
+    {
+      "source": "data/000006.json",
+      "observed_at": "2026-10-04T01:18:23.778Z",
+      "mtime_ns": "1791076703778121276"
+    },
+    {
+      "source": "spool/000007.spool",
+      "observed_at": "2026-10-04T01:18:23.805Z",
+      "mtime_ns": "1791076703805819285"
+    },
+    {
+      "source": "data/000008.json",
+      "observed_at": "2026-10-04T01:18:23.805Z",
+      "mtime_ns": "1791076703805819285"
+    },
+    {
+      "source": "data/000009.jsonl",
+      "observed_at": "2026-10-04T01:18:23.886Z",
+      "mtime_ns": "1791076703881165073"
+    },
+    {
+      "source": "data/000010.jsonl",
+      "observed_at": "2026-10-04T01:18:25.833Z",
+      "mtime_ns": "1791076705830400025"
+    },
+    {
+      "source": "data/000011.json",
+      "observed_at": "2026-10-04T01:18:25.833Z",
+      "mtime_ns": "1791076705833573313"
+    },
+    {
+      "source": "data/000012.jsonl",
+      "observed_at": "2026-10-04T01:18:25.857Z",
+      "mtime_ns": "1791076705837880058"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-04T01:18:25.850Z",
+      "mtime_ns": "1791076705850886418"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:18:25.850Z",
+      "mtime_ns": "1791076705850886418"
+    },
+    {
+      "source": "output/000015.txt",
+      "observed_at": "2026-10-04T01:18:25.882Z",
+      "mtime_ns": "1791076705882000000"
+    }
+  ],
+  "playback": "playback.json"
+}

@@ -1,0 +1,255 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "claude",
+  "engine_version": "2.1.289",
+  "app_version": "0.3.289",
+  "surface": "claude_sdk",
+  "os": "windows",
+  "scenario": "plugin",
+  "model": "stub",
+  "recorded_at": "2026-10-05T21:28:26.570Z",
+  "expected_facts": [
+    "The session loads the plugin aang-kit with --plugin-dir; the agent listing describes its agent aang-kit:reviewer and the skill listing describes its skill aang-kit:greeting",
+    "The root session invokes the plugin skill aang-kit:greeting with the Skill tool and the skill instructions enter the session",
+    "The root session starts the plugin subagent aang-kit:reviewer, which runs one Bash action that prints reviewed; its meta file and SubagentStart hook carry the type aang-kit:reviewer"
+  ],
+  "control_events": [
+    {
+      "label": "skill-invoked",
+      "step": 7,
+      "observed_at": "2026-10-05T21:28:27.784Z",
+      "expected_map_change": {
+        "description": "The session invokes the plugin skill aang-kit:greeting; the skill with its description enters the run context"
+      }
+    },
+    {
+      "label": "plugin-agent-finished",
+      "step": 19,
+      "observed_at": "2026-10-05T21:28:28.870Z",
+      "expected_map_change": {
+        "description": "The plugin subagent aang-kit:reviewer finishes its Bash action; the child agent is shown with the definition of the plugin agent"
+      }
+    },
+    {
+      "label": "turn-finished",
+      "step": 21,
+      "observed_at": "2026-10-05T21:28:28.957Z",
+      "expected_map_change": {
+        "description": "The turn ends: the root session becomes idle after the skill and the plugin subagent"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.json",
+      "observed_at": "2026-10-05T21:28:27.498Z",
+      "mtime_ns": "1791235707465757900"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-05T21:28:27.494Z",
+      "mtime_ns": "1791235707494344700"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-05T21:28:27.494Z",
+      "mtime_ns": "1791235707494344700"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-05T21:28:27.531Z",
+      "mtime_ns": "1791235707515513300"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-05T21:28:27.563Z",
+      "mtime_ns": "1791235707539496400"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-05T21:28:27.587Z",
+      "mtime_ns": "1791235707587437000"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-05T21:28:27.587Z",
+      "mtime_ns": "1791235707587437000"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-05T21:28:27.698Z",
+      "mtime_ns": "1791235707698232000"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-05T21:28:27.698Z",
+      "mtime_ns": "1791235707698232000"
+    },
+    {
+      "source": "data/000010.jsonl",
+      "observed_at": "2026-10-05T21:28:27.734Z",
+      "mtime_ns": "1791235707727905500"
+    },
+    {
+      "source": "spool/000011.spool",
+      "observed_at": "2026-10-05T21:28:27.784Z",
+      "mtime_ns": "1791235707784281300"
+    },
+    {
+      "source": "data/000012.json",
+      "observed_at": "2026-10-05T21:28:27.784Z",
+      "mtime_ns": "1791235707784281300"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-05T21:28:27.819Z",
+      "mtime_ns": "1791235707819915400"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-05T21:28:27.819Z",
+      "mtime_ns": "1791235707819915400"
+    },
+    {
+      "source": "data/000015.jsonl",
+      "observed_at": "2026-10-05T21:28:27.903Z",
+      "mtime_ns": "1791235707901671900"
+    },
+    {
+      "source": "spool/000016.spool",
+      "observed_at": "2026-10-05T21:28:27.874Z",
+      "mtime_ns": "1791235707874425200"
+    },
+    {
+      "source": "data/000017.json",
+      "observed_at": "2026-10-05T21:28:27.874Z",
+      "mtime_ns": "1791235707874425200"
+    },
+    {
+      "source": "spool/000018.spool",
+      "observed_at": "2026-10-05T21:28:27.925Z",
+      "mtime_ns": "1791235707925021400"
+    },
+    {
+      "source": "data/000019.json",
+      "observed_at": "2026-10-05T21:28:27.925Z",
+      "mtime_ns": "1791235707925021400"
+    },
+    {
+      "source": "data/000020.json",
+      "observed_at": "2026-10-05T21:28:27.979Z",
+      "mtime_ns": "1791235707958913400"
+    },
+    {
+      "source": "spool/000021.spool",
+      "observed_at": "2026-10-05T21:28:27.994Z",
+      "mtime_ns": "1791235707994780000"
+    },
+    {
+      "source": "data/000022.json",
+      "observed_at": "2026-10-05T21:28:27.994Z",
+      "mtime_ns": "1791235707994780000"
+    },
+    {
+      "source": "data/000023.jsonl",
+      "observed_at": "2026-10-05T21:28:28.065Z",
+      "mtime_ns": "1791235708046370000"
+    },
+    {
+      "source": "spool/000024.spool",
+      "observed_at": "2026-10-05T21:28:28.729Z",
+      "mtime_ns": "1791235708729980000"
+    },
+    {
+      "source": "data/000025.json",
+      "observed_at": "2026-10-05T21:28:28.729Z",
+      "mtime_ns": "1791235708729980000"
+    },
+    {
+      "source": "spool/000026.spool",
+      "observed_at": "2026-10-05T21:28:28.762Z",
+      "mtime_ns": "1791235708762995000"
+    },
+    {
+      "source": "data/000027.json",
+      "observed_at": "2026-10-05T21:28:28.762Z",
+      "mtime_ns": "1791235708762995000"
+    },
+    {
+      "source": "spool/000028.spool",
+      "observed_at": "2026-10-05T21:28:28.809Z",
+      "mtime_ns": "1791235708809726500"
+    },
+    {
+      "source": "data/000029.json",
+      "observed_at": "2026-10-05T21:28:28.809Z",
+      "mtime_ns": "1791235708809726500"
+    },
+    {
+      "source": "data/000030.jsonl",
+      "observed_at": "2026-10-05T21:28:28.850Z",
+      "mtime_ns": "1791235708845597400"
+    },
+    {
+      "source": "spool/000031.spool",
+      "observed_at": "2026-10-05T21:28:28.870Z",
+      "mtime_ns": "1791235708870711200"
+    },
+    {
+      "source": "data/000032.json",
+      "observed_at": "2026-10-05T21:28:28.870Z",
+      "mtime_ns": "1791235708870711200"
+    },
+    {
+      "source": "spool/000033.spool",
+      "observed_at": "2026-10-05T21:28:28.899Z",
+      "mtime_ns": "1791235708899043500"
+    },
+    {
+      "source": "data/000034.json",
+      "observed_at": "2026-10-05T21:28:28.899Z",
+      "mtime_ns": "1791235708899043500"
+    },
+    {
+      "source": "spool/000035.spool",
+      "observed_at": "2026-10-05T21:28:28.957Z",
+      "mtime_ns": "1791235708957669000"
+    },
+    {
+      "source": "data/000036.json",
+      "observed_at": "2026-10-05T21:28:28.957Z",
+      "mtime_ns": "1791235708957669000"
+    },
+    {
+      "source": "data/000037.jsonl",
+      "observed_at": "2026-10-05T21:28:28.989Z",
+      "mtime_ns": "1791235708982937400"
+    },
+    {
+      "source": "data/000038.json",
+      "observed_at": "2026-10-05T21:28:28.989Z",
+      "mtime_ns": "1791235708986992300"
+    },
+    {
+      "source": "data/000039.jsonl",
+      "observed_at": "2026-10-05T21:28:29.022Z",
+      "mtime_ns": "1791235708995358500"
+    },
+    {
+      "source": "spool/000040.spool",
+      "observed_at": "2026-10-05T21:28:29.018Z",
+      "mtime_ns": "1791235709018101100"
+    },
+    {
+      "source": "data/000041.json",
+      "observed_at": "2026-10-05T21:28:29.018Z",
+      "mtime_ns": "1791235709018101100"
+    },
+    {
+      "source": "output/000042.txt",
+      "observed_at": "2026-10-05T21:28:29.105Z",
+      "mtime_ns": "1791235709105000000"
+    }
+  ],
+  "playback": "playback.json"
+}

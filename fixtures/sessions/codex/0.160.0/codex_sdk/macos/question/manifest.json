@@ -1,0 +1,181 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": "0.160.0",
+  "surface": "codex_sdk",
+  "os": "macos",
+  "scenario": "question",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:19:25.380Z",
+  "expected_facts": [
+    "The SDK turn asks the user through request_user_input_async; the rollout has item_completed AgentMessage with delivery \"async\" and one question with two options",
+    "A reply arrives as a new user message through resumeThread(id).runStreamed"
+  ],
+  "control_events": [
+    {
+      "label": "question-asked",
+      "step": 4,
+      "observed_at": "2026-10-04T01:19:25.728Z",
+      "expected_map_change": {
+        "description": "A non-blocking question to the user opens an attention item; it does not block the SDK turn, nothing waits in the runtime and the stage is not waiting"
+      }
+    },
+    {
+      "label": "question-reply",
+      "step": 14,
+      "observed_at": "2026-10-04T01:19:26.443Z",
+      "expected_map_change": {
+        "description": "A user prompt replies after the SDK question; the attention item may be marked likely answered as an interpretation, stays open until the user dismisses it, and the stage is not waiting"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "output/000001.txt",
+      "observed_at": "2026-10-04T01:19:25.569Z",
+      "mtime_ns": "1791076765569000000"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-04T01:19:25.702Z",
+      "mtime_ns": "1791076765702665461"
+    },
+    {
+      "source": "data/000003.jsonl",
+      "observed_at": "2026-10-04T01:19:25.728Z",
+      "mtime_ns": "1791076765725813468"
+    },
+    {
+      "source": "spool/000004.spool",
+      "observed_at": "2026-10-04T01:19:25.711Z",
+      "mtime_ns": "1791076765711854997"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-04T01:19:25.711Z",
+      "mtime_ns": "1791076765711854997"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-04T01:19:25.716Z",
+      "mtime_ns": "1791076765716290056"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-04T01:19:25.716Z",
+      "mtime_ns": "1791076765716290056"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-04T01:19:25.725Z",
+      "mtime_ns": "1791076765725226174"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-04T01:19:25.725Z",
+      "mtime_ns": "1791076765725226174"
+    },
+    {
+      "source": "data/000010.jsonl",
+      "observed_at": "2026-10-04T01:19:25.754Z",
+      "mtime_ns": "1791076765740569193"
+    },
+    {
+      "source": "spool/000011.spool",
+      "observed_at": "2026-10-04T01:19:25.730Z",
+      "mtime_ns": "1791076765730636987"
+    },
+    {
+      "source": "data/000012.json",
+      "observed_at": "2026-10-04T01:19:25.730Z",
+      "mtime_ns": "1791076765730636987"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-04T01:19:25.739Z",
+      "mtime_ns": "1791076765739760939"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-04T01:19:25.739Z",
+      "mtime_ns": "1791076765739760939"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-04T01:19:25.748Z",
+      "mtime_ns": "1791076765748177764"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-04T01:19:25.748Z",
+      "mtime_ns": "1791076765748177764"
+    },
+    {
+      "source": "data/000017.json",
+      "observed_at": "2026-10-04T01:19:25.888Z",
+      "mtime_ns": "1791076765888000000"
+    },
+    {
+      "source": "data/000018.jsonl",
+      "observed_at": "2026-10-04T01:19:26.418Z",
+      "mtime_ns": "1791076766417989745"
+    },
+    {
+      "source": "data/000019.jsonl",
+      "observed_at": "2026-10-04T01:19:26.443Z",
+      "mtime_ns": "1791076766442354542"
+    },
+    {
+      "source": "spool/000020.spool",
+      "observed_at": "2026-10-04T01:19:26.426Z",
+      "mtime_ns": "1791076766426982528"
+    },
+    {
+      "source": "data/000021.json",
+      "observed_at": "2026-10-04T01:19:26.426Z",
+      "mtime_ns": "1791076766426982528"
+    },
+    {
+      "source": "spool/000022.spool",
+      "observed_at": "2026-10-04T01:19:26.431Z",
+      "mtime_ns": "1791076766431679712"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-04T01:19:26.431Z",
+      "mtime_ns": "1791076766431679712"
+    },
+    {
+      "source": "spool/000024.spool",
+      "observed_at": "2026-10-04T01:19:26.441Z",
+      "mtime_ns": "1791076766441520581"
+    },
+    {
+      "source": "data/000025.json",
+      "observed_at": "2026-10-04T01:19:26.441Z",
+      "mtime_ns": "1791076766441520581"
+    },
+    {
+      "source": "spool/000026.spool",
+      "observed_at": "2026-10-04T01:19:26.450Z",
+      "mtime_ns": "1791076766450552822"
+    },
+    {
+      "source": "data/000027.json",
+      "observed_at": "2026-10-04T01:19:26.450Z",
+      "mtime_ns": "1791076766450552822"
+    },
+    {
+      "source": "data/000028.json",
+      "observed_at": "2026-10-04T01:19:26.588Z",
+      "mtime_ns": "1791076766588000000"
+    },
+    {
+      "source": "output/000029.txt",
+      "observed_at": "2026-10-04T01:19:27.001Z",
+      "mtime_ns": "1791076767001000000"
+    }
+  ],
+  "playback": "playback.json"
+}

@@ -1,6 +1,7 @@
 import type {
   ActionOutcome,
   AttentionKind,
+  BasisKind,
   CriterionStatus,
   Execution,
   Freshness,
@@ -258,20 +259,83 @@ export const ChangeGlyph = ({ change }: { readonly change: ChangeKind }): ReactE
   }
 }
 
+const Said = (): ReactElement => (
+  <path d="M1.8 2.2h8.4v5.6H5.4L2.8 10V7.8h-1Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+)
+
+const Derived = (): ReactElement => (
+  <>
+    <path d="M6 1.4 10.6 6 6 10.6 1.4 6Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    <circle cx="6" cy="6" r="1.3" fill="currentColor" />
+  </>
+)
+
+const Half = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M6 2a4 4 0 0 1 0 8Z" fill="currentColor" />
+  </>
+)
+
+const Pinless = (): ReactElement => (
+  <>
+    <Dashed />
+    <path d="M3.9 6.2 5.4 7.6 8.2 4.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </>
+)
+
 export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus }): ReactElement => {
   switch (status) {
     case 'confirmed':
-    case 'passed_unversioned':
       return <Glyph><Check /></Glyph>
+    case 'passed_unversioned':
+      return <Glyph><Pinless /></Glyph>
     case 'partial':
-      return <Glyph><Pause /></Glyph>
+      return <Glyph><Half /></Glyph>
     case 'failed':
       return <Glyph><Cross /></Glyph>
     case 'stale':
       return <Glyph><Triangle /></Glyph>
     case 'reported_done':
-      return <Glyph><Unknown /></Glyph>
+      return <Glyph><Said /></Glyph>
     case 'not_checked':
       return <Glyph><Dashed /></Glyph>
   }
 }
+
+export const BasisGlyph = ({ basis }: { readonly basis: BasisKind }): ReactElement => {
+  switch (basis) {
+    case 'observed':
+      return <Glyph><Eye /></Glyph>
+    case 'claimed':
+      return <Glyph><Said /></Glyph>
+    case 'interpreted':
+      return <Glyph><Derived /></Glyph>
+  }
+}
+
+export const DisclosureGlyph = ({ open }: { readonly open: boolean }): ReactElement => (
+  <Glyph>
+    <path
+      d={open ? 'M2.5 4.2 6 7.8l3.5-3.6' : 'M4.2 2.5 7.8 6l-3.6 3.5'}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)
+
+export const HandoverGlyph = (): ReactElement => (
+  <Glyph>
+    <path
+      d="M1.5 3.5h6.5M6 1.5l2 2-2 2M10.5 8.5H4M6 6.5l-2 2 2 2"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.4"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)

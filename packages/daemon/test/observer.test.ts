@@ -12,17 +12,16 @@ import { installFakeClaude, installFakeCodex } from '@aang/testkit'
 import { type TestContext, test } from 'vitest'
 import { bearer, createHome, type Home, startDaemon } from './daemon.js'
 import {
+  admissionMs,
   admissionOf,
   briefed,
   configure,
-  configuredPath,
   heldToolAttempt,
   installLauncher,
   observerEnvironment,
   observerInputs,
   progressOf,
   settled,
-  singlePathClaude,
   toolAttempt,
 } from './observers.js'
 import { claudeHook, codexHook, enqueue, openFinished, queued, sleep, waitUntil, watchedHome } from './sessions.js'
@@ -58,7 +57,7 @@ test('the daemon admits the Codex CLI from the config and sends a Codex run to i
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
   await installLauncher(home)
   await configure(home, workspace, {
-    cli: { codex: await configuredPath(codex) },
+    cli: { codex: codex.path },
     observer: { effort: { codex: 'low' } },
   })
   const session = codexKey('thread-g6-codex')
@@ -84,13 +83,14 @@ test('the daemon admits the Codex CLI from the config and sends a Codex run to i
   expect(await admissionOf(home, 'claude')).toMatchObject({ admitted: false })
 })
 
-test.skipIf(!singlePathClaude)(
+test(
   'each run goes to the observer of its root session vendor, and Claude runs with the unverified isolation mark',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
-    await configure(home, workspace, { cli: { claude: claude.command, codex: codex.command } })
+    await installLauncher(home)
+    await configure(home, workspace, { cli: { claude: claude.path, codex: codex.path } })
     const claudeRun = runId(claudeKey('session-g6-claude'))
     const codexRun = runId(codexKey('thread-g6-codex'))
 
@@ -124,7 +124,8 @@ const adapters = new Map<Runtime, Adapter>([
 
 const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: TestContext) => {
   const { home, workspace } = await watchedHome(onTestFinished)
-  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
+  const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
+  await installLauncher(home)
   const root = claudeKey('session-g6-root')
   const attached = codexKey('thread-g6-attached')
   const observed = runId(root)
@@ -143,7 +144,7 @@ const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: Test
   })
   unobserved.close()
 
-  await configure(home, workspace, { cli: { claude: claude.command }, observer: { crossVendor } })
+  await configure(home, workspace, { cli: { claude: claude.path }, observer: { crossVendor } })
   await run(home, onTestFinished, async () => {
     await enqueue(home, 'permission', [claudeHook('PermissionRequest.Bash', root.session, workspace)])
     await enqueue(home, 'attached-permission', [codexHook('PermissionRequest', attached.session, workspace)], 'codex')
@@ -169,7 +170,7 @@ const attachCodexSession = async (crossVendor: boolean, { onTestFinished }: Test
   }
 }
 
-test.skipIf(!singlePathClaude)(
+test(
   'facts of a Codex session in a Claude run are not sent to the Claude observer without crossVendor and stay visible as a gap',
   async (context) => {
     const outcome = await attachCodexSession(false, context)
@@ -197,7 +198,7 @@ test.skipIf(!singlePathClaude)(
   },
 )
 
-test.skipIf(!singlePathClaude)(
+test(
   'with crossVendor the Claude observer receives the facts of the attached Codex session',
   async (context) => {
     const outcome = await attachCodexSession(true, context)
@@ -212,12 +213,13 @@ test.skipIf(!singlePathClaude)(
   },
 )
 
-test.skipIf(!singlePathClaude)(
+test(
   'a binding wakes the observer, which interprets the facts of the moved session in the target run without another intake',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
-    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed] })
-    await configure(home, workspace, { cli: { claude: claude.command } })
+    const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
+    await installLauncher(home)
+    await configure(home, workspace, { cli: { claude: claude.path } })
     const root = claudeKey('session-g8-bind-root')
     const moved = claudeKey('session-g8-bind-moved')
     const target = runId(root)
@@ -268,7 +270,7 @@ test('observer.backend sends a Claude run to the Codex observer, which gets none
   const { home, workspace } = await watchedHome(onTestFinished)
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
   await installLauncher(home)
-  await configure(home, workspace, { cli: { codex: await configuredPath(codex) }, observer: { backend: 'codex' } })
+  await configure(home, workspace, { cli: { codex: codex.path }, observer: { backend: 'codex' } })
   const session = claudeKey('session-g6-overridden')
   const observed = runId(session)
 
@@ -303,7 +305,7 @@ test('the scheduler finds skills in the configured Claude directory and keeps ob
   const inputLimit = 1_150
   await configure(home, workspace, {
     runtimes: { claude: { configDir: claudeHome } },
-    cli: { codex: await configuredPath(codex) },
+    cli: { codex: codex.path },
     observer: { backend: 'codex', crossVendor: true, inputLimitTokens: inputLimit },
   })
   const session = claudeKey('session-g6-context')
@@ -352,7 +354,7 @@ test('an isolation violation that a call on the old Codex version reports after 
   const released = join(home.root, 'released')
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [heldToolAttempt(released)] })
   await installLauncher(home)
-  await configure(home, workspace, { cli: { codex: await configuredPath(codex) } })
+  await configure(home, workspace, { cli: { codex: codex.path } })
   const running = runId(codexKey('thread-g6-running'))
   const updated = runId(codexKey('thread-g6-updated'))
 
@@ -399,7 +401,7 @@ test(
     const { home, workspace } = await watchedHome(onTestFinished)
     const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [toolAttempt] })
     await installLauncher(home)
-    await configure(home, workspace, { cli: { codex: await configuredPath(codex) } })
+    await configure(home, workspace, { cli: { codex: codex.path } })
     const violated = runId(codexKey('thread-g6-violated'))
     const later = runId(codexKey('thread-g6-later'))
 
@@ -458,7 +460,7 @@ test('a Codex CLI that appears after the start is admitted, gets the queued fact
   const { home, workspace } = await watchedHome(onTestFinished)
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
   await installLauncher(home)
-  const path = await configuredPath(codex)
+  const path = codex.path
   const installed = dirname(path)
   const absent = `${installed}-absent`
   await rename(installed, absent)
@@ -497,7 +499,7 @@ test('stopping the daemon cancels a running observer call and leaves its batch p
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [{ kind: 'timeout' }] })
   await installLauncher(home)
   await configure(home, workspace, {
-    cli: { codex: await configuredPath(codex) },
+    cli: { codex: codex.path },
     observer: { timeoutMs: { codex: 600_000 } },
   })
   const session = codexKey('thread-g6-stopped')
@@ -522,7 +524,7 @@ test('stopping the daemon during admission does not wait for the CLI and starts 
   const codex = installFakeCodex(join(home.root, 'fake-cli'), { replies: [briefed] })
   const hold = { gate: join(home.root, 'gate'), started: join(home.root, 'started') }
   await installLauncher(home)
-  await configure(home, workspace, { cli: { codex: await configuredPath(codex, hold) } })
+  await configure(home, workspace, { cli: { codex: codex.held(hold) } })
   const session = codexKey('thread-g6-held')
   const observed = runId(session)
 
