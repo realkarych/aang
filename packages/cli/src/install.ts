@@ -1,7 +1,5 @@
-import { readlink, realpath } from 'node:fs/promises'
-import { basename, dirname, resolve } from 'node:path'
-import { defaultConfig, type Runtime } from '@aang/contract'
-import { loadConfig, processEnvironment, resolveRuntimeRoots } from '@aang/contract/config-file'
+import type { Runtime } from '@aang/contract'
+import { loadConfig, processEnvironment } from '@aang/contract/config-file'
 import {
   type ClaudeCli,
   claudePluginId,
@@ -24,7 +22,6 @@ interface Connection {
   readonly claude: ClaudeCli
   readonly codex: CodexCli
   readonly codexHome: string
-  readonly defaultCodexHome: string
 }
 
 type Step = (connection: Connection, output: Output) => Promise<boolean>
@@ -43,52 +40,13 @@ const codexHooksNotes: Readonly<Record<CodexHooksState['status'], string>> = {
 }
 
 const connect = async (): Promise<Connection> => {
-  const environment = processEnvironment()
-  const { aangHome, config, runtimeRoots } = await loadConfig(environment)
+  const { aangHome, config, runtimeRoots } = await loadConfig(processEnvironment())
   return {
     aangHome,
     claude: { command: config.cli.claude ?? 'claude', configDir: config.runtimes.claude.configDir },
     codex: { command: config.cli.codex ?? 'codex' },
     codexHome: runtimeRoots.codex,
-    defaultCodexHome: resolveRuntimeRoots(defaultConfig(), { env: {}, homedir: environment.homedir }).codex,
   }
-}
-
-const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
-
-interface ResolvedPath {
-  readonly existing: string
-  readonly missing: readonly string[]
-}
-
-const resolveExisting = async (path: string): Promise<ResolvedPath> => {
-  try {
-    return { existing: await realpath(path), missing: [] }
-  } catch (error) {
-    if (!isMissing(error)) {
-      throw error
-    }
-  }
-  const link = await readlink(path).catch(() => null)
-  if (link !== null) {
-    return resolveExisting(resolve(dirname(path), link))
-  }
-  const parent = dirname(path)
-  if (parent === path) {
-    return { existing: path, missing: [] }
-  }
-  const { existing, missing } = await resolveExisting(parent)
-  return { existing, missing: [...missing, basename(path)] }
-}
-
-const foldCase = (name: string): string => name.normalize('NFC').toLowerCase()
-
-const mayNameSameEntries = (left: readonly string[], right: readonly string[]): boolean =>
-  left.length === right.length && left.every((name, index) => foldCase(name) === foldCase(right[index] ?? ''))
-
-const mayBeSameDirectory = async (left: string, right: string): Promise<boolean> => {
-  const [one, other] = await Promise.all([resolveExisting(resolve(left)), resolveExisting(resolve(right))])
-  return one.existing === other.existing && mayNameSameEntries(one.missing, other.missing)
 }
 
 const runSteps = async (
@@ -123,12 +81,7 @@ const installClaude =
 
 const installCodex =
   (hookBinarySource: string): Step =>
-  async ({ aangHome, codex, codexHome, defaultCodexHome }, output) => {
-    if (await mayBeSameDirectory(codexHome, defaultCodexHome)) {
-      throw new Error(
-        `installing hooks into the default Codex profile ${codexHome} is not enabled yet: the effects of codex app-server on it are not verified`,
-      )
-    }
+  async ({ aangHome, codex, codexHome }, output) => {
     const { hooksFile, backup } = await installCodexHooks({ aangHome, hookBinarySource, codexHome, codex })
     output.out(`codex: aang hooks registered in ${hooksFile}${backup === null ? '' : `; the previous file is kept in ${backup}`}`)
     const { status } = await codexHooksState({ aangHome, codexHome, codex })
