@@ -87,7 +87,7 @@ const groupEmpty = (pid: number): boolean => {
   }
 }
 
-const unconfirmedTrees = new Map<symbol, string>()
+const unconfirmedTrees = new Map<symbol, { readonly home: string; readonly reason: string }>()
 
 const failure = (message: string, cause?: unknown): HookInstallError =>
   new HookInstallError('codex_app_server', `codex app-server: ${message}`, { cause })
@@ -131,8 +131,9 @@ export const listCodexHooks = (
       return
     }
     const home = resolve(codexHome)
-    if ([...unconfirmedTrees.values()].includes(home)) {
-      reject(failure('the previous app-server process tree is not confirmed stopped'))
+    const unconfirmed = [...unconfirmedTrees.values()].find((tree) => tree.home === home)
+    if (unconfirmed !== undefined) {
+      reject(failure(`the previous app-server process tree is not confirmed stopped: ${unconfirmed.reason}`))
       return
     }
     const command = windows ? windowsExecutable(codex.command) : codex.command
@@ -154,6 +155,7 @@ export const listCodexHooks = (
     let stopRequestedAt: number | undefined
     let stopWatch: NodeJS.Timeout | undefined
     let settled = false
+    let released = false
     const call = Symbol(home)
 
     const terminate = (): void => {
@@ -193,7 +195,17 @@ export const listCodexHooks = (
       if (readLauncherStatus(statusPath) !== undefined) {
         return 'confirmed'
       }
-      return exited ? 'lost' : 'pending'
+      return exited && !existsSync(statusPath) ? 'lost' : 'pending'
+    }
+
+    const unconfirmedReason = (): string => {
+      if (!exited) {
+        return `the app-server process tree did not stop within ${String(treeStopTimeoutMs)} ms`
+      }
+      if (!windows) {
+        return `the app-server process group is not empty ${String(treeStopTimeoutMs)} ms after the stop`
+      }
+      return `the launcher exited (${String(exit)}) ${existsSync(statusPath) ? 'with an unreadable status file' : 'without a status file'}`
     }
 
     const detach = (): void => {
@@ -203,6 +215,7 @@ export const listCodexHooks = (
     }
 
     const release = (): void => {
+      released = true
       clearInterval(stopWatch)
       detach()
       if (windows) {
@@ -233,7 +246,7 @@ export const listCodexHooks = (
     }
 
     const watchStop = (): void => {
-      if (stopRequestedAt === undefined) {
+      if (stopRequestedAt === undefined || released) {
         return
       }
       terminate()
@@ -243,16 +256,18 @@ export const listCodexHooks = (
         unconfirmedTrees.delete(call)
         settle()
         release()
-      } else if (state === 'lost') {
-        unconfirmedTrees.set(call, home)
-        settle('the launcher exited without confirming that the app-server process tree stopped')
-        release()
-      } else if (state === 'pending' && expired && !settled) {
-        unconfirmedTrees.set(call, home)
-        settle('the app-server process tree did not stop')
-        stopWatch?.unref()
-        child.unref()
-        detach()
+      } else if (state === 'lost' || (state === 'pending' && expired)) {
+        const reason = unconfirmedReason()
+        unconfirmedTrees.set(call, { home, reason })
+        if (state === 'lost') {
+          settle(reason)
+          release()
+        } else if (!settled) {
+          settle(reason)
+          stopWatch?.unref()
+          child.unref()
+          detach()
+        }
       }
     }
 

@@ -352,7 +352,7 @@ describe.concurrent('aang install and uninstall on any platform', () => {
     { timeout: 120_000 },
     async ({ expect, onTestFinished }) => {
       const connected = await connect(onTestFinished)
-      const { sandbox, workspace, codex, pluginHooks, codexHooks, hookBinary } = connected
+      const { sandbox, workspace, codex, codexHome, pluginHooks, codexHooks, hookBinary } = connected
       const offByDefault =
         'codex: hooks are not installed by default on Windows: Codex sessions are observed from their files only, so approval waits are not visible'
       const slowdown = 'on Windows Codex starts PowerShell for every hook event, which slows each event by 0.25–0.4 s'
@@ -372,6 +372,7 @@ describe.concurrent('aang install and uninstall on any platform', () => {
       })
       expect(codex.calls()).toEqual([])
       await expect(readFile(codexHooks)).rejects.toThrow()
+      await mkdir(codexHome)
       expect((await sandbox.aang('start')).code).toBe(0)
       expect((await sandbox.aang('status')).stdout).toContain(
         `claude hooks: active\ncodex hooks: not installed\n${offByDefault}\n`,

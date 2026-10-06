@@ -104,7 +104,7 @@ onWindows(
 
     await expect(checking).rejects.toMatchObject({
       reason: 'codex_app_server',
-      message: expect.stringContaining('without confirming') as unknown,
+      message: expect.stringContaining('without a status file') as unknown,
     })
     await waitUntil(() => !isAlive(server.pid))
     const calls = (await cli.calls()).length
