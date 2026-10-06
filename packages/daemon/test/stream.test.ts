@@ -1,5 +1,3 @@
-import { appendFile, mkdir, writeFile } from 'node:fs/promises'
-import { join } from 'node:path'
 import {
   type Action,
   ApiError,
@@ -16,69 +14,20 @@ import { openStore } from '@aang/store'
 import { applyFeed } from '@aang/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import type { z } from 'zod'
-import { bearer, createHome, type Home, missingCli, type RunningDaemon, startDaemon } from './daemon.js'
-import { admin, storedCount, waitUntil } from './sessions.js'
+import { bearer, type Home, type RunningDaemon, startDaemon } from './daemon.js'
+import { admin, type LiveTranscript, liveTranscript, storedCount, waitUntil, watchedHome } from './sessions.js'
 import { endsWithRun, lastId, openKnownRun, openStream, requestStream, segmentsOf } from './stream-client.js'
-
-interface Transcript {
-  readonly run: RunId
-  readonly append: (lines: readonly string[]) => Promise<void>
-  readonly call: (call: string, tool?: string, input?: Record<string, unknown>) => string[]
-  readonly plan: (call: string, items: readonly string[]) => string[]
-}
 
 interface Scene {
   readonly home: Home
   readonly daemon: RunningDaemon
-  readonly transcript: (session: string) => Promise<Transcript>
+  readonly transcript: (session: string) => Promise<LiveTranscript>
 }
 
 const openScene = async (onTestFinished: TestContext['onTestFinished']): Promise<Scene> => {
-  const home = await createHome(onTestFinished)
-  const workspace = join(home.root, 'work')
-  await mkdir(workspace)
-  await writeFile(
-    join(home.paths.home, 'config.json'),
-    JSON.stringify({
-      api: { port: 0 },
-      otel: { port: 0 },
-      cli: missingCli(home.root),
-      collector: { rootsScanIntervalMs: 200 },
-      watch: { roots: [{ path: workspace }] },
-    }),
-  )
+  const { home, workspace } = await watchedHome(onTestFinished)
   const daemon = await startDaemon(home, onTestFinished)
-  const project = join(home.root, '.claude', 'projects', '-work')
-  await mkdir(project, { recursive: true })
-  return {
-    home,
-    daemon,
-    transcript: async (session) => {
-      const file = join(project, `${session}.jsonl`)
-      await writeFile(file, '')
-      const line = (record: Record<string, unknown>): string =>
-        JSON.stringify({ sessionId: session, cwd: workspace, timestamp: new Date().toISOString(), ...record })
-      const call = (id: string, tool = 'Bash', input: Record<string, unknown> = { command: `echo ${id}` }): string[] => [
-        line({
-          type: 'assistant',
-          uuid: `${id}-use`,
-          message: { id: `${id}-message`, role: 'assistant', content: [{ type: 'tool_use', id, name: tool, input }] },
-        }),
-        line({
-          type: 'user',
-          uuid: `${id}-result`,
-          message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: 'ok', is_error: false }] },
-        }),
-      ]
-      return {
-        run: runId({ kind: 'session', runtime: 'claude', session }),
-        append: (lines) => appendFile(file, lines.map((entry) => `${entry}\n`).join('')),
-        call,
-        plan: (id, items) =>
-          call(id, 'TodoWrite', { todos: items.map((content) => ({ content, status: 'pending' })) }),
-      }
-    },
-  }
+  return { home, daemon, transcript: (session) => liveTranscript(home, workspace, session) }
 }
 
 const actionsOf = (events: readonly SseEvent[]): Action[] =>

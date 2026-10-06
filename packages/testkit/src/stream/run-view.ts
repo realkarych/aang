@@ -9,6 +9,7 @@ import type {
   RunSnapshot,
   SessionId,
 } from '@aang/contract'
+import { objectId } from '@aang/contract/ids'
 
 export type FeedEvent =
   | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }
@@ -52,6 +53,9 @@ const withoutSession = (snapshot: RunSnapshot, session: SessionId): RunSnapshot 
     list.filter((entry) => entry.session !== session)
   return {
     ...snapshot,
+    plan_facts: snapshot.plan_facts.filter(
+      ({ entity_key: { runtime, session: name } }) => objectId({ kind: 'session', runtime, session: name }) !== session,
+    ),
     objects: {
       ...objects,
       sessions: objects.sessions.filter(({ id }) => id !== session),

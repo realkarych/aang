@@ -21,6 +21,7 @@ export interface StubScenario {
   readonly script: StubScript | ((session: ScenarioSession) => StubScript)
   readonly trust?: boolean
   readonly run: (context: StubContext) => Promise<void>
+  readonly checkRecording?: (recording: string) => Promise<void>
 }
 
 export const hostScript = (name: string): string => fileURLToPath(new URL(`./${name}.js`, import.meta.url))
@@ -34,6 +35,7 @@ export const stubScenario = (definition: StubScenario): Scenario => ({
   surface: definition.surface,
   models: ['stub'],
   expectedFacts: definition.expectedFacts,
+  checkRecording: definition.checkRecording,
   run: async (session) => {
     const script = typeof definition.script === 'function' ? definition.script(session) : definition.script
     const stub = await startResponsesStub(script, join(session.work, 'responses.jsonl'))

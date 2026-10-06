@@ -6,6 +6,8 @@ import {
   type ApiErrorCode,
   endpoints,
   type Listener,
+  type OtelConfigRequest,
+  type OtelConfigResponse,
   type ReparseResponse,
   type ShutdownResponse,
   type StatusResponse,
@@ -28,6 +30,7 @@ export interface ServerOptions {
   readonly streams: Streams
   readonly reparse: () => Promise<ReparseResponse | null>
   readonly admin: Admin
+  readonly otelConfig: (request: OtelConfigRequest) => OtelConfigResponse
   readonly hooksCheck: () => Promise<StatusResponse>
   readonly onShutdown: () => void
 }
@@ -102,6 +105,7 @@ export const startServer = async ({
   streams,
   reparse,
   admin,
+  otelConfig,
   hooksCheck,
   onShutdown,
 }: ServerOptions): Promise<RunningServer> => {
@@ -188,6 +192,7 @@ export const startServer = async ({
     adminRoute(endpoints.watch, admin.watch),
     adminRoute(endpoints.unwatch, admin.unwatch),
     adminRoute(endpoints.prune, admin.prune),
+    adminRoute(endpoints.otelConfig, (body) => Promise.resolve(otelConfig(body))),
     adminRoute(endpoints.hooksCheck, hooksCheck),
   ]
 

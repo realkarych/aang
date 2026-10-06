@@ -125,6 +125,7 @@ const focusOf = (snapshot: RunSnapshot | null): FocusedRun | null =>
 
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
+  const runs = usePolled(readRuns, onSignedOut)
   const stage = useRoutedStage()
   const close = useCallback(() => {
     selectStage(run, null)
@@ -135,7 +136,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     status: status.value,
     statusFailing: status.failing,
     runs: null,
-    runsFailing: false,
+    runsFailing: runs.failing,
     focus: { connection: feed.connection, run: focusOf(feed.snapshot) },
     now,
   })
@@ -145,7 +146,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <StatusStrip lamps={lamps} />
       <main className="page run-screen" data-inspecting={stage !== null}>
         <GenerationContext value={feed.generation}>
-          <RunPage feed={feed} now={now} />
+          <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} />
           {stage === null ? null : (
             <SignedOutContext value={onSignedOut}>
               <StageInspector

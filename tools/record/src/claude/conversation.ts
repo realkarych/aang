@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { decide, delay, type Decision, emptySummary, type HostPlan, type HostSummary, readPlan, writeSummary } from './plan.js'
+import { decide, delay, type Decision, type ElicitationAnswer, emptySummary, type HostPlan, type HostSummary, readPlan, writeSummary } from './plan.js'
 
 const Message = z.looseObject({
   type: z.string(),
@@ -12,14 +12,28 @@ const Assistant = z.looseObject({
   message: z.looseObject({ content: z.array(z.looseObject({ type: z.string(), id: z.string().optional(), name: z.string().optional(), input: z.unknown().optional() })) }),
 })
 const Result = z.looseObject({ subtype: z.string(), is_error: z.boolean(), num_turns: z.number(), session_id: z.string() })
+const ElicitationComplete = z.looseObject({ elicitation_id: z.string() })
 
 export type PermissionResponse = ReturnType<typeof decide>['response']
+
+export interface ElicitationRequest {
+  readonly server: string
+  readonly mode: 'form' | 'url'
+  readonly url: string | null
+  readonly elicitationId: string | null
+}
+
+export interface ElicitationResponse {
+  readonly action: ElicitationAnswer['action']
+  readonly content?: Record<string, unknown>
+}
 
 export interface Conversation {
   readonly summary: HostSummary
   readonly failed: Promise<never>
   readonly observe: (message: unknown) => void
   readonly permission: (tool: string, toolUseId: string | null, input: Readonly<Record<string, unknown>>) => Promise<PermissionResponse>
+  readonly elicit: (request: ElicitationRequest) => Promise<ElicitationResponse>
   readonly fail: (error: unknown) => void
   readonly converse: (send: (prompt: string) => void) => Promise<void>
   readonly finish: (exitCode: number) => Promise<void>
@@ -42,6 +56,7 @@ export const hostArguments = async (usage: string): Promise<{ readonly plan: Hos
 export const createConversation = (plan: HostPlan, summaryPath: string, interrupt: () => Promise<void>): Conversation => {
   const summary = emptySummary()
   const remaining: Decision[] = [...plan.decisions]
+  const unanswered: ElicitationAnswer[] = [...plan.elicitations]
   const state: { turn?: HostPlan['turns'][number]; interrupted: boolean; results: number; wake?: () => void } = { interrupted: false, results: 0 }
   let reject: (error: Error) => void = () => undefined
   const failed = new Promise<never>((_resolve, rejectFailure) => {
@@ -68,6 +83,7 @@ export const createConversation = (plan: HostPlan, summaryPath: string, interrup
     const { type, subtype, session_id: sessionId, parent_tool_use_id: parent } = message.data
     if (sessionId !== undefined && sessionId !== '' && !summary.sessionIds.includes(sessionId)) summary.sessionIds.push(sessionId)
     if (type === 'system' && subtype === 'init') summary.tools = Init.parse(raw).tools
+    if (type === 'system' && subtype === 'elicitation_complete') summary.completedElicitations.push(ElicitationComplete.parse(raw).elicitation_id)
     if (type === 'assistant') {
       for (const block of Assistant.parse(raw).message.content) {
         if (block.type !== 'tool_use' || block.id === undefined || block.name === undefined) continue
@@ -106,6 +122,27 @@ export const createConversation = (plan: HostPlan, summaryPath: string, interrup
     summary.decisions.push({ tool, behavior: decision.behavior, toolUseId, waitedMs: Date.now() - started, answers })
     return response
   }
+  const open = async (url: string | null): Promise<void> => {
+    if (url === null) throw new Error('The URL elicitation has no URL')
+    const response = await fetch(url)
+    await response.arrayBuffer()
+    if (!response.ok) throw new Error(`Opening the elicitation URL returned ${String(response.status)}`)
+  }
+  const elicit = async (request: ElicitationRequest): Promise<ElicitationResponse> => {
+    const index = unanswered.findIndex((answer) => answer.mode === request.mode)
+    const answer = unanswered[index]
+    if (answer === undefined) {
+      fail(new Error(`Unexpected ${request.mode} elicitation from ${request.server}`))
+      return { action: 'cancel' }
+    }
+    unanswered.splice(index, 1)
+    const started = Date.now()
+    await delay(answer.delayMs)
+    const opened = request.mode === 'url' && answer.action === 'accept'
+    if (opened) await open(request.url).catch(fail)
+    summary.elicitations.push({ server: request.server, mode: request.mode, elicitationId: request.elicitationId, action: answer.action, opened, waitedMs: Date.now() - started })
+    return answer.content === undefined ? { action: answer.action } : { action: answer.action, content: answer.content }
+  }
   const nextResult = async (expected: number): Promise<void> => {
     let timer: NodeJS.Timeout | undefined
     const arrived = new Promise<void>((resolve) => {
@@ -134,7 +171,9 @@ export const createConversation = (plan: HostPlan, summaryPath: string, interrup
       send(turn.prompt)
       await nextResult(index + 1)
     }
-    if (remaining.length > 0) throw new Error(`Planned permission requests did not arrive: ${remaining.map(({ tool }) => tool).join(', ')}`)
+    const missing = remaining.filter(({ optional }) => !optional)
+    if (missing.length > 0) throw new Error(`Planned permission requests did not arrive: ${missing.map(({ tool }) => tool).join(', ')}`)
+    if (unanswered.length > 0) throw new Error(`Planned elicitations did not arrive: ${unanswered.map(({ mode }) => mode).join(', ')}`)
     const unsent = plan.turns.filter((turn) => turn.interrupt !== undefined).length - summary.interrupts.length
     if (unsent > 0) throw new Error('A planned interrupt was not sent')
   }
@@ -144,5 +183,5 @@ export const createConversation = (plan: HostPlan, summaryPath: string, interrup
   }
   const endedByInterrupt = (): boolean =>
     state.turn?.interrupt !== undefined && summary.interrupts.length > 0 && summary.results.at(-1)?.isError === true
-  return { summary, failed, observe, permission, fail, converse, finish, endedByInterrupt }
+  return { summary, failed, observe, permission, elicit, fail, converse, finish, endedByInterrupt }
 }
