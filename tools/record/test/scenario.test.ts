@@ -385,6 +385,7 @@ test('the scenario CLI lists the catalog and rejects unknown surfaces and scenar
   expect(listed.stdout).toMatch(/^claude_sdk agents-flag \[stub\]$/m)
   expect(listed.stdout).not.toMatch(/^claude_desktop agents-flag /m)
   expect(listed.stdout).toMatch(/^codex_exec agent-role \[stub\]$/m)
+  expect(listed.stdout).toMatch(/^codex_desktop question \[stub\]/m)
   expect(listed.stdout).toContain(`claude_cli teammates [stub]${interactive}\nclaude_cli input-dialogs [stub]${interactive}\n`)
   expect(listed.stdout).not.toMatch(/^claude_(?:sdk|desktop) (?:teammates|input-dialogs) /m)
   await expect(exec(process.execPath, [cli, 'scenario', 'unknown_surface'])).rejects.toMatchObject({ code: 1 })
