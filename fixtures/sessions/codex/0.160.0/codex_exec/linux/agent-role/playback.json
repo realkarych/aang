@@ -1,0 +1,426 @@
+{
+  "steps": [
+    {
+      "kind": "write",
+      "at": 3,
+      "target": {
+        "root": "codex",
+        "path": "config.toml"
+      },
+      "source": "data/000001.toml"
+    },
+    {
+      "kind": "write",
+      "at": 4,
+      "target": {
+        "root": "codex",
+        "path": "agents/reviewer.toml"
+      },
+      "source": "data/000002.toml"
+    },
+    {
+      "kind": "append",
+      "at": 185,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000003.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 205,
+      "source": "data/000006.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 208,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000004.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 209,
+      "source": "data/000009.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 233,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000007.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 233,
+      "source": "data/000011.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 267,
+      "source": "data/000016.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 275,
+      "source": "data/000018.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 278,
+      "source": "data/000020.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "otlp",
+      "at": 283,
+      "source": "data/000012.json"
+    },
+    {
+      "kind": "append",
+      "at": 285,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000013.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 285,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37bc-7013-b951-fa9d358a8208.jsonl"
+      },
+      "source": "data/000014.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 304,
+      "source": "data/000025.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 311,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000021.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 312,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37bc-7013-b951-fa9d358a8208.jsonl"
+      },
+      "source": "data/000022.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 312,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37e5-75b1-aafd-deaf4d80c8c4.jsonl"
+      },
+      "source": "data/000023.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 312,
+      "source": "data/000029.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 319,
+      "source": "data/000031.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 335,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000026.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 336,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37e5-75b1-aafd-deaf4d80c8c4.jsonl"
+      },
+      "source": "data/000027.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 351,
+      "source": "data/000035.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 360,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37bc-7013-b951-fa9d358a8208.jsonl"
+      },
+      "source": "data/000032.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 360,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37e5-75b1-aafd-deaf4d80c8c4.jsonl"
+      },
+      "source": "data/000033.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 364,
+      "source": "data/000038.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 385,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37bc-7013-b951-fa9d358a8208.jsonl"
+      },
+      "source": "data/000036.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 391,
+      "source": "data/000043.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 395,
+      "source": "data/000045.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 409,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000039.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 410,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37bc-7013-b951-fa9d358a8208.jsonl"
+      },
+      "source": "data/000040.jsonl",
+      "label": "role-agent-finished"
+    },
+    {
+      "kind": "append",
+      "at": 410,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37e5-75b1-aafd-deaf4d80c8c4.jsonl"
+      },
+      "source": "data/000041.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 419,
+      "source": "data/000049.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 435,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000046.jsonl"
+    },
+    {
+      "kind": "append",
+      "at": 435,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-37e5-75b1-aafd-deaf4d80c8c4.jsonl"
+      },
+      "source": "data/000047.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 453,
+      "source": "data/000053.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 459,
+      "source": "data/000055.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 460,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000050.jsonl"
+    },
+    {
+      "kind": "otlp",
+      "at": 462,
+      "source": "data/000051.json"
+    },
+    {
+      "kind": "append",
+      "at": 485,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000056.jsonl"
+    },
+    {
+      "kind": "hook",
+      "at": 489,
+      "source": "data/000059.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 499,
+      "source": "data/000061.json",
+      "runtime": "codex",
+      "registration": "user",
+      "env": {
+        "CLAUDE_AGENT_SDK_VERSION": "0.3.289",
+        "CODEX_HOME": "/home/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 510,
+      "target": {
+        "root": "codex",
+        "path": "sessions/2026/10/05/rollout-2026-10-05T21-36-32-01a10dff-3770-7201-82d7-b2f1d3dbb589.jsonl"
+      },
+      "source": "data/000057.jsonl",
+      "label": "root-finished"
+    },
+    {
+      "kind": "otlp",
+      "at": 638,
+      "source": "data/000062.json"
+    }
+  ]
+}
