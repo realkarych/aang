@@ -168,7 +168,7 @@
   list-style: none;
 }
 
-.change {
+.change-item {
   display: grid;
   grid-template-columns: 7.5rem minmax(0, 1fr);
   gap: 2px 16px;
@@ -187,7 +187,7 @@
   font-weight: 500;
 }
 
-.change[data-change='new'] .change-mark {
+.change-item[data-change='new'] .change-mark {
   color: var(--ink);
 }
 
@@ -226,7 +226,7 @@
   font-weight: 500;
 }
 
-.change-detail {
+.change-text {
   max-width: 72ch;
   margin: 0;
   color: var(--ink-soft);
@@ -294,7 +294,7 @@
   font-weight: 400;
 }
 
-.artifact-name {
+.change-artifact {
   padding: 0;
   background: none;
   font-size: 13px;
@@ -433,7 +433,7 @@
     padding-inline: 12px;
   }
 
-  .change {
+  .change-item {
     grid-template-columns: minmax(0, 1fr);
   }
 }

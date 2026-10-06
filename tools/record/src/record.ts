@@ -5,7 +5,7 @@ import { dirname, join, resolve } from 'node:path'
 import { type OperatingSystem, type Runtime, spoolFormat, type Surface } from '@aang/contract'
 import { claudePluginName, writeClaudePlugin } from '@aang/hook'
 import { createProcessRunner } from '@aang/observer'
-import { leaseSpool } from '@aang/testkit'
+import { leaseSpool, type Target } from '@aang/testkit'
 import { createAnonymizer } from './anonymize.js'
 import { type Capture, claudeProjectName, createCapture, type ControlTarget, type CreatedEntries } from './capture.js'
 import { isMissing } from './files.js'
@@ -27,6 +27,7 @@ export interface RecordOptions {
   readonly codexHome?: ProfileHome | undefined
   readonly claudeHome?: ProfileHome | undefined
   readonly created?: ((entries: CreatedEntries) => void) | undefined
+  readonly check?: ((recording: string) => Promise<void>) | undefined
 }
 
 export interface RunOptions {
@@ -53,6 +54,7 @@ export interface RecordContext {
   readonly work: string
   readonly run: (command: string, args: readonly string[], options?: RunOptions) => Promise<RunOutput>
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
+  readonly keep: (target: Target) => Promise<void>
 }
 
 const regularClaudeArgs = ['--setting-sources', 'project,local', '--strict-mcp-config']
@@ -135,6 +137,11 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       checkpoint: async (...args) => {
         if (execution.running) throw new Error('Await the recording command before adding a checkpoint')
         await capture.checkpoint(...args)
+      },
+      keep: async (target) => {
+        if (execution.running) throw new Error('Await the recording command before keeping a file')
+        if ((target.root === 'codex' && regularCodex) || (target.root === 'claude' && regularClaude)) throw new Error('Only files of a temporary profile can be kept')
+        await capture.keep(target)
       },
       run: (command, args, runOptions = {}) => {
         const commandRun = async (): Promise<RunOutput> => {
@@ -229,6 +236,7 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
       await writeFile(path, content, { mode: 0o600 })
     }
     await verifyRecording(staging)
+    await options.check?.(staging)
     await report()
     await rename(staging, destination)
     staging = undefined

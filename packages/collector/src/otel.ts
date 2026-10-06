@@ -17,6 +17,7 @@ export interface OtelReceiverOptions {
 export interface OtelReceiver {
   readonly open: () => Promise<void>
   readonly listen: (options: OtelReceiverOptions) => Promise<Listener>
+  readonly setToken: (token: string) => void
   readonly take: () => Promise<CollectorBatch | null>
   readonly ack: (batch: CollectorBatch) => Promise<void>
   readonly close: () => Promise<void>
@@ -224,5 +225,9 @@ export const createOtelReceiver = (spool: string, wakeup: Wakeup): OtelReceiver 
     return closing
   }
 
-  return { open: queue.open, listen, take, ack: queue.ack, close }
+  const setToken = (token: string): void => {
+    expected = digest(token)
+  }
+
+  return { open: queue.open, listen, setToken, take, ack: queue.ack, close }
 }

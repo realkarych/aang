@@ -1,10 +1,14 @@
 import {
   ApiError,
+  type ArtifactVersionId,
+  type ArtifactVersionResponse,
   type ChangesResponse,
   endpoints,
   type Fact,
   type FactId,
   type MarkViewedResponse,
+  type RawRecord,
+  type RawSeq,
   type RunId,
   type RunSnapshot,
   type RunsResponse,
@@ -95,13 +99,6 @@ export const readRuns = (signal: AbortSignal): Promise<RunsResponse> =>
 export const readRun = (run: RunId, signal: AbortSignal): Promise<RunSnapshot> =>
   read(withRun(endpoints.run.path, run), endpoints.run.response, signal)
 
-export const readStage = (run: RunId, stage: StageId, signal: AbortSignal): Promise<StageInspector> =>
-  read(
-    withRun(endpoints.stage.path, run).replace(':stage', encodeURIComponent(stage)),
-    endpoints.stage.response,
-    signal,
-  )
-
 export const readFact = async (id: FactId, signal: AbortSignal): Promise<Fact> =>
   (await read(endpoints.fact.path.replace(':id', encodeURIComponent(id)), endpoints.fact.response, signal)).fact
 
@@ -117,6 +114,19 @@ export const markViewed = (run: RunId, position: ViewPosition, signal: AbortSign
     endpoints.markViewed.response,
     signal,
   )
+
+export const readStage = (run: RunId, stage: StageId, signal: AbortSignal): Promise<StageInspector> =>
+  read(
+    withRun(endpoints.stage.path, run).replace(':stage', encodeURIComponent(stage)),
+    endpoints.stage.response,
+    signal,
+  )
+
+export const readRaw = async (seq: RawSeq, signal: AbortSignal): Promise<RawRecord> =>
+  (await read(endpoints.raw.path.replace(':seq', String(seq)), endpoints.raw.response, signal)).raw
+
+export const readArtifactVersion = (id: ArtifactVersionId, signal: AbortSignal): Promise<ArtifactVersionResponse> =>
+  read(endpoints.artifactVersion.path.replace(':id', encodeURIComponent(id)), endpoints.artifactVersion.response, signal)
 
 const usageSearch = ({ run, from, to }: UsageQuery): string => {
   const search = new URLSearchParams({

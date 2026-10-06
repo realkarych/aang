@@ -1,9 +1,9 @@
-import type { RunSnapshot } from '@aang/contract'
-import { lazy, type ReactElement, Suspense, useEffect, useMemo, useState } from 'react'
+import type { RunSnapshot, StageId } from '@aang/contract'
+import { lazy, type ReactElement, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { plural } from './format.js'
 import { HandoverGlyph } from './glyphs.js'
 import { stageForms } from './labels.js'
-import { routedStage, routeStage } from './route.js'
+import { replaceStage, selectStage, useRoutedStage } from './route.js'
 import { type Handover, handoverText, selectionOf } from './stage-lineage.js'
 import './map.css'
 
@@ -29,15 +29,31 @@ const HandoverNote = ({
 
 export const MapSection = ({ snapshot }: { readonly snapshot: RunSnapshot }): ReactElement => {
   const stages = snapshot.model.stages.filter(({ lifecycle }) => lifecycle.state === 'active').length
-  const [chosen, setChosen] = useState(routedStage)
+  const run = snapshot.run.id
+  const routed = useRoutedStage()
+  const [chosen, setChosen] = useState(routed)
+  const [seen, setSeen] = useState(routed)
   const selection = useMemo(
     () => (chosen === null ? null : selectionOf(snapshot.model.stages, chosen)),
     [snapshot.model.stages, chosen],
   )
   const selected = selection?.stage.id ?? null
+  const shown = selection === null ? chosen : selected
+  if (routed !== seen) {
+    setSeen(routed)
+    if (routed !== shown) {
+      setChosen(routed)
+    }
+  }
   useEffect(() => {
-    routeStage(selected)
-  }, [selected])
+    replaceStage(run, shown)
+  }, [run, routed, shown])
+  const select = useCallback(
+    (stage: StageId | null) => {
+      selectStage(run, stage)
+    },
+    [run],
+  )
   return (
     <section className="map" aria-labelledby="map-title">
       <header className="map-head">
@@ -56,7 +72,7 @@ export const MapSection = ({ snapshot }: { readonly snapshot: RunSnapshot }): Re
         <p className="map-note">Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.</p>
       ) : (
         <Suspense fallback={<p className="map-note">Загрузка карты…</p>}>
-          <StageMap snapshot={snapshot} selection={selection} onSelect={setChosen} />
+          <StageMap snapshot={snapshot} selection={selection} onSelect={select} />
         </Suspense>
       )}
     </section>

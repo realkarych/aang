@@ -45,6 +45,8 @@ const box = async (locator: Locator): Promise<{ x: number; y: number; right: num
 
 const pick = (locator: Locator, title: string | RegExp): Locator => locator.getByRole('button', { name: title, exact: true })
 
+const inspected = (page: Page): Locator => page.getByRole('complementary').getByRole('heading', { level: 2 })
+
 const drag = async (page: Page, from: { x: number; y: number }, by: { x: number; y: number }): Promise<void> => {
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
@@ -425,7 +427,12 @@ test.describe('with the observer revising the map', () => {
     await expect(main).toBeVisible(observed)
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
     const stageInAddress = (): string | null => new URL(page.url()).searchParams.get('stage')
+    expect(stageInAddress()).toBe('gone')
+    await expect(page.getByRole('complementary')).toContainText('В этом прогоне нет этапа gone')
+    await page.getByRole('complementary').getByRole('button', { name: 'Закрыть' }).click()
+    await expect(page.getByRole('complementary')).toHaveCount(0)
     await expect.poll(stageInAddress).toBeNull()
+    await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'false')
 
     const canvas = map(page).getByRole('application')
     const placeOf = async (locator: Locator): Promise<{ x: number; y: number }> => {
@@ -468,6 +475,7 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
+    await expect(inspected(page)).toHaveText(mainStageTitle)
 
     const nested = await versionShown(page)
     await played.play({ until: 'resume' })
@@ -482,17 +490,41 @@ test.describe('with the observer revising the map', () => {
     await expect(continued).toBeVisible(observed)
     await expect(main).toHaveCount(0)
     await expect(pick(continued, continuedStageTitle)).toHaveAttribute('aria-pressed', 'true')
-    await expect(notice).toHaveText(
-      `Этап «${mainStageTitle}» заменён. Выбор перешёл к преемнику «${continuedStageTitle}».`,
-    )
+    const replacedNote = `Этап «${mainStageTitle}» заменён. Выбор перешёл к преемнику «${continuedStageTitle}».`
+    await expect(notice).toHaveText(replacedNote)
     const revised = await snapshotOf(page, claudeRun)
-    expect(stageTitled(revised, mainStageTitle).lifecycle).toEqual({
-      state: 'replaced',
-      by: [stageTitled(revised, continuedStageTitle).id],
-    })
-    expect(stageInAddress()).toBe(stageTitled(revised, continuedStageTitle).id)
+    const [mainId, continuedId] = [stageTitled(revised, mainStageTitle).id, stageTitled(revised, continuedStageTitle).id]
+    expect(stageTitled(revised, mainStageTitle).lifecycle).toEqual({ state: 'replaced', by: [continuedId] })
+    expect(stageInAddress()).toBe(continuedId)
+    await expect(inspected(page)).toHaveText(continuedStageTitle)
     const handed = await settled(continued)
     near(handed, read)
+
+    await map(page).getByRole('button', { name: 'Скрыть' }).click()
+    await expect(notice).toBeEmpty()
+    const predecessor = page
+      .getByRole('complementary')
+      .getByRole('region', { name: /^Связи/ })
+      .getByRole('link', { name: mainStageTitle, exact: true })
+    await predecessor.click()
+    await expect(notice).toHaveText(replacedNote)
+    await expect.poll(stageInAddress).toBe(continuedId)
+    await expect(inspected(page)).toHaveText(continuedStageTitle)
+    await expect(predecessor).toBeVisible()
+    expect(stageInAddress()).toBe(continuedId)
+    await expect(pick(continued, continuedStageTitle)).toHaveAttribute('aria-pressed', 'true')
+
+    const fromPredecessor = await page.context().newPage()
+    await fromPredecessor.goto(`/?run=${claudeRun}&stage=${mainId}`)
+    await expect(pick(stage(fromPredecessor, continuedStageTitle), continuedStageTitle)).toHaveAttribute(
+      'aria-pressed',
+      'true',
+      observed,
+    )
+    await expect(map(fromPredecessor).getByRole('status')).toHaveText(replacedNote)
+    await expect(inspected(fromPredecessor)).toHaveText(continuedStageTitle)
+    await expect.poll(() => new URL(fromPredecessor.url()).searchParams.get('stage')).toBe(continuedId)
+    await fromPredecessor.close()
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].split)
     await played.play({ until: 'compaction' })
@@ -508,6 +540,7 @@ test.describe('with the observer revising the map', () => {
       `Этап «${mainStageTitle}» заменён, затем разделён. Выбор перешёл к преемнику «${changesTitle}», другие преемники: «${checksTitle}».`,
     )
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), changesTitle).id)
+    await expect(inspected(page)).toHaveText(changesTitle)
     near(await settled(changes), handed)
 
     await map(page).getByRole('button', { name: 'Скрыть' }).click()
@@ -517,15 +550,24 @@ test.describe('with the observer revising the map', () => {
     const reopened = await page.context().newPage()
     await reopened.goto(page.url())
     await expect(pick(stage(reopened, changesTitle), changesTitle)).toHaveAttribute('aria-pressed', 'true', observed)
+    await expect(inspected(reopened)).toHaveText(changesTitle)
     await expect(map(reopened).getByRole('status')).toBeEmpty()
     await reopened.close()
 
     await pick(changes, changesTitle).press('Enter')
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
+    await expect(page.getByRole('complementary')).toHaveCount(0)
     await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
     await pinger.getByRole('list').click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
+    await expect(inspected(page)).toHaveText(/^pinger/)
+    await page.getByRole('complementary').getByRole('button', { name: 'Закрыть' }).click()
+    await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
+    expect(stageInAddress()).toBeNull()
+    await page.goBack()
+    await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
+    await expect(inspected(page)).toHaveText(/^pinger/)
 
     const pan = async (by: { x: number; y: number }): Promise<void> => {
       const frame = await box(canvas)
@@ -551,8 +593,11 @@ test.describe('with the observer revising the map', () => {
       `Этап «${checksTitle}» объединён с другими. Выбор перешёл к преемнику «${mergedStageTitle}».`,
     )
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mergedStageTitle).id)
+    await expect(inspected(page)).toHaveText(mergedStageTitle)
     near(await settled(merged), checksPlace)
 
+    await page.setViewportSize({ width: 1600, height: 640 })
+    near(await settled(merged), checksPlace)
     await pan({ x: 500, y: 40 - checksPlace.y })
     const aside = await settled(merged)
     near(aside, { x: checksPlace.x + 500, y: 40 })

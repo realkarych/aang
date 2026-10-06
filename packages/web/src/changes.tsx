@@ -22,7 +22,7 @@ import { type ReactElement, type ReactNode, useId } from 'react'
 import { DecisionBadge, ExecutionBadge } from './badges.js'
 import { plural } from './format.js'
 import { AttentionGlyph, type ChangeKind, ChangeGlyph, CriterionGlyph } from './glyphs.js'
-import { type Grounding, Grounds, JournalGrounds, journalKey, Original } from './grounds.js'
+import { type Grounding, Grounds, JournalGrounds, journalKey, Original } from './change-grounds.js'
 import {
   actionForms,
   attentionAuthorLabel,
@@ -102,7 +102,7 @@ const AttentionChange = ({
 }): ReactElement => {
   const place = attentionPlace(context.objects, item)
   return (
-    <li className="change" data-change={change}>
+    <li className="change-item" data-change={change}>
       <Mark change={change} label={change === 'new' ? 'открыт' : 'закрыт'} />
       <div className="change-body">
         <p className="change-title">
@@ -183,7 +183,7 @@ const RevisedStage = ({
   const { after } = transition
   const { change, label, by } = lifecycleChange(lifecycle)
   return (
-    <li className="change" data-change={change}>
+    <li className="change-item" data-change={change}>
       <Mark change={change} label={label} />
       <div className="change-body">
         <p className="change-title">Этап «{after.title}»</p>
@@ -248,7 +248,7 @@ const CriterionChange = ({
   const { before, after } = transition
   const fresh = before === null
   return (
-    <li className="change" data-change={fresh ? 'new' : 'changed'}>
+    <li className="change-item" data-change={fresh ? 'new' : 'changed'}>
       <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'новый' : 'изменён'} />
       <div className="change-body">
         <p className="change-title">Критерий «{after.text}»</p>
@@ -325,7 +325,7 @@ const StageChange = ({
     ...(decided ? [after.decision] : []),
   ]
   return (
-    <li className="change" data-change={fresh ? 'new' : 'changed'}>
+    <li className="change-item" data-change={fresh ? 'new' : 'changed'}>
       <Mark change={fresh ? 'new' : 'changed'} label={fresh ? 'новый' : 'изменён'} />
       <div className="change-body">
         <p className="change-title">
@@ -342,7 +342,7 @@ const StageChange = ({
           />
           {decided ? <DecisionBadge decision={after.decision.value} basis={after.decision.basis} /> : null}
         </p>
-        {detail === null ? null : <p className="change-detail">{detail}</p>}
+        {detail === null ? null : <p className="change-text">{detail}</p>}
         <StageGrounds transition={transition} grounds={grounds} context={context} />
       </div>
     </li>
@@ -350,7 +350,7 @@ const StageChange = ({
 }
 
 const CardChange = ({ card, context }: { readonly card: Card; readonly context: Context }): ReactElement => (
-  <li className="change" data-change="new">
+  <li className="change-item" data-change="new">
     <Mark change="new" label="новая" />
     <div className="change-body">
       <div className="change-quote">
@@ -398,11 +398,11 @@ const ArtifactChange = ({
   const place = action === undefined ? null : placeOf(context.objects, action.session, action.agent)
   const evidence = action === undefined ? [] : [action.input_fact, action.output_fact].filter((fact) => fact !== null)
   return (
-    <li className="change" data-change="new">
+    <li className="change-item" data-change="new">
       <Mark change="new" label="новая версия" />
       <div className="change-body">
         <p className="change-title">
-          <code className="artifact-name">{artifactName(version.ref)}</code>
+          <code className="change-artifact">{artifactName(version.ref)}</code>
         </p>
         <p className="change-meta">
           {action === undefined ? null : <span>записал {action.tool}</span>}

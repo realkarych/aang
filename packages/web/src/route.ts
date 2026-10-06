@@ -51,28 +51,42 @@ export const usageHref = (run: RunId | null, period: UsagePeriod = 'all'): strin
 
 export const listHref = '/'
 
+export const stageHref = (run: RunId, stage: StageId, mode: RunMode = 'trace'): string =>
+  `?${new URLSearchParams(mode === 'trace' ? { run, stage } : { run, stage, mode }).toString()}`
+
+export const viewHref = (run: RunId, stage: StageId | null, mode: RunMode): string =>
+  stage === null ? runHref(run, mode) : stageHref(run, stage, mode)
+
+const useSearch = (): URLSearchParams => new URLSearchParams(useSyncExternalStore(subscribe, currentSearch))
+
 export const useRoute = (): Route => routeOf(useSyncExternalStore(subscribe, currentSearch))
 
-export const routedStage = (): StageId | null => {
-  const parsed = StageId.safeParse(new URLSearchParams(currentSearch()).get('stage'))
+export const useRoutedStage = (): StageId | null => {
+  const parsed = StageId.safeParse(useSearch().get('stage'))
   return parsed.success ? parsed.data : null
 }
 
-export const useRoutedMode = (): RunMode => {
-  const search = useSyncExternalStore(subscribe, currentSearch)
-  return new URLSearchParams(search).get('mode') === 'changes' ? 'changes' : 'trace'
+const modeOf = (params: URLSearchParams): RunMode => (params.get('mode') === 'changes' ? 'changes' : 'trace')
+
+export const useRoutedMode = (): RunMode => modeOf(useSearch())
+
+const go = (href: string): void => {
+  window.history.pushState(null, '', href)
+  window.dispatchEvent(new Event(navigated))
 }
 
-export const routeStage = (stage: StageId | null): void => {
-  const params = new URLSearchParams(currentSearch())
-  if (stage === null) {
-    params.delete('stage')
-  } else {
-    params.set('stage', stage)
-  }
-  const search = `?${params.toString()}`
-  if (search !== currentSearch()) {
-    window.history.replaceState(window.history.state, '', search)
+const stageLocation = (run: RunId, stage: StageId | null): string =>
+  viewHref(run, stage, modeOf(new URLSearchParams(currentSearch())))
+
+export const selectStage = (run: RunId, stage: StageId | null): void => {
+  go(stageLocation(run, stage))
+}
+
+export const replaceStage = (run: RunId, stage: StageId | null): void => {
+  const href = stageLocation(run, stage)
+  if (href !== currentSearch()) {
+    window.history.replaceState(window.history.state, '', href)
+    window.dispatchEvent(new Event(navigated))
   }
 }
 
@@ -85,9 +99,17 @@ export const useNavigate = (): ((event: MouseEvent<HTMLAnchorElement>) => void) 
       return
     }
     event.preventDefault()
-    window.history.pushState(null, '', event.currentTarget.href)
-    window.dispatchEvent(new Event(navigated))
+    go(event.currentTarget.href)
     window.scrollTo(0, 0)
+  }, [])
+
+export const useSelect = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>
+  useCallback((event: MouseEvent<HTMLAnchorElement>) => {
+    if (!isPlainClick(event)) {
+      return
+    }
+    event.preventDefault()
+    go(event.currentTarget.href)
   }, [])
 
 export const useSwitchMode = (): ((event: MouseEvent<HTMLAnchorElement>) => void) =>

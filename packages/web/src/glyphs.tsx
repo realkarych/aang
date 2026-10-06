@@ -259,24 +259,6 @@ export const ChangeGlyph = ({ change }: { readonly change: ChangeKind }): ReactE
   }
 }
 
-export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus }): ReactElement => {
-  switch (status) {
-    case 'confirmed':
-    case 'passed_unversioned':
-      return <Glyph><Check /></Glyph>
-    case 'partial':
-      return <Glyph><Pause /></Glyph>
-    case 'failed':
-      return <Glyph><Cross /></Glyph>
-    case 'stale':
-      return <Glyph><Triangle /></Glyph>
-    case 'reported_done':
-      return <Glyph><Unknown /></Glyph>
-    case 'not_checked':
-      return <Glyph><Dashed /></Glyph>
-  }
-}
-
 const Said = (): ReactElement => (
   <path d="M1.8 2.2h8.4v5.6H5.4L2.8 10V7.8h-1Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
 )
@@ -287,6 +269,39 @@ const Derived = (): ReactElement => (
     <circle cx="6" cy="6" r="1.3" fill="currentColor" />
   </>
 )
+
+const Half = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M6 2a4 4 0 0 1 0 8Z" fill="currentColor" />
+  </>
+)
+
+const Pinless = (): ReactElement => (
+  <>
+    <Dashed />
+    <path d="M3.9 6.2 5.4 7.6 8.2 4.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </>
+)
+
+export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus }): ReactElement => {
+  switch (status) {
+    case 'confirmed':
+      return <Glyph><Check /></Glyph>
+    case 'passed_unversioned':
+      return <Glyph><Pinless /></Glyph>
+    case 'partial':
+      return <Glyph><Half /></Glyph>
+    case 'failed':
+      return <Glyph><Cross /></Glyph>
+    case 'stale':
+      return <Glyph><Triangle /></Glyph>
+    case 'reported_done':
+      return <Glyph><Said /></Glyph>
+    case 'not_checked':
+      return <Glyph><Dashed /></Glyph>
+  }
+}
 
 export const BasisGlyph = ({ basis }: { readonly basis: BasisKind }): ReactElement => {
   switch (basis) {

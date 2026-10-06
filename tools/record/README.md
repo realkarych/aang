@@ -31,6 +31,7 @@ The module has the same API as `recordSession(options, run)` from `@aang/record`
 | `codexHome` | `isolated` (default) or `regular`, see below |
 | `claudeHome` | `isolated` (default) or `regular` for a live Claude recording, see below |
 | `created` | Optional callback that receives what a regular home recording left in the owner's profile, see below |
+| `check` | Optional check of the verified recording before publication; it gets the staged recording directory, and an error it throws publishes nothing |
 
 The session exposes `os`, `claudeHome`, and the paths `project`, `home`, `claude`, `codex`, `spool`, `plugin`, `hook` (the binary), `work` (scratch space that is never captured), and `otlp`. A scenario may prepare files in these directories, then await `session.run(absoluteExecutable, args, { env, timeoutMs })`, which resolves to the command's `stdout` and `stderr`. Commands run sequentially in the temporary project, without a shell, with temporary `HOME`, `USERPROFILE`, `CLAUDE_CONFIG_DIR`, and `CODEX_HOME`, plus the per-command `env`. Use the native executable or `node` plus a script for npm wrappers on Windows. Existing authorization files are never copied. Environment credentials are inherited.
 
@@ -53,11 +54,12 @@ The recorder scans during commands every 25 ms and at command boundaries and exp
 - Claude `projects`, `teams`, `tasks`, and session-registry JSON/JSONL files;
 - Codex `sessions` and `archived_sessions` JSON/JSONL files;
 - JSON/JSONL artifacts under the temporary project;
+- TOML definition files a scenario names with `session.keep`;
 - complete raw spool files and their replayable payloads;
 - OTLP JSON logs exports received on `session.otlp`;
 - command stdout and stderr, separately.
 
-Auth files, runtime configuration, databases, and arbitrary files outside these source directories are not collected. Symbolic links are rejected. Complete JSONL lines become append steps; changed JSON files and truncated JSONL become snapshots. Removals become remove steps. The final scan rejects unfinished JSON/JSONL. A move appears as removal plus a write at its new path. Intermediate states that appear and disappear between scans cannot be recovered; use separate awaited commands or checkpoints for transitions that must be retained.
+Auth files, runtime configuration other than kept files, databases, and arbitrary files outside these source directories are not collected. Symbolic links are rejected. Complete JSONL lines become append steps; changed JSON files and truncated JSONL become snapshots. Removals become remove steps. The final scan rejects unfinished JSON/JSONL. A move appears as removal plus a write at its new path. Intermediate states that appear and disappear between scans cannot be recovered; use separate awaited commands or checkpoints for transitions that must be retained.
 
 `session.checkpoint(label, target, expectedMapChange)` selects the latest captured event for a file or a matching hook; `occurrence: 'first'` selects the earliest one instead, and a file target with `contains` only matches steps whose content includes that text. File targets use the player's relative paths, for example:
 
@@ -74,6 +76,8 @@ await session.checkpoint(
   'The action is completed and its result is visible',
 )
 ```
+
+`session.keep({ root, path })` adds one synthetic definition file that the scenario wrote, such as an agent role in the temporary `CODEX_HOME`, to the capture: a `.toml` file under `home`, `claude` or `codex`, given by the player's relative path. The file is captured at once as a `write` step and again whenever it changes, so the player restores it at the same path. Only files of the temporary profiles can be kept: with a regular home, `keep` of a `claude` or `codex` file throws, so the owner's configuration never enters a recording. It is awaited outside commands, like a checkpoint.
 
 Hook selectors also accept `sessionId` and, for `Notification` hooks, `notificationType`. Labels must be unique and each selected step may have one label. Checkpoints are added after awaiting the command. Expected map changes are descriptions for an annotator, as permitted by ADR-0007. Hook control events use the spool file's receipt time; file events use the time the recorder first observed the content.
 
@@ -101,9 +105,9 @@ Verification examines every file, including files absent from the manifest, with
 
 Core tests use synthetic external processes, the actual hook binary, existing format samples, and the actual player. They do not invoke real model CLIs.
 
-## Scenarios (R.2, R.2b, R.3)
+## Scenarios (R.2, R.2b, R.2c, R.3)
 
-The catalog drives the installed runtimes. Each scenario asserts that its behavior really happened (transcripts, rollouts, hooks, OTel, host summaries) and fails instead of publishing a misleading recording; each sets two or three checkpoints with the expected map change.
+The catalog drives the installed runtimes. Each scenario asserts that its behavior really happened (transcripts, rollouts, hooks, OTel, host summaries) and fails instead of publishing a misleading recording; each sets two or three checkpoints with the expected map change. A scenario's optional `checkRecording` becomes the recording's `check`, so what it asserts about the anonymized recording itself holds before anything is published.
 
 ```sh
 node tools/record/dist/main.js scenarios
@@ -117,13 +121,13 @@ node tools/record/dist/main.js scenario claude_cli tools resume --model live --c
 | Surface | OS | Model | Scenarios |
 | --- | --- | --- | --- |
 | `claude_cli` | macOS, Linux, Windows | stub, live | `tools`, `subagents`, `resume`, `compaction`, `fork`, `plan`, `approval`, `question`, `interrupt`, `reconnect`, `source-loss` |
-| `claude_cli` | macOS, Linux, Windows | stub | `elicitation`, `workflow` |
+| `claude_cli` | macOS, Linux, Windows | stub | `elicitation`, `workflow`, `plugin`, `agents-flag`, `user-hooks` |
 | `claude_cli` (interactive TUI) | macOS, Linux | stub | `teammates`, `input-dialogs` |
 | `claude_sdk` | macOS, Linux, Windows | stub, live | the scenarios of the first `claude_cli` row |
-| `claude_sdk` | macOS, Linux, Windows | stub | `elicitation`, `workflow` |
+| `claude_sdk` | macOS, Linux, Windows | stub | `elicitation`, `workflow`, `plugin`, `agents-flag`, `user-hooks` |
 | `claude_desktop` | macOS | stub, live | the scenarios of the first `claude_cli` row |
-| `claude_desktop` | macOS | stub | `elicitation` (engine 2.1.288 or later), `workflow` |
-| `codex_exec` | macOS, Linux, Windows | stub | `tools`, `subagents`, `fork`, `question`, `plan`, `compaction`, `source-loss`, `reconnect` |
+| `claude_desktop` | macOS | stub | `elicitation` (engine 2.1.288 or later), `workflow`, `plugin`, `user-hooks` |
+| `codex_exec` | macOS, Linux, Windows | stub | `tools`, `subagents`, `fork`, `question`, `plan`, `compaction`, `source-loss`, `reconnect`, `agent-role` |
 | `codex_exec` | macOS, Linux, Windows | live | `resume-compaction` |
 | `codex_tui` | macOS, Linux | stub | `tools`, `approval`, `interrupt` |
 | `codex_sdk` | macOS, Linux, Windows | stub | `tools`, `subagents`, `question`, `resume` |
@@ -139,6 +143,9 @@ Claude:
 - Live mode needs `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` in the environment: the temporary `CLAUDE_CONFIG_DIR` has no login and none is copied. With `--claude-home regular` the owner's login of the regular Claude home is used instead.
 - `elicitation` connects the stdio MCP server `aang-elicitation` from `tools/record` (`--mcp-config` for the CLI and the Desktop engine, `mcpServers` for the SDK). Its tool `choose_greeting` asks for a greeting through a form elicitation, and `confirm_link` asks the user to open a local link through a URL elicitation; the server serves that link itself and sends `notifications/elicitation/complete` after the link is opened. The host answers `elicitation` control requests (`onElicitation` in the SDK), opens the link the way a browser would, and records the `elicitation_complete` system message. The server sends a URL elicitation only to a client that declares the capability: Claude 2.1.286 declares form elicitation only, so the scenario reports that engine as unable to run it.
 - `workflow` runs the workflow `aang-echo` with the `Workflow` tool: two agents in parallel in phase Echo, then one agent in phase Report. The scenario checks the workflow snapshot, its journal and the meta of every agent.
+- `plugin` writes the plugin `aang-kit` into the scratch directory and loads it next to the recording plugin: a second `--plugin-dir` for the CLI and the Desktop engine, a second local entry of `plugins` for the SDK. The plugin has the agent `reviewer` and the skill `greeting`, so the engine names them `aang-kit:reviewer` and `aang-kit:greeting`. The session invokes the skill with the `Skill` tool, then starts the plugin subagent, which runs `echo reviewed`. The scenario checks that the agent and skill listings of the transcript describe both, that the skill instructions entered the session, that the Bash result in the subagent's transcript is not an error and prints `reviewed`, and that the meta file and the `SubagentStart` hook of the subagent carry its type. A permission request for the skill is answered if the engine asks.
+- `agents-flag` defines the agent `notes-checker` for the run only: `--agents` with JSON for the CLI, the `agents` option of `query()` for the SDK, which sends it in `initialize`. The session starts it as a subagent that runs `echo checked`; the checks are those of the plugin subagent. The Desktop has no way to pass such definitions, so the scenario does not exist there.
+- `user-hooks` gives the session the user hook `notes-guard` from a settings file in the scratch directory: `--settings` for the CLI and the Desktop engine, the `settings` option of `query()` for the SDK. The settings are passed as a flag, so they apply with every setting source, including the regular home; neither the owner's nor the temporary profile's settings change. The hook is a Node script in exec form next to the aang hook: on `SessionStart` it prints plain text, on `UserPromptSubmit` and on `PostToolUse` of `Bash` it returns `additionalContext` (and a `systemMessage` after the tool), on `Stop` it writes to stderr and exits with 1. The scenario requires the transcript attachments `hook_success` (SessionStart), `hook_additional_context` (UserPromptSubmit, PostToolUse), `hook_system_message` (PostToolUse) and `hook_non_blocking_error` (Stop) of `notes-guard`, and a `stop_hook_summary` that lists its command with an error; a failure names the attachments that were found.
 - `teammates` and `input-dialogs` drive the interactive TUI of `claude_cli` through `expect` in a pseudo-terminal, because Claude starts the session team of agent teams only in interactive sessions (not in `-p`, the SDK or the Desktop engine) and shows the input dialogs that send `elicitation_dialog`, `elicitation_url_dialog` and `agent_needs_input` notifications only in the TUI; the notification follows ~6 s after the dialog appears. The temporary `CLAUDE_CONFIG_DIR` gets a completed onboarding, the approval of the stub API key and trust of the temporary project, nothing from the owner's configuration. The steps wait for hook records in the spool or for a file, type the prompt and press keys. The session runs in the pseudo-terminal of `expect`, not in the recorder's terminal, so the driver clears the inherited terminal identity (`TMUX`, `TMUX_PANE`, `STY`, `ZELLIJ`, `TERM_PROGRAM`, `TERM_PROGRAM_VERSION`, `ITERM_SESSION_ID`, `LC_TERMINAL`, `LC_TERMINAL_VERSION`); a scenario sets what it needs on top. On Windows these scenarios need a ConPTY host: their cells are `unverified` or recorded manually by the owner, as Codex TUI in R.3.
 - `teammates` runs with `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1` and `--teammate-mode in-process`: the lead creates a task and spawns the teammate `helper`, which creates and completes tasks of the team task list and becomes idle. The team config exists only while the session runs and is captured then.
 - `input-dialogs` answers the MCP form and accepts the link from the keyboard; `BROWSER` is a script in the scratch directory that fetches the link. Then it spawns `helper` with `--teammate-mode auto` and `TERM_PROGRAM=iTerm.app`: without the `it2` CLI and with `tmux` available Claude asks for teammate setup (`agent_needs_input`), and the user cancels. The stand-ins live in the scratch directory at the front of `PATH`: `tmux` only answers `tmux -V` and is never asked to open a pane; `it2` always fails, so an `it2` installed on the machine is never reached; `SHELL` is a script that runs `-lc` commands as `/bin/sh -c`, so Claude's login shell lookup of `it2` sees the scenario's `PATH` instead of the one the system profiles build. `pnpm scenarios` also records this scenario from a recorder started inside tmux (`TMUX`, `TMUX_PANE`) with a working `it2` on `PATH` and on the login shell's `PATH`.
@@ -148,6 +155,7 @@ Codex:
 - Hook scenarios use a temporary `CODEX_HOME` with the stub provider, OTel logs exported to the recorder, and `aang-hook` registered for all twelve events with tag `user` (POSIX quoting, or the PowerShell form `& '<path>' 'codex' 'user' '<spool>'` on Windows). `exec` and the TUI run with `--dangerously-bypass-hook-trust`, which also keeps the TUI in-process. The SDK and the Desktop engine cannot pass that flag, so their hooks are trusted the way a user does: `hooks/list` of the engine's `app-server`, then `trusted_hash` in the temporary `config.toml`.
 - The TUI is driven by `expect` (on `PATH`) in a pseudo-terminal. On Windows the TUI needs a ConPTY host; as allowed by the plan, it is recorded manually by the owner instead.
 - `codex_desktop` emulates the Desktop: the engine bundled in ChatGPT.app as `app-server` over stdio with client `codex_desktop` and `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=Codex Desktop`; the host answers approvals.
+- `agent-role` declares the agent role `reviewer` in the temporary `config.toml` (`[agents.reviewer]` with `description` and `config_file = "agents/reviewer.toml"`, a config layer whose `developer_instructions` define the role). In one step the root spawns `notes_review` with `agent_type = "reviewer"` and `notes_scan` without a role, both with `fork_turns = "none"`, because a full-history fork inherits the parent's agent type. Both files are kept (`session.keep`), so the recording replays them into `CODEX_HOME`, and the scenario's recording check reads the staged `playback.json` for the declaration with its description and `config_file` and for the role file. The scenario checks `agent_role` of `source.subagent.thread_spawn` in the child `session_meta` (`reviewer`, and `null` for `notes_scan`), the role instructions among the developer messages of the `reviewer` child only, that each child ran its `echo` once with exit code 0 and its word in the output, and the `agent_type` of the `SubagentStart` hook whose `agent_id` is the child's thread (`reviewer` and `default`).
 - `resume-compaction` is the live scenario of ADR-0010: the owner's regular Codex home, `--ignore-user-config --disable hooks`, no hooks and no copied authorization; resume runs with a low `model_auto_compact_token_limit` so a remote compaction happens. It leaves its thread in the owner's history; delete it with `codex delete --force <id>` if unwanted.
 
 `pnpm scenarios` runs the catalog with the stub model as integration tests tagged `runtime` (excluded from `pnpm test`); a surface whose engine is not installed, or a scenario that the installed engine or tools (such as `expect`) cannot run, is skipped unless the surface is listed in `AANG_RECORD_REQUIRE`, and `AANG_RECORD_FIXTURES` keeps the recordings. The `Scenarios` workflow runs it on macOS, Linux and Windows with pinned CLI and SDK versions and uploads the recordings; Desktop surfaces are verified locally on macOS. Recordings for the repository with current versions are R.4.
@@ -166,3 +174,18 @@ Owner's decision of 2026-10-04: the scope of R.2b follows what the engines do.
 - R.2b: the catalog covers exactly these cells. The `Scenarios` workflow requires `claude_cli` and `claude_sdk` (`AANG_RECORD_REQUIRE`), so every CLI and SDK cell of its OS must record and verify, the TUI cells on macOS and Linux included; the Desktop cells are verified locally on macOS.
 - R.4b: records these cells with the versions of R.4; the Desktop `elicitation` cell needs a Desktop engine 2.1.288 or later. A Windows TUI cell gets a manual recording by the owner or none.
 - B.8: makes the R.4b recordings of these cells mandatory in the contract run. Cells that are not applicable have no recordings and nothing to verify. Without a manual recording, teammates and the dialog notifications stay `unverified` on Windows (ADR-0010). `elicitation_dialog`, `elicitation_url_dialog` and `agent_needs_input` come only from the TUI cells; in `-p`, the SDK and the Desktop engine the host gets `elicitation` control requests and the stream carries `elicitation_response` and `elicitation_complete` instead.
+
+### Applicability of R.2c
+
+The scenarios of R.2c record the formats F.7d needs and the reference sessions of R.4 do not confirm: definitions of plugin agents and descriptions of plugin skills, agent definitions passed for one run, `hook_*` attachments of a user hook and Codex agent roles from `config.toml` (owner's decision of 2026-10-05 on F.7d: recordings first).
+
+| Scenario | `claude_cli` | `claude_sdk` | `claude_desktop` (engine emulation) | `codex_exec` |
+| --- | --- | --- | --- | --- |
+| `plugin` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS | — |
+| `agents-flag` | `-p`: macOS, Linux, Windows | `agents` option: macOS, Linux, Windows | not applicable: the Desktop takes no agent definitions for a run | — |
+| `user-hooks` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS | — |
+| `agent-role` | — | — | — | macOS, Linux, Windows |
+
+- R.2c: the catalog covers exactly these cells, with the model stub. The `Scenarios` workflow requires `claude_cli`, `claude_sdk` and `codex_exec`, so every cell of its OS must record and verify; the Desktop cells are verified locally on macOS. The recordings stay out of the contract run (`tools/support`).
+- R.4b: records these cells with the versions of R.4, together with the cells of R.2b.
+- F.7d: reads these formats from the R.4b recordings and makes the recordings mandatory in the contract run.
