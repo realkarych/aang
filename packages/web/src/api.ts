@@ -2,6 +2,8 @@ import {
   ApiError,
   type ArtifactVersionId,
   type ArtifactVersionResponse,
+  type AttentionItemId,
+  type AttentionView,
   type ChangesResponse,
   type ChatMessage,
   type ChatQuestionRequest,
@@ -95,6 +97,9 @@ const write = <T>(path: string, body: unknown, decoder: Decoder<T>, signal: Abor
     signal,
   )
 
+const post = <T>(path: string, decoder: Decoder<T>): Promise<T> =>
+  write(path, {}, decoder, new AbortController().signal)
+
 const send = async <T>(method: 'POST' | 'DELETE', path: string, body: unknown, decoder: Decoder<T>): Promise<T> => {
   let response: Response
   try {
@@ -115,6 +120,9 @@ const send = async <T>(method: 'POST' | 'DELETE', path: string, body: unknown, d
 }
 
 const withRun = (path: string, run: RunId): string => path.replace(':run', encodeURIComponent(run))
+
+const withItem = (path: string, run: RunId, item: AttentionItemId): string =>
+  withRun(path, run).replace(':item', encodeURIComponent(item))
 
 export const readStatus = (signal: AbortSignal): Promise<StatusResponse> =>
   read(endpoints.status.path, endpoints.status.response, signal)
@@ -153,6 +161,12 @@ export const readRaw = async (seq: RawSeq, signal: AbortSignal): Promise<RawReco
 
 export const readArtifactVersion = (id: ArtifactVersionId, signal: AbortSignal): Promise<ArtifactVersionResponse> =>
   read(endpoints.artifactVersion.path.replace(':id', encodeURIComponent(id)), endpoints.artifactVersion.response, signal)
+
+export const markAttentionViewed = async (run: RunId, item: AttentionItemId): Promise<AttentionView> =>
+  (await post(withItem(endpoints.attentionViewed.path, run, item), endpoints.attentionViewed.response)).view
+
+export const dismissAttention = async (run: RunId, item: AttentionItemId): Promise<AttentionView> =>
+  (await post(withItem(endpoints.attentionDismiss.path, run, item), endpoints.attentionDismiss.response)).view
 
 const usageSearch = ({ run, from, to }: UsageQuery): string => {
   const search = new URLSearchParams({

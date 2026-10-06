@@ -146,7 +146,7 @@ export const startResponsesStub = async (script: StubScript, log: string): Promi
     const id = `resp_aang_${String(count)}`
     const items = calls.length > 0
       ? calls.map((call, index) => callItem(call, count, index))
-      : [{ type: 'message', role: 'assistant', id: `msg_aang_${String(count)}`, content: [{ type: 'output_text', text: 'done' }] }]
+      : [{ type: 'message', role: 'assistant', id: `msg_aang_${String(count)}`, phase: 'final_answer', content: [{ type: 'output_text', text: 'done' }] }]
     send(response, [
       { type: 'response.created', response: { id, model: body.model ?? null } },
       ...items.map((item, index) => ({ type: 'response.output_item.done', output_index: index, item })),

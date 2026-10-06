@@ -34,6 +34,8 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   usage_total: 'итог расхода',
   cost_state: 'состояние стоимости',
   instructions_loaded: 'загрузка инструкций',
+  hook_run: 'hook решателя',
+  definition_listing: 'перечень определений',
   queue_operation: 'очередь промптов',
   runtime_error: 'ошибка рантайма',
   runtime_event: 'событие рантайма',

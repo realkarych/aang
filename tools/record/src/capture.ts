@@ -170,6 +170,25 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     ignored.add(file)
     return true
   }
+  const locate = (): void => {
+    for (let index = 0; index < controlEvents.length; index += 1) {
+      const event = controlEvents[index]
+      if (event) controlEvents[index] = { ...event, step: steps.findIndex((step) => step.label === event.label) }
+    }
+  }
+  const splitAfter = (index: number, step: PlayerStep, text: string, occurrence: ControlTarget['occurrence']): void => {
+    if (step.kind !== 'append') return
+    const position = artifacts.findIndex((artifact) => artifact.source === step.source)
+    const artifact = artifacts[position]
+    if (artifact === undefined) return
+    const lines = artifact.content.split(/(?<=\n)/)
+    const line = occurrence === 'first' ? lines.findIndex((entry) => entry.includes(text)) : lines.findLastIndex((entry) => entry.includes(text))
+    if (line < 0 || line === lines.length - 1) return
+    artifacts[position] = { ...artifact, content: lines.slice(0, line + 1).join('') }
+    const source = add(lines.slice(line + 1).join(''), 'data', 'jsonl', BigInt(artifact.mtime_ns), step.at)
+    steps.splice(index + 1, 0, { ...step, source })
+    locate()
+  }
   const scan = async (final = false): Promise<void> => {
     const present = new Set<string>()
     for (const location of locations) {
@@ -240,10 +259,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
       hooks.add(event.name)
     }
     steps.sort((left, right) => left.at - right.at)
-    for (let index = 0; index < controlEvents.length; index += 1) {
-      const event = controlEvents[index]
-      if (event) controlEvents[index] = { ...event, step: steps.findIndex((step) => step.label === event.label) }
-    }
+    locate()
   }
   const created = async (): Promise<CreatedEntries> => {
     const ids = new Set<string>()
@@ -315,6 +331,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
       if (!label.trim() || !expectedMapChange.trim() || controlEvents.some((event) => event.label === label) || !step || step.label) {
         throw new Error('Checkpoint must name a new captured event and a unique label with an expected map change')
       }
+      if (!('hook' in target) && target.contains !== undefined) splitAfter(index, step, target.contains, target.occurrence)
       steps[index] = { ...step, label }
       controlEvents.push({ label, step: index, observed_at: new Date(started + step.at).toISOString(), expected_map_change: { description: expectedMapChange } })
     },

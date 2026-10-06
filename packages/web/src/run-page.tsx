@@ -172,7 +172,7 @@ const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps)
         )}
         <Facts snapshot={snapshot} runs={runs} now={now} />
       </header>
-      <AttentionZone snapshot={snapshot} now={now} />
+      <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
       <MapSection snapshot={snapshot} choice={choice} />
       <div className="run-talk">
         <ChatPanel
