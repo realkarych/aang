@@ -19,6 +19,7 @@ import {
   type RunId,
   type Runtime,
   type Session,
+  type SessionId,
   type SessionKey,
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
@@ -174,45 +175,84 @@ const listedDefinitions = (facts: readonly Fact[], catalog: DefinitionCatalog): 
       .flatMap((fact) => fact.payload.definitions.map(({ name, description }) => [name, description] as const)),
   )
 
-interface Named {
+interface Used {
   readonly name: string
+  readonly session: SessionId
   readonly cwd: string | null
   readonly listed: string | null
 }
 
-const distinctNamed = (named: readonly Named[]): Named[] => [
-  ...new Map(named.map((entry) => [canonicalJson([entry.name, entry.cwd]), entry])).values(),
-]
+interface Resolved {
+  readonly source: Source
+  readonly session: SessionId | null
+}
 
-const distinctSources = (sources: readonly Source[]): Source[] => [
-  ...new Map(sources.map((source) => [canonicalJson([source.kind, source.ref]), source])).values(),
-]
+interface Attributed {
+  readonly source: Source
+  readonly sessions: Set<SessionId>
+}
+
+const usedIn = ({ id, cwd }: Session, names: readonly string[], listed: ReadonlyMap<string, string>): Used[] =>
+  unique(names).map((name) => ({ name, session: id, cwd: directoryOf(cwd), listed: listed.get(name) ?? null }))
+
+const onDisk = (source: Source): Resolved => ({ source, session: null })
+
+const inSession = (session: SessionId, source: Source): Resolved => ({ source, session })
+
+const attributed = (resolved: readonly Resolved[]): Source[] => {
+  const merged = new Map<string, Attributed>()
+  for (const { source, session } of resolved) {
+    const key = canonicalJson([source.kind, source.ref, session === null ? null : source.text])
+    const entry = merged.get(key) ?? { source, sessions: new Set<SessionId>() }
+    merged.set(key, entry)
+    if (session !== null) {
+      entry.sessions.add(session)
+    }
+  }
+  return [...merged.values()].map(({ source, sessions }) =>
+    sessions.size === 0
+      ? source
+      : { ...source, ref: `${source.ref} (sessions: ${[...sessions].sort(compareText).join(', ')})` },
+  )
+}
+
+const listedTools = ' (Tools: '
+
+const confirms = (listed: string | null, file: FileText): boolean => {
+  const description = frontmatterDescription(file.text)
+  return listed === null || (description !== null && listed.startsWith(`${description}${listedTools}`))
+}
 
 const agentDefinitionSources = async (
   reader: ContextReader,
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const types = distinctNamed(
-    ofRuntime(sessions, 'claude').flatMap(({ session, facts }) => {
-      const listed = listedDefinitions(facts, 'agents')
-      return reader.observations.agents(session.id).flatMap((agent) =>
-        (agent.role === 'subagent' || agent.role === 'teammate') && agent.agent_type !== null
-          ? [{ name: agent.agent_type, cwd: directoryOf(session.cwd), listed: listed.get(agent.agent_type) ?? null }]
-          : [],
-      )
-    }),
+  const used = ofRuntime(sessions, 'claude').flatMap(({ session, facts }) =>
+    usedIn(
+      session,
+      reader.observations
+        .agents(session.id)
+        .flatMap((agent) =>
+          (agent.role === 'subagent' || agent.role === 'teammate') && agent.agent_type !== null
+            ? [agent.agent_type]
+            : [],
+        ),
+      listedDefinitions(facts, 'agents'),
+    ),
   )
   const definitions = await Promise.all(
-    types.map(async ({ name, cwd, listed }) => {
-      const file = safeName(name) ? await firstText(definitionPaths(cwd, home, ['agents', `${name}.md`])) : null
+    used.map(async ({ name, session, cwd, listed }): Promise<Resolved[]> => {
+      const file = safeName(name)
+        ? await firstText(definitionPaths(cwd, home, ['agents', `${name}.md`]), (found) => confirms(listed, found))
+        : null
       if (file !== null) {
-        return [fromFile('agent_definition', file.path, file)]
+        return [onDisk(fromFile('agent_definition', file.path, file))]
       }
-      return listed === null ? [] : [plain('agent_definition', name, listed)]
+      return listed === null ? [] : [inSession(session, plain('agent_definition', name, listed))]
     }),
   )
-  return distinctSources(definitions.flat())
+  return attributed(definitions.flat())
 }
 
 type TomlTable = Readonly<Record<string, unknown>>
@@ -289,24 +329,25 @@ const skillSources = async (
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const skills = distinctNamed(
-    ofRuntime(sessions, 'claude').flatMap(({ session, facts }) => {
-      const listed = listedDefinitions(facts, 'skills')
-      return reader.observations.actions(session.id).flatMap((action) => {
+  const used = ofRuntime(sessions, 'claude').flatMap(({ session, facts }) =>
+    usedIn(
+      session,
+      reader.observations.actions(session.id).flatMap((action) => {
         const name = invokedSkill(reader, action)
-        return name === null ? [] : [{ name, cwd: directoryOf(session.cwd), listed: listed.get(name) ?? null }]
-      })
-    }),
+        return name === null ? [] : [name]
+      }),
+      listedDefinitions(facts, 'skills'),
+    ),
   )
   const resolved = await Promise.all(
-    skills.map(async ({ name, cwd, listed }) => {
+    used.map(async ({ name, session, cwd, listed }) => {
       const file = safeName(name) ? await firstText(definitionPaths(cwd, home, ['skills', name, 'SKILL.md'])) : null
       return file === null
-        ? plain('skill', name, listed ?? '')
-        : plain('skill', file.path, frontmatterDescription(file.text) ?? '')
+        ? inSession(session, plain('skill', name, listed ?? ''))
+        : onDisk(plain('skill', file.path, frontmatterDescription(file.text) ?? ''))
     }),
   )
-  return distinctSources(resolved)
+  return attributed(resolved)
 }
 
 const mcpCall = (tool: string): readonly [string, string] => {

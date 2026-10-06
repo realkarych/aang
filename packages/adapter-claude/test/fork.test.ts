@@ -99,7 +99,7 @@ describe.concurrent('Claude fork: the copied block', () => {
     const [fork] = launches(await lineFacts('session-cdfb3544-fork-full.jsonl'))
     const original = new Set(main.map(signature))
 
-    expect(fork?.copied).toHaveLength(16)
+    expect(fork?.copied).toHaveLength(18)
     for (const copy of fork?.copied ?? []) {
       expect(original.has(signature(copy)), `line ${String(copy.line)} ${copy.fact.kind}`).toBe(true)
     }

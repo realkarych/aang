@@ -1,5 +1,14 @@
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
-import { EpochNs, type Fact, type FactOf, type RunContext, type RunContextEntry, type RunId } from '@aang/contract'
+import {
+  EpochNs,
+  type Fact,
+  type FactOf,
+  type RunContext,
+  type RunContextEntry,
+  type RunId,
+  type SessionId,
+} from '@aang/contract'
 import { recordRunContext } from '@aang/engine'
 import type { Store } from '@aang/store'
 import { type LoadedManifest, loadManifest } from '@aang/testkit'
@@ -18,6 +27,7 @@ interface PlayedContext {
   readonly store: Store
   readonly roots: PlaybackRoots
   readonly run: RunId
+  readonly session: SessionId
   readonly context: RunContext
 }
 
@@ -34,6 +44,21 @@ const asRecorded = (manifest: LoadedManifest): LoadedManifest => manifest
 
 type Finished = (handler: OnTestFinishedHandler) => void
 
+const contextOf = async (recording: Recording, store: Store, roots: PlaybackRoots, run: RunId): Promise<RunContext> => {
+  const context = await recordRunContext(store, {
+    run,
+    backend: recording.manifest.runtime,
+    crossVendor: false,
+    at: recordedAt,
+    claudeConfigDir: roots.claude,
+    codexHome: roots.codex,
+  })
+  if (context === null) {
+    throw new Error(`${recording.name} has no run context`)
+  }
+  return context
+}
+
 const play = async (recording: Recording, onTestFinished: Finished, edit = asRecorded): Promise<PlayedContext> => {
   const manifest = edit(await loadManifest(join(recording.directory, 'playback.json')))
   const { store, roots } = await playRecording(manifest, { hookBinary })
@@ -46,18 +71,13 @@ const play = async (recording: Recording, onTestFinished: Finished, edit = asRec
   if (run === undefined || runs.length > 1) {
     throw new Error(`${recording.name} plays into ${String(runs.length)} runs instead of one`)
   }
-  const context = await recordRunContext(store, {
+  return {
+    store,
+    roots,
     run: run.id,
-    backend: recording.manifest.runtime,
-    crossVendor: false,
-    at: recordedAt,
-    claudeConfigDir: roots.claude,
-    codexHome: roots.codex,
-  })
-  if (context === null) {
-    throw new Error(`${recording.name} has no run context`)
+    session: run.root_session,
+    context: await contextOf(recording, store, roots, run.id),
   }
-  return { store, roots, run: run.id, context }
 }
 
 const entriesOf = (context: RunContext, kind: RunContextEntry['kind']): RunContextEntry[] =>
@@ -69,6 +89,8 @@ const entry = (kind: RunContextEntry['kind'], ref: string, text: string): RunCon
   text,
   truncated: null,
 })
+
+const listedRef = (name: string, session: SessionId): string => `${name} (sessions: ${session})`
 
 const factsOf = (store: Store): Fact[] => store.facts.sessions().flatMap((key) => store.facts.ofSession(key))
 
@@ -136,19 +158,19 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
   test.for(ofScenario('plugin'))(
     '%s: the plugin subagent gets its listed definition and the invoked plugin skill its description',
     async ([, recording], { expect, onTestFinished }) => {
-      const { context } = await play(recording, onTestFinished)
+      const { session, context } = await play(recording, onTestFinished)
 
       expect(entriesOf(context, 'agent_definition')).toEqual([
         entry(
           'agent_definition',
-          'aang-kit:reviewer',
+          listedRef('aang-kit:reviewer', session),
           'Reviews the project notes and reports what it checked. Use it to review the notes. (Tools: Bash)',
         ),
       ])
       expect(entriesOf(context, 'skill')).toEqual([
         entry(
           'skill',
-          'aang-kit:greeting',
+          listedRef('aang-kit:greeting', session),
           'Chooses the greeting of the project notes. Use it when asked which greeting the notes use.',
         ),
       ])
@@ -157,18 +179,25 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
   )
 
   test.for(ofScenario('agents-flag'))(
-    '%s: the subagent defined for one run gets its listed definition',
+    '%s: the subagent defined for one run gets its listed definition, and a file of its name does not stand in for it',
     async ([, recording], { expect, onTestFinished }) => {
-      const { context } = await play(recording, onTestFinished)
+      const { store, roots, run, session, context } = await play(recording, onTestFinished)
+      const flagDefinition = entry(
+        'agent_definition',
+        listedRef('notes-checker', session),
+        'Checks the project notes and reports the result. Use it to check the notes. (Tools: Bash)',
+      )
 
-      expect(entriesOf(context, 'agent_definition')).toEqual([
-        entry(
-          'agent_definition',
-          'notes-checker',
-          'Checks the project notes and reports the result. Use it to check the notes. (Tools: Bash)',
-        ),
-      ])
+      expect(entriesOf(context, 'agent_definition')).toEqual([flagDefinition])
       expect(entriesOf(context, 'skill')).toEqual([])
+
+      await mkdir(join(roots.claude, 'agents'), { recursive: true })
+      await writeFile(
+        join(roots.claude, 'agents', 'notes-checker.md'),
+        '---\nname: notes-checker\ndescription: Checks the notes of the user files.\ntools: Read\n---\nRead the user notes.\n',
+      )
+      const withFile = await contextOf(recording, store, roots, run)
+      expect(entriesOf(withFile, 'agent_definition')).toEqual([flagDefinition])
     },
   )
 

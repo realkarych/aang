@@ -89,7 +89,7 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
     expect([...unknownTypes]).toEqual([])
   })
 
-  test('the main session yields its prompts, actions, messages, usage, cost state, queue operations and compaction', async ({
+  test('the main session yields its prompts, actions, messages, usage, cost state, queue operations, compaction and definition listings', async ({
     expect,
   }) => {
     const records = await transcriptRecords('claude-code-transcripts/session-86f93ed5-main-full.jsonl')
@@ -114,6 +114,7 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
       message: 4,
       cost_state: 7,
       compaction: 2,
+      definition_listing: 4,
     })
     expect(facts.every((fact) => fact.runtime_ids.session_id === mainSession)).toBe(true)
     const unversioned = new Set(['queue_operation', 'cost_state'])

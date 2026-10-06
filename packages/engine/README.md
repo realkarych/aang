@@ -1003,12 +1003,15 @@ sources only:
   - for each subagent or teammate type of a Claude session, the file
     `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
     hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
-    file. A type without such a file, such as a built-in agent, a plugin agent
-    (`<plugin>:<agent>`) or an agent given for one run (`--agents`, the `agents`
-    option of the SDK), takes the latest definition the session's agent listing
-    (`definition_listing` fact of the `agents` catalog) has for it: `ref` is the type
-    and the text is the listed description with its tools. A type that is neither in
-    a file nor listed has no entry;
+    file. When the session's agent listing (`definition_listing` fact of the `agents`
+    catalog) has the type, only a file whose `description` the listing gives (the
+    listed text is the description followed by ` (Tools: …)`) is its definition: an
+    agent given for one run (`--agents`, the `agents` option of the SDK) takes
+    precedence over a file of the same name, and its file does not stand in for it.
+    A type without such a file, such as a built-in agent, a plugin agent
+    (`<plugin>:<agent>`) or an agent given for one run, takes the latest definition
+    the session's listing has for it: the text is the listed description with its
+    tools. A type that is neither in a file nor listed has no entry;
   - for each role of a Codex subagent (`agent_role`), the table `[agents.<role>]` of
     `config.toml` in `codexHome`: its `description` and the `developer_instructions`
     of its `config_file`, resolved against the directory of `config.toml`. `ref` is
@@ -1019,10 +1022,9 @@ sources only:
   not invoked is never included. The text is the `description` of `SKILL.md` in
   `.claude/skills/<name>/` of the nearest directory of the session's `cwd` hierarchy
   or in `skills/<name>/` of `claudeConfigDir`, and `ref` is the path of that file.
-  When there is no such file, as for a plugin skill (`<plugin>:<skill>`), `ref` is the
-  name of the skill and the text is the latest description the session's skill
-  listing (`definition_listing` fact of the `skills` catalog) has for it, or empty
-  when the listing has none.
+  When there is no such file, as for a plugin skill (`<plugin>:<skill>`), the text is
+  the latest description the session's skill listing (`definition_listing` fact of
+  the `skills` catalog) has for it, or empty when the listing has none.
   Codex has no skill tool, so a Codex run has no skill entries.
 - `mcp_server`: the servers of MCP actions with the names of the tools called.
 - `hook`: the hooks of the solver that ran in a session, from its `hook_run` facts
@@ -1037,8 +1039,14 @@ sources only:
 Only sessions of the run are read, and a session of a vendor other than `backend` is
 skipped unless `crossVendor` is set; when the root session is skipped, or the run is
 unknown, there is no context. Skills and agent definitions are resolved in the
-directory of each session, so files of the same name in different projects stay
-separate entries. The `cwd` of each session that is read and the working directories
+directory and with the listings of each session, so files of the same name in
+different projects stay separate entries. An entry that does not come from a file
+belongs to the sessions that used the name: its `ref` is `<name> (sessions: <id>, …)`
+with their ids. Sessions of one run that list a name differently keep an entry each,
+only the same text of the same name joins their sessions in one entry, and a session
+that does not list a name takes nothing from the listing of another session. A file
+is the same definition for every session that resolves to it and stays one entry with
+its path as `ref`. The `cwd` of each session that is read and the working directories
 of its facts are resolved to the top of their git worktree with
 `git rev-parse --show-toplevel`, as the snapshot writer of E.7b does. A git snapshot
 is included only when its worktree is one of these tops or exactly one of these

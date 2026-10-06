@@ -42,10 +42,13 @@ export const readText = async (path: string): Promise<FileText | null> => {
   }
 }
 
-export const firstText = async (paths: readonly string[]): Promise<FileText | null> => {
+export const firstText = async (
+  paths: readonly string[],
+  accepted: (file: FileText) => boolean = () => true,
+): Promise<FileText | null> => {
   for (const path of paths) {
     const found = await readText(path)
-    if (found !== null) {
+    if (found !== null && accepted(found)) {
       return found
     }
   }
