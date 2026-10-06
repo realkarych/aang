@@ -480,7 +480,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "aang-elicitation",
+        "call_id": null,
         "ordinal": null
       },
       "runtime_env": {
@@ -744,7 +744,7 @@
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
-        "call_id": "aang-elicitation",
+        "call_id": null,
         "ordinal": null
       },
       "runtime_env": {
@@ -2638,15 +2638,15 @@
       "blocking": true,
       "text": "Which greeting should the project use?",
       "asked_at": "<time>",
-      "answered_at": "<time>",
+      "answered_at": null,
       "action": null,
       "decision": {
-        "value": "answered",
+        "value": "requested",
         "basis": {
           "kind": "observed"
         },
         "evidence": [
-          "#14"
+          "#8"
         ]
       },
       "redelivery_group": null
@@ -2958,11 +2958,11 @@
               "#8"
             ],
             "runtime_wait": "ended",
-            "resolution": "answered",
+            "resolution": "open",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
-            "closed_at": "<time>"
+            "closed_at": null
           }
         },
         {

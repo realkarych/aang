@@ -63,7 +63,6 @@ const Task = HookCommon.extend({
 type Task = z.infer<typeof Task>
 
 const Elicitation = HookCommon.extend({ mcp_server_name: name, message: z.string(), elicitation_id: optionalText })
-type Elicitation = z.infer<typeof Elicitation>
 
 const ElicitationResult = HookCommon.extend({
   mcp_server_name: name,
@@ -159,9 +158,6 @@ const taskParser = (status: PlanItemStatus): HookParser =>
       }),
     )
   })
-
-const elicitationCall = (event: Pick<Elicitation, 'mcp_server_name' | 'elicitation_id'>): string =>
-  event.elicitation_id ?? event.mcp_server_name
 
 const elicitationAnswers = (content: JsonValue | null | undefined) => {
   if (content === null || content === undefined) {
@@ -366,7 +362,7 @@ export const sessionHookParsers: ReadonlyMap<string, HookParser> = new Map([
                   questions: [{ header: event.mcp_server_name, text: event.message, options: [] }],
                 },
               },
-              { ids: { call_id: elicitationCall(event) } },
+              { ids: { call_id: event.elicitation_id ?? null } },
             ),
           ),
     ),
@@ -387,7 +383,7 @@ export const sessionHookParsers: ReadonlyMap<string, HookParser> = new Map([
                 urgent: false,
                 payload: { outcome, answers: outcome === 'answered' ? elicitationAnswers(event.content) : [] },
               },
-              { ids: { call_id: elicitationCall(event) } },
+              { ids: { call_id: event.elicitation_id ?? null } },
             ),
           )
     }),

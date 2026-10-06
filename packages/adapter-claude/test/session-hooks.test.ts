@@ -550,8 +550,8 @@ describe.concurrent('Claude hooks: elicitation', () => {
       outcome: 'answered',
       answers: [{ question: null, answer: 'done' }],
     })
-    expect(result({ action: 'accept', mode: 'url' })).toMatchObject({
-      runtime_ids: { call_id: 'el-1' },
+    expect(result({ action: 'accept', mode: 'url', elicitation_id: null })).toMatchObject({
+      runtime_ids: { call_id: null },
       payload: { outcome: 'answered', answers: [] },
     })
     expect(result({ action: 'decline', content: { project: 'aang' } })?.payload).toEqual({
@@ -559,19 +559,6 @@ describe.concurrent('Claude hooks: elicitation', () => {
       answers: [],
     })
     expect(result({ action: 'cancel' })?.payload).toEqual({ outcome: 'cancelled', answers: [] })
-  })
-
-  test('a form elicitation without its id and its result are correlated by the MCP server', ({ expect }) => {
-    const form = { ...elicitation, elicitation_id: null, mode: 'form' }
-    const [question] = factsOf(
-      synthetic({ ...form, hook_event_name: 'Elicitation', message: 'Pick a project', requested_schema: {} }, 'form.hook'),
-    )
-    const [answer] = factsOf(
-      synthetic({ ...form, hook_event_name: 'ElicitationResult', action: 'accept', content: { project: 'aang' } }),
-    )
-
-    expect(question).toMatchObject({ kind: 'question_asked', runtime_ids: { call_id: 'tracker' } })
-    expect(answer).toMatchObject({ kind: 'question_answered', runtime_ids: { call_id: 'tracker' } })
   })
 
   test('an unfamiliar elicitation action is unknown', ({ expect }) => {
