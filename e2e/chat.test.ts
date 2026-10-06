@@ -512,8 +512,9 @@ test.describe('with the Claude observer answering while the chat history cannot 
       endpoints.chatHistory.response.parse(await (await daemon.request(historyPath)).json()).messages[0]?.status
     await expect.poll(firstStatus, observed).toBe('answered')
 
+    let dropping = true
     const dropHistory = (route: Route): Promise<void> =>
-      route.request().method() === 'GET' ? route.abort('connectionfailed') : route.continue()
+      dropping && route.request().method() === 'GET' ? route.abort('connectionfailed') : route.continue()
     await page.route(`**${historyPath}`, dropHistory)
     await page.goto(`/?run=${claudeRun}`)
     await expect(stage(page, mainStageTitle)).toBeVisible(observed)
@@ -527,11 +528,11 @@ test.describe('with the Claude observer answering while the chat history cannot 
     await hook.claude('PermissionRequest.Bash.json', fields)
     await expect(zoneItem(page, approvalText)).toContainText('ждёт ответа')
 
-    await page.unroute(`**${historyPath}`, dropHistory)
+    dropping = false
     await expect(before.getByText(/^By map version \d+:/)).toBeVisible()
     await expect(trouble).toHaveCount(0)
 
-    await page.route(`**${historyPath}`, dropHistory)
+    dropping = true
     const reread = page.waitForResponse(
       (response) => new URL(response.url()).pathname === runPath && response.request().method() === 'GET',
     )
@@ -554,7 +555,7 @@ test.describe('with the Claude observer answering while the chat history cannot 
     await expect(trace(page)).toContainText('echo still-live')
     await expect(zoneItem(page, approvalText)).toContainText('ждёт ответа')
 
-    await page.unroute(`**${historyPath}`, dropHistory)
+    dropping = false
     await expect(trouble).toHaveCount(0)
     await expect(before.getByText(/^By map version \d+:/)).toBeVisible()
     await expect(before).toHaveCount(1)
