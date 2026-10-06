@@ -12,12 +12,14 @@ CREATE TABLE chat_messages (
   unconfirmed_citations INTEGER NOT NULL DEFAULT 0 CHECK (unconfirmed_citations IN (0, 1)),
   insufficient_data INTEGER NOT NULL DEFAULT 0 CHECK (insufficient_data IN (0, 1)),
   view_rule_id INTEGER CHECK (view_rule_id > 0),
+  view_rule_error TEXT CHECK (view_rule_error <> ''),
   error TEXT,
   asked_at INTEGER NOT NULL,
   answered_at INTEGER CHECK (answered_at >= asked_at),
   change_seq INTEGER NOT NULL CHECK (change_seq > 0),
   CONSTRAINT chat_messages_finished CHECK ((status = 'pending') = (answered_at IS NULL)),
   CONSTRAINT chat_messages_error CHECK ((status = 'failed') = (error IS NOT NULL)),
+  CONSTRAINT chat_messages_view_rule CHECK (view_rule_id IS NULL OR view_rule_error IS NULL),
   CONSTRAINT chat_messages_unanswered CHECK (
     status = 'answered'
     OR (
@@ -26,6 +28,7 @@ CREATE TABLE chat_messages (
       AND unconfirmed_citations = 0
       AND insufficient_data = 0
       AND view_rule_id IS NULL
+      AND view_rule_error IS NULL
     )
   )
 ) STRICT;
