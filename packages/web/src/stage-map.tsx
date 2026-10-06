@@ -5,6 +5,8 @@ import {
   BackgroundVariant,
   Controls,
   type FitViewOptions,
+  type NodeHandle,
+  Position,
   ReactFlow,
   useReactFlow,
   useStore,
@@ -176,6 +178,11 @@ const selectionOf = ({ source }: MapLayout, node: StageId, selected: StageId | n
 
 const unplaced = { x: 0, y: 0, width: 0, height: 0 } as const
 
+const sideHandles = (width: number, height: number): NodeHandle[] => [
+  { type: 'target', position: Position.Left, x: 0, y: height / 2, width: 1, height: 1 },
+  { type: 'source', position: Position.Right, x: width - 1, y: height / 2, width: 1, height: 1 },
+]
+
 const groupNode = (layout: MapLayout, { id, name, parent, members }: VisibleGroup): GroupFlowNode => {
   const { x, y, width, height } = layout.nodes.get(id) ?? unplaced
   return {
@@ -184,6 +191,8 @@ const groupNode = (layout: MapLayout, { id, name, parent, members }: VisibleGrou
     position: { x, y },
     width,
     height,
+    measured: { width, height },
+    handles: [],
     ...(parent === null ? {} : { parentId: parent }),
     data: { name, members: members.length },
     draggable: false,
@@ -216,6 +225,8 @@ const flowNodes = (
       position: { x, y },
       width,
       height,
+      measured: { width, height },
+      handles: sideHandles(width, height),
       ...(holder === null ? {} : { parentId: holder }),
       data: {
         node,
