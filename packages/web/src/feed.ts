@@ -89,7 +89,8 @@ const applyChange = (snapshot: RunSnapshot, { target, after }: ModelChange): Run
 
 const applyModel = (snapshot: RunSnapshot, delta: ModelDelta): RunSnapshot => {
   const changed = delta.changes.reduce(applyChange, snapshot)
-  return { ...changed, run: { ...changed.run, version: delta.version.version } }
+  const { version } = delta.version
+  return { ...changed, run: { ...changed.run, version }, summary: { ...changed.summary, version } }
 }
 
 const withViews = (views: readonly AttentionView[], updates: readonly AttentionView[]): AttentionView[] => {

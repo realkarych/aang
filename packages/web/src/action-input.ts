@@ -22,7 +22,7 @@ const textOf = (value: JsonValue | undefined): string | null => {
     : null
 }
 
-const detailOf = (input: JsonValue): string | null => {
+export const detailOf = (input: JsonValue): string | null => {
   if (input === null || typeof input !== 'object' || Array.isArray(input)) {
     return textOf(input)
   }

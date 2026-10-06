@@ -137,6 +137,7 @@ export const answerChat = (transaction: Transaction, result: ChatAnswerResult): 
     unconfirmed_citations: unconfirmed,
     insufficient_data: output.insufficient_data || output.answer === null,
     view_rule: null,
+    view_rule_error: null,
     answered_at: result.at,
   })
 }
