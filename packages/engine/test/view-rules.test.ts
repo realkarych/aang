@@ -5,6 +5,8 @@ import {
   type AppliedViewRule,
   type ArtifactVersionId,
   type AttentionItem,
+  type ChatMessage,
+  ChatOutput,
   type Fact,
   type JsonValue,
   type RunId,
@@ -18,10 +20,12 @@ import {
 import { objectId, runId } from '@aang/contract/ids'
 import {
   addViewRule,
+  answerChat,
   createReadQueries,
   revokeViewRule,
   solverUsage,
   stageUsage,
+  startChat,
   ViewRuleError,
 } from '@aang/engine'
 import type { Store } from '@aang/store'
@@ -714,6 +718,161 @@ describe('view rules', () => {
       ),
     ).toBeNull()
     expect(store.changes.head()).toBe(position)
+  })
+})
+
+const chatOutput = (fields: Partial<ChatOutput>): ChatOutput =>
+  ChatOutput.parse({ needs: [], answer: 'Done.', citations: [], insufficient_data: false, view_rule: null, ...fields })
+
+const askChat = (review: ReviewRun, question: string, second: number) => {
+  const { store, run } = review
+  const started = store.transaction((transaction) =>
+    startChat(transaction, { run, stage: null, question, backend: 'claude', crossVendor: false, at: at(second) }),
+  )
+  if (started === null) {
+    throw new Error('the review run must take chat questions')
+  }
+  return (output: ChatOutput, answered: number): ChatMessage | null =>
+    store.transaction((transaction) =>
+      answerChat(transaction, { run, message: started.message.id, input: started.input, output, at: at(answered) }),
+    )
+}
+
+const storedAnswer = (message: ChatMessage | null): ChatMessage => {
+  if (message === null) {
+    throw new Error('the chat question must take its answer')
+  }
+  return message
+}
+
+const ruleOf = ({ view_rule: rule }: ChatMessage): ViewRuleId => {
+  if (rule === null) {
+    throw new Error('the chat answer must apply its view rule')
+  }
+  return rule
+}
+
+describe('view rules from the chat', () => {
+  test('the rule of a chat answer is applied with the answer, counts the elements it selects, also later ones, and is revoked from the list', async () => {
+    const review = await reviewRun()
+    const { store, run, scene } = review
+    const before = review.snapshot()
+    const head = store.model.head(run)
+    const reviewStage = review.stage('Review the parser')
+    const answer = askChat(review, 'Сверни ревьюеров', 50)
+
+    const answered = storedAnswer(
+      answer(
+        chatOutput({
+          answer: 'Ревьюер свёрнут в один узел.',
+          citations: [{ kind: 'stage', id: reviewStage }],
+          view_rule: collapseReviewers,
+        }),
+        51,
+      ),
+    )
+
+    const id = ruleOf(answered)
+    expect(answered).toMatchObject({
+      status: 'answered',
+      answer: 'Ревьюер свёрнут в один узел.',
+      citations: [{ kind: 'stage', id: reviewStage }],
+      unconfirmed_citations: false,
+      insufficient_data: false,
+      view_rule_error: null,
+      error: null,
+    })
+    const collapsed = expectFeedReproduces(scene.reads, run, before)
+    const rule = { id, run, source: 'chat', created_at: at(51), revoked_at: null, ...collapseReviewers }
+    expect(collapsed.view.rules).toEqual([{ rule, affected: [{ kind: 'agent', id: subagentOf(reviewer) }] }])
+    expect(store.views.rules(run)).toEqual([rule])
+    expect(placementOf(collapsed, 'agent', subagentOf(reviewer))).toMatchObject({
+      visibility: { state: 'collapsed', rule: id, totals: { agents: 1, actions: 3 } },
+      attention: [attentionOf(collapsed, 'failed_check').id, attentionOf(collapsed, 'permission').id].sort(),
+    })
+    expect(collapsed.view.zone).toEqual(before.view.zone)
+    expect(withoutView(collapsed)).toEqual(withoutView(before))
+    expect(store.model.head(run)).toBe(head)
+
+    await review.mainFile(spawnLines('rev2', 'call-rev2', 60))
+    await review.reviewerFile('rev2', 3n)
+    const grown = expectFeedReproduces(scene.reads, run, collapsed)
+    expect(grown.view.rules).toEqual([
+      { rule, affected: [subagentOf(reviewer), subagentOf('rev2')].sort().map((agent) => ({ kind: 'agent', id: agent })) },
+    ])
+
+    expect(review.revoke(id, 70)).toEqual({ ...rule, revoked_at: at(70) })
+    const restored = expectFeedReproduces(scene.reads, run, grown)
+    expect(restored.view.rules).toEqual([])
+    expect(restored.view.placements).toEqual([])
+    expect(store.chat.message(run, answered.id)).toEqual(answered)
+  })
+
+  test('a rule the run cannot hold is rejected with an explanation, the answer is kept, and nothing in the view changes', async () => {
+    const review = await reviewRun()
+    const { store, run, scene } = review
+    const before = review.snapshot()
+    const reviewStage = review.stage('Review the parser')
+    const missing = StageId.parse('missing-stage')
+    const proposed: readonly (readonly [ViewRuleSpec, string])[] = [
+      [
+        { action: 'hide', selector: { kind: 'stage_ids', stages: [reviewStage, missing] }, params: null },
+        'invalid_selector: the run has no stages missing-stage',
+      ],
+      [
+        { action: 'collapse', selector: { kind: 'agent_type', agent_type: ' ' }, params: null },
+        'invalid_selector: the agent type of the selector must not be empty',
+      ],
+      [
+        { action: 'group', selector: { kind: 'agent_role', role: 'subagent' }, params: { name: '' } },
+        'invalid_params: the group name must not be empty',
+      ],
+    ]
+
+    const answers = proposed.map(([rule], index) =>
+      storedAnswer(
+        askChat(review, 'Спрячь этап ревью', 50 + index)(
+          chatOutput({ answer: 'Этап скрыт.', citations: [{ kind: 'stage', id: reviewStage }], view_rule: rule }),
+          60 + index,
+        ),
+      ),
+    )
+
+    expect(
+      answers.map(({ status, answer, citations, view_rule: rule, view_rule_error: reason }) => ({
+        status,
+        answer,
+        citations,
+        rule,
+        reason,
+      })),
+    ).toEqual(
+      proposed.map(([, reason]) => ({
+        status: 'answered',
+        answer: 'Этап скрыт.',
+        citations: [{ kind: 'stage', id: reviewStage }],
+        rule: null,
+        reason,
+      })),
+    )
+    expect(store.views.rules(run)).toEqual([])
+    const after = expectFeedReproduces(scene.reads, run, before)
+    expect(after.view).toEqual(before.view)
+    expect(store.chat.messages(run)).toEqual(answers)
+  })
+
+  test('a question that is no longer pending applies no rule', async () => {
+    const review = await reviewRun()
+    const { store, run } = review
+    const answer = askChat(review, 'Сверни ревьюеров', 50)
+    const first = storedAnswer(answer(chatOutput({ answer: 'Ревьюер свёрнут.', view_rule: collapseReviewers }), 51))
+    const position = store.changes.head()
+
+    expect(
+      answer(chatOutput({ view_rule: { action: 'hide', selector: collapseReviewers.selector, params: null } }), 52),
+    ).toBeNull()
+    expect(store.changes.head()).toBe(position)
+    expect(store.views.rules(run).map(({ id }) => id)).toEqual([ruleOf(first)])
   })
 })
 

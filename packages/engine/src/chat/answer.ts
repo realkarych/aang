@@ -8,9 +8,12 @@ import type {
   JournalEntry,
   ModelEntityRef,
   RunId,
+  ViewRuleId,
+  ViewRuleSpec,
 } from '@aang/contract'
 import { canonicalJson } from '@aang/contract/ids'
 import type { Transaction } from '@aang/store'
+import { addViewRule, ViewRuleError } from '../view/rules.js'
 
 export interface VerifiedCitations {
   readonly citations: ChatCitation[]
@@ -122,6 +125,26 @@ export const verifyCitations = (input: ChatInput, citations: readonly ChatCitati
   return { citations: confirmed, unconfirmed: confirmed.length < unique.size }
 }
 
+interface ChatViewRule {
+  readonly view_rule: ViewRuleId | null
+  readonly view_rule_error: string | null
+}
+
+const chatViewRule = (transaction: Transaction, run: RunId, rule: ViewRuleSpec | null, at: EpochNs): ChatViewRule => {
+  if (rule === null) {
+    return { view_rule: null, view_rule_error: null }
+  }
+  try {
+    const applied = addViewRule(transaction, { run, rule, source: 'chat', at })
+    return { view_rule: applied?.rule.id ?? null, view_rule_error: null }
+  } catch (error) {
+    if (error instanceof ViewRuleError) {
+      return { view_rule: null, view_rule_error: `${error.code}: ${error.message}` }
+    }
+    throw error
+  }
+}
+
 const pending = (transaction: Transaction, run: RunId, message: ChatMessageId): boolean =>
   transaction.chat.message(run, message)?.status === 'pending'
 
@@ -136,8 +159,7 @@ export const answerChat = (transaction: Transaction, result: ChatAnswerResult): 
     citations,
     unconfirmed_citations: unconfirmed,
     insufficient_data: output.insufficient_data || output.answer === null,
-    view_rule: null,
-    view_rule_error: null,
+    ...chatViewRule(transaction, result.run, output.view_rule, result.at),
     answered_at: result.at,
   })
 }
