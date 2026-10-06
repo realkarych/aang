@@ -1,12 +1,15 @@
 import {
   type Action,
+  type ActionId,
   type Agent,
   type AttentionItem,
   type AgentId,
+  type ArtifactVersion,
   type BacklogSummary,
   type EpochNs,
   type Fact,
   type GapKey,
+  type InputArtifactVersion,
   type InputFact,
   JsonValue,
   type ModelEntity,
@@ -221,6 +224,21 @@ const describe = (reader: Pick<ScopeReader, 'observations'>, scope: InputScope, 
     agent: agentOf(scope, fact, action),
     payload: jsonOf(fact.payload),
   }
+}
+
+const retainedKinds: ReadonlySet<ArtifactVersion['retention']['kind']> = new Set(['action_payload', 'file_read', 'commit'])
+
+const producedVersions = (versions: readonly ArtifactVersion[], chosen: readonly Prepared[]): InputArtifactVersion[] => {
+  const actions = new Set<ActionId>(chosen.flatMap(({ action }) => (action === null ? [] : [action.id])))
+  return versions
+    .filter(({ produced_by: producer }) => producer !== null && actions.has(producer))
+    .map(({ id, ref, produced_by: producer, retention }) => ({
+      id,
+      ref,
+      produced_by: producer,
+      retained: retainedKinds.has(retention.kind),
+    }))
+    .sort((left, right) => compareText(left.id, right.id))
 }
 
 const prepare = (reader: Pick<ScopeReader, 'observations'>, scope: InputScope, queued: Queued): Prepared => ({
@@ -452,6 +470,7 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     ])
   const attempt = (chosen: readonly Queued[], backlog: BacklogSummary | null): ObserverInput['previous_attempt'] =>
     joinAttempts([previousAttempt(transaction, chosen), backlog === null ? null : retried])
+  const versions = transaction.artifacts.versions(run)
   const render =
     (omitted: boolean) =>
     ({ count, batchText, stateText }: Packing): ObserverInput => {
@@ -464,7 +483,12 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
         run: clipRun(description, stateText),
         context: clipContext(context, batchText),
         model: clipSnapshot(model, stateText),
-        batch: { facts: facts.map(({ input }) => input), collapsed, backlog, artifact_versions: [] },
+        batch: {
+          facts: facts.map(({ input }) => input),
+          collapsed,
+          backlog,
+          artifact_versions: producedVersions(versions, chosen),
+        },
         materials: [],
         previous_attempt: clipAttempt(attempt(chosen.map(({ queued }) => queued), backlog), stateText),
       }
