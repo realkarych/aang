@@ -146,7 +146,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <StatusStrip lamps={lamps} />
       <main className="page run-screen" data-inspecting={stage !== null}>
         <GenerationContext value={feed.generation}>
-          <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} />
+          <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} onSignedOut={onSignedOut} />
           {stage === null ? null : (
             <SignedOutContext value={onSignedOut}>
               <StageInspector

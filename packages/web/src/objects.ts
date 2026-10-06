@@ -1,4 +1,12 @@
-import type { Agent, AgentId, FactEntityKey, ObservationObjects, Session, SessionId } from '@aang/contract'
+import type {
+  Agent,
+  AgentId,
+  AttentionItem,
+  FactEntityKey,
+  ObservationObjects,
+  Session,
+  SessionId,
+} from '@aang/contract'
 import { agentRoleLabel, serviceAgentLabel } from './labels.js'
 
 export const shortSession = ({ key }: Pick<Session, 'key'>): string => key.session.slice(0, 8)
@@ -55,4 +63,11 @@ export const factPlace = (objects: ObservationObjects, key: FactEntityKey): stri
   const action = key.kind === 'action' ? objects.actions.find((candidate) => sameKey(candidate.key, key)) : undefined
   const agent = key.kind === 'agent' ? objects.agents.find((candidate) => sameKey(candidate.key, key)) : undefined
   return placeOf(objects, session?.id ?? null, action?.agent ?? agent?.id ?? null)
+}
+
+export const attentionPlace = (objects: ObservationObjects, item: AttentionItem): string | null => {
+  const question = objects.questions.find(({ id }) => id === item.question)
+  const action = objects.actions.find(({ id }) => id === item.action)
+  const source = question ?? action
+  return source === undefined ? null : placeOf(objects, source.session, source.agent)
 }
