@@ -39,6 +39,7 @@ export interface ChatAnswer {
   readonly unconfirmed_citations: boolean
   readonly insufficient_data: boolean
   readonly view_rule: ViewRuleId | null
+  readonly view_rule_error: string | null
   readonly answered_at: EpochNs
 }
 
@@ -85,6 +86,7 @@ type MessageRow = {
   readonly unconfirmed_citations: bigint
   readonly insufficient_data: bigint
   readonly view_rule_id: bigint | null
+  readonly view_rule_error: string | null
   readonly error: string | null
   readonly asked_at: bigint
   readonly answered_at: bigint | null
@@ -93,7 +95,7 @@ type MessageRow = {
 type ChangedRow = MessageRow & { readonly change_seq: bigint }
 
 const columns =
-  'id, run_id, stage_id, model_version, question, backend, cross_vendor, status, answer, citations, unconfirmed_citations, insufficient_data, view_rule_id, error, asked_at, answered_at'
+  'id, run_id, stage_id, model_version, question, backend, cross_vendor, status, answer, citations, unconfirmed_citations, insufficient_data, view_rule_id, view_rule_error, error, asked_at, answered_at'
 
 const storedNumber = /^[1-9][0-9]{0,18}$/
 
@@ -120,6 +122,7 @@ const toMessage = (row: MessageRow): ChatMessage =>
     unconfirmed_citations: row.unconfirmed_citations === 1n,
     insufficient_data: row.insufficient_data === 1n,
     view_rule: row.view_rule_id === null ? null : String(row.view_rule_id),
+    view_rule_error: row.view_rule_error,
     error: row.error,
     asked_at: row.asked_at,
     answered_at: row.answered_at,
@@ -151,7 +154,8 @@ export const createChat = (database: DatabaseSync): ChatRepository => {
     database,
     `UPDATE chat_messages SET status = 'answered', answer = :answer, citations = :citations,
        unconfirmed_citations = :unconfirmed_citations, insufficient_data = :insufficient_data,
-       view_rule_id = :view_rule_id, answered_at = :answered_at, change_seq = :change_seq
+       view_rule_id = :view_rule_id, view_rule_error = :view_rule_error, answered_at = :answered_at,
+       change_seq = :change_seq
      WHERE run_id = :run_id AND id = :id
      RETURNING ${columns}`,
   )
@@ -225,6 +229,7 @@ export const createChat = (database: DatabaseSync): ChatRepository => {
           unconfirmed_citations: encodeFlag(answer.unconfirmed_citations),
           insufficient_data: encodeFlag(answer.insufficient_data),
           view_rule_id: ruleKey(answer.view_rule),
+          view_rule_error: answer.view_rule_error,
           answered_at: answer.answered_at,
           change_seq: context.nextChangeSeq(),
         }) as MessageRow,

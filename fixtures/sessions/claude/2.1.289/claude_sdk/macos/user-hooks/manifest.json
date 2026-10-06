@@ -1,0 +1,145 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "claude",
+  "engine_version": "2.1.289",
+  "app_version": "0.3.289",
+  "surface": "claude_sdk",
+  "os": "macos",
+  "scenario": "user-hooks",
+  "model": "stub",
+  "recorded_at": "2026-10-05T22:14:38.152Z",
+  "expected_facts": [
+    "The user hook notes-guard comes from a settings file (--settings; the settings option of query() in the SDK) and runs on SessionStart, UserPromptSubmit, PostToolUse for Bash and Stop next to the aang hook",
+    "SessionStart prints plain text (hook_success); UserPromptSubmit and PostToolUse return additionalContext (hook_additional_context), PostToolUse also a systemMessage (hook_system_message)",
+    "Stop exits with 1 (hook_non_blocking_error); stop_hook_summary lists the notes-guard command with an error next to the aang hook"
+  ],
+  "control_events": [
+    {
+      "label": "session-started",
+      "step": 0,
+      "observed_at": "2026-10-05T22:14:38.440Z",
+      "expected_map_change": {
+        "description": "The session starts; the user hook notes-guard adds the greeting rule of the notes to the session"
+      }
+    },
+    {
+      "label": "action-checked",
+      "step": 6,
+      "observed_at": "2026-10-05T22:14:38.672Z",
+      "expected_map_change": {
+        "description": "The Bash action finishes and the user hook notes-guard adds context and a message about it; the run context names the hook"
+      }
+    },
+    {
+      "label": "stop-hook-failed",
+      "step": 9,
+      "observed_at": "2026-10-05T22:14:38.765Z",
+      "expected_map_change": {
+        "description": "The turn ends; the Stop hook notes-guard fails without blocking and the session shows the failed hook"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.json",
+      "observed_at": "2026-10-05T22:14:38.450Z",
+      "mtime_ns": "1791238478437092003"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-05T22:14:38.440Z",
+      "mtime_ns": "1791238478440304240"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-05T22:14:38.440Z",
+      "mtime_ns": "1791238478440304240"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-05T22:14:38.531Z",
+      "mtime_ns": "1791238478522505821"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-05T22:14:38.557Z",
+      "mtime_ns": "1791238478531810574"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-05T22:14:38.534Z",
+      "mtime_ns": "1791238478534587855"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-05T22:14:38.534Z",
+      "mtime_ns": "1791238478534587855"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-05T22:14:38.641Z",
+      "mtime_ns": "1791238478641423085"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-05T22:14:38.641Z",
+      "mtime_ns": "1791238478641423085"
+    },
+    {
+      "source": "spool/000010.spool",
+      "observed_at": "2026-10-05T22:14:38.672Z",
+      "mtime_ns": "1791238478672313751"
+    },
+    {
+      "source": "data/000011.json",
+      "observed_at": "2026-10-05T22:14:38.672Z",
+      "mtime_ns": "1791238478672313751"
+    },
+    {
+      "source": "data/000012.jsonl",
+      "observed_at": "2026-10-05T22:14:38.744Z",
+      "mtime_ns": "1791238478717927856"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-05T22:14:38.753Z",
+      "mtime_ns": "1791238478753991042"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-05T22:14:38.753Z",
+      "mtime_ns": "1791238478753991042"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-05T22:14:38.765Z",
+      "mtime_ns": "1791238478765319413"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-05T22:14:38.765Z",
+      "mtime_ns": "1791238478765319413"
+    },
+    {
+      "source": "data/000017.jsonl",
+      "observed_at": "2026-10-05T22:14:38.852Z",
+      "mtime_ns": "1791238478847559118"
+    },
+    {
+      "source": "spool/000018.spool",
+      "observed_at": "2026-10-05T22:14:38.850Z",
+      "mtime_ns": "1791238478850546814"
+    },
+    {
+      "source": "data/000019.json",
+      "observed_at": "2026-10-05T22:14:38.850Z",
+      "mtime_ns": "1791238478850546814"
+    },
+    {
+      "source": "output/000020.txt",
+      "observed_at": "2026-10-05T22:14:38.879Z",
+      "mtime_ns": "1791238478879000000"
+    }
+  ],
+  "playback": "playback.json"
+}
