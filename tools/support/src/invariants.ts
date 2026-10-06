@@ -16,6 +16,7 @@ import {
 } from '@aang/contract'
 import type { Store } from '@aang/store'
 import type { z } from 'zod'
+import { unparsedRecords } from './record-types.js'
 import { mapIds } from './references.js'
 
 const everything = 1_000_000_000
@@ -136,6 +137,8 @@ const threadUsage = (facts: readonly Fact[]): string[] => {
 }
 
 export const invariantViolations = (store: Store): string[] => {
-  const facts = store.changes.after(ChangeSeq.parse(0), everything).flatMap((change) => (change.layer === 'fact' ? [change.fact] : []))
-  return [...duplicateFacts(facts), ...unresolvedReferences(store, facts), ...threadUsage(facts)]
+  const changes = store.changes.after(ChangeSeq.parse(0), everything)
+  const records = changes.flatMap((change) => (change.layer === 'raw_record' ? [change.record] : []))
+  const facts = changes.flatMap((change) => (change.layer === 'fact' ? [change.fact] : []))
+  return [...unparsedRecords(records), ...duplicateFacts(facts), ...unresolvedReferences(store, facts), ...threadUsage(facts)]
 }
