@@ -61,7 +61,7 @@ The recorder scans during commands every 25 ms and at command boundaries and exp
 
 Auth files, runtime configuration other than kept files, databases, and arbitrary files outside these source directories are not collected. Symbolic links are rejected. Complete JSONL lines become append steps; changed JSON files and truncated JSONL become snapshots. Removals become remove steps. The final scan rejects unfinished JSON/JSONL. A move appears as removal plus a write at its new path. Intermediate states that appear and disappear between scans cannot be recovered; use separate awaited commands or checkpoints for transitions that must be retained.
 
-`session.checkpoint(label, target, expectedMapChange)` selects the latest captured event for a file or a matching hook; `occurrence: 'first'` selects the earliest one instead, and a file target with `contains` only matches steps whose content includes that text. File targets use the player's relative paths, for example:
+`session.checkpoint(label, target, expectedMapChange)` selects the latest captured event for a file or a matching hook; `occurrence: 'first'` selects the earliest one instead, and a file target with `contains` only matches steps whose content includes that text. One scan can capture several JSONL lines as one append step; a `contains` checkpoint then splits that step after its matching line (the first or the last, as `occurrence` selects), so the later lines stay free for the next checkpoint and events that arrive within one scan still get separate checkpoints. File targets use the player's relative paths, for example:
 
 ```js
 await session.checkpoint(
@@ -105,7 +105,7 @@ Verification examines every file, including files absent from the manifest, with
 
 Core tests use synthetic external processes, the actual hook binary, existing format samples, and the actual player. They do not invoke real model CLIs.
 
-## Scenarios (R.2, R.2b, R.2c, R.3)
+## Scenarios (R.2, R.2b, R.2c, R.2d, R.3)
 
 The catalog drives the installed runtimes. Each scenario asserts that its behavior really happened (transcripts, rollouts, hooks, OTel, host summaries) and fails instead of publishing a misleading recording; each sets two or three checkpoints with the expected map change. A scenario's optional `checkRecording` becomes the recording's `check`, so what it asserts about the anonymized recording itself holds before anything is published.
 
@@ -131,9 +131,9 @@ node tools/record/dist/main.js scenario claude_cli tools resume --model live --c
 | `codex_exec` | macOS, Linux, Windows | live | `resume-compaction` |
 | `codex_tui` | macOS, Linux | stub | `tools`, `approval`, `interrupt` |
 | `codex_sdk` | macOS, Linux, Windows | stub | `tools`, `subagents`, `question`, `resume` |
-| `codex_desktop` | macOS | stub | `tools`, `approval`, `subagents` |
+| `codex_desktop` | macOS | stub | `tools`, `approval`, `subagents`, `question` |
 
-The model stub is the only replaced boundary, apart from the `tmux`, `it2` and login shell stand-ins of `input-dialogs`. It is a local Anthropic Messages or OpenAI Responses endpoint scripted by markers: a prompt carries `[aang:<key>]`, and the n-th model response after that prompt returns the n-th scripted step for the key (Codex subagents are keyed by their task name). Requests without tools, prompts without a marker, and steps past the script get a plain text reply. In `live` mode the same prompts go to the real model.
+The model stub is the only replaced boundary, apart from the `tmux`, `it2` and login shell stand-ins of `input-dialogs`. It is a local Anthropic Messages or OpenAI Responses endpoint scripted by markers: a prompt carries `[aang:<key>]`, and the n-th model response after that prompt returns the n-th scripted step for the key (Codex subagents are keyed by their task name). Requests without tools, prompts without a marker, and steps past the script get a plain text reply; the Codex stub marks it `phase: final_answer`, as a model marks the last message of its turn. In `live` mode the same prompts go to the real model.
 
 Claude:
 
@@ -155,6 +155,7 @@ Codex:
 - Hook scenarios use a temporary `CODEX_HOME` with the stub provider, OTel logs exported to the recorder, and `aang-hook` registered for all twelve events with tag `user` (POSIX quoting, or the PowerShell form `& '<path>' 'codex' 'user' '<spool>'` on Windows). `exec` and the TUI run with `--dangerously-bypass-hook-trust`, which also keeps the TUI in-process. The SDK and the Desktop engine cannot pass that flag, so their hooks are trusted the way a user does: `hooks/list` of the engine's `app-server`, then `trusted_hash` in the temporary `config.toml`.
 - The TUI is driven by `expect` (on `PATH`) in a pseudo-terminal. On Windows the TUI needs a ConPTY host; as allowed by the plan, it is recorded manually by the owner instead.
 - `codex_desktop` emulates the Desktop: the engine bundled in ChatGPT.app as `app-server` over stdio with client `codex_desktop` and `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=Codex Desktop`; the host answers approvals.
+- `question` on `codex_desktop` follows `question` of `codex_exec` and `codex_sdk` in one thread of two turns: the first asks through `request_user_input_async` and ends with the final answer of the stub, the second sends the reply `hello` with a second `turn/start`. The scenario checks that the first turn has the async question (`delivery: async`), that the client got no `item/tool/requestUserInput` request, that each turn has one final answer (`phase: final_answer`) besides the question and that the reply is in the rollout.
 - `agent-role` declares the agent role `reviewer` in the temporary `config.toml` (`[agents.reviewer]` with `description` and `config_file = "agents/reviewer.toml"`, a config layer whose `developer_instructions` define the role). In one step the root spawns `notes_review` with `agent_type = "reviewer"` and `notes_scan` without a role, both with `fork_turns = "none"`, because a full-history fork inherits the parent's agent type. Both files are kept (`session.keep`), so the recording replays them into `CODEX_HOME`, and the scenario's recording check reads the staged `playback.json` for the declaration with its description and `config_file` and for the role file. The scenario checks `agent_role` of `source.subagent.thread_spawn` in the child `session_meta` (`reviewer`, and `null` for `notes_scan`), the role instructions among the developer messages of the `reviewer` child only, that each child ran its `echo` once with exit code 0 and its word in the output, and the `agent_type` of the `SubagentStart` hook whose `agent_id` is the child's thread (`reviewer` and `default`).
 - `resume-compaction` is the live scenario of ADR-0010: the owner's regular Codex home, `--ignore-user-config --disable hooks`, no hooks and no copied authorization; resume runs with a low `model_auto_compact_token_limit` so a remote compaction happens. It leaves its thread in the owner's history; delete it with `codex delete --force <id>` if unwanted.
 
@@ -187,5 +188,13 @@ The scenarios of R.2c record the formats F.7d needs and the reference sessions o
 | `agent-role` | — | — | — | macOS, Linux, Windows |
 
 - R.2c: the catalog covers exactly these cells, with the model stub. The `Scenarios` workflow requires `claude_cli`, `claude_sdk` and `codex_exec`, so every cell of its OS must record and verify; the Desktop cells are verified locally on macOS. The recordings stay out of the contract run (`tools/support`).
-- R.4b: records these cells with the versions of R.4, together with the cells of R.2b.
+- R.4b: records these cells with the versions of R.4, together with the cells of R.2b and R.2d.
 - F.7d: reads these formats from the R.4b recordings and makes the recordings mandatory in the contract run.
+
+### Applicability of R.2d
+
+Owner's decision of 2026-10-06 on H.12: E2E 4 needs a Codex Desktop recording with a final answer of the solver (`phase: final_answer`) to check the observer's question and the card of the final text. The R.4 recordings of Codex Desktop (`tools`, `approval`, `subagents`) have no question, and the stub answered them without `phase`.
+
+- R.2d: the cell `question` of `codex_desktop` on macOS, with the model stub. The `Scenarios` workflow does not run Desktop surfaces, so the cell is verified locally on macOS.
+- R.4b: records the cell with the Desktop engine of R.4. Codex `question` is in the contract run (C.6), so the recording joins it, and the PR of the recording stores its snapshot with `pnpm support:update`.
+- H.12: the Codex Desktop variant of E2E 4 checks the observer's question and the card of the final text on this recording.
