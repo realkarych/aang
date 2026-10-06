@@ -14,15 +14,19 @@ export {
 export {
   agentStageTitle,
   branchStageTitles,
+  checkedCriterionText,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
   mergedStageTitle,
   nestedStageTitles,
+  outlineStageTitles,
   preparationStageTitle,
+  renamedStageTitle,
   reportQuestionText,
   reportStageTitle,
+  reshapedStageTitles,
   splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {

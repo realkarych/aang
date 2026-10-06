@@ -2,6 +2,7 @@ import type { ChatMessage, RunId, RunSnapshot } from '@aang/contract'
 import { useCallback, useEffect, useReducer } from 'react'
 import { failureText, NotFound, readChat, readRun, SignedOut } from './api.js'
 import { applyEvent } from './feed.js'
+import { type Generation, generationAfter } from './generation.js'
 import { pause } from './pause.js'
 import { type FeedEvent, followRun } from './stream.js'
 
@@ -17,6 +18,7 @@ export interface RunFeed {
   readonly chat: readonly ChatMessage[]
   readonly history: ChatHistory
   readonly connection: FeedConnection
+  readonly generation: Generation
   readonly record: (message: ChatMessage) => void
 }
 
@@ -27,6 +29,7 @@ interface FeedState {
   readonly arrived: readonly ChatMessage[]
   readonly history: ChatHistory
   readonly connection: FeedConnection
+  readonly generation: Generation
 }
 
 type FeedAction =
@@ -39,14 +42,20 @@ type FeedAction =
   | { readonly kind: 'connection'; readonly connection: FeedConnection }
   | { readonly kind: 'missing' }
 
-const initial: FeedState = {
+const cleared = (generation: Generation): FeedState => ({
   snapshot: null,
   reads: 0,
   chat: [],
   arrived: [],
   history: { state: 'loading' },
   connection: 'loading',
-}
+  generation,
+})
+
+const initial = (): FeedState => cleared(generationAfter(null))
+
+const nextGeneration = (state: FeedState): Generation =>
+  state.snapshot === null ? state.generation : generationAfter(state.generation)
 
 const byAsking = (left: ChatMessage, right: ChatMessage): number =>
   left.asked_at < right.asked_at ? -1 : left.asked_at > right.asked_at ? 1 : left.id < right.id ? -1 : 1
@@ -66,9 +75,15 @@ const arrive = (state: FeedState, message: ChatMessage): FeedState => ({
 const reduce = (state: FeedState, action: FeedAction): FeedState => {
   switch (action.kind) {
     case 'start':
-      return initial
+      return cleared(nextGeneration(state))
     case 'snapshot':
-      return { ...state, snapshot: action.snapshot, reads: state.reads + 1, arrived: [] }
+      return {
+        ...state,
+        snapshot: action.snapshot,
+        reads: state.reads + 1,
+        arrived: [],
+        generation: nextGeneration(state),
+      }
     case 'event': {
       if (state.snapshot === null) {
         return state
@@ -91,7 +106,7 @@ const reduce = (state: FeedState, action: FeedAction): FeedState => {
     case 'connection':
       return state.connection === action.connection ? state : { ...state, connection: action.connection }
     case 'missing':
-      return { ...initial, connection: 'missing' }
+      return { ...cleared(nextGeneration(state)), connection: 'missing' }
   }
 }
 
@@ -164,7 +179,7 @@ const unlessAborted =
   }
 
 export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
-  const [state, dispatch] = useReducer(reduce, initial)
+  const [state, dispatch] = useReducer(reduce, undefined, initial)
   useEffect(() => {
     const controller = new AbortController()
     dispatch({ kind: 'start' })
@@ -193,6 +208,6 @@ export const useRunFeed = (run: RunId, onSignedOut: () => void): RunFeed => {
   const record = useCallback((message: ChatMessage) => {
     dispatch({ kind: 'message', message })
   }, [])
-  const { snapshot, chat, history, connection } = state
-  return { snapshot, chat, history, connection, record }
+  const { snapshot, chat, history, connection, generation } = state
+  return { snapshot, chat, history, connection, generation, record }
 }

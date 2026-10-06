@@ -37,6 +37,7 @@ export interface CollectorService extends Collector {
   prune(boundaries: readonly PruneBoundary[]): void
   paused<T>(work: () => Promise<T>): Promise<T>
   listenOtel(options: OtelReceiverOptions): Promise<Listener>
+  setOtelToken(token: string): void
   spoolStats(): Promise<SpoolStats>
   close(): Promise<void>
 }
@@ -189,6 +190,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       }
       return otel.listen(otelOptions)
     },
+    setOtelToken: otel.setToken,
     spoolStats: () => spool.stats(),
     close: async () => {
       state = 'closed'

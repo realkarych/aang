@@ -1,0 +1,21 @@
+model_provider = "aang_stub"
+approval_policy = "never"
+sandbox_mode = "danger-full-access"
+check_for_update_on_startup = false
+
+[features]
+plugins = false
+
+[model_providers.aang_stub]
+name = "aang stub"
+base_url = "http://127.0.0.1:33465/v1"
+wire_api = "responses"
+requires_openai_auth = false
+
+[otel]
+log_user_prompt = false
+exporter = { otlp-http = { endpoint = "http://127.0.0.1:45467/v1/logs", protocol = "json" } }
+
+[agents.reviewer]
+description = "Reviews the project notes and reports what it checked."
+config_file = "agents/reviewer.toml"

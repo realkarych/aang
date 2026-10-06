@@ -1,4 +1,4 @@
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   type AgentId,
@@ -56,8 +56,8 @@ const setup = async () => {
     const read = (call: string, agent: JsonObject = {}) =>
       tool(call, 'Read', { file_path: `/watched/${call}.ts` }, { type: 'text', file: { filePath: `/watched/${call}.ts`, content: 'export {}' } }, agent)
     const grep = (call: string) => tool(call, 'Grep', { pattern: call }, { mode: 'files_with_matches', filenames: [`/watched/${call}.ts`] })
-    const bash = (call: string, stdout = 'done') =>
-      tool(call, 'Bash', { command: `run ${call}`, description: call }, { stdout, stderr: '', interrupted: false, isImage: false })
+    const bash = (call: string, stdout = 'done', command = `run ${call}`) =>
+      tool(call, 'Bash', { command, description: call }, { stdout, stderr: '', interrupted: false, isImage: false })
     const deliver = async (payloads: readonly string[]): Promise<void> => {
       await engine.ingest(
         hookBatch(
@@ -78,7 +78,7 @@ const setup = async () => {
       start: () => deliver([hook('SessionStart.startup.json'), hook('UserPromptSubmit.json', { prompt: `Task of ${name}` })]),
     }
   }
-  return { home, store, session }
+  return { home, store, engine, session }
 }
 
 const begin = (
@@ -187,6 +187,12 @@ const missingIds = (store: Store, run: RunId, input: ObserverInput): string[] =>
     counter.facts.forEach(fact)
     agent(counter.agent)
   }
+  for (const value of input.batch.artifact_versions) {
+    check(`artifact version ${value.id}`, store.artifacts.getVersion(value.id)?.run === run)
+    if (value.produced_by !== null) {
+      check(`action ${value.produced_by}`, inRun(store.observations.getAction(value.produced_by)?.session))
+    }
+  }
   return missing
 }
 
@@ -257,6 +263,68 @@ test('series of routine reads and searches of one agent fold into counters that 
     ]),
   ).toMatchObject({ status: 'accepted' })
   expect(new Set(store.interpretations.ofRun(solver.run).map(({ status }) => status))).toEqual(new Set(['interpreted']))
+})
+
+test('a batch carries the file versions that its actions produced, and the observer can link them to a stage', async () => {
+  const { home, store, engine, session } = await setup()
+  const project = join(home.path, 'project')
+  await mkdir(project, { recursive: true })
+  await writeFile(join(project, 'report.md'), '# Report\n')
+  const solver = session('versions', project)
+  await solver.start()
+  await solver.deliver(solver.bash('report', 'done', 'node report.js > report.md'))
+  const stored = (file: string) => {
+    const path = join(project, file)
+    const version = store.artifacts.versions(solver.run).find(({ ref }) => ref.kind === 'file' && ref.path === path)
+    assert(version !== undefined)
+    return version
+  }
+  const sent = (file: string, call: string, retained: boolean) => ({
+    id: stored(file).id,
+    ref: { kind: 'file', path: join(project, file) },
+    produced_by: objectId({ kind: 'action', runtime: 'claude', session: 'versions', call }),
+    retained,
+  })
+  const ofReport = factsOf(store).filter(({ entity_key: key }) => key.kind === 'action' && key.call === 'report')
+  const start = ofReport.find(({ kind }) => kind === 'action_start')?.id
+  const end = ofReport.find(({ kind }) => kind === 'action_end')?.id
+  assert(start !== undefined && end !== undefined)
+  const queue = pending(store, solver.run)
+  const facts = queue.indexOf(start) + 1
+
+  const first = begin(store, solver.run, 'versions-first', { ...generous, facts })
+  assert(first !== null)
+  expect(first.batch.facts.map(({ id }) => id)).toEqual(queue.slice(0, facts))
+  expect(first.batch.artifact_versions).toEqual([sent('report.md', 'report', false)])
+  expect(missingIds(store, solver.run, first)).toEqual([])
+  const grounds = { evidence: [start], rationale: 'The command writes the report' }
+  expect(
+    answer(store, 'versions-first', first, [
+      {
+        ...grounds,
+        op: 'stage.create',
+        temp_id: 'report',
+        title: 'Write the report',
+        expected_result: null,
+        summary: null,
+        parent: null,
+        origin: 'inferred',
+      },
+      { ...grounds, op: 'artifact.link', stage: { kind: 'new', temp_id: 'report' }, version: stored('report.md').id, direction: 'output' },
+    ]),
+  ).toMatchObject({ status: 'accepted' })
+  expect(await engine.retainBases()).toMatchObject([{ id: stored('report.md').id, retention: { kind: 'file_read' } }])
+
+  await solver.deliver(solver.bash('notes', 'done', 'node notes.js > notes.md'))
+  const second = begin(store, solver.run, 'versions-second')
+  assert(second !== null)
+  expect(second.batch.facts.map(({ id }) => id)).toContain(end)
+  expect(second.batch.artifact_versions).toEqual(
+    [sent('report.md', 'report', true), sent('notes.md', 'notes', false)].toSorted((left, right) =>
+      left.id < right.id ? -1 : 1,
+    ),
+  )
+  expect(missingIds(store, solver.run, second)).toEqual([])
 })
 
 test('the input stays within its token limit: texts are cut first, and later facts wait for the next batch', async () => {

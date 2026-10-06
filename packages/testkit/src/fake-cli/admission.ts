@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawn } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { dirname, join } from 'node:path'
@@ -11,7 +11,7 @@ export const admissionHookPath = (runtime: 'claude' | 'codex'): string => runtim
   ? join(process.cwd(), '.claude', 'settings.json')
   : join(process.env.CODEX_HOME ?? join(homedir(), '.codex'), 'hooks.json')
 
-export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOptions, fault?: string): boolean => {
+export const runAdmissionHook = async (runtime: 'claude' | 'codex', options: ParsedOptions, fault?: string): Promise<boolean> => {
   const file = admissionHookPath(runtime)
   if (!existsSync(file)) return false
   const enabled = runtime === 'claude' ? lastValue(options, 'setting-sources') !== '' : !allValues(options, 'disable').includes('hooks') && options.flags.has('dangerously-bypass-hook-trust')
@@ -28,8 +28,15 @@ export const runAdmissionHook = (runtime: 'claude' | 'codex', options: ParsedOpt
       const launch = runtime === 'codex' && process.platform === 'win32'
         ? { command: powershell, args: ['-NoProfile', '-Command', hook.command], shell: false }
         : { command: hook.command, args, shell: !Array.isArray(hook.args) }
-      const result = spawnSync(launch.command, launch.args, { shell: launch.shell, windowsHide: true, input: '{}', encoding: 'utf8' })
-      if (result.status !== 0) throw new Error(`Control hook failed: ${result.stderr}`)
+      const child = spawn(launch.command, launch.args, { shell: launch.shell, detached: runtime === 'codex' && process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] })
+      let stderr = ''
+      child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
+      child.stdin.on('error', () => undefined).end('{}')
+      const status = await new Promise<number | null>((resolve, reject) => {
+        child.on('error', reject)
+        child.on('close', resolve)
+      })
+      if (status !== 0) throw new Error(`Control hook failed: ${stderr}`)
     }
   }
   return true

@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto'
-import { readFile, rm } from 'node:fs/promises'
+import { readFile, rm, writeFile } from 'node:fs/promises'
 import { join, sep } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import {
+  type ArtifactContent,
   type ArtifactVersion,
-  type ArtifactVersionId,
+  ArtifactVersionId,
+  type ArtifactVersionKey,
   EpochNs,
   type Fact,
   type JsonValue,
@@ -13,7 +15,15 @@ import {
   type SessionKey,
 } from '@aang/contract'
 import { contentHash, objectId, runId } from '@aang/contract/ids'
-import { applyChangeSet, applyObserverResponse, beginObserverCall, createEngine, type Engine } from '@aang/engine'
+import {
+  applyChangeSet,
+  applyObserverResponse,
+  beginObserverCall,
+  createEngine,
+  createReadQueries,
+  type Engine,
+  type ReadQueries,
+} from '@aang/engine'
 import type { Store } from '@aang/store'
 import { expect, test } from 'vitest'
 import { hookBatch, jsonlFile } from './batches.js'
@@ -21,7 +31,7 @@ import { adapters, factsOf, sessionKey } from './harness.js'
 import { createHome, type Home } from './home.js'
 import { at } from './model.js'
 import { createStage, inputFor, response, temporary } from './observer-fixtures.js'
-import { type Register, writeFiles } from './repository.js'
+import { createRepository, type Register, writeFiles } from './repository.js'
 import { claudeHook, codexHook, codexRollout } from './samples.js'
 
 interface Source {
@@ -201,6 +211,12 @@ const blobText = (store: Store, version: ArtifactVersion): string | null => {
   const blob = store.artifacts.blob(retention.blob)
   return blob === null ? null : Buffer.from(blob).toString('utf8')
 }
+
+const readsOf = (store: Store): ReadQueries =>
+  createReadQueries({ store, observer: () => ({ state: { state: 'ok' }, isolation_unverified: false }) })
+
+const contentOf = async (reads: ReadQueries, version: ArtifactVersion): Promise<ArtifactContent | undefined> =>
+  (await reads.artifactVersion(version.id))?.content
 
 const reopen = (home: Home, store: Store): Store => {
   store.close()
@@ -1270,4 +1286,87 @@ test.for<{ name: string; created: string; between: (project: string) => readonly
   )
   const blob = retained === null ? null : store.artifacts.blob(contentHash(retained))
   expect(blob === null ? null : Buffer.from(blob)).toEqual(retained === null ? null : Buffer.from(retained, 'utf8'))
+})
+
+test('a saved version is read back as text or as base64, and a version without content says why', async ({ onTestFinished }) => {
+  const { home, store, engine, project } = await setup(onTestFinished, 64)
+  const source = { session: 'read-session', cwd: project }
+  const image = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xff, 0x00])
+  await writeFiles(project, { 'report.md': '# Report\n', 'large.txt': 'x'.repeat(65) })
+  await writeFile(join(project, 'image.png'), image)
+  await ingestCalls(engine, source, [
+    write('toolu_plan', join(project, 'plan.md'), '# Plan\n'),
+    bash('toolu_report', 'node report.js > report.md'),
+    bash('toolu_image', 'node draw.js > image.png'),
+    bash('toolu_large', 'node dump.js > large.txt'),
+    bash('toolu_missing', 'node gone.js > missing.txt'),
+  ])
+  const files = ['plan.md', 'report.md', 'image.png', 'large.txt', 'missing.txt']
+  openRun(store, keyOf(source))
+  linkOutputs(store, keyOf(source), files.map((file) => versionAt(store, source, join(project, file)).id), startOf(store, 'toolu_plan'), 'read-call')
+  await engine.retainBases()
+  const reads = readsOf(store)
+  const report = versionAt(store, source, join(project, 'report.md'))
+
+  expect(await reads.artifactVersion(report.id)).toEqual({
+    version: report,
+    content: { kind: 'stored', source: 'file_read', encoding: 'utf8', data: '# Report\n', size_bytes: 9, read_at: readAt },
+  })
+  const contents = await Promise.all(files.map((file) => contentOf(reads, versionAt(store, source, join(project, file)))))
+  expect(contents).toEqual([
+    { kind: 'stored', source: 'action_payload', encoding: 'utf8', data: '# Plan\n', size_bytes: 7, read_at: null },
+    { kind: 'stored', source: 'file_read', encoding: 'utf8', data: '# Report\n', size_bytes: 9, read_at: readAt },
+    { kind: 'stored', source: 'file_read', encoding: 'base64', data: image.toString('base64'), size_bytes: 6, read_at: readAt },
+    { kind: 'unavailable', reason: 'hash_only' },
+    { kind: 'unavailable', reason: 'reference_only' },
+  ])
+  expect(await reads.artifactVersion(ArtifactVersionId.parse('0'.repeat(32)))).toBeNull()
+
+  const database = home.database()
+  for (const table of ['blob_refs', 'blobs']) {
+    database.prepare(`DELETE FROM ${table} WHERE hash = ?`).run(contentHash('# Report\n'))
+  }
+  database.close()
+  expect(await contentOf(reads, report)).toEqual({ kind: 'unavailable', reason: 'blob_missing' })
+})
+
+test('a version kept by a commit is read from the repository at that commit, and an unreadable one is missing', async ({ onTestFinished }) => {
+  const { home, store } = await setup(onTestFinished)
+  const repository = await createRepository(onTestFinished, { 'src/app.ts': 'export const app = 1\n' })
+  const head = repository.head
+  if (head === null) {
+    throw new Error('the repository must have a commit')
+  }
+  await writeFiles(repository.path, { 'src/app.ts': 'export const app = 2\n' })
+  const run = runId(sessionKey('claude', 'commit-session'))
+  const saved = (path: string, sha: string): ArtifactVersion =>
+    store.transaction((transaction) => {
+      const ref = { kind: 'file', path } as const
+      const key: ArtifactVersionKey = { kind: 'artifact_version', run, artifact: ref, identity: { kind: 'commit', sha } }
+      return transaction.artifacts.saveVersion({
+        id: objectId(key),
+        key,
+        run,
+        artifact: objectId({ kind: 'artifact', run, artifact: ref }),
+        ref,
+        retention: { kind: 'commit', repository: repository.path, sha },
+        produced_by: null,
+        observed_at: at(1),
+      })
+    })
+  const reads = readsOf(store)
+  const app = join(repository.path, 'src', 'app.ts')
+
+  expect(await contentOf(reads, saved(app, head))).toEqual({
+    kind: 'stored',
+    source: 'commit',
+    encoding: 'utf8',
+    data: 'export const app = 1\n',
+    size_bytes: 21,
+    read_at: null,
+  })
+  const missing = { kind: 'unavailable', reason: 'commit_missing' }
+  expect(await contentOf(reads, saved(join(repository.path, 'src', 'gone.ts'), head))).toEqual(missing)
+  expect(await contentOf(reads, saved(app, 'f'.repeat(40)))).toEqual(missing)
+  expect(await contentOf(reads, saved(join(home.path, 'outside.ts'), head))).toEqual(missing)
 })

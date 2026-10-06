@@ -1,4 +1,4 @@
-import type { RunSnapshot } from '@aang/contract'
+import type { RunId, RunSnapshot, RunSummary } from '@aang/contract'
 import type { ReactElement } from 'react'
 import { AttentionZone } from './attention-zone.js'
 import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
@@ -10,13 +10,37 @@ import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
 import { listHref, runHref, usageHref, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
+import { SinceLastView } from './since.js'
 import { Trace } from './trace.js'
 import type { RunFeed } from './use-run-feed.js'
 import { ViewRules } from './view-rules.js'
 
-const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now: bigint }): ReactElement => {
+interface RunLinkProps {
+  readonly id: RunId
+  readonly runs: readonly RunSummary[] | null
+  readonly unknown: string
+}
+
+const RunLink = ({ id, runs, unknown }: RunLinkProps): ReactElement => {
+  const navigate = useNavigate()
+  const known = runs?.find((run) => run.id === id)
+  return (
+    <a href={runHref(id)} onClick={navigate}>
+      {known === undefined ? unknown : (runTitle(known) ?? untitledRun(known))}
+    </a>
+  )
+}
+
+interface FactsProps {
+  readonly snapshot: RunSnapshot
+  readonly runs: readonly RunSummary[] | null
+  readonly now: bigint
+}
+
+const Facts = ({ snapshot, runs, now }: FactsProps): ReactElement => {
   const navigate = useNavigate()
   const { summary } = snapshot
+  const forks = (runs ?? []).filter(({ forked_from: source }) => source === summary.id)
   return (
     <dl className="facts">
       <div>
@@ -73,11 +97,23 @@ const Facts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now
       </div>
       {summary.forked_from === null ? null : (
         <div>
-          <dt>Ответвление</dt>
+          <dt>Ответвление от</dt>
           <dd>
-            <a href={runHref(summary.forked_from)} onClick={navigate}>
-              исходный прогон
-            </a>
+            <RunLink id={summary.forked_from} runs={runs} unknown="исходный прогон" />
+          </dd>
+        </div>
+      )}
+      {forks.length === 0 ? null : (
+        <div>
+          <dt>Ответвления</dt>
+          <dd>
+            <ul className="run-links">
+              {forks.map(({ id }) => (
+                <li key={id}>
+                  <RunLink id={id} runs={runs} unknown="ответвление" />
+                </li>
+              ))}
+            </ul>
           </dd>
         </div>
       )}
@@ -112,12 +148,13 @@ export const Missing = (): ReactElement => {
 interface RunContentProps {
   readonly snapshot: RunSnapshot
   readonly feed: RunFeed
+  readonly runs: readonly RunSummary[] | null
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): ReactElement => {
-  const choice = useStageChoice(snapshot.model.stages)
+const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps): ReactElement => {
+  const choice = useStageChoice(snapshot)
   const { summary, run } = snapshot
   const title = runTitle(summary)
   return (
@@ -133,7 +170,7 @@ const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): Reac
             <span className="basis">{basisLabel[run.brief.basis.kind]}</span>
           </p>
         )}
-        <Facts snapshot={snapshot} now={now} />
+        <Facts snapshot={snapshot} runs={runs} now={now} />
       </header>
       <AttentionZone snapshot={snapshot} now={now} />
       <MapSection snapshot={snapshot} choice={choice} />
@@ -149,26 +186,27 @@ const RunContent = ({ snapshot, feed, now, onSignedOut }: RunContentProps): Reac
         />
         <ViewRules snapshot={snapshot} now={now} onSignedOut={onSignedOut} />
       </div>
-      <div className="run-body">
-        <Trace snapshot={snapshot} now={now} />
-        <PlanFacts snapshot={snapshot} now={now} />
-      </div>
+      <SinceLastView snapshot={snapshot} now={now} onSignedOut={onSignedOut}>
+        <div className="run-body">
+          <Trace snapshot={snapshot} now={now} />
+          <PlanFacts snapshot={snapshot} now={now} />
+        </div>
+      </SinceLastView>
     </article>
   )
 }
 
-export const RunPage = ({
-  feed,
-  now,
-  onSignedOut,
-}: {
+export interface RunPageProps {
   readonly feed: RunFeed
+  readonly runs: readonly RunSummary[] | null
   readonly now: bigint
   readonly onSignedOut: () => void
-}): ReactElement => {
+}
+
+export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
   const { snapshot, connection } = feed
   if (snapshot === null) {
     return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
   }
-  return <RunContent snapshot={snapshot} feed={feed} now={now} onSignedOut={onSignedOut} />
+  return <RunContent snapshot={snapshot} feed={feed} runs={runs} now={now} onSignedOut={onSignedOut} />
 }

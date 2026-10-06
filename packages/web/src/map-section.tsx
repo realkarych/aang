@@ -1,9 +1,9 @@
-import type { RunSnapshot, Stage, StageId } from '@aang/contract'
-import { lazy, type ReactElement, Suspense, useEffect, useMemo, useState } from 'react'
+import type { RunSnapshot, StageId } from '@aang/contract'
+import { lazy, type ReactElement, Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { plural } from './format.js'
 import { HandoverGlyph } from './glyphs.js'
 import { stageForms } from './labels.js'
-import { routedStage, routeStage } from './route.js'
+import { replaceStage, selectStage, useRoutedStage } from './route.js'
 import { type Handover, handoverText, type StageSelection, selectionOf } from './stage-lineage.js'
 import './map.css'
 
@@ -14,16 +14,39 @@ export const mapHeading = 'map-title'
 export interface StageChoice {
   readonly selection: StageSelection | null
   readonly choose: (stage: StageId | null) => void
+  readonly dismissHandover: () => void
 }
 
-export const useStageChoice = (stages: readonly Stage[]): StageChoice => {
-  const [chosen, setChosen] = useState(routedStage)
-  const selection = useMemo(() => (chosen === null ? null : selectionOf(stages, chosen)), [stages, chosen])
+export const useStageChoice = (snapshot: RunSnapshot): StageChoice => {
+  const run = snapshot.run.id
+  const routed = useRoutedStage()
+  const [chosen, setChosen] = useState(routed)
+  const [seen, setSeen] = useState(routed)
+  const selection = useMemo(
+    () => (chosen === null ? null : selectionOf(snapshot.model.stages, chosen)),
+    [snapshot.model.stages, chosen],
+  )
   const selected = selection?.stage.id ?? null
+  const shown = selection === null ? chosen : selected
+  if (routed !== seen) {
+    setSeen(routed)
+    if (routed !== shown) {
+      setChosen(routed)
+    }
+  }
   useEffect(() => {
-    routeStage(selected)
+    replaceStage(run, shown)
+  }, [run, routed, shown])
+  const choose = useCallback(
+    (stage: StageId | null) => {
+      selectStage(run, stage)
+    },
+    [run],
+  )
+  const dismissHandover = useCallback(() => {
+    setChosen(selected)
   }, [selected])
-  return { selection, choose: setChosen }
+  return { selection, choose, dismissHandover }
 }
 
 const HandoverNote = ({
@@ -55,8 +78,7 @@ export const MapSection = ({
   const hidden = snapshot.view.placements.filter(
     ({ element, visibility }) => element.kind === 'stage' && visibility?.state === 'hidden',
   ).length
-  const { selection, choose } = choice
-  const selected = selection?.stage.id ?? null
+  const { selection, choose, dismissHandover } = choice
   return (
     <section className="map" aria-labelledby={mapHeading}>
       <header className="map-head">
@@ -68,9 +90,7 @@ export const MapSection = ({
       </header>
       <HandoverNote
         handover={selection?.handover ?? null}
-        onDismiss={() => {
-          choose(selected)
-        }}
+        onDismiss={dismissHandover}
       />
       {stages === 0 ? (
         <p className="map-note">Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.</p>
