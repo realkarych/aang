@@ -95,3 +95,11 @@ export const change = (page: Page, section: string, text: string): Locator =>
   sinceSection(page, section)
     .locator(':scope > ol > li, :scope > ul > li')
     .filter({ hasText: text })
+
+export const lampDetails = async (page: Page, label: string): Promise<Locator> => {
+  const button = lamp(page, label).getByRole('button')
+  if ((await button.getAttribute('aria-expanded')) !== 'true') {
+    await button.click()
+  }
+  return page.getByRole('region', { name: `${label}: подробности`, exact: true })
+}

@@ -2,6 +2,7 @@ import type { ActionKind, JsonValue } from '@aang/contract'
 import { z } from 'zod'
 import { actionEnded, actionStarted, type CallTiming, joinText, type LineContext, type LineFacts } from './facts.js'
 import { BoundedJson, readJson } from './json.js'
+import { planTool, planUpdated } from './plan.js'
 
 const id = z.string().min(1)
 const defaultNamespace = 'functions'
@@ -14,6 +15,7 @@ const toolKinds: ReadonlyMap<string, ActionKind> = new Map([
   ['apply_patch', 'file_write'],
   ['request_user_input', 'question'],
   ['request_user_input_async', 'question'],
+  [planTool, 'plan'],
 ])
 
 const codeCellTool = 'exec'
@@ -77,12 +79,15 @@ export const functionCall = (context: LineContext): LineFacts => {
   }
   const call = parsed.data
   const namespace = explicitNamespace(call.namespace)
+  const callTiming = timing(context, call.internal_chat_message_metadata_passthrough)
+  const input = parsedArguments(call.arguments)
   return [
-    actionStarted(context, call.call_id, timing(context, call.internal_chat_message_metadata_passthrough), {
+    actionStarted(context, call.call_id, callTiming, {
       tool: qualifiedTool(call.namespace, call.name),
       action_kind: actionKind(namespace, call.name),
-      input: parsedArguments(call.arguments),
+      input,
     }),
+    ...(namespace === null && call.name === planTool ? planUpdated(context, call.call_id, callTiming, input) : []),
   ]
 }
 

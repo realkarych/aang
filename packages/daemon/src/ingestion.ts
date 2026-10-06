@@ -14,6 +14,7 @@ import type {
   PruneRequest,
   PruneResponse,
   ReparseResponse,
+  RunId,
   Runtime,
   UnwatchRequest,
   UnwatchResponse,
@@ -49,9 +50,11 @@ export interface Bindings {
 
 export interface Ingestion {
   readonly otel: Listener
+  readonly retainBases: (runs: readonly RunId[]) => void
   readonly reparse: () => Promise<ReparseResponse | null>
   readonly bindings: Bindings
   readonly admin: Admin
+  readonly setOtelToken: (token: string) => void
   readonly failure: Promise<unknown>
   readonly stop: () => Promise<void>
 }
@@ -110,6 +113,13 @@ export const startIngestion = async ({
   })
   const failure = Promise.withResolvers<unknown>()
   const restoring = engine.refreshCriteria().catch(failure.resolve)
+  const retaining = new Set<Promise<unknown>>()
+  const retain = (runs?: readonly RunId[]): void => {
+    const work = engine.retainBases(runs).catch(failure.resolve)
+    retaining.add(work)
+    void work.finally(() => retaining.delete(work))
+  }
+  retain()
 
   const pump = async (): Promise<void> => {
     for await (const batch of collector.start(store.cursors.list())) {
@@ -218,9 +228,17 @@ export const startIngestion = async ({
 
   return {
     otel,
+    retainBases: (runs) => {
+      if (!stopping) {
+        retain(runs)
+      }
+    },
     reparse,
     bindings,
     admin,
+    setOtelToken: (token) => {
+      collector.setOtelToken(token)
+    },
     failure: failure.promise,
     stop: async () => {
       clearInterval(refresh)
@@ -232,6 +250,7 @@ export const startIngestion = async ({
       await pumping
       await refreshing
       await restoring
+      await Promise.all(retaining)
       await engine.close()
     },
   }

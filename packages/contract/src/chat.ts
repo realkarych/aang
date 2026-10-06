@@ -125,6 +125,7 @@ export const ChatMessage = z.strictObject({
   unconfirmed_citations: z.boolean(),
   insufficient_data: z.boolean(),
   view_rule: ViewRuleId.nullable(),
+  view_rule_error: z.string().min(1).nullable(),
   error: text.nullable(),
   asked_at: EpochNs,
   answered_at: EpochNs.nullable(),

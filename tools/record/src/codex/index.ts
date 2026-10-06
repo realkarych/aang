@@ -1,6 +1,7 @@
+import { resolveExpect } from '../expect.js'
 import type { Scenario, SurfaceDriver } from '../scenario.js'
 import { desktopScenarios } from './desktop.js'
-import { resolveCodex, resolveCodexDesktop, resolveCodexSdk, resolveExpect } from './engine.js'
+import { resolveCodex, resolveCodexDesktop, resolveCodexSdk } from './engine.js'
 import { execScenarios } from './exec.js'
 import { sdkScenarios } from './sdk.js'
 import { tuiScenarios } from './tui.js'

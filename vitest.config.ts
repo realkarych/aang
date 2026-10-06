@@ -27,6 +27,7 @@ export default defineConfig({
     tags: [
       { name: 'benchmark', description: 'strict local benchmarks, excluded from the default run' },
       { name: 'runtime', description: 'scenarios on installed runtime CLIs and SDKs, run by the Scenarios workflow' },
+      { name: 'docker', description: 'smoke of the Docker image and a derived solver image, run by the docker job in CI' },
     ],
     passWithNoTests: testFilesOnDisk.length === 0,
     testTimeout: 30_000,

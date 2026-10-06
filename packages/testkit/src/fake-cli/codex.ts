@@ -1,11 +1,12 @@
 import { existsSync } from 'node:fs'
 import { admissionHookPath, codexAdmissionArtifacts, runAdmissionHook } from './admission.js'
 import { randomUUID } from 'node:crypto'
-import { startDescendant } from './process-tree.js'
+import { leaveProcessGroup, startDescendant } from './process-tree.js'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
 import type { z } from 'zod'
+import { serveAppServer } from './codex-app-server.js'
 import { bundledCatalog } from './codex-catalog.js'
 import { catalogEntry, codexExecOptions, codexViolations, readCatalog } from './codex-profile.js'
 import { appeared, emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
@@ -215,7 +216,7 @@ const runMock = async (call: MockCall, config: JsonValue): Promise<void> => {
     failTurn(outcome.failure)
     return
   }
-  completeTurn(call.turn, outcome.text ?? '', outcome.usage)
+  completeTurn(call.turn, call.scenario.admissionFault === 'off_schema_last' ? '{}' : outcome.text ?? '', outcome.usage)
 }
 
 const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {
@@ -251,6 +252,9 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     finish(fakeCliExitCodes.isolation)
     return
   }
+  if (scenario.groupEscape !== undefined || !allValues(options, 'disable').includes('shell_snapshot')) {
+    await leaveProcessGroup(scenario.groupEscape ?? { lifetimeMs: 300 })
+  }
   const lastMessage = lastValue(options, 'output-last-message')
   const turn: Turn = {
     threadId: randomUUID(),
@@ -264,7 +268,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     }
     const entry = catalogEntry({ options, catalog })
     if (admission) {
-      runAdmissionHook('codex', options, scenario.admissionFault)
+      await runAdmissionHook('codex', options, scenario.admissionFault)
       codexAdmissionArtifacts(scenario.admissionFault)
     }
     if (scenario.admissionFault === 'no_http') { completeTurn(turn, '{"base_version":0,"ops":[],"needs":[]}', defaultCodexUsage); return }
@@ -323,6 +327,11 @@ const main = async (): Promise<void> => {
   }
   if (command === 'debug' && subcommand === 'models' && rest.every((argument) => argument === '--bundled')) {
     debugModels()
+    return
+  }
+  if (command === 'app-server' && subcommand === undefined) {
+    record('app_server')
+    await serveAppServer(scenario.hooks)
     return
   }
   if (command !== 'exec') {

@@ -24,6 +24,13 @@ export const readRoutes = ({ store, reads, status }: ReadSources): ApiRoute[] =>
   readRoute(endpoints.stage, ({ params }) => reads.inspector(params.run, params.stage)),
   readRoute(endpoints.changes, ({ params, query }) => changesSince(reads, params.run, query)),
   readRoute(endpoints.observerCalls, ({ params }) => reads.observerCalls(params.run)),
+  readRoute(endpoints.usage, ({ query }) => {
+    const report = reads.usage(query)
+    if (report === null) {
+      throw new ApiFailure('not_found', `no run ${query.run ?? ''}`)
+    }
+    return report
+  }),
   readRoute(endpoints.fact, ({ params }) => {
     const fact = store.facts.get(params.id)
     return fact === null ? null : { fact }
@@ -32,4 +39,5 @@ export const readRoutes = ({ store, reads, status }: ReadSources): ApiRoute[] =>
     const raw = store.rawRecords.get(params.seq)
     return raw === null ? null : { raw }
   }),
+  readRoute(endpoints.artifactVersion, ({ params }) => reads.artifactVersion(params.id)),
 ]

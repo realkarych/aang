@@ -8,8 +8,8 @@ export const Segment = z.string().regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/)
 export const ModelMode = z.enum(['stub', 'live'])
 export type ModelMode = z.infer<typeof ModelMode>
 
-export const CodexHome = z.enum(['isolated', 'regular'])
-export type CodexHome = z.infer<typeof CodexHome>
+export const ProfileHome = z.enum(['isolated', 'regular'])
+export type ProfileHome = z.infer<typeof ProfileHome>
 
 export const RecordMetadata = z.strictObject({
   runtime: Runtime,
@@ -22,7 +22,7 @@ export const RecordMetadata = z.strictObject({
 }).refine((value) => value.surface.startsWith(`${value.runtime}_`), 'surface must match runtime')
 
 export const Artifact = z.strictObject({
-  source: z.string().regex(/^(data|spool|output)\/[0-9]+\.(jsonl|json|spool|txt)$/),
+  source: z.string().regex(/^(data|spool|output)\/[0-9]+\.(jsonl|json|spool|txt|toml)$/),
   observed_at: z.iso.datetime(),
   mtime_ns: z.string().regex(/^[0-9]+$/),
 })

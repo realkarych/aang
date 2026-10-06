@@ -1,0 +1,130 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.160.0",
+  "app_version": null,
+  "surface": "codex_tui",
+  "os": "linux",
+  "scenario": "interrupt",
+  "model": "stub",
+  "recorded_at": "2026-10-04T01:21:47.208Z",
+  "expected_facts": [
+    "The TUI runs exec_command `sleep 30`; the user presses Esc while it runs",
+    "The rollout records function_call_output \"aborted by user\" and event_msg turn_aborted with reason interrupted; the Interrupt hook fires and Stop does not",
+    "When the TUI exits, the killed command adds a late item_completed CommandExecution with status failed after turn_aborted"
+  ],
+  "control_events": [
+    {
+      "label": "interrupted",
+      "step": 7,
+      "observed_at": "2026-10-04T01:21:49.031Z",
+      "expected_map_change": {
+        "description": "The user interrupts the turn; the running action stops as interrupted"
+      }
+    },
+    {
+      "label": "turn-aborted",
+      "step": 8,
+      "observed_at": "2026-10-04T01:21:49.040Z",
+      "expected_map_change": {
+        "description": "The turn ends as aborted, not completed"
+      }
+    },
+    {
+      "label": "late-completion",
+      "step": 10,
+      "observed_at": "2026-10-04T01:21:51.048Z",
+      "expected_map_change": {
+        "description": "The aborted command reports its failed completion after turn_aborted; the action stays interrupted and the turn stays aborted"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.jsonl",
+      "observed_at": "2026-10-04T01:21:47.389Z",
+      "mtime_ns": "1791076907378821141"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-04T01:21:47.414Z",
+      "mtime_ns": "1791076907406251244"
+    },
+    {
+      "source": "spool/000003.spool",
+      "observed_at": "2026-10-04T01:21:47.401Z",
+      "mtime_ns": "1791076907401044628"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-04T01:21:47.401Z",
+      "mtime_ns": "1791076907401044628"
+    },
+    {
+      "source": "spool/000005.spool",
+      "observed_at": "2026-10-04T01:21:47.404Z",
+      "mtime_ns": "1791076907404044688"
+    },
+    {
+      "source": "data/000006.json",
+      "observed_at": "2026-10-04T01:21:47.404Z",
+      "mtime_ns": "1791076907404044688"
+    },
+    {
+      "source": "data/000007.jsonl",
+      "observed_at": "2026-10-04T01:21:47.439Z",
+      "mtime_ns": "1791076907421045032"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-04T01:21:47.425Z",
+      "mtime_ns": "1791076907425045113"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-04T01:21:47.425Z",
+      "mtime_ns": "1791076907425045113"
+    },
+    {
+      "source": "data/000010.json",
+      "observed_at": "2026-10-04T01:21:47.476Z",
+      "mtime_ns": "1791076907476000000"
+    },
+    {
+      "source": "data/000011.jsonl",
+      "observed_at": "2026-10-04T01:21:49.040Z",
+      "mtime_ns": "1791076909031077604"
+    },
+    {
+      "source": "spool/000012.spool",
+      "observed_at": "2026-10-04T01:21:49.031Z",
+      "mtime_ns": "1791076909031077604"
+    },
+    {
+      "source": "data/000013.json",
+      "observed_at": "2026-10-04T01:21:49.031Z",
+      "mtime_ns": "1791076909031077604"
+    },
+    {
+      "source": "data/000014.jsonl",
+      "observed_at": "2026-10-04T01:21:51.048Z",
+      "mtime_ns": "1791076911042118289"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-04T01:21:51.047Z",
+      "mtime_ns": "1791076911047118390"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-04T01:21:51.047Z",
+      "mtime_ns": "1791076911047118390"
+    },
+    {
+      "source": "data/000017.json",
+      "observed_at": "2026-10-04T01:21:51.071Z",
+      "mtime_ns": "1791076911071000000"
+    }
+  ],
+  "playback": "playback.json"
+}

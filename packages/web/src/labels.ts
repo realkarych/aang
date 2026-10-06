@@ -12,6 +12,7 @@ import type {
   GapKind,
   HookInstallation,
   HumanDecision,
+  Interpreter,
   NotObservableSurface,
   ObserverState,
   PlanItemStatus,
@@ -21,10 +22,12 @@ import type {
   ServiceAgent,
   SessionLaunch,
   Speaker,
+  StageLifecycle,
+  StageOrigin,
   Surface,
-  SupportKey,
   SupportMode,
   SupportStatus,
+  VersionKey,
   VersionRetention,
 } from '@aang/contract'
 import { clockTime, plural } from './format.js'
@@ -69,6 +72,7 @@ export const supportModeLabel: Readonly<Record<SupportMode, string>> = {
 export const hookInstallationLabel: Readonly<Record<HookInstallation, string>> = {
   not_installed: 'не установлены',
   untrusted: 'не доверены',
+  disabled: 'выключены',
   active: 'установлены',
   unknown: 'установка не проверена',
 }
@@ -110,8 +114,10 @@ export const surfaceLabel: Readonly<Record<Surface, string>> = {
   codex_sdk: 'Codex SDK',
 }
 
-export const supportKeyLabel = (key: SupportKey): string =>
-  `${surfaceLabel[key.surface]} ${key.engine_version}, ${key.os}, ${key.placement}`
+export const supportKeyLabel = ({ runtime, surface, engine_version: version, os, placement }: VersionKey): string =>
+  surface === null
+    ? `${runtimeLabel[runtime]} ${version} (поверхность не определена), ${os}, ${placement}`
+    : `${surfaceLabel[surface]} ${version}, ${os}, ${placement}`
 
 const unavailableReason: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
   auth: 'нет авторизации CLI',
@@ -131,9 +137,17 @@ const disabledReason: Readonly<Record<Extract<ObserverState, { state: 'disabled'
   launcher_unavailable: 'запуск недоступен',
 }
 
-const lagReason: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
-  budget: 'исчерпан бюджет',
-  backlog: 'большая очередь',
+const lagLabel: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
+  budget: 'отстаёт: исчерпан бюджет',
+  backlog: 'догоняющий режим',
+}
+
+export const retryLabel: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
+  auth: 'Следующая проверка авторизации CLI',
+  auth_path_broken: 'Следующая проверка авторизации CLI',
+  limit: 'Следующая проба наблюдателя',
+  transient: 'Следующая проба наблюдателя',
+  process_stuck: 'Следующая проба наблюдателя',
 }
 
 export const observerStateLabel = (state: ObserverState): string => {
@@ -141,7 +155,7 @@ export const observerStateLabel = (state: ObserverState): string => {
     case 'ok':
       return 'работает'
     case 'lagging':
-      return `отстаёт: ${lagReason[state.reason]}`
+      return lagLabel[state.reason]
     case 'backoff':
       return `повтор в ${clockTime(state.until)}, попытка ${String(state.attempt)}`
     case 'unavailable':
@@ -156,6 +170,9 @@ export const basisLabel: Readonly<Record<BasisKind, string>> = {
   claimed: 'заявление решателя',
   interpreted: 'интерпретация aang',
 }
+
+export const interpreterLabel = (interpreter: Interpreter): string =>
+  interpreter.kind === 'rule' ? `правило ${interpreter.rule}` : `наблюдатель, вызов ${interpreter.call}`
 
 export const attentionKindLabel: Readonly<Record<AttentionKind, string>> = {
   question: 'Вопрос',
@@ -233,16 +250,31 @@ export const serviceAgentLabel: Readonly<Record<ServiceAgent, string>> = {
   desktop_summary: 'сводки Desktop',
 }
 
+export const stageOriginLabel: Readonly<Record<StageOrigin, string>> = {
+  plan: 'из плана',
+  inferred: 'восстановлен aang',
+}
+
+export const stageRevisionLabel: Readonly<Record<Exclude<StageLifecycle['state'], 'active'>, string>> = {
+  replaced: 'заменён',
+  merged: 'объединён с другими',
+  split: 'разделён',
+}
+
 export const sessionForms = { one: 'сессия', few: 'сессии', many: 'сессий' } as const
 export const sessionInForms = { one: 'сессии', few: 'сессиях', many: 'сессиях' } as const
 export const agentForms = { one: 'агент', few: 'агента', many: 'агентов' } as const
 export const runForms = { one: 'прогон', few: 'прогона', many: 'прогонов' } as const
 export const runInForms = { one: 'прогоне', few: 'прогонах', many: 'прогонах' } as const
 export const factForms = { one: 'факт', few: 'факта', many: 'фактов' } as const
+export const earlyFactForms = { one: 'ранний факт', few: 'ранних факта', many: 'ранних фактов' } as const
 export const fileForms = { one: 'файл', few: 'файла', many: 'файлов' } as const
 export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
 export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const
 export const stepForms = { one: 'ранний шаг', few: 'ранних шага', many: 'ранних шагов' } as const
+export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
+export const substageForms = { one: 'подэтап', few: 'подэтапа', many: 'подэтапов' } as const
+export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
 
@@ -313,4 +345,3 @@ export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> 
 }
 
 export const changeForms = { one: 'изменение', few: 'изменения', many: 'изменений' } as const
-export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const

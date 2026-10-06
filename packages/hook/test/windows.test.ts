@@ -9,7 +9,7 @@ test.runIf(process.platform === 'win32')(
     const home = await createInstallHome(onTestFinished)
     const originalFiles = await readdir(home.root)
 
-    await expect(codexHooksState({ codexHome: home.codexHome, codex: home.codex })).rejects.toMatchObject({
+    await expect(codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: home.codex })).rejects.toMatchObject({
       reason: 'unsupported_platform',
       message: expect.stringMatching(/Windows.*process.tree/u) as unknown,
     })

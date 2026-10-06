@@ -3,12 +3,13 @@ import { objectId } from '@aang/contract/ids'
 import type { ModelReader } from '@aang/store'
 import { type AgentIdentity, agentIdentity } from '../observations/agents.js'
 import { type Evidence, type ObservationSource, ofKind, sessionEvidence } from '../observations/evidence.js'
-import { isInherited, lineageOf } from '../observations/lineage.js'
+import { isFork, isInherited, lineageOf } from '../observations/lineage.js'
 
 export interface SessionReading {
   readonly session: Session
   readonly own: readonly Evidence[]
   readonly identity: AgentIdentity
+  readonly fork: boolean
 }
 
 export type StageOf = (record: UsageRecord) => StageId | null
@@ -17,9 +18,10 @@ const noActions: ReadonlySet<ActionId> = new Set()
 
 export const readSession = (source: ObservationSource, session: Session): SessionReading => {
   const evidence = sessionEvidence(source, session.key)
-  const inherited = isInherited(lineageOf(source, session.key, evidence))
+  const lineage = lineageOf(source, session.key, evidence)
+  const inherited = isInherited(lineage)
   const own = evidence.filter((item) => !inherited(item))
-  return { session, own, identity: agentIdentity(session.key, own) }
+  return { session, own, identity: agentIdentity(session.key, own), fork: isFork(lineage) }
 }
 
 const addTo = <K, V>(groups: Map<K, Set<V>>, key: K, value: V): void => {

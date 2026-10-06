@@ -2,18 +2,23 @@ import { join } from 'node:path'
 import {
   type Admission,
   type AdmissionOutcome,
+  type ChatMessage,
+  type ChatQuestionRequest,
   type Config,
   EpochNs,
   type ObserverBackendStatus,
   type ObserverState,
   type Run,
+  type RunId,
   type Runtime,
   runtimes,
 } from '@aang/contract'
-import type { ObserverRunStatus } from '@aang/engine'
+import { defaultChatLimits, type ObserverRunStatus } from '@aang/engine'
 import { hookInstallPaths } from '@aang/hook'
 import {
   type AdmissionStatus,
+  type ChatSlot,
+  createChat,
   createClaudeBackend,
   createCodexBackend,
   createObserverScheduler,
@@ -27,12 +32,14 @@ export interface ObserverOptions {
   readonly aangHome: string
   readonly claudeConfigDir: string
   readonly environment: Readonly<Partial<Record<string, string>>>
+  readonly onAccepted: (run: RunId) => void
 }
 
 export interface Observer {
   readonly wake: () => void
   readonly backends: () => ObserverBackendStatus[]
   readonly run: (run: Run) => ObserverRunStatus
+  readonly ask: (run: RunId, request: ChatQuestionRequest) => ChatMessage | null
   readonly subscribe: (listener: () => void) => void
   readonly failure: Promise<unknown>
   readonly close: () => Promise<void>
@@ -144,6 +151,7 @@ export const startObserver = (options: ObserverOptions): Observer => {
         claudeConfigDir,
         budgetTokensPerHour: config.observer.budgetTokensPerHour,
         limits: { inputTokens: config.observer.inputLimitTokens },
+        onAccepted: options.onAccepted,
       })
       running.scheduler = scheduler
       unsubscribes.push(scheduler.subscribe(changed))
@@ -157,6 +165,24 @@ export const startObserver = (options: ObserverOptions): Observer => {
       changed()
     })
     .catch(failure.resolve)
+
+  const slot: ChatSlot = async (work) => {
+    await starting
+    if (running.scheduler === null || running.closed) {
+      throw new Error('the observer is stopping')
+    }
+    return running.scheduler.chat(work)
+  }
+
+  const chat = createChat({
+    store,
+    backends,
+    backend: config.observer.backend,
+    crossVendor: config.observer.crossVendor,
+    slot,
+    limits: { ...defaultChatLimits, inputTokens: config.observer.inputLimitTokens },
+  })
+  void chat.failure.then(failure.resolve)
 
   return {
     wake: () => {
@@ -183,6 +209,7 @@ export const startObserver = (options: ObserverOptions): Observer => {
         isolation_unverified: admitted && warning !== null,
       }
     },
+    ask: chat.ask,
     subscribe: (listener) => {
       listeners.add(listener)
     },
@@ -194,6 +221,7 @@ export const startObserver = (options: ObserverOptions): Observer => {
       await starting
       await Promise.all(checks.values())
       await running.scheduler?.close()
+      await chat.close()
       unsubscribes.forEach((unsubscribe) => {
         unsubscribe()
       })

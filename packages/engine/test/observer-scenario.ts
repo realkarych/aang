@@ -1,8 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import {
   type BacklogSummary,
-  type ChatFocus,
-  ChatInput,
+  type ChatInput,
   ChatOutput,
   type CollapsedFacts,
   type EpochNs,
@@ -10,7 +9,6 @@ import {
   JsonValue,
   type ModelEntity,
   type ModelSnapshot,
-  ModelVersion,
   ObserverCallId,
   type ObserverInput,
   ObserverOutput,
@@ -20,7 +18,13 @@ import {
   type SessionId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import { applyObserverResponse, beginObserverCall, type ObserverResponseResult } from '@aang/engine'
+import {
+  applyObserverResponse,
+  type BatchLimits,
+  beginObserverCall,
+  type ObserverResponseResult,
+  startObserverBatch,
+} from '@aang/engine'
 import type { Store } from '@aang/store'
 import { type ObserverScenarioReply, runScenarioScript } from '@aang/testkit'
 import { factsOf } from './harness.js'
@@ -192,29 +196,27 @@ export const observeBatch = (
   return { input, output: ObserverOutput.parse(output), result }
 }
 
-export const chatInput = (store: Store, run: RunId, question: string, focus: ChatFocus): ChatInput =>
-  ChatInput.parse({
-    question,
-    history: [],
-    run: runDescription(store, run),
-    model: modelSnapshot(store, run),
-    focus,
-    materials: [],
-  })
+const queuedLimits: BatchLimits = { facts: 1_000, bytes: 10_000_000, textLength: 4_000, inputTokens: 1_000_000 }
 
-export const runFocus = (store: Store, run: RunId): ChatFocus => ({
-  kind: 'run',
-  attention: modelSnapshot(store, run).attention,
-  recent_changes: store.model.changes(run, ModelVersion.parse(0)).map((change) => ({
-    version: change.version,
-    op: change.op,
-    author: change.author,
-    target: change.target,
-    before: jsonOf(change.before),
-    after: jsonOf(change.after),
-    evidence: change.evidence,
-  })),
-})
+export const observeQueued = (
+  store: Store,
+  run: RunId,
+  backend: Runtime,
+  reply: ObserverScenarioReply | undefined,
+  at: EpochNs,
+  facts = queuedLimits.facts,
+): ObservedCall => {
+  const id = ObserverCallId.parse(randomUUID())
+  const input = store.transaction((transaction) =>
+    startObserverBatch(transaction, { run, backend, crossVendor: false, id, at, limits: { ...queuedLimits, facts } }),
+  )
+  if (input === null) {
+    throw new Error(`run ${run} has no pending facts to observe`)
+  }
+  const output = runScenarioScript(scriptOf(reply), jsonOf(input))
+  const result = store.transaction((transaction) => applyObserverResponse(transaction, { call: id, output, at }))
+  return { input, output: ObserverOutput.parse(output), result }
+}
 
 export const answerChat = (reply: ObserverScenarioReply | undefined, input: ChatInput): ChatOutput =>
   ChatOutput.parse(runScenarioScript(scriptOf(reply), jsonOf(input)))

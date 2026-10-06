@@ -11,12 +11,12 @@ import type {
   RunSnapshot,
   Session,
 } from '@aang/contract'
-import { type ReactElement, Suspense, use, useId, useState } from 'react'
+import { Fragment, type ReactElement, Suspense, use, useId, useState } from 'react'
 import { actionInput } from './action-input.js'
 import { ActionBadge, DecisionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { absoluteTime, clockTime, dayTime, duration, plural } from './format.js'
+import { useGeneration } from './generation.js'
 import {
-  agentRoleLabel,
   launchLabel,
   questionKindLabel,
   runtimeLabel,
@@ -26,7 +26,7 @@ import {
 } from './labels.js'
 import { LongText } from './long-text.js'
 import { Moment } from './moment.js'
-import { agentTitle, sessionTitle, shortSession } from './objects.js'
+import { agentRole, agentTitle, sessionTitle, shortSession } from './objects.js'
 
 type Step =
   | { readonly kind: 'action'; readonly action: Action }
@@ -111,7 +111,8 @@ const agentTrees = (
 }
 
 const InputText = ({ fact, now }: { readonly fact: FactId; readonly now: bigint }): ReactElement | null => {
-  const input = use(actionInput(fact, now))
+  const { inputs } = useGeneration()
+  const input = use(actionInput(inputs, fact, now))
   if (input === null || (input.detail === null && input.description === null)) {
     return null
   }
@@ -144,6 +145,18 @@ const StepTime = ({
     </time>
   )
 
+const ToolName = ({ tool }: { readonly tool: string }): ReactElement => (
+  <>
+    {tool.split('/').map((part, index) => (
+      <Fragment key={index}>
+        {index === 0 ? null : '/'}
+        {index === 0 ? null : <wbr />}
+        {part}
+      </Fragment>
+    ))}
+  </>
+)
+
 const ActionStep = ({ action, now }: { readonly action: Action; readonly now: bigint }): ReactElement => {
   const step: Step = { kind: 'action', action }
   return (
@@ -151,7 +164,9 @@ const ActionStep = ({ action, now }: { readonly action: Action; readonly now: bi
       <span className="step-state">
         <ActionBadge action={action} />
       </span>
-      <span className="step-tool">{action.tool}</span>
+      <span className="step-tool" title={action.tool}>
+        <ToolName tool={action.tool} />
+      </span>
       <span className="step-body">
         {action.input_fact === null ? null : (
           <Suspense fallback={null}>
@@ -176,7 +191,7 @@ const QuestionStep = ({
 }): ReactElement => (
   <li className="step" data-kind="question">
     <span className="step-state">
-      <DecisionBadge decision={question.decision} />
+      <DecisionBadge decision={question.decision.value} basis={question.decision.basis} />
     </span>
     <span className="step-tool">{questionKindLabel[question.kind]}</span>
     <span className="step-body">{text === null ? null : <LongText text={text} className="step-question" />}</span>
@@ -248,7 +263,7 @@ const AgentNode = ({
         <span id={name} className="agent-name">
           {title}
         </span>
-        {agent.role === 'main' ? null : <span className="agent-role">{agentRoleLabel[agent.role]}</span>}
+        {agent.role === 'main' ? null : <span className="agent-role">{agentRole(agent)}</span>}
         <ExecutionBadge execution={agent.execution} />
       </div>
       {agent.description === null ? null : <p className="agent-description">{agent.description}</p>}
@@ -305,7 +320,7 @@ const SessionHead = ({
     </p>
     {session.launches.length === 0 ? null : (
       <p className="session-launches">
-        {session.launches.map(({ launch, at }) => `${launchLabel[launch]} ${dayTime(at)}`).join(', ')}
+        {[...new Set(session.launches.map(({ launch, at }) => `${launchLabel[launch]} ${dayTime(at)}`))].join(', ')}
       </p>
     )}
   </header>

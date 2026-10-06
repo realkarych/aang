@@ -12,7 +12,7 @@ import {
   type StageId,
   type StageInspector,
   type StreamKey,
-  type TokenUsage,
+  type ThreadTotal,
   type UsageRecord,
   type UsageTotals,
 } from '@aang/contract'
@@ -21,7 +21,9 @@ import type { FactReader, ModelReader, Observation, ObservationReader, RawRecord
 import { byTime, compareText, type Evidence, grouped, type KindEvidence, ofKind } from '../observations/evidence.js'
 import { byAccumulation, lastCostState } from '../observations/usage.js'
 import { assignedStages, readSession, type SessionReading, stageAttribution, type StageOf } from './attribution.js'
+import { hoursOf, type UsagePeriod, within, wholeTime } from './period.js'
 import { activeMs, isActivity, runTime, type RunTime } from './time.js'
+import { addTokens, noTokens } from './totals.js'
 
 export interface UsageSource {
   readonly observations: ObservationReader
@@ -32,6 +34,7 @@ export interface UsageSource {
 
 export interface SolverUsageOptions {
   readonly pauseAfterMs?: number
+  readonly period?: UsagePeriod
 }
 
 export interface AgentUsage {
@@ -46,6 +49,7 @@ export interface SolverUsage {
   readonly journal: RunUsage['solver']
   readonly agents: readonly AgentUsage[]
   readonly time: RunTime
+  readonly active_hours: readonly number[]
 }
 
 export type StageUsage = StageInspector['usage']
@@ -82,25 +86,6 @@ const defaultPauseAfterMs = 300_000
 const pageSize = 256
 
 const everything = ChangeSeq.parse(0)
-
-const noTokens: TokenUsage = {
-  uncached_input_tokens: 0,
-  cache_read_input_tokens: 0,
-  cache_write_input_tokens: 0,
-  output_tokens: 0,
-  reasoning_output_tokens: null,
-}
-
-const addTokens = (sum: TokenUsage, tokens: TokenUsage): TokenUsage => ({
-  uncached_input_tokens: sum.uncached_input_tokens + tokens.uncached_input_tokens,
-  cache_read_input_tokens: sum.cache_read_input_tokens + tokens.cache_read_input_tokens,
-  cache_write_input_tokens: sum.cache_write_input_tokens + tokens.cache_write_input_tokens,
-  output_tokens: sum.output_tokens + tokens.output_tokens,
-  reasoning_output_tokens:
-    tokens.reasoning_output_tokens === null
-      ? sum.reasoning_output_tokens
-      : (sum.reasoning_output_tokens ?? 0) + tokens.reasoning_output_tokens,
-})
 
 export const usageTotals = (records: readonly UsageRecord[]): UsageTotals => ({
   tokens: records.reduce((sum, { tokens }) => addTokens(sum, tokens), noTokens),
@@ -242,16 +227,24 @@ const costStateFinal = (rawRecords: RawRecordReader, own: readonly Evidence[]): 
   return !continued && launchedBy(starts, ended.slice(1))
 }
 
+const threadTotals = (agents: readonly Agent[], session: SessionId): ThreadTotal[] =>
+  agents.flatMap(({ id, session: owner, thread_total: tokens }) =>
+    owner === session && tokens !== null ? [{ agent: id, tokens }] : [],
+  )
+
 const sessionUsage = (
   rawRecords: RawRecordReader,
   session: Session,
   records: readonly UsageRecord[],
+  agents: readonly Agent[],
   reading: SessionReading | undefined,
 ): SessionUsage => ({
   session: session.id,
+  fork: reading?.fork ?? false,
   totals: usageTotals(records.filter((record) => record.session === session.id)),
   cost_state: session.cost_state,
   cost_state_final: session.cost_state !== null && costStateFinal(rawRecords, reading?.own ?? []),
+  thread_totals: threadTotals(agents, session.id),
 })
 
 const agentFacts = (readings: ReadonlyMap<string, SessionReading>): Map<string, Evidence[]> => {
@@ -294,11 +287,16 @@ const byStage = (records: readonly UsageRecord[], stageOf: StageOf): Map<StageId
 export const solverUsage = (
   source: UsageSource,
   run: RunId,
-  { pauseAfterMs = defaultPauseAfterMs }: SolverUsageOptions = {},
+  { pauseAfterMs = defaultPauseAfterMs, period = wholeTime }: SolverUsageOptions = {},
 ): SolverUsage => {
-  const { sessions, agents, records, readings, stageOf } = observationsOf(source, run)
+  const { sessions, agents, records: all, readings, stageOf } = observationsOf(source, run)
+  const records = all.filter(({ at }) => within(period, at))
   const stages = byStage(records, stageOf)
   const facts = agentFacts(readings)
+  const inPeriod = ({ fact }: Evidence): boolean => within(period, fact.at)
+  const activity = [...readings.values()].flatMap(({ own }) =>
+    own.filter((item) => isActivity(item) && inPeriod(item)).map(({ fact }) => fact.at),
+  )
   return {
     run,
     journal: {
@@ -307,13 +305,13 @@ export const solverUsage = (
         .flatMap(([stage, members]) => (stage === null ? [] : [{ stage, totals: usageTotals(members) }]))
         .sort((left, right) => compareText(left.stage, right.stage)),
       unassigned: usageTotals(stages.get(null) ?? []),
-      sessions: sessions.map((session) => sessionUsage(source.rawRecords, session, records, readings.get(session.id))),
+      sessions: sessions.map((session) =>
+        sessionUsage(source.rawRecords, session, records, agents, readings.get(session.id)),
+      ),
     },
-    agents: agents.map((agent) => agentUsage(agent, records, facts.get(agent.id) ?? [])),
-    time: runTime(
-      [...readings.values()].flatMap(({ own }) => own.filter(isActivity).map(({ fact }) => fact.at)),
-      pauseAfterMs,
-    ),
+    agents: agents.map((agent) => agentUsage(agent, records, (facts.get(agent.id) ?? []).filter(inPeriod))),
+    time: runTime(activity, pauseAfterMs),
+    active_hours: hoursOf(activity),
   }
 }
 

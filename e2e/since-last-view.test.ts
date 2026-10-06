@@ -717,7 +717,7 @@ test.describe('with the observer', () => {
       await profile.configure({
         ...config,
         collector: { rootsScanIntervalMs: 250, spoolScanIntervalMs: 250 },
-        cli: { claude: fakeClaude.command },
+        cli: { claude: fakeClaude.path },
         api: { port: daemon.api.port },
       })
       const restarted = await profile.startDaemon({ entry: aangEntry })
