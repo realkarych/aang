@@ -68,6 +68,8 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   usage_total: 'Итог расхода',
   cost_state: 'Итог Claude Code',
   instructions_loaded: 'Загружены инструкции',
+  hook_run: 'Hook решателя',
+  definition_listing: 'Перечень определений',
   queue_operation: 'Очередь промптов',
   runtime_error: 'Ошибка рантайма',
   runtime_event: 'Событие рантайма',
