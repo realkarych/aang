@@ -1,0 +1,182 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "claude",
+  "engine_version": "2.1.289",
+  "app_version": null,
+  "surface": "claude_cli",
+  "os": "macos",
+  "scenario": "agents-flag",
+  "model": "stub",
+  "recorded_at": "2026-10-05T22:14:19.484Z",
+  "expected_facts": [
+    "The session defines the agent notes-checker for this run only: --agents on the CLI, the agents option of query() in the SDK; the agent listing describes it",
+    "The root session starts the notes-checker subagent, which runs one Bash action that prints checked and reports back",
+    "The meta file and the SubagentStart hook of the subagent carry the type notes-checker"
+  ],
+  "control_events": [
+    {
+      "label": "flag-agent-started",
+      "step": 3,
+      "observed_at": "2026-10-05T22:14:19.782Z",
+      "expected_map_change": {
+        "description": "The root session starts the subagent notes-checker, defined for this run only"
+      }
+    },
+    {
+      "label": "flag-agent-finished",
+      "step": 10,
+      "observed_at": "2026-10-05T22:14:19.858Z",
+      "expected_map_change": {
+        "description": "The subagent notes-checker finishes its Bash action; the child agent is shown with the definition passed for the run"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "data/000001.json",
+      "observed_at": "2026-10-05T22:14:19.754Z",
+      "mtime_ns": "1791238459747273627"
+    },
+    {
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-05T22:14:19.736Z",
+      "mtime_ns": "1791238459736269172"
+    },
+    {
+      "source": "data/000003.json",
+      "observed_at": "2026-10-05T22:14:19.736Z",
+      "mtime_ns": "1791238459736269172"
+    },
+    {
+      "source": "spool/000004.spool",
+      "observed_at": "2026-10-05T22:14:19.755Z",
+      "mtime_ns": "1791238459755778717"
+    },
+    {
+      "source": "data/000005.json",
+      "observed_at": "2026-10-05T22:14:19.755Z",
+      "mtime_ns": "1791238459755778717"
+    },
+    {
+      "source": "data/000006.json",
+      "observed_at": "2026-10-05T22:14:19.805Z",
+      "mtime_ns": "1791238459795922344"
+    },
+    {
+      "source": "spool/000007.spool",
+      "observed_at": "2026-10-05T22:14:19.782Z",
+      "mtime_ns": "1791238459782903273"
+    },
+    {
+      "source": "data/000008.json",
+      "observed_at": "2026-10-05T22:14:19.782Z",
+      "mtime_ns": "1791238459782903273"
+    },
+    {
+      "source": "spool/000009.spool",
+      "observed_at": "2026-10-05T22:14:19.790Z",
+      "mtime_ns": "1791238459790941532"
+    },
+    {
+      "source": "data/000010.json",
+      "observed_at": "2026-10-05T22:14:19.790Z",
+      "mtime_ns": "1791238459790941532"
+    },
+    {
+      "source": "spool/000011.spool",
+      "observed_at": "2026-10-05T22:14:19.801Z",
+      "mtime_ns": "1791238459801990361"
+    },
+    {
+      "source": "data/000012.json",
+      "observed_at": "2026-10-05T22:14:19.801Z",
+      "mtime_ns": "1791238459801990361"
+    },
+    {
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-05T22:14:19.829Z",
+      "mtime_ns": "1791238459829273500"
+    },
+    {
+      "source": "data/000014.json",
+      "observed_at": "2026-10-05T22:14:19.829Z",
+      "mtime_ns": "1791238459829273500"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-05T22:14:19.833Z",
+      "mtime_ns": "1791238459833435608"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-05T22:14:19.833Z",
+      "mtime_ns": "1791238459833435608"
+    },
+    {
+      "source": "spool/000017.spool",
+      "observed_at": "2026-10-05T22:14:19.841Z",
+      "mtime_ns": "1791238459841460991"
+    },
+    {
+      "source": "data/000018.json",
+      "observed_at": "2026-10-05T22:14:19.841Z",
+      "mtime_ns": "1791238459841460991"
+    },
+    {
+      "source": "data/000019.jsonl",
+      "observed_at": "2026-10-05T22:14:19.883Z",
+      "mtime_ns": "1791238459858196215"
+    },
+    {
+      "source": "data/000020.jsonl",
+      "observed_at": "2026-10-05T22:14:19.884Z",
+      "mtime_ns": "1791238459876835513"
+    },
+    {
+      "source": "spool/000021.spool",
+      "observed_at": "2026-10-05T22:14:19.858Z",
+      "mtime_ns": "1791238459858117132"
+    },
+    {
+      "source": "data/000022.json",
+      "observed_at": "2026-10-05T22:14:19.858Z",
+      "mtime_ns": "1791238459858117132"
+    },
+    {
+      "source": "spool/000023.spool",
+      "observed_at": "2026-10-05T22:14:19.862Z",
+      "mtime_ns": "1791238459862277114"
+    },
+    {
+      "source": "data/000024.json",
+      "observed_at": "2026-10-05T22:14:19.862Z",
+      "mtime_ns": "1791238459862277114"
+    },
+    {
+      "source": "spool/000025.spool",
+      "observed_at": "2026-10-05T22:14:19.872Z",
+      "mtime_ns": "1791238459872127241"
+    },
+    {
+      "source": "data/000026.json",
+      "observed_at": "2026-10-05T22:14:19.872Z",
+      "mtime_ns": "1791238459872127241"
+    },
+    {
+      "source": "spool/000027.spool",
+      "observed_at": "2026-10-05T22:14:19.879Z",
+      "mtime_ns": "1791238459879526127"
+    },
+    {
+      "source": "data/000028.json",
+      "observed_at": "2026-10-05T22:14:19.879Z",
+      "mtime_ns": "1791238459879526127"
+    },
+    {
+      "source": "output/000029.txt",
+      "observed_at": "2026-10-05T22:14:19.911Z",
+      "mtime_ns": "1791238459911000000"
+    }
+  ],
+  "playback": "playback.json"
+}
