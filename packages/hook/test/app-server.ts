@@ -17,6 +17,7 @@ export interface AppServerScenario {
 
 export interface AppServerCall {
   readonly pid: number
+  readonly ppid: number
   readonly argv: readonly string[]
   readonly cwd: string
   readonly codexHome: string

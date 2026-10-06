@@ -2,7 +2,6 @@ import { spawn } from 'node:child_process'
 import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { delimiter, dirname, isAbsolute, join, resolve } from 'node:path'
-import { setTimeout as sleep } from 'node:timers/promises'
 import { z } from 'zod'
 import { HookInstallError } from './errors.js'
 import { isErrorCode } from './files.js'
@@ -88,16 +87,7 @@ const groupEmpty = (pid: number): boolean => {
   }
 }
 
-const treeStopped = async (confirmed: () => boolean): Promise<boolean> => {
-  const deadline = Date.now() + treeStopTimeoutMs
-  while (!confirmed()) {
-    if (Date.now() >= deadline) {
-      return false
-    }
-    await sleep(treeStopPollMs)
-  }
-  return true
-}
+const unconfirmedTrees = new Map<symbol, string>()
 
 const failure = (message: string, cause?: unknown): HookInstallError =>
   new HookInstallError('codex_app_server', `codex app-server: ${message}`, { cause })
@@ -141,6 +131,10 @@ export const listCodexHooks = (
       return
     }
     const home = resolve(codexHome)
+    if ([...unconfirmedTrees.values()].includes(home)) {
+      reject(failure('the previous app-server process tree is not confirmed stopped'))
+      return
+    }
     const command = windows ? windowsExecutable(codex.command) : codex.command
     const args = [...(codex.args ?? []), 'app-server']
     const statusPath = windows ? join(mkdtempSync(join(tmpdir(), 'aang-app-server-')), 'status.json') : ''
@@ -154,6 +148,13 @@ export const listCodexHooks = (
     let requestId = 1
     let outcome: { readonly value: CodexHookListing } | { readonly error: HookInstallError } | undefined
     let terminated = false
+    let exited = false
+    let closed = false
+    let exit: number | NodeJS.Signals | null = null
+    let stopRequestedAt: number | undefined
+    let stopWatch: NodeJS.Timeout | undefined
+    let settled = false
+    const call = Symbol(home)
 
     const terminate = (): void => {
       if (terminated) {
@@ -182,13 +183,94 @@ export const listCodexHooks = (
       terminated = true
     }
 
+    const stopState = (): 'confirmed' | 'pending' | 'lost' => {
+      if (child.pid === undefined) {
+        return 'confirmed'
+      }
+      if (!windows) {
+        return exited && groupEmpty(child.pid) ? 'confirmed' : 'pending'
+      }
+      if (readLauncherStatus(statusPath) !== undefined) {
+        return 'confirmed'
+      }
+      return exited ? 'lost' : 'pending'
+    }
+
+    const detach = (): void => {
+      child.stdin.destroy()
+      child.stdout.destroy()
+      child.stderr.destroy()
+    }
+
+    const release = (): void => {
+      clearInterval(stopWatch)
+      detach()
+      if (windows) {
+        rmSync(dirname(statusPath), { recursive: true, force: true })
+      }
+    }
+
+    const settle = (unconfirmed?: string): void => {
+      if (settled) {
+        return
+      }
+      settled = true
+      clearTimeout(timer)
+      signal?.removeEventListener('abort', cancel)
+      const launched = windows ? readLauncherStatus(statusPath) : undefined
+      if (unconfirmed !== undefined) {
+        reject(failure(unconfirmed))
+      } else if (launched?.outcome === 'not_started') {
+        reject(failure(`could not start ${codex.command} (${launched.step}): ${launched.error}`))
+      } else if (outcome === undefined) {
+        const code = launched?.exit_code ?? exit
+        reject(failure(`exited before hooks/list completed (${String(code)})${stderr === '' ? '' : `: ${stderr.trim()}`}`))
+      } else if ('error' in outcome) {
+        reject(outcome.error)
+      } else {
+        complete(outcome.value)
+      }
+    }
+
+    const watchStop = (): void => {
+      if (stopRequestedAt === undefined) {
+        return
+      }
+      terminate()
+      const state = stopState()
+      const expired = Date.now() - stopRequestedAt >= treeStopTimeoutMs
+      if (state === 'confirmed' && (closed || expired || settled)) {
+        unconfirmedTrees.delete(call)
+        settle()
+        release()
+      } else if (state === 'lost') {
+        unconfirmedTrees.set(call, home)
+        settle('the launcher exited without confirming that the app-server process tree stopped')
+        release()
+      } else if (state === 'pending' && expired && !settled) {
+        unconfirmedTrees.set(call, home)
+        settle('the app-server process tree did not stop')
+        stopWatch?.unref()
+        child.unref()
+        detach()
+      }
+    }
+
+    const requestStop = (): void => {
+      clearTimeout(timer)
+      terminate()
+      if (stopRequestedAt === undefined) {
+        stopRequestedAt = Date.now()
+        stopWatch = setInterval(watchStop, treeStopPollMs)
+      }
+    }
+
     const stop = (result: NonNullable<typeof outcome>): void => {
       if (outcome !== undefined) {
         return
       }
       outcome = result
-      clearTimeout(timer)
-      terminate()
+      requestStop()
       child.stdin.destroy()
     }
     const fail = (message: string, cause?: unknown): void => {
@@ -261,30 +343,16 @@ export const listCodexHooks = (
         }
       }
     })
-    const stopConfirmed = (): boolean =>
-      child.pid === undefined || (windows ? readLauncherStatus(statusPath) !== undefined : groupEmpty(child.pid))
-    child.on('close', (code, exitSignal) => {
-      clearTimeout(timer)
-      signal?.removeEventListener('abort', cancel)
-      terminate()
-      void treeStopped(stopConfirmed).then((stopped) => {
-        const launched = windows ? readLauncherStatus(statusPath) : undefined
-        if (windows) {
-          rmSync(dirname(statusPath), { recursive: true, force: true })
-        }
-        if (!stopped) {
-          reject(failure('the app-server process tree did not stop'))
-        } else if (launched?.outcome === 'not_started') {
-          reject(failure(`could not start ${codex.command} (${launched.step}): ${launched.error}`))
-        } else if (outcome === undefined) {
-          const exit = launched?.exit_code ?? code ?? exitSignal
-          reject(failure(`exited before hooks/list completed (${String(exit)})${stderr === '' ? '' : `: ${stderr.trim()}`}`))
-        } else if ('error' in outcome) {
-          reject(outcome.error)
-        } else {
-          complete(outcome.value)
-        }
-      })
+    child.on('exit', (code, exitSignal) => {
+      exited = true
+      exit = code ?? exitSignal
+      requestStop()
+      watchStop()
+    })
+    child.on('close', () => {
+      closed = true
+      requestStop()
+      watchStop()
     })
     send({
       id: requestId,

@@ -1,4 +1,4 @@
-import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
+import { type ChildProcessWithoutNullStreams, execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { existsSync } from 'node:fs'
 import { mkdir, mkdtemp, readdir, readFile, realpath, rm } from 'node:fs/promises'
@@ -7,6 +7,7 @@ import { join } from 'node:path'
 import type { Writable } from 'node:stream'
 import { setTimeout } from 'node:timers/promises'
 import { fileURLToPath } from 'node:url'
+import { promisify } from 'node:util'
 import { inject, type TestContext } from 'vitest'
 import { hookEnvironment } from './hook.js'
 
@@ -45,6 +46,23 @@ export const isAlive = (pid: number): boolean => {
     return error instanceof Error && 'code' in error && error.code === 'EPERM'
   }
 }
+
+const windowsProcessControl = (pid: number, operation: 'NtSuspendProcess' | 'NtResumeProcess'): string =>
+  [
+    "$signature = '[DllImport(\"ntdll.dll\")] public static extern int NtSuspendProcess(IntPtr handle); [DllImport(\"ntdll.dll\")] public static extern int NtResumeProcess(IntPtr handle);'",
+    '$ntdll = Add-Type -MemberDefinition $signature -Name Ntdll -Namespace AangHookTest -PassThru',
+    `$process = [System.Diagnostics.Process]::GetProcessById(${String(pid)})`,
+    `$status = $ntdll::${operation}($process.Handle)`,
+    'if ($status -ne 0) { exit 1 }',
+  ].join('; ')
+
+const controlWindowsProcess = async (pid: number, operation: 'NtSuspendProcess' | 'NtResumeProcess'): Promise<void> => {
+  await promisify(execFile)('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', windowsProcessControl(pid, operation)], { windowsHide: true })
+}
+
+export const suspendWindowsProcess = (pid: number): Promise<void> => controlWindowsProcess(pid, 'NtSuspendProcess')
+
+export const resumeWindowsProcess = (pid: number): Promise<void> => controlWindowsProcess(pid, 'NtResumeProcess')
 
 export const waitUntil = async (condition: () => boolean, timeoutMs = 20_000): Promise<void> => {
   const deadline = Date.now() + timeoutMs
