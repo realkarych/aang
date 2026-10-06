@@ -1,9 +1,9 @@
 import type { Dirent } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { lstat, readdir, readFile, stat } from 'node:fs/promises'
+import { extname, join, relative } from 'node:path'
 import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang/testkit'
 import { filesIn, isMissing } from './files.js'
-import type { Artifact, ControlEvent } from './schema.js'
+import { type Artifact, type ControlEvent, Segment } from './schema.js'
 
 export type ControlTarget = (
   | (Target & { readonly contains?: string })
@@ -26,6 +26,7 @@ export interface Capture {
   readonly controlEvents: ControlEvent[]
   readonly scan: (final?: boolean) => Promise<void>
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
+  readonly keep: (target: Target) => Promise<void>
   readonly output: (text: string) => void
   readonly otlp: (body: string, receivedAt: number) => void
   readonly created: () => Promise<CreatedEntries>
@@ -109,6 +110,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   const controlEvents: ControlEvent[] = []
   const contents = new Map<string, Buffer>()
   const targets = new Map<string, Target>()
+  const kept = new Map<string, Target>()
   const hooks = new Set<string>()
   const at = (): number => Math.max(0, Date.now() - started)
   const add = (content: string, directory: string, extension: string, mtime: bigint, observed: number): string => {
@@ -206,6 +208,21 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
         targets.set(file, target)
       }
     }
+    for (const [file, target] of kept) {
+      const result = await Promise.all([readFile(file), stat(file, { bigint: true })]).catch((error: unknown) => {
+        if (isMissing(error)) return undefined
+        throw error
+      })
+      if (result === undefined) continue
+      const [bytes, info] = result
+      present.add(file)
+      if (contents.get(file)?.equals(bytes)) continue
+      const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      const observed = at()
+      steps.push({ kind: 'write', at: observed, target, source: add(content, 'data', extname(file).slice(1), info.mtimeNs, observed) })
+      contents.set(file, bytes)
+      targets.set(file, target)
+    }
     for (const [file, target] of targets) {
       if (!present.has(file)) {
         steps.push({ kind: 'remove', at: at(), target })
@@ -267,6 +284,16 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   }
   return {
     artifacts, steps, controlEvents, scan, created,
+    keep: async (target) => {
+      const segments = target.path.split('/')
+      if (!target.path.endsWith('.toml') || !segments.every((segment) => Segment.safeParse(segment).success)) {
+        throw new Error('A kept file must be a TOML file inside its root')
+      }
+      const file = join(roots[target.root], ...segments)
+      if (!(await lstat(file)).isFile()) throw new Error('A kept file must be a regular file')
+      kept.set(file, target)
+      await scan(true)
+    },
     checkpoint: async (label, target, expectedMapChange) => {
       await scan(true)
       const content = (step: PlayerStep): string | undefined => 'source' in step ? artifacts.find((artifact) => artifact.source === step.source)?.content : undefined

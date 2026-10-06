@@ -24,6 +24,8 @@ export const observerScenarios = {
   'claimed-done': { live: phase([script('claimed-done')]) },
   'attention-zone': { live: phase([script('attention')]) },
   'since-last-view': { before: phase([script('map')]), after: phase([script('revision')]) },
+  report: { live: phase([script('report')]) },
+  'rejected-answer': { live: phase([script('map'), script('rejected'), script('map')]) },
   'stage-succession': {
     live: phase([script('map')]),
     revised: phase([script('revision')]),

@@ -17,6 +17,7 @@ import {
 } from '@aang/contract'
 import type { Store } from '@aang/store'
 import { z } from 'zod'
+import { recordType } from './record-types.js'
 import { mapIds } from './references.js'
 
 export type SnapshotValue = null | boolean | number | string | readonly SnapshotValue[] | { readonly [key: string]: SnapshotValue }
@@ -63,27 +64,6 @@ const marked = (schema: z.ZodType, items: readonly unknown[]): unknown[] =>
   items.map((item) => mapIds(schema, item, (id) => new Reference(id), ''))
 
 const omittedKeys = new Set(['change_seq'])
-
-const textOf = (value: unknown): string | null => (typeof value === 'string' ? value : null)
-
-const recordType = (record: RawRecord): string => {
-  let payload: unknown
-  try {
-    payload = JSON.parse(record.payload)
-  } catch {
-    return '-'
-  }
-  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
-    return '-'
-  }
-  const fields = payload as Readonly<Record<string, unknown>>
-  const nested = fields.payload
-  const detail =
-    textOf(fields.subtype) ??
-    (typeof nested === 'object' && nested !== null && !Array.isArray(nested) ? textOf((nested as Readonly<Record<string, unknown>>).type) : null)
-  const name = textOf(fields.hook_event_name) ?? textOf(fields.type) ?? '-'
-  return detail === null ? name : `${name}:${detail}`
-}
 
 const recordCounts = (records: readonly RawRecord[]): RecordCount[] => {
   const counts = new Map<string, RecordCount>()

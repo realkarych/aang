@@ -48,7 +48,7 @@ interface MapPlan {
   readonly ops: ObserverOp[]
   readonly root: StageRef
   readonly criterion: CriterionRef | null
-  readonly delegatedStages: StageRef[]
+  readonly agentStages: ReadonlyMap<AgentId, StageRef>
 }
 
 interface Layout {
@@ -165,6 +165,9 @@ export const createStage = (
   rationale: 'Work observed in the run',
 })
 
+const stageOfFact = (fact: InputFact, root: StageRef, agentStages: ReadonlyMap<AgentId, StageRef>): StageRef =>
+  (fact.agent === null ? undefined : agentStages.get(fact.agent)) ?? root
+
 const assignments = (input: ObserverInput, place: (fact: InputFact) => StageRef): ObserverOpOf<'actions.assign'>[] => {
   const groups = new Map<StageRef, { actions: Set<ActionId>; facts: FactId[] }>()
   for (const fact of input.batch.facts) {
@@ -232,16 +235,14 @@ export const planMap = (
     agentStages.set(agent.id, stage)
   })
   const layout = arrange(root)
-  const stageOf = (fact: InputFact): StageRef =>
-    layout.place(fact) ?? (fact.agent === null ? undefined : agentStages.get(fact.agent)) ?? root
+  const stageOf = (fact: InputFact): StageRef => layout.place(fact) ?? stageOfFact(fact, root, agentStages)
   ops.push(...layout.ops, ...assignments(input, stageOf), ...briefUpdate(input))
-  const delegatedStages = [...agentStages.values()]
   const knownCriterion = input.model.criteria.find(({ text }) => text === goalCriterionText)
   if (knownCriterion !== undefined) {
-    return { ops, root, criterion: { kind: 'existing', id: knownCriterion.id }, delegatedStages }
+    return { ops, root, criterion: { kind: 'existing', id: knownCriterion.id }, agentStages }
   }
   if (rootTitle !== mainStageTitle || existingRoot !== undefined) {
-    return { ops, root, criterion: null, delegatedStages }
+    return { ops, root, criterion: null, agentStages }
   }
   ops.push({
     op: 'criterion.add',
@@ -252,7 +253,7 @@ export const planMap = (
     evidence,
     rationale: 'The run is done when its goal is reached',
   })
-  return { ops, root, criterion: { kind: 'new', temp_id: temp('goal') }, delegatedStages }
+  return { ops, root, criterion: { kind: 'new', temp_id: temp('goal') }, agentStages }
 }
 
 const output = (input: ObserverInput, ops: ObserverOp[]): ObserverOutput => ({
@@ -283,6 +284,38 @@ export const claimedDoneScript = (input: ObserverInput): ObserverOutput => {
     })
   }
   return output(input, [...ops, ...done])
+}
+
+export const reportScript = (input: ObserverInput): ObserverOutput => {
+  const { ops, root, agentStages } = planMap(input, mainStageTitle)
+  const links = input.batch.artifact_versions.flatMap((version): ObserverOpOf<'artifact.link'>[] => {
+    const facts = input.batch.facts.filter(({ action }) => action !== null && action === version.produced_by)
+    const [producer] = facts
+    return version.ref.kind !== 'file' || producer === undefined
+      ? []
+      : [
+          {
+            op: 'artifact.link',
+            stage: stageOfFact(producer, root, agentStages),
+            version: version.id,
+            direction: 'output',
+            evidence: facts.map(({ id }) => id),
+            rationale: 'The action produced this file',
+          },
+        ]
+  })
+  return output(input, [...ops, ...links])
+}
+
+export const rejectedScript = (input: ObserverInput): ObserverOutput => {
+  const main = stageTitled(input, mainStageTitle)
+  if (main === undefined) {
+    return mapScript(input)
+  }
+  const stage: StageRef = { kind: 'existing', id: main.id }
+  return output(input, [
+    { op: 'stage.nest', stage, parent: stage, evidence: sentFacts(input), rationale: 'The main work is nested under itself' },
+  ])
 }
 
 export const revisionScript = (input: ObserverInput): ObserverOutput => {
@@ -446,7 +479,7 @@ export const mapLayoutScript = (input: ObserverInput): ObserverOutput => {
   const known = stageTitled(input, preparationStageTitle)
   const preparation: StageRef =
     known === undefined ? { kind: 'new', temp_id: temp('preparation') } : { kind: 'existing', id: known.id }
-  const { ops, root, delegatedStages } = planMap(input, mainStageTitle, (parent) => ({
+  const { ops, root, agentStages } = planMap(input, mainStageTitle, (parent) => ({
     ops:
       known === undefined && preparing.length > 0
         ? [createStage('preparation', preparationStageTitle, null, parent, preparing.map(({ id }) => id))]
@@ -456,7 +489,7 @@ export const mapLayoutScript = (input: ObserverInput): ObserverOutput => {
   return output(input, [
     ...ops,
     ...preparationDone(input, preparation, preparing),
-    ...reportOps(input, root, delegatedStages),
+    ...reportOps(input, root, [...agentStages.values()]),
   ])
 }
 

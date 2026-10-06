@@ -15,6 +15,7 @@ import { Fragment, type ReactElement, Suspense, use, useId, useState } from 'rea
 import { actionInput } from './action-input.js'
 import { ActionBadge, DecisionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { absoluteTime, clockTime, dayTime, duration, plural } from './format.js'
+import { useGeneration } from './generation.js'
 import {
   launchLabel,
   questionKindLabel,
@@ -110,7 +111,8 @@ const agentTrees = (
 }
 
 const InputText = ({ fact, now }: { readonly fact: FactId; readonly now: bigint }): ReactElement | null => {
-  const input = use(actionInput(fact, now))
+  const { inputs } = useGeneration()
+  const input = use(actionInput(inputs, fact, now))
   if (input === null || (input.detail === null && input.description === null)) {
     return null
   }

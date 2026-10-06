@@ -1,5 +1,14 @@
 import { rm } from 'node:fs/promises'
-import type { Config, Listener, OperatingSystem, Placement, Runtime, StatusResponse, SupportMatrix } from '@aang/contract'
+import type {
+  Config,
+  Listener,
+  OperatingSystem,
+  Placement,
+  RunId,
+  Runtime,
+  StatusResponse,
+  SupportMatrix,
+} from '@aang/contract'
 import { type ConfigEnvironment, loadConfig } from '@aang/contract/config-file'
 import { type AangHomePaths, aangHomePaths, writeDaemonState } from '@aang/contract/home'
 import { readSupportMatrix } from '@aang/contract/support-file'
@@ -11,7 +20,7 @@ import { type HookChecks, startHookChecks } from './hooks.js'
 import { startIngestion } from './ingestion.js'
 import { resolveListener } from './listener.js'
 import { startObserver } from './observer.js'
-import { otelToken } from './otel-token.js'
+import { otelEndpoint, otelToken, rotateOtelToken } from './otel-token.js'
 import { readRoutes } from './reads.js'
 import { type RunningServer, startServer } from './server.js'
 import { createSpoolSupervisor, epochNow, type OverThreshold, prepareSpool, type SpoolSupervisor } from './spool.js'
@@ -149,12 +158,16 @@ const serve = async ({
     settle({ reason })
   }
   const auth = createAuthenticator(paths)
+  const accepted: { retain: (runs: readonly RunId[]) => void } = { retain: () => undefined }
   const observer = startObserver({
     store,
     config,
     aangHome: paths.home,
     claudeConfigDir: runtimeRoots.claude,
     environment: options.environment.env,
+    onAccepted: (run) => {
+      accepted.retain([run])
+    },
   })
   void observer.failure.then((error) => {
     settle({ error })
@@ -184,6 +197,7 @@ const serve = async ({
     await observer.close()
     throw error
   })
+  accepted.retain = ingestion.retainBases
   void ingestion.failure.then((error) => {
     settle({ error })
   })
@@ -226,6 +240,12 @@ const serve = async ({
       streams,
       reparse: ingestion.reparse,
       admin: ingestion.admin,
+      otelConfig: ({ rotate }) => {
+        if (rotate) {
+          ingestion.setOtelToken(rotateOtelToken(store))
+        }
+        return { endpoint: otelEndpoint(ingestion.otel, otelToken(store)) }
+      },
       hooksCheck: async () => {
         await hooks.check()
         return (await status.promise)()
