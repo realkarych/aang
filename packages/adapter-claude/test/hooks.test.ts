@@ -275,6 +275,24 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
     })
   })
 
+  test('the elicitation response and completion are verified notifications of the session', async ({ expect }) => {
+    const messages = {
+      elicitation_response: 'Elicitation response for server "tracker": accept',
+      elicitation_complete: 'MCP server "tracker" confirmed elicitation el-1 complete',
+    }
+    for (const [type, message] of Object.entries(messages)) {
+      const payload = await withPayload('Notification.permission_prompt.json', (sample) => ({
+        ...sample,
+        notification_type: type,
+        message,
+      }))
+
+      expect(factsOf(parsePayload(payload)), type).toMatchObject([
+        { kind: 'notification', format_verified: true, payload: { notification_type: type, message } },
+      ])
+    }
+  })
+
   test('idle_prompt is an unverified notification, not a question', async ({ expect }) => {
     const payload = await withPayload('Notification.permission_prompt.json', (sample) => ({
       ...sample,
@@ -307,7 +325,7 @@ describe.concurrent('Claude hooks: tools and permissions', () => {
         entity_key: { kind: 'question', question: `${type}.hook` },
         speaker: 'runtime',
         urgent: true,
-        format_verified: false,
+        format_verified: true,
         payload: {
           source: 'notification',
           blocking: true,

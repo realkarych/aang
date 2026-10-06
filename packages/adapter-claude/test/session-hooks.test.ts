@@ -459,9 +459,7 @@ describe.concurrent('Claude hooks: plan tasks', () => {
     })
   })
 
-  test('a task of a teammate belongs to the teammate, unverified, a task inside a subagent to the subagent', ({
-    expect,
-  }) => {
+  test('a task of a teammate belongs to the teammate, a task inside a subagent to the subagent', ({ expect }) => {
     const [teammate] = factsOf(
       synthetic({ ...task, hook_event_name: 'TaskCreated', teammate_name: 'reviewer', team_name: 'core' }),
     )
@@ -473,7 +471,7 @@ describe.concurrent('Claude hooks: plan tasks', () => {
       session,
       agent: { kind: 'teammate', name: 'reviewer', team: 'core' },
     })
-    expect(teammate?.format_verified).toBe(false)
+    expect(teammate?.format_verified).toBe(true)
     expect(subagent?.entity_key).toEqual({
       kind: 'agent',
       runtime: 'claude',
@@ -494,9 +492,7 @@ describe.concurrent('Claude hooks: plan tasks', () => {
 describe.concurrent('Claude hooks: elicitation', () => {
   const elicitation = { ...common, prompt_id: 'p1', mcp_server_name: 'tracker', elicitation_id: 'el-1' }
 
-  test('Elicitation is an urgent unverified question of the MCP server identified by its spool file', ({
-    expect,
-  }) => {
+  test('Elicitation is an urgent question of the MCP server identified by its spool file', ({ expect }) => {
     const [question] = factsOf(
       synthetic(
         { ...elicitation, hook_event_name: 'Elicitation', message: 'Pick a project', mode: 'form', requested_schema: {} },
@@ -509,7 +505,7 @@ describe.concurrent('Claude hooks: elicitation', () => {
       entity_key: { kind: 'question', runtime: 'claude', session, question: 'elicitation.hook' },
       speaker: 'tool',
       urgent: true,
-      format_verified: false,
+      format_verified: true,
       runtime_ids: { call_id: 'el-1' },
       payload: {
         source: 'elicitation',
@@ -540,7 +536,7 @@ describe.concurrent('Claude hooks: elicitation', () => {
       entity_key: { kind: 'session', session },
       speaker: 'human',
       urgent: false,
-      format_verified: false,
+      format_verified: true,
       runtime_ids: { call_id: 'el-1' },
       payload: {
         outcome: 'answered',
@@ -554,8 +550,8 @@ describe.concurrent('Claude hooks: elicitation', () => {
       outcome: 'answered',
       answers: [{ question: null, answer: 'done' }],
     })
-    expect(result({ action: 'accept', mode: 'url', elicitation_id: null })).toMatchObject({
-      runtime_ids: { call_id: null },
+    expect(result({ action: 'accept', mode: 'url' })).toMatchObject({
+      runtime_ids: { call_id: 'el-1' },
       payload: { outcome: 'answered', answers: [] },
     })
     expect(result({ action: 'decline', content: { project: 'aang' } })?.payload).toEqual({
@@ -563,6 +559,19 @@ describe.concurrent('Claude hooks: elicitation', () => {
       answers: [],
     })
     expect(result({ action: 'cancel' })?.payload).toEqual({ outcome: 'cancelled', answers: [] })
+  })
+
+  test('a form elicitation without its id and its result are correlated by the MCP server', ({ expect }) => {
+    const form = { ...elicitation, elicitation_id: null, mode: 'form' }
+    const [question] = factsOf(
+      synthetic({ ...form, hook_event_name: 'Elicitation', message: 'Pick a project', requested_schema: {} }, 'form.hook'),
+    )
+    const [answer] = factsOf(
+      synthetic({ ...form, hook_event_name: 'ElicitationResult', action: 'accept', content: { project: 'aang' } }),
+    )
+
+    expect(question).toMatchObject({ kind: 'question_asked', runtime_ids: { call_id: 'tracker' } })
+    expect(answer).toMatchObject({ kind: 'question_answered', runtime_ids: { call_id: 'tracker' } })
   })
 
   test('an unfamiliar elicitation action is unknown', ({ expect }) => {
@@ -594,11 +603,27 @@ describe.concurrent('Claude hooks: other events', () => {
     })
   })
 
+  test('TeammateIdle is a verified event of the idle teammate', ({ expect }) => {
+    const [event] = factsOf(
+      synthetic({ ...common, hook_event_name: 'TeammateIdle', teammate_name: 'helper', team_name: 'core' }),
+    )
+
+    expect(event).toMatchObject({
+      kind: 'runtime_event',
+      entity_key: { kind: 'agent', session, agent: { kind: 'teammate', name: 'helper', team: 'core' } },
+      format_verified: true,
+      payload: { event: 'TeammateIdle', data: { teammate_name: 'helper', team_name: 'core' } },
+    })
+    expect(synthetic({ ...common, hook_event_name: 'TeammateIdle', team_name: 'core' })).toMatchObject({
+      parse_state: 'invalid',
+      reason: /TeammateIdle hook/,
+    })
+  })
+
   test('documented events without a dedicated fact are unverified generic events of their owner', ({ expect }) => {
     const events = [
       'Setup',
       'UserPromptExpansion',
-      'TeammateIdle',
       'ConfigChange',
       'CwdChanged',
       'DirectoryAdded',
