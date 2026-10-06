@@ -30,8 +30,30 @@ export {
   type ObserverFollowUp,
   type ObserverResponse,
   type ObserverResponseResult,
+  skipObserverFollowUp,
 } from './model/observer.js'
 export { type MaterialLimits, resolveObserverNeeds } from './input/materials.js'
+export {
+  ChatError,
+  type ChatErrorCode,
+  type ChatFollowUp,
+  type ChatLimits,
+  type ChatSource,
+  type ChatStart,
+  type ChatTurnStart,
+  defaultChatLimits,
+  followUpChat,
+  startChat,
+} from './chat/input.js'
+export {
+  answerChat,
+  type ChatAnswerResult,
+  type ChatFailureResult,
+  failChat,
+  failInterruptedChats,
+  verifyCitations,
+  type VerifiedCitations,
+} from './chat/answer.js'
 export { type BatchLimits, type ObserverBatchStart, startObserverBatch } from './input/batch.js'
 export { defaultInputTokens, observerInputTokens } from './input/fit.js'
 export {
@@ -81,8 +103,18 @@ export {
   type StageUsage,
   type UsageSource,
 } from './usage/solver.js'
+export type { UsagePeriod } from './usage/period.js'
 export type { RunPause, RunTime } from './usage/time.js'
 export { hookRedeliveries, type HookRedelivery } from './observations/redelivery.js'
 export { InvalidPositionError, type ObserverRunStatus } from './read/context.js'
 export { createReadQueries, type ReadQueries, type ReadQueriesOptions } from './read/queries.js'
 export type { RunFeed, RunFeedEvent } from './read/snapshot.js'
+export {
+  addViewRule,
+  revokeViewRule,
+  ViewRuleError,
+  type ViewRuleAddition,
+  type ViewRuleErrorCode,
+  type ViewRuleRevocation,
+} from './view/rules.js'
+export { createViewState, type ViewState, type ViewStateOptions } from './view/state.js'

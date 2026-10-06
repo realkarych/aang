@@ -10,6 +10,13 @@ const ControlRequest = z.looseObject({
   request_id: z.string(),
   request: z.looseObject({ subtype: z.string(), tool_name: z.string().optional(), tool_use_id: z.string().optional(), input: z.record(z.string(), z.unknown()).optional() }),
 })
+const ElicitationControl = z.looseObject({
+  mcp_server_name: z.string(),
+  mode: z.enum(['form', 'url']).default('form'),
+  url: z.string().optional(),
+  elicitation_id: z.string().optional(),
+})
+const mcpServers = Object.entries(plan.mcpServers)
 const ControlResponse = z.looseObject({ response: z.looseObject({ subtype: z.string(), request_id: z.string(), error: z.string().optional() }) })
 const CancelRequest = z.looseObject({ request_id: z.string() })
 
@@ -17,6 +24,10 @@ const engine = spawn(plan.engine, [
   '--output-format', 'stream-json', '--input-format', 'stream-json', '--verbose', '--permission-prompt-tool', 'stdio',
   ...plan.args, '--permission-mode', plan.permissionMode,
   ...plan.resume === undefined ? [] : ['--resume', plan.resume], ...plan.fork ? ['--fork-session'] : [],
+  ...mcpServers.length === 0 ? [] : ['--mcp-config', JSON.stringify({ mcpServers: Object.fromEntries(mcpServers.map(([name, server]) => [name, { type: 'stdio', ...server }])) })],
+  ...plan.plugins.flatMap((directory) => ['--plugin-dir', directory]),
+  ...Object.keys(plan.agents).length === 0 ? [] : ['--agents', JSON.stringify(plan.agents)],
+  ...plan.settings === undefined ? [] : ['--settings', plan.settings],
   ...forwarded,
 ], { env: { ...process.env, ...plan.env }, stdio: ['pipe', 'pipe', 'pipe'] })
 const exited = once(engine, 'exit') as Promise<[number | null, NodeJS.Signals | null]>
@@ -43,6 +54,17 @@ engine.stdin.on('error', conversation.fail)
 
 const answer = async (raw: unknown): Promise<void> => {
   const { request_id: id, request } = ControlRequest.parse(raw)
+  if (request.subtype === 'elicitation') {
+    const elicitation = ElicitationControl.parse(request)
+    const response = await conversation.elicit({
+      server: elicitation.mcp_server_name,
+      mode: elicitation.mode,
+      url: elicitation.url ?? null,
+      elicitationId: elicitation.elicitation_id ?? null,
+    })
+    if (!cancelled.has(id)) write({ type: 'control_response', response: { subtype: 'success', request_id: id, response } })
+    return
+  }
   if (request.subtype !== 'can_use_tool' || request.tool_name === undefined) {
     write({ type: 'control_response', response: { subtype: 'error', request_id: id, error: 'Unsupported request' } })
     throw new Error(`Unexpected control request ${request.subtype}`)

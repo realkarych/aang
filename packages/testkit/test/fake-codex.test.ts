@@ -167,6 +167,8 @@ const setUp = async (
     '-C',
     workspace.cwd,
     ...parts.flatMap((part) => part.args ?? []),
+    '--disable',
+    'shell_snapshot',
     ...extra,
     '-',
   ]
@@ -476,6 +478,18 @@ describe('fake codex injects observer failures (F.4)', () => {
     })
     expect(ofType(withoutReset.events, 'turn.failed')).toMatchObject({
       error: { message: expect.stringContaining("You've hit your usage limit") as unknown },
+    })
+  })
+
+  test('a network failure fails the turn after a reconnection attempt', async ({ onTestFinished }) => {
+    const observer = await setUp(onTestFinished, { replies: [{ kind: 'network' }] })
+
+    const exit = await observer.call()
+
+    expect(exit.code).toBe(1)
+    expect(exit.events.map((event) => event.type)).toEqual(['thread.started', 'turn.started', 'error', 'error', 'turn.failed'])
+    expect(ofType(exit.events, 'turn.failed')).toMatchObject({
+      error: { message: expect.stringContaining('stream disconnected before completion') as unknown },
     })
   })
 

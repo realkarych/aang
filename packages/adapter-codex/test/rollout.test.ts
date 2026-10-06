@@ -104,7 +104,7 @@ const describeFact = (fact: FactDraft): string => {
   }
 }
 
-test('the real exec rollout with resume and compaction is keyed by thread and ordinal and has no invalid lines', () => {
+test('the real exec rollout with resume and compaction is keyed by thread and ordinal and parses every line', () => {
   const records = readRollout(sessionsPath)
 
   expect(records[0]?.stream).toBe(`codex:${realThread}:${realThread}`)
@@ -112,8 +112,7 @@ test('the real exec rollout with resume and compaction is keyed by thread and or
     records.map((_, ordinal) => `codex:${realThread}:${String(ordinal)}`),
   )
   const states = records.map((collected) => codexAdapter.parse(collected).parse_state)
-  expect(states).not.toContain('invalid')
-  expect(states.flatMap((state, ordinal) => (state === 'unknown' ? [ordinal] : []))).toEqual([6, 20, 21, 25, 32])
+  expect(states).toEqual(records.map(() => 'parsed'))
 })
 
 test('the real rollout yields the session, both turns, the code-mode cell and its nested command', () => {

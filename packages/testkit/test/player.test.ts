@@ -155,6 +155,141 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
     },
   )
 
+  test('records played at playback time carry timestamps shifted to the playback moment with their intervals kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const lines = Buffer.from(
+      [
+        '{"timestamp":"2026-10-01T11:49:30.942Z","message":{"text":"at 2026-10-01T11:49:30.942Z"}}',
+        '{"timestamp":"2026-10-01T11:49:33.442Z","toolUseResult":{"at":"2026-10-01T11:49:34.000000Z"}}',
+        '',
+      ].join('\n'),
+    )
+    const meta = '{"agentType":"pinger","createdAt":"2026-10-01T11:49:35.000Z"}'
+    const target = { root: 'claude', path: 'projects/-tmp-p/live.jsonl' }
+    const file = await manifest('playback-time', {
+      sources: { 'lines.jsonl': lines, 'meta.json': meta },
+      steps: [
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', lines: 1 },
+        { at: 2_500, kind: 'append', target, source: 'lines.jsonl' },
+        { at: 4_058, kind: 'write', target: { root: 'claude', path: 'projects/-tmp-p/meta.json' }, source: 'meta.json' },
+      ],
+    })
+    const before = Date.now()
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0, recordTime: 'playback' })
+    const after = Date.now()
+    await player.play()
+
+    const [first, second] = (await readFile(join(profile.claude, ...target.path.split('/')), 'utf8'))
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => JSON.parse(line) as { timestamp: string; message?: { text: string }; toolUseResult?: { at: string } })
+    const start = Date.parse(first?.timestamp ?? '')
+    expect(start).toBeGreaterThan(before - 1_000)
+    expect(start).toBeLessThanOrEqual(after)
+    expect(first?.message?.text).toBe('at 2026-10-01T11:49:30.942Z')
+    expect(Date.parse(second?.timestamp ?? '') - start).toBe(2_500)
+    expect(Date.parse(second?.toolUseResult?.at ?? '') - start).toBe(3_058)
+    const written = JSON.parse(await readFile(join(profile.claude, 'projects', '-tmp-p', 'meta.json'), 'utf8')) as {
+      agentType: string
+      createdAt: string
+    }
+    expect(written.agentType).toBe('pinger')
+    expect(Date.parse(written.createdAt) - start).toBe(4_058)
+  })
+
+  test('records played from a given moment start within the second before it with their intervals kept', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const lines = [
+      '{"timestamp":"2026-10-01T11:49:30.942Z","started_at_ms":1790855370942}',
+      '{"timestamp":"2026-10-01T11:49:33.442Z","started_at_ms":1790855373442}',
+      '',
+    ].join('\n')
+    const target = { root: 'codex', path: 'sessions/2026/10/01/rollout-moment.jsonl' }
+    const file = await manifest('moment', {
+      sources: { 'lines.jsonl': lines },
+      steps: [{ at: 0, kind: 'append', target, source: 'lines.jsonl' }],
+    })
+    const startsAt = Date.parse('2026-10-03T08:00:00.000Z')
+
+    await createPlayer(await loadManifest(file), { roots: profile, timeScale: 0, recordTime: { startsAt } }).play()
+
+    const played = (await readFile(join(profile.codex, ...target.path.split('/')), 'utf8'))
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => JSON.parse(line) as { timestamp: string; started_at_ms: number })
+    expect(played).toEqual([
+      { timestamp: '2026-10-03T07:59:59.942Z', started_at_ms: startsAt - 58 },
+      { timestamp: '2026-10-03T08:00:02.442Z', started_at_ms: startsAt + 2_442 },
+    ])
+  })
+
+  test('byte steps at playback time split a timestamp, an epoch number and a character where the source splits them, and the record comes out whole', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const head = '{"timestamp":"2026-10-01T11:49:30.942Z","at":"2026-10-01T11:49:31Z","started_at_ms":1790855370942,"text":"'
+    const source = Buffer.from(`${head}Привет"}\n`, 'utf8')
+    const epoch = head.indexOf('1790855370942')
+    const digit = epoch + 6
+    const letter = Buffer.byteLength(head)
+    const target = { root: 'home', path: 'split.jsonl' }
+    const file = await manifest('playback-split', {
+      sources: { 'lines.jsonl': source },
+      steps: [
+        { at: 0, kind: 'append', target, source: 'lines.jsonl', bytes: 25 },
+        { at: 1, kind: 'append', target, source: 'lines.jsonl', bytes: digit - 25, label: 'split epoch' },
+        { at: 2, kind: 'append', target, source: 'lines.jsonl', bytes: letter + 1 - digit, label: 'split letter' },
+        { at: 3, kind: 'append', target, source: 'lines.jsonl', label: 'rest' },
+      ],
+    })
+    const before = Date.now()
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0, recordTime: 'playback' })
+    const after = Date.now()
+    const path = join(profile.home, target.path)
+
+    await player.play({ until: 'split epoch' })
+    const split = await readFile(path)
+    expect(split).toHaveLength(25)
+    expect(split).not.toEqual(source.subarray(0, 25))
+    await player.play({ until: 'split letter' })
+    const numbered = await readFile(path)
+    expect(numbered).toHaveLength(digit)
+    expect(numbered.subarray(0, 25)).toEqual(split)
+    expect(numbered.subarray(epoch)).not.toEqual(source.subarray(epoch, digit))
+    await player.play({ until: 'rest' })
+    const cut = await readFile(path)
+    expect(cut).toHaveLength(letter + 1)
+    expect(cut.subarray(0, digit)).toEqual(numbered)
+    expect(cut.subarray(letter)).toEqual(Buffer.from('П').subarray(0, 1))
+    await player.play()
+
+    const whole = await readFile(path)
+    expect(whole).toHaveLength(source.length)
+    expect(whole.subarray(0, letter + 1)).toEqual(cut)
+    expect(whole.subarray(letter)).toEqual(source.subarray(letter))
+    const record = JSON.parse(whole.toString('utf8')) as {
+      timestamp: string
+      at: string
+      started_at_ms: number
+      text: string
+    }
+    expect(record.text).toBe('Привет')
+    expect(record.timestamp).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.942Z$/)
+    expect(record.at).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/)
+    const start = Date.parse(record.timestamp)
+    expect(start).toBeGreaterThan(before - 1_000)
+    expect(start).toBeLessThanOrEqual(after)
+    expect(Date.parse(record.at) - start).toBe(58)
+    expect(record.started_at_ms).toBe(start)
+  })
+
   test('JSON files are written whole and rewritten, transcripts are moved and archived, and files are removed', async ({
     expect,
     onTestFinished,

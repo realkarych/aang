@@ -1,9 +1,11 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { hookRecords, hooksNamed } from '../hooks.js'
 import type { Scenario, ScenarioSession } from '../scenario.js'
 import { checkSubagents, commandOutputs, exists, plan, question, rootReplies, shell, subagentFacts, subagentScript, toolSteps } from './calls.js'
 import { codexCommand, codexExec, stubScenario } from './harness.js'
-import { check, completedItems, containing, events, finished, hookRecords, hooksNamed, items, jsonLines, records, responseItems, rolloutOf, sessionMeta, threadOf } from './rollout.js'
+import { agentRole } from './role.js'
+import { check, completedItems, containing, events, finished, items, jsonLines, records, responseItems, rolloutOf, sessionMeta, threadOf } from './rollout.js'
 
 const surface = 'codex_exec'
 
@@ -213,4 +215,4 @@ const resumeCompaction: Scenario = {
   },
 }
 
-export const execScenarios: readonly Scenario[] = [tools, subagent, fork, questionScenario, planScenario, compaction, sourceLoss, reconnect, resumeCompaction]
+export const execScenarios: readonly Scenario[] = [tools, subagent, fork, questionScenario, planScenario, compaction, sourceLoss, reconnect, resumeCompaction, agentRole]

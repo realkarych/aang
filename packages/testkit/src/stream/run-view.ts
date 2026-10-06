@@ -1,8 +1,22 @@
-import type { ChangeSeq, FactsDelta, ModelChange, ModelDelta, RunDelta, RunSnapshot, SessionId } from '@aang/contract'
+import type {
+  AttentionDelta,
+  ChangeSeq,
+  ChatDelta,
+  FactsDelta,
+  ModelChange,
+  ModelDelta,
+  RunDelta,
+  RunSnapshot,
+  SessionId,
+} from '@aang/contract'
+import { objectId } from '@aang/contract/ids'
 
 export type FeedEvent =
+  | { readonly event: 'run'; readonly id: ChangeSeq; readonly data: RunDelta }
   | { readonly event: 'facts'; readonly id: ChangeSeq; readonly data: FactsDelta }
   | { readonly event: 'model'; readonly id: ChangeSeq; readonly data: ModelDelta }
+  | { readonly event: 'attention'; readonly id: ChangeSeq; readonly data: AttentionDelta }
+  | { readonly event: 'chat'; readonly id: ChangeSeq; readonly data: ChatDelta }
 
 export interface FeedSegment {
   readonly position: ChangeSeq
@@ -39,6 +53,9 @@ const withoutSession = (snapshot: RunSnapshot, session: SessionId): RunSnapshot 
     list.filter((entry) => entry.session !== session)
   return {
     ...snapshot,
+    plan_facts: snapshot.plan_facts.filter(
+      ({ entity_key: { runtime, session: name } }) => objectId({ kind: 'session', runtime, session: name }) !== session,
+    ),
     objects: {
       ...objects,
       sessions: objects.sessions.filter(({ id }) => id !== session),
@@ -117,12 +134,35 @@ const applyFacts = (snapshot: RunSnapshot, { facts, objects, removed }: FactsDel
   }
 }
 
+const applyAttention = (snapshot: RunSnapshot, { items, views }: AttentionDelta): RunSnapshot => {
+  const known = new Map(snapshot.attention.views.map((view) => [view.item, view]))
+  for (const view of views) {
+    known.set(view.item, view)
+  }
+  return {
+    ...snapshot,
+    attention: {
+      items: merge(snapshot.attention.items, items),
+      views: [...known.values()].sort((left, right) => byId({ id: left.item }, { id: right.item })),
+    },
+  }
+}
+
 export const applyFeed = (snapshot: RunSnapshot, feed: FeedSegment): RunSnapshot => {
-  const replayed = feed.events.reduce(
-    (view, event) =>
-      event.event === 'facts' ? applyFacts(view, event.data) : event.data.changes.reduce(applyChange, view),
-    snapshot,
-  )
+  const replayed = feed.events.reduce((view, event) => {
+    switch (event.event) {
+      case 'run':
+        return { ...view, summary: event.data.summary, view: event.data.view, bindings: event.data.bindings }
+      case 'facts':
+        return applyFacts(view, event.data)
+      case 'model':
+        return event.data.changes.reduce(applyChange, view)
+      case 'attention':
+        return applyAttention(view, event.data)
+      case 'chat':
+        return view
+    }
+  }, snapshot)
   return {
     ...replayed,
     summary: feed.run.summary,

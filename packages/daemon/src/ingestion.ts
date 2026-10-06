@@ -4,8 +4,11 @@ import { createCollector, prefixHash } from '@aang/collector'
 import type {
   Adapter,
   AdapterRegistry,
+  Binding,
+  BindingId,
   CollectedGap,
   Config,
+  CreateBindingRequest,
   Gap,
   Listener,
   PruneRequest,
@@ -29,6 +32,8 @@ export interface IngestionOptions {
   readonly spool: string
   readonly runtimeRoots: Readonly<Record<Runtime, string>>
   readonly otelToken: string
+  readonly onIngested: () => void
+  readonly onBound: () => void
 }
 
 export interface Admin {
@@ -37,9 +42,15 @@ export interface Admin {
   readonly prune: (request: PruneRequest) => Promise<PruneResponse>
 }
 
+export interface Bindings {
+  readonly bind: (request: CreateBindingRequest) => Promise<Binding | null>
+  readonly revoke: (id: BindingId) => Promise<Binding | null>
+}
+
 export interface Ingestion {
   readonly otel: Listener
   readonly reparse: () => Promise<ReparseResponse | null>
+  readonly bindings: Bindings
   readonly admin: Admin
   readonly setOtelToken: (token: string) => void
   readonly failure: Promise<unknown>
@@ -74,6 +85,8 @@ export const startIngestion = async ({
   spool,
   runtimeRoots,
   otelToken,
+  onIngested,
+  onBound,
 }: IngestionOptions): Promise<Ingestion> => {
   let watching = loadWatch(store, config)
   const engine = createEngine({
@@ -81,6 +94,7 @@ export const startIngestion = async ({
     adapters,
     watch: watchedRoots(watching, config),
     quietAfterMs: config.freshness.quietAfterMs,
+    fsWatch: config.collector.fsWatch,
   })
   const collector = createCollector({
     spool,
@@ -92,13 +106,16 @@ export const startIngestion = async ({
   })
   const otel = await collector.listenOtel({ port: config.otel.port, token: otelToken }).catch(async (error: unknown) => {
     await collector.close()
+    await engine.close()
     throw error
   })
   const failure = Promise.withResolvers<unknown>()
+  const restoring = engine.refreshCriteria().catch(failure.resolve)
 
   const pump = async (): Promise<void> => {
     for await (const batch of collector.start(store.cursors.list())) {
       const { settled, rescan } = await engine.ingest(batch)
+      onIngested()
       for (const acknowledged of settled) {
         await collector.ack(acknowledged)
       }
@@ -123,6 +140,23 @@ export const startIngestion = async ({
     const result = engine.reparse()
     reparsing = result.catch(() => undefined)
     return tallyOf(await result)
+  }
+
+  let binding: Promise<unknown> = Promise.resolve()
+  const bound = async (work: () => Promise<{ readonly binding: Binding }>): Promise<Binding | null> => {
+    if (stopping) {
+      return null
+    }
+    const result = work()
+    binding = result.catch(() => undefined)
+    const outcome = await result
+    onBound()
+    return outcome.binding
+  }
+
+  const bindings: Bindings = {
+    bind: (request) => bound(() => engine.bind(request)),
+    revoke: (id) => bound(() => engine.revokeBinding(id)),
   }
 
   let administering: Promise<unknown> = Promise.resolve()
@@ -186,6 +220,7 @@ export const startIngestion = async ({
   return {
     otel,
     reparse,
+    bindings,
     admin,
     setOtelToken: (token) => {
       collector.setOtelToken(token)
@@ -195,10 +230,13 @@ export const startIngestion = async ({
       clearInterval(refresh)
       stopping = true
       await reparsing
+      await binding
       await administering
       await collector.close()
       await pumping
       await refreshing
+      await restoring
+      await engine.close()
     },
   }
 }

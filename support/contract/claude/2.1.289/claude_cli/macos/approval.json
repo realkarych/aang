@@ -1,0 +1,1738 @@
+{
+  "records": [
+    {
+      "channel": "hook",
+      "type": "PermissionRequest",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "PostToolBatch",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "PostToolUse",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "PreToolUse",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "hook",
+      "type": "SessionEnd",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "SessionStart",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "Stop",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "hook",
+      "type": "UserPromptSubmit",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "registry",
+      "type": "-",
+      "parse_state": "parsed",
+      "count": 5
+    },
+    {
+      "channel": "transcript",
+      "type": "assistant",
+      "parse_state": "parsed",
+      "count": 3
+    },
+    {
+      "channel": "transcript",
+      "type": "atis-latch",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "transcript",
+      "type": "attachment",
+      "parse_state": "parsed",
+      "count": 12
+    },
+    {
+      "channel": "transcript",
+      "type": "cost-state",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "transcript",
+      "type": "last-prompt",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "transcript",
+      "type": "queue-operation",
+      "parse_state": "parsed",
+      "count": 2
+    },
+    {
+      "channel": "transcript",
+      "type": "system:stop_hook_summary",
+      "parse_state": "unknown",
+      "count": 1
+    },
+    {
+      "channel": "transcript",
+      "type": "user",
+      "parse_state": "parsed",
+      "count": 3
+    }
+  ],
+  "facts": [
+    {
+      "id": "#1",
+      "kind": "session_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "05416bf35cd7587cb94536b0c02845715c337ba1fe8af64c0281ab7950552128",
+      "payload": {
+        "launch": "startup",
+        "surface": {
+          "surface": "claude_cli",
+          "basis": "observed"
+        },
+        "cwd": "/fixture/project",
+        "forked_from": null,
+        "observer_marker": false
+      }
+    },
+    {
+      "id": "#2",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33314.json",
+        "removed": false,
+        "content": {
+          "pid": 33314,
+          "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+          "kind": "interactive",
+          "entrypoint": "sdk-cli",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#3",
+      "kind": "turn_start",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "8f714333ce93a2d405893ff17e35076d4b845389019f75eca5dc595e81179687",
+      "payload": {}
+    },
+    {
+      "id": "#4",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_0_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_approval_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "484ab0400080c727f990d23c65e5c721063d8e4213c517e3ea20c9d3c0ee3d2a",
+      "payload": {
+        "tool": "Bash",
+        "action_kind": "command",
+        "input": {
+          "command": "node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"",
+          "description": "Write approved.txt"
+        },
+        "description": "Write approved.txt",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#5",
+      "kind": "permission_request",
+      "entity_key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "question": "spool#4"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "06c24e88b32602fa83d66cfe0fb2dd706a804adb4f6816869aa9e0fe515e2387",
+      "payload": {
+        "tool": "Bash",
+        "input": {
+          "command": "node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"",
+          "description": "Write approved.txt"
+        }
+      }
+    },
+    {
+      "id": "#6",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33314.json",
+        "removed": false,
+        "content": {
+          "pid": 33314,
+          "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+          "kind": "interactive",
+          "entrypoint": "sdk-cli",
+          "status": "waiting",
+          "waiting_for": "permission prompt",
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#7",
+      "kind": "queue_operation",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "operation": "enqueue",
+        "content": "[aang:approval] Run `node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"` with the Bash tool. After it finishes, run `node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"` with the Bash tool. If a command is denied, do not retry it and reply with one sentence."
+      }
+    },
+    {
+      "id": "#8",
+      "kind": "queue_operation",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "operation": "dequeue",
+        "content": null
+      }
+    },
+    {
+      "id": "#9",
+      "kind": "prompt",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "message": "b7d795da-6518-45be-9a93-5e2817484cf9"
+      },
+      "speaker": "human",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": "b7d795da-6518-45be-9a93-5e2817484cf9",
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "[aang:approval] Run `node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"` with the Bash tool. After it finishes, run `node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"` with the Bash tool. If a command is denied, do not retry it and reply with one sentence.",
+        "origin": "human",
+        "origin_raw": "sdk"
+      }
+    },
+    {
+      "id": "#10",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_0_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "92eb2048-0381-471d-bd25-c08ea09d7284",
+        "parent_uuid": "52105ab1-79ce-4d82-977b-323d2f14c924",
+        "message_id": "msg_aang_1",
+        "call_id": "toolu_aang_approval_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "Bash",
+        "action_kind": "command",
+        "input": {
+          "command": "node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"",
+          "description": "Write approved.txt"
+        },
+        "description": "Write approved.txt",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#11",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "usage": "msg_aang_1"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "92eb2048-0381-471d-bd25-c08ea09d7284",
+        "parent_uuid": "52105ab1-79ce-4d82-977b-323d2f14c924",
+        "message_id": "msg_aang_1",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#12",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33314.json",
+        "removed": false,
+        "content": {
+          "pid": 33314,
+          "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+          "kind": "interactive",
+          "entrypoint": "sdk-cli",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#13",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_0_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_approval_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "f53a301aaa59ca62f6c1e21af803c442af824a03c66f466701653279bde3f082",
+      "payload": {
+        "outcome": "ok",
+        "output": null,
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": 109,
+        "result": {
+          "stdout": "",
+          "stderr": "",
+          "interrupted": false,
+          "isImage": false,
+          "noOutputExpected": false
+        }
+      }
+    },
+    {
+      "id": "#14",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "839e40ed90c5aed500a5bd21008de539af3d75d43789d7152972c02d5695cf2c",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_approval_0_0",
+            "tool": "Bash",
+            "response": "(Bash completed with no output)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#15",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_1_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": "toolu_aang_approval_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "346cb0d59595edf5eaa3a10d987780bd37b7fb0a8c1f20347211db5aeaf988cb",
+      "payload": {
+        "tool": "Bash",
+        "action_kind": "command",
+        "input": {
+          "command": "node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"",
+          "description": "Write denied.txt"
+        },
+        "description": "Write denied.txt",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#16",
+      "kind": "permission_request",
+      "entity_key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "question": "spool#8"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "8e546a742edc0aa1086c2e5997005e701e9414cb6b01f6a50e4032e64750248f",
+      "payload": {
+        "tool": "Bash",
+        "input": {
+          "command": "node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"",
+          "description": "Write denied.txt"
+        }
+      }
+    },
+    {
+      "id": "#17",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33314.json",
+        "removed": false,
+        "content": {
+          "pid": 33314,
+          "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+          "kind": "interactive",
+          "entrypoint": "sdk-cli",
+          "status": "waiting",
+          "waiting_for": "permission prompt",
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#18",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_0_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": "7a0a0a34-36e0-4902-9ce7-02c1fc5cc8f4",
+        "parent_uuid": "92eb2048-0381-471d-bd25-c08ea09d7284",
+        "message_id": null,
+        "call_id": "toolu_aang_approval_0_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "ok",
+        "output": "(Bash completed with no output)",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": {
+          "stdout": "",
+          "stderr": "",
+          "interrupted": false,
+          "isImage": false,
+          "noOutputExpected": false
+        }
+      }
+    },
+    {
+      "id": "#19",
+      "kind": "action_start",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_1_0"
+      },
+      "speaker": "solver",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "005caa30-5496-40aa-9e14-e0d1773bf25c",
+        "parent_uuid": "f244a233-90da-48c6-bba0-c523004de8c4",
+        "message_id": "msg_aang_2",
+        "call_id": "toolu_aang_approval_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "tool": "Bash",
+        "action_kind": "command",
+        "input": {
+          "command": "node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"",
+          "description": "Write denied.txt"
+        },
+        "description": "Write denied.txt",
+        "container_call": null
+      }
+    },
+    {
+      "id": "#20",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "usage": "msg_aang_2"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "005caa30-5496-40aa-9e14-e0d1773bf25c",
+        "parent_uuid": "f244a233-90da-48c6-bba0-c523004de8c4",
+        "message_id": "msg_aang_2",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "tool_use",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#21",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/33314.json",
+        "removed": false,
+        "content": {
+          "pid": 33314,
+          "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+          "kind": "interactive",
+          "entrypoint": "sdk-cli",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#22",
+      "kind": "tool_batch_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "6d2a61d5fae4e1d5118527efa0189cb55f367d5729ddd8b5c5fa2ab212645a33",
+      "payload": {
+        "calls": [
+          {
+            "call_id": "toolu_aang_approval_1_0",
+            "tool": "Bash",
+            "response": "The user denied this command"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#23",
+      "kind": "turn_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "4d7c95e7b4a39156b86f93e592f407751ec2e1b577f17683aaa3da0da5d7fa05",
+      "payload": {
+        "outcome": "completed",
+        "reason": null,
+        "final_message": "The first command ran; the second one was denied.",
+        "background_tasks": []
+      }
+    },
+    {
+      "id": "#24",
+      "kind": "session_end",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": "a3d36686112cb13b6b9e4fe9c7c664a41ade2ba76f37ed3b9a71e67b4280da0c",
+      "payload": {
+        "reason": "other"
+      }
+    },
+    {
+      "id": "#25",
+      "kind": "action_end",
+      "entity_key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_1_0"
+      },
+      "speaker": "tool",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": "e57e1b4d-c6ce-4eea-aabc-24fef4e6b92a",
+        "record_uuid": "d41730fc-902b-47de-a4e0-e63cf887f40a",
+        "parent_uuid": "005caa30-5496-40aa-9e14-e0d1773bf25c",
+        "message_id": null,
+        "call_id": "toolu_aang_approval_1_0",
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "denied",
+        "output": "The user denied this command",
+        "persisted_output_path": null,
+        "exit_code": null,
+        "duration_ms": null,
+        "result": "Error: The user denied this command"
+      }
+    },
+    {
+      "id": "#26",
+      "kind": "message",
+      "entity_key": {
+        "kind": "message",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "message": "6b156ccc-43f3-4194-a50a-a8df91a9509e"
+      },
+      "speaker": "solver",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "6b156ccc-43f3-4194-a50a-a8df91a9509e",
+        "parent_uuid": "e4a4268d-269e-46b5-a6cc-dde23e852562",
+        "message_id": "msg_aang_3",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "The first command ran; the second one was denied.",
+        "final": true,
+        "audience": "user",
+        "model": "claude-opus-5-5"
+      }
+    },
+    {
+      "id": "#27",
+      "kind": "usage",
+      "entity_key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "usage": "msg_aang_3"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "6b156ccc-43f3-4194-a50a-a8df91a9509e",
+        "parent_uuid": "e4a4268d-269e-46b5-a6cc-dde23e852562",
+        "message_id": "msg_aang_3",
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "model": "claude-opus-5-5",
+        "tokens": {
+          "uncached_input_tokens": 12,
+          "cache_read_input_tokens": 8,
+          "cache_write_input_tokens": 2,
+          "output_tokens": 4,
+          "reasoning_output_tokens": 0
+        },
+        "stop_reason": "end_turn",
+        "synthetic": false
+      }
+    },
+    {
+      "id": "#28",
+      "kind": "cost_state",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "total_cost_usd": 0.0004188,
+        "total_duration_ms": 3380,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "tokens": {
+              "uncached_input_tokens": 36,
+              "cache_read_input_tokens": 24,
+              "cache_write_input_tokens": 6,
+              "output_tokens": 12,
+              "reasoning_output_tokens": 0
+            },
+            "cost_usd": 0.0004188
+          }
+        ]
+      }
+    }
+  ],
+  "sessions": [
+    {
+      "id": "#29",
+      "key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c"
+      },
+      "run": "#30",
+      "surface": {
+        "surface": "claude_cli",
+        "basis": "observed"
+      },
+      "version": "2.1.289",
+      "cwd": "/fixture/project",
+      "git_branch": "HEAD",
+      "git_common_dir": null,
+      "launches": [
+        {
+          "launch": "startup",
+          "at": "<time>",
+          "fact": "#1"
+        }
+      ],
+      "state": "ended",
+      "execution": {
+        "state": "done"
+      },
+      "freshness": "ok",
+      "support_mode": "full",
+      "double_registration": false,
+      "unknown_records": 1,
+      "cost_state": {
+        "total_cost_usd": 0.0004188,
+        "total_duration_ms": 3380,
+        "models": [
+          {
+            "model": "claude-opus-5-5",
+            "tokens": {
+              "uncached_input_tokens": 36,
+              "cache_read_input_tokens": 24,
+              "cache_write_input_tokens": 6,
+              "output_tokens": 12,
+              "reasoning_output_tokens": 0
+            },
+            "cost_usd": 0.0004188
+          }
+        ]
+      },
+      "started_at": "<time>",
+      "last_event_at": "<time>"
+    }
+  ],
+  "agents": [
+    {
+      "id": "#31",
+      "key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "agent": {
+          "kind": "main"
+        }
+      },
+      "session": "#29",
+      "run": "#30",
+      "role": "main",
+      "service": null,
+      "agent_type": null,
+      "agent_role": null,
+      "name": null,
+      "description": null,
+      "parent": null,
+      "spawned_by": null,
+      "execution": {
+        "state": "done"
+      },
+      "thread_total": null,
+      "started_at": "<time>",
+      "ended_at": null
+    }
+  ],
+  "actions": [
+    {
+      "id": "#32",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_0_0"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "tool": "Bash",
+      "action_kind": "command",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "ok",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#18"
+        ]
+      },
+      "execution": {
+        "state": "done"
+      },
+      "input_fact": "#10",
+      "output_fact": "#18",
+      "inherited": false
+    },
+    {
+      "id": "#33",
+      "key": {
+        "kind": "action",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "call": "toolu_aang_approval_1_0"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "tool": "Bash",
+      "action_kind": "command",
+      "container": null,
+      "is_container": false,
+      "started_at": "<time>",
+      "ended_at": "<time>",
+      "outcome": {
+        "value": "denied",
+        "basis": {
+          "kind": "observed"
+        },
+        "evidence": [
+          "#25"
+        ]
+      },
+      "execution": {
+        "state": "cancelled"
+      },
+      "input_fact": "#19",
+      "output_fact": "#25",
+      "inherited": false
+    }
+  ],
+  "questions": [
+    {
+      "id": "#34",
+      "key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "question": "spool#4"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "kind": "permission",
+      "blocking": true,
+      "text": null,
+      "asked_at": "<time>",
+      "answered_at": null,
+      "action": null,
+      "decision": {
+        "value": "unknown",
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-decision"
+          }
+        },
+        "evidence": [
+          "#5",
+          "#23"
+        ]
+      },
+      "redelivery_group": null
+    },
+    {
+      "id": "#35",
+      "key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "question": "spool#8"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "kind": "permission",
+      "blocking": true,
+      "text": null,
+      "asked_at": "<time>",
+      "answered_at": null,
+      "action": null,
+      "decision": {
+        "value": "unknown",
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-decision"
+          }
+        },
+        "evidence": [
+          "#16",
+          "#23"
+        ]
+      },
+      "redelivery_group": null
+    }
+  ],
+  "usage": [
+    {
+      "id": "#36",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "usage": "msg_aang_1"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#37",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "usage": "msg_aang_2"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#38",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "0cb73169-76e1-4280-8b69-52663ae8021c",
+        "usage": "msg_aang_3"
+      },
+      "session": "#29",
+      "agent": "#31",
+      "run": "#30",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    }
+  ],
+  "artifacts": [],
+  "gaps": [
+    {
+      "id": "#39",
+      "key": {
+        "kind": "gap",
+        "gap": "unknown_records",
+        "subject": "fcc74d65ac9a98c317f8266d1eeb7282"
+      },
+      "kind": "unknown_records",
+      "run": "#30",
+      "session": "#29",
+      "stream": null,
+      "details": "1 unrecognised session records",
+      "detected_at": "<time>",
+      "closed_at": null
+    },
+    {
+      "id": "#40",
+      "key": {
+        "kind": "gap",
+        "gap": "unknown_records",
+        "subject": "record:[\"claude\",\"registry\",{\"kind\":\"file_removed\",\"last_content_hash\":\"65b8b7da86377528e0796757aa8b2fe41d6d6b45243ef0781a8b01c2653edc66\",\"path\":\"<base>/home/.claude/sessions/33314.json\"},\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]"
+      },
+      "kind": "unknown_records",
+      "run": null,
+      "session": null,
+      "stream": null,
+      "details": "claude registry record (parsed) discarded: it names no session",
+      "detected_at": "<time>",
+      "closed_at": null
+    }
+  ],
+  "removals": [],
+  "runs": [
+    {
+      "run": {
+        "id": "#30",
+        "runtime": "claude",
+        "root_session": "#29",
+        "goal": null,
+        "brief": null,
+        "start_pruned": false,
+        "version": 3,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "attention_item",
+          "value": {
+            "id": "#41",
+            "run": "#30",
+            "kind": "permission",
+            "author": "rule",
+            "text": "Bash: node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"",
+            "stage": null,
+            "question": "#34",
+            "action": null,
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#5"
+            ],
+            "runtime_wait": "ended",
+            "resolution": "ended_without_answer",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": "<time>"
+          }
+        },
+        {
+          "kind": "attention_item",
+          "value": {
+            "id": "#42",
+            "run": "#30",
+            "kind": "permission",
+            "author": "rule",
+            "text": "Bash: node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"",
+            "stage": null,
+            "question": "#35",
+            "action": null,
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#16"
+            ],
+            "runtime_wait": "ended",
+            "resolution": "ended_without_answer",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": "<time>"
+          }
+        },
+        {
+          "kind": "run",
+          "value": {
+            "id": "#30",
+            "runtime": "claude",
+            "root_session": "#29",
+            "goal": null,
+            "brief": null,
+            "start_pruned": false,
+            "version": 3,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#29",
+            "run": "#30"
+          }
+        }
+      ]
+    }
+  ]
+}

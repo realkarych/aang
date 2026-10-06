@@ -2,6 +2,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import {
   CallUsage,
   ChangeSeq,
+  type ChatInput,
   EpochNs,
   ModelVersion,
   ObserverCallId,
@@ -77,6 +78,39 @@ export interface ObserverCheck {
   readonly finished_at: EpochNs
 }
 
+export interface ChatCallRecord {
+  readonly id: ObserverCallId
+  readonly run: RunId
+  readonly backend: Runtime
+  readonly base_version: ModelVersion
+  readonly previous: ObserverCallId | null
+  readonly input: ChatInput
+  readonly output: JsonValue | null
+  readonly verdict: ObserverCallVerdict
+  readonly error: ObserverCallError | null
+  readonly usage: CallUsage | null
+  readonly started_at: EpochNs
+  readonly finished_at: EpochNs
+}
+
+export interface StoredChatCall {
+  readonly id: ObserverCallId
+  readonly run: RunId
+  readonly backend: Runtime
+  readonly base_version: ModelVersion
+  readonly previous: ObserverCallId | null
+  readonly verdict: ObserverCallVerdict
+  readonly error: ObserverCallError | null
+  readonly usage: CallUsage | null
+  readonly started_at: EpochNs
+  readonly finished_at: EpochNs
+}
+
+export interface LatestObserverCall {
+  readonly id: ObserverCallId
+  readonly started_at: EpochNs
+}
+
 export interface ObserverSpending {
   readonly tokens: number
   readonly earliest: EpochNs | null
@@ -87,8 +121,9 @@ export interface ObserverCallReader {
   readonly ofRun: (run: RunId) => StoredObserverCall[]
   readonly progress: (run: RunId) => ObserverCallProgress
   readonly unfinished: () => ObserverCallId[]
-  readonly latestStart: (run: RunId) => EpochNs | null
+  readonly latest: (run: RunId) => LatestObserverCall | null
   readonly checks: () => ObserverCheck[]
+  readonly chats: (run: RunId) => StoredChatCall[]
   readonly spending: (since: EpochNs) => ObserverSpending
 }
 
@@ -97,6 +132,7 @@ export interface ObserverCallWriter extends ObserverCallReader {
   readonly finish: (result: ObserverCallResult) => void
   readonly charge: (id: ObserverCallId, usage: CallUsage) => void
   readonly check: (check: ObserverCheck) => void
+  readonly chat: (call: ChatCallRecord) => void
 }
 
 type CallRow = {
@@ -131,6 +167,28 @@ type CheckRow = {
   finished_at: bigint
 }
 
+type ChatRow = {
+  id: string
+  run_id: string
+  backend: Runtime
+  base_version: bigint
+  previous_id: string | null
+  verdict: ObserverCallVerdict
+  error_class: string | null
+  error_message: string | null
+  usage: string | null
+  started_at: bigint
+  finished_at: bigint
+}
+
+type PreviousChatRow = {
+  run_id: string
+  base_version: bigint
+  verdict: ObserverCallVerdict
+  finished_at: bigint
+  followed: bigint
+}
+
 const errorOf = (row: { error_class: string | null; error_message: string | null }): ObserverCallError | null =>
   row.error_class === null || row.error_message === null
     ? null
@@ -157,6 +215,38 @@ const toCall = (row: CallRow): StoredObserverCall => ({
   change_seq: ChangeSeq.parse(Number(row.change_seq)),
 })
 
+const toChat = (row: ChatRow): StoredChatCall => ({
+  id: ObserverCallId.parse(row.id),
+  run: RunId.parse(row.run_id),
+  backend: row.backend,
+  base_version: ModelVersion.parse(Number(row.base_version)),
+  previous: row.previous_id === null ? null : ObserverCallId.parse(row.previous_id),
+  verdict: row.verdict,
+  error: errorOf(row),
+  usage: usageOf(row.usage),
+  started_at: EpochNs.parse(row.started_at),
+  finished_at: EpochNs.parse(row.finished_at),
+})
+
+const previousProblem = (call: ChatCallRecord, previous: PreviousChatRow | undefined): string | null => {
+  if (previous === undefined) {
+    return 'is not a chat call'
+  }
+  if (previous.run_id !== call.run) {
+    return 'belongs to another run'
+  }
+  if (Number(previous.base_version) !== call.base_version) {
+    return 'answered another model version'
+  }
+  if (previous.verdict !== 'needs_requested') {
+    return 'did not request materials'
+  }
+  if (previous.followed !== 0n) {
+    return 'already has its follow-up'
+  }
+  return previous.finished_at > call.started_at ? 'finished after the follow-up started' : null
+}
+
 const tokens = ['uncached_input_tokens', 'cache_read_input_tokens', 'cache_write_input_tokens', 'output_tokens']
   .map((field) => `COALESCE(json_extract(usage, '$.tokens.${field}'), 0)`)
   .join(' + ')
@@ -176,13 +266,25 @@ export const createObserverCalls = (database: DatabaseSync) => {
     database,
     "SELECT id FROM observer_calls WHERE kind = 'batch' AND finished_at IS NULL ORDER BY started_at, id",
   )
-  const selectLatestStart = prepareStatement(
+  const selectLatest = prepareStatement(
     database,
-    "SELECT started_at FROM observer_calls WHERE run_id = ? AND kind = 'batch' ORDER BY started_at DESC LIMIT 1",
+    "SELECT id, started_at FROM observer_calls WHERE run_id = ? AND kind = 'batch' ORDER BY started_at DESC, rowid DESC LIMIT 1",
   )
   const selectChecks = prepareStatement(
     database,
-    "SELECT * FROM observer_calls WHERE kind <> 'batch' ORDER BY started_at, id",
+    "SELECT * FROM observer_calls WHERE kind IN ('probe', 'auth_status') ORDER BY started_at, id",
+  )
+  const selectChats = prepareStatement(
+    database,
+    `SELECT id, run_id, backend, base_version, previous_id, verdict, error_class, error_message, usage, started_at,
+       finished_at
+     FROM observer_calls WHERE run_id = ? AND kind = 'chat' ORDER BY started_at, id`,
+  )
+  const selectPrevious = prepareStatement(
+    database,
+    `SELECT run_id, base_version, verdict, finished_at,
+       EXISTS (SELECT 1 FROM observer_calls follow WHERE follow.previous_id = call.id) AS followed
+     FROM observer_calls call WHERE id = ? AND kind = 'chat'`,
   )
   const selectSpending = prepareStatement(
     database,
@@ -200,6 +302,12 @@ export const createObserverCalls = (database: DatabaseSync) => {
        finished_at, change_seq)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   )
+  const insertChat = prepareStatement(
+    database,
+    `INSERT INTO observer_calls (id, kind, run_id, previous_id, backend, base_version, input, output, verdict, error_class,
+       error_message, usage, started_at, finished_at, change_seq)
+     VALUES (?, 'chat', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  )
   const finish = prepareStatement(
     database,
     `UPDATE observer_calls SET output = ?, verdict = ?, reasons = ?, error_class = ?, error_message = ?, usage = ?,
@@ -213,9 +321,9 @@ export const createObserverCalls = (database: DatabaseSync) => {
   )
   const reader: ObserverCallReader = {
     unfinished: () => (selectUnfinished.all() as { id: string }[]).map(({ id }) => ObserverCallId.parse(id)),
-    latestStart: (run) => {
-      const row = selectLatestStart.get(run) as { started_at: bigint } | undefined
-      return row === undefined ? null : EpochNs.parse(row.started_at)
+    latest: (run) => {
+      const row = selectLatest.get(run) as { id: string; started_at: bigint } | undefined
+      return row === undefined ? null : { id: ObserverCallId.parse(row.id), started_at: EpochNs.parse(row.started_at) }
     },
     get: (id) => {
       const row = select.get(id) as CallRow | undefined
@@ -242,6 +350,7 @@ export const createObserverCalls = (database: DatabaseSync) => {
         started_at: EpochNs.parse(row.started_at),
         finished_at: EpochNs.parse(row.finished_at),
       })),
+    chats: (run) => (selectChats.all(run) as ChatRow[]).map(toChat),
     spending: (since) => {
       const row = selectSpending.get(since) as { tokens: bigint | number; earliest: bigint | null }
       return { tokens: Number(row.tokens), earliest: row.earliest === null ? null : EpochNs.parse(row.earliest) }
@@ -291,6 +400,31 @@ export const createObserverCalls = (database: DatabaseSync) => {
         usage === null ? null : encodeJson(usage),
         started,
         finished,
+        context.nextChangeSeq(),
+      )
+    },
+    chat: (call) => {
+      context.assertActive()
+      if (call.previous !== null) {
+        const problem = previousProblem(call, selectPrevious.get(call.previous) as PreviousChatRow | undefined)
+        if (problem !== null) {
+          throw new Error(`chat call ${call.id} follows ${call.previous}, which ${problem}`)
+        }
+      }
+      insertChat.run(
+        call.id,
+        call.run,
+        call.previous,
+        call.backend,
+        call.base_version,
+        encodeJson(call.input),
+        call.output === null ? null : encodeJson(call.output),
+        call.verdict,
+        call.error?.class ?? null,
+        call.error?.message ?? null,
+        call.usage === null ? null : encodeJson(call.usage),
+        call.started_at,
+        call.finished_at,
         context.nextChangeSeq(),
       )
     },

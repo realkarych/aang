@@ -9,6 +9,7 @@ export const repository = {
   aang: join(root, 'packages', 'aang'),
   hook: join(root, 'packages', 'hook'),
   storeSchema: join(root, 'packages', 'store', 'schema'),
+  supportMatrix: join(root, 'support', 'matrix.json'),
 }
 
 export const aangVersion = async (): Promise<string> => {

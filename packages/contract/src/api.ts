@@ -34,7 +34,7 @@ import {
   ViewRuleId,
 } from './primitives.js'
 import { RawRecord } from './raw.js'
-import { SupportKey, SupportStatus } from './support.js'
+import { SupportStatus, VersionKey } from './support.js'
 import {
   AppliedViewRule,
   AttentionPlace,
@@ -70,8 +70,10 @@ export const RawSeqText = z.codec(decimal, RawSeq, {
 
 export const ApiErrorCode = z.enum([
   'unauthorized',
+  'forbidden',
   'not_found',
   'invalid_request',
+  'unsupported_media_type',
   'conflict',
   'unavailable',
   'internal',
@@ -92,7 +94,7 @@ export const Listener = z.strictObject({
 })
 export type Listener = z.infer<typeof Listener>
 
-export const HookInstallation = z.enum(['not_installed', 'untrusted', 'active', 'unknown'])
+export const HookInstallation = z.enum(['not_installed', 'untrusted', 'disabled', 'active', 'unknown'])
 export type HookInstallation = z.infer<typeof HookInstallation>
 
 export const RuntimeStatus = z.strictObject({
@@ -127,12 +129,17 @@ export const ObserverBackendStatus = z.strictObject({
 })
 export type ObserverBackendStatus = z.infer<typeof ObserverBackendStatus>
 
-export const VersionStatus = z.strictObject({
-  key: SupportKey,
-  status: SupportStatus,
-  sessions: count,
-  last_seen_at: EpochNs,
-})
+export const VersionStatus = z
+  .strictObject({
+    key: VersionKey,
+    status: SupportStatus,
+    sessions: count,
+    last_seen_at: EpochNs,
+  })
+  .refine(({ key, status }) => key.surface !== null || status === 'unverified', {
+    message: 'a version of an unknown surface is unverified',
+    path: ['status'],
+  })
 export type VersionStatus = z.infer<typeof VersionStatus>
 
 export const NotObservableSurface = z.enum(['claude_cowork', 'claude_cloud', 'codex_cloud', 'work_cloud'])
@@ -524,32 +531,51 @@ export const ReparseResponse = z.strictObject({
 })
 export type ReparseResponse = z.infer<typeof ReparseResponse>
 
-export const UsageQuery = z.strictObject({
-  run: RunId.optional(),
-  from: EpochNs.optional(),
-  to: EpochNs.optional(),
-})
+export const UsageQuery = z
+  .strictObject({
+    run: RunId.optional(),
+    from: EpochNs.optional(),
+    to: EpochNs.optional(),
+  })
+  .refine(({ from, to }) => from === undefined || to === undefined || from < to, {
+    message: 'from must precede to',
+    path: ['to'],
+  })
 export type UsageQuery = z.infer<typeof UsageQuery>
+
+export const Latency = z.strictObject({
+  p50: count,
+  p95: count,
+  max: count,
+})
+export type Latency = z.infer<typeof Latency>
 
 export const CallsUsage = z.strictObject({
   calls: count,
-  probes: count,
   totals: UsageTotals,
-  latency_ms: z
-    .strictObject({
-      p50: count,
-      p95: count,
-      max: count,
-    })
-    .nullable(),
+  latency_ms: Latency.nullable(),
 })
 export type CallsUsage = z.infer<typeof CallsUsage>
 
+export const ObserverUsage = z.strictObject({
+  ...CallsUsage.shape,
+  lag_ms: Latency.nullable(),
+})
+export type ObserverUsage = z.infer<typeof ObserverUsage>
+
+export const ThreadTotal = z.strictObject({
+  agent: AgentId,
+  tokens: TokenUsage,
+})
+export type ThreadTotal = z.infer<typeof ThreadTotal>
+
 export const SessionUsage = z.strictObject({
   session: SessionId,
+  fork: z.boolean(),
   totals: UsageTotals,
   cost_state: CostStatePayload.nullable(),
   cost_state_final: z.boolean(),
+  thread_totals: z.array(ThreadTotal),
 })
 export type SessionUsage = z.infer<typeof SessionUsage>
 
@@ -561,7 +587,7 @@ export const RunUsage = z.strictObject({
     unassigned: UsageTotals,
     sessions: z.array(SessionUsage),
   }),
-  observer: CallsUsage,
+  observer: ObserverUsage,
   chat: CallsUsage,
   duration_ms: count,
   active_hours: count,
@@ -605,6 +631,9 @@ export const UsageReport = z.strictObject({
   from: EpochNs.nullable(),
   to: EpochNs.nullable(),
   runs: z.array(RunUsage),
+  observer: ObserverUsage,
+  probes: CallsUsage.nullable(),
+  chat: CallsUsage,
   totals: JournalTotals,
   active_hours: count,
   per_active_hour: JournalRates.nullable(),
@@ -842,6 +871,14 @@ export const endpoints = {
     query: UsageQuery,
     body: null,
     response: UsageReport,
+  },
+  hooksCheck: {
+    method: 'POST',
+    path: '/api/admin/hooks-check',
+    params: null,
+    query: null,
+    body: empty,
+    response: StatusResponse,
   },
   doctor: {
     method: 'POST',

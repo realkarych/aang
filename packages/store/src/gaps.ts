@@ -1,5 +1,5 @@
 import type { DatabaseSync } from 'node:sqlite'
-import { type ChangeSeq, Gap, type GapId, type GapKind, type RunId } from '@aang/contract'
+import { type ChangeSeq, Gap, type GapId, type GapKind, type RunId, type SessionId } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import { decodeJson } from './codec.js'
 import { prepareStatement, upsertInto, type WriteContext } from './context.js'
@@ -14,6 +14,7 @@ export interface GapReader {
 
 export interface GapWriter extends GapReader {
   readonly save: (draft: GapDraft) => Gap
+  readonly resequence: (session: SessionId, run: RunId) => void
 }
 
 export interface GapRepository {
@@ -83,6 +84,11 @@ export const createGaps = (database: DatabaseSync): GapRepository => {
      )))
      ORDER BY change_seq, id`,
   )
+  const selectOfSession = prepareStatement(
+    database,
+    'SELECT id FROM gaps WHERE session_id = :session AND (run_id IS NULL OR run_id = :run) ORDER BY change_seq, id',
+  )
+  const updateChangeSeq = prepareStatement(database, 'UPDATE gaps SET change_seq = ? WHERE id = ?')
 
   const reader: GapReader = {
     open: (kind) => (selectOpen.all(kind) as GapRow[]).map(toGap),
@@ -127,6 +133,12 @@ export const createGaps = (database: DatabaseSync): GapRepository => {
         change_seq: gap.change_seq,
       })
       return gap
+    },
+    resequence: (session, run) => {
+      context.assertActive()
+      for (const { id } of selectOfSession.all({ session, run }) as { readonly id: string }[]) {
+        updateChangeSeq.run(context.nextChangeSeq(), id)
+      }
     },
   })
 

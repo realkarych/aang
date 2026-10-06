@@ -7,6 +7,7 @@
 - `dist/aang.js` и `dist/aang-hook.js` — команды `aang` и `aang-hook`. Это бандлы `esbuild` точек входа пакета `aang` (`packages/aang/dist/main.js` и `hook.js`) со всеми внутренними пакетами и `zod`; модули `node:*` остаются внешними. Предупреждение `esbuild` прерывает сборку.
 - `dist/web/` — сборка `web`, каталог экспорта `@aang/web`.
 - `schema/` — миграции `store`. Модуль `store` читает `../schema/` относительно себя, а в пакете этот модуль — `dist/aang.js`.
+- `support/matrix.json` — матрица поддержки (ADR-0010), из которой демон берёт статус версий. Команда `aang` читает `../support/matrix.json` относительно себя, а если такого файла нет — `../../../support/matrix.json`, где матрица лежит в рабочем дереве и в образе Docker.
 - `THIRD_PARTY_LICENSES` — лицензии сторонних пакетов, попавших в бандл. Пакет без файла лицензии прерывает сборку.
 - `package.json`: `bin` с обеими командами, `engines.node` — `>=26`, `optionalDependencies` на шесть платформенных пакетов той же версии, поле `imports`. Версия берётся из `packages/aang/package.json`.
 

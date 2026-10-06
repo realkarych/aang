@@ -1,7 +1,7 @@
 import { appendFile, mkdir, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
-const [mode, target] = process.argv.slice(2)
+const [mode, target, lines] = process.argv.slice(2)
 if (!target) {
   throw new Error('Missing target')
 }
@@ -37,12 +37,58 @@ switch (mode) {
     if (!codexHome) throw new Error('Missing CODEX_HOME')
     const day = join(codexHome, 'sessions', '2026', '10', '03')
     await mkdir(day, { recursive: true })
-    await writeFile(join(day, 'rollout-own.jsonl'), rollout(process.cwd(), target))
-    await appendFile(join(day, 'rollout-own.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'task_started' } })}\n`)
+    await writeFile(join(day, 'rollout-own.jsonl'), `${rollout(process.cwd(), target)}${JSON.stringify({ type: 'event_msg', payload: { type: 'task_started' } })}\n`)
     await writeFile(join(day, 'rollout-foreign.jsonl'), rollout('/Users/someone-else/elsewhere', 'thread-foreign-1'))
     await writeFile(join(day, 'rollout-partial.jsonl'), '{"type":"session_meta"')
     await appendFile(join(codexHome, 'sessions', 'existing.jsonl'), `${JSON.stringify({ type: 'event_msg', payload: { type: 'later' } })}\n`)
     process.stdout.write(JSON.stringify({ home: process.env['HOME'], codexHome }))
+    break
+  }
+  case 'rules': {
+    const codexHome = process.env['CODEX_HOME']
+    if (!codexHome) throw new Error('Missing CODEX_HOME')
+    const day = join(codexHome, 'sessions', '2026', '10', '04')
+    await mkdir(day, { recursive: true })
+    const tool = ['/opt/owner-tools/bin/tool', 'view']
+    const add = ['git', 'add', 'pkg/private-project/main.go']
+    const commit = ['git', 'commit', '-m', 'private commit text']
+    const end = lines === 'crlf' ? '\r\n' : '\n'
+    const listed = [commit, tool].map((prefix) => `- [${prefix.map((part) => JSON.stringify(part)).join(', ')}]`).join(end)
+    const instructions = ['<permissions instructions>', '## Approved command prefixes', `The following prefix rules have already been approved: ${listed}`, '', 'Approval policy is `on-request`.', '</permissions instructions>'].join(end)
+    const records = [
+      { type: 'session_meta', payload: { id: target, cwd: process.cwd() } },
+      { type: 'response_item', payload: { type: 'message', role: 'developer', content: [{ type: 'input_text', text: instructions }] } },
+      { type: 'world_state', payload: { full: true, state: { permissions: { instructions: 'fed2f53df24dd05a', approved_command_prefixes: [tool, add, commit] } } } },
+      { type: 'event_msg', payload: { type: 'exec_approval_request', proposed_execpolicy_amendment: ['touch', 'approved.txt'] } },
+    ]
+    await writeFile(join(day, 'rollout-rules.jsonl'), records.map((record) => `${JSON.stringify(record)}\n`).join(''))
+    process.stdout.write(instructions)
+    break
+  }
+  case 'regular-claude': {
+    const home = process.env['HOME'] ?? ''
+    const claude = join(home, '.claude')
+    const project = join(claude, 'projects', process.cwd().replaceAll(/[^a-zA-Z0-9]/g, '-'))
+    const foreign = '9d0c51f4-6d0e-4b5e-8f3a-2f6f0f4a7c11'
+    const line = (value: unknown): string => `${JSON.stringify(value)}\n`
+    const write = async (path: string, content: string): Promise<void> => {
+      await mkdir(join(path, '..'), { recursive: true })
+      await writeFile(path, content)
+    }
+    await mkdir(join(project, 'memory'), { recursive: true })
+    await write(join(claude, 'sessions', `${String(process.pid)}.json`), JSON.stringify({ pid: process.pid, sessionId: target, cwd: process.cwd() }))
+    await write(join(project, `${target}.jsonl`), line({ type: 'user', sessionId: target, cwd: process.cwd(), message: { role: 'user', content: `Read ${join(claude, 'settings.json')}` } }))
+    await write(join(project, target, 'subagents', 'agent-a1.jsonl'), line({ type: 'user', sessionId: target, agentId: 'a1', isSidechain: true }))
+    await write(join(claude, 'tasks', target, '1.json'), JSON.stringify({ id: '1', subject: 'Own task', status: 'pending' }))
+    await mkdir(join(claude, 'session-env', target), { recursive: true })
+    await mkdir(join(claude, 'plugins', 'data', 'aang-inline'), { recursive: true })
+    await mkdir(join(claude, 'plugins', 'data', 'other-inline'), { recursive: true })
+    await write(join(claude, 'projects', '-Users-someone-else-elsewhere', `${foreign}.jsonl`), line({ type: 'user', sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
+    await write(join(claude, 'sessions', '2.json'), JSON.stringify({ pid: 2, sessionId: foreign, cwd: '/Users/someone-else/elsewhere' }))
+    await write(join(claude, 'tasks', foreign, '1.json'), JSON.stringify({ id: '1', subject: 'Foreign task', status: 'pending' }))
+    await write(join(claude, 'teams', 'team-new', 'config.json'), JSON.stringify({ name: 'team-new', leadSessionId: target }))
+    await appendFile(join(claude, 'projects', '-Users-someone-else-old', `${foreign}.jsonl`), line({ type: 'later' }))
+    process.stdout.write(JSON.stringify({ home, claudeConfigDir: process.env['CLAUDE_CONFIG_DIR'] ?? null, pid: process.pid, args: process.argv.slice(4) }))
     break
   }
   case 'append':

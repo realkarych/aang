@@ -14,6 +14,7 @@ const faults = [
   z.strictObject({ kind: z.literal('auth') }),
   z.strictObject({ kind: z.literal('limit'), resetsAt: epochSeconds.optional() }),
   z.strictObject({ kind: z.literal('timeout') }),
+  z.strictObject({ kind: z.literal('network') }),
   z.strictObject({ kind: z.literal('invalid_json'), text: z.string() }),
 ] as const
 
@@ -38,6 +39,11 @@ const Descendant = z.strictObject({
   inheritStdio: z.boolean().default(false),
 })
 
+const GroupEscape = z.strictObject({
+  pidFile: z.string().optional(),
+  lifetimeMs: z.int().positive().default(300),
+})
+
 export const ClaudePluginCommand = z.enum([
   'marketplace-add',
   'marketplace-remove',
@@ -50,13 +56,21 @@ export type ClaudePluginCommand = z.infer<typeof ClaudePluginCommand>
 
 export const ClaudeScenario = z.strictObject({
   admissionFault: z.enum(['hook_missing', 'hook_leak', 'registry_missing', 'registry_marker', 'transcript', 'tool_execution']).optional(),
+  admissionMs: z.int().nonnegative().default(100),
   descendant: Descendant.optional(),
+  groupEscape: GroupEscape.optional(),
   version: z.string().default('2.1.286'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
+  builtinPlugins: z.array(z.string()).default(() => ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring']),
+  pluginHooks: z.array(z.string()).default(() => []),
+  pluginMcpServers: z.array(z.string()).default(() => []),
+  userPlugins: z.array(z.string()).default(() => []),
   replies: z.array(ClaudeReply).default(() => []),
   chatReplies: z.array(ClaudeReply).default(() => []),
   pluginFailures: z.array(ClaudePluginCommand).default(() => []),
+  pluginHang: z.boolean().default(false),
+  pluginDescendant: Descendant.optional(),
 })
 export type ClaudeScenario = z.input<typeof ClaudeScenario>
 
@@ -75,6 +89,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
     output: z.json(),
     usage: CodexUsage.optional(),
     toolAttempts: z.array(z.string()).default(() => []),
+    gate: z.string().optional(),
   }),
   z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: CodexUsage.optional() }),
   ...faults,
@@ -82,14 +97,15 @@ export const CodexReply = z.discriminatedUnion('kind', [
 export type CodexReply = z.input<typeof CodexReply>
 
 export const CodexScenario = z.strictObject({
-  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last']).optional(),
+  admissionFault: z.enum(['hook_missing', 'hook_leak', 'rollout', 'sqlite', 'tool_supported', 'no_http', 'missing_last', 'off_schema_last']).optional(),
   descendant: Descendant.optional(),
+  groupEscape: GroupEscape.optional(),
   version: z.string().default('0.159.3'),
   loggedIn: z.boolean().default(true),
   leakedTools: z.array(z.string()).default(() => []),
   replies: z.array(CodexReply).default(() => []),
   chatReplies: z.array(CodexReply).default(() => []),
-  hooks: z.enum(['untrusted', 'trusted', 'disabled', 'unlisted']).default('untrusted'),
+  hooks: z.enum(['untrusted', 'trusted', 'disabled', 'unlisted', 'unanswered']).default('untrusted'),
 })
 export type CodexScenario = z.input<typeof CodexScenario>
 

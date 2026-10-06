@@ -1,10 +1,11 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { hookRecords, hooksNamed } from '../hooks.js'
 import type { RunOutput } from '../record.js'
 import type { Scenario, ScenarioSession } from '../scenario.js'
 import { checkSubagents, commandOutputs, question, rootReplies, shell, subagentFacts, subagentScript, toolSteps } from './calls.js'
 import { hostScript, stubScenario } from './harness.js'
-import { check, completedItems, containing, events, finished, hookRecords, hooksNamed, items, jsonLines, records, responseItems, rolloutOf, sessionMeta, threadOf } from './rollout.js'
+import { check, completedItems, containing, events, finished, items, jsonLines, records, responseItems, rolloutOf, sessionMeta, threadOf } from './rollout.js'
 
 const surface = 'codex_sdk'
 

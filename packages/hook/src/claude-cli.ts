@@ -7,7 +7,7 @@ export interface ClaudeCli {
   readonly configDir: string | null
 }
 
-interface Completed {
+export interface ClaudeCompleted {
   readonly status: number
   readonly stdout: string
   readonly stderr: string
@@ -29,7 +29,7 @@ const environment = ({ configDir }: ClaudeCli): NodeJS.ProcessEnv =>
 
 const describe = (args: readonly string[]): string => ['claude', ...args].join(' ')
 
-const run = (cli: ClaudeCli, args: readonly string[]): Promise<Completed> =>
+const run = (cli: ClaudeCli, args: readonly string[]): Promise<ClaudeCompleted> =>
   new Promise((resolve, reject) => {
     execFile(
       cli.command,
@@ -55,7 +55,7 @@ const parseJson = (text: string): unknown => {
 
 const lastLine = (text: string): string => text.trimEnd().split(/\r?\n/).at(-1) ?? ''
 
-const failure = (args: readonly string[], { status, stderr }: Completed, message?: string): HookInstallError =>
+const failure = (args: readonly string[], { status, stderr }: ClaudeCompleted, message?: string): HookInstallError =>
   new HookInstallError(
     'claude_cli',
     `${describe(args)} failed: ${message ?? (stderr.trim() === '' ? `exit code ${String(status)}` : stderr.trim())}`,
@@ -78,12 +78,14 @@ export const runPluginCommand = async (
   }
 }
 
-export const listPlugins = async (cli: ClaudeCli): Promise<PluginListing> => {
-  const args = ['plugin', 'list', '--json']
-  const completed = await run(cli, args)
+export const claudePluginListArgs: readonly string[] = ['plugin', 'list', '--json']
+
+export const pluginListingOf = (completed: ClaudeCompleted): PluginListing => {
   const listing = PluginListing.safeParse(parseJson(completed.stdout))
   if (completed.status !== 0 || !listing.success) {
-    throw failure(args, completed)
+    throw failure(claudePluginListArgs, completed)
   }
   return listing.data
 }
+
+export const listPlugins = async (cli: ClaudeCli): Promise<PluginListing> => pluginListingOf(await run(cli, claudePluginListArgs))

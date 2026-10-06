@@ -6,6 +6,7 @@ import type { ScenarioSession } from '../scenario.js'
 import { desktopSdkVersion } from './drivers.js'
 import { type HostPlanInput, type HostSummary, readSummary } from './plan.js'
 import { startModelStub, type StubScript } from './stub.js'
+import { driveTui, type TuiRun } from './tui.js'
 
 export type ClaudeSurfaceName = 'claude_cli' | 'claude_sdk' | 'claude_desktop'
 
@@ -66,6 +67,7 @@ export type Stage = Omit<HostPlanInput, 'engine' | 'args' | 'initialize'>
 export interface ClaudeRun {
   readonly session: ScenarioSession
   readonly stage: (name: string, stage: Stage) => Promise<HostSummary>
+  readonly tui: (name: string, run: TuiRun) => Promise<void>
   readonly remove: (file: string) => Promise<void>
   readonly move: (file: string, destination: string) => Promise<void>
 }
@@ -75,7 +77,7 @@ const stubKey = 'sk-ant-api03-aang-record-model-stub'
 
 const liveCredentials = (): void => {
   if (process.env['ANTHROPIC_API_KEY'] || process.env['CLAUDE_CODE_OAUTH_TOKEN']) return
-  throw new Error('Live Claude scenarios need ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN: the temporary CLAUDE_CONFIG_DIR has no login')
+  throw new Error('Live Claude scenarios need ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN, or the regular Claude home: the temporary CLAUDE_CONFIG_DIR has no login')
 }
 
 export const withClaude = (
@@ -84,7 +86,8 @@ export const withClaude = (
   body: (run: ClaudeRun) => Promise<void>,
 ) => async (session: ScenarioSession): Promise<void> => {
   const live = session.model === 'live'
-  if (live) liveCredentials()
+  const regular = session.claudeHome === 'regular'
+  if (live && !regular) liveCredentials()
   const stub = live ? undefined : await startModelStub(script(session), join(session.work, 'model-stub.jsonl'))
   const env = stub === undefined
     ? quiet
@@ -115,6 +118,10 @@ export const withClaude = (
         const result = await readSummary(summary)
         if (result === undefined) throw new Error(`${surface.surface} stage ${name} wrote no summary`)
         return result
+      },
+      tui: async (name, run) => {
+        if (live) throw new Error('TUI scenarios run only with the model stub')
+        await driveTui(session, name, stubKey, { ...run, env: { ...env, ...run.env } })
       },
       remove: async (file) => {
         await session.run(process.execPath, [filesHost, 'remove', file])

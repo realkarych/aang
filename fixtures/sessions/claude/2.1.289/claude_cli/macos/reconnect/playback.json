@@ -1,0 +1,260 @@
+{
+  "steps": [
+    {
+      "kind": "hook",
+      "at": 242,
+      "source": "data/000003.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "write",
+      "at": 261,
+      "target": {
+        "root": "claude",
+        "path": "sessions/33421.json"
+      },
+      "source": "data/000001.json"
+    },
+    {
+      "kind": "hook",
+      "at": 261,
+      "source": "data/000005.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 288,
+      "source": "data/000007.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 317,
+      "source": "data/000011.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 322,
+      "source": "data/000013.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 332,
+      "source": "data/000015.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      },
+      "label": "daemon-restart"
+    },
+    {
+      "kind": "append",
+      "at": 337,
+      "target": {
+        "root": "claude",
+        "path": "projects/-fixture-project/6693682e-a54c-436e-b733-0c00f2b314b2.jsonl"
+      },
+      "source": "data/000008.jsonl"
+    },
+    {
+      "kind": "write",
+      "at": 337,
+      "target": {
+        "root": "claude",
+        "path": "sessions/33421.json"
+      },
+      "source": "data/000009.json"
+    },
+    {
+      "kind": "hook",
+      "at": 5340,
+      "source": "data/000018.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 5351,
+      "source": "data/000020.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "write",
+      "at": 5354,
+      "target": {
+        "root": "claude",
+        "path": "sessions/33421.json"
+      },
+      "source": "data/000016.json"
+    },
+    {
+      "kind": "hook",
+      "at": 5362,
+      "source": "data/000023.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      },
+      "label": "after-restart"
+    },
+    {
+      "kind": "hook",
+      "at": 5365,
+      "source": "data/000025.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 5375,
+      "source": "data/000027.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 5378,
+      "target": {
+        "root": "claude",
+        "path": "projects/-fixture-project/6693682e-a54c-436e-b733-0c00f2b314b2.jsonl"
+      },
+      "source": "data/000021.jsonl"
+    },
+    {
+      "kind": "remove",
+      "at": 5378,
+      "target": {
+        "root": "claude",
+        "path": "sessions/33421.json"
+      }
+    },
+    {
+      "kind": "hook",
+      "at": 5382,
+      "source": "data/000031.json",
+      "runtime": "claude",
+      "registration": "plugin",
+      "env": {
+        "CLAUDE_CODE_ENTRYPOINT": "sdk-cli",
+        "CLAUDE_CODE_SESSION_ID": "6693682e-a54c-436e-b733-0c00f2b314b2",
+        "CLAUDE_PID": "33421",
+        "CLAUDE_PROJECT_DIR": "/fixture/project",
+        "CLAUDE_PLUGIN_ROOT": "/fixture/recording/plugin",
+        "AI_AGENT": "claude-code_2-1-289_harness",
+        "CODEX_HOME": "/Users/USER/.codex"
+      }
+    },
+    {
+      "kind": "append",
+      "at": 5404,
+      "target": {
+        "root": "claude",
+        "path": "projects/-fixture-project/6693682e-a54c-436e-b733-0c00f2b314b2.jsonl"
+      },
+      "source": "data/000029.jsonl"
+    }
+  ]
+}

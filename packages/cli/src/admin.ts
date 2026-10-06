@@ -15,10 +15,24 @@ interface AdminSpec<B extends z.ZodType, R extends z.ZodType> {
   readonly response: R
 }
 
-const callDaemon = async <B extends z.ZodType, R extends z.ZodType>(
-  spec: AdminSpec<B, R>,
-  body: z.output<B>,
-): Promise<z.output<R>> => {
+interface ReadSpec<R extends z.ZodType> {
+  readonly method: 'GET'
+  readonly path: string
+  readonly response: R
+}
+
+interface QuerySpec<Q extends z.ZodType, R extends z.ZodType> {
+  readonly path: string
+  readonly query: Q
+  readonly response: R
+}
+
+interface DaemonAccess {
+  readonly base: string
+  readonly authorization: string
+}
+
+const daemonAccess = async (): Promise<DaemonAccess> => {
   const paths = aangHomePaths(resolveAangHome(processEnvironment()))
   const state = await readDaemonState(paths.daemonState)
   if (state === null || !isAlive(state.pid)) {
@@ -28,18 +42,54 @@ const callDaemon = async <B extends z.ZodType, R extends z.ZodType>(
   if (token === null) {
     throw new Error(`no UI token in ${paths.uiToken}`)
   }
-  const response = await fetch(`${daemonUrl(state.api)}${spec.path}`, {
-    method: spec.method,
-    headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
-    body: JSON.stringify(spec.body.encode(body)),
-    signal: AbortSignal.timeout(requestTimeoutMs),
-  })
+  return { base: daemonUrl(state.api), authorization: `Bearer ${token}` }
+}
+
+const answerOf = async <R extends z.ZodType>(response: Response, schema: R): Promise<z.output<R>> => {
   const answer: unknown = await response.json().catch(() => null)
   if (!response.ok) {
     const failure = ApiError.safeParse(answer)
     throw new Error(failure.success ? failure.data.error.message : `the daemon answered ${String(response.status)}`)
   }
-  return spec.response.parse(answer)
+  return schema.parse(answer)
+}
+
+const getDaemon = async <R extends z.ZodType>(path: string, schema: R, timeoutMs: number): Promise<z.output<R>> => {
+  const { base, authorization } = await daemonAccess()
+  const response = await fetch(`${base}${path}`, {
+    headers: { authorization },
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  return answerOf(response, schema)
+}
+
+export const callDaemon = async <B extends z.ZodType, R extends z.ZodType>(
+  spec: AdminSpec<B, R>,
+  body: z.output<B>,
+  timeoutMs = requestTimeoutMs,
+): Promise<z.output<R>> => {
+  const { base, authorization } = await daemonAccess()
+  const response = await fetch(`${base}${spec.path}`, {
+    method: spec.method,
+    headers: { authorization, 'content-type': 'application/json' },
+    body: JSON.stringify(spec.body.encode(body)),
+    signal: AbortSignal.timeout(timeoutMs),
+  })
+  return answerOf(response, spec.response)
+}
+
+export const readDaemon = <R extends z.ZodType>(spec: ReadSpec<R>, timeoutMs = requestTimeoutMs): Promise<z.output<R>> =>
+  getDaemon(spec.path, spec.response, timeoutMs)
+
+export const queryDaemon = <Q extends z.ZodType, R extends z.ZodType>(
+  spec: QuerySpec<Q, R>,
+  query: z.output<Q>,
+): Promise<z.output<R>> => {
+  const encoded = spec.query.encode(query) as Readonly<Record<string, string | undefined>>
+  const search = new URLSearchParams(
+    Object.entries(encoded).flatMap(([name, value]) => (value === undefined ? [] : [[name, value]])),
+  )
+  return getDaemon(`${spec.path}${search.size === 0 ? '' : `?${search.toString()}`}`, spec.response, requestTimeoutMs)
 }
 
 export const reparse = async (output: Output): Promise<number> => {

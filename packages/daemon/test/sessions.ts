@@ -1,5 +1,5 @@
 import { readFileSync } from 'node:fs'
-import { mkdir, readdir, rename, utimes, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readdir, rename, utimes, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { fileURLToPath } from 'node:url'
@@ -7,6 +7,7 @@ import {
   ChangeSeq,
   type RawRecord,
   type RegistrationTag,
+  type RunId,
   type Runtime,
   type SessionKey,
   spoolFormat,
@@ -14,10 +15,11 @@ import {
   spoolLayout,
 } from '@aang/contract'
 import { claudeAdapter } from '@aang/adapter-claude'
+import { runId } from '@aang/contract/ids'
 import { openStore, type Store } from '@aang/store'
 import { invokeHook } from '@aang/testkit'
 import type { TestContext } from 'vitest'
-import { bearer, createHome, type Home, spawnDaemon } from './daemon.js'
+import { bearer, createHome, type Home, missingCli, spawnDaemon } from './daemon.js'
 
 export interface WatchedHome {
   readonly home: Home
@@ -85,6 +87,7 @@ export const watchedHome = async (
     JSON.stringify({
       api: { port: 0 },
       otel: { port: 0 },
+      cli: missingCli(home.root),
       collector: { rootsScanIntervalMs: 200 },
       watch: { roots: [{ path: workspace }] },
       ...config,
@@ -243,4 +246,40 @@ export const claudeStream = (session: string): StreamKey => {
     throw new Error(`no Claude stream for ${session}`)
   }
   return stream
+}
+
+export interface LiveTranscript {
+  readonly run: RunId
+  readonly file: string
+  readonly append: (lines: readonly string[]) => Promise<void>
+  readonly call: (call: string, tool?: string, input?: Record<string, unknown>) => string[]
+  readonly plan: (call: string, items: readonly string[]) => string[]
+}
+
+export const liveTranscript = async (home: Home, workspace: string, session: string): Promise<LiveTranscript> => {
+  const project = join(home.root, '.claude', 'projects', '-work')
+  await mkdir(project, { recursive: true })
+  const file = join(project, `${session}.jsonl`)
+  await writeFile(file, '')
+  const line = (record: Record<string, unknown>): string =>
+    JSON.stringify({ sessionId: session, cwd: workspace, timestamp: new Date().toISOString(), ...record })
+  const call = (id: string, tool = 'Bash', input: Record<string, unknown> = { command: `echo ${id}` }): string[] => [
+    line({
+      type: 'assistant',
+      uuid: `${id}-use`,
+      message: { id: `${id}-message`, role: 'assistant', content: [{ type: 'tool_use', id, name: tool, input }] },
+    }),
+    line({
+      type: 'user',
+      uuid: `${id}-result`,
+      message: { role: 'user', content: [{ type: 'tool_result', tool_use_id: id, content: 'ok', is_error: false }] },
+    }),
+  ]
+  return {
+    run: runId(claudeSession(session)),
+    file,
+    append: (lines) => appendFile(file, lines.map((entry) => `${entry}\n`).join('')),
+    call,
+    plan: (id, items) => call(id, 'TodoWrite', { todos: items.map((content) => ({ content, status: 'pending' })) }),
+  }
 }

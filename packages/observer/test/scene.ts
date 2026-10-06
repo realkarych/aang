@@ -1,8 +1,13 @@
+import { type ChildProcessByStdio, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { mkdir, mkdtemp, realpath, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import type { Readable } from 'node:stream'
+import { setTimeout as sleep } from 'node:timers/promises'
+import { fileURLToPath } from 'node:url'
 import { claudeAdapter } from '@aang/adapter-claude'
 import { codexAdapter } from '@aang/adapter-codex'
 import {
@@ -69,7 +74,44 @@ export const manualClock = (start: number): ManualClock => {
   }
 }
 
+export const until = async (condition: () => boolean): Promise<void> => {
+  const deadline = Date.now() + 15_000
+  while (!condition()) {
+    if (Date.now() > deadline) {
+      throw new Error('the condition did not hold in time')
+    }
+    await sleep(20)
+  }
+}
+
+export const wrapped = (wrapper: string, ...args: string[]): CliCommand => ({
+  command: process.execPath,
+  args: [fileURLToPath(new URL(wrapper, import.meta.url)), ...args],
+})
+
+export const gated = (gate: string, cli: CliCommand): CliCommand => wrapped('gate-wrapper.ts', gate, cli.command, ...(cli.args ?? []))
+
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
+
+const daemonScript = fileURLToPath(new URL('daemon-process.ts', import.meta.url))
+
+const ready = (child: ChildProcessByStdio<null, Readable, Readable>): Promise<void> =>
+  new Promise((resolve, reject) => {
+    let stdout = ''
+    let stderr = ''
+    child.stdout.setEncoding('utf8').on('data', (chunk: string) => {
+      stdout += chunk
+      if (stdout.includes('ready\n')) {
+        resolve()
+      }
+    })
+    child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
+      stderr += chunk
+    })
+    child.on('exit', (code, signal) => {
+      reject(new Error(`the daemon exited (${String(code ?? signal)}) before it was ready: ${stderr}`))
+    })
+  })
 
 const sampleObject = (path: string): JsonObject => JSON.parse(readFileSync(new URL(path, samples), 'utf8')) as JsonObject
 
@@ -166,10 +208,13 @@ export interface SceneLaunch {
 export interface SceneOptions {
   readonly claude?: readonly ClaudeReply[]
   readonly codex?: readonly CodexReply[]
+  readonly claudeChat?: readonly ClaudeReply[]
+  readonly codexChat?: readonly CodexReply[]
   readonly admit?: readonly Runtime[]
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
   readonly limits?: Partial<SchedulerLimits>
+  readonly budgetTokensPerHour?: number
   readonly timeoutMs?: number
   readonly systemClock?: boolean
   readonly executors?: (launch: SceneLaunch) => Partial<Record<Runtime, ObserverExecutor>>
@@ -181,8 +226,8 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
   const workspace = join(root, 'workspace')
   await mkdir(home)
   await mkdir(workspace)
-  const fakeClaude = installFakeClaude(root, { replies: [...(options.claude ?? [])] })
-  const fakeCodex = installFakeCodex(root, { replies: [...(options.codex ?? [])] })
+  const fakeClaude = installFakeClaude(root, { replies: [...(options.claude ?? [])], chatReplies: [...(options.claudeChat ?? [])] })
+  const fakeCodex = installFakeCodex(root, { replies: [...(options.codex ?? [])], chatReplies: [...(options.codexChat ?? [])] })
   const launch = {
     temporaryDirectory: root,
     environment: { ...process.env, HOME: home, USERPROFILE: home },
@@ -219,6 +264,7 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
       ...(crossVendor === undefined ? {} : { crossVendor }),
       ...(manual === null ? {} : { clock: manual }),
       ...(options.limits === undefined ? {} : { limits: options.limits }),
+      ...(options.budgetTokensPerHour === undefined ? {} : { budgetTokensPerHour: options.budgetTokensPerHour }),
     })
     void scheduler.failure.then((error: unknown) => {
       failure = error
@@ -325,6 +371,23 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
       await daemon.scheduler.close()
       daemon.store.close()
       daemon = boot(changes.crossVendor)
+    },
+    kill: async (): Promise<void> => {
+      await daemon.scheduler.close()
+      daemon.store.close()
+      const child = spawn(
+        process.execPath,
+        [daemonScript, join(root, 'aang'), root, String(now()), fakeClaude.command, ...fakeClaude.args],
+        { stdio: ['ignore', 'pipe', 'pipe'] },
+      )
+      const exited = once(child, 'exit')
+      try {
+        await ready(child)
+      } finally {
+        child.kill('SIGKILL')
+        await exited
+      }
+      daemon = boot()
     },
     attach: (runtime: Runtime, session: string, run: RunId): void => {
       daemon.store.transaction((transaction) => {

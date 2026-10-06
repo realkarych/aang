@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises'
 import { join, relative } from 'node:path'
-import { readSpool, type Target } from '@aang/testkit'
+import type { Target } from '@aang/testkit'
 import { z } from 'zod'
 import type { ControlTarget } from '../capture.js'
 import { filesIn } from '../files.js'
@@ -94,22 +94,3 @@ export const sessionMeta = (rollout: Rollout): Json => {
   check(meta !== undefined, `${rollout.target.path} starts with session_meta`)
   return meta as Json
 }
-
-export interface HookRecord extends Json {
-  readonly hook_event_name: string
-}
-
-const isHookRecord = (value: unknown): value is HookRecord => isObject(value) && typeof value['hook_event_name'] === 'string'
-
-export const hookRecords = async (spool: string): Promise<HookRecord[]> =>
-  (await readSpool(spool)).flatMap((event) => {
-    try {
-      const payload: unknown = JSON.parse(event.payload.toString('utf8'))
-      return isHookRecord(payload) ? [payload] : []
-    } catch {
-      return []
-    }
-  })
-
-export const hooksNamed = (hooks: readonly HookRecord[], event: string, field?: { readonly key: string; readonly value: unknown }): HookRecord[] =>
-  hooks.filter((hook) => hook.hook_event_name === event && (field === undefined || hook[field.key] === field.value))

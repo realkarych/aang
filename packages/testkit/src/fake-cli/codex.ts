@@ -1,7 +1,7 @@
 import { existsSync } from 'node:fs'
 import { admissionHookPath, codexAdmissionArtifacts, runAdmissionHook } from './admission.js'
 import { randomUUID } from 'node:crypto'
-import { startDescendant } from './process-tree.js'
+import { leaveProcessGroup, startDescendant } from './process-tree.js'
 import { writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import type { JsonValue } from '@aang/contract'
@@ -9,7 +9,7 @@ import type { z } from 'zod'
 import { serveAppServer } from './codex-app-server.js'
 import { bundledCatalog } from './codex-catalog.js'
 import { catalogEntry, codexExecOptions, codexViolations, readCatalog } from './codex-profile.js'
-import { emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
+import { appeared, emit, finish, hang, parseJson, readStdin, readText, say, tryReadText } from './io.js'
 import { allValues, lastValue, parseOptions, type ParsedOptions } from './options.js'
 import { invocation, purposeOf, runEntry } from './invocation.js'
 import { isolationMessage } from './profile.js'
@@ -41,6 +41,9 @@ const defaultCodexUsage: CodexUsage = {
 
 const unauthorized =
   'unexpected status 401 Unauthorized: Missing bearer or basic authentication in header, url: https://api.openai.com/v1/responses'
+
+const disconnected =
+  'stream disconnected before completion: error sending request for url (https://api.openai.com/v1/responses)'
 
 const usageJson = (usage: CodexUsage): JsonValue => ({
   input_tokens: usage.inputTokens,
@@ -104,6 +107,11 @@ const respond = (turn: Turn, reply: Reply, input: JsonValue | undefined): void =
     case 'timeout':
       startTurn(turn)
       hang()
+      return
+    case 'network':
+      startTurn(turn)
+      emit({ type: 'error', message: `Reconnecting... 1/5 (${disconnected})` })
+      failTurn(disconnected)
       return
     case 'invalid_json':
       startTurn(turn)
@@ -208,7 +216,7 @@ const runMock = async (call: MockCall, config: JsonValue): Promise<void> => {
     failTurn(outcome.failure)
     return
   }
-  completeTurn(call.turn, outcome.text ?? '', outcome.usage)
+  completeTurn(call.turn, call.scenario.admissionFault === 'off_schema_last' ? '{}' : outcome.text ?? '', outcome.usage)
 }
 
 const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> => {
@@ -244,6 +252,9 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     finish(fakeCliExitCodes.isolation)
     return
   }
+  if (scenario.groupEscape !== undefined || !allValues(options, 'disable').includes('shell_snapshot')) {
+    await leaveProcessGroup(scenario.groupEscape ?? { lifetimeMs: 300 })
+  }
   const lastMessage = lastValue(options, 'output-last-message')
   const turn: Turn = {
     threadId: randomUUID(),
@@ -257,7 +268,7 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     }
     const entry = catalogEntry({ options, catalog })
     if (admission) {
-      runAdmissionHook('codex', options, scenario.admissionFault)
+      await runAdmissionHook('codex', options, scenario.admissionFault)
       codexAdmissionArtifacts(scenario.admissionFault)
     }
     if (scenario.admissionFault === 'no_http') { completeTurn(turn, '{"base_version":0,"ops":[],"needs":[]}', defaultCodexUsage); return }
@@ -273,6 +284,9 @@ const exec = async (scenario: Scenario, options: ParsedOptions): Promise<void> =
     return
   }
   await startDescendant(scenario.descendant)
+  if (reply.kind === 'answer' && reply.gate !== undefined) {
+    await appeared(reply.gate)
+  }
   respond(turn, reply, input)
 }
 

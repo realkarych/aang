@@ -10,14 +10,8 @@ import { applyChangeSet, observerInputTokens, startObserverBatch } from '@aang/e
 import { type CliCommand, createObserverScheduler, observerSystemPrompt } from '@aang/observer'
 import type { ClaudeReply } from '@aang/testkit'
 import { expect, test } from 'vitest'
-import { accepted, briefed, createScene, epochOf, needing, outdated, start, structured } from './scene.js'
+import { accepted, briefed, createScene, epochOf, gated, needing, outdated, start, structured, until, wrapped } from './scene.js'
 
-const wrapped = (wrapper: string, ...args: string[]): CliCommand => ({
-  command: process.execPath,
-  args: [fileURLToPath(new URL(wrapper, import.meta.url)), ...args],
-})
-
-const gated = (gate: string, cli: CliCommand): CliCommand => wrapped('gate-wrapper.ts', gate, cli.command, ...(cli.args ?? []))
 
 const zombieTree = (directory: string, helper: string, cli: CliCommand): CliCommand => {
   mkdirSync(directory)
@@ -28,15 +22,6 @@ const rejection = 'version: base_version does not match the saved observer call'
 
 const batchLimits = { facts: 30, bytes: 96_000, textLength: 4_000, inputTokens: 24_000 }
 
-const until = async (condition: () => boolean): Promise<void> => {
-  const deadline = Date.now() + 15_000
-  while (!condition()) {
-    if (Date.now() > deadline) {
-      throw new Error('the condition did not hold in time')
-    }
-    await sleep(20)
-  }
-}
 
 test('an urgent fact starts a call at once and the next batch sees the model the response built', async (context) => {
   const scene = await createScene(context, { claude: [structured, accepted] })
@@ -241,7 +226,7 @@ test('needs get exactly one immediate follow-up that does not spend an attempt',
   ])
 })
 
-test('one call per run, two observer calls at once, and chat keeps its own slot', { timeout: 90_000 }, async (context) => {
+test('one call per run, two observer calls at once, chat keeps its own slot, and timeouts pause the backend', { timeout: 90_000 }, async (context) => {
   const hang = { kind: 'timeout' } as const
   const scene = await createScene(context, {
     claude: [hang, hang, hang, accepted, accepted, accepted],
@@ -267,7 +252,7 @@ test('one call per run, two observer calls at once, and chat keeps its own slot'
 
   expect(await chat).toMatchObject({ ok: false, error: { class: 'timeout' } })
   await scene.scheduler.idle()
-  expect(scene.calls(a).map(({ verdict }) => verdict)).toEqual(['failed'])
+  expect(scene.calls(a).map(({ verdict, error }) => [verdict, error?.class])).toEqual([['failed', 'timeout']])
   expect([a, b].map((run) => scene.statuses(run).map(({ status, attempts }) => [status, attempts]))).toEqual([
     [
       ['pending', 0],
@@ -278,11 +263,14 @@ test('one call per run, two observer calls at once, and chat keeps its own slot'
       ['pending', 0],
     ],
   ])
-  expect(scene.tally(c)).toEqual({ interpreted: 2 })
+  expect(scene.tally(c)).toEqual({ pending: 2 })
+  expect(scene.scheduler.backendState('claude')).toEqual({ state: 'backoff', attempt: 1, until: epochOf(start + 10_000) })
 
   scene.advance(10_000)
+  expect([a, b, c].map((run) => scene.tally(run))).toEqual([{ in_call: 2 }, { pending: 2 }, { pending: 2 }])
   await scene.scheduler.idle()
-  expect([a, b].map((run) => scene.tally(run))).toEqual([{ interpreted: 2 }, { interpreted: 2 }])
+  expect([a, b, c].map((run) => scene.tally(run))).toEqual([{ interpreted: 2 }, { interpreted: 2 }, { interpreted: 2 }])
+  expect(scene.scheduler.backendState('claude')).toEqual({ state: 'ok' })
 })
 
 test('a run waits for an admitted backend of its vendor', async (context) => {
@@ -337,7 +325,7 @@ test('an overridden backend gets facts of another vendor with crossVendor', asyn
 })
 
 test('facts beyond the active queue are deferred from the oldest with a visible gap', async (context) => {
-  const scene = await createScene(context, { claude: [accepted], limits: { queueFacts: 3 } })
+  const scene = await createScene(context, { claude: [accepted, accepted], limits: { queueFacts: 3 } })
   const session = scene.claudeSession('session-backlog')
   await session.start(-25 * 60 * 60 * 1_000)
   await session.tools(5)
@@ -358,12 +346,17 @@ test('facts beyond the active queue are deferred from the oldest with a visible 
   await stale.permission(-25 * 60 * 60 * 1_000)
   scene.scheduler.wake()
   await scene.scheduler.idle()
-  expect(scene.tally(stale.run)).toEqual({ deferred: 2 })
-  expect(scene.calls(stale.run)).toEqual([])
+  const [summary] = scene.calls(stale.run)
+  expect(summary?.verdict).toBe('accepted')
+  expect(summary?.input.batch).toMatchObject({ facts: [], backlog: { facts: 2 } })
+  expect(scene.statuses(stale.run).map(({ status, observer_call: call }) => [status, call])).toEqual([
+    ['deferred', summary?.id],
+    ['deferred', summary?.id],
+  ])
 })
 
 test('the system clock drives the batch timer', async (context) => {
-  const scene = await createScene(context, { claude: [accepted], systemClock: true, limits: { delayMs: 100 } })
+  const scene = await createScene(context, { claude: [accepted], systemClock: true, limits: { delayMs: 2_000 } })
   expect(() => createObserverScheduler({ store: scene.store, backends: {}, limits: { concurrency: 0 } })).toThrow(RangeError)
   const session = scene.claudeSession('session-clock')
   await session.start()
@@ -530,7 +523,7 @@ test('facts of a run whose backend is down are deferred after 24 hours without a
 })
 
 test('the reasons of a rejected response survive a backend failure and a restart, and neither spends an attempt', { timeout: 60_000 }, async (context) => {
-  const scene = await createScene(context, { claude: [outdated, { kind: 'timeout' }, accepted], timeoutMs: 1_500 })
+  const scene = await createScene(context, { claude: [outdated, { kind: 'timeout' }, accepted], timeoutMs: 5_000 })
   const session = scene.claudeSession('session-reasons')
   const attempts = () => scene.statuses(session.run).map(({ status, attempts: count }) => [status, count])
   await session.start()

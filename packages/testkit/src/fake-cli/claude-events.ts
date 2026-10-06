@@ -10,6 +10,10 @@ export interface ClaudeSession {
   readonly version: string
   readonly cwd: string
   readonly tools: readonly string[]
+  readonly plugins: readonly string[]
+  readonly userPlugins: readonly string[]
+  readonly mcpServers: readonly string[]
+  readonly hooks: readonly string[]
   readonly permissionMode: string
   readonly startedAt: number
 }
@@ -33,11 +37,17 @@ const noUsage: ClaudeUsage = {
 const fiveHoursInSeconds = 5 * 60 * 60
 const thinkingTokens = 190
 
-const builtinPlugins = ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'].map((name) => ({
+const builtinPlugin = (name: string): JsonValue => ({
   name,
   path: 'builtin',
   source: `${name}@builtin`,
-}))
+})
+
+const userPlugin = (name: string): JsonValue => ({
+  name,
+  path: join(tmpdir(), 'claude-plugins', name),
+  source: `${name}@user-marketplace`,
+})
 
 const capabilities = [
   'interrupt_receipt_v1',
@@ -120,7 +130,7 @@ export const initEvent = (session: ClaudeSession): JsonValue => ({
   cwd: session.cwd,
   session_id: session.sessionId,
   tools: [...session.tools],
-  mcp_servers: [],
+  mcp_servers: session.mcpServers.map((name) => ({ name, status: 'connected' })),
   model: session.model,
   permissionMode: session.permissionMode,
   slash_commands: [],
@@ -129,7 +139,7 @@ export const initEvent = (session: ClaudeSession): JsonValue => ({
   output_style: 'default',
   agents: ['claude', 'Explore', 'general-purpose', 'Plan', 'statusline-setup'],
   skills: [],
-  plugins: builtinPlugins,
+  plugins: [...session.plugins.map(builtinPlugin), ...session.userPlugins.map(userPlugin)],
   capabilities,
   analytics_disabled: true,
   product_feedback_disabled: false,
@@ -140,6 +150,26 @@ export const initEvent = (session: ClaudeSession): JsonValue => ({
   per_turn_effort_active: true,
   view_mode: 'default',
 })
+
+export const hookEvents = (session: ClaudeSession): JsonValue[] =>
+  session.hooks.flatMap((name) => {
+    const hook = { hook_id: randomUUID(), hook_name: name, hook_event: name.split(':')[0] ?? name }
+    return [
+      { type: 'system', subtype: 'hook_started', ...hook, uuid: randomUUID(), session_id: session.sessionId },
+      {
+        type: 'system',
+        subtype: 'hook_response',
+        ...hook,
+        output: '',
+        stdout: '',
+        stderr: '',
+        exit_code: 0,
+        outcome: 'success',
+        uuid: randomUUID(),
+        session_id: session.sessionId,
+      },
+    ]
+  })
 
 const thinkingTokensEvent = (session: ClaudeSession, estimated: number, delta: number): JsonValue => ({
   type: 'system',

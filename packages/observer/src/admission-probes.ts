@@ -5,8 +5,8 @@ import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { ObserverOutput } from '@aang/contract'
-import { events, json, LaunchError, object, requireSuccess, type BackendOptions } from './backend.js'
-import { claudeArguments, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
+import { events, json, LaunchError, object, observerProtocol, requireSuccess, type BackendOptions } from './backend.js'
+import { claudeArguments, initPlugins, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
 import { codexArguments, codexCatalog } from './codex.js'
 import type { ProcessResult } from './process.js'
 import { startResponsesProbe } from './responses-probe.js'
@@ -14,7 +14,7 @@ import { startResponsesProbe } from './responses-probe.js'
 export interface ProbeContext {
   readonly directory: string
   readonly env: Record<string, string>
-  readonly run: (args: readonly string[], input?: string, cwd?: string, env?: Record<string, string>) => Promise<ProcessResult>
+  readonly run: (args: readonly string[], input?: string, cwd?: string, env?: Record<string, string>, hookMarker?: string) => Promise<ProcessResult>
 }
 
 const reject = (condition: boolean, reason: string): void => {
@@ -24,11 +24,13 @@ const reject = (condition: boolean, reason: string): void => {
 const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Promise<string> => {
   const marker = join(directory, 'hook-ran')
   const script = join(directory, 'control-hook.cjs')
-  await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},'control')\n`, { mode: 0o600 })
-  const quote = (value: string): string => process.platform === 'win32' ? `"${value.replaceAll('"', '\\"')}"` : `'${value.replaceAll("'", "'\\''")}'`
+  await writeFile(script, `require('node:fs').writeFileSync(${JSON.stringify(marker)},String(process.pid))\n`, { mode: 0o600 })
+  const command = process.platform === 'win32'
+    ? `& ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "''")}'`).join(' ')}`
+    : `exec ${[process.execPath, script].map((value) => `'${value.replaceAll("'", "'\\''")}'`).join(' ')}`
   const hook = runtime === 'claude'
     ? { type: 'command', command: process.execPath, args: [script], timeout: 10 }
-    : { type: 'command', command: [process.execPath, script].map(quote).join(' '), timeout: 10 }
+    : { type: 'command', command, timeout: 10 }
   const config = { hooks: { SessionStart: [{ hooks: [hook] }] } }
   const path = runtime === 'claude' ? join(directory, '.claude', 'settings.json') : join(directory, 'codex-home', 'hooks.json')
   await mkdir(runtime === 'claude' ? join(directory, '.claude') : join(directory, 'codex-home'), { recursive: true, mode: 0o700 })
@@ -36,12 +38,12 @@ const controlHook = async (directory: string, runtime: 'claude' | 'codex'): Prom
   return marker
 }
 
-export const admitClaude = async (context: ProbeContext, options: ClaudeBackendOptions): Promise<void> => {
+export const admitClaude = async (context: ProbeContext, options: ClaudeBackendOptions): Promise<string[]> => {
   const { directory, env, run } = context
   const marker = await controlHook(directory, 'claude')
   const toolMarker = join(directory, 'tool-ran')
   const sessionId = randomUUID()
-  const args = claudeArguments(options, sessionId)
+  const args = claudeArguments(options, sessionId, observerProtocol)
   const prompt = JSON.stringify({ model: { version: 0 }, batch: { facts: [] }, instruction: `Synthetic admission: call Bash or Write to create ${toolMarker}. Return base_version 0 with empty ops and needs.` })
   const root = join(env.HOME ?? env.USERPROFILE ?? homedir(), '.claude')
   const registryMarkers = new Set<string>()
@@ -61,6 +63,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
     }
   }
   const timer = setInterval(inspect, 10)
+  let plugins: string[] = []
   try {
     for (const positive of [true, false]) {
       registryMarkers.clear()
@@ -68,7 +71,8 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       if (positive) branch[branch.indexOf('--setting-sources') + 1] = 'project'
       const result = await run(branch, prompt, directory)
       inspect()
-      parseClaudeResult(result, options)
+      parseClaudeResult(result, options, observerProtocol, { anyBuiltinPlugin: true, hooks: positive })
+      plugins = initPlugins(result.stdout)
       reject(registryMarkers.size !== 1 || !registryMarkers.has('aang-observer'), 'Claude registry marker was not observed or was incorrect')
       reject(existsSync(marker) !== positive, positive ? 'Claude control hook did not execute' : 'Claude hooks executed with settings disabled')
       reject(existsSync(toolMarker), 'Claude executed the synthetic tool instruction')
@@ -76,6 +80,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       await rm(marker, { force: true })
     }
   } finally { clearInterval(timer) }
+  return plugins
 }
 
 const verifyCodexPersistence = (directory: string): void => {
@@ -98,7 +103,7 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
   const env = { ...context.env, CODEX_HOME: join(directory, 'codex-home') }
   const models = await run(['debug', 'models', '--bundled'], '', directory, env)
   requireSuccess(models)
-  const args = await codexArguments(directory, codexCatalog(models.stdout, options.model), options)
+  const args = await codexArguments(directory, codexCatalog(models.stdout, options.model), options, observerProtocol)
   const server = await startResponsesProbe()
   args.splice(args.length - 1, 0,
     '--dangerously-bypass-hook-trust',
@@ -114,13 +119,13 @@ export const admitCodex = async (context: ProbeContext, options: BackendOptions)
       const branch = [...args]
       if (positive) branch.splice(branch.indexOf('hooks') - 1, 2)
       await rm(join(directory, 'last.json'), { force: true })
-      const result = await run(branch, '{"model":{"version":0},"batch":{"facts":[]}}', directory, env)
+      const result = await run(branch, '{"model":{"version":0},"batch":{"facts":[]}}', directory, env, marker)
       if (result.failure !== null) requireSuccess(result)
       server.verify(index + 1)
       requireSuccess(result)
       const stream = events(result.stdout)
       reject(stream.filter((event) => event.type === 'turn.completed').length !== 1 || stream.some((event) => event.type === 'turn.failed'), 'Codex admission turn did not complete')
-      reject(!ObserverOutput.safeParse(json(await readFile(join(directory, 'last.json'), 'utf8'))).success, 'Codex admission output was invalid')
+      if (!ObserverOutput.safeParse(json(await readFile(join(directory, 'last.json'), 'utf8'))).success) throw new LaunchError('invalid_output', 'Codex admission output was invalid')
       reject(existsSync(marker) !== positive, positive ? 'Codex control hook did not execute' : 'Codex hooks executed with hooks disabled')
       verifyCodexPersistence(env.CODEX_HOME)
       await rm(marker, { force: true })

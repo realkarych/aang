@@ -1,7 +1,9 @@
 import {
   type Action,
   type Agent,
+  type AttentionItem,
   type AgentId,
+  type BacklogSummary,
   type EpochNs,
   type Fact,
   type GapKey,
@@ -19,12 +21,18 @@ import {
   type Runtime,
   type Session,
   type SessionId,
+  type SnapshotAttentionItem,
+  type SnapshotStage,
+  type Stage,
   type StageId,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { PendingFact, StoredObserverCall, Transaction } from '@aang/store'
 import { interpretable } from '../ingest/queue.js'
 import { beginObserverCall } from '../model/observer.js'
+import { batchFacts } from '../model/observer-context.js'
+import { deferFacts } from '../model/observer-queue.js'
+import { compareText } from '../observations/evidence.js'
 import { collapseRoutine } from './collapse.js'
 import {
   clipAttempt,
@@ -33,10 +41,10 @@ import {
   firstCallTokens,
   longestStateText,
   type Packing,
-  packObserverInput,
+  packInput,
 } from './fit.js'
 import { type Clipped, clipContext, clipJson, isoTime } from './materials.js'
-import { factSession, type InputScope, inputScope, type ScopeExclusion } from './scope.js'
+import { factSession, type InputScope, inputScope, type ScopeExclusion, type ScopeReader } from './scope.js'
 
 export interface BatchLimits {
   readonly facts: number
@@ -53,6 +61,7 @@ export interface ObserverBatchStart {
   readonly at: EpochNs
   readonly limits: BatchLimits
   readonly context?: RunContext | null
+  readonly catchUpMs?: number
 }
 
 interface Queued {
@@ -60,14 +69,35 @@ interface Queued {
   readonly fact: Fact
 }
 
-interface Prepared {
-  readonly queued: Queued
+interface Described {
+  readonly fact: Fact
   readonly action: Action | null
   readonly agent: AgentId | null
   readonly payload: JsonValue
 }
 
-const jsonOf = (value: unknown): JsonValue =>
+interface Prepared extends Described {
+  readonly queued: Queued
+}
+
+interface Excluded {
+  readonly fact: Fact
+}
+
+interface Summarized {
+  readonly fact: Fact
+  readonly agent: AgentId | null
+  readonly tool: string
+}
+
+interface Selection {
+  readonly batch: Queued[]
+  readonly deferral: string | null
+}
+
+const nanosecondsPerMillisecond = 1_000_000n
+
+export const jsonOf = (value: unknown): JsonValue =>
   JsonValue.parse(
     JSON.parse(JSON.stringify(value, (_key, member: unknown) => (typeof member === 'bigint' ? member.toString() : member))),
   )
@@ -92,7 +122,7 @@ const agentBrief = (scope: InputScope, agent: Agent): RunDescription['agents'][n
   parent: agent.parent !== null && scope.agent(agent.parent) === null ? agent.parent : null,
 })
 
-const describeRun = (transaction: Transaction, scope: InputScope, run: Run): RunDescription => {
+export const describeRun = (transaction: Pick<ScopeReader, 'observations'>, scope: InputScope, run: Run): RunDescription => {
   const sessions = transaction.observations.sessions().filter((session) => scope.session(session.id) === null)
   const owner = { kind: 'run', id: run.id } as const
   return {
@@ -121,27 +151,36 @@ const admitted = (scope: InputScope, entity: ModelEntity): boolean => {
   }
 }
 
-const snapshotOf = (transaction: Transaction, scope: InputScope): ModelSnapshot => {
+export const snapshotStage = (stage: Stage, parent: StageId | null): SnapshotStage => ({
+  id: stage.id,
+  title: stage.title,
+  expected_result: stage.expected_result,
+  summary: stage.summary,
+  parent,
+  origin: stage.origin,
+  execution: stage.execution.value,
+  decision: stage.decision.value,
+})
+
+export const snapshotAttentionItem = (item: AttentionItem, stage: StageId | null): SnapshotAttentionItem => ({
+  id: item.id,
+  kind: item.kind,
+  author: item.author,
+  text: item.text,
+  stage,
+  runtime_wait: item.runtime_wait,
+  resolution: item.resolution,
+  likely_resolved: item.likely_resolved !== null,
+})
+
+export const snapshotOf = (transaction: Pick<ScopeReader, 'model'>, scope: InputScope): ModelSnapshot => {
   const entities = transaction.model.entities(scope.run).filter((entity) => admitted(scope, entity))
   const stages = new Set(entities.flatMap((entity) => (entity.kind === 'stage' ? [entity.value.id] : [])))
   const stageOf = (id: StageId | null): StageId | null => (id !== null && stages.has(id) ? id : null)
   return {
     version: transaction.model.head(scope.run),
     stages: entities.flatMap((entity) =>
-      entity.kind === 'stage'
-        ? [
-            {
-              id: entity.value.id,
-              title: entity.value.title,
-              expected_result: entity.value.expected_result,
-              summary: entity.value.summary,
-              parent: stageOf(entity.value.parent),
-              origin: entity.value.origin,
-              execution: entity.value.execution.value,
-              decision: entity.value.decision.value,
-            },
-          ]
-        : [],
+      entity.kind === 'stage' ? [snapshotStage(entity.value, stageOf(entity.value.parent))] : [],
     ),
     criteria: entities.flatMap((entity) =>
       entity.kind === 'criterion'
@@ -157,53 +196,44 @@ const snapshotOf = (transaction: Transaction, scope: InputScope): ModelSnapshot 
         : [],
     ),
     attention: entities.flatMap((entity) =>
-      entity.kind === 'attention_item'
-        ? [
-            {
-              id: entity.value.id,
-              kind: entity.value.kind,
-              author: entity.value.author,
-              text: entity.value.text,
-              stage: stageOf(entity.value.stage),
-              runtime_wait: entity.value.runtime_wait,
-              resolution: entity.value.resolution,
-              likely_resolved: entity.value.likely_resolved !== null,
-            },
-          ]
-        : [],
+      entity.kind === 'attention_item' ? [snapshotAttentionItem(entity.value, stageOf(entity.value.stage))] : [],
     ),
   }
 }
 
-const actionOf = (transaction: Transaction, scope: InputScope, fact: Fact): Action | null => {
+const actionOf = (transaction: Pick<ScopeReader, 'observations'>, scope: InputScope, fact: Fact): Action | null => {
   const key = fact.entity_key
   const action = key.kind === 'action' ? transaction.observations.getAction(objectId(key)) : null
   return action !== null && scope.action(action) === null ? action : null
 }
 
-const prepare = (transaction: Transaction, scope: InputScope, queued: Queued): Prepared => {
-  const { fact } = queued
-  const action = actionOf(transaction, scope, fact)
+const agentOf = (scope: InputScope, fact: Fact, action: Action | null): AgentId | null => {
   const key = fact.entity_key
   const agent = key.kind === 'agent' ? objectId(key) : (action?.agent ?? null)
+  return agent !== null && scope.agent(agent) === null ? agent : null
+}
+
+const describe = (reader: Pick<ScopeReader, 'observations'>, scope: InputScope, fact: Fact): Described => {
+  const action = actionOf(reader, scope, fact)
   return {
-    queued,
+    fact,
     action,
-    agent: agent !== null && scope.agent(agent) === null ? agent : null,
+    agent: agentOf(scope, fact, action),
     payload: jsonOf(fact.payload),
   }
 }
+
+const prepare = (reader: Pick<ScopeReader, 'observations'>, scope: InputScope, queued: Queued): Prepared => ({
+  ...describe(reader, scope, queued.fact),
+  queued,
+})
 
 const omittedPayload = (payload: JsonValue): Clipped<JsonValue> => ({
   value: null,
   truncated: [{ path: 'payload', length: JSON.stringify(payload).length }],
 })
 
-const inputFact = (
-  { queued: { fact }, action, agent, payload }: Prepared,
-  textLength: number,
-  omitted: boolean,
-): InputFact => {
+const inputFact = ({ fact, action, agent, payload }: Described, textLength: number, omitted: boolean): InputFact => {
   const clipped = omitted ? omittedPayload(payload) : clipJson(payload, 'payload', textLength)
   return {
     id: fact.id,
@@ -220,6 +250,13 @@ const inputFact = (
   }
 }
 
+export const factInput = (
+  reader: Pick<ScopeReader, 'observations'>,
+  scope: InputScope,
+  fact: Fact,
+  textLength: number,
+): InputFact => inputFact(describe(reader, scope, fact), textLength, false)
+
 const openGap = (
   transaction: Transaction,
   scope: InputScope,
@@ -235,7 +272,7 @@ const openGap = (
   }
 }
 
-const exclude = (transaction: Transaction, scope: InputScope, queued: readonly Queued[], at: EpochNs): Queued[] => {
+const exclude = <T extends Excluded>(transaction: Transaction, scope: InputScope, queued: readonly T[], at: EpochNs): T[] => {
   const excluded = new Map<SessionId, ScopeExclusion>()
   const dropped: Fact['id'][] = []
   const kept = queued.filter(({ fact }) => {
@@ -268,6 +305,43 @@ const admittedContext = (transaction: Transaction, scope: InputScope, context: R
   return record !== null && scope.record(record) === null ? context : null
 }
 
+const summarizedOf = (fact: Fact, action: Action | null, agent: AgentId | null): Summarized => ({
+  fact,
+  agent,
+  tool: action?.tool ?? fact.kind,
+})
+
+const backlogOf = (entries: readonly Summarized[]): BacklogSummary | null => {
+  const [first] = entries
+  if (first === undefined) {
+    return null
+  }
+  const agents = new Map<AgentId | null, Map<string, number>>()
+  let from = first.fact.at
+  let to = first.fact.at
+  for (const { fact, agent, tool } of entries) {
+    const tools = agents.get(agent) ?? new Map<string, number>()
+    tools.set(tool, (tools.get(tool) ?? 0) + 1)
+    agents.set(agent, tools)
+    from = fact.at < from ? fact.at : from
+    to = fact.at > to ? fact.at : to
+  }
+  return {
+    from: isoTime(from),
+    to: isoTime(to),
+    facts: entries.length,
+    agents: [...agents]
+      .toSorted(([left], [right]) => compareText(left ?? '', right ?? ''))
+      .map(([agent, tools]) => ({
+        agent,
+        facts: [...tools.values()].reduce((total, count) => total + count, 0),
+        tools: [...tools]
+          .toSorted(([left], [right]) => compareText(left, right))
+          .map(([tool, count]) => ({ tool, count })),
+      })),
+  }
+}
+
 const select = (queued: readonly Queued[], limits: BatchLimits): Queued[] => {
   const batch: Queued[] = []
   let bytes = 0
@@ -297,14 +371,54 @@ const previousAttempt = (transaction: Transaction, batch: readonly Queued[]): Ob
   return latest ?? null
 }
 
-const positive = (limits: BatchLimits): boolean =>
-  [limits.facts, limits.bytes, limits.textLength, limits.inputTokens].every(
-    (value) => Number.isSafeInteger(value) && value > 0,
-  )
+const summaryAttempt = (transaction: Transaction, run: RunId): ObserverInput['previous_attempt'] => {
+  const latest = transaction.observerCalls.latest(run)
+  const call = latest === null ? null : transaction.observerCalls.get(latest.id)
+  return call === null || call.verdict === 'accepted' || call.input.batch.backlog === null ? null : attemptOf(call)
+}
+
+const joinAttempts = (attempts: readonly ObserverInput['previous_attempt'][]): ObserverInput['previous_attempt'] => {
+  const known = attempts.filter((attempt) => attempt !== null)
+  return known.length === 0 ? null : { reasons: [...new Set(known.flatMap(({ reasons }) => reasons))] }
+}
+
+const positive = (values: readonly number[]): boolean => values.every((value) => Number.isSafeInteger(value) && value > 0)
+
+const catchUp = (
+  transaction: Transaction,
+  { run, at, limits, catchUpMs }: ObserverBatchStart,
+  queued: readonly Queued[],
+): Selection => {
+  const oldest = queued.reduce((earliest, { pending }) => (pending.observed_at < earliest ? pending.observed_at : earliest), at)
+  if (catchUpMs === undefined || at - oldest <= BigInt(catchUpMs) * nanosecondsPerMillisecond) {
+    return { batch: select(queued, limits), deferral: null }
+  }
+  const batch = select(queued.toReversed(), limits).toReversed()
+  const earlier = queued.slice(0, queued.length - batch.length).map(({ fact }) => fact.id)
+  const deferral = `facts that waited longer than ${String(catchUpMs)} ms for the observer are summarized`
+  if (earlier.length > 0) {
+    deferFacts(transaction, { run, facts: earlier, at, details: deferral })
+  }
+  return { batch, deferral }
+}
+
+const summaryOf = (transaction: Transaction, scope: InputScope, at: EpochNs): Summarized[] =>
+  exclude(
+    transaction,
+    scope,
+    transaction.interpretations.unsummarized(scope.run).flatMap((id) => {
+      const fact = transaction.facts.get(id)
+      return fact === null ? [] : [{ fact }]
+    }),
+    at,
+  ).map(({ fact }) => {
+    const action = actionOf(transaction, scope, fact)
+    return summarizedOf(fact, action, agentOf(scope, fact, action))
+  })
 
 export const startObserverBatch = (transaction: Transaction, start: ObserverBatchStart): ObserverInput | null => {
-  const { run, backend, crossVendor, id, at, limits } = start
-  if (!positive(limits)) {
+  const { run, backend, crossVendor, id, at, limits, catchUpMs } = start
+  if (!positive([limits.facts, limits.bytes, limits.textLength, limits.inputTokens, ...(catchUpMs === undefined ? [] : [catchUpMs])])) {
     throw new RangeError('batch limits must be positive integers')
   }
   const entity = transaction.model.entity(run, { kind: 'run', id: run })
@@ -317,18 +431,32 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
     return fact === null ? [] : [{ pending, fact }]
   })
   transaction.interpretations.withdraw(run, queued.flatMap(({ fact }) => (interpretable(fact) ? [] : [fact.id])))
-  const batch = select(exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at), limits)
-  if (batch.length === 0) {
+  const { batch, deferral } = catchUp(transaction, start, exclude(transaction, scope, queued.filter(({ fact }) => interpretable(fact)), at))
+  const summarized = summaryOf(transaction, scope, at)
+  if (batch.length === 0 && summarized.length === 0) {
     return null
   }
+  const retried = summaryAttempt(transaction, run)
   const description = describeRun(transaction, scope, entity.value)
   const model = snapshotOf(transaction, scope)
   const context = admittedContext(transaction, scope, start.context ?? null)
   const prepared = batch.map((queued) => prepare(transaction, scope, queued))
+  const behind = deferral !== null
+  const chosenOf = (count: number): Prepared[] => (behind ? prepared.slice(prepared.length - count) : prepared.slice(0, count))
+  const backlogFor = (count: number): BacklogSummary | null =>
+    backlogOf([
+      ...summarized,
+      ...(behind ? prepared.slice(0, prepared.length - count) : []).map(({ queued: { fact }, action, agent }) =>
+        summarizedOf(fact, action, agent),
+      ),
+    ])
+  const attempt = (chosen: readonly Queued[], backlog: BacklogSummary | null): ObserverInput['previous_attempt'] =>
+    joinAttempts([previousAttempt(transaction, chosen), backlog === null ? null : retried])
   const render =
     (omitted: boolean) =>
     ({ count, batchText, stateText }: Packing): ObserverInput => {
-      const chosen = prepared.slice(0, count)
+      const chosen = chosenOf(count)
+      const backlog = backlogFor(count)
       const { facts, collapsed } = collapseRoutine(
         chosen.map((entry) => ({ fact: entry.queued.fact, input: inputFact(entry, batchText, omitted), action: entry.action })),
       )
@@ -336,14 +464,14 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
         run: clipRun(description, stateText),
         context: clipContext(context, batchText),
         model: clipSnapshot(model, stateText),
-        batch: { facts: facts.map(({ input }) => input), collapsed, backlog: null, artifact_versions: [] },
+        batch: { facts: facts.map(({ input }) => input), collapsed, backlog, artifact_versions: [] },
         materials: [],
-        previous_attempt: clipAttempt(previousAttempt(transaction, chosen.map(({ queued }) => queued)), stateText),
+        previous_attempt: clipAttempt(attempt(chosen.map(({ queued }) => queued), backlog), stateText),
       }
     }
-  const longest = longestStateText({ run: description, model, previous_attempt: previousAttempt(transaction, batch) })
+  const longest = longestStateText({ run: description, model, previous_attempt: joinAttempts([previousAttempt(transaction, batch), retried]) })
   const pack = (count: number, omitted: boolean): ObserverInput | null =>
-    packObserverInput(
+    packInput(
       { count, minimumCount: 1, batchText: limits.textLength, stateText: longest },
       firstCallTokens(limits.inputTokens),
       render(omitted),
@@ -352,6 +480,12 @@ export const startObserverBatch = (transaction: Transaction, start: ObserverBatc
   if (input === null) {
     return null
   }
+  const sent = new Set(batchFacts(input))
+  const left = behind ? batch.flatMap(({ fact }) => (sent.has(fact.id) ? [] : [fact.id])) : []
+  if (behind && left.length > 0) {
+    deferFacts(transaction, { run, facts: left, at, details: deferral })
+  }
   beginObserverCall(transaction, { id, backend, crossVendor, input, at })
+  transaction.interpretations.summarize(run, id, [...summarized.map(({ fact }) => fact.id), ...left])
   return input
 }

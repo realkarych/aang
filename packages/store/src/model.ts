@@ -1,5 +1,6 @@
 import type { DatabaseSync } from 'node:sqlite'
 import {
+  ActionId,
   type Basis,
   type ChangeSeq,
   type Evidence,
@@ -45,6 +46,7 @@ export interface ModelReader {
   readonly changes: (run: RunId, after: ModelVersion) => ModelChange[]
   readonly entityChanges: (run: RunId, target: ModelEntityRef, after: ModelVersion) => ModelChange[]
   readonly kindChanges: (run: RunId, kind: ModelEntityRef['kind'], after: ModelVersion) => ModelChange[]
+  readonly carriedChecks: () => ActionId[]
 }
 
 export interface ModelWriter extends ModelReader {
@@ -220,6 +222,11 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
      WHERE c.run_id = ? AND c.entity_kind = ? AND c.version > ?
      ORDER BY c.version, c.change_index`,
   )
+  const selectCarriedChecks = prepareStatement(
+    database,
+    `SELECT DISTINCT carried.value AS action FROM model_changes c, json_each(c.after_state, '$.carried_checks') carried
+     WHERE c.entity_kind = 'criterion' ORDER BY action`,
+  )
   const selectJournal = prepareStatement(
     database,
     `SELECT c.run_id, c.version, c.entity_kind, c.entity_id, c.after_state, v.change_seq FROM ${journal}
@@ -281,6 +288,8 @@ export const createModel = (database: DatabaseSync): ModelRepository => {
     entityChanges: (run, target, after) =>
       (selectEntityChanges.all(run, target.kind, target.id, after) as ChangeRow[]).map(toChange),
     kindChanges: (run, kind, after) => (selectKindChanges.all(run, kind, after) as ChangeRow[]).map(toChange),
+    carriedChecks: () =>
+      (selectCarriedChecks.all() as { readonly action: string }[]).map(({ action }) => ActionId.parse(action)),
   }
 
   const writer = (context: WriteContext): ModelWriter => ({
