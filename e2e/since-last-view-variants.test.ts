@@ -23,7 +23,7 @@ interface Surface {
 }
 
 interface CodexSurface extends Surface {
-  readonly finalAnswersAfterTheQuestion: number
+  readonly finalAnswerMessagesAfterTheQuestion: readonly string[]
 }
 
 interface Continuation {
@@ -43,14 +43,26 @@ const claudeSurfaces: readonly Surface[] = [
 ]
 
 const codexSurfaces: readonly CodexSurface[] = [
-  { name: 'CLI', surface: 'codex_exec', version: '0.160.0', checkedOnWindows: true, finalAnswersAfterTheQuestion: 0 },
-  { name: 'SDK', surface: 'codex_sdk', version: '0.160.0', checkedOnWindows: true, finalAnswersAfterTheQuestion: 0 },
+  {
+    name: 'CLI',
+    surface: 'codex_exec',
+    version: '0.160.0',
+    checkedOnWindows: true,
+    finalAnswerMessagesAfterTheQuestion: [],
+  },
+  {
+    name: 'SDK',
+    surface: 'codex_sdk',
+    version: '0.160.0',
+    checkedOnWindows: true,
+    finalAnswerMessagesAfterTheQuestion: [],
+  },
   {
     name: 'Desktop',
     surface: 'codex_desktop',
     version: '0.159.2',
     checkedOnWindows: false,
-    finalAnswersAfterTheQuestion: 2,
+    finalAnswerMessagesAfterTheQuestion: ['msg_aang_2', 'msg_aang_3'],
   },
 ]
 
@@ -161,20 +173,28 @@ const expectObserverQuestion = async (page: Page): Promise<void> => {
   await expect(question).toContainText('от наблюдателя')
 }
 
-const expectCardsToOriginal = async (page: Page, text: string, count = 1): Promise<void> => {
+const factsPath = endpoints.fact.path.replace(':id', '')
+
+const expectCardsToOriginal = async (page: Page, text: string, count = 1): Promise<(string | null)[]> => {
   const cards = change(page, 'Итоги решателя', text)
   await expect(cards).toHaveCount(count, observed)
+  const messages: (string | null)[] = []
   for (const card of await cards.all()) {
     await expect(card).toContainText('новая')
     await expect(card).toContainText(`этап «${continuedStageTitle}»`)
+    const read = page.waitForResponse((response) => new URL(response.url()).pathname.startsWith(factsPath))
     await card.getByRole('button', { name: 'Показать в оригинале' }).click()
+    const { fact } = endpoints.fact.response.parse(await (await read).json())
     const original = card.getByRole('figure')
     await expect(original.locator('mark')).toHaveText(text)
     await expect(original).toContainText('сообщение')
     await expect(original).toContainText('решатель')
+    await expect(original).toContainText(`сырая запись № ${String(fact.seq)}`)
+    messages.push(fact.runtime_ids.message_id)
     await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
     await expect(original).toHaveCount(0)
   }
+  return messages
 }
 
 const expectCountedChanges = async (page: Page): Promise<void> => {
@@ -278,7 +298,12 @@ test.describe('with the observer', () => {
           await expect(asked).toContainText('по правилу aang')
           await expectObserverQuestion(page)
           await expectCardsToOriginal(page, codexQuestionMessage)
-          await expectCardsToOriginal(page, codexFinalAnswer, surface.finalAnswersAfterTheQuestion)
+          const finalAnswers = await expectCardsToOriginal(
+            page,
+            codexFinalAnswer,
+            surface.finalAnswerMessagesAfterTheQuestion.length,
+          )
+          expect(finalAnswers.toSorted()).toEqual(surface.finalAnswerMessagesAfterTheQuestion)
           await expectCountedChanges(page)
         })
       })
