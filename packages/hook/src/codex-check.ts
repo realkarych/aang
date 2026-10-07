@@ -20,7 +20,7 @@ export const checkCodexHooks = async ({ codex, known, fresh, ...options }: Codex
     if (files.unregistered) {
       return { status: 'not_installed', fingerprint: files.fingerprint }
     }
-    if (!fresh) {
+    if (!fresh && known !== null) {
       for (const remembered of [known, await readCodexHooksRecord(aangHome, codexHome)]) {
         if (remembered?.fingerprint === files.fingerprint) {
           return remembered

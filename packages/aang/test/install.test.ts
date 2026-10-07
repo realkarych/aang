@@ -386,7 +386,7 @@ describe.concurrent('aang install and uninstall on any platform', () => {
       expect((await sandbox.aang('status')).stdout).toContain(
         `claude hooks: active\ncodex hooks: not installed\n${offByDefault}\n`,
       )
-      expect(codex.calls()).toEqual([])
+      expect(appServers(codex)).toEqual([])
 
       const optedIn = await sandbox.aang('install', '--codex')
 

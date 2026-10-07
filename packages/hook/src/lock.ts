@@ -25,7 +25,7 @@ const isRunning = (pid: number): boolean => {
 
 const lockOwner = (content: string): number => Number(content.split(' ', 1)[0])
 
-const readLock = async (lock: string, deadline: number): Promise<string | undefined> => {
+const readLock = async (lock: string, deadline: number, signal?: AbortSignal): Promise<string | undefined> => {
   for (;;) {
     try {
       return await readFile(lock, 'utf8')
@@ -37,15 +37,15 @@ const readLock = async (lock: string, deadline: number): Promise<string | undefi
       if (!retryable || Date.now() >= deadline) {
         throw error
       }
-      await delay(lockPollMs)
+      await delay(lockPollMs, undefined, { signal })
     }
   }
 }
 
-const removeAbandoned = async (lock: string, abandoned: string, deadline: number): Promise<boolean> => {
+const removeAbandoned = async (lock: string, abandoned: string, deadline: number, signal?: AbortSignal): Promise<boolean> => {
   const recovery = `${lock}${recoverySuffix}`
   if (!(await createFileExclusively(recovery, String(process.pid), lockMode))) {
-    const recovering = await readLock(recovery, deadline)
+    const recovering = await readLock(recovery, deadline, signal)
     if (recovering !== undefined && !isRunning(lockOwner(recovering))) {
       throw new HookInstallError(
         'install_locked',
@@ -55,7 +55,7 @@ const removeAbandoned = async (lock: string, abandoned: string, deadline: number
     return false
   }
   try {
-    if ((await readLock(lock, deadline)) === abandoned) {
+    if ((await readLock(lock, deadline, signal)) === abandoned) {
       await rm(lock, { force: true })
     }
     return true
@@ -69,8 +69,8 @@ export const acquireLock = async (lock: string, operation: string, signal?: Abor
   const deadline = Date.now() + lockWaitMs
   while (!(await createFileExclusively(lock, content, lockMode))) {
     signal?.throwIfAborted()
-    const held = await readLock(lock, deadline)
-    if (held === undefined || (!isRunning(lockOwner(held)) && (await removeAbandoned(lock, held, deadline)))) {
+    const held = await readLock(lock, deadline, signal)
+    if (held === undefined || (!isRunning(lockOwner(held)) && (await removeAbandoned(lock, held, deadline, signal)))) {
       continue
     }
     if (Date.now() > deadline) {

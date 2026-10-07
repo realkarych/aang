@@ -1,7 +1,9 @@
-import { execFile } from 'node:child_process'
+import { type ChildProcess, execFile, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { existsSync } from 'node:fs'
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { promisify } from 'node:util'
 import {
   endpoints,
@@ -140,6 +142,31 @@ const writeRollout = async (codexHome: string, workspace: string): Promise<void>
 }
 
 const fakeCalls = (fake: Pick<FakeCli<never>, 'calls'>, command: FakeCommand) => fake.calls().filter((call) => call.command === command)
+
+const unreadableHolder =
+  "$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open($env:AANG_HELD_FILE, 'CreateNew', 'ReadWrite', 'None'); [Console]::Out.WriteLine('held'); Start-Sleep -Seconds 300"
+
+const holdUnreadable = async (path: string): Promise<ChildProcess> => {
+  const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', unreadableHolder], {
+    env: { ...process.env, AANG_HELD_FILE: path },
+    stdio: ['ignore', 'pipe', 'inherit'],
+    windowsHide: true,
+  })
+  for await (const line of createInterface({ input: holder.stdout })) {
+    if (line === 'held') {
+      return holder
+    }
+  }
+  throw new Error(`the holder of ${path} exited before it opened the file`)
+}
+
+const release = async (holder: ChildProcess): Promise<void> => {
+  if (holder.exitCode === null && holder.signalCode === null) {
+    const exited = once(holder, 'exit')
+    holder.kill()
+    await exited
+  }
+}
 
 const isRunning = (pid: number): boolean => {
   try {
@@ -314,6 +341,33 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
   )
 
   test(
+    'after a failed explicit check the daemon takes the state neither from an earlier installation nor from its memory, and a rewrite with the same bytes checks again',
+    { timeout: 90_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+
+      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      expect(installation.status).toBe('active')
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
+      await sleep(quietPeriodMs)
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+
+      codex.setScenario({ hooks: 'unanswered' })
+      expect(hooksOf(await checkHooks(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(3)
+
+      const hooksFile = join(codexHome, 'hooks.json')
+      await writeFile(hooksFile, await readFile(hooksFile))
+      await sleep(quietPeriodMs)
+
+      expect(hooksOf(await readStatus(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(4)
+    },
+  )
+
+  test(
     'reading the status never starts a CLI; a changed runtime config and an explicit hooks check start the Claude CLI, and the Claude plugin goes from not installed to active and disabled',
     { timeout: 60_000 },
     async ({ expect, onTestFinished }) => {
@@ -379,6 +433,27 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       await daemon.stopped
       expect(Date.now() - stopping).toBeLessThan(7_000)
       await waitUntil(() => !hanging.some(({ pid }) => isRunning(pid)), 10_000)
+    },
+  )
+
+  test.runIf(process.platform === 'win32')(
+    'stopping the daemon cancels a Codex hooks check that waits for a lock file another process keeps unreadable',
+    { timeout: 60_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, {})
+      await writeFile(join(codexHome, 'hooks.json'), registeredHooks(home))
+      const holder = await holdUnreadable(join(codexHome, 'hooks.json.aang-lock'))
+      onTestFinished(() => release(holder))
+      const daemon = await startDaemon(home, onTestFinished)
+      await sleep(2_000)
+      expect(hooksOf(await readStatus(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toEqual([])
+
+      const stopping = Date.now()
+      daemon.abort()
+      await daemon.stopped
+      expect(Date.now() - stopping).toBeLessThan(7_000)
+      await release(holder)
     },
   )
 })
