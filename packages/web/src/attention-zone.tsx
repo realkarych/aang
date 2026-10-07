@@ -27,6 +27,8 @@ import { placeOf } from './objects.js'
 
 type Act = 'view' | 'dismiss'
 
+export const attentionAnchor = (item: AttentionItemId): string => `attention-${item}`
+
 type Work =
   | { readonly state: 'idle' }
   | { readonly state: 'pending' }
@@ -237,6 +239,7 @@ const ZoneItem = ({ entry, context }: { readonly entry: ZoneEntry; readonly cont
   const where = itemPlace(snapshot.objects, item)
   return (
     <li
+      id={attentionAnchor(item.id)}
       className="zone-item"
       data-kind={item.kind}
       data-waiting={place.waiting_for_human}

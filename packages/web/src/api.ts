@@ -5,6 +5,8 @@ import {
   type AttentionItemId,
   type AttentionView,
   type ChangesResponse,
+  type ChatMessage,
+  type ChatQuestionRequest,
   endpoints,
   type Fact,
   type FactId,
@@ -20,6 +22,8 @@ import {
   type UsageQuery,
   type UsageReport,
   type ViewPosition,
+  type ViewRule,
+  type ViewRuleId,
 } from '@aang/contract'
 
 export class SignedOut extends Error {
@@ -37,6 +41,9 @@ export class NotFound extends Error {
 export class RequestFailed extends Error {
   override readonly name = 'RequestFailed'
 }
+
+export const failureText = (error: unknown): string =>
+  error instanceof Unreachable ? 'нет связи с демоном' : error instanceof Error ? error.message : String(error)
 
 interface Decoder<T> {
   readonly parse: (value: unknown) => T
@@ -92,6 +99,25 @@ const write = <T>(path: string, body: unknown, decoder: Decoder<T>, signal: Abor
 
 const post = <T>(path: string, decoder: Decoder<T>): Promise<T> =>
   write(path, {}, decoder, new AbortController().signal)
+
+const send = async <T>(method: 'POST' | 'DELETE', path: string, body: unknown, decoder: Decoder<T>): Promise<T> => {
+  let response: Response
+  try {
+    response = await fetch(path, {
+      method,
+      headers: { accept: 'application/json', 'content-type': 'application/json' },
+      cache: 'no-store',
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+    })
+  } catch (error) {
+    throw new Unreachable(error instanceof Error ? error.message : String(error))
+  }
+  ensureSignedIn(response)
+  if (!response.ok) {
+    throw new RequestFailed(await failureMessage(response))
+  }
+  return decoder.parse(await response.json())
+}
 
 const withRun = (path: string, run: RunId): string => path.replace(':run', encodeURIComponent(run))
 
@@ -153,3 +179,19 @@ const usageSearch = ({ run, from, to }: UsageQuery): string => {
 
 export const readUsage = (query: UsageQuery, signal: AbortSignal): Promise<UsageReport> =>
   read(`${endpoints.usage.path}${usageSearch(query)}`, endpoints.usage.response, signal)
+
+export const readChat = async (run: RunId, signal: AbortSignal): Promise<ChatMessage[]> =>
+  (await read(withRun(endpoints.chatHistory.path, run), endpoints.chatHistory.response, signal)).messages
+
+export const askChat = async (run: RunId, request: ChatQuestionRequest): Promise<ChatMessage> =>
+  (await send('POST', withRun(endpoints.chatQuestion.path, run), request, endpoints.chatQuestion.response)).message
+
+export const revokeViewRule = async (run: RunId, id: ViewRuleId): Promise<ViewRule> =>
+  (
+    await send(
+      'DELETE',
+      withRun(endpoints.revokeViewRule.path, run).replace(':id', encodeURIComponent(id)),
+      undefined,
+      endpoints.revokeViewRule.response,
+    )
+  ).rule

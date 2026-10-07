@@ -11,6 +11,8 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 
 `setScenario` начинает обе очереди ответов с первого ответа, журнал вызовов сохраняется.
 
+Ответ `answer` или `script` с полем `gate` (путь к файлу) ждёт, пока файл появится, и только потом отвечает: так тест держит вызов открытым, пока меняет прогон. Существующий файл ответ не задерживает, поэтому повтор того же ответа на следующем вызове идёт сразу.
+
 ## Скрипты
 
 Ответ `{ kind: 'script', script }` — функция от входа контракта (`ObserverInput` или `ChatInput` из S.4a, S.4b) с типизированным выходом. Вход, который не проходит строгую схему, — ошибка сценария: CLI завершается с кодом `fakeCliExitCodes.scenario`. Шаблоны `{ kind: 'answer', output }` с указателями `$input` (F.1) остаются для простых ответов.
@@ -32,6 +34,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | `attention` | наблюдатель | `map`; этапы верхнего уровня `Checks` и `Release`, где `Release` зависит от `Checks` (`stage.depends` без версии); блокер наблюдателя `The checks wait for a missing secret` на этапе `Checks`, от которого в зоне внимания зависят оба этапа; при финальном тексте решателя в порции — запрос ревью `Review the final result` на `Main work` со свидетельством финального текста. Этапы и пункты находятся по названию и тексту в снимке, повтор на следующей порции их не дублирует. Каждому открытому пункту правила — рекомендация `attention.priority` `high` со свидетельствами порции. Открытому вопросу правила без пометки — `attention.likely_resolved`, если текст промпта человека в порции содержит текст вопроса с учётом регистра; свидетельство — эти промпты |
 | `chat-answer` | чат | Ответ «по версии карты V» со ссылками: этап, его факты и действия для фокуса этапа; этапы снимка, пункты внимания и свидетельства последних изменений для фокуса прогона. Без материала — `insufficient_data` |
 | `chat-collapse-reviewers` | чат | Правило `collapse` по `agent_type` (или по имени) агентов, у которых тип, имя или описание содержит `review`. Без ревьюеров — `insufficient_data` без правила |
+| `chat-old-ground` | чат | Этап фокуса, а без него — первый этап верхнего уровня. Пока во входе нет журнала этого этапа, ответ — только `needs` с журналом этапа. С журналом — ответ со ссылками на этап и на первое свидетельство журнала, которого нет нигде во входе, кроме материалов (старое основание вне первого входа); если такого нет — `insufficient_data` со ссылкой на этап |
 
 ## Очереди наблюдателя и чата
 
@@ -49,6 +52,7 @@ fake.setScenario(observerScenarios['since-last-view'].after)
 | 4 | `since-last-view.before`, затем `.after` | образец `claude-fork` до `resume`, затем до `continue` и до `fork`; образец `codex-resume-compaction` до `resume` и после |
 | 4 | `revised-decisions.before`, затем `.after` | образец `claude-fork` до `resume`, затем до `continue` и до `fork` |
 | 5 | `chat.live` | транскрипт образца Claude с субагентом типа `code-reviewer` и его `PermissionRequest` |
+| 18 | `old-ground.live` | образцы `claude-subagent` (до субагента, до его результата) и `codex-resume-compaction` (до `resume`, до `compaction`): вопрос по этапу `Main work`, когда его свидетельства уже заменены следующей порцией |
 | 7 | `llm-failure.healthy`, `.failing`, `.recovered` | образец `codex-resume-compaction`: порция до `resume`; в `failing` только отказ `limit`; в `recovered` — факты после сводки ранних фактов и свёрнутые счётчики токенов |
 | 8 | `live-map.live` | rollout Codex с запуском субагента, затем rollout субагента, hooks с `PermissionRequest`, решение через OTel (`source: User`) и fork отдельным прогоном |
 | 14 | `stage-succession.live`, затем `.revised`, `.split` и `.merged` | образец `claude-compaction`: до субагента, до результата субагента и до `resume` на `.live` (этап субагента вкладывается в `Main work`, следующая версия `Main work` не меняет), до `continue` на `.revised` (`Main work` заменён одним преемником), до `compaction` на `.split` (преемник разделён на два этапа), до `compact-boundary` на `.merged` (оба этапа объединены в один) |

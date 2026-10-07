@@ -13,7 +13,7 @@ import { loadManifest, type Profile, type RunningDaemon, sampleScenarioManifest 
 import type { APIRequestContext } from '@playwright/test'
 import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
-import { change, fact, lamp, mark, markButton, runRowOf, since, sinceTab, step, zone, zoneItem } from './screens.js'
+import { change, fact, lamp, mark, markButton, runRowOf, since, sinceTab, stepsOf, zone, zoneItem } from './screens.js'
 
 const run = runOf(claudeOriginal)
 
@@ -283,7 +283,12 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   await expect(zoneItem(page, downtimeQuestion)).toHaveCount(1)
   await expect(zoneItem(page, formatQuestion)).toHaveCount(1)
   await expect(fact(page, 'Агенты')).toHaveText('2')
-  await expect(step(page, 'Основной агент', first.command)).toContainText('успешно')
+  await expect(
+    stepsOf(page, 'Основной агент')
+      .getByRole('list', { name: 'Шаги группы «Проверки»', exact: true })
+      .getByRole('listitem')
+      .filter({ hasText: first.command }),
+  ).toContainText('успешно')
   await expect(mark(page)).toContainText(`версия карты ${String(kept.view.mark?.version)}`)
 
   const files = [transcripts.main, transcripts.subagent, transcripts.fork]

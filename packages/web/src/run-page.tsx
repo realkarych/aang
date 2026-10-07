@@ -2,9 +2,10 @@ import type { RunId, RunSnapshot, RunSummary } from '@aang/contract'
 import type { ReactElement } from 'react'
 import { AttentionZone } from './attention-zone.js'
 import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
+import { ChatPanel } from './chat-panel.js'
 import { absoluteTime } from './format.js'
 import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
-import { MapSection } from './map-section.js'
+import { MapSection, useStageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
 import { listHref, runHref, usageHref, useNavigate } from './route.js'
@@ -12,6 +13,7 @@ import { runTitle, untitledRun } from './run-list.js'
 import { SinceLastView } from './since.js'
 import { Trace } from './trace.js'
 import type { RunFeed } from './use-run-feed.js'
+import { ViewRules } from './view-rules.js'
 
 interface RunLinkProps {
   readonly id: RunId
@@ -143,18 +145,16 @@ export const Missing = (): ReactElement => {
   )
 }
 
-export interface RunPageProps {
+interface RunContentProps {
+  readonly snapshot: RunSnapshot
   readonly feed: RunFeed
   readonly runs: readonly RunSummary[] | null
   readonly now: bigint
   readonly onSignedOut: () => void
 }
 
-export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
-  const { snapshot, connection, noteView } = feed
-  if (snapshot === null) {
-    return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
-  }
+const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps): ReactElement => {
+  const choice = useStageChoice(snapshot)
   const { summary, run } = snapshot
   const title = runTitle(summary)
   return (
@@ -172,8 +172,20 @@ export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactEl
         )}
         <Facts snapshot={snapshot} runs={runs} now={now} />
       </header>
-      <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: noteView, onSignedOut }} />
-      <MapSection snapshot={snapshot} />
+      <AttentionZone snapshot={snapshot} now={now} handlers={{ onView: feed.noteView, onSignedOut }} />
+      <MapSection snapshot={snapshot} choice={choice} />
+      <div className="run-talk">
+        <ChatPanel
+          snapshot={snapshot}
+          messages={feed.chat}
+          history={feed.history}
+          record={feed.record}
+          choice={choice}
+          now={now}
+          onSignedOut={onSignedOut}
+        />
+        <ViewRules snapshot={snapshot} now={now} onSignedOut={onSignedOut} />
+      </div>
       <SinceLastView snapshot={snapshot} now={now} onSignedOut={onSignedOut}>
         <div className="run-body">
           <Trace snapshot={snapshot} now={now} />
@@ -182,4 +194,19 @@ export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactEl
       </SinceLastView>
     </article>
   )
+}
+
+export interface RunPageProps {
+  readonly feed: RunFeed
+  readonly runs: readonly RunSummary[] | null
+  readonly now: bigint
+  readonly onSignedOut: () => void
+}
+
+export const RunPage = ({ feed, runs, now, onSignedOut }: RunPageProps): ReactElement => {
+  const { snapshot, connection } = feed
+  if (snapshot === null) {
+    return connection === 'missing' ? <Missing /> : <p className="loading">Загрузка прогона…</p>
+  }
+  return <RunContent snapshot={snapshot} feed={feed} runs={runs} now={now} onSignedOut={onSignedOut} />
 }
