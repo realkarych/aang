@@ -5156,42 +5156,12 @@
       "details": "2 unrecognised session records",
       "detected_at": "<time>",
       "closed_at": null
-    },
-    {
-      "id": "#118",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "record:[\"claude\",\"registry\",{\"kind\":\"file_removed\",\"last_content_hash\":\"7002f9eff2f4d83322825592adcf81dbee6e087687158384a0f9c57383de68ee\",\"path\":\"<base>/home/.claude/sessions/13673.json\"},\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]"
-      },
-      "kind": "unknown_records",
-      "run": null,
-      "session": null,
-      "stream": null,
-      "details": "claude registry record (parsed) discarded: it names no session",
-      "detected_at": "<time>",
-      "closed_at": null
-    },
-    {
-      "id": "#119",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "record:[\"claude\",\"transcript\",{\"kind\":\"file_removed\",\"last_content_hash\":\"da3183e6971fe4222112fac420f2274e4dc2d091b70ce7b7b398ba0517e9e985\",\"path\":\"<base>/home/.claude/teams/session-1ccf19ba/config.json\"},\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]"
-      },
-      "kind": "unknown_records",
-      "run": null,
-      "session": null,
-      "stream": null,
-      "details": "claude transcript record (parsed) discarded: it names no session",
-      "detected_at": "<time>",
-      "closed_at": null
     }
   ],
   "removals": [
     {
       "kind": "agent",
-      "id": "#120",
+      "id": "#118",
       "replaced_by": "#98",
       "run": "#96"
     }
@@ -5212,7 +5182,7 @@
         {
           "kind": "link",
           "value": {
-            "id": "#121",
+            "id": "#119",
             "run": "#96",
             "basis": {
               "kind": "observed"
