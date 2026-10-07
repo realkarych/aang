@@ -350,7 +350,7 @@ describe.concurrent('Claude teammates', () => {
       kind: 'json_snapshot',
       entity_key: teammateKey,
       runtime_ids: { session_id: session, agent_id: teammateAgent },
-      format_verified: false,
+      format_verified: true,
       payload: {
         file: 'agent_meta',
         removed: false,
@@ -361,7 +361,7 @@ describe.concurrent('Claude teammates', () => {
       kind: 'agent_start',
       entity_key: teammateKey,
       runtime_ids: { agent_id: teammateAgent },
-      format_verified: false,
+      format_verified: true,
       payload: {
         role: 'teammate',
         agent_type: 'reviewer',
@@ -386,7 +386,7 @@ describe.concurrent('Claude teammates', () => {
     expect(fromTranscript).toMatchObject({
       kind: 'agent_start',
       entity_key: teammateKey,
-      format_verified: false,
+      format_verified: true,
       payload: {
         role: 'teammate',
         agent_type: 'reviewer',
@@ -440,7 +440,7 @@ describe.concurrent('Claude teammates', () => {
       runtime_ids: { session_id: session, agent_id: null },
       speaker: 'runtime',
       urgent: false,
-      format_verified: false,
+      format_verified: true,
       payload: {
         file: 'team',
         path,
@@ -503,16 +503,14 @@ describe.concurrent('Claude workflows', () => {
     ])
   })
 
-  test('the workflow snapshot keeps its summary, not its script and result, as an unverified session snapshot', ({
-    expect,
-  }) => {
+  test('the workflow snapshot keeps its summary, not its script and result, as a session snapshot', ({ expect }) => {
     const [snapshot] = factsOf(parseSnapshot(workflowPath, workflowSnapshot))
 
     expect(snapshot).toMatchObject({
       kind: 'json_snapshot',
       entity_key: { kind: 'session', runtime: 'claude', session },
       runtime_ids: { session_id: session, agent_id: null },
-      format_verified: false,
+      format_verified: true,
       payload: {
         file: 'workflow',
         path: workflowPath,
@@ -544,7 +542,7 @@ describe.concurrent('Claude workflows', () => {
     expect(parseSnapshot(workflowPath, '{"runId":')).toMatchObject({ parse_state: 'invalid', reason: /not JSON/ })
   })
 
-  test('a workflow agent meta starts an unverified subagent without a call', ({ expect }) => {
+  test('a workflow agent meta starts a subagent without a call', ({ expect }) => {
     const path = `${projects}/-work/${session}/subagents/workflows/wf_26936a42-d9c/agent-${workflowAgent}.meta.json`
     const meta = {
       agentType: 'general-purpose',
@@ -557,14 +555,14 @@ describe.concurrent('Claude workflows', () => {
     const [snapshot, start] = factsOf(parseSnapshot(path, meta))
     const [removed] = factsOf(parseSnapshot(path))
 
-    expect(snapshot).toMatchObject({ entity_key: subagentKey(session, workflowAgent), format_verified: false })
+    expect(snapshot).toMatchObject({ entity_key: subagentKey(session, workflowAgent), format_verified: true })
     expect(start).toMatchObject({
       kind: 'agent_start',
       entity_key: subagentKey(session, workflowAgent),
-      format_verified: false,
+      format_verified: true,
       payload: { role: 'subagent', description: 'Review track A', spawned_by_call: null, background: true },
     })
-    expect(removed).toMatchObject({ format_verified: false, payload: { removed: true } })
+    expect(removed).toMatchObject({ format_verified: true, payload: { removed: true } })
   })
 
   test('the workflow journal starts and ends its agents, unverified', ({ expect }) => {

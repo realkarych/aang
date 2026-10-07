@@ -102,6 +102,15 @@ export type UsageTotalSource = z.infer<typeof UsageTotalSource>
 export const SnapshotTrigger = z.enum(['fs_watch', 'turn_end', 'restart', 'check'])
 export type SnapshotTrigger = z.infer<typeof SnapshotTrigger>
 
+export const HookOutcome = z.enum(['success', 'error', 'unknown'])
+export type HookOutcome = z.infer<typeof HookOutcome>
+
+export const HookOutputKind = z.enum(['stdout', 'stderr', 'additional_context', 'system_message'])
+export type HookOutputKind = z.infer<typeof HookOutputKind>
+
+export const DefinitionCatalog = z.enum(['agents', 'skills'])
+export type DefinitionCatalog = z.infer<typeof DefinitionCatalog>
+
 export const ContextSourceKind = z.enum([
   'task',
   'instructions',
@@ -373,6 +382,31 @@ export const InstructionsLoadedPayload = z.strictObject({
 })
 export type InstructionsLoadedPayload = z.infer<typeof InstructionsLoadedPayload>
 
+export const HookRunPayload = z.strictObject({
+  name: name.nullable(),
+  event: name,
+  trigger: text.nullable(),
+  outcome: HookOutcome,
+  output: z
+    .strictObject({
+      kind: HookOutputKind,
+      text,
+    })
+    .nullable(),
+})
+export type HookRunPayload = z.infer<typeof HookRunPayload>
+
+export const DefinitionListingPayload = z.strictObject({
+  catalog: DefinitionCatalog,
+  definitions: z.array(
+    z.strictObject({
+      name,
+      description: text,
+    }),
+  ),
+})
+export type DefinitionListingPayload = z.infer<typeof DefinitionListingPayload>
+
 export const QueueOperationPayload = z.strictObject({
   operation: name,
   content: text.nullable(),
@@ -457,6 +491,8 @@ export const factPayloads = {
   usage_total: UsageTotalPayload,
   cost_state: CostStatePayload,
   instructions_loaded: InstructionsLoadedPayload,
+  hook_run: HookRunPayload,
+  definition_listing: DefinitionListingPayload,
   queue_operation: QueueOperationPayload,
   runtime_error: RuntimeErrorPayload,
   runtime_event: RuntimeEventPayload,
@@ -536,6 +572,8 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('usage_total', shape),
     variant('cost_state', shape),
     variant('instructions_loaded', shape),
+    variant('hook_run', shape),
+    variant('definition_listing', shape),
     variant('queue_operation', shape),
     variant('runtime_error', shape),
     variant('runtime_event', shape),

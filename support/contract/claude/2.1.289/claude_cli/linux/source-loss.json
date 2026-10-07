@@ -2063,74 +2063,10 @@
       "details": "1 unrecognised session records",
       "detected_at": "<time>",
       "closed_at": null
-    },
-    {
-      "id": "#53",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "record:[\"claude\",\"registry\",{\"kind\":\"file_removed\",\"last_content_hash\":\"99af6c6751e69253e954d20b9e5147485d3bf59cc27d6ea09f2dd50827b32d0b\",\"path\":\"<base>/home/.claude/sessions/5385.json\"},\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]"
-      },
-      "kind": "unknown_records",
-      "run": null,
-      "session": null,
-      "stream": null,
-      "details": "claude registry record (parsed) discarded: it names no session",
-      "detected_at": "<time>",
-      "closed_at": null
-    },
-    {
-      "id": "#54",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "record:[\"claude\",\"registry\",{\"kind\":\"file_removed\",\"last_content_hash\":\"b22eadc1753ceb245a5879758fa2e9f75b5e26e64daacef9ac19a19c8ac4fd67\",\"path\":\"<base>/home/.claude/sessions/5307.json\"},\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\"]"
-      },
-      "kind": "unknown_records",
-      "run": null,
-      "session": null,
-      "stream": null,
-      "details": "claude registry record (parsed) discarded: it names no session",
-      "detected_at": "<time>",
-      "closed_at": null
     }
   ],
   "removals": [],
   "runs": [
-    {
-      "run": {
-        "id": "#41",
-        "runtime": "claude",
-        "root_session": "#40",
-        "goal": null,
-        "brief": null,
-        "start_pruned": false,
-        "version": 2,
-        "created_at": "<time>"
-      },
-      "entities": [
-        {
-          "kind": "run",
-          "value": {
-            "id": "#41",
-            "runtime": "claude",
-            "root_session": "#40",
-            "goal": null,
-            "brief": null,
-            "start_pruned": false,
-            "version": 2,
-            "created_at": "<time>"
-          }
-        },
-        {
-          "kind": "session_membership",
-          "value": {
-            "session": "#40",
-            "run": "#41"
-          }
-        }
-      ]
-    },
     {
       "run": {
         "id": "#39",
@@ -2161,6 +2097,40 @@
           "value": {
             "session": "#38",
             "run": "#39"
+          }
+        }
+      ]
+    },
+    {
+      "run": {
+        "id": "#41",
+        "runtime": "claude",
+        "root_session": "#40",
+        "goal": null,
+        "brief": null,
+        "start_pruned": false,
+        "version": 2,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#41",
+            "runtime": "claude",
+            "root_session": "#40",
+            "goal": null,
+            "brief": null,
+            "start_pruned": false,
+            "version": 2,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#40",
+            "run": "#41"
           }
         }
       ]

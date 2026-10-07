@@ -1,5 +1,5 @@
 export type SnapshotFile =
-  | { readonly kind: 'agent_meta'; readonly session: string; readonly agent: string; readonly workflow: boolean }
+  | { readonly kind: 'agent_meta'; readonly session: string; readonly agent: string }
   | { readonly kind: 'workflow'; readonly session: string }
   | { readonly kind: 'team'; readonly team: string }
   | { readonly kind: 'tool_result'; readonly session: string }
@@ -8,7 +8,7 @@ export interface WorkflowJournal {
   readonly session: string
 }
 
-const agentMetaPath = /(?:^|[\\/])([^\\/]+)[\\/]subagents[\\/](workflows[\\/][^\\/]+[\\/])?agent-([^\\/]+)\.meta\.json$/
+const agentMetaPath = /(?:^|[\\/])([^\\/]+)[\\/]subagents[\\/](?:workflows[\\/][^\\/]+[\\/])?agent-([^\\/]+)\.meta\.json$/
 
 const workflowPath = /(?:^|[\\/])(?!subagents[\\/])([^\\/]+)[\\/]workflows[\\/]wf_[^\\/]+\.json$/
 
@@ -24,8 +24,8 @@ export const snapshotFile = (path: string): SnapshotFile | null => {
     return { kind: 'tool_result', session }
   }
   const meta = agentMetaPath.exec(path)
-  if (meta?.[1] !== undefined && meta[3] !== undefined) {
-    return { kind: 'agent_meta', session: meta[1], agent: meta[3], workflow: meta[2] !== undefined }
+  if (meta?.[1] !== undefined && meta[2] !== undefined) {
+    return { kind: 'agent_meta', session: meta[1], agent: meta[2] }
   }
   const workflow = workflowPath.exec(path)?.[1]
   if (workflow !== undefined) {

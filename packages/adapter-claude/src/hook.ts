@@ -74,7 +74,11 @@ const questionNotificationTypes: ReadonlySet<string> = new Set([
   'agent_needs_input',
 ])
 
-const verifiedNotificationTypes: ReadonlySet<string> = new Set(['permission_prompt'])
+const verifiedNotificationTypes: ReadonlySet<string> = new Set([
+  'permission_prompt',
+  'elicitation_response',
+  'elicitation_complete',
+])
 
 const responseText = (response: JsonValue | undefined): string | null =>
   response === undefined ? null : outputText(response)
@@ -226,21 +230,17 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
       return spoolFile === null
         ? invalid('a question notification is identified by its spool file, and the record has none')
         : facts(
-            fact(
-              origin,
-              {
-                kind: 'question_asked',
-                entity_key: questionKey(event.session_id, spoolFile),
-                speaker: 'runtime',
-                urgent: true,
-                payload: {
-                  source: 'notification',
-                  blocking: true,
-                  questions: [{ header: event.title ?? null, text: event.message ?? '', options: [] }],
-                },
+            fact(origin, {
+              kind: 'question_asked',
+              entity_key: questionKey(event.session_id, spoolFile),
+              speaker: 'runtime',
+              urgent: true,
+              payload: {
+                source: 'notification',
+                blocking: true,
+                questions: [{ header: event.title ?? null, text: event.message ?? '', options: [] }],
               },
-              { verified: false },
-            ),
+            }),
           )
     }),
   ],

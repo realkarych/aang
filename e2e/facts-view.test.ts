@@ -7,6 +7,7 @@ import {
   agentsOf,
   fact,
   lamp,
+  openItems,
   plan,
   runRowOf,
   sessionOf,
@@ -266,7 +267,7 @@ test.describe('with a fast spool scan', () => {
     await expect(items.filter({ hasText: 'Написать тест' })).toContainText('в работе')
     await expect(items.filter({ hasText: 'Открыть PR' })).toContainText('ожидает')
 
-    const zoneItems = zone(page).getByRole('listitem')
+    const zoneItems = openItems(page)
     await expect(zoneItems).toHaveCount(2)
     await expect(zoneItems.nth(0)).toContainText('Вопрос')
     await expect(zoneItems.nth(0)).toContainText('Сначала тесты.')
@@ -383,7 +384,9 @@ test.describe('with a fast spool scan for decisions and long questions', () => {
     const item = zoneItem(page, 'Пояснение 1:')
     await expect(item).toContainText(last)
     await expect.poll(() => textShown(item, last)).toBe(false)
-    await expect(zoneItem(page, 'Bash: touch probe-perm.txt').getByRole('button')).toHaveCount(0)
+    await expect(
+      zoneItem(page, 'Bash: touch probe-perm.txt').getByRole('button', { name: 'Показать полностью' }),
+    ).toHaveCount(0)
     await item.getByRole('button', { name: 'Показать полностью' }).click()
     await expect(item.getByRole('button', { name: 'Свернуть' })).toHaveAttribute('aria-expanded', 'true')
     await expect.poll(() => textShown(item, last)).toBe(true)
