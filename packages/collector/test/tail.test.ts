@@ -1,4 +1,4 @@
-import { appendFile, mkdir, rename, stat, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, open, rename, stat, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { CollectedRecord, type FileCursor, type StreamKey } from '@aang/contract'
 import { expect, test, vi } from 'vitest'
@@ -165,6 +165,39 @@ test('with fsWatch off appended lines are read within the scan interval', async 
   )
   await sleep(scanIntervalMs * 3)
   expect(running.payloads()).toEqual([line(1), line(2)])
+})
+
+test('with fsWatch off lines appended through a rollout held open by its writer are read within seconds without a roots scan', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const path = rolloutPath(sandbox, 'rollout-held')
+  const entry = (ordinal: number): string => JSON.stringify({ ordinal, type: 'response_item' })
+  await mkdir(dirname(path), { recursive: true })
+  const writer = await open(path, 'a')
+  sandbox.cleanup(() => writer.close())
+  await writer.write(`${entry(0)}\n`)
+  const running = runCollector(sandbox, { fsWatch: false })
+  await vi.waitFor(() => {
+    expect(running.payloads()).toEqual([entry(0)])
+  })
+
+  const lags: number[] = []
+  for (const ordinal of [1, 2, 3]) {
+    const writtenAt = performance.now()
+    await writer.write(`${entry(ordinal)}\n`)
+    await vi.waitFor(
+      () => {
+        expect(running.arrivalOf((record) => record.payload === entry(ordinal))).toBeDefined()
+      },
+      { timeout: 5_000, interval: 5 },
+    )
+    lags.push((running.arrivalOf((record) => record.payload === entry(ordinal)) ?? Infinity) - writtenAt)
+  }
+
+  expect(Math.max(...lags)).toBeLessThanOrEqual(3_000)
+  expect(running.payloads()).toEqual([0, 1, 2, 3].map(entry))
+  expect(running.cursor(path)).toMatchObject({ line: 4, last_ordinal: 3 })
 })
 
 test('500 files are tracked without misses', async ({ onTestFinished }) => {

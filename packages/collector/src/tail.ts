@@ -89,6 +89,8 @@ const carriageReturn = 0x0d
 const readChunkBytes = 1024 ** 2
 const maxBytesPerBatch = 8 * 1024 ** 2
 const maxRecordsPerBatch = 4096
+const activePollIntervalMs = 1_000
+const activeWindowMs = 10 * 60_000
 
 const nothing: ReadOutcome = { records: [], cursor: null, gaps: [], bytes: 0, more: false }
 
@@ -112,6 +114,9 @@ const unchanged = (state: FileState | null, stats: BigIntStats): boolean =>
 
 const modifiedWithin = (stats: BigIntStats, days: number): boolean =>
   stats.mtimeMs >= BigInt(Date.now() - days * 86_400_000)
+
+const modifiedRecently = (stats: BigIntStats | null): boolean =>
+  stats?.isFile() === true && stats.mtimeMs >= BigInt(Date.now() - activeWindowMs)
 
 const widest = (current: number | null | undefined, requested: number | null): number | null =>
   current === undefined ? requested : current === null || requested === null ? null : Math.max(current, requested)
@@ -191,12 +196,15 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
   const sources = new Map(options.roots.map((source) => [source.root, source]))
   const files = new Map<string, TrackedFile>()
   const dirty = new Map<string, TrackedFile>()
+  const active = new Set<TrackedFile>()
   const recoveries = new Map<StreamKey, Recovery>()
   const rescans = new Map<StreamKey, number | null>()
   const backfills = new Map<TailRoot, number>()
   const boundaries = new Map(options.prunedStreams.map((boundary) => [boundary.stream, boundary]))
   const pruneGaps = new Map<StreamKey, CollectedGap>()
   let taking: Promise<CollectorBatch | null> | null = null
+  let polling: Promise<void> = Promise.resolve()
+  let pollTimer: NodeJS.Timeout | undefined
   let closed = false
 
   const track = (root: TailRoot, path: string): TrackedFile => {
@@ -231,6 +239,40 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
   const unverified = (file: TrackedFile, stats: BigIntStats): boolean =>
     prefixFloor(file.cursor?.stream ?? null) !== null && !unchanged(file.verified, stats) && !unchanged(file.stopped, stats)
 
+  const outdated = (file: TrackedFile, stats: BigIntStats | null): boolean =>
+    stats === null || hasNewData(file, stats) || unverified(file, stats)
+
+  const observe = (file: TrackedFile, stats: BigIntStats | null): void => {
+    if (modifiedRecently(stats)) {
+      active.add(file)
+    } else {
+      active.delete(file)
+    }
+  }
+
+  const poll = async (): Promise<void> => {
+    let found = false
+    for (const file of [...active]) {
+      const stats = await stat(file.path, { bigint: true }).catch(absent)
+      observe(file, stats)
+      if (outdated(file, stats)) {
+        dirty.set(file.path, file)
+        found = true
+      }
+    }
+    if (found) {
+      wakeup.notify()
+    }
+  }
+
+  const schedulePoll = (): void => {
+    if (!closed) {
+      pollTimer = setTimeout(() => {
+        polling = poll().finally(schedulePoll)
+      }, activePollIntervalMs)
+    }
+  }
+
   const listed = async (root: TreeRoot, paths: readonly string[]): Promise<void> => {
     const source = sources.get(root)
     if (source === undefined) {
@@ -242,9 +284,10 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     for (const path of seen) {
       const file = track(source, path)
       const stats = await stat(path, { bigint: true }).catch(absent)
+      observe(file, stats)
       if (stats !== null && backfillDays !== undefined && file.cursor === null && modifiedWithin(stats, backfillDays)) {
         requestReplay(file)
-      } else if (stats === null || hasNewData(file, stats) || unverified(file, stats)) {
+      } else if (outdated(file, stats)) {
         dirty.set(path, file)
       }
     }
@@ -402,6 +445,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     let skipped = false
     try {
       stats = await stat(file.path, { bigint: true })
+      observe(file, stats)
       if (!stats.isFile()) {
         return nothing
       }
@@ -588,16 +632,19 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
         })
       }
     }
+    schedulePoll()
   }
 
   const close = async (): Promise<void> => {
     closed = true
+    clearTimeout(pollTimer)
     for (const file of files.values()) {
       clearTimeout(file.failure?.timer)
     }
     for (const recovery of recoveries.values()) {
       clearTimeout(recovery.failure?.timer)
     }
+    await polling
     await taking
   }
 
