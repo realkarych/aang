@@ -6,11 +6,11 @@
     "node": "v26.10.0"
   },
   "versions": {
-    "claude": "2.1.292 (Claude Code)",
-    "codex": "codex-cli 0.160.0"
+    "claude": "2.1.292",
+    "codex": "0.160.0"
   },
-  "startedAt": "2026-10-07T17:48:40.130Z",
-  "finishedAt": "2026-10-07T17:52:09.924Z",
+  "startedAt": "2026-10-07T22:11:31.875Z",
+  "finishedAt": "2026-10-07T22:14:58.965Z",
   "scenarios": [
     {
       "name": "claude-sigkill-mid-turn",
@@ -20,29 +20,29 @@
       ],
       "summary": "The daemon is killed with SIGKILL while a Claude turn waits inside a tool; the turn and the session end while the daemon is down; the restarted daemon takes in the spool and the rest of the transcript once",
       "status": "passed",
-      "durationMs": 6681,
+      "durationMs": 6406,
       "steps": [
         {
-          "atMs": 1423,
+          "atMs": 1211,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-n8BaAt/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-cJCgrG/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1838,
+          "atMs": 1597,
           "event": "daemon started",
           "details": {
-            "pid": 4224
+            "pid": 3948
           }
         },
         {
-          "atMs": 1842,
+          "atMs": 1601,
           "event": "claude started",
           "details": {
-            "pid": 4248,
+            "pid": 3984,
             "args": [
               "-p",
               "--output-format",
@@ -57,11 +57,11 @@
           }
         },
         {
-          "atMs": 2596,
+          "atMs": 2356,
           "event": "gate mid-turn reached"
         },
         {
-          "atMs": 2666,
+          "atMs": 2428,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -69,11 +69,11 @@
           }
         },
         {
-          "atMs": 2667,
+          "atMs": 2428,
           "event": "gate mid-turn released"
         },
         {
-          "atMs": 2821,
+          "atMs": 2579,
           "event": "claude exited",
           "details": {
             "code": 0,
@@ -82,21 +82,21 @@
           }
         },
         {
-          "atMs": 3230,
+          "atMs": 2967,
           "event": "daemon started",
           "details": {
-            "pid": 4424
+            "pid": 4147
           }
         },
         {
-          "atMs": 4616,
+          "atMs": 4339,
           "event": "daemon settled",
           "details": {
-            "afterMs": 386
+            "afterMs": 372
           }
         },
         {
-          "atMs": 4666,
+          "atMs": 4389,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -104,17 +104,17 @@
           }
         },
         {
-          "atMs": 5078,
+          "atMs": 4777,
           "event": "daemon started",
           "details": {
-            "pid": 4508
+            "pid": 4232
           }
         },
         {
-          "atMs": 6125,
+          "atMs": 5851,
           "event": "daemon settled",
           "details": {
-            "afterMs": 47
+            "afterMs": 74
           }
         }
       ],
@@ -228,7 +228,7 @@
       ],
       "observations": {
         "before kill": {
-          "run": "83c91e33b6c04667279023509eb4a086",
+          "run": "0f4046bc62d2a17e25782b45c4076da1",
           "actions": 2
         },
         "spool files written while the daemon was down": 7,
@@ -275,30 +275,30 @@
         "claude"
       ],
       "summary": "aang stop between two turns of one Claude session: hooks write nothing while aang is stopped, the turn taken while stopped comes from the transcript after aang start, and hooks resume for the next turn",
-      "status": "known",
-      "durationMs": 7882,
+      "status": "passed",
+      "durationMs": 7001,
       "steps": [
         {
-          "atMs": 1443,
+          "atMs": 1060,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-f0NqKm/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-461CZ4/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1879,
+          "atMs": 1504,
           "event": "daemon started",
           "details": {
-            "pid": 4633
+            "pid": 4353
           }
         },
         {
-          "atMs": 1889,
+          "atMs": 1508,
           "event": "claude started",
           "details": {
-            "pid": 4668,
+            "pid": 4395,
             "args": [
               "-p",
               "--output-format",
@@ -313,7 +313,7 @@
           }
         },
         {
-          "atMs": 2489,
+          "atMs": 2041,
           "event": "claude stop-first exited",
           "details": {
             "code": 0,
@@ -322,26 +322,26 @@
           }
         },
         {
-          "atMs": 3530,
+          "atMs": 3075,
           "event": "daemon settled",
           "details": {
-            "afterMs": 40
+            "afterMs": 35
           }
         },
         {
-          "atMs": 3923,
+          "atMs": 3423,
           "event": "aang stop",
           "details": {
             "code": 0,
-            "stdout": "aang stopped: pid 4633",
+            "stdout": "aang stopped: pid 4353",
             "stderr": ""
           }
         },
         {
-          "atMs": 3926,
+          "atMs": 3425,
           "event": "claude started",
           "details": {
-            "pid": 4805,
+            "pid": 4530,
             "args": [
               "-p",
               "--output-format",
@@ -353,12 +353,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "c803f5c5-6739-4a7e-b07d-4fa2e2f9821e"
+              "aef738b1-39c0-42c2-9e9e-068ee2dc8eee"
             ]
           }
         },
         {
-          "atMs": 4437,
+          "atMs": 3893,
           "event": "claude stop-second exited",
           "details": {
             "code": 0,
@@ -367,24 +367,24 @@
           }
         },
         {
-          "atMs": 4846,
+          "atMs": 4258,
           "event": "daemon started",
           "details": {
-            "pid": 4878
+            "pid": 4603
           }
         },
         {
-          "atMs": 5971,
+          "atMs": 5370,
           "event": "daemon settled",
           "details": {
-            "afterMs": 124
+            "afterMs": 112
           }
         },
         {
-          "atMs": 5989,
+          "atMs": 5388,
           "event": "claude started",
           "details": {
-            "pid": 4964,
+            "pid": 4687,
             "args": [
               "-p",
               "--output-format",
@@ -396,12 +396,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "c803f5c5-6739-4a7e-b07d-4fa2e2f9821e"
+              "aef738b1-39c0-42c2-9e9e-068ee2dc8eee"
             ]
           }
         },
         {
-          "atMs": 6551,
+          "atMs": 5896,
           "event": "claude stop-third exited",
           "details": {
             "code": 0,
@@ -410,10 +410,10 @@
           }
         },
         {
-          "atMs": 7842,
+          "atMs": 6927,
           "event": "daemon settled",
           "details": {
-            "afterMs": 290
+            "afterMs": 31
           }
         }
       ],
@@ -484,13 +484,10 @@
         },
         {
           "name": "ended sessions leave no gap for their removed registry files",
-          "ok": false,
-          "observed": [
-            "claude registry record (parsed) discarded: it names no session",
-            "claude registry record (parsed) discarded: it names no session"
-          ],
+          "ok": true,
+          "observed": [],
           "expected": [],
-          "known": "Q4-2: a removed session registry file leaves an unknown_records gap in /api/status (fix: PR #159)"
+          "known": null
         }
       ],
       "observations": {
@@ -533,7 +530,7 @@
           {
             "channel": "registry",
             "parse_state": "parsed",
-            "records": 5
+            "records": 6
           },
           {
             "channel": "transcript",
@@ -562,36 +559,36 @@
       ],
       "summary": "The daemon is killed with SIGKILL while a codex exec turn with trusted aang hooks waits inside a command; the turn ends while the daemon is down; the restarted daemon takes in the spool and the rest of the rollout once",
       "status": "known",
-      "durationMs": 6314,
+      "durationMs": 5933,
       "steps": [
         {
-          "atMs": 655,
+          "atMs": 609,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-ysKvh1/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-qyVVSQ/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 765,
+          "atMs": 714,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 1201,
+          "atMs": 1075,
           "event": "daemon started",
           "details": {
-            "pid": 5304
+            "pid": 5025
           }
         },
         {
-          "atMs": 1477,
+          "atMs": 1355,
           "event": "codex started",
           "details": {
-            "pid": 5392,
+            "pid": 5109,
             "args": [
               "exec",
               "--json",
@@ -600,11 +597,11 @@
           }
         },
         {
-          "atMs": 1978,
+          "atMs": 1856,
           "event": "gate codex-mid-turn reached"
         },
         {
-          "atMs": 2003,
+          "atMs": 1882,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -612,11 +609,11 @@
           }
         },
         {
-          "atMs": 2003,
+          "atMs": 1882,
           "event": "gate codex-mid-turn released"
         },
         {
-          "atMs": 2442,
+          "atMs": 2166,
           "event": "codex exited",
           "details": {
             "code": 0,
@@ -625,21 +622,21 @@
           }
         },
         {
-          "atMs": 2878,
+          "atMs": 2552,
           "event": "daemon started",
           "details": {
-            "pid": 5588
+            "pid": 5299
           }
         },
         {
-          "atMs": 4235,
+          "atMs": 3895,
           "event": "daemon settled",
           "details": {
-            "afterMs": 357
+            "afterMs": 343
           }
         },
         {
-          "atMs": 4274,
+          "atMs": 3926,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -647,17 +644,17 @@
           }
         },
         {
-          "atMs": 4712,
+          "atMs": 4290,
           "event": "daemon started",
           "details": {
-            "pid": 5671
+            "pid": 5384
           }
         },
         {
-          "atMs": 5763,
+          "atMs": 5329,
           "event": "daemon settled",
           "details": {
-            "afterMs": 51
+            "afterMs": 39
           }
         }
       ],
@@ -838,29 +835,29 @@
       ],
       "summary": "The transcript of an ended Claude session is deleted: the session is marked as source lost, keeps what was observed, and stays so after a restart",
       "status": "passed",
-      "durationMs": 5395,
+      "durationMs": 5320,
       "steps": [
         {
-          "atMs": 1443,
+          "atMs": 1552,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-MUlMA5/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-qNgeOm/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1882,
+          "atMs": 1917,
           "event": "daemon started",
           "details": {
-            "pid": 5793
+            "pid": 5506
           }
         },
         {
-          "atMs": 1885,
+          "atMs": 1922,
           "event": "claude started",
           "details": {
-            "pid": 5832,
+            "pid": 5531,
             "args": [
               "-p",
               "--output-format",
@@ -875,7 +872,7 @@
           }
         },
         {
-          "atMs": 2489,
+          "atMs": 2522,
           "event": "claude lost exited",
           "details": {
             "code": 0,
@@ -884,18 +881,18 @@
           }
         },
         {
-          "atMs": 3542,
+          "atMs": 3562,
           "event": "daemon settled",
           "details": {
-            "afterMs": 53
+            "afterMs": 40
           }
         },
         {
-          "atMs": 3555,
+          "atMs": 3575,
           "event": "transcript deleted"
         },
         {
-          "atMs": 3828,
+          "atMs": 3844,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -903,17 +900,17 @@
           }
         },
         {
-          "atMs": 4267,
+          "atMs": 4204,
           "event": "daemon started",
           "details": {
-            "pid": 5955
+            "pid": 5665
           }
         },
         {
-          "atMs": 5331,
+          "atMs": 5261,
           "event": "daemon settled",
           "details": {
-            "afterMs": 64
+            "afterMs": 57
           }
         }
       ],
@@ -970,14 +967,14 @@
       "observations": {
         "gaps": [
           {
+            "kind": "source_lost",
+            "open": true,
+            "details": "Source not found after searching <tmp>/aang-profile-qNgeOm/Имя Фамилия/.claude/projects/<tmp>-aang-profile-qNgeOm--------------------q4/1d8caacc-3f99-4a20-977f-3e1171f11b99.jsonl"
+          },
+          {
             "kind": "unknown_records",
             "open": true,
             "details": "1 unrecognised session records"
-          },
-          {
-            "kind": "source_lost",
-            "open": true,
-            "details": "Source not found after searching <tmp>/aang-profile-MUlMA5/Имя Фамилия/.claude/projects/-tmp-aang-profile-MUlMA5--------------------q4/e5dcb936-257b-4d00-a5a9-4b8c4d1f8da2.jsonl"
           }
         ]
       },
@@ -991,29 +988,29 @@
       ],
       "summary": "The transcript of an ended Claude session moves to another project directory while the daemon runs and again while it is stopped: the session keeps one stream without duplicates or an open loss",
       "status": "passed",
-      "durationMs": 7117,
+      "durationMs": 6720,
       "steps": [
         {
-          "atMs": 1836,
+          "atMs": 1228,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-k9ZBWE/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-3915eI/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 2578,
+          "atMs": 1641,
           "event": "daemon started",
           "details": {
-            "pid": 6081
+            "pid": 5794
           }
         },
         {
-          "atMs": 2586,
+          "atMs": 1644,
           "event": "claude started",
           "details": {
-            "pid": 6115,
+            "pid": 5825,
             "args": [
               "-p",
               "--output-format",
@@ -1028,7 +1025,7 @@
           }
         },
         {
-          "atMs": 3205,
+          "atMs": 2324,
           "event": "claude moved exited",
           "details": {
             "code": 0,
@@ -1037,25 +1034,25 @@
           }
         },
         {
-          "atMs": 4514,
+          "atMs": 3681,
           "event": "daemon settled",
           "details": {
-            "afterMs": 308
+            "afterMs": 357
           }
         },
         {
-          "atMs": 4530,
+          "atMs": 3701,
           "event": "transcript moved while the daemon runs"
         },
         {
-          "atMs": 5550,
+          "atMs": 4732,
           "event": "daemon settled",
           "details": {
-            "afterMs": 20
+            "afterMs": 30
           }
         },
         {
-          "atMs": 5577,
+          "atMs": 4977,
           "event": "daemon shut down through the API",
           "details": {
             "code": 0,
@@ -1063,21 +1060,21 @@
           }
         },
         {
-          "atMs": 5578,
+          "atMs": 4977,
           "event": "transcript moved while the daemon is stopped"
         },
         {
-          "atMs": 5989,
+          "atMs": 5335,
           "event": "daemon started",
           "details": {
-            "pid": 6237
+            "pid": 5955
           }
         },
         {
-          "atMs": 7067,
+          "atMs": 6412,
           "event": "daemon settled",
           "details": {
-            "afterMs": 78
+            "afterMs": 76
           }
         }
       ],
@@ -1109,8 +1106,8 @@
         {
           "name": "after the move no raw record is added",
           "ok": true,
-          "observed": 31,
-          "expected": 31,
+          "observed": 30,
+          "expected": 30,
           "known": null
         },
         {
@@ -1140,8 +1137,8 @@
         {
           "name": "after a move while stopped no raw record is added",
           "ok": true,
-          "observed": 31,
-          "expected": 31,
+          "observed": 30,
+          "expected": 30,
           "known": null
         }
       ],
@@ -1164,29 +1161,29 @@
       ],
       "summary": "The transcript is deleted while a Claude turn waits inside a tool; Claude writes the rest of the turn into a new file at the same path; the daemon keeps the earlier history and takes in the new lines once",
       "status": "passed",
-      "durationMs": 7243,
+      "durationMs": 8328,
       "steps": [
         {
-          "atMs": 1485,
+          "atMs": 2329,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-96N9GT/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-pYcGCC/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1903,
+          "atMs": 2713,
           "event": "daemon started",
           "details": {
-            "pid": 6358
+            "pid": 6083
           }
         },
         {
-          "atMs": 1909,
+          "atMs": 2716,
           "event": "claude started",
           "details": {
-            "pid": 6383,
+            "pid": 6118,
             "args": [
               "-p",
               "--output-format",
@@ -1201,26 +1198,26 @@
           }
         },
         {
-          "atMs": 2664,
+          "atMs": 3467,
           "event": "gate deleted reached"
         },
         {
-          "atMs": 3711,
+          "atMs": 4509,
           "event": "daemon settled",
           "details": {
-            "afterMs": 29
+            "afterMs": 25
           }
         },
         {
-          "atMs": 3719,
+          "atMs": 4515,
           "event": "transcript deleted mid-turn"
         },
         {
-          "atMs": 3979,
+          "atMs": 4774,
           "event": "gate deleted released"
         },
         {
-          "atMs": 4164,
+          "atMs": 4959,
           "event": "claude exited",
           "details": {
             "code": 0,
@@ -1229,14 +1226,14 @@
           }
         },
         {
-          "atMs": 5199,
+          "atMs": 6326,
           "event": "daemon settled",
           "details": {
-            "afterMs": 35
+            "afterMs": 367
           }
         },
         {
-          "atMs": 5214,
+          "atMs": 6344,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -1244,17 +1241,17 @@
           }
         },
         {
-          "atMs": 5626,
+          "atMs": 6733,
           "event": "daemon started",
           "details": {
-            "pid": 6564
+            "pid": 6292
           }
         },
         {
-          "atMs": 6693,
+          "atMs": 7778,
           "event": "daemon settled",
           "details": {
-            "afterMs": 67
+            "afterMs": 46
           }
         }
       ],
@@ -1329,7 +1326,7 @@
           {
             "kind": "source_lost",
             "open": false,
-            "details": "Source not found after searching <tmp>/aang-profile-96N9GT/Имя Фамилия/.claude/projects/-tmp-aang-profile-96N9GT--------------------q4/7fb9052f-5278-43e4-9330-3f2d62882e57.jsonl"
+            "details": "Source not found after searching <tmp>/aang-profile-pYcGCC/Имя Фамилия/.claude/projects/<tmp>-aang-profile-pYcGCC--------------------q4/ac3f9bf5-d9ff-4032-bf74-1ba48b10ee5a.jsonl"
           }
         ]
       },
@@ -1343,29 +1340,29 @@
       ],
       "summary": "The daemon starts before Claude ever created its projects directory (first Claude session after installing aang): hooks arrive at once, the transcript is found by the periodic tree scan",
       "status": "known",
-      "durationMs": 63004,
+      "durationMs": 62827,
       "steps": [
         {
-          "atMs": 1419,
+          "atMs": 1160,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-pPwVpF/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-nV3DUd/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1833,
+          "atMs": 1576,
           "event": "daemon started",
           "details": {
-            "pid": 6686
+            "pid": 6430
           }
         },
         {
-          "atMs": 1837,
+          "atMs": 1579,
           "event": "claude started",
           "details": {
-            "pid": 6721,
+            "pid": 6465,
             "args": [
               "-p",
               "--output-format",
@@ -1380,7 +1377,7 @@
           }
         },
         {
-          "atMs": 2445,
+          "atMs": 2161,
           "event": "claude first exited",
           "details": {
             "code": 0,
@@ -1389,10 +1386,10 @@
           }
         },
         {
-          "atMs": 62965,
+          "atMs": 62782,
           "event": "daemon settled",
           "details": {
-            "afterMs": 59503
+            "afterMs": 59602
           }
         }
       ],
@@ -1400,14 +1397,14 @@
         {
           "name": "the transcript is read within the 60 s tree scan",
           "ok": true,
-          "observed": 59503,
+          "observed": 59602,
           "expected": null,
           "known": null
         },
         {
           "name": "the transcript is read within 5 s",
           "ok": false,
-          "observed": 59503,
+          "observed": 59602,
           "expected": 5000,
           "known": "Q4-6: a runtime root created after the daemon start is found by the 60 s tree scan only"
         },
@@ -1442,7 +1439,7 @@
           "double_registration": false,
           "unknown_records": 0
         },
-        "time until the transcript was read, ms": 59503
+        "time until the transcript was read, ms": 59602
       },
       "error": null
     },
@@ -1454,36 +1451,36 @@
       ],
       "summary": "codex archive moves a rollout to archived_sessions, codex unarchive moves it back and the thread is resumed; codex delete removes another rollout: the archived thread stays one session without loss, the deleted one is marked as source lost",
       "status": "passed",
-      "durationMs": 8918,
+      "durationMs": 8415,
       "steps": [
         {
-          "atMs": 646,
+          "atMs": 741,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-VtKfvE/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-En804O/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 748,
+          "atMs": 840,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 1158,
+          "atMs": 1204,
           "event": "daemon started",
           "details": {
-            "pid": 7132
+            "pid": 6885
           }
         },
         {
-          "atMs": 1162,
+          "atMs": 1208,
           "event": "codex started",
           "details": {
-            "pid": 7163,
+            "pid": 6925,
             "args": [
               "exec",
               "--json",
@@ -1492,7 +1489,7 @@
           }
         },
         {
-          "atMs": 1790,
+          "atMs": 1771,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -1501,10 +1498,10 @@
           }
         },
         {
-          "atMs": 1792,
+          "atMs": 1773,
           "event": "codex started",
           "details": {
-            "pid": 7371,
+            "pid": 7119,
             "args": [
               "exec",
               "--json",
@@ -1513,7 +1510,7 @@
           }
         },
         {
-          "atMs": 2373,
+          "atMs": 2119,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -1522,25 +1519,25 @@
           }
         },
         {
-          "atMs": 3406,
+          "atMs": 3149,
           "event": "daemon settled",
           "details": {
-            "afterMs": 33
+            "afterMs": 31
           }
         },
         {
-          "atMs": 3423,
+          "atMs": 3164,
           "event": "codex started",
           "details": {
-            "pid": 7528,
+            "pid": 7275,
             "args": [
               "archive",
-              "01a1177c-eb2a-7dc1-ae22-5894abec1e5b"
+              "01a1186d-8fbd-7c80-a19b-824d211ed489"
             ]
           }
         },
         {
-          "atMs": 3510,
+          "atMs": 3257,
           "event": "codex archive exited",
           "details": {
             "code": 0,
@@ -1549,25 +1546,25 @@
           }
         },
         {
-          "atMs": 4531,
+          "atMs": 4276,
           "event": "daemon settled",
           "details": {
-            "afterMs": 20
+            "afterMs": 19
           }
         },
         {
-          "atMs": 4539,
+          "atMs": 4285,
           "event": "codex started",
           "details": {
-            "pid": 7589,
+            "pid": 7355,
             "args": [
               "unarchive",
-              "01a1177c-eb2a-7dc1-ae22-5894abec1e5b"
+              "01a1186d-8fbd-7c80-a19b-824d211ed489"
             ]
           }
         },
         {
-          "atMs": 4628,
+          "atMs": 4367,
           "event": "codex unarchive exited",
           "details": {
             "code": 0,
@@ -1576,28 +1573,28 @@
           }
         },
         {
-          "atMs": 5644,
+          "atMs": 5384,
           "event": "daemon settled",
           "details": {
             "afterMs": 16
           }
         },
         {
-          "atMs": 5653,
+          "atMs": 5391,
           "event": "codex started",
           "details": {
-            "pid": 7649,
+            "pid": 7413,
             "args": [
               "exec",
               "--json",
               "--skip-git-repo-check",
               "resume",
-              "01a1177c-eb2a-7dc1-ae22-5894abec1e5b"
+              "01a1186d-8fbd-7c80-a19b-824d211ed489"
             ]
           }
         },
         {
-          "atMs": 6193,
+          "atMs": 5754,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -1606,26 +1603,26 @@
           }
         },
         {
-          "atMs": 7212,
+          "atMs": 6774,
           "event": "daemon settled",
           "details": {
-            "afterMs": 19
+            "afterMs": 20
           }
         },
         {
-          "atMs": 7220,
+          "atMs": 6781,
           "event": "codex started",
           "details": {
-            "pid": 7799,
+            "pid": 7582,
             "args": [
               "delete",
               "--force",
-              "01a1177c-ed71-7df1-b3b8-7f0dee51688d"
+              "01a1186d-91d9-7d91-ad87-4ac2106242d2"
             ]
           }
         },
         {
-          "atMs": 7335,
+          "atMs": 6889,
           "event": "codex delete exited",
           "details": {
             "code": 0,
@@ -1634,7 +1631,7 @@
           }
         },
         {
-          "atMs": 7355,
+          "atMs": 6903,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -1642,17 +1639,17 @@
           }
         },
         {
-          "atMs": 7791,
+          "atMs": 7274,
           "event": "daemon started",
           "details": {
-            "pid": 7867
+            "pid": 7651
           }
         },
         {
-          "atMs": 8860,
+          "atMs": 8361,
           "event": "daemon settled",
           "details": {
-            "afterMs": 69
+            "afterMs": 87
           }
         }
       ],
@@ -1775,36 +1772,36 @@
       ],
       "summary": "While a codex exec turn waits inside a long command, the rollout already holds the call of that command; the daemon should read it within seconds. Codex appends to the rollout through a held-open file, and the probe shows whether fs watch on this OS reports such appends",
       "status": "passed",
-      "durationMs": 10964,
+      "durationMs": 10858,
       "steps": [
         {
-          "atMs": 8041,
+          "atMs": 8099,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-kGMZLz/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-IqwbsJ/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 8145,
+          "atMs": 8197,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 8557,
+          "atMs": 8559,
           "event": "daemon started",
           "details": {
-            "pid": 8218
+            "pid": 8006
           }
         },
         {
-          "atMs": 8560,
+          "atMs": 8561,
           "event": "codex started",
           "details": {
-            "pid": 8249,
+            "pid": 8037,
             "args": [
               "exec",
               "--json",
@@ -1813,15 +1810,15 @@
           }
         },
         {
-          "atMs": 9060,
+          "atMs": 9064,
           "event": "gate live-read reached"
         },
         {
-          "atMs": 9087,
+          "atMs": 9092,
           "event": "gate live-read released"
         },
         {
-          "atMs": 9419,
+          "atMs": 9283,
           "event": "codex exited",
           "details": {
             "code": 0,
@@ -1830,10 +1827,10 @@
           }
         },
         {
-          "atMs": 10437,
+          "atMs": 10302,
           "event": "daemon settled",
           "details": {
-            "afterMs": 17
+            "afterMs": 20
           }
         }
       ],
@@ -1841,7 +1838,7 @@
         {
           "name": "the rollout of the running command is read within 5 s",
           "ok": true,
-          "observed": 27,
+          "observed": 28,
           "expected": 5000,
           "known": "Q4-1: macOS fs watch reports no appends through a held-open file, so the Codex rollout is read by the 60 s tree scan"
         }
@@ -1861,7 +1858,7 @@
           "lastWriteSeen": true,
           "events": 9
         },
-        "ms from the command start until the rollout was read": 27
+        "ms from the command start until the rollout was read": 28
       },
       "error": null
     },
@@ -1873,36 +1870,36 @@
       ],
       "summary": "The rollout is deleted while a codex exec turn waits inside a command; Codex keeps writing to the unlinked file; the daemon marks the source as lost and still shows the later command from hooks",
       "status": "passed",
-      "durationMs": 8265,
+      "durationMs": 8309,
       "steps": [
         {
-          "atMs": 641,
+          "atMs": 748,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-AbYATS/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-J9Ql8j/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 743,
+          "atMs": 849,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 1154,
+          "atMs": 1309,
           "event": "daemon started",
           "details": {
-            "pid": 8734
+            "pid": 8530
           }
         },
         {
-          "atMs": 1159,
+          "atMs": 1312,
           "event": "codex started",
           "details": {
-            "pid": 8759,
+            "pid": 8566,
             "args": [
               "exec",
               "--json",
@@ -1911,19 +1908,19 @@
           }
         },
         {
-          "atMs": 1659,
+          "atMs": 2063,
           "event": "gate rollout-deleted reached"
         },
         {
-          "atMs": 1688,
+          "atMs": 2086,
           "event": "rollout deleted mid-turn"
         },
         {
-          "atMs": 1688,
+          "atMs": 2086,
           "event": "gate rollout-deleted released"
         },
         {
-          "atMs": 6717,
+          "atMs": 6748,
           "event": "codex exited",
           "details": {
             "code": 0,
@@ -1932,10 +1929,10 @@
           }
         },
         {
-          "atMs": 7735,
+          "atMs": 7774,
           "event": "daemon settled",
           "details": {
-            "afterMs": 18
+            "afterMs": 26
           }
         }
       ],
@@ -1967,13 +1964,13 @@
       ],
       "observations": {
         "rollout bytes read before the deletion": {
-          "offset": 41092,
-          "size": 41092
+          "offset": 41041,
+          "size": 41041
         },
         "rollout files after the turn": 0,
         "actions": [
           {
-            "call": "call_aang_2_0",
+            "call": "call_aang_3_0",
             "state": "unknown",
             "outcome": "unknown"
           },
@@ -1983,7 +1980,7 @@
             "outcome": "ok"
           },
           {
-            "call": "call_aang_3_0",
+            "call": "call_aang_2_0",
             "state": "unknown",
             "outcome": "unknown"
           }
@@ -2009,7 +2006,7 @@
           {
             "kind": "source_lost",
             "open": true,
-            "details": "Source not found after searching <tmp>/aang-profile-AbYATS/Имя Фамилия/.codex/sessions/2026/10/07/rollout-2026-10-07T17-50-44-01a1177d-38c2-78d0-a3f8-0e0f771e0711.jsonl"
+            "details": "Source not found after searching <tmp>/aang-profile-J9Ql8j/Имя Фамилия/.codex/sessions/2026/10/07/rollout-2026-10-07T22-13-35-01a1186d-db8b-7ef1-b6b1-69a71ce43d66.jsonl"
           }
         ]
       },
@@ -2023,33 +2020,33 @@
       ],
       "summary": "The aang-hook binary is missing while a Claude session runs: Claude is not blocked, the session is shown in files-only mode with hooks inactive; after the binary is back a new session has full support",
       "status": "passed",
-      "durationMs": 5273,
+      "durationMs": 4970,
       "steps": [
         {
-          "atMs": 1409,
+          "atMs": 1109,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-u78IEL/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-hflhpW/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1817,
+          "atMs": 1471,
           "event": "daemon started",
           "details": {
-            "pid": 9038
+            "pid": 8835
           }
         },
         {
-          "atMs": 1817,
+          "atMs": 1474,
           "event": "aang-hook moved away"
         },
         {
-          "atMs": 1821,
+          "atMs": 1477,
           "event": "claude started",
           "details": {
-            "pid": 9063,
+            "pid": 8859,
             "args": [
               "-p",
               "--output-format",
@@ -2064,7 +2061,7 @@
           }
         },
         {
-          "atMs": 2370,
+          "atMs": 2069,
           "event": "claude no-hook exited",
           "details": {
             "code": 0,
@@ -2073,25 +2070,25 @@
           }
         },
         {
-          "atMs": 2370,
+          "atMs": 2069,
           "event": "claude finished without the hook binary"
         },
         {
-          "atMs": 3672,
+          "atMs": 3099,
           "event": "daemon settled",
           "details": {
-            "afterMs": 301
+            "afterMs": 30
           }
         },
         {
-          "atMs": 3693,
+          "atMs": 3120,
           "event": "aang-hook restored"
         },
         {
-          "atMs": 3695,
+          "atMs": 3122,
           "event": "claude started",
           "details": {
-            "pid": 9172,
+            "pid": 8969,
             "args": [
               "-p",
               "--output-format",
@@ -2106,7 +2103,7 @@
           }
         },
         {
-          "atMs": 4212,
+          "atMs": 3627,
           "event": "claude hook-back exited",
           "details": {
             "code": 0,
@@ -2115,10 +2112,10 @@
           }
         },
         {
-          "atMs": 5233,
+          "atMs": 4932,
           "event": "daemon settled",
           "details": {
-            "afterMs": 21
+            "afterMs": 305
           }
         }
       ],
@@ -2153,7 +2150,7 @@
           "name": "aang status lists the session as hooks inactive",
           "ok": true,
           "observed": [
-            "ca78a91ddc65be805520f3b3e6aee857"
+            "c13fab505b54987e9e68517d81940734"
           ],
           "expected": null,
           "known": null
@@ -2177,7 +2174,7 @@
           "name": "aang status keeps only the unhooked session as hooks inactive",
           "ok": true,
           "observed": [
-            "ca78a91ddc65be805520f3b3e6aee857"
+            "c13fab505b54987e9e68517d81940734"
           ],
           "expected": null,
           "known": null
@@ -2196,29 +2193,29 @@
       ],
       "summary": "The spool lease disappears between two turns of one Claude session and the daemon does not renew it before the next turn: hooks of that turn are lost, its content comes from the transcript, and status shows the missing lease; after a restart hooks resume",
       "status": "known",
-      "durationMs": 7417,
+      "durationMs": 7251,
       "steps": [
         {
-          "atMs": 1410,
+          "atMs": 1129,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-LjMsft/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-BpTOJK/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1819,
+          "atMs": 1520,
           "event": "daemon started",
           "details": {
-            "pid": 9281
+            "pid": 9079
           }
         },
         {
-          "atMs": 1826,
+          "atMs": 1523,
           "event": "claude started",
           "details": {
-            "pid": 9305,
+            "pid": 9110,
             "args": [
               "-p",
               "--output-format",
@@ -2233,7 +2230,7 @@
           }
         },
         {
-          "atMs": 2457,
+          "atMs": 2120,
           "event": "claude lease-first exited",
           "details": {
             "code": 0,
@@ -2242,21 +2239,21 @@
           }
         },
         {
-          "atMs": 3503,
+          "atMs": 3415,
           "event": "daemon settled",
           "details": {
-            "afterMs": 46
+            "afterMs": 295
           }
         },
         {
-          "atMs": 3504,
+          "atMs": 3416,
           "event": "spool lease removed"
         },
         {
-          "atMs": 3506,
+          "atMs": 3417,
           "event": "claude started",
           "details": {
-            "pid": 9441,
+            "pid": 9249,
             "args": [
               "-p",
               "--output-format",
@@ -2268,12 +2265,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "7e6ff5ad-ac99-4886-ab88-d03c4ba2bfa6"
+              "3aa19d07-2f93-43a0-b1e9-e583d18977d5"
             ]
           }
         },
         {
-          "atMs": 4019,
+          "atMs": 3940,
           "event": "claude lease-second exited",
           "details": {
             "code": 0,
@@ -2282,14 +2279,14 @@
           }
         },
         {
-          "atMs": 5036,
+          "atMs": 4959,
           "event": "daemon settled",
           "details": {
-            "afterMs": 17
+            "afterMs": 19
           }
         },
         {
-          "atMs": 5059,
+          "atMs": 4982,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -2297,17 +2294,17 @@
           }
         },
         {
-          "atMs": 5468,
+          "atMs": 5343,
           "event": "daemon started",
           "details": {
-            "pid": 9513
+            "pid": 9322
           }
         },
         {
-          "atMs": 5476,
+          "atMs": 5346,
           "event": "claude started",
           "details": {
-            "pid": 9543,
+            "pid": 9346,
             "args": [
               "-p",
               "--output-format",
@@ -2319,12 +2316,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "7e6ff5ad-ac99-4886-ab88-d03c4ba2bfa6"
+              "3aa19d07-2f93-43a0-b1e9-e583d18977d5"
             ]
           }
         },
         {
-          "atMs": 6088,
+          "atMs": 5907,
           "event": "claude lease-third exited",
           "details": {
             "code": 0,
@@ -2333,10 +2330,10 @@
           }
         },
         {
-          "atMs": 7375,
+          "atMs": 7206,
           "event": "daemon settled",
           "details": {
-            "afterMs": 288
+            "afterMs": 299
           }
         }
       ],
@@ -2383,7 +2380,7 @@
           "name": "the restarted daemon grants a lease",
           "ok": true,
           "observed": [
-            "lease-1791481862"
+            "lease-1791497632"
           ],
           "expected": null,
           "known": null
@@ -2424,16 +2421,7 @@
             "details": "2 unrecognised session records"
           }
         ],
-        "status gaps after the turn without hooks": [
-          {
-            "kind": "unknown_records",
-            "details": "claude registry record (parsed) discarded: it names no session"
-          },
-          {
-            "kind": "unknown_records",
-            "details": "claude registry record (parsed) discarded: it names no session"
-          }
-        ],
+        "status gaps after the turn without hooks": [],
         "session after hooks resumed": {
           "state": "ended",
           "execution": "done",
@@ -2458,34 +2446,34 @@
       ],
       "summary": "Codex hooks of aang before and after trust: untrusted hooks do not run and the session is files-only; after trust the status is active and sessions have full support; a repeated aang install keeps the trust; a foreign hook inserted before the aang entry shifts the positional trust key",
       "status": "passed",
-      "durationMs": 7215,
+      "durationMs": 8250,
       "steps": [
         {
-          "atMs": 645,
+          "atMs": 1424,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-DF2EzU/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-KHW0QO/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 1059,
+          "atMs": 1962,
           "event": "daemon started",
           "details": {
-            "pid": 9872
+            "pid": 9679
           }
         },
         {
-          "atMs": 1333,
+          "atMs": 2234,
           "event": "codex hooks in the status",
           "details": "untrusted"
         },
         {
-          "atMs": 1335,
+          "atMs": 2236,
           "event": "codex started",
           "details": {
-            "pid": 9957,
+            "pid": 9766,
             "args": [
               "exec",
               "--json",
@@ -2494,7 +2482,7 @@
           }
         },
         {
-          "atMs": 1846,
+          "atMs": 2746,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -2503,29 +2491,29 @@
           }
         },
         {
-          "atMs": 2865,
+          "atMs": 3768,
           "event": "daemon settled",
           "details": {
-            "afterMs": 19
+            "afterMs": 22
           }
         },
         {
-          "atMs": 2982,
+          "atMs": 3889,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 3237,
+          "atMs": 4144,
           "event": "codex hooks in the status",
           "details": "active"
         },
         {
-          "atMs": 3239,
+          "atMs": 4146,
           "event": "codex started",
           "details": {
-            "pid": 10207,
+            "pid": 10016,
             "args": [
               "exec",
               "--json",
@@ -2534,7 +2522,7 @@
           }
         },
         {
-          "atMs": 3754,
+          "atMs": 4758,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -2543,31 +2531,31 @@
           }
         },
         {
-          "atMs": 4771,
+          "atMs": 5781,
           "event": "daemon settled",
           "details": {
-            "afterMs": 17
+            "afterMs": 23
           }
         },
         {
-          "atMs": 5351,
+          "atMs": 6340,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-DF2EzU/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are trusted and active",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-KHW0QO/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are trusted and active",
             "stderr": ""
           }
         },
         {
-          "atMs": 5353,
+          "atMs": 6343,
           "event": "codex hooks in the status",
           "details": "active"
         },
         {
-          "atMs": 5355,
+          "atMs": 6345,
           "event": "codex started",
           "details": {
-            "pid": 10559,
+            "pid": 10365,
             "args": [
               "exec",
               "--json",
@@ -2576,7 +2564,7 @@
           }
         },
         {
-          "atMs": 5914,
+          "atMs": 6690,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -2585,18 +2573,18 @@
           }
         },
         {
-          "atMs": 6929,
+          "atMs": 7709,
           "event": "daemon settled",
           "details": {
-            "afterMs": 15
+            "afterMs": 19
           }
         },
         {
-          "atMs": 6935,
+          "atMs": 7714,
           "event": "a foreign PreToolUse hook is inserted before the aang entry"
         },
         {
-          "atMs": 7188,
+          "atMs": 8221,
           "event": "codex hooks in the status",
           "details": "untrusted"
         }
@@ -2635,7 +2623,7 @@
           "name": "aang status lists it as hooks inactive",
           "ok": true,
           "observed": [
-            "e38bb701dc04593390bc63abb32a6e56"
+            "97b1e69fe3687fab59513a20610ef889"
           ],
           "expected": null,
           "known": null
@@ -2710,34 +2698,34 @@
       ],
       "summary": "The aang plugin is disabled with claude plugin disable: aang status shows hooks disabled and a new session is files-only; after enabling, sessions have full support again",
       "status": "passed",
-      "durationMs": 9151,
+      "durationMs": 8998,
       "steps": [
         {
-          "atMs": 1406,
+          "atMs": 1584,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-3GO8wn/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-U6lE9M/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1841,
+          "atMs": 1947,
           "event": "daemon started",
           "details": {
-            "pid": 10815
+            "pid": 10618
           }
         },
         {
-          "atMs": 2371,
+          "atMs": 2242,
           "event": "claude hooks in the status",
           "details": "active"
         },
         {
-          "atMs": 2373,
+          "atMs": 2245,
           "event": "claude started",
           "details": {
-            "pid": 10900,
+            "pid": 10664,
             "args": [
               "plugin",
               "disable",
@@ -2746,7 +2734,7 @@
           }
         },
         {
-          "atMs": 2558,
+          "atMs": 2437,
           "event": "claude plugin disable exited",
           "details": {
             "code": 0,
@@ -2755,15 +2743,15 @@
           }
         },
         {
-          "atMs": 3318,
+          "atMs": 3198,
           "event": "claude hooks in the status",
           "details": "disabled"
         },
         {
-          "atMs": 3320,
+          "atMs": 3200,
           "event": "claude started",
           "details": {
-            "pid": 10915,
+            "pid": 10720,
             "args": [
               "-p",
               "--output-format",
@@ -2778,7 +2766,7 @@
           }
         },
         {
-          "atMs": 3790,
+          "atMs": 3653,
           "event": "claude disabled exited",
           "details": {
             "code": 0,
@@ -2787,17 +2775,17 @@
           }
         },
         {
-          "atMs": 5088,
+          "atMs": 4946,
           "event": "daemon settled",
           "details": {
-            "afterMs": 298
+            "afterMs": 293
           }
         },
         {
-          "atMs": 5104,
+          "atMs": 4961,
           "event": "claude started",
           "details": {
-            "pid": 10953,
+            "pid": 10758,
             "args": [
               "plugin",
               "enable",
@@ -2806,7 +2794,7 @@
           }
         },
         {
-          "atMs": 5294,
+          "atMs": 5138,
           "event": "claude plugin enable exited",
           "details": {
             "code": 0,
@@ -2815,15 +2803,15 @@
           }
         },
         {
-          "atMs": 6307,
+          "atMs": 6153,
           "event": "claude hooks in the status",
           "details": "active"
         },
         {
-          "atMs": 6309,
+          "atMs": 6155,
           "event": "claude started",
           "details": {
-            "pid": 10968,
+            "pid": 10773,
             "args": [
               "-p",
               "--output-format",
@@ -2838,7 +2826,7 @@
           }
         },
         {
-          "atMs": 8098,
+          "atMs": 7945,
           "event": "claude enabled exited",
           "details": {
             "code": 0,
@@ -2847,7 +2835,7 @@
           }
         },
         {
-          "atMs": 9118,
+          "atMs": 8966,
           "event": "daemon settled",
           "details": {
             "afterMs": 20
@@ -2918,33 +2906,33 @@
       ],
       "summary": "The aang plugin is installed from the marketplace, a copy sits in the fallback skills directory and another is passed with --plugin-dir: Claude loads one plugin per name, so every hook is delivered once and no double registration arises; the engine check of ADR-0004 stays a safety net",
       "status": "passed",
-      "durationMs": 4075,
+      "durationMs": 3958,
       "steps": [
         {
-          "atMs": 1402,
+          "atMs": 1098,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-TgiEdL/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-4808yN/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1406,
+          "atMs": 1103,
           "event": "copies of the plugin are written to the skills directory and to a plugin directory"
         },
         {
-          "atMs": 1816,
+          "atMs": 1468,
           "event": "daemon started",
           "details": {
-            "pid": 11081
+            "pid": 10889
           }
         },
         {
-          "atMs": 1820,
+          "atMs": 1474,
           "event": "claude started",
           "details": {
-            "pid": 11106,
+            "pid": 10915,
             "args": [
               "-p",
               "--output-format",
@@ -2959,7 +2947,7 @@
           }
         },
         {
-          "atMs": 2460,
+          "atMs": 2082,
           "event": "claude skills-copy exited",
           "details": {
             "code": 0,
@@ -2968,10 +2956,10 @@
           }
         },
         {
-          "atMs": 2462,
+          "atMs": 2085,
           "event": "claude started",
           "details": {
-            "pid": 11241,
+            "pid": 11046,
             "args": [
               "-p",
               "--output-format",
@@ -2983,12 +2971,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--plugin-dir",
-              "<tmp>/aang-profile-TgiEdL/work/aang-plugin-copy"
+              "<tmp>/aang-profile-4808yN/work/aang-plugin-copy"
             ]
           }
         },
         {
-          "atMs": 2992,
+          "atMs": 2605,
           "event": "claude inline-copy exited",
           "details": {
             "code": 0,
@@ -2997,10 +2985,10 @@
           }
         },
         {
-          "atMs": 4020,
+          "atMs": 3891,
           "event": "daemon settled",
           "details": {
-            "afterMs": 28
+            "afterMs": 285
           }
         }
       ],
@@ -3073,7 +3061,7 @@
           {
             "channel": "registry",
             "parse_state": "parsed",
-            "records": 4
+            "records": 5
           },
           {
             "channel": "transcript",
@@ -3097,29 +3085,29 @@
       ],
       "summary": "claude -p --no-session-persistence writes no transcript: the session is shown in hooks-only mode with its actions from hooks",
       "status": "passed",
-      "durationMs": 3501,
+      "durationMs": 3214,
       "steps": [
         {
-          "atMs": 1426,
+          "atMs": 1202,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-cUZ6f0/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-jucTQV/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1841,
+          "atMs": 1586,
           "event": "daemon started",
           "details": {
-            "pid": 11350
+            "pid": 11156
           }
         },
         {
-          "atMs": 1845,
+          "atMs": 1591,
           "event": "claude started",
           "details": {
-            "pid": 11385,
+            "pid": 11181,
             "args": [
               "-p",
               "--output-format",
@@ -3135,7 +3123,7 @@
           }
         },
         {
-          "atMs": 2436,
+          "atMs": 2147,
           "event": "claude hooks-only exited",
           "details": {
             "code": 0,
@@ -3144,10 +3132,10 @@
           }
         },
         {
-          "atMs": 3464,
+          "atMs": 3176,
           "event": "daemon settled",
           "details": {
-            "afterMs": 28
+            "afterMs": 29
           }
         }
       ],
@@ -3208,36 +3196,36 @@
       ],
       "summary": "codex exec --ephemeral writes no rollout: the thread is shown in hooks-only mode with its command from hooks",
       "status": "passed",
-      "durationMs": 2760,
+      "durationMs": 3086,
       "steps": [
         {
-          "atMs": 647,
+          "atMs": 1175,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-fEwEfX/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-3WTnYC/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 747,
+          "atMs": 1277,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 1157,
+          "atMs": 1664,
           "event": "daemon started",
           "details": {
-            "pid": 11768
+            "pid": 11581
           }
         },
         {
-          "atMs": 1162,
+          "atMs": 1667,
           "event": "codex started",
           "details": {
-            "pid": 11796,
+            "pid": 11617,
             "args": [
               "exec",
               "--json",
@@ -3247,7 +3235,7 @@
           }
         },
         {
-          "atMs": 1698,
+          "atMs": 2019,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -3256,10 +3244,10 @@
           }
         },
         {
-          "atMs": 2724,
+          "atMs": 3046,
           "event": "daemon settled",
           "details": {
-            "afterMs": 25
+            "afterMs": 26
           }
         }
       ],
@@ -3322,29 +3310,29 @@
       ],
       "summary": "The Claude process is killed while a tool runs: hooks saw the start, the transcript has the tool use without a result, nothing ends the turn; the session turns quiet after the configured silence and the action is not shown as failed",
       "status": "known",
-      "durationMs": 12514,
+      "durationMs": 11971,
       "steps": [
         {
-          "atMs": 1408,
+          "atMs": 1114,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-JtuCp3/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-InsJNl/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1821,
+          "atMs": 1503,
           "event": "daemon started",
           "details": {
-            "pid": 12044
+            "pid": 11856
           }
         },
         {
-          "atMs": 1823,
+          "atMs": 1507,
           "event": "claude started",
           "details": {
-            "pid": 12069,
+            "pid": 11887,
             "args": [
               "-p",
               "--output-format",
@@ -3359,21 +3347,21 @@
           }
         },
         {
-          "atMs": 2574,
+          "atMs": 2258,
           "event": "gate killed reached"
         },
         {
-          "atMs": 3590,
+          "atMs": 3277,
           "event": "claude killed with SIGKILL",
           "details": {
             "signal": "SIGKILL"
           }
         },
         {
-          "atMs": 4621,
+          "atMs": 4306,
           "event": "daemon settled",
           "details": {
-            "afterMs": 31
+            "afterMs": 29
           }
         }
       ],
@@ -3457,29 +3445,29 @@
       ],
       "summary": "A Claude session started in the watched project changes its directory to an added directory outside it: hooks and transcript lines then carry the outside cwd, yet the session stays in scope with every action; a session started outside is not taken in",
       "status": "passed",
-      "durationMs": 5324,
+      "durationMs": 5036,
       "steps": [
         {
-          "atMs": 1398,
+          "atMs": 1219,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-rTK8AD/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-4pTWSi/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1781,
+          "atMs": 1630,
           "event": "daemon started",
           "details": {
-            "pid": 12248
+            "pid": 12064
           }
         },
         {
-          "atMs": 1786,
+          "atMs": 1635,
           "event": "claude started",
           "details": {
-            "pid": 12272,
+            "pid": 12096,
             "args": [
               "-p",
               "--output-format",
@@ -3491,12 +3479,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--add-dir",
-              "<tmp>/aang-profile-rTK8AD/Имя Фамилия/outside"
+              "<tmp>/aang-profile-4pTWSi/Имя Фамилия/outside"
             ]
           }
         },
         {
-          "atMs": 2454,
+          "atMs": 2314,
           "event": "claude drift exited",
           "details": {
             "code": 0,
@@ -3505,17 +3493,17 @@
           }
         },
         {
-          "atMs": 3749,
+          "atMs": 3361,
           "event": "daemon settled",
           "details": {
-            "afterMs": 296
+            "afterMs": 47
           }
         },
         {
-          "atMs": 3764,
+          "atMs": 3378,
           "event": "claude started",
           "details": {
-            "pid": 12418,
+            "pid": 12246,
             "args": [
               "-p",
               "--output-format",
@@ -3527,7 +3515,7 @@
           }
         },
         {
-          "atMs": 4276,
+          "atMs": 3933,
           "event": "claude outside exited",
           "details": {
             "code": 0,
@@ -3536,10 +3524,10 @@
           }
         },
         {
-          "atMs": 5294,
+          "atMs": 4954,
           "event": "daemon settled",
           "details": {
-            "afterMs": 18
+            "afterMs": 21
           }
         }
       ],
@@ -3548,12 +3536,12 @@
           "name": "transcript lines name the project and then the outside directory",
           "ok": true,
           "observed": [
-            "<tmp>/aang-profile-rTK8AD/Имя Фамилия/проект q4",
-            "<tmp>/aang-profile-rTK8AD/Имя Фамилия/outside"
+            "<tmp>/aang-profile-4pTWSi/Имя Фамилия/проект q4",
+            "<tmp>/aang-profile-4pTWSi/Имя Фамилия/outside"
           ],
           "expected": [
-            "<tmp>/aang-profile-rTK8AD/Имя Фамилия/проект q4",
-            "<tmp>/aang-profile-rTK8AD/Имя Фамилия/outside"
+            "<tmp>/aang-profile-4pTWSi/Имя Фамилия/проект q4",
+            "<tmp>/aang-profile-4pTWSi/Имя Фамилия/outside"
           ],
           "known": null
         },
@@ -3573,8 +3561,8 @@
         {
           "name": "the session cwd is the start directory",
           "ok": true,
-          "observed": "<tmp>/aang-profile-rTK8AD/Имя Фамилия/проект q4",
-          "expected": "<tmp>/aang-profile-rTK8AD/Имя Фамилия/проект q4",
+          "observed": "<tmp>/aang-profile-4pTWSi/Имя Фамилия/проект q4",
+          "expected": "<tmp>/aang-profile-4pTWSi/Имя Фамилия/проект q4",
           "known": null
         },
         {
@@ -3582,12 +3570,12 @@
           "ok": true,
           "observed": [
             {
-              "started_at": "1791395506110000000",
-              "ended_at": "1791395506173289257"
+              "started_at": "1791411276032000000",
+              "ended_at": "1791411276063686278"
             },
             {
-              "started_at": "1791395506205000000",
-              "ended_at": "1791395506231289387"
+              "started_at": "1791411275923000000",
+              "ended_at": "1791411275994685242"
             }
           ],
           "expected": null,
@@ -3612,29 +3600,29 @@
       ],
       "summary": "Two forks of one Claude session and a fork of a fork: each fork is its own run with a common-origin link and no guessed parent; copied history is inherited, not repeated; a fork_parent binding sets the parent and its revocation removes it",
       "status": "passed",
-      "durationMs": 5216,
+      "durationMs": 5302,
       "steps": [
         {
-          "atMs": 1444,
+          "atMs": 1083,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-ocUpeA/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-tqwPDz/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1855,
+          "atMs": 1500,
           "event": "daemon started",
           "details": {
-            "pid": 12528
+            "pid": 12356
           }
         },
         {
-          "atMs": 1858,
+          "atMs": 1503,
           "event": "claude started",
           "details": {
-            "pid": 12559,
+            "pid": 12383,
             "args": [
               "-p",
               "--output-format",
@@ -3649,7 +3637,7 @@
           }
         },
         {
-          "atMs": 2447,
+          "atMs": 2093,
           "event": "claude origin exited",
           "details": {
             "code": 0,
@@ -3658,10 +3646,10 @@
           }
         },
         {
-          "atMs": 2450,
+          "atMs": 2095,
           "event": "claude started",
           "details": {
-            "pid": 12688,
+            "pid": 12521,
             "args": [
               "-p",
               "--output-format",
@@ -3673,13 +3661,13 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "c3547044-844e-48c3-a563-8914895385c0",
+              "2b4a31d6-98ac-493f-9d34-d430feacb276",
               "--fork-session"
             ]
           }
         },
         {
-          "atMs": 2969,
+          "atMs": 2655,
           "event": "claude fork-one exited",
           "details": {
             "code": 0,
@@ -3688,10 +3676,10 @@
           }
         },
         {
-          "atMs": 2971,
+          "atMs": 2658,
           "event": "claude started",
           "details": {
-            "pid": 12761,
+            "pid": 12595,
             "args": [
               "-p",
               "--output-format",
@@ -3703,13 +3691,13 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "c3547044-844e-48c3-a563-8914895385c0",
+              "2b4a31d6-98ac-493f-9d34-d430feacb276",
               "--fork-session"
             ]
           }
         },
         {
-          "atMs": 3487,
+          "atMs": 3219,
           "event": "claude fork-two exited",
           "details": {
             "code": 0,
@@ -3718,10 +3706,10 @@
           }
         },
         {
-          "atMs": 3489,
+          "atMs": 3222,
           "event": "claude started",
           "details": {
-            "pid": 12834,
+            "pid": 12669,
             "args": [
               "-p",
               "--output-format",
@@ -3733,13 +3721,13 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "539a169b-c3ce-42e1-ac43-96b3d81cdd8d",
+              "c9cfbf9a-86d9-47b0-a7a4-ee2aaab4d3ef",
               "--fork-session"
             ]
           }
         },
         {
-          "atMs": 4001,
+          "atMs": 3787,
           "event": "claude fork-three exited",
           "details": {
             "code": 0,
@@ -3748,14 +3736,14 @@
           }
         },
         {
-          "atMs": 5032,
+          "atMs": 4985,
           "event": "daemon settled",
           "details": {
-            "afterMs": 31
+            "afterMs": 198
           }
         },
         {
-          "atMs": 5166,
+          "atMs": 5178,
           "event": "fork_parent binding created",
           "details": {
             "kind": "fork_parent"
@@ -3819,7 +3807,7 @@
           "known": null
         },
         {
-          "name": "each fork has a common-origin link without a guessed parent",
+          "name": "each fork has a common-origin link to the other sessions without a guessed parent",
           "ok": true,
           "observed": {
             "one": {
@@ -3850,7 +3838,35 @@
               "basis": "observed"
             }
           },
-          "expected": null,
+          "expected": {
+            "one": {
+              "sessions": [
+                "origin",
+                "three",
+                "two"
+              ],
+              "parent_candidate": null,
+              "basis": "observed"
+            },
+            "two": {
+              "sessions": [
+                "one",
+                "origin",
+                "three"
+              ],
+              "parent_candidate": null,
+              "basis": "observed"
+            },
+            "three": {
+              "sessions": [
+                "one",
+                "origin",
+                "two"
+              ],
+              "parent_candidate": null,
+              "basis": "observed"
+            }
+          },
           "known": null
         },
         {
@@ -3874,15 +3890,15 @@
           "name": "the binding sets the parent of the fork",
           "ok": true,
           "observed": {
-            "forked_from": "20e8da44fbf3c3a56bf1b8f6cf083fad",
+            "forked_from": "35724fe1b9e449a1883c525c6f774824",
             "links": [
-              "20e8da44fbf3c3a56bf1b8f6cf083fad"
+              "35724fe1b9e449a1883c525c6f774824"
             ]
           },
           "expected": {
-            "forked_from": "20e8da44fbf3c3a56bf1b8f6cf083fad",
+            "forked_from": "35724fe1b9e449a1883c525c6f774824",
             "links": [
-              "20e8da44fbf3c3a56bf1b8f6cf083fad"
+              "35724fe1b9e449a1883c525c6f774824"
             ]
           },
           "known": null
@@ -3902,35 +3918,6 @@
         }
       ],
       "observations": {
-        "common origin links": {
-          "one": {
-            "sessions": [
-              "origin",
-              "three",
-              "two"
-            ],
-            "parent_candidate": null,
-            "basis": "observed"
-          },
-          "two": {
-            "sessions": [
-              "one",
-              "origin",
-              "three"
-            ],
-            "parent_candidate": null,
-            "basis": "observed"
-          },
-          "three": {
-            "sessions": [
-              "one",
-              "origin",
-              "two"
-            ],
-            "parent_candidate": null,
-            "basis": "observed"
-          }
-        },
         "launches": {
           "origin": [
             "startup"
@@ -3956,26 +3943,26 @@
       ],
       "summary": "The daemon is down while a Claude session and its fork run, and the parent transcript is deleted before the daemon is back: the fork is still recognised from its own file, the copied history is inherited, and no parent is named",
       "status": "passed",
-      "durationMs": 4704,
+      "durationMs": 4395,
       "steps": [
         {
-          "atMs": 1415,
+          "atMs": 1089,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-nQQpQm/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-GtVvRe/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1829,
+          "atMs": 1451,
           "event": "daemon started",
           "details": {
-            "pid": 12944
+            "pid": 12779
           }
         },
         {
-          "atMs": 1839,
+          "atMs": 1461,
           "event": "daemon killed with SIGKILL",
           "details": {
             "code": null,
@@ -3983,10 +3970,10 @@
           }
         },
         {
-          "atMs": 1842,
+          "atMs": 1465,
           "event": "claude started",
           "details": {
-            "pid": 12980,
+            "pid": 12804,
             "args": [
               "-p",
               "--output-format",
@@ -4001,7 +3988,7 @@
           }
         },
         {
-          "atMs": 2395,
+          "atMs": 2066,
           "event": "claude unseen-origin exited",
           "details": {
             "code": 0,
@@ -4010,10 +3997,10 @@
           }
         },
         {
-          "atMs": 2397,
+          "atMs": 2068,
           "event": "claude started",
           "details": {
-            "pid": 13105,
+            "pid": 12882,
             "args": [
               "-p",
               "--output-format",
@@ -4025,13 +4012,13 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "ce430075-7b9e-43c2-87bf-5cb757a7b9d6",
+              "f944fff4-fd06-46b0-9624-d7a0b1140cb6",
               "--fork-session"
             ]
           }
         },
         {
-          "atMs": 2883,
+          "atMs": 2580,
           "event": "claude unseen-fork exited",
           "details": {
             "code": 0,
@@ -4040,21 +4027,21 @@
           }
         },
         {
-          "atMs": 2883,
+          "atMs": 2580,
           "event": "the parent transcript is deleted before the daemon is back"
         },
         {
-          "atMs": 3293,
+          "atMs": 2969,
           "event": "daemon started",
           "details": {
-            "pid": 13177
+            "pid": 12955
           }
         },
         {
-          "atMs": 4650,
+          "atMs": 4341,
           "event": "daemon settled",
           "details": {
-            "afterMs": 357
+            "afterMs": 372
           }
         }
       ],
@@ -4073,28 +4060,34 @@
           "known": null
         },
         {
-          "name": "the fork names no parent",
+          "name": "the fork has a common-origin link without visible sessions or a parent candidate",
           "ok": true,
-          "observed": {
-            "forked_from": null,
-            "origins": [
-              {
-                "sessions": [],
-                "parent_candidate": null
-              }
-            ]
-          },
+          "observed": [
+            {
+              "sessions": [],
+              "parent_candidate": null,
+              "basis": "observed"
+            }
+          ],
+          "expected": [
+            {
+              "sessions": [],
+              "parent_candidate": null,
+              "basis": "observed"
+            }
+          ],
+          "known": null
+        },
+        {
+          "name": "the fork claims no forked-from parent",
+          "ok": true,
+          "observed": null,
           "expected": null,
           "known": null
         }
       ],
       "observations": {
         "spool files left by both sessions": 14,
-        "common origin link": {
-          "sessions": [],
-          "parent_candidate": null,
-          "basis": "observed"
-        },
         "parent session from its hooks only": {
           "state": "ended",
           "execution": "done",
@@ -4117,29 +4110,29 @@
       ],
       "summary": "--resume and --continue of a Claude session keep one session and one run with three launches",
       "status": "passed",
-      "durationMs": 4799,
+      "durationMs": 4565,
       "steps": [
         {
-          "atMs": 1405,
+          "atMs": 1140,
           "event": "aang install --claude",
           "details": {
             "code": 0,
-            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-qwd3MU/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
+            "stdout": "claude: plugin aang@aang installed from <tmp>/aang-profile-CWtN6P/Имя Фамилия/.aang/claude-plugin\nclaude: plugin aang@aang is enabled",
             "stderr": ""
           }
         },
         {
-          "atMs": 1813,
+          "atMs": 1524,
           "event": "daemon started",
           "details": {
-            "pid": 13299
+            "pid": 13079
           }
         },
         {
-          "atMs": 1817,
+          "atMs": 1532,
           "event": "claude started",
           "details": {
-            "pid": 13324,
+            "pid": 13112,
             "args": [
               "-p",
               "--output-format",
@@ -4154,7 +4147,7 @@
           }
         },
         {
-          "atMs": 2437,
+          "atMs": 2133,
           "event": "claude first exited",
           "details": {
             "code": 0,
@@ -4163,10 +4156,10 @@
           }
         },
         {
-          "atMs": 2439,
+          "atMs": 2136,
           "event": "claude started",
           "details": {
-            "pid": 13458,
+            "pid": 13239,
             "args": [
               "-p",
               "--output-format",
@@ -4178,12 +4171,12 @@
               "Bash,Read,Write,Edit",
               "--strict-mcp-config",
               "--resume",
-              "abe9e3ab-5974-41b0-9970-7cfa5aa5d474"
+              "8ede7e9c-c737-4836-8679-cf193ca7f0ef"
             ]
           }
         },
         {
-          "atMs": 2955,
+          "atMs": 2921,
           "event": "claude resumed exited",
           "details": {
             "code": 0,
@@ -4192,10 +4185,10 @@
           }
         },
         {
-          "atMs": 2958,
+          "atMs": 2924,
           "event": "claude started",
           "details": {
-            "pid": 13531,
+            "pid": 13314,
             "args": [
               "-p",
               "--output-format",
@@ -4211,7 +4204,7 @@
           }
         },
         {
-          "atMs": 3474,
+          "atMs": 3483,
           "event": "claude continued exited",
           "details": {
             "code": 0,
@@ -4220,10 +4213,10 @@
           }
         },
         {
-          "atMs": 4757,
+          "atMs": 4521,
           "event": "daemon settled",
           "details": {
-            "afterMs": 283
+            "afterMs": 37
           }
         }
       ],
@@ -4232,12 +4225,12 @@
           "name": "resume and continue keep the session id",
           "ok": true,
           "observed": [
-            "abe9e3ab-5974-41b0-9970-7cfa5aa5d474",
-            "abe9e3ab-5974-41b0-9970-7cfa5aa5d474"
+            "8ede7e9c-c737-4836-8679-cf193ca7f0ef",
+            "8ede7e9c-c737-4836-8679-cf193ca7f0ef"
           ],
           "expected": [
-            "abe9e3ab-5974-41b0-9970-7cfa5aa5d474",
-            "abe9e3ab-5974-41b0-9970-7cfa5aa5d474"
+            "8ede7e9c-c737-4836-8679-cf193ca7f0ef",
+            "8ede7e9c-c737-4836-8679-cf193ca7f0ef"
           ],
           "known": null
         },
@@ -4282,36 +4275,36 @@
       ],
       "summary": "codex exec fork creates a run linked to its source run; a fork whose source was deleted before the daemon saw it points to a run aang does not have",
       "status": "known",
-      "durationMs": 6028,
+      "durationMs": 5832,
       "steps": [
         {
-          "atMs": 639,
+          "atMs": 773,
           "event": "aang install --codex",
           "details": {
             "code": 0,
-            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-KSsiop/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
+            "stdout": "codex: aang hooks registered in <tmp>/aang-profile-EsUpsR/Имя Фамилия/.codex/hooks.json\ncodex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them",
             "stderr": ""
           }
         },
         {
-          "atMs": 744,
+          "atMs": 877,
           "event": "codex hooks of aang trusted as /hooks would",
           "details": {
             "hooks": 12
           }
         },
         {
-          "atMs": 1157,
+          "atMs": 1262,
           "event": "daemon started",
           "details": {
-            "pid": 13864
+            "pid": 13648
           }
         },
         {
-          "atMs": 1159,
+          "atMs": 1265,
           "event": "codex started",
           "details": {
-            "pid": 13889,
+            "pid": 13672,
             "args": [
               "exec",
               "--json",
@@ -4320,7 +4313,7 @@
           }
         },
         {
-          "atMs": 1767,
+          "atMs": 1764,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -4329,21 +4322,21 @@
           }
         },
         {
-          "atMs": 1769,
+          "atMs": 1767,
           "event": "codex started",
           "details": {
-            "pid": 14105,
+            "pid": 13890,
             "args": [
               "exec",
               "--json",
               "--skip-git-repo-check",
               "fork",
-              "01a1177e-7238-7182-a54b-6e6359686d78"
+              "01a1186f-113f-7803-811f-ecb29dde6e7a"
             ]
           }
         },
         {
-          "atMs": 2263,
+          "atMs": 2156,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -4352,14 +4345,14 @@
           }
         },
         {
-          "atMs": 3293,
+          "atMs": 3186,
           "event": "daemon settled",
           "details": {
             "afterMs": 30
           }
         },
         {
-          "atMs": 3330,
+          "atMs": 3229,
           "event": "daemon shut down through the API",
           "details": {
             "code": 0,
@@ -4367,10 +4360,10 @@
           }
         },
         {
-          "atMs": 3333,
+          "atMs": 3231,
           "event": "codex started",
           "details": {
-            "pid": 14260,
+            "pid": 14054,
             "args": [
               "exec",
               "--json",
@@ -4379,7 +4372,7 @@
           }
         },
         {
-          "atMs": 3866,
+          "atMs": 3566,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -4388,21 +4381,21 @@
           }
         },
         {
-          "atMs": 3868,
+          "atMs": 3569,
           "event": "codex started",
           "details": {
-            "pid": 14411,
+            "pid": 14205,
             "args": [
               "exec",
               "--json",
               "--skip-git-repo-check",
               "fork",
-              "01a1177e-7a8f-7332-a88d-913756363634"
+              "01a1186f-18c3-74b1-b3d1-4185f682cd75"
             ]
           }
         },
         {
-          "atMs": 4356,
+          "atMs": 3921,
           "event": "codex --json exited",
           "details": {
             "code": 0,
@@ -4411,33 +4404,33 @@
           }
         },
         {
-          "atMs": 4358,
+          "atMs": 3924,
           "event": "codex started",
           "details": {
-            "pid": 14563,
+            "pid": 14355,
             "args": [
               "delete",
               "--force",
-              "01a1177e-7a8f-7332-a88d-913756363634"
+              "01a1186f-18c3-74b1-b3d1-4185f682cd75"
             ]
           }
         },
         {
-          "atMs": 4443,
+          "atMs": 4008,
           "event": "the source rollout is removed before the daemon is back"
         },
         {
-          "atMs": 4856,
+          "atMs": 4396,
           "event": "daemon started",
           "details": {
-            "pid": 14623
+            "pid": 14415
           }
         },
         {
-          "atMs": 5971,
+          "atMs": 5768,
           "event": "daemon settled",
           "details": {
-            "afterMs": 115
+            "afterMs": 372
           }
         }
       ],
@@ -4447,16 +4440,16 @@
           "ok": true,
           "observed": {
             "separate": true,
-            "forked_from": "c009c024a246bec811fde76d71df689b",
+            "forked_from": "0b6eb03fa6735e1acda805c8aa0a0586",
             "links": [
-              "c009c024a246bec811fde76d71df689b"
+              "0b6eb03fa6735e1acda805c8aa0a0586"
             ]
           },
           "expected": {
             "separate": true,
-            "forked_from": "c009c024a246bec811fde76d71df689b",
+            "forked_from": "0b6eb03fa6735e1acda805c8aa0a0586",
             "links": [
-              "c009c024a246bec811fde76d71df689b"
+              "0b6eb03fa6735e1acda805c8aa0a0586"
             ]
           },
           "known": null
@@ -4480,7 +4473,7 @@
           "stderr": "Error: failed to delete session"
         },
         "fork of an unseen source": {
-          "forked_from": "91f0b7a01e55695181e57291aff75ff6",
+          "forked_from": "ee4e0c0842b384a10879160fcbf46c3a",
           "forked_from_listed": false,
           "source_session_known": false
         }
@@ -4490,7 +4483,6 @@
   ],
   "failed": [],
   "known": [
-    "restart/claude-stop-between-turns",
     "restart/codex-sigkill-mid-turn",
     "sources/claude-projects-root-created-after-start",
     "hooks/claude-lease-lost-mid-session",
