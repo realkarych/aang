@@ -1,9 +1,10 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { ChangeAuthor, ObserverCallId, RunId, Runtime } from '@aang/contract'
+import { type CallUsage, ChangeAuthor, JournalRates, ObserverCallId, RunId, Runtime } from '@aang/contract'
 import { z } from 'zod'
 import {
   type AnnotatedEvent,
+  type AskedQuestion,
   json,
   type MeasuredCall,
   type MeasuredEvent,
@@ -71,6 +72,50 @@ export const BackendReport = z.strictObject({
 })
 export type BackendReport = z.infer<typeof BackendReport>
 
+export const Spending = z.strictObject({
+  calls: count,
+  uncached_input_tokens: count,
+  cache_read_input_tokens: count,
+  cache_write_input_tokens: count,
+  output_tokens: count,
+  reasoning_output_tokens: count,
+  tokens: count,
+  cost_usd: z.number().nonnegative().nullable(),
+})
+export type Spending = z.infer<typeof Spending>
+
+export const Rate = z.strictObject({
+  calls: z.number().nonnegative(),
+  tokens: z.number().nonnegative(),
+  cost_usd: z.number().nonnegative().nullable(),
+})
+export type Rate = z.infer<typeof Rate>
+
+export const Rates = z.strictObject({ observer: Rate.nullable(), chat: Rate.nullable() })
+export type Rates = z.infer<typeof Rates>
+
+export const BackendSpending = z.strictObject({
+  runtime: Runtime,
+  runs: count,
+  run_ms: count,
+  active_ms: count,
+  observer: Spending,
+  chat: Spending,
+  checks: Spending,
+  per_run_hour: Rates,
+  per_active_hour: Rates,
+  questions: z.strictObject({
+    asked: count,
+    answered: count,
+    failed: count,
+    not_asked: count,
+    insufficient_data: count,
+    latency_p50_ms: z.int().nullable(),
+    latency_p95_ms: z.int().nullable(),
+  }),
+})
+export type BackendSpending = z.infer<typeof BackendSpending>
+
 export const Report = z.strictObject({
   format: z.literal('aang-freshness-report/1'),
   profile: z.string().min(1),
@@ -83,6 +128,8 @@ export const Report = z.strictObject({
   recordings: z.array(z.strictObject({ recording: RecordingPath, runtime: Runtime, start_ms: count })),
   backends: z.array(BackendReport),
   events: z.array(ReportedEvent),
+  spending: z.array(BackendSpending),
+  active_hours: z.strictObject({ hours: count, per_active_hour: JournalRates.nullable() }),
 })
 export type Report = z.infer<typeof Report>
 
@@ -97,8 +144,90 @@ interface Reached {
   readonly observer_call: ObserverCallId | null
 }
 
-const nearestRank = (values: readonly number[]): number | undefined =>
-  values.toSorted((left, right) => left - right)[Math.ceil(values.length * 0.95) - 1]
+const rank = (values: readonly number[], share: number): number | undefined =>
+  values.toSorted((left, right) => left - right)[Math.ceil(values.length * share) - 1]
+
+const nearestRank = (values: readonly number[]): number | undefined => rank(values, 0.95)
+
+const millisecondsPerHour = 3_600_000
+
+const spendingOf = (usages: readonly (CallUsage | null)[]): Spending => {
+  const tokens = usages.flatMap((usage) => (usage?.tokens == null ? [] : [usage.tokens]))
+  const sum = (pick: (entry: (typeof tokens)[number]) => number): number => tokens.reduce((total, entry) => total + pick(entry), 0)
+  const costs = usages.flatMap((usage) => (usage?.cost_usd == null ? [] : [usage.cost_usd]))
+  const uncached = sum(({ uncached_input_tokens: value }) => value)
+  const read = sum(({ cache_read_input_tokens: value }) => value)
+  const written = sum(({ cache_write_input_tokens: value }) => value)
+  const output = sum(({ output_tokens: value }) => value)
+  return {
+    calls: usages.length,
+    uncached_input_tokens: uncached,
+    cache_read_input_tokens: read,
+    cache_write_input_tokens: written,
+    output_tokens: output,
+    reasoning_output_tokens: sum(({ reasoning_output_tokens: value }) => value ?? 0),
+    tokens: uncached + read + written + output,
+    cost_usd: costs.length === 0 ? null : costs.reduce((total, cost) => total + cost, 0),
+  }
+}
+
+const rateOf = (spending: Spending, ms: number): Rate | null =>
+  ms === 0
+    ? null
+    : {
+        calls: (spending.calls * millisecondsPerHour) / ms,
+        tokens: (spending.tokens * millisecondsPerHour) / ms,
+        cost_usd: spending.cost_usd === null ? null : (spending.cost_usd * millisecondsPerHour) / ms,
+      }
+
+const unionMs = (spans: readonly (readonly [number, number])[]): number => {
+  const merged = spans.toSorted(([left], [right]) => left - right).reduce<[number, number][]>((covered, [start, end]) => {
+    const last = covered.at(-1)
+    if (last !== undefined && start <= last[1]) {
+      last[1] = Math.max(last[1], end)
+    } else {
+      covered.push([start, end])
+    }
+    return covered
+  }, [])
+  return merged.reduce((total, [start, end]) => total + end - start, 0)
+}
+
+const questionsOf = (questions: readonly AskedQuestion[]): BackendSpending['questions'] => {
+  const latencies = questions.flatMap(({ status, asked_at: asked, answered_at: at }) =>
+    status === 'answered' && asked !== null && at !== null ? [at - asked] : [],
+  )
+  return {
+    asked: questions.filter(({ status }) => status !== 'not_asked').length,
+    answered: questions.filter(({ status }) => status === 'answered').length,
+    failed: questions.filter(({ status }) => status === 'failed').length,
+    not_asked: questions.filter(({ status }) => status === 'not_asked').length,
+    insufficient_data: questions.filter(({ insufficient_data: insufficient }) => insufficient === true).length,
+    latency_p50_ms: rank(latencies, 0.5) ?? null,
+    latency_p95_ms: nearestRank(latencies) ?? null,
+  }
+}
+
+const backendSpending = (measurement: Measurement, runtime: Runtime): BackendSpending => {
+  const recordings = measurement.recordings.filter((recording) => recording.runtime === runtime)
+  const runMs = recordings.reduce((total, { started_at: started, finished_at: finished }) => total + finished - started, 0)
+  const activeMs = unionMs(recordings.map(({ started_at: started, finished_at: finished }) => [started, finished] as const))
+  const observer = spendingOf(measurement.calls.filter((call) => call.runtime === runtime).map(({ usage }) => usage))
+  const own = measurement.spent.filter(({ backend }) => backend === runtime)
+  const chat = spendingOf(own.filter(({ kind }) => kind === 'chat').map(({ usage }) => usage))
+  return {
+    runtime,
+    runs: recordings.length,
+    run_ms: runMs,
+    active_ms: activeMs,
+    observer,
+    chat,
+    checks: spendingOf(own.filter(({ kind }) => kind !== 'chat').map(({ usage }) => usage)),
+    per_run_hour: { observer: rateOf(observer, runMs), chat: rateOf(chat, runMs) },
+    per_active_hour: { observer: rateOf(observer, activeMs), chat: rateOf(chat, activeMs) },
+    questions: questionsOf(measurement.questions.filter((question) => question.runtime === runtime)),
+  }
+}
 
 const annotated = (event: MeasuredEvent, annotation: AnnotatedEvent | undefined): Reached | 'missed' | null => {
   const verdict = annotation?.verdict ?? null
@@ -259,6 +388,8 @@ export const buildReport = (fixed: FixedProfile, measurement: Measurement, annot
     })),
     backends: measurement.backends.map((backend) => backendReport(measurement, fixed, events, backend)),
     events,
+    spending: measurement.backends.map(({ vendor }) => backendSpending(measurement, vendor)),
+    active_hours: { hours: measurement.usage.active_hours, per_active_hour: measurement.usage.per_active_hour },
   }
 }
 

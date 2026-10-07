@@ -357,8 +357,14 @@ describe('the measurement', () => {
       const space = await workspace()
       const approval = claudeRecording('approval')
       await space.mark(approval, { 'denial-requested': { card: { text: 'second one was denied' } } })
-      const cli = space.fakeClaude({ replies: [{ kind: 'script', script: 'report' }, needsReply, { kind: 'script', script: 'revision' }] })
-      await space.writeProfile({ ...loadProfile('needs', 25_000, cli.path, [{ recording: approval }]), time_scale: 2 })
+      const cli = space.fakeClaude({
+        replies: [{ kind: 'script', script: 'report' }, needsReply, { kind: 'script', script: 'revision' }],
+        chatReplies: [{ kind: 'answer', output: { needs: [], answer: 'The run waits for an approval.', citations: [], insufficient_data: false, view_rule: null } }],
+      })
+      await space.writeProfile({
+        ...loadProfile('needs', 25_000, cli.path, [{ recording: approval, chat: [{ after_ms: 2_000, question: 'What does the run wait for?' }] }]),
+        time_scale: 2,
+      })
       expect(await space.freshness('fix', space.profile, space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0 })
       expect(await space.freshness('run', space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0, stderr: '' })
 
@@ -402,6 +408,34 @@ describe('the measurement', () => {
         ms: 2 * (needsCall.needs_latency_ms ?? 0),
       })
       expect(report.backends[0]?.needs.share).toBeGreaterThan(0)
+
+      const [asked] = measurement.questions
+      expect(measurement.questions).toHaveLength(1)
+      expect(asked).toMatchObject({ recording: approval, runtime: 'claude', question: 'What does the run wait for?', status: 'answered', insufficient_data: false, error: null })
+      expect(asked?.run).toBe(carded.run)
+      expect(asked?.scheduled_at).toBe(measurement.started_at + 2_000)
+      expect(asked?.answered_at).toBeGreaterThanOrEqual(asked?.asked_at ?? Infinity)
+      expect(measurement.spent.filter(({ kind }) => kind === 'chat')).toEqual([
+        expect.objectContaining({ run: carded.run, backend: 'claude', verdict: 'accepted' }),
+      ])
+      const [spending] = report.spending
+      expect(report.spending).toHaveLength(1)
+      expect(spending).toMatchObject({
+        runtime: 'claude',
+        runs: 1,
+        observer: { calls: measurement.calls.length },
+        chat: { calls: 1 },
+        questions: { asked: 1, answered: 1, failed: 0, not_asked: 0, insufficient_data: 0 },
+      })
+      expect(spending?.observer.tokens).toBeGreaterThan(0)
+      expect(spending?.observer.cost_usd).toBeGreaterThan(0)
+      expect(spending?.chat.tokens).toBeGreaterThan(0)
+      expect(spending?.active_ms).toBe(spending?.run_ms)
+      expect(spending?.per_active_hour.observer?.tokens).toBeCloseTo(((spending?.observer.tokens ?? 0) * 3_600_000) / (spending?.active_ms ?? 1))
+      expect(report.active_hours.hours).toBeGreaterThan(0)
+      const summary = await readFile(join(space.measurement, 'report.md'), 'utf8')
+      expect(summary).toContain('## Расход')
+      expect(summary).toMatch(/\| claude \| 1 \| 1 \| 0 \| 0 \| 0 \| \d+,\d \| \d+,\d \|/)
     },
   )
 

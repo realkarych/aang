@@ -1,11 +1,11 @@
 import { copyFile, mkdir, realpath, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { Config, endpoints, type RunId, type Runtime } from '@aang/contract'
+import { type ChatMessage, Config, endpoints, type RunId, type Runtime, type UsageReport } from '@aang/contract'
 import { configFileName } from '@aang/contract/config-file'
 import { aangHomePaths } from '@aang/contract/home'
 import { hookInstallPaths } from '@aang/hook'
-import { openStore } from '@aang/store'
+import { openStore, type Store } from '@aang/store'
 import {
   createPlayer,
   type HookTarget,
@@ -20,6 +20,7 @@ import type { Played } from './control.js'
 import { evaluateEvents } from './evaluate.js'
 import {
   type Annotations,
+  type AskedQuestion,
   createOnce,
   json,
   type MeasuredBackend,
@@ -27,11 +28,12 @@ import {
   Measurement,
   measurementFiles,
   readFixed,
+  type SpentCall,
   type StateSample,
   writeNew,
 } from './files.js'
-import type { FixedProfile, LoadProfile, ObserverSettings } from './profile.js'
-import { loadFixedRecording, type Recording } from './recording.js'
+import type { ChatQuestion, FixedProfile, LoadProfile, ObserverSettings } from './profile.js'
+import { loadFixedRecording, nativeSessions, type Recording } from './recording.js'
 
 export interface MeasureOptions {
   readonly directory: string
@@ -43,6 +45,7 @@ export interface MeasureOptions {
 interface Scheduled {
   readonly startMs: number
   readonly recording: Recording
+  readonly chat: readonly ChatQuestion[]
 }
 
 interface Sampler {
@@ -63,11 +66,15 @@ interface Collected {
   readonly played: Played[]
   readonly states: StateSample[]
   readonly calls: MeasuredCall[]
+  readonly questions: AskedQuestion[]
+  readonly usage: UsageReport
   readonly version: string
 }
 
 const pollMs = 250
 const admissionTimeoutMs = 300_000
+const runLookupMs = 120_000
+const answerTimeoutMs = 300_000
 const nanosecondsPerMillisecond = 1_000_000n
 
 const millisecondsOf = (value: bigint): number => Number(value / nanosecondsPerMillisecond)
@@ -168,6 +175,9 @@ const callsOf = async (daemon: RunningDaemon): Promise<MeasuredCall[]> => {
           ended_at: call.ended_at === null ? null : millisecondsOf(call.ended_at),
           latency_ms: call.latency_ms,
           needs_latency_ms: call.needs_latency_ms,
+          error: call.error?.class ?? null,
+          facts: call.facts.length,
+          usage: call.usage,
         }),
       )
     }),
@@ -202,10 +212,14 @@ const usedRuntimeHome = (roots: PlayerRoots): string[] => [
   join(roots.codex, 'archived_sessions'),
 ]
 
-const schedule = async ({ recordings }: FixedProfile, fixtures: string): Promise<Scheduled[]> => {
+const schedule = async ({ profile, recordings }: FixedProfile, fixtures: string): Promise<Scheduled[]> => {
   const scheduled: Scheduled[] = []
-  for (const fixed of recordings) {
-    scheduled.push({ startMs: fixed.start_ms, recording: await loadFixedRecording(fixtures, fixed) })
+  for (const [index, fixed] of recordings.entries()) {
+    scheduled.push({
+      startMs: fixed.start_ms,
+      recording: await loadFixedRecording(fixtures, fixed),
+      chat: profile.runs[index]?.chat ?? [],
+    })
   }
   return scheduled
 }
@@ -239,6 +253,87 @@ const playAll = async ({ profile, scheduled, roots, hook }: Plan, startedAt: num
   return settled.flatMap((outcome) => (outcome.status === 'fulfilled' ? [outcome.value] : []))
 }
 
+const runOf = async (daemon: RunningDaemon, recording: Recording, signal: AbortSignal): Promise<RunId | null> => {
+  const sessions = nativeSessions(recording)
+  const deadline = Date.now() + runLookupMs
+  while (Date.now() < deadline) {
+    const { runs } = await fetchJson(daemon, endpoints.runs.path, endpoints.runs.response)
+    for (const { id } of runs) {
+      const { objects } = await fetchJson(daemon, endpoints.run.path.replace(':run', encodeURIComponent(id)), endpoints.run.response)
+      if (objects.sessions.some(({ key }) => sessions.has(key.session))) {
+        return id
+      }
+    }
+    await sleep(1_000, undefined, { signal })
+  }
+  return null
+}
+
+const ask = async (
+  daemon: RunningDaemon,
+  { recording, startMs }: Scheduled,
+  { after_ms: after, question }: ChatQuestion,
+  startedAt: number,
+  signal: AbortSignal,
+): Promise<AskedQuestion> => {
+  const scheduledAt = startedAt + startMs + after
+  await until(scheduledAt, signal)
+  const asked = {
+    recording: recording.path,
+    runtime: recording.manifest.runtime,
+    question,
+    scheduled_at: scheduledAt,
+    asked_at: null,
+    answered_at: null,
+    insufficient_data: null,
+  }
+  const run = await runOf(daemon, recording, signal)
+  if (run === null) {
+    return { ...asked, run, message: null, status: 'not_asked', error: 'the run of the recording did not appear' }
+  }
+  const response = await daemon.request(endpoints.chatQuestion.path.replace(':run', encodeURIComponent(run)), {
+    method: endpoints.chatQuestion.method,
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ question, stage: null }),
+  })
+  if (!response.ok) {
+    return { ...asked, run, message: null, status: 'not_asked', error: `${String(response.status)}: ${await response.text()}` }
+  }
+  const { message } = endpoints.chatQuestion.response.parse(await response.json())
+  return { ...asked, run, message: message.id, status: message.status, asked_at: millisecondsOf(message.asked_at), error: null }
+}
+
+const answered = (asked: AskedQuestion, messages: readonly ChatMessage[]): AskedQuestion => {
+  const message = messages.find(({ id }) => id === asked.message)
+  return message === undefined
+    ? asked
+    : {
+        ...asked,
+        status: message.status,
+        answered_at: message.answered_at === null ? null : millisecondsOf(message.answered_at),
+        insufficient_data: message.status === 'answered' ? message.insufficient_data : null,
+        error: message.error,
+      }
+}
+
+const answersOf = async (daemon: RunningDaemon, questions: readonly AskedQuestion[]): Promise<AskedQuestion[]> => {
+  const deadline = Date.now() + answerTimeoutMs
+  for (;;) {
+    const runs = [...new Set(questions.flatMap(({ run }) => (run === null ? [] : [run])))]
+    const histories = await Promise.all(
+      runs.map(async (run) => (await fetchJson(daemon, endpoints.chatHistory.path.replace(':run', encodeURIComponent(run)), endpoints.chatHistory.response)).messages),
+    )
+    const current = questions.map((asked) => answered(asked, histories.flat()))
+    if (current.every(({ status }) => status !== 'pending') || Date.now() > deadline) {
+      return current
+    }
+    await sleep(pollMs)
+  }
+}
+
+const askAll = (daemon: RunningDaemon, { scheduled }: Plan, startedAt: number, signal: AbortSignal): Promise<AskedQuestion[]> =>
+  Promise.all(scheduled.flatMap((run) => run.chat.map((question) => ask(daemon, run, question, startedAt, signal))))
+
 const collect = async (daemon: RunningDaemon, plan: Plan): Promise<Collected> => {
   const runtimes = [...new Set(plan.scheduled.map(({ recording }) => recording.manifest.runtime))]
   const backends = await admitted(daemon, runtimes)
@@ -249,19 +344,51 @@ const collect = async (daemon: RunningDaemon, plan: Plan): Promise<Collected> =>
   })
   const sampler = sampleStates(daemon)
   const startedAt = Date.now()
+  const asking = new AbortController()
+  const questions = askAll(daemon, plan, startedAt, asking.signal)
   const played = await playAll(plan, startedAt, endpoint).catch(async (error: unknown) => {
-    await sampler.stop().catch(() => [])
+    asking.abort(error)
+    await Promise.allSettled([questions, sampler.stop()])
     throw error
   })
   const controlTimes = played.flatMap(({ recording, steps }) =>
     recording.events.map(({ index }) => steps[index]?.playedAt ?? startedAt),
   )
   await until(Math.max(startedAt, ...controlTimes) + plan.profile.window_ms)
+  const asked = await answersOf(daemon, await questions)
   const states = await sampler.stop()
   const calls = await callsOf(daemon)
+  const usage = await fetchJson(daemon, endpoints.usage.path, endpoints.usage.response)
   const status = await fetchJson(daemon, endpoints.status.path, endpoints.status.response)
-  return { backends, startedAt, endedAt: Date.now(), played, states, calls, version: status.daemon.version }
+  return { backends, startedAt, endedAt: Date.now(), played, states, calls, questions: asked, usage, version: status.daemon.version }
 }
+
+const spentCalls = (store: Store, runs: readonly RunId[]): SpentCall[] => [
+  ...runs.flatMap((run) =>
+    store.observerCalls.chats(run).map(
+      (call): SpentCall => ({
+        run,
+        backend: call.backend,
+        kind: 'chat',
+        verdict: call.verdict,
+        started_at: millisecondsOf(call.started_at),
+        ended_at: millisecondsOf(call.finished_at),
+        usage: call.usage,
+      }),
+    ),
+  ),
+  ...store.observerCalls.checks().map(
+    (check): SpentCall => ({
+      run: null,
+      backend: check.backend,
+      kind: check.kind,
+      verdict: check.verdict,
+      started_at: millisecondsOf(check.started_at),
+      ended_at: millisecondsOf(check.finished_at),
+      usage: check.usage,
+    }),
+  ),
+]
 
 const shutDown = async (daemon: RunningDaemon): Promise<void> => {
   const exit = await daemon.stop().catch(async (error: unknown) => {
@@ -308,16 +435,19 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
   })
   await shutDown(daemon)
   const store = openStore({ home: aang })
-  const events = (() => {
+  const { events, spent } = (() => {
     try {
-      return evaluateEvents({
-        store,
-        played: collected.played,
-        calls: collected.calls,
-        roots,
-        windowMs: profile.window_ms,
-        timeScale: profile.time_scale,
-      })
+      return {
+        events: evaluateEvents({
+          store,
+          played: collected.played,
+          calls: collected.calls,
+          roots,
+          windowMs: profile.window_ms,
+          timeScale: profile.time_scale,
+        }),
+        spent: spentCalls(store, store.model.runs().map(({ id }) => id)),
+      }
     } finally {
       store.close()
     }
@@ -338,6 +468,9 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
     events,
     calls: collected.calls,
     states: collected.states,
+    questions: collected.questions,
+    spent,
+    usage: collected.usage,
   }
   await writeNew(join(directory, measurementFiles.measurement), Measurement.encode(measurement))
   const annotations: Annotations = {

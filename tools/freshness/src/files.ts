@@ -3,12 +3,17 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
   AdmissionOutcome,
+  CallUsage,
   ChangeAuthor,
+  ChatMessageId,
+  ChatMessageStatus,
   ObserverCallId,
   ObserverCallOutcome,
+  ObserverErrorClass,
   ObserverState,
   RunId,
   Runtime,
+  UsageReport,
 } from '@aang/contract'
 import { MapPredicate } from '@aang/record'
 import { z } from 'zod'
@@ -78,8 +83,37 @@ export const MeasuredCall = z.strictObject({
   ended_at: epochMs.nullable(),
   latency_ms: z.int().nonnegative().nullable(),
   needs_latency_ms: z.int().nonnegative().nullable(),
+  error: ObserverErrorClass.nullable(),
+  facts: z.int().nonnegative(),
+  usage: CallUsage.nullable(),
 })
 export type MeasuredCall = z.infer<typeof MeasuredCall>
+
+export const SpentCall = z.strictObject({
+  run: RunId.nullable(),
+  backend: Runtime,
+  kind: z.enum(['chat', 'probe', 'auth_status']),
+  verdict: z.string().min(1),
+  started_at: epochMs,
+  ended_at: epochMs,
+  usage: CallUsage.nullable(),
+})
+export type SpentCall = z.infer<typeof SpentCall>
+
+export const AskedQuestion = z.strictObject({
+  recording: RecordingPath,
+  runtime: Runtime,
+  question: z.string().min(1),
+  scheduled_at: epochMs,
+  run: RunId.nullable(),
+  message: ChatMessageId.nullable(),
+  status: z.union([ChatMessageStatus, z.literal('not_asked')]),
+  asked_at: epochMs.nullable(),
+  answered_at: epochMs.nullable(),
+  insufficient_data: z.boolean().nullable(),
+  error: z.string().nullable(),
+})
+export type AskedQuestion = z.infer<typeof AskedQuestion>
 
 export const StateSample = z.strictObject({
   at: epochMs,
@@ -118,6 +152,9 @@ export const Measurement = z.strictObject({
   events: z.array(MeasuredEvent),
   calls: z.array(MeasuredCall),
   states: z.array(StateSample),
+  questions: z.array(AskedQuestion),
+  spent: z.array(SpentCall),
+  usage: UsageReport,
 })
 export type Measurement = z.infer<typeof Measurement>
 
