@@ -176,17 +176,22 @@ export const compare = (live: Observation, reference: Observation): Comparison =
   }
 }
 
-const comparedChannels: ReadonlySet<string> = new Set(['hook', 'transcript', 'rollout'])
+const transcriptEvents = /^(user|assistant|attachment|system(:.+)?)$/
+
+const hookSummaries = new Set(['system:stop_hook_summary'])
+
+const isEvent = ({ channel, type }: RecordCount): boolean =>
+  channel === 'hook' || channel === 'rollout' || (channel === 'transcript' && transcriptEvents.test(type) && !hookSummaries.has(type))
 
 const recordCounts = (records: readonly RecordCount[], compared: boolean): Counts =>
   Object.fromEntries(
     records
-      .filter(({ channel }) => comparedChannels.has(channel) === compared)
+      .filter((record) => isEvent(record) === compared)
       .map(({ channel, type, parse_state: state, count: records }) => [`${channel} ${type} ${state}`, records] as const)
       .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
   )
 
 export const compareRecords = (live: readonly RecordCount[], reference: readonly RecordCount[]): Comparison => ({
   failures: describeDifference('raw records', recordCounts(live, true), recordCounts(reference, true)),
-  notes: describeDifference('raw records of other channels', recordCounts(live, false), recordCounts(reference, false)),
+  notes: describeDifference('other raw records', recordCounts(live, false), recordCounts(reference, false)),
 })
