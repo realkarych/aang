@@ -2365,40 +2365,6 @@
   "runs": [
     {
       "run": {
-        "id": "#45",
-        "runtime": "claude",
-        "root_session": "#44",
-        "goal": null,
-        "brief": null,
-        "start_pruned": false,
-        "version": 2,
-        "created_at": "<time>"
-      },
-      "entities": [
-        {
-          "kind": "run",
-          "value": {
-            "id": "#45",
-            "runtime": "claude",
-            "root_session": "#44",
-            "goal": null,
-            "brief": null,
-            "start_pruned": false,
-            "version": 2,
-            "created_at": "<time>"
-          }
-        },
-        {
-          "kind": "session_membership",
-          "value": {
-            "session": "#44",
-            "run": "#45"
-          }
-        }
-      ]
-    },
-    {
-      "run": {
         "id": "#43",
         "runtime": "claude",
         "root_session": "#42",
@@ -2427,6 +2393,40 @@
           "value": {
             "session": "#42",
             "run": "#43"
+          }
+        }
+      ]
+    },
+    {
+      "run": {
+        "id": "#45",
+        "runtime": "claude",
+        "root_session": "#44",
+        "goal": null,
+        "brief": null,
+        "start_pruned": false,
+        "version": 2,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#45",
+            "runtime": "claude",
+            "root_session": "#44",
+            "goal": null,
+            "brief": null,
+            "start_pruned": false,
+            "version": 2,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#44",
+            "run": "#45"
           }
         }
       ]

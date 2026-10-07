@@ -438,17 +438,26 @@ describe.concurrent('Claude transcript: records', () => {
     ])
   })
 
-  test('the subagent prompt comes from the parent agent and its answer goes back to it', async ({ expect }) => {
+  test('the subagent prompt comes from the parent agent, its answer goes back to it, and its system prompt is the prompt of its definition', async ({
+    expect,
+  }) => {
     const records = await transcriptRecords('claude-code-transcripts/subagent-agent-aad616394e806288d.jsonl')
     const facts = records.flatMap((record) => factsOf(claudeAdapter.parse(record)))
 
     expect(facts.map((fact) => [fact.kind, fact.speaker, fact.runtime_ids.agent_id])).toEqual([
       ['prompt', 'solver', subagent],
+      ['agent_prompt', 'runtime', subagent],
       ['message', 'solver', subagent],
       ['usage', 'runtime', subagent],
+      ['agent_prompt', 'runtime', subagent],
     ])
     expect(facts[0]?.payload).toEqual({ text: 'ping', origin: 'unknown', origin_raw: null })
-    expect(facts[1]?.payload).toMatchObject({ text: 'pong', final: true, audience: 'agent' })
+    expect(facts[1]).toMatchObject({
+      entity_key: { kind: 'agent', runtime: 'claude', session: mainSession, agent: { kind: 'subagent', agent_id: subagent } },
+      format_verified: true,
+      payload: { text: 'Reply with exactly the word pong. Do not call any tools.' },
+    })
+    expect(facts[2]?.payload).toMatchObject({ text: 'pong', final: true, audience: 'agent' })
   })
 })
 

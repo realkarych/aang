@@ -156,7 +156,7 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
   )
 
   test.for(ofScenario('plugin'))(
-    '%s: the plugin subagent gets its listed definition and the invoked plugin skill its description',
+    '%s: the plugin subagent gets its listed definition with the prompt it ran with, and the invoked plugin skill its description',
     async ([, recording], { expect, onTestFinished }) => {
       const { session, context } = await play(recording, onTestFinished)
 
@@ -164,7 +164,10 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
         entry(
           'agent_definition',
           listedRef('aang-kit:reviewer', session),
-          'Reviews the project notes and reports what it checked. Use it to review the notes. (Tools: Bash)',
+          [
+            'Reviews the project notes and reports what it checked. Use it to review the notes. (Tools: Bash)',
+            'You review the project notes. Run the command from the task with the Bash tool and report its output.',
+          ].join('\n\n'),
         ),
       ])
       expect(entriesOf(context, 'skill')).toEqual([
@@ -179,25 +182,35 @@ describe.concurrent('the run context of the R.4b reference sessions (F.7d)', () 
   )
 
   test.for(ofScenario('agents-flag'))(
-    '%s: the subagent defined for one run gets its listed definition, and a file of its name and description with other tools does not stand in for it',
+    '%s: the subagent defined for one run gets its listed definition with the prompt it ran with, and a file of its name stands in for it only when it gives that whole definition',
     async ([, recording], { expect, onTestFinished }) => {
       const { store, roots, run, session, context } = await play(recording, onTestFinished)
-      const flagDefinition = entry(
-        'agent_definition',
-        listedRef('notes-checker', session),
-        'Checks the project notes and reports the result. Use it to check the notes. (Tools: Bash)',
-      )
+      const listedLine = 'Checks the project notes and reports the result. Use it to check the notes. (Tools: Bash)'
+      const prompt = 'You check the project notes. Run the command from the task with the Bash tool and report its output.'
+      const flagDefinition = entry('agent_definition', listedRef('notes-checker', session), `${listedLine}\n\n${prompt}`)
+      const file = join(roots.claude, 'agents', 'notes-checker.md')
+      const definitionFile = (tools: string, body: string): string =>
+        `---\nname: notes-checker\ndescription: Checks the project notes and reports the result. Use it to check the notes.\n${tools}---\n\n${body}\n`
+      const contextWith = async (text: string): Promise<RunContextEntry[]> => {
+        await writeFile(file, text)
+        return entriesOf(await contextOf(recording, store, roots, run), 'agent_definition')
+      }
+
+      const queued = new Set(store.interpretations.ofRun(run).map(({ fact }) => fact))
+      const prompts = factsOf(store).filter(({ kind }) => kind === 'agent_prompt')
 
       expect(entriesOf(context, 'agent_definition')).toEqual([flagDefinition])
       expect(entriesOf(context, 'skill')).toEqual([])
+      expect(prompts.length).toBeGreaterThan(0)
+      expect(prompts.filter(({ id }) => queued.has(id))).toEqual([])
 
       await mkdir(join(roots.claude, 'agents'), { recursive: true })
-      await writeFile(
-        join(roots.claude, 'agents', 'notes-checker.md'),
-        '---\nname: notes-checker\ndescription: Checks the project notes and reports the result. Use it to check the notes.\ntools: Read\n---\nRead the user notes.\n',
-      )
-      const withFile = await contextOf(recording, store, roots, run)
-      expect(entriesOf(withFile, 'agent_definition')).toEqual([flagDefinition])
+      expect(await contextWith(definitionFile('tools: Read\n', 'Read the user notes.'))).toEqual([flagDefinition])
+      expect(await contextWith(definitionFile('tools: Bash\n', 'Read the user notes.'))).toEqual([flagDefinition])
+      expect(await contextWith(definitionFile('tools:\n  - Bash\n\n  - Read\n', prompt))).toEqual([flagDefinition])
+      expect(await contextWith(definitionFile('tools: Bash\n', prompt))).toEqual([
+        entry('agent_definition', file, definitionFile('tools: Bash\n', prompt)),
+      ])
     },
   )
 

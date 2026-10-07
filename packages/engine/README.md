@@ -569,9 +569,10 @@ The ingest transaction queues every new fact as `pending` in the run of its sess
 after the observation projection, including the facts of OTel records normalized in
 that transaction (ADR-0005). `context` and `git_snapshot` facts are never queued: the daemon writes
 them as run context, which reaches the observer through the context of the run (ADR-0007), not
-through a batch. `definition_listing` facts are never queued either: the catalog of agents and
-skills is only a source of definitions of the run context, and an agent or skill that is listed
-but not used never reaches the observer (ADR-0007). A redelivered record adds no facts and queues nothing.
+through a batch. `definition_listing` and `agent_prompt` facts are never queued either: the
+catalog of agents and skills and the system prompts of agents are only sources of definitions of
+the run context, and an agent or skill that is listed but not used never reaches the observer
+(ADR-0007). A redelivered record adds no facts and queues nothing.
 A reparse queues the facts it adds the same way after it rebuilds the projections,
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
@@ -579,7 +580,7 @@ attempts.
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context, catchUpMs? })`
 starts the next call of a run from its pending facts in the order of their records:
 
-- a queued `context`, `git_snapshot` or `definition_listing` fact leaves the queue without a status;
+- a queued `context`, `git_snapshot`, `definition_listing` or `agent_prompt` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
@@ -840,8 +841,9 @@ binding's transaction:
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run. Its `context`, `git_snapshot` and `definition_listing`
-  facts are not queued: they are run context and are never interpreted as facts;
+  queue of the source run. Its `context`, `git_snapshot`, `definition_listing` and
+  `agent_prompt` facts are not queued: they are run context and are never interpreted
+  as facts;
 - an observer call of the source run whose batch or summary holds any of these
   facts or whose input describes the session is ended as `rejected` with a `scope`
   reason, a call with the summary alone included: the rest of its batch returns to
@@ -1003,21 +1005,36 @@ sources only:
   - for each subagent or teammate type of a Claude session, the file
     `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
     hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
-    file. When the session's agent listing (`definition_listing` fact of the `agents`
-    catalog) has the type, only a file that gives the whole listed text is its
-    definition: its `description` followed by ` (Tools: …)` with the tools Claude Code
-    derives from `tools` and `disallowedTools` (a string or a list, names split at
-    commas and spaces outside parentheses, `*` for every tool): the allowed tools
-    without the disallowed ones, `None` when none is left, `All tools except …` with
-    only disallowed tools and `All tools` with neither. An agent given for one run
-    (`--agents`, the `agents` option of the SDK) takes precedence over a file of the
-    same name, so a file whose description or tools differ from the listing does not
-    stand in for it. The listing does not carry the instructions, so a file with the
-    listed description and tools is taken for the definition.
+    file. When the session lists the type (`definition_listing` fact of the `agents`
+    catalog) or a subagent of the type has its system prompt (`agent_prompt` fact),
+    only a file that gives the whole definition the subagent ran with stands for it,
+    the first such file in this order. The file is read as Claude Code reads it: the
+    frontmatter is the text from the leading `---` to the next `---` (after a byte
+    order mark), parsed as YAML, and on a parse error parsed again with plain values
+    that hold YAML indicators quoted and leading tabs turned into spaces; the body is
+    the rest. The file then needs all of:
+    - `name` equal to the type;
+    - its prompt, the body trimmed, equal to a system prompt of a subagent of the
+      type in the session. A file without such a prompt, as before the subagent's
+      transcript arrives, does not stand for it;
+    - when the session lists the type, the listed text: `description` (with `\n`
+      turned into a line break) followed by ` (Tools: …)` with the tools Claude Code
+      derives from `tools` and `disallowedTools` (a string or a list, names split at
+      commas and spaces outside parentheses, `*` for every tool): the allowed tools
+      without the disallowed ones, `None` when none is left, `All tools except …`
+      with only disallowed tools and `All tools` with neither.
+
+    An agent given for one run (`--agents`, the `agents` option of the SDK) takes
+    precedence over a file of the same name, so a file that differs from it in name,
+    listed text or prompt does not stand in for it. When the session neither lists
+    the type nor has a prompt of it, the first file is its definition.
     A type without such a file, such as a built-in agent, a plugin agent
     (`<plugin>:<agent>`) or an agent given for one run, takes the latest definition
-    the session's listing has for it: the text is the listed description with its
-    tools. A type that is neither in a file nor listed has no entry;
+    the session's listing has for it, the listed description with its tools,
+    followed by the distinct system prompts of its subagents in the session, each
+    after an empty line. A type that is neither in a file, nor listed, nor has a
+    prompt has no entry. Only subagents give prompts: the system prompt of a
+    teammate starts with the prompt of Claude Code itself;
   - for each role of a Codex subagent (`agent_role`), the table `[agents.<role>]` of
     `config.toml` in `codexHome`: its `description` and the `developer_instructions`
     of its `config_file`, resolved against the directory of `config.toml`. `ref` is
@@ -1066,7 +1083,7 @@ original length; files are read up to 1 MiB, and a larger file reports its size 
 bytes.
 
 Only sources whose format a reference session confirms enter the context (F.7d):
-`hook_run` and `definition_listing` facts count only with `format_verified`, and of
+`hook_run`, `definition_listing` and `agent_prompt` facts count only with `format_verified`, and of
 a Codex role only the keys recorded by the `agent-role` reference session are read.
 Codex reference sessions record no hook of the solver (the rollout carries no hook
 events), so a Codex session names no hooks. A listed skill that was not invoked and

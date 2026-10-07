@@ -1108,6 +1108,46 @@
     },
     {
       "id": "#22",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "a951a0b953d7e1afd"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
+        "agent_id": "a951a0b953d7e1afd",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "d7720d1e-df7b-46f3-8d6e-1b5a37733e90",
+        "parent_uuid": "f11dc1df-942d-43a3-a5e0-81110a706bc0",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.286",
+        "entrypoint": "claude-desktop",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You review the project notes. Run the command from the task with the Bash tool and report its output."
+      }
+    },
+    {
+      "id": "#23",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1151,7 +1191,7 @@
       }
     },
     {
-      "id": "#23",
+      "id": "#24",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1197,7 +1237,7 @@
       }
     },
     {
-      "id": "#24",
+      "id": "#25",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1239,7 +1279,47 @@
       }
     },
     {
-      "id": "#25",
+      "id": "#26",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "a951a0b953d7e1afd"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
+        "agent_id": "a951a0b953d7e1afd",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "05229417-2c78-4dba-941c-4a877beadf73",
+        "parent_uuid": "e9f52ff4-d0e0-479d-9cdb-69fd4c961452",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.286",
+        "entrypoint": "claude-desktop",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You review the project notes. Run the command from the task with the Bash tool and report its output."
+      }
+    },
+    {
+      "id": "#27",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1279,7 +1359,7 @@
       }
     },
     {
-      "id": "#26",
+      "id": "#28",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1325,7 +1405,7 @@
       }
     },
     {
-      "id": "#27",
+      "id": "#29",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1368,7 +1448,7 @@
       }
     },
     {
-      "id": "#28",
+      "id": "#30",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1414,7 +1494,7 @@
       }
     },
     {
-      "id": "#29",
+      "id": "#31",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1459,7 +1539,7 @@
       }
     },
     {
-      "id": "#30",
+      "id": "#32",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -1498,7 +1578,7 @@
       }
     },
     {
-      "id": "#31",
+      "id": "#33",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1544,7 +1624,7 @@
       }
     },
     {
-      "id": "#32",
+      "id": "#34",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1590,7 +1670,7 @@
       }
     },
     {
-      "id": "#33",
+      "id": "#35",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1681,7 +1761,7 @@
       }
     },
     {
-      "id": "#34",
+      "id": "#36",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1732,7 +1812,7 @@
       }
     },
     {
-      "id": "#35",
+      "id": "#37",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "session",
@@ -1774,7 +1854,7 @@
       }
     },
     {
-      "id": "#36",
+      "id": "#38",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
@@ -1813,7 +1893,7 @@
       }
     },
     {
-      "id": "#37",
+      "id": "#39",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1904,7 +1984,7 @@
       }
     },
     {
-      "id": "#38",
+      "id": "#40",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1955,7 +2035,7 @@
       }
     },
     {
-      "id": "#39",
+      "id": "#41",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1995,7 +2075,7 @@
       }
     },
     {
-      "id": "#40",
+      "id": "#42",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -2041,7 +2121,7 @@
       }
     },
     {
-      "id": "#41",
+      "id": "#43",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
@@ -2091,7 +2171,7 @@
       }
     },
     {
-      "id": "#42",
+      "id": "#44",
       "kind": "session_end",
       "entity_key": {
         "kind": "session",
@@ -2129,13 +2209,13 @@
   ],
   "sessions": [
     {
-      "id": "#43",
+      "id": "#45",
       "key": {
         "kind": "session",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a"
       },
-      "run": "#44",
+      "run": "#46",
       "surface": {
         "surface": "claude_desktop",
         "basis": "observed"
@@ -2182,7 +2262,7 @@
   ],
   "agents": [
     {
-      "id": "#45",
+      "id": "#47",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -2191,8 +2271,8 @@
           "kind": "main"
         }
       },
-      "session": "#43",
-      "run": "#44",
+      "session": "#45",
+      "run": "#46",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -2209,7 +2289,7 @@
       "ended_at": null
     },
     {
-      "id": "#46",
+      "id": "#48",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -2219,16 +2299,16 @@
           "agent_id": "a951a0b953d7e1afd"
         }
       },
-      "session": "#43",
-      "run": "#44",
+      "session": "#45",
+      "run": "#46",
       "role": "subagent",
       "service": null,
       "agent_type": "aang-kit:reviewer",
       "agent_role": null,
       "name": null,
       "description": "Review the notes",
-      "parent": "#45",
-      "spawned_by": "#47",
+      "parent": "#47",
+      "spawned_by": "#49",
       "execution": {
         "state": "done"
       },
@@ -2239,16 +2319,16 @@
   ],
   "actions": [
     {
-      "id": "#48",
+      "id": "#50",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
         "call": "toolu_aang_plugin-review_0_0"
       },
-      "session": "#43",
-      "agent": "#46",
-      "run": "#44",
+      "session": "#45",
+      "agent": "#48",
+      "run": "#46",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -2261,27 +2341,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#24"
+          "#25"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#22",
-      "output_fact": "#24",
+      "input_fact": "#23",
+      "output_fact": "#25",
       "inherited": false
     },
     {
-      "id": "#49",
+      "id": "#51",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
         "call": "toolu_aang_plugin_0_0"
       },
-      "session": "#43",
-      "agent": "#45",
-      "run": "#44",
+      "session": "#45",
+      "agent": "#47",
+      "run": "#46",
       "tool": "Skill",
       "action_kind": "other",
       "container": null,
@@ -2294,27 +2374,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#29"
+          "#31"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#27",
-      "output_fact": "#29",
+      "input_fact": "#29",
+      "output_fact": "#31",
       "inherited": false
     },
     {
-      "id": "#47",
+      "id": "#49",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
         "call": "toolu_aang_plugin_1_0"
       },
-      "session": "#43",
-      "agent": "#45",
-      "run": "#44",
+      "session": "#45",
+      "agent": "#47",
+      "run": "#46",
       "tool": "Agent",
       "action_kind": "agent",
       "container": null,
@@ -2327,78 +2407,30 @@
           "kind": "observed"
         },
         "evidence": [
-          "#37"
+          "#39"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#31",
-      "output_fact": "#37",
+      "input_fact": "#33",
+      "output_fact": "#39",
       "inherited": false
     }
   ],
   "questions": [],
   "usage": [
     {
-      "id": "#50",
+      "id": "#52",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
         "usage": "msg_aang_1"
       },
-      "session": "#43",
-      "agent": "#45",
-      "run": "#44",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#51",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
-        "usage": "msg_aang_2"
-      },
-      "session": "#43",
-      "agent": "#45",
-      "run": "#44",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#52",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
-        "usage": "msg_aang_3"
-      },
-      "session": "#43",
-      "agent": "#46",
-      "run": "#44",
+      "session": "#45",
+      "agent": "#47",
+      "run": "#46",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2418,11 +2450,11 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
-        "usage": "msg_aang_4"
+        "usage": "msg_aang_2"
       },
-      "session": "#43",
-      "agent": "#46",
-      "run": "#44",
+      "session": "#45",
+      "agent": "#47",
+      "run": "#46",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2442,11 +2474,59 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
+        "usage": "msg_aang_3"
+      },
+      "session": "#45",
+      "agent": "#48",
+      "run": "#46",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#55",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
+        "usage": "msg_aang_4"
+      },
+      "session": "#45",
+      "agent": "#48",
+      "run": "#46",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#56",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "6bf09610-2eae-46d2-b82d-2fb5ed5d691a",
         "usage": "msg_aang_5"
       },
-      "session": "#43",
-      "agent": "#45",
-      "run": "#44",
+      "session": "#45",
+      "agent": "#47",
+      "run": "#46",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2464,7 +2544,7 @@
   "artifacts": [],
   "gaps": [
     {
-      "id": "#55",
+      "id": "#57",
       "key": {
         "kind": "gap",
         "gap": "unknown_records",
@@ -2483,9 +2563,9 @@
   "runs": [
     {
       "run": {
-        "id": "#44",
+        "id": "#46",
         "runtime": "claude",
-        "root_session": "#43",
+        "root_session": "#45",
         "goal": null,
         "brief": null,
         "start_pruned": false,
@@ -2496,28 +2576,28 @@
         {
           "kind": "link",
           "value": {
-            "id": "#56",
-            "run": "#44",
+            "id": "#58",
+            "run": "#46",
             "basis": {
               "kind": "observed"
             },
             "evidence": [
               "#16",
-              "#34",
-              "#38"
+              "#36",
+              "#40"
             ],
             "kind": "spawn",
-            "parent": "#45",
-            "child": "#46",
-            "via": "#47"
+            "parent": "#47",
+            "child": "#48",
+            "via": "#49"
           }
         },
         {
           "kind": "run",
           "value": {
-            "id": "#44",
+            "id": "#46",
             "runtime": "claude",
-            "root_session": "#43",
+            "root_session": "#45",
             "goal": null,
             "brief": null,
             "start_pruned": false,
@@ -2528,8 +2608,8 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#43",
-            "run": "#44"
+            "session": "#45",
+            "run": "#46"
           }
         }
       ]

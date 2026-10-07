@@ -1,6 +1,7 @@
 import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
   type Action,
+  type Agent,
   type ContentHash,
   ContextSourceKind,
   DedupeKey,
@@ -22,17 +23,17 @@ import {
   type SessionId,
   type SessionKey,
 } from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
 import type { RawRecordReader, Store } from '@aang/store'
 import { parse as parseToml } from 'smol-toml'
 import { agentKey, compareText } from '../observations/evidence.js'
 import {
+  agentFileOf,
   ancestors,
   definitionPaths,
   type FileText,
   firstText,
   frontmatterDescription,
-  listedTools,
   readText,
   safeName,
 } from './context-files.js'
@@ -196,6 +197,29 @@ interface Attributed {
 const usedIn = ({ id, cwd }: Session, names: readonly string[], listed: ReadonlyMap<string, string>): Used[] =>
   unique(names).map((name) => ({ name, session: id, cwd: directoryOf(cwd), listed: listed.get(name) ?? null }))
 
+interface UsedAgent extends Used {
+  readonly prompts: readonly string[]
+}
+
+const agentPrompts = (agents: readonly Agent[], facts: readonly Fact[]): ReadonlyMap<string, readonly string[]> => {
+  const types = new Map(
+    agents.flatMap(({ id, role, agent_type: type }) =>
+      role === 'subagent' && type !== null ? [[id, type] as const] : [],
+    ),
+  )
+  const prompts = new Map<string, readonly string[]>()
+  const given = facts
+    .filter((fact): fact is FactOf<'agent_prompt'> => fact.kind === 'agent_prompt' && fact.format_verified)
+    .sort(byFactTime)
+  for (const fact of given) {
+    const type = types.get(objectId(agentKey(fact)))
+    if (type !== undefined) {
+      prompts.set(type, unique([...(prompts.get(type) ?? []), fact.payload.text]))
+    }
+  }
+  return prompts
+}
+
 const onDisk = (source: Source): Resolved => ({ source, session: null })
 
 const inSession = (session: SessionId, source: Source): Resolved => ({ source, session })
@@ -217,40 +241,45 @@ const attributed = (resolved: readonly Resolved[]): Source[] => {
   )
 }
 
-const listedLine = (file: FileText): string | null => {
-  const description = frontmatterDescription(file.text)
-  return description === null ? null : `${description} (Tools: ${listedTools(file.text)})`
+const definesAgent = ({ name, listed, prompts }: UsedAgent, file: FileText): boolean => {
+  if (listed === null && prompts.length === 0) {
+    return true
+  }
+  const { type, listedLine, prompt } = agentFileOf(file.text)
+  return type === name && prompts.includes(prompt) && (listed === null || listed === listedLine)
 }
 
-const confirms = (listed: string | null, file: FileText): boolean => listed === null || listed === listedLine(file)
+const sessionDefinition = ({ listed, prompts }: UsedAgent): string =>
+  [...(listed === null ? [] : [listed]), ...prompts].join('\n\n')
 
 const agentDefinitionSources = async (
   reader: ContextReader,
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const used = ofRuntime(sessions, 'claude').flatMap(({ session, facts }) =>
-    usedIn(
+  const used = ofRuntime(sessions, 'claude').flatMap(({ session, facts }) => {
+    const agents = reader.observations.agents(session.id)
+    const prompts = agentPrompts(agents, facts)
+    return usedIn(
       session,
-      reader.observations
-        .agents(session.id)
-        .flatMap((agent) =>
-          (agent.role === 'subagent' || agent.role === 'teammate') && agent.agent_type !== null
-            ? [agent.agent_type]
-            : [],
-        ),
+      agents.flatMap((agent) =>
+        (agent.role === 'subagent' || agent.role === 'teammate') && agent.agent_type !== null ? [agent.agent_type] : [],
+      ),
       listedDefinitions(facts, 'agents'),
-    ),
-  )
+    ).map((agent): UsedAgent => ({ ...agent, prompts: prompts.get(agent.name) ?? [] }))
+  })
   const definitions = await Promise.all(
-    used.map(async ({ name, session, cwd, listed }): Promise<Resolved[]> => {
-      const file = safeName(name)
-        ? await firstText(definitionPaths(cwd, home, ['agents', `${name}.md`]), (found) => confirms(listed, found))
+    used.map(async (agent): Promise<Resolved[]> => {
+      const file = safeName(agent.name)
+        ? await firstText(definitionPaths(agent.cwd, home, ['agents', `${agent.name}.md`]), (found) =>
+            definesAgent(agent, found),
+          )
         : null
       if (file !== null) {
         return [onDisk(fromFile('agent_definition', file.path, file))]
       }
-      return listed === null ? [] : [inSession(session, plain('agent_definition', name, listed))]
+      const text = sessionDefinition(agent)
+      return text === '' ? [] : [inSession(agent.session, plain('agent_definition', agent.name, text))]
     }),
   )
   return attributed(definitions.flat())

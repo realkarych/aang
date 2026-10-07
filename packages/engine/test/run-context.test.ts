@@ -955,6 +955,7 @@ interface DefinedSession {
   readonly source: Source
   readonly agents: Listed
   readonly skills: Listed
+  readonly prompts?: Readonly<Record<string, string>>
 }
 
 const listedLines = (listed: Listed): string[] =>
@@ -983,6 +984,20 @@ const listings = ({ source, agents, skills }: DefinedSession, second: number): s
         }),
       ]),
 ]
+
+const promptSnapshots = ({ source, prompts = {} }: DefinedSession, second: number): string[] =>
+  Object.entries(prompts).map(([type, prompt]) =>
+    JSON.stringify({
+      type: 'attachment',
+      sessionId: source.session,
+      agentId: `${source.session}-${type}`,
+      isSidechain: true,
+      uuid: `${source.session}-${type}-prompt`,
+      timestamp: timestampAt(second),
+      cwd: source.cwd,
+      attachment: { type: 'prompt_snapshot', systemPrompt: [prompt, 'Notes for every agent.'] },
+    }),
+  )
 
 const definedRun = async (workspace: Workspace, sessions: readonly DefinedSession[]): Promise<RunContext> => {
   const { store, engine } = workspace
@@ -1018,6 +1033,7 @@ const definedRun = async (workspace: Workspace, sessions: readonly DefinedSessio
         { promptSource: 'typed' },
       ),
       ...listings(defined, second + 1),
+      ...promptSnapshots(defined, second + 2),
       ...Object.keys(skills).flatMap((skill, offset) =>
         skillCall(source, `${source.session}-skill-${String(offset)}`, second + 3 + offset * 2, skill),
       ),
@@ -1096,37 +1112,59 @@ test('a session that does not list the subagent or the skill takes nothing from 
   )
 })
 
-test('a file of the subagent type is its definition only when it gives the description and the tools the listing of the session gives', async ({
+test('a file of the subagent type is its definition only when it gives the name, the listed line and the prompt the subagent ran with', async ({
   onTestFinished,
 }) => {
   const workspace = await setup(onTestFinished)
   const { project, cwd, claudeHome } = workspace
   const reviewerFile = join(project, '.claude', 'agents', 'reviewer.md')
-  const reviewer = '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\nReview the notes.\n'
-  await write(join(cwd, '.claude', 'agents', 'reviewer.md'), '---\ndescription: Reviews the package.\n---\nReview.\n')
+  const reviewer = '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\n\nReview the notes.\n'
+  const checkFlag = 'Check the notes given for the run.'
+  const scribe = 'Write the notes.'
+  await write(
+    join(cwd, '.claude', 'agents', 'reviewer.md'),
+    '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\nReview the package.\n',
+  )
   await write(
     join(cwd, '..', '.claude', 'agents', 'reviewer.md'),
-    '---\ndescription: Reviews the notes.\ntools: Bash\n---\nRun.\n',
+    '---\nname: package-reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\nReview the notes.\n',
   )
   await write(reviewerFile, reviewer)
   await write(
     join(project, '.claude', 'agents', `${checker}.md`),
-    '---\ndescription: Checks the notes given for the run.\n---\nCheck the project.\n',
+    `---\nname: ${checker}\ndescription: Checks the notes given for the run.\n---\n${checkFlag}\n`,
   )
   await write(
     join(claudeHome, 'agents', `${checker}.md`),
-    '---\ndescription: Checks the notes given for the run.\ntools: Read, Bash\n---\nCheck the user notes.\n',
+    `---\nname: ${checker}\ndescription: Checks the notes given for the run.\ntools:\n  - Read\n\n  - Bash\n---\n${checkFlag}\n`,
   )
+  await write(
+    join(project, '.claude', 'agents', 'linter.md'),
+    '---\nname: linter\ndescription: Lints the notes.\ntools: Read\n---\nLint the notes.\n',
+  )
+  await write(join(project, '.claude', 'agents', 'scribe.md'), '---\nname: scribe\ndescription: Writes.\n---\nWrite.\n')
   const source = { session: 'file-session', cwd }
 
   const context = await definedRun(workspace, [
-    { source, agents: { reviewer: 'Reviews the notes. (Tools: Bash, Read)', [checker]: checksFlag }, skills: {} },
+    {
+      source,
+      agents: {
+        reviewer: 'Reviews the notes. (Tools: Bash, Read)',
+        [checker]: checksFlag,
+        linter: 'Lints the notes. (Tools: Read)',
+        scribe: null,
+      },
+      skills: {},
+      prompts: { reviewer: 'Review the notes.', [checker]: checkFlag, scribe },
+    },
   ])
 
   expect(ofKind(context, 'agent_definition')).toEqual(
     [
       entry('agent_definition', reviewerFile, reviewer),
-      entry('agent_definition', listedRef(checker, source), checksFlag),
+      entry('agent_definition', listedRef(checker, source), `${checksFlag}\n\n${checkFlag}`),
+      entry('agent_definition', listedRef('linter', source), 'Lints the notes. (Tools: Read)'),
+      entry('agent_definition', listedRef('scribe', source), scribe),
     ].sort(byRef),
   )
 })
@@ -1141,13 +1179,15 @@ test('a file stands for a listed subagent in each form of its tools and disallow
     'any-tool': ['tools: "*"\n', 'All tools'],
     'flow-tools': ['tools: [Read, "Grep", ]\n', 'Read, Grep'],
     'block-tools': ["tools:\n  - Read\n  - 'Bash(git log:*)'\n", 'Read, Bash(git log:*)'],
+    'spaced-tools': ['tools:\n  - Read\n\n  - Grep\n', 'Read, Grep'],
+    'tabbed-tools': ['tools:\n\t- Read\n\t- Grep\n', 'Read, Grep'],
     'denied-tools': ['disallowedTools: Write, Edit\n', 'All tools except Write, Edit'],
     'kept-tools': ['tools: Read Grep Write\ndisallowedTools: [Write]\n', 'Read, Grep'],
     'no-tool': ['tools: Write\ndisallowedTools:\n- Write\n', 'None'],
   } as const
   const files = Object.entries(forms).map(([type, [fields]]) => ({
     path: join(project, '.claude', 'agents', `${type}.md`),
-    text: `---\ndescription: Works with ${type}.\n${fields}---\nWork.\n`,
+    text: `---\nname: ${type}\ndescription: Works with ${type}.\n${fields}---\nWork.\n`,
   }))
   for (const { path, text } of files) {
     await write(path, text)
@@ -1155,9 +1195,10 @@ test('a file stands for a listed subagent in each form of its tools and disallow
   const listed = Object.fromEntries(
     Object.entries(forms).map(([type, [, tools]]) => [type, `Works with ${type}. (Tools: ${tools})`]),
   )
+  const prompts = Object.fromEntries(Object.keys(forms).map((type) => [type, 'Work.']))
 
   const context = await definedRun(workspace, [
-    { source: { session: 'forms-session', cwd }, agents: listed, skills: {} },
+    { source: { session: 'forms-session', cwd }, agents: listed, skills: {}, prompts },
   ])
 
   expect(ofKind(context, 'agent_definition')).toEqual(

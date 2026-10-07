@@ -1281,6 +1281,46 @@
     },
     {
       "id": "#26",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "a082a43d3209ab4fb"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
+        "agent_id": "a082a43d3209ab4fb",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "3efdd920-f921-4842-b0d8-89de47951771",
+        "parent_uuid": "60c3191f-fbc6-4109-8754-888c073356b3",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "C:\\fixture\\project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You review the project notes. Run the command from the task with the Bash tool and report its output."
+      }
+    },
+    {
+      "id": "#27",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1324,7 +1364,7 @@
       }
     },
     {
-      "id": "#27",
+      "id": "#28",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1370,7 +1410,7 @@
       }
     },
     {
-      "id": "#28",
+      "id": "#29",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1418,7 +1458,7 @@
       }
     },
     {
-      "id": "#29",
+      "id": "#30",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "agent",
@@ -1464,7 +1504,7 @@
       }
     },
     {
-      "id": "#30",
+      "id": "#31",
       "kind": "agent_end",
       "entity_key": {
         "kind": "agent",
@@ -1507,7 +1547,7 @@
       }
     },
     {
-      "id": "#31",
+      "id": "#32",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1549,7 +1589,47 @@
       }
     },
     {
-      "id": "#32",
+      "id": "#33",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "a082a43d3209ab4fb"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
+        "agent_id": "a082a43d3209ab4fb",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "4b9c507c-2b72-44c4-94fa-31e267e37aee",
+        "parent_uuid": "4ccf5666-81aa-4348-9e51-5c5329b550f3",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "C:\\fixture\\project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You review the project notes. Run the command from the task with the Bash tool and report its output."
+      }
+    },
+    {
+      "id": "#34",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1589,7 +1669,7 @@
       }
     },
     {
-      "id": "#33",
+      "id": "#35",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1635,7 +1715,7 @@
       }
     },
     {
-      "id": "#34",
+      "id": "#36",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1726,7 +1806,7 @@
       }
     },
     {
-      "id": "#35",
+      "id": "#37",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1777,7 +1857,7 @@
       }
     },
     {
-      "id": "#36",
+      "id": "#38",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "session",
@@ -1819,7 +1899,7 @@
       }
     },
     {
-      "id": "#37",
+      "id": "#39",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
@@ -1858,7 +1938,7 @@
       }
     },
     {
-      "id": "#38",
+      "id": "#40",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1949,7 +2029,7 @@
       }
     },
     {
-      "id": "#39",
+      "id": "#41",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -2000,7 +2080,7 @@
       }
     },
     {
-      "id": "#40",
+      "id": "#42",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -2040,7 +2120,7 @@
       }
     },
     {
-      "id": "#41",
+      "id": "#43",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -2086,7 +2166,7 @@
       }
     },
     {
-      "id": "#42",
+      "id": "#44",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "session",
@@ -2135,7 +2215,7 @@
       }
     },
     {
-      "id": "#43",
+      "id": "#45",
       "kind": "session_end",
       "entity_key": {
         "kind": "session",
@@ -2171,7 +2251,7 @@
       }
     },
     {
-      "id": "#44",
+      "id": "#46",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
@@ -2223,13 +2303,13 @@
   ],
   "sessions": [
     {
-      "id": "#45",
+      "id": "#47",
       "key": {
         "kind": "session",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6"
       },
-      "run": "#46",
+      "run": "#48",
       "surface": {
         "surface": "claude_sdk",
         "basis": "observed"
@@ -2276,7 +2356,7 @@
   ],
   "agents": [
     {
-      "id": "#47",
+      "id": "#49",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -2285,8 +2365,8 @@
           "kind": "main"
         }
       },
-      "session": "#45",
-      "run": "#46",
+      "session": "#47",
+      "run": "#48",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -2303,7 +2383,7 @@
       "ended_at": null
     },
     {
-      "id": "#48",
+      "id": "#50",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -2313,16 +2393,16 @@
           "agent_id": "a082a43d3209ab4fb"
         }
       },
-      "session": "#45",
-      "run": "#46",
+      "session": "#47",
+      "run": "#48",
       "role": "subagent",
       "service": null,
       "agent_type": "aang-kit:reviewer",
       "agent_role": null,
       "name": null,
       "description": "Review the notes",
-      "parent": "#47",
-      "spawned_by": "#49",
+      "parent": "#49",
+      "spawned_by": "#51",
       "execution": {
         "state": "done"
       },
@@ -2333,16 +2413,16 @@
   ],
   "actions": [
     {
-      "id": "#50",
+      "id": "#52",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
         "call": "toolu_aang_plugin-review_0_0"
       },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#50",
+      "run": "#48",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -2355,27 +2435,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#31"
+          "#32"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#26",
-      "output_fact": "#31",
+      "input_fact": "#27",
+      "output_fact": "#32",
       "inherited": false
     },
     {
-      "id": "#51",
+      "id": "#53",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
         "call": "toolu_aang_plugin_0_0"
       },
-      "session": "#45",
-      "agent": "#47",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#49",
+      "run": "#48",
       "tool": "Skill",
       "action_kind": "other",
       "container": null,
@@ -2399,16 +2479,16 @@
       "inherited": false
     },
     {
-      "id": "#49",
+      "id": "#51",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
         "call": "toolu_aang_plugin_1_0"
       },
-      "session": "#45",
-      "agent": "#47",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#49",
+      "run": "#48",
       "tool": "Agent",
       "action_kind": "agent",
       "container": null,
@@ -2421,78 +2501,30 @@
           "kind": "observed"
         },
         "evidence": [
-          "#38"
+          "#40"
         ]
       },
       "execution": {
         "state": "done"
       },
       "input_fact": "#19",
-      "output_fact": "#38",
+      "output_fact": "#40",
       "inherited": false
     }
   ],
   "questions": [],
   "usage": [
     {
-      "id": "#52",
+      "id": "#54",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
         "usage": "msg_aang_1"
       },
-      "session": "#45",
-      "agent": "#47",
-      "run": "#46",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#53",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
-        "usage": "msg_aang_2"
-      },
-      "session": "#45",
-      "agent": "#47",
-      "run": "#46",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#54",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
-        "usage": "msg_aang_3"
-      },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#49",
+      "run": "#48",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2512,11 +2544,11 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
-        "usage": "msg_aang_4"
+        "usage": "msg_aang_2"
       },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#49",
+      "run": "#48",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2536,11 +2568,59 @@
         "kind": "usage",
         "runtime": "claude",
         "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
+        "usage": "msg_aang_3"
+      },
+      "session": "#47",
+      "agent": "#50",
+      "run": "#48",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#57",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
+        "usage": "msg_aang_4"
+      },
+      "session": "#47",
+      "agent": "#50",
+      "run": "#48",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#58",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "be87e216-9f00-44d1-aeae-bd0a3530ebc6",
         "usage": "msg_aang_5"
       },
-      "session": "#45",
-      "agent": "#47",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#49",
+      "run": "#48",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2558,7 +2638,7 @@
   "artifacts": [],
   "gaps": [
     {
-      "id": "#57",
+      "id": "#59",
       "key": {
         "kind": "gap",
         "gap": "unknown_records",
@@ -2577,9 +2657,9 @@
   "runs": [
     {
       "run": {
-        "id": "#46",
+        "id": "#48",
         "runtime": "claude",
-        "root_session": "#45",
+        "root_session": "#47",
         "goal": null,
         "brief": null,
         "start_pruned": false,
@@ -2590,28 +2670,28 @@
         {
           "kind": "link",
           "value": {
-            "id": "#58",
-            "run": "#46",
+            "id": "#60",
+            "run": "#48",
             "basis": {
               "kind": "observed"
             },
             "evidence": [
               "#23",
-              "#35",
-              "#39"
+              "#37",
+              "#41"
             ],
             "kind": "spawn",
-            "parent": "#47",
-            "child": "#48",
-            "via": "#49"
+            "parent": "#49",
+            "child": "#50",
+            "via": "#51"
           }
         },
         {
           "kind": "run",
           "value": {
-            "id": "#46",
+            "id": "#48",
             "runtime": "claude",
-            "root_session": "#45",
+            "root_session": "#47",
             "goal": null,
             "brief": null,
             "start_pruned": false,
@@ -2622,8 +2702,8 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#45",
-            "run": "#46"
+            "session": "#47",
+            "run": "#48"
           }
         }
       ]

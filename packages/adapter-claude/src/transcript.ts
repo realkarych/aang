@@ -16,7 +16,7 @@ import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, 
 import { name, optionalText } from './fields.js'
 import { HookRunAttachment, hookRunAttachmentTypes, hookRunFacts, StopHookSummary, stopHookFacts } from './hook-runs.js'
 import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
-import { actionKey, messageKey, ownerKey, sessionKey } from './keys.js'
+import { actionKey, agentKey, messageKey, ownerKey, sessionKey } from './keys.js'
 import { DefinitionListing, definitionListingFacts, definitionListingTypes } from './listings.js'
 import { questionsAnswered } from './questions.js'
 import { epochFromIso } from './time.js'
@@ -104,6 +104,10 @@ const DefinitionListingLine = Line.extend({ attachment: DefinitionListing })
 
 const StopHookSummaryLine = Line.extend(StopHookSummary.shape)
 
+const PromptSnapshotLine = Line.extend({
+  attachment: z.object({ type: z.literal('prompt_snapshot'), systemPrompt: z.array(z.string()) }),
+})
+
 const CostStateLine = Line.extend(CostState.shape)
 
 interface LineContext {
@@ -144,7 +148,6 @@ const contextAttachmentTypes: ReadonlySet<string> = new Set([
   'date',
   'credential_org',
   'remote_session_change',
-  'prompt_snapshot',
   'plan_mode',
   'plan_mode_exit',
   'command_permissions',
@@ -455,12 +458,32 @@ const parseDefinitionListing = lineParser('definition listing', DefinitionListin
   parsed(sourceTs, definitionListingFacts(origin, ownerKey(line.sessionId, line.agentId ?? null), line.attachment)),
 )
 
+const parsePromptSnapshot = lineParser('prompt snapshot', PromptSnapshotLine, (line, { origin, sourceTs }) => {
+  const agent = line.agentId ?? null
+  const [prompt] = line.attachment.systemPrompt
+  return parsed(
+    sourceTs,
+    agent === null || prompt === undefined
+      ? []
+      : [
+          fact(origin, {
+            kind: 'agent_prompt',
+            entity_key: agentKey(line.sessionId, agent),
+            speaker: 'runtime',
+            urgent: false,
+            payload: { text: prompt },
+          }),
+        ],
+  )
+})
+
 const parseContextAttachment: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
 
 const attachmentParsers: ReadonlyMap<string, LineParser> = new Map([
   ...[...contextAttachmentTypes].map((type): [string, LineParser] => [type, parseContextAttachment]),
   ...hookRunAttachmentTypes.map((type): [string, LineParser] => [type, parseHookRun]),
   ...definitionListingTypes.map((type): [string, LineParser] => [type, parseDefinitionListing]),
+  ['prompt_snapshot', parsePromptSnapshot],
 ])
 
 const parseAttachment: LineParser = (payload, record, sourceTs) => {
