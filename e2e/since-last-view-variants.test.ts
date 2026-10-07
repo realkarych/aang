@@ -22,6 +22,10 @@ interface Surface {
   readonly checkedOnWindows: boolean
 }
 
+interface CodexSurface extends Surface {
+  readonly finalAnswerMessagesAfterTheQuestion: readonly string[]
+}
+
 interface Continuation {
   readonly runtime: Runtime
   readonly surface: Surface
@@ -38,13 +42,29 @@ const claudeSurfaces: readonly Surface[] = [
   { name: 'Desktop', surface: 'claude_desktop', version: '2.1.286', checkedOnWindows: false },
 ]
 
-const codexSurfaces: readonly Surface[] = [
-  { name: 'CLI', surface: 'codex_exec', version: '0.160.0', checkedOnWindows: true },
-  { name: 'SDK', surface: 'codex_sdk', version: '0.160.0', checkedOnWindows: true },
-  { name: 'Desktop', surface: 'codex_desktop', version: '0.159.2', checkedOnWindows: false },
+const codexSurfaces: readonly CodexSurface[] = [
+  {
+    name: 'CLI',
+    surface: 'codex_exec',
+    version: '0.160.0',
+    checkedOnWindows: true,
+    finalAnswerMessagesAfterTheQuestion: [],
+  },
+  {
+    name: 'SDK',
+    surface: 'codex_sdk',
+    version: '0.160.0',
+    checkedOnWindows: true,
+    finalAnswerMessagesAfterTheQuestion: [],
+  },
+  {
+    name: 'Desktop',
+    surface: 'codex_desktop',
+    version: '0.159.2',
+    checkedOnWindows: false,
+    finalAnswerMessagesAfterTheQuestion: ['msg_aang_2', 'msg_aang_3'],
+  },
 ]
-
-const codexSurfacesWithQuestions = codexSurfaces.filter(({ surface }) => surface !== 'codex_desktop')
 
 const viewMark = 'view-mark'
 
@@ -59,6 +79,8 @@ const claudeFinalText = 'Read the notes, listed the project and wrote result.txt
 const codexQuestionText = 'Which greeting should notes.txt use?'
 
 const codexQuestionMessage = `${codexQuestionText}\n- hello\n- hi`
+
+const codexFinalAnswer = 'done'
 
 const hookPayload = (manifest: LoadedManifest, step: PlayerStep): Readonly<Record<string, unknown>> => {
   if (step.kind !== 'hook') {
@@ -151,17 +173,28 @@ const expectObserverQuestion = async (page: Page): Promise<void> => {
   await expect(question).toContainText('от наблюдателя')
 }
 
-const expectCardToOriginal = async (page: Page, text: string): Promise<void> => {
-  const card = change(page, 'Итоги решателя', text)
-  await expect(card).toContainText('новая', observed)
-  await expect(card).toContainText(`этап «${continuedStageTitle}»`)
-  await card.getByRole('button', { name: 'Показать в оригинале' }).click()
-  const original = card.getByRole('figure')
-  await expect(original.locator('mark')).toHaveText(text)
-  await expect(original).toContainText('сообщение')
-  await expect(original).toContainText('решатель')
-  await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
-  await expect(original).toHaveCount(0)
+const factsPath = endpoints.fact.path.replace(':id', '')
+
+const expectCardsToOriginal = async (page: Page, text: string, count = 1): Promise<(string | null)[]> => {
+  const cards = change(page, 'Итоги решателя', text)
+  await expect(cards).toHaveCount(count, observed)
+  const messages: (string | null)[] = []
+  for (const card of await cards.all()) {
+    await expect(card).toContainText('новая')
+    await expect(card).toContainText(`этап «${continuedStageTitle}»`)
+    const read = page.waitForResponse((response) => new URL(response.url()).pathname.startsWith(factsPath))
+    await card.getByRole('button', { name: 'Показать в оригинале' }).click()
+    const { fact } = endpoints.fact.response.parse(await (await read).json())
+    const original = card.getByRole('figure')
+    await expect(original.locator('mark')).toHaveText(text)
+    await expect(original).toContainText('сообщение')
+    await expect(original).toContainText('решатель')
+    await expect(original).toContainText(`сырая запись № ${String(fact.seq)}`)
+    messages.push(fact.runtime_ids.message_id)
+    await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
+    await expect(original).toHaveCount(0)
+  }
+  return messages
 }
 
 const expectCountedChanges = async (page: Page): Promise<void> => {
@@ -209,7 +242,7 @@ test.describe('with the observer', () => {
             await expect(approval).toContainText('закрыт')
           }
           await expectObserverQuestion(page)
-          await expectCardToOriginal(page, claudeFinalText)
+          await expectCardsToOriginal(page, claudeFinalText)
           await expectCountedChanges(page)
         })
       })
@@ -242,11 +275,11 @@ test.describe('with the observer', () => {
       })
     }
 
-    for (const surface of codexSurfacesWithQuestions) {
+    for (const surface of codexSurfaces) {
       test.describe(() => {
         checkedOnThisOs(surface)
 
-        test(`Codex ${surface.name}: a question asked after the mark shows the replaced stage, the solver and observer questions and the card to the original (E2E 4)`, async ({
+        test(`Codex ${surface.name}: a question asked after the mark shows the replaced stage, the solver and observer questions and the final text cards to the original (E2E 4)`, async ({
           page,
           player,
           fakeCodex,
@@ -264,7 +297,13 @@ test.describe('with the observer', () => {
           await expect(asked).toContainText('Вопрос')
           await expect(asked).toContainText('по правилу aang')
           await expectObserverQuestion(page)
-          await expectCardToOriginal(page, codexQuestionMessage)
+          await expectCardsToOriginal(page, codexQuestionMessage)
+          const finalAnswers = await expectCardsToOriginal(
+            page,
+            codexFinalAnswer,
+            surface.finalAnswerMessagesAfterTheQuestion.length,
+          )
+          expect(finalAnswers.toSorted()).toEqual(surface.finalAnswerMessagesAfterTheQuestion)
           await expectCountedChanges(page)
         })
       })
