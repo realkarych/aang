@@ -109,6 +109,9 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
 
   const labelOrder = (label: SnapshotValue): number => (typeof label === 'string' ? Number(label.slice(1)) : 0)
 
+  const references = (member: unknown): member is Reference[] =>
+    Array.isArray(member) && member.every((item) => item instanceof Reference)
+
   const value = (input: unknown): SnapshotValue => {
     if (input instanceof Reference) {
       return label(input.id)
@@ -124,8 +127,7 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
     }
     if (Array.isArray(input)) {
       const items = input.map(value)
-      const ids = input.every((item) => item instanceof Reference)
-      return ids ? items.toSorted((left, right) => labelOrder(left) - labelOrder(right)) : items
+      return references(input) ? items.toSorted((left, right) => labelOrder(left) - labelOrder(right)) : items
     }
     if (typeof input === 'object') {
       return Object.fromEntries(
@@ -137,15 +139,23 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
     throw new Error(`unexpected snapshot value of type ${typeof input}`)
   }
 
-  const orderText = (item: unknown): string =>
+  const orderText = (item: unknown, reference: (id: string) => string): string =>
     JSON.stringify(item, (_, member: unknown) =>
-      member instanceof Reference ? '#' : typeof member === 'bigint' ? timeMarker : typeof member === 'string' ? stable(member) : member,
+      references(member)
+        ? member.map(({ id }) => reference(id)).toSorted((left, right) => labelOrder(left) - labelOrder(right))
+        : member instanceof Reference ? reference(member.id) : typeof member === 'bigint' ? timeMarker : typeof member === 'string' ? stable(member) : member,
     )
+
+  const compareText = (left: string, right: string): number => (left < right ? -1 : left > right ? 1 : 0)
 
   const sorted = <T>(items: readonly T[], by: (item: T) => unknown = (item) => item): T[] =>
     items
-      .map((item) => ({ item, order: orderText(by(item)) }))
-      .sort((left, right) => (left.order < right.order ? -1 : left.order > right.order ? 1 : 0))
+      .map((item) => ({
+        item,
+        order: orderText(by(item), () => '#'),
+        labelled: orderText(by(item), (id) => labels.get(id) ?? '#'),
+      }))
+      .sort((left, right) => compareText(left.order, right.order) || compareText(left.labelled, right.labelled))
       .map(({ item }) => item)
 
   return { value, sorted }
