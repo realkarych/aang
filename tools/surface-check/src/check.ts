@@ -11,7 +11,7 @@ import {
   type SurfaceDriver,
   supportsOs,
 } from '@aang/record'
-import { type AccessReport, accessNotRun, checkAccess } from './access.js'
+import { accessFailed, type AccessReport, accessNotRun, checkAccess } from './access.js'
 import { type AangCommand, settled, signInLink } from './aang.js'
 import { type LiveRun, startLive } from './live.js'
 import { compare, compareRecords, type DaemonView, type Observation, observeDaemon, readReference, type Reference, referencePath, versionKeyText } from './observe.js'
@@ -20,6 +20,8 @@ import { daemonRecords } from './records.js'
 export const surfaceCheckFormat = 'aang-surface-check/1'
 
 export type Outcome = 'passed' | 'failed'
+
+export type SurfaceOutcome = Outcome | 'not_run'
 
 export interface ScenarioReport {
   readonly name: string
@@ -46,7 +48,7 @@ export interface SurfaceReport {
   readonly surface: Surface
   readonly app_version: string | null
   readonly emulated: boolean
-  readonly result: Outcome
+  readonly result: SurfaceOutcome
   readonly error: string | null
   readonly scenarios: readonly ScenarioReport[]
 }
@@ -63,8 +65,12 @@ export interface CheckReport {
   readonly os: OperatingSystem
   readonly placement: Placement
   readonly access: AccessReport
-  readonly kept: KeptDaemon | null
   readonly results: readonly SurfaceReport[]
+}
+
+export interface CheckRun {
+  readonly report: CheckReport
+  readonly kept: KeptDaemon | null
 }
 
 export interface CheckOptions {
@@ -201,9 +207,21 @@ const scenarioReport = (name: string, live: LiveRun, { failures, notes, daemon, 
   reference: reference?.observation ?? null,
 })
 
-const freshAccess = async (live: LiveRun): Promise<AccessReport> => {
-  const link = signInLink(await live.aang.ok(['open']))
-  return checkAccess(link, link.origin)
+const lastAccess = async (live: LiveRun, keep: boolean): Promise<AccessReport> => {
+  if (live.api === null) {
+    return accessNotRun()
+  }
+  try {
+    await live.start()
+    const link = signInLink(await live.aang.ok(['open']))
+    return await checkAccess(link, link.origin)
+  } catch (error) {
+    return accessFailed(describe(error))
+  } finally {
+    if (!keep) {
+      await live.stop()
+    }
+  }
 }
 
 const unavailable = (surface: Surface, emulatedEngine: boolean, error: string, required: boolean): SurfaceReport => ({
@@ -211,12 +229,12 @@ const unavailable = (surface: Surface, emulatedEngine: boolean, error: string, r
   surface,
   app_version: null,
   emulated: emulatedEngine,
-  result: required ? 'failed' : 'passed',
+  result: required ? 'failed' : 'not_run',
   error,
   scenarios: [],
 })
 
-export const runCheck = async (options: CheckOptions): Promise<CheckReport> => {
+export const runCheck = async (options: CheckOptions): Promise<CheckRun> => {
   const started = new Date()
   const cli: Record<Runtime, string | null> = {
     claude: await cliOf('claude_cli', options.selection),
@@ -232,7 +250,7 @@ export const runCheck = async (options: CheckOptions): Promise<CheckReport> => {
   const results: SurfaceReport[] = []
   const plan = options.surfaces.map((surface) => ({ surface, scenarios: scenariosOf(options, surface) }))
   const lastSurface = plan.findLast(({ scenarios: listed }) => listed.length > 0)?.surface
-  let kept: LiveRun | null = null
+  let kept: KeptDaemon | null = null
   let access: AccessReport = accessNotRun()
   for (const { surface, scenarios: listed } of plan) {
     const isEmulated = emulated(options, surface)
@@ -273,13 +291,12 @@ export const runCheck = async (options: CheckOptions): Promise<CheckReport> => {
         port: options.port,
         base: options.work,
       })
-      let observed = await observeScenario(options, scenario, engine, live)
+      const observed = await finishScenario(live, await observeScenario(options, scenario, engine, live))
       if (last) {
-        access = live.api === null ? accessNotRun() : await freshAccess(live)
-        kept = live
+        access = await lastAccess(live, options.keepDaemon)
+        kept = options.keepDaemon ? { aang_home: live.profile.aangHome, home: live.profile.home } : null
       }
       if (!(last && options.keepDaemon)) {
-        observed = await finishScenario(live, observed)
         await live.remove()
       }
       const report = scenarioReport(scenario.name, live, observed)
@@ -296,17 +313,17 @@ export const runCheck = async (options: CheckOptions): Promise<CheckReport> => {
       scenarios: reports,
     })
   }
-  const keptRun: LiveRun | null = kept
   return {
-    format: surfaceCheckFormat,
-    started_at: started.toISOString(),
-    finished_at: new Date().toISOString(),
-    os: options.os,
-    placement: options.placement,
-    access,
-    kept:
-      options.keepDaemon && keptRun !== null ? { aang_home: keptRun.profile.aangHome, home: keptRun.profile.home } : null,
-    results,
+    report: {
+      format: surfaceCheckFormat,
+      started_at: started.toISOString(),
+      finished_at: new Date().toISOString(),
+      os: options.os,
+      placement: options.placement,
+      access,
+      results,
+    },
+    kept,
   }
 }
 

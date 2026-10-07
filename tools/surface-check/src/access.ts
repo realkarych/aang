@@ -20,6 +20,8 @@ export const accessNotRun = (expectedWrite = 200): AccessReport => ({
   error: null,
 })
 
+export const accessFailed = (error: string, expectedWrite = 200): AccessReport => ({ ...accessNotRun(expectedWrite), result: 'failed', error })
+
 export const checkAccess = async (link: URL, origin: string, expectedWrite = 200): Promise<AccessReport> => {
   let runs: number | null = null
   let write: number | null = null

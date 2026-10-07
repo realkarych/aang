@@ -34,7 +34,7 @@ Q.1 проверяет каждую поверхность сквозь весь
 
 ## 1. Главное
 
-1. **Все поверхности, доступные без владельца, проходят сквозную проверку** во всех размещениях: Claude CLI, Claude Agent SDK, `codex exec`, Codex SDK и TUI Codex (Linux и macOS) — нативно на трёх ОС, в Docker и в VM. Объекты, которые показывает живой демон, совпадают с эталонными записями тех же версий. Подробности — разделы 2 и 3.
+1. **Все поверхности, доступные без владельца, проходят сквозную проверку** нативно на Linux и Windows, в Docker и в VM: Claude CLI, Claude Agent SDK, `codex exec`, Codex SDK и TUI Codex (кроме Windows). Объекты и сырые записи событий, которые показывает живой демон, совпадают с эталонными записями тех же версий. Нативный macOS ещё не проверен: задание `native (macos-latest)` не дошло до конца ни в одном прогоне (разделы 2 и 8). Подробности — разделы 2 и 3.
 2. **`aang install` в Docker-образе не работал** (`ENOENT`: образ не клал бинарь туда, где его ищет установщик). Исправлено в `Dockerfile`, smoke Docker-образа проверяет установку.
 3. **Записи R.4 Claude CLI для Linux и Windows aang читает как сессии Agent SDK.** Workflow `Scenarios` задавал версию SDK переменной `CLAUDE_AGENT_SDK_VERSION`, она попала в окружение движка и hooks, а по ней адаптер определяет SDK. Рекордер теперь эту переменную не наследует, workflow её не задаёт; записи нужно перезаписать (раздел 6, п. 1).
 4. **Контрактный прогон оценивает запросы разрешения Claude иначе, чем живой демон**: «ответ неизвестен, ожидание кончилось без ответа» вместо «одобрено» или «отклонено» (раздел 6, п. 2).
@@ -49,13 +49,15 @@ Q.1 проверяет каждую поверхность сквозь весь
 
 | Поверхность | Сценарии | Linux | macOS | Windows |
 | --- | --- | --- | --- | --- |
-| Claude CLI (`-p`, stream-json) | `tools`, `subagents`, `resume`, `compaction`, `approval`, `question`, `reconnect` | ✔ | ✔ | ✔ |
-| Claude Agent SDK 0.3.289 | те же | ✔ | ✔ | ✔ |
-| `codex exec` | `tools`, `subagents`, `question`, `compaction`, `reconnect` | ✔ | ✔ | ✔ |
-| Codex SDK 0.160.0 | `tools`, `subagents`, `question`, `resume` | ✔ | ✔ | ✔ |
-| TUI Codex (`expect`) | `tools`, `approval` | ✔ | ✔ | — |
+| Claude CLI (`-p`, stream-json) | `tools`, `subagents`, `resume`, `compaction`, `approval`, `question`, `reconnect` | ✔ | ожидает CI | ✔ |
+| Claude Agent SDK 0.3.289 | те же | ✔ | ожидает CI | ✔ |
+| `codex exec` | `tools`, `subagents`, `question`, `compaction`, `reconnect` | ✔ | ожидает CI | ✔ |
+| Codex SDK 0.160.0 | `tools`, `subagents`, `question`, `resume` | ✔ | ожидает CI | ✔ |
+| TUI Codex (`expect`) | `tools`, `approval` | ✔ | ожидает CI | — |
 
-- **Windows.** `aang install --claude` ставит плагин через локальный маркетплейс, hooks Claude активны; `aang install --codex` пишет строки PowerShell. Сессии всех четырёх поверхностей видны демону с hooks и файлами (режим `full`), объекты и сырые записи событий совпадают с эталонными записями Windows. TUI Codex на Windows не запускается: нужен хост ConPTY (план, R.3), записей для Windows нет.
+- **macOS не проверен.** Задание `native (macos-latest)` в прогонах этого PR отменялось новым коммитом или ещё стоит в очереди раннера; отчёта `surface-check-macOS` нет. Локальные запуски инструмента в Docker Desktop на Mac проверяют Linux arm64, а не нативную macOS. Отметки столбца заменяются по отчёту первого завершённого прогона (раздел 8).
+
+- **Windows.** `aang install --claude` ставит плагин через локальный маркетплейс, hooks Claude активны; `aang install --codex` пишет строки PowerShell. Сессии всех четырёх поверхностей видны демону с hooks и файлами (режим `full`), объекты и сырые записи событий совпадают с эталонными записями Windows. TUI Codex на Windows не запускается: нужен хост ConPTY (план, R.3), записей для Windows нет; в отчёте он `not_run`, а не пройден.
 - **Claude CLI на Linux и Windows** проходит проверку, хотя эталонные записи этих ОС aang читает как Agent SDK (раздел 6, п. 1): проверка сравнивает поверхность живой сессии со сценарием, а не со снимком. Живая сессия CLI подписана `claude_cli`.
 - Во всех прогонах с разрешениями Claude и в `approval` TUI Codex решение по запросу у живого демона — `approved` или `rejected`, у снимка — `unknown` (заметки отчёта; раздел 6, п. 2).
 - Число служебных строк транскрипта Claude (`last-prompt`) меняется от прогона к прогону; такие строки в проверке — заметки, а не ошибки (`tools/surface-check/README.md`).
@@ -128,4 +130,6 @@ RFC §4 требует выносить ограничения Desktop влад�
 
 ## 8. Прогоны
 
-Workflow `Surface matrix` этого PR: [первый](https://github.com/realkarych/aang/actions/runs/37660627423) — Linux и Docker прошли, на VM не хватило `libatomic1`, на Windows проявился п. 6 раздела 6; [второй](https://github.com/realkarych/aang/actions/runs/37665180916) — после изменения порядка установки Windows без сбоев Codex, сверка сырых записей выявила служебные строки `last-prompt`; [третий](https://github.com/realkarych/aang/actions/runs/37667752046) — итоговый, по нему разделы 2, 3 и записи `verification.json`. Локально на macOS тот же инструмент гонялся в контейнерах Docker Desktop (Linux arm64): все поверхности и эмуляция SSH-режима.
+Workflow `Surface matrix` этого PR: [первый](https://github.com/realkarych/aang/actions/runs/37660627423) — Linux и Docker прошли, на VM не хватило `libatomic1`, на Windows проявился п. 6 раздела 6; [второй](https://github.com/realkarych/aang/actions/runs/37665180916) — после изменения порядка установки Windows без сбоев Codex, сверка сырых записей выявила служебные строки `last-prompt`; [третий](https://github.com/realkarych/aang/actions/runs/37667752046) — по нему Linux и Windows в разделе 2, раздел 3 и записи `verification.json`. Во всех трёх задание `native (macos-latest)` отменено, поэтому столбец macOS раздела 2 ждёт прогона. Локально на macOS тот же инструмент гонялся в контейнерах Docker Desktop (Linux arm64): все поверхности и эмуляция SSH-режима — это проверка Linux, а не нативной macOS.
+
+Отчёты и журнал последовательной консоли VM в артефактах обезличены: путь рабочего каталога, домашний каталог и имя хоста заменены метками, ключ SSH VM — с синтетическим комментарием, и перед загрузкой каждое задание проверяет каталог отчётов на имя пользователя, домашний каталог и имя хоста раннера (`tools/surface-check/README.md`, «Report»). В артефактах прогонов выше, сделанных до этого, остались имя учётной записи и хоста раннера GitHub.

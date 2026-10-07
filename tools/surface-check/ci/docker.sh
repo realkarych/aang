@@ -7,10 +7,12 @@ name="$tag"
 check="node tools/surface-check/dist/main.js"
 port=4280
 other=4380
+work="$(mktemp -d)"
 
 cleanup() {
   docker rm --force "$name" >/dev/null 2>&1 || true
   docker image rm --force "$tag" "$tag-aang" "$tag-build" >/dev/null 2>&1 || true
+  rm -rf "$work"
 }
 trap cleanup EXIT
 
@@ -30,12 +32,15 @@ docker run --detach --name "$name" \
 status=0
 docker exec "$name" node /opt/surface-check/dist/main.js run \
   --placement docker --aang aang --hook /usr/local/bin/aang-hook --support /opt/surface-check/support \
-  --bind 0.0.0.0 --port "$port" --keep-daemon --require "${AANG_SURFACE_REQUIRE:-}" \
+  --bind 0.0.0.0 --port "$port" --keep-daemon /tmp/surface-kept.json --require "${AANG_SURFACE_REQUIRE:-}" \
   --out /tmp/surface-check || status=$?
 docker cp "$name:/tmp/surface-check/." "$out/"
+docker cp "$name:/tmp/surface-kept.json" "$work/kept.json" 2>/dev/null || true
 
 kept() {
-  node -e 'const kept = require(process.argv[1]).kept; if (kept) process.stdout.write(kept[process.argv[2]])' "$out/report.json" "$1"
+  if [ -f "$work/kept.json" ]; then
+    node -e 'process.stdout.write(require(process.argv[1])[process.argv[2]])' "$work/kept.json" "$1"
+  fi
 }
 open_link() {
   docker exec --env AANG_HOME="$(kept aang_home)" --env HOME="$(kept home)" "$name" aang open

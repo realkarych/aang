@@ -103,7 +103,7 @@ const result = (key: SupportKey | null, verdict: string, emulated = false) => ({
 })
 
 describe('placement checks imported from surface check reports', () => {
-  test('a report adds a passed or failed entry per non-local result, skips local, emulated and keyless results, and replaces the entry of the same key', async () => {
+  test('a report adds a passed or failed entry per non-local result, skips local, emulated, not run and keyless results, and replaces the entry of the same key', async () => {
     const { root, sessions, support } = await workspace()
     const cliDocker: SupportKey = { ...claudeCli, placement: 'docker' }
     const execVm: SupportKey = { ...codexExec, placement: 'vm' }
@@ -123,6 +123,7 @@ describe('placement checks imported from surface check reports', () => {
           result(execVm, 'failed'),
           result(claudeCli, 'passed'),
           result({ ...codexExec, placement: 'docker' }, 'passed', true),
+          result({ ...codexExec, surface: 'codex_tui', placement: 'docker' }, 'not_run'),
           result(null, 'failed'),
         ]),
       ),
@@ -133,7 +134,7 @@ describe('placement checks imported from surface check reports', () => {
 
     expect(imported).toEqual({
       code: 0,
-      stdout: `placement checks of 2 reports written to ${support}: 1 passed, 2 failed, 3 skipped as local, emulated or without a key\n`,
+      stdout: `placement checks of 2 reports written to ${support}: 1 passed, 2 failed, 4 skipped as local, emulated, not run or without a key\n`,
       stderr: '',
     })
     expect(await readFile(verificationPath(support), 'utf8')).toBe(

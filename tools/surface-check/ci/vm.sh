@@ -35,7 +35,7 @@ tar -C "$bundle" -czf "$work/bundle.tgz" opt
 
 curl -fsSL --retry 3 -o "$work/base.img" "$image_url"
 qemu-img create -q -f qcow2 -F qcow2 -b "$work/base.img" "$work/vm.qcow2" 20G
-ssh-keygen -q -t ed25519 -N '' -f "$key"
+ssh-keygen -q -t ed25519 -N '' -C aang-surface-check -f "$key"
 cat > "$work/user-data" <<CLOUD
 #cloud-config
 users:
@@ -84,12 +84,15 @@ run_check() {
   vm env AANG_RECORD_CLAUDE_SDK=/opt/sdk/node_modules/@anthropic-ai/claude-agent-sdk \
     AANG_RECORD_CODEX_SDK=/opt/sdk/node_modules/@openai/codex-sdk \
     node /opt/surface-check/dist/main.js run --aang aang --hook /usr/local/bin/aang-hook \
-    --support /opt/surface-check/support --port "$port" --keep-daemon --out "/tmp/$name" "$@" || status=$?
+    --support /opt/surface-check/support --port "$port" --keep-daemon "/tmp/$name-kept.json" --out "/tmp/$name" "$@" || status=$?
   mkdir -p "$out/$name"
   vm tar -C "/tmp/$name" -cf - . | tar -C "$out/$name" -xf -
+  vm cat "/tmp/$name-kept.json" > "$work/$name-kept.json" 2>/dev/null || rm -f "$work/$name-kept.json"
 }
 kept() {
-  node -e 'const kept = require(process.argv[1]).kept; if (kept) process.stdout.write(kept[process.argv[2]])' "$out/$1/report.json" "$2"
+  if [ -f "$work/$1-kept.json" ]; then
+    node -e 'process.stdout.write(require(process.argv[1])[process.argv[2]])' "$work/$1-kept.json" "$2"
+  fi
 }
 open_link() {
   vm "AANG_HOME='$(kept "$1" aang_home)' HOME='$(kept "$1" home)' aang open"

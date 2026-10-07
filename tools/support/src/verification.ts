@@ -106,7 +106,7 @@ const SurfaceCheckReport = z.looseObject({
     z.looseObject({
       key: z.looseObject(SupportKey.shape).nullable(),
       emulated: z.boolean(),
-      result: Verdict,
+      result: z.enum(['passed', 'failed', 'not_run']),
     }),
   ),
 })
@@ -114,7 +114,7 @@ type SurfaceCheckReport = z.infer<typeof SurfaceCheckReport>
 
 const placementChecksOf = ({ finished_at: finishedAt, access, results }: SurfaceCheckReport): PlacementCheck[] =>
   results.flatMap(({ key, emulated, result }): PlacementCheck[] =>
-    key === null || key.placement === 'local' || emulated
+    key === null || key.placement === 'local' || emulated || result === 'not_run'
       ? []
       : [
           {
@@ -153,5 +153,5 @@ export const importPlacementChecks = async (support: string, files: readonly str
 
 export const placementImportSummary = (reports: number, support: string, { checks, skipped }: PlacementImport): string => {
   const passed = checks.filter(({ result }) => result === 'passed').length
-  return `placement checks of ${String(reports)} reports written to ${support}: ${String(passed)} passed, ${String(checks.length - passed)} failed, ${String(skipped)} skipped as local, emulated or without a key`
+  return `placement checks of ${String(reports)} reports written to ${support}: ${String(passed)} passed, ${String(checks.length - passed)} failed, ${String(skipped)} skipped as local, emulated, not run or without a key`
 }

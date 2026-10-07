@@ -6,12 +6,13 @@
 pnpm build
 node tools/surface-check/dist/main.js run [--placement local|docker|vm|desktop_ssh] [--surfaces <surface,...>] [--require <surface,...>]
   [--scenarios core|all|<name,...>] [--emulate-desktop] [--out <directory>] [--work <directory>] [--support <directory>]
-  [--aang <main.js|command>] [--hook <aang-hook>] [--bind <address>] [--port <port>] [--keep-daemon]
+  [--aang <main.js|command>] [--hook <aang-hook>] [--bind <address>] [--port <port>] [--keep-daemon <file>]
   [--claude <executable>] [--codex <executable>] [--claude-sdk <package>] [--codex-sdk <package>]
 node tools/surface-check/dist/main.js access --link <sign-in link> [--origin <origin>] [--expect-write <status>] [--out <file>] [--into <report.json>]
+node tools/surface-check/dist/main.js anonymous <directory>...
 ```
 
-Engines are found like the recorder finds them: the options, then `AANG_RECORD_CLAUDE`, `AANG_RECORD_CODEX`, `AANG_RECORD_CLAUDE_SDK`, `AANG_RECORD_CODEX_SDK`, then `PATH`. The default surfaces are `claude_cli`, `claude_sdk`, `codex_exec`, `codex_sdk` and `codex_tui`; a surface whose engine is missing is skipped unless `--require` names it. The default scenarios (`core`) are the catalog scenarios `tools`, `subagents`, `resume`, `compaction`, `reconnect`, `approval` and `question` that the surface has on this OS; `all` runs every stub scenario of the surface. `--aang` defaults to the built `packages/aang/dist/main.js`, `--hook` to the built `aang-hook`, `--support` to the repository's `support`.
+Engines are found like the recorder finds them: the options, then `AANG_RECORD_CLAUDE`, `AANG_RECORD_CODEX`, `AANG_RECORD_CLAUDE_SDK`, `AANG_RECORD_CODEX_SDK`, then `PATH`. The default surfaces are `claude_cli`, `claude_sdk`, `codex_exec`, `codex_sdk` and `codex_tui`; a surface whose engine is missing is `not_run` unless `--require` names it, and then it fails. The default scenarios (`core`) are the catalog scenarios `tools`, `subagents`, `resume`, `compaction`, `reconnect`, `approval` and `question` that the surface has on this OS; `all` runs every stub scenario of the surface. `--aang` defaults to the built `packages/aang/dist/main.js`, `--hook` to the built `aang-hook`, `--support` to the repository's `support`.
 
 ## What one scenario does
 
@@ -21,7 +22,7 @@ Each scenario gets its own temporary profile: `HOME`, `CLAUDE_CONFIG_DIR`, `CODE
 2. `aang start` (with `--bind` when given), `aang watch <project>`, `aang otel-config` for the OTLP endpoint and `aang open` for the sign-in.
 3. The catalog scenario of `tools/record` runs as it runs for a recording, with its own assertions: the CLI or SDK host, the model stub, the scenario's recording plugin (`--plugin-dir`, renamed `aang-scenario`) and spool, and its hook binary copied as `scenario-hook`: `aang install` neutralizes every `aang-hook` entry of `hooks.json` that is not its own, and the scenario's entries would be such entries. Before the first command of the scenario aang is connected the product way and in the order of the README: `aang stop`, `aang install --claude` or `aang install --codex`, `aang start`. That is the Claude plugin from the local marketplace into the user scope of the profile, or the Codex hooks at the end of the `hooks.json` the scenario wrote. Codex scenarios that trust their hooks through `hooks/list` trust the aang entries too, `codex exec` runs with the bypass flag of the recorder. The Codex OTel exporter of the scenario forwards to the receiver of the daemon. At the `daemon-restart` checkpoint of `reconnect` the daemon stops and starts again.
 4. Before every command of the scenario `aang status` runs the hook check of the daemon to the end. The daemon starts `codex app-server` for that check whenever `hooks.json` or `config.toml` changes, and on Windows a `codex app-server` started next to another one on the same `CODEX_HOME` failed to initialize its state or timed out (`docs/research/q1-surface-matrix.md`, section 6); the barrier keeps the check of the daemon and the commands of the scenario apart.
-5. When the spool is empty and the change sequence of the daemon stays still for two seconds, the check reads `/api/status`, `/api/runs` and every run. After the daemon stops, it opens the store of the daemon and counts the raw records by channel, record type and parse state, as the contract snapshot does.
+5. When the spool is empty and the change sequence of the daemon stays still for two seconds, the check reads `/api/status`, `/api/runs` and every run. After the daemon stops, it opens the store of the daemon and counts the raw records by channel, record type and parse state, as the contract snapshot does. This holds for every scenario, the last one included.
 
 The scenario passes when the scenario itself passed and:
 
@@ -32,7 +33,7 @@ The scenario passes when the scenario itself passed and:
 
 Two differences are notes rather than failures. The decisions of questions and the resolutions of attention items depend on the time of the replay in the contract run: it keeps the recorded times of transcript and rollout lines while hooks arrive at replay time, so a permission request of Claude reads there as ended without an answer while the live daemon sees it approved or rejected (`docs/research/q1-surface-matrix.md`, section 6). So do the other raw records, whose number depends on when the engines and the collector write and read: the registry and OTLP channels, the state lines of Claude transcripts (`last-prompt`, `cost-state`, `queue-operation` and similar, written a different number of times from run to run) and `system:stop_hook_summary`, which depends on how long the hooks of a turn take (two plugins run them here).
 
-After the last scenario the check signs in with a new link of `aang open` and marks a run viewed: this is the UI access through the loopback origin of the daemon. With `--keep-daemon` that daemon keeps running and the report names its `AANG_HOME` and `HOME`, so that an access check from outside can ask it for a new link and stop it afterwards.
+After the raw records of the last scenario are counted, its daemon starts again, and the check signs in with a new link of `aang open` and marks a run viewed: this is the UI access through the loopback origin of the daemon. Without `--keep-daemon` the daemon then stops. With `--keep-daemon <file>` it keeps running and `<file>` names its `AANG_HOME` and `HOME` (`{"aang_home": "…", "home": "…"}`), so that an access check from outside can ask it for a new link and stop it afterwards. The file is for the caller only and is not part of the report.
 
 `--emulate-desktop` runs the `claude_desktop` and `codex_desktop` scenarios of the catalog with the CLIs as engines, on any OS: the Claude engine with the Desktop flags and environment, `codex app-server` with the Desktop client and originator. This is what the remote host of the Desktop SSH mode is expected to run; the engine the real Desktop installs there, its version and its environment are checked only by the owner (`docs/research/q1-owner-checklist.md`). An emulated surface is never compared with a snapshot and never counts as the placement check of the matrix.
 
@@ -44,7 +45,7 @@ By ADR-0003 (decision 1 of 2026-10-04) writes authorized by the cookie are accep
 
 ## Report
 
-`--out` (default `surface-check-report`) receives `report.json` and `summary.md`; in GitHub Actions the summary is appended to the job summary.
+`--out` (default `surface-check-report`) receives `report.json` and `summary.md`; in GitHub Actions the summary is appended to the job summary. Both are anonymous: in every text of the report the work directory reads `<work>`, the home directory of the user `~` and the host name `<host>`, in the spellings with `\`, `/` and the doubled `\\` of JSON (on Windows regardless of case). `access --into` rewrites the report the same way.
 
 ```json
 {
@@ -52,23 +53,24 @@ By ADR-0003 (decision 1 of 2026-10-04) writes authorized by the cookie are accep
   "started_at": "…", "finished_at": "…",
   "os": "linux", "placement": "docker",
   "access": { "result": "passed", "origin": "http://127.0.0.1:4280", "runs": 1, "write": 200, "expected_write": 200, "error": null },
-  "kept": { "aang_home": "…", "home": "…" },
   "results": [
     { "key": { "runtime": "claude", "surface": "claude_cli", "os": "linux", "placement": "docker", "engine_version": "2.1.289" },
       "surface": "claude_cli", "app_version": null, "emulated": false, "result": "passed", "error": null,
-      "scenarios": [ { "name": "tools", "result": "passed", "error": null, "failures": [], "installed": ["…"], "restarts": 0, "daemon": { }, "reference": { } } ] }
+      "scenarios": [ { "name": "tools", "result": "passed", "error": null, "failures": [], "installed": ["claude: plugin aang@aang installed from <work>/aang-surface-…/home/.aang/claude-plugin"], "restarts": 0, "daemon": { }, "reference": { } } ] }
   ]
 }
 ```
 
-A non-local, non-emulated result that passed together with `access` is the placement check of its row: `node tools/support/dist/main.js placement import <report.json>...` records it in `support/verification.json` (`tools/support/README.md`). The command exits with 1 when a result or the access failed.
+The `result` of a surface is `passed`, `failed` or `not_run`; `not_run` is a surface whose engine is missing and which `--require` does not name, with the reason in `error` and no scenarios. A non-local, non-emulated result that passed together with `access` is the placement check of its row: `node tools/support/dist/main.js placement import <report.json>...` records it in `support/verification.json` (`tools/support/README.md`); `not_run` results are skipped there. The command exits with 1 when a result or the access failed; a `not_run` surface does not fail it.
+
+`anonymous` checks the files under the directories before they are published: it exits with 1 and names each file that contains the home directory, the user name as a path segment or before `@`, or the host name of the machine it runs on.
 
 ## CI
 
 The `Surface matrix` workflow (`.github/workflows/surfaces.yml`) runs on pull requests that touch this tool, the recorder sources or the `Dockerfile`, and by hand. Versions are pinned in its environment (`AANG_CLAUDE_CODE_VERSION`, `AANG_CLAUDE_AGENT_SDK_VERSION`, `AANG_CODEX_VERSION`, `AANG_CODEX_SDK_VERSION`); the names carry the `AANG_` prefix because `CLAUDE_AGENT_SDK_VERSION` in the environment of a Claude engine makes its sessions read as Agent SDK sessions.
 
 - `native` — Linux, macOS and Windows runners with the CLIs and SDKs installed the way the Scenarios workflow installs them; placement `local`. The interactive Codex TUI runs on Linux and macOS (`expect`).
-- `docker` — `ci/docker.sh`: the `aang` image, a derived image `surface.Dockerfile` with the CLIs, SDKs and this tool, the check inside the container with `--placement docker --bind 0.0.0.0 --keep-daemon`, then `access` from the runner through the published port 4280 (writes pass), another published port 4380 and the address of the container (writes answer 403).
-- `vm` — `ci/vm.sh`: an Ubuntu cloud image under QEMU/KVM on the runner with a cloud-init user and SSH key. aang is deployed into it the way the `Dockerfile` lays it out, Node, the CLIs and the SDKs are installed there, and the check runs over SSH with `--placement vm --keep-daemon`. The UI is reached through `ssh -L 4280:127.0.0.1:4280` (writes pass) and `ssh -L 4380:127.0.0.1:4280` (writes answer 403). Then `--placement desktop_ssh --emulate-desktop` runs on the same VM over SSH, with access through the tunnel.
+- `docker` — `ci/docker.sh`: the `aang` image, a derived image `surface.Dockerfile` with the CLIs, SDKs and this tool, the check inside the container with `--placement docker --bind 0.0.0.0 --keep-daemon <file>`, then `access` from the runner through the published port 4280 (writes pass), another published port 4380 and the address of the container (writes answer 403).
+- `vm` — `ci/vm.sh`: an Ubuntu cloud image under QEMU/KVM on the runner with a cloud-init user and an SSH key with the comment `aang-surface-check` (cloud-init prints the key to the serial console, whose log is part of the artifact). aang is deployed into it the way the `Dockerfile` lays it out, Node, the CLIs and the SDKs are installed there, and the check runs over SSH with `--placement vm --keep-daemon <file>`. The UI is reached through `ssh -L 4280:127.0.0.1:4280` (writes pass) and `ssh -L 4380:127.0.0.1:4280` (writes answer 403). Then `--placement desktop_ssh --emulate-desktop` runs on the same VM over SSH, with access through the tunnel.
 
-Each job uploads its reports as an artifact (`surface-check-<os>`, `surface-check-docker`, `surface-check-vm`).
+Each job runs `anonymous` on its report directory with the identity of the runner and uploads the directory as an artifact (`surface-check-<os>`, `surface-check-docker`, `surface-check-vm`) only when that check passed.

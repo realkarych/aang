@@ -41,6 +41,7 @@ export interface LiveRun {
   readonly installed: readonly string[]
   readonly restarts: number
   readonly error: string | null
+  readonly start: () => Promise<void>
   readonly stop: () => Promise<void>
   readonly remove: () => Promise<void>
 }
@@ -224,6 +225,7 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
     installed,
     restarts: state.restarts,
     error: state.error,
+    start: connect,
     stop,
     remove: () => rm(profile.root, { recursive: true, force: true, maxRetries: 20, retryDelay: 100 }),
   }

@@ -64,7 +64,11 @@ jobs:
         env:
           AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
           AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
-      - if: always()
+      - id: anonymous
+        if: always()
+        run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check"
+        shell: bash
+      - if: always() && steps.anonymous.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: surface-check-${{ runner.os }}
@@ -90,7 +94,10 @@ jobs:
       - run: tools/surface-check/ci/docker.sh "$RUNNER_TEMP/surface-check-docker"
         env:
           AANG_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
-      - if: always()
+      - id: anonymous
+        if: always()
+        run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check-docker"
+      - if: always() && steps.anonymous.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: surface-check-docker
@@ -122,7 +129,10 @@ jobs:
       - run: tools/surface-check/ci/vm.sh "$RUNNER_TEMP/surface-check-vm"
         env:
           AANG_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
-      - if: always()
+      - id: anonymous
+        if: always()
+        run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check-vm"
+      - if: always() && steps.anonymous.outcome == 'success'
         uses: actions/upload-artifact@v7
         with:
           name: surface-check-vm

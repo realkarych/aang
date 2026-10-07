@@ -113,7 +113,7 @@ node tools/support/dist/main.js placement import <report.json>... [--support <di
 - `checked_on` is the UTC date of the report's `finished_at`;
 - an entry of the same key is replaced, and reports apply in the order given.
 
-Local and emulated results are skipped, and so are results without a key: a surface whose engine is not available has no engine version to record. The command prints one line with the counts, writes `verification.json` sorted by key, and leaves `matrix.json` alone: the next `pnpm support:update` turns the entries into rows and gaps.
+Local and emulated results are skipped, and so are results that did not run (`not_run`: a surface whose engine is not available and which the check did not require) and results without a key: such a surface has no engine version to record. The command prints one line with the counts, writes `verification.json` sorted by key, and leaves `matrix.json` alone: the next `pnpm support:update` turns the entries into rows and gaps.
 
 The owner's checklists are entered by hand from the owner's report: one entry per key the owner checked, `desktop` for each OS where Desktop is checked, `tui` for the interactive Claude CLI. Then `pnpm support:update` regenerates the matrix.
 
@@ -143,4 +143,4 @@ Claude rows keep `not_run` in the `observer` column: the local Claude check, the
 
 `tools/support/test/isolation.test.ts` runs `isolation codex` with the fake `codex` of `@aang/testkit` in place of the CLI: a passed admission, a hook that runs with hooks disabled, and checks without a verdict; it imports matrices written for other OSes, and with `AANG_ISOLATION_CODEX` set it runs the contract test on the installed CLI.
 
-`tools/support/test/verification.test.ts` runs the CLI on a matrix and `verification.json` without recordings: owner checklists of exact keys remove the Desktop and TUI gaps, `placement import` writes passed and failed entries from surface check reports, skips local, emulated and keyless results and replaces an entry of the same key, and an invalid verification file or report is refused. The rules that need recordings (a non-local row with a passed, a failed or no placement check, E2E columns taken from the local row) are in the matrix tests of `run.test.ts`.
+`tools/support/test/verification.test.ts` runs the CLI on a matrix and `verification.json` without recordings: owner checklists of exact keys remove the Desktop and TUI gaps, `placement import` writes passed and failed entries from surface check reports, skips local, emulated, not run and keyless results and replaces an entry of the same key, and an invalid verification file or report is refused. The rules that need recordings (a non-local row with a passed, a failed or no placement check, E2E columns taken from the local row) are in the matrix tests of `run.test.ts`.

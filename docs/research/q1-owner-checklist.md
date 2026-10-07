@@ -16,7 +16,7 @@
 
 Desktop на Windows в MVP не проверяется (ADR-0013, решение 3). Ограничения Desktop, найденные здесь, выносятся владельцу (RFC §4); известные на сейчас собраны в `docs/research/q1-surface-matrix.md`, раздел 5.
 
-Автоматическая часть Q.1 уже прошла на CI без владельца (нативные Linux, macOS и Windows, Docker, VM, эмуляция SSH-режима), поэтому здесь только то, что требует GUI, интерактивного терминала, учётной записи или удалённой машины владельца.
+Автоматическая часть Q.1 идёт на CI без владельца (нативные Linux, macOS и Windows, Docker, VM, эмуляция SSH-режима); что из неё уже прошло, а что ждёт прогона, — `docs/research/q1-surface-matrix.md`, разделы 2 и 8. Здесь только то, что требует GUI, интерактивного терминала, учётной записи или удалённой машины владельца.
 
 ## 1. Подготовка
 
@@ -71,6 +71,8 @@ node tools/owner-checklist/dist/main.js prepare --dir /tmp/aang-q1-d7 --codex-ho
 
 Пока плагин и hooks установлены, aang получает события всех сессий Claude и Codex, но в охват попадает только пробный репозиторий (`aang watch`). Не работайте в других проектах до отката.
 
+Если на Mac уже установлен свой aang: `aang install` части 2 перенаправит плагин `aang@aang` и записи hooks Codex на `/tmp/aang-q1/aang`, и до отката ваш демон hooks не получает; порты 4280 и 4281 заняты его демоном. Запишите до начала `aang status` своей установки, остановите её демон (`aang stop` без `AANG_HOME`) и после отката повторите `aang install` и `aang start` своей установкой без `AANG_HOME` (раздел 3.4).
+
 ### 3.2. Установка и запуск
 
 В отдельном терминале:
@@ -115,7 +117,7 @@ aang stop
 rm -rf /tmp/aang-q1
 ```
 
-Затем вручную: доверие aang в `~/.codex/config.toml`, резервная копия `hooks.json.aang-backup-*`, сессии пробного репозитория и его worktree.
+Затем вручную: доверие aang в `~/.codex/config.toml`, резервная копия `hooks.json.aang-backup-*`, сессии пробного репозитория и его worktree. Если до части 2 был установлен свой aang, в новом терминале без `AANG_HOME` выполните `aang install` и `aang start` своей установкой: `aang status` должен совпасть с записанным до начала.
 
 ## 4. Часть 3 — SSH-режим Desktop
 
@@ -125,14 +127,21 @@ rm -rf /tmp/aang-q1
 
 ### 4.1. Удалённый хост
 
-На хосте: Node.js 26, git, pnpm, Go (для сборки `aang-hook`) и, если Desktop этого требует, `codex`. Затем:
+На хосте: Node.js 26, git, pnpm, Go (для сборки `aang-hook`) и, если Desktop этого требует, `codex`.
+
+Проверка не трогает рабочий профиль aang на хосте, если он есть: всё, что она создаёт, лежит в `~/aang-q1-ssh` — сборка, отдельный `AANG_HOME` (`~/aang-q1-ssh/home`), пробный репозиторий и сохранённые настройки Codex; демон слушает порты 4290 (API) и 4291 (OTLP), а не 4280 и 4281. Общими остаются только регистрации в профилях рантаймов: `aang install` перенаправит плагин `aang@aang` в пользовательском scope Claude и записи hooks Codex на проверочный `AANG_HOME`, поэтому уже установленный aang до отката hooks не получает. Если он есть, запишите до начала `aang status` своей установки (без `AANG_HOME`).
+
+Все команды `aang` на хосте ниже и в разделах 4.2–4.4 выполняются в одном терминале:
 
 ```sh
-git clone https://github.com/realkarych/aang.git ~/aang && cd ~/aang
+git clone https://github.com/realkarych/aang.git ~/aang-q1-ssh/aang && cd ~/aang-q1-ssh/aang
 pnpm install --frozen-lockfile && pnpm build
-alias aang="node $HOME/aang/packages/aang/dist/main.js"
-mkdir -p ~/.aang && printf '{"placement":"desktop_ssh"}\n' > ~/.aang/config.json
-mkdir -p ~/aang-q1-ssh && git -C ~/aang-q1-ssh init -q && git -C ~/aang-q1-ssh commit -q --allow-empty -m init
+alias aang="node $HOME/aang-q1-ssh/aang/packages/aang/dist/main.js"
+export AANG_HOME="$HOME/aang-q1-ssh/home"
+mkdir -p "$AANG_HOME" ~/aang-q1-ssh/saved
+printf '{"placement":"desktop_ssh","api":{"port":4290},"otel":{"port":4291}}\n' > "$AANG_HOME/config.json"
+for file in hooks.json config.toml; do [ -f ~/.codex/$file ] && cp -p ~/.codex/$file ~/aang-q1-ssh/saved/; done
+mkdir -p ~/aang-q1-ssh/probe-repo && git -C ~/aang-q1-ssh/probe-repo init -q && git -C ~/aang-q1-ssh/probe-repo commit -q --allow-empty -m init
 ```
 
 `placement` задаётся в конфиге: изнутри SSH-режим не отличить от локального запуска (`packages/daemon/README.md`). Без него сессии попадут в строку `local`.
@@ -142,26 +151,36 @@ mkdir -p ~/aang-q1-ssh && git -C ~/aang-q1-ssh init -q && git -C ~/aang-q1-ssh c
 ```sh
 aang install
 aang start
-aang watch ~/aang-q1-ssh
+aang watch ~/aang-q1-ssh/probe-repo
 ```
 
-На Mac: `ssh -N -L 4280:127.0.0.1:4280 <пользователь>@<хост>`, на хосте `aang open`, ссылку откройте на Mac. Порт туннеля должен совпадать с портом демона: с другим локальным портом UI читает, но отметки, правила вида и чат отвечают 403 (ADR-0003, решение 1; раздел 4 отчёта Q.1).
+На Mac: `ssh -N -L 4290:127.0.0.1:4290 <пользователь>@<хост>`, на хосте `aang open`, ссылку откройте на Mac. Порт туннеля должен совпадать с портом демона: с другим локальным портом UI читает, но отметки, правила вида и чат отвечают 403 (ADR-0003, решение 1; раздел 4 отчёта Q.1).
 
 ### 4.2. Claude Desktop
 
-1. Code → окружение SSH → ваш хост → папка `~/aang-q1-ssh`. Запишите, что Desktop поставил на хост: `ls -la ~/.claude` и каталоги, появившиеся в домашнем каталоге, путь и версию запущенного движка (`ps -eo pid,args | grep -i claude` на хосте во время сессии) и его окружение (`tr '\0' '\n' < /proc/<pid>/environ | grep -E 'CLAUDE|ANTHROPIC|PATH'`; значения токенов в отчёт не переносите).
+1. Code → окружение SSH → ваш хост → папка `~/aang-q1-ssh/probe-repo`. Запишите, что Desktop поставил на хост: `ls -la ~/.claude` и каталоги, появившиеся в домашнем каталоге, путь и версию запущенного движка (`ps -eo pid,args | grep -i claude` на хосте во время сессии) и его окружение (`tr '\0' '\n' < /proc/<pid>/environ | grep -E 'CLAUDE|ANTHROPIC|PATH'`; значения токенов в отчёт не переносите).
 2. Сценарии 1–4 из раздела 3.3. В UI aang на хосте сессия должна появиться с подписью Claude Desktop и строкой версии `desktop_ssh`. Если подпись другая (например, CLI или SDK) или hooks не приходят (режим «только файлы»), запишите это: от этого зависит, поддерживается ли SSH-режим тем же адаптером (`docs/research/integrations.md`, «Рекомендуемый способ сбора»).
 3. Если плагин aang не загружается, проверьте источники настроек движка в его командной строке (`--setting-sources`) и запишите их.
 
 ### 4.3. Codex Desktop
 
-1. В ChatGPT добавьте удалённое подключение к хосту и откройте `~/aang-q1-ssh`. Запишите, какой `codex app-server` запущен на хосте (путь, версия, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE` в окружении процесса) и какой `CODEX_HOME` он использует.
+1. В ChatGPT добавьте удалённое подключение к хосту и откройте `~/aang-q1-ssh/probe-repo`. Запишите, какой `codex app-server` запущен на хосте (путь, версия, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE` в окружении процесса) и какой `CODEX_HOME` он использует.
 2. Доверьте записи aang в Codex на хосте (`/hooks` в терминальном `codex` на хосте). `aang status` на хосте — hooks Codex активны.
 3. Сценарии 1–3 из раздела 3.3. Ожидается подпись Codex Desktop и строка `desktop_ssh`.
 
 ### 4.4. Откат
 
-На хосте `aang uninstall`, `aang stop`, `rm -rf ~/aang-q1-ssh ~/.aang`, доверие в `~/.codex/config.toml` хоста; на Mac — удалить подключения в Desktop, если они не нужны.
+На хосте, в терминале с `AANG_HOME="$HOME/aang-q1-ssh/home"`:
+
+```sh
+aang uninstall
+aang stop
+for file in hooks.json config.toml; do [ -f ~/aang-q1-ssh/saved/$file ] && cp -p ~/aang-q1-ssh/saved/$file ~/.codex/; done
+```
+
+Копии возвращают `hooks.json` и `config.toml` Codex к состоянию до проверки, вместе с доверием. Файл, которого до проверки не было, удалите сами: `aang uninstall` оставляет в `hooks.json` нейтрализованные записи (`true`), а доверие — в `config.toml`. Резервные копии `hooks.json.aang-backup-*`, созданные проверкой, тоже удаляет владелец.
+
+Если до проверки на хосте был установлен свой aang, в новом терминале без `AANG_HOME` выполните `aang install` и `aang start` своей установкой: это вернёт плагин и записи hooks Codex на его `AANG_HOME`, `aang status` должен совпасть с записанным до начала. Затем `rm -rf ~/aang-q1-ssh`: каталог `~/.aang` и прочие данные хоста проверка не трогала. На Mac — удалить подключения в Desktop, если они не нужны.
 
 ## 5. Часть 4 — путь OAuth на Linux
 
