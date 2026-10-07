@@ -11,7 +11,7 @@ import {
 import { objectId } from '@aang/contract/ids'
 import type { RawRecordReader, Transaction } from '@aang/store'
 import { type Adapters, collectedFields } from '../ingest/records.js'
-import { type HooksSilence, isSilent } from './silence.js'
+import { isSilent, type SessionSilence } from './silence.js'
 
 export interface SourceRecord {
   readonly raw: RawRecord
@@ -40,11 +40,13 @@ export const streamOwner = (
   }
 }
 
+type Silence = Omit<SessionSilence, 'awaiting'>
+
 const silenceGaps = (
   transaction: Transaction,
   session: Omit<Session, 'change_seq'>,
   at: EpochNs,
-  silences: readonly HooksSilence[],
+  { silences, hooks }: Silence,
   previous: SupportMode | null,
 ): void => {
   const current = new Set<string>()
@@ -63,7 +65,7 @@ const silenceGaps = (
     if (gap.session === session.id && gap.key.subject !== session.id && !current.has(gap.id)) {
       transaction.gaps.save({
         key: gap.key, session: gap.session, run: gap.run, stream: gap.stream,
-        details: gap.details, detected_at: gap.detected_at, closed_at: at,
+        details: gap.details, detected_at: gap.detected_at, closed_at: hooks.find((time) => time >= gap.detected_at) ?? at,
       })
     }
   }
@@ -73,12 +75,12 @@ export const sourceGaps = (
   transaction: Transaction,
   session: Omit<Session, 'change_seq'>,
   at: EpochNs,
-  silences: readonly HooksSilence[],
+  silence: Silence,
   previous: SupportMode | null,
 ): void => {
   const key = { kind: 'gap', gap: 'hooks_inactive', subject: session.id } as const
   const whole = transaction.gaps.get(objectId(key))
-  const inactive = session.support_mode === 'files_only' && !isSilent(silences)
+  const inactive = session.support_mode === 'files_only' && !isSilent(silence.silences)
   if (inactive || whole !== null) {
     transaction.gaps.save({
       key, session: session.id, run: session.run, stream: null,
@@ -87,7 +89,7 @@ export const sourceGaps = (
       closed_at: inactive ? null : whole?.closed_at ?? at,
     })
   }
-  silenceGaps(transaction, session, at, silences, previous)
+  silenceGaps(transaction, session, at, silence, previous)
   const unknown = { kind: 'gap', gap: 'unknown_records', subject: session.id } as const
   const unrecognised = transaction.gaps.get(objectId(unknown))
   if (session.unknown_records > 0) {

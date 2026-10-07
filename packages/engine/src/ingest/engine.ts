@@ -41,6 +41,7 @@ import {
   freshnessWatchOf,
   lostSessions,
   settleFreshness,
+  storedAwaitingHooks,
   watchFreshness,
 } from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
@@ -242,7 +243,7 @@ export const createEngine = ({
   let contracts = createContractCatalog(watch)
   const limits: HoldingLimits = { ...defaultHolding, ...holding }
   let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
-  let freshness = freshnessWatchOf(store.observations.sessions())
+  let freshness = freshnessWatchOf(store.observations.sessions(), storedAwaitingHooks(store.settings))
   let queue: Promise<unknown> = Promise.resolve()
   let failure: { readonly error: unknown } | null = null
 
@@ -258,30 +259,6 @@ export const createEngine = ({
     queue = result.then(() => undefined, () => undefined)
     return result
   }
-
-  const recoverAwaitedHooks = (): void => {
-    const sessions = store.observations.sessions()
-    const latest = sessions.reduce<bigint>((top, { last_event_at: at }) => (at > top ? at : top), 0n)
-    const horizon = latest - 2n * BigInt(hooksInactiveAfterMs) * 1_000_000n
-    const recent = sessions.filter(
-      ({ support_mode: mode, state, last_event_at: at }) => mode === 'full' && state !== 'ended' && at > horizon,
-    )
-    if (recent.length === 0) { return }
-    const watch = copyWatch(freshness)
-    store.transaction((transaction) => {
-      const instant = now()
-      const lost = lostSessions(transaction)
-      for (const { key } of recent) {
-        const projection = projectSession(transaction, key, [], lost, instant, freshnessLimits)
-        if (projection !== null) { watchFreshness(watch, projection) }
-      }
-      settleFreshness(transaction, watch, instant, freshnessLimits)
-    })
-    freshness = watch
-  }
-  enqueue(recoverAwaitedHooks).catch((error: unknown) => {
-    failure ??= { error }
-  })
 
   const criteria = createCriteriaMonitor({
     store,
@@ -801,13 +778,7 @@ export const createEngine = ({
       }
       transaction.settings.save(pruneEpochSetting, transaction.nextChangeSeq(), at)
     })
-    const sessions = store.observations.sessions()
-    const watch = freshnessWatchOf(sessions)
-    for (const { id } of sessions) {
-      const awaiting = freshness.hooks.get(id)
-      if (awaiting !== undefined) { watch.hooks.set(id, awaiting) }
-    }
-    freshness = watch
+    freshness = freshnessWatchOf(store.observations.sessions(), freshness.hooks)
     return { runs, boundaries }
   }
 

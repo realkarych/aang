@@ -8,10 +8,11 @@ export interface HooksSilence {
 
 export interface SessionSilence {
   readonly silences: readonly HooksSilence[]
+  readonly hooks: readonly EpochNs[]
   readonly awaiting: EpochNs | null
 }
 
-const noSilence: SessionSilence = { silences: [], awaiting: null }
+const noSilence: SessionSilence = { silences: [], hooks: [], awaiting: null }
 
 export const silenceDeadline = (from: EpochNs, afterMs: number): bigint => from + BigInt(afterMs) * 1_000_000n
 
@@ -22,30 +23,30 @@ const opensTurn = (item: Evidence): boolean => {
   return isFile(item) && fact.kind === 'prompt' && fact.speaker === 'human' && fact.payload.origin !== 'command'
 }
 
-const ascending = (left: EpochNs, right: EpochNs): number => (left < right ? -1 : left > right ? 1 : 0)
-
 export const hooksSilence = (
   root: readonly Evidence[],
   items: readonly Evidence[],
   now: EpochNs,
   afterMs: number,
 ): SessionSilence => {
-  const hooks = items.flatMap(({ fact, raw }) => (raw.channel === 'hook' ? [fact] : []))
-  const times = hooks.map(({ at }) => at).sort(ascending)
-  const first = times[0]
+  const hooks = items.filter(({ raw }) => raw.channel === 'hook').toSorted(byTime).map(({ fact }) => fact)
+  const first = hooks[0]?.at
   if (first === undefined) { return noSilence }
-  const turns = new Set(hooks.map(turnOf).filter((turn) => turn !== null))
+  const earlier = new Set<string>()
   const periods = new Map<EpochNs | null, EpochNs>()
   let next = 0
   for (const { fact } of root.filter(opensTurn).toSorted(byTime)) {
-    let until = times[next]
-    while (until !== undefined && until < fact.at) {
+    let hook = hooks[next]
+    while (hook !== undefined && hook.at < fact.at) {
+      const turn = turnOf(hook)
+      if (turn !== null) { earlier.add(turn) }
       next += 1
-      until = times[next]
+      hook = hooks[next]
     }
+    const until = hook?.at ?? null
     const turn = turnOf(fact)
-    if (fact.at < first || (turn !== null && turns.has(turn)) || periods.has(until ?? null)) { continue }
-    periods.set(until ?? null, fact.at)
+    if (fact.at < first || (turn !== null && earlier.has(turn)) || periods.has(until)) { continue }
+    periods.set(until, fact.at)
   }
   const silences: HooksSilence[] = []
   let awaiting: EpochNs | null = null
@@ -56,7 +57,7 @@ export const hooksSilence = (
       awaiting = from
     }
   }
-  return { silences, awaiting }
+  return { silences, hooks: hooks.map(({ at }) => at), awaiting }
 }
 
 export const isSilent = (silences: readonly HooksSilence[]): boolean => silences.some(({ until }) => until === null)

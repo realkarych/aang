@@ -264,7 +264,7 @@ export const projectSession = (
     started_at: startedAt,
     last_event_at: lastEventAt,
   }
-  sourceGaps(transaction, draft, lastEventAt, silence.silences, previous?.support_mode ?? null)
+  sourceGaps(transaction, draft, lastEventAt, silence, previous?.support_mode ?? null)
   const session = { ...draft, freshness: freshnessOf(draft, lost.has(id), now, limits.quietAfterMs) }
   const projected: string[] = [transaction.observations.save(session).id]
   const spawns: Spawn[] = []
