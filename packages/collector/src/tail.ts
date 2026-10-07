@@ -58,6 +58,8 @@ interface TrackedFile extends FailureState {
   examined: number | null
   stopped: FileState | null
   verified: FileState | null
+  observed: FileState | null
+  changedAt: number | null
 }
 
 interface Recovery extends FailureState {
@@ -115,8 +117,8 @@ const unchanged = (state: FileState | null, stats: BigIntStats): boolean =>
 const modifiedWithin = (stats: BigIntStats, days: number): boolean =>
   stats.mtimeMs >= BigInt(Date.now() - days * 86_400_000)
 
-const modifiedRecently = (stats: BigIntStats | null): boolean =>
-  stats?.isFile() === true && stats.mtimeMs >= BigInt(Date.now() - activeWindowMs)
+const resized = (state: FileState | null, stats: BigIntStats): boolean =>
+  state !== null && (state.dev !== stats.dev || state.ino !== stats.ino || state.size !== stats.size)
 
 const widest = (current: number | null | undefined, requested: number | null): number | null =>
   current === undefined ? requested : current === null || requested === null ? null : Math.max(current, requested)
@@ -212,7 +214,18 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     if (existing !== undefined) {
       return existing
     }
-    const file: TrackedFile = { path, root, cursor: null, failure: null, replay: false, examined: null, stopped: null, verified: null }
+    const file: TrackedFile = {
+      path,
+      root,
+      cursor: null,
+      failure: null,
+      replay: false,
+      examined: null,
+      stopped: null,
+      verified: null,
+      observed: null,
+      changedAt: null,
+    }
     files.set(path, file)
     return file
   }
@@ -243,7 +256,15 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     stats === null || hasNewData(file, stats) || unverified(file, stats)
 
   const observe = (file: TrackedFile, stats: BigIntStats | null): void => {
-    if (modifiedRecently(stats)) {
+    const now = Date.now()
+    if (stats !== null) {
+      if (resized(file.observed, stats)) {
+        file.changedAt = now
+      }
+      file.observed = stateOf(stats)
+    }
+    const since = now - activeWindowMs
+    if (stats?.isFile() === true && (stats.mtimeMs >= BigInt(since) || (file.changedAt !== null && file.changedAt >= since))) {
       active.add(file)
     } else {
       active.delete(file)

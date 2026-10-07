@@ -167,12 +167,16 @@ test('with fsWatch off appended lines are read within the scan interval', async 
   expect(running.payloads()).toEqual([line(1), line(2)])
 })
 
-test('with fsWatch off lines appended through a rollout held open by its writer are read within seconds without a roots scan', async ({
-  onTestFinished,
-}) => {
+test.for([
+  { mtime: 'moves with every write', stale: false },
+  { mtime: 'stays an hour old', stale: true },
+])('with fsWatch off lines appended through a rollout held open by its writer are read within seconds without a roots scan while its mtime $mtime', async ({
+  stale,
+}, { onTestFinished }) => {
   const sandbox = await createSandbox(onTestFinished)
   const path = rolloutPath(sandbox, 'rollout-held')
   const entry = (ordinal: number): string => JSON.stringify({ ordinal, type: 'response_item' })
+  const hourAgo = new Date(Date.now() - 3_600_000)
   await mkdir(dirname(path), { recursive: true })
   const writer = await open(path, 'a')
   sandbox.cleanup(() => writer.close())
@@ -186,6 +190,9 @@ test('with fsWatch off lines appended through a rollout held open by its writer 
   for (const ordinal of [1, 2, 3]) {
     const writtenAt = performance.now()
     await writer.write(`${entry(ordinal)}\n`)
+    if (stale) {
+      await writer.utimes(hourAgo, hourAgo)
+    }
     await vi.waitFor(
       () => {
         expect(running.arrivalOf((record) => record.payload === entry(ordinal))).toBeDefined()

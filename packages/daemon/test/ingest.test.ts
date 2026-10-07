@@ -250,13 +250,17 @@ describe.concurrent('the daemon takes collected records through the engine and a
     await mkdir(dirname(rollout), { recursive: true })
     const daemon = await spawnDaemon(home, onTestFinished)
     const writer = await open(rollout, 'a')
-    await writer.write(`${lines.slice(0, commandAt).join('\n')}\n`)
-    await waitUntil(() => storedCount(home, taken) === commandAt)
-    const appendedAt = performance.now()
-    await writer.write(`${lines[commandAt] ?? ''}\n`)
-    await waitUntil(() => storedCount(home, taken) === commandAt + 1)
-    const lagMs = performance.now() - appendedAt
-    await writer.close()
+    let lagMs: number
+    try {
+      await writer.write(`${lines.slice(0, commandAt).join('\n')}\n`)
+      await waitUntil(() => storedCount(home, taken) === commandAt)
+      const appendedAt = performance.now()
+      await writer.write(`${lines[commandAt] ?? ''}\n`)
+      await waitUntil(() => storedCount(home, taken) === commandAt + 1)
+      lagMs = performance.now() - appendedAt
+    } finally {
+      await writer.close()
+    }
     expect(await daemon.shutdown()).toBe(0)
 
     expect(lagMs).toBeLessThanOrEqual(3_000)
