@@ -54,6 +54,17 @@ const waitUntil = async (deadline: number, signal: AbortSignal | undefined): Pro
 const stepName = (index: number, step: PlayerStep): string =>
   `step ${String(index)} (${step.kind}${step.label === undefined ? '' : ` "${step.label}"`})`
 
+const sameTarget = (left: Target, right: Target): boolean => left.root === right.root && left.path === right.path
+
+const rewrittenRemovals = (steps: readonly PlayerStep[]): ReadonlySet<PlayerStep> =>
+  new Set(
+    steps.filter(
+      (step, index) =>
+        step.kind === 'remove' &&
+        steps.slice(index + 1).some((later) => later.kind === 'write' && sameTarget(later.target, step.target)),
+    ),
+  )
+
 const required = <T>(value: T | undefined, missing: () => string): T => {
   if (value === undefined) {
     throw new PlaybackError(missing())
@@ -83,6 +94,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
   const offsets = new Map<string, number>()
   const state = { next: 0, playing: false, lastHookEnd: Number.NEGATIVE_INFINITY }
   const processes = createSessionProcesses()
+  const rewritten = rewrittenRemovals(steps)
 
   const pathOf = (target: Target): string => resolveTarget(roots, processes.mapped(target))
 
@@ -130,7 +142,10 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
       }
       case 'remove':
         await remove(pathOf(step.target))
-        return processes.removed(step.target)
+        if (!rewritten.has(step)) {
+          await processes.removed(step.target)
+        }
+        return
       case 'move':
         return move(pathOf(step.target), pathOf(step.to))
       case 'archive':

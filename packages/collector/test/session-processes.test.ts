@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { claudeAdapter } from '@aang/adapter-claude'
 import type { CollectedRecord } from '@aang/contract'
 import { expect, test, vi } from 'vitest'
-import { createSandbox, runCollector, type Running, type Sandbox, sleep } from './sandbox.js'
+import { createSandbox, holdExclusively, runCollector, type Running, type Sandbox, sleep } from './sandbox.js'
 
 const processCheckIntervalMs = 50
 
@@ -111,4 +111,48 @@ test('a restarted collector finds the exited process of a remaining registry fil
   const [after] = exits(second)
   expect(after?.position).toEqual(before?.position)
   expect(after === undefined ? null : claudeAdapter.rawKey(after)).toBe(before === undefined ? null : claudeAdapter.rawKey(before))
+})
+
+test('the registry file of an exited process that cannot be read is a read_failed gap, and the exit is found once it can', async ({
+  onTestFinished,
+}) => {
+  const sandbox = await createSandbox(onTestFinished)
+  const solver = await startProcess(sandbox)
+  const content = entry(solver.pid, 'session-unreadable')
+  const path = await register(sandbox, `${String(solver.pid)}.json`, content)
+  const running = runCollector(sandbox, {
+    fsWatch: false,
+    rootsScanIntervalMs: 50,
+    processCheckIntervalMs,
+    readRetry: { pauseMs: 50, gapAfterMs: 300 },
+  })
+  await vi.waitFor(() => {
+    expect(snapshotsOf(running)).toEqual([path])
+  })
+  const release = await holdExclusively(sandbox, path)
+
+  await stopProcess(solver.child, 'SIGKILL')
+
+  await vi.waitFor(
+    () => {
+      expect(running.gaps()).toHaveLength(1)
+    },
+    { timeout: 10_000 },
+  )
+  const [opened] = running.gaps()
+  expect(opened).toMatchObject({ key: { kind: 'gap', gap: 'read_failed', subject: path }, stream: null, closed_at: null })
+  expect(exits(running)).toEqual([])
+
+  await release()
+
+  await vi.waitFor(
+    () => {
+      expect(exits(running)).toHaveLength(1)
+    },
+    { timeout: 10_000 },
+  )
+  expect(exits(running)[0]).toMatchObject({ position: { kind: 'process_exited', path, pid: solver.pid }, payload: content })
+  expect(running.gaps()).toHaveLength(2)
+  expect(running.gaps()[1]).toMatchObject({ key: opened?.key, detected_at: opened?.detected_at })
+  expect(running.gaps()[1]?.closed_at ?? 0n).toBeGreaterThanOrEqual(opened?.detected_at ?? 0n)
 })

@@ -1,10 +1,15 @@
+import { mkdir } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
+import { setTimeout as sleep } from 'node:timers/promises'
 import type { CollectorBatch, JsonValue } from '@aang/contract'
 import { contentHash, objectId } from '@aang/contract/ids'
 import type { Store } from '@aang/store'
-import { expect, onTestFinished, test } from 'vitest'
+import { createPlayer } from '@aang/testkit'
+import { expect, onTestFinished, test, vi } from 'vitest'
 import { batchOf, hookBatch, joinBatches } from './batches.js'
-import { factsOf } from './harness.js'
+import { factsOf, startEngine } from './harness.js'
 import { createHome } from './home.js'
+import { createLiveRoots, runLive } from './live.js'
 import { claudeHook } from './samples.js'
 import { at, clockedEngine, sessionId, source } from './session-fixtures.js'
 
@@ -31,8 +36,8 @@ const entry = (pid: number, status: string, startedAt: number): string =>
 
 const registryPath = (pid: number): string => `/claude/sessions/${String(pid)}.json`
 
-const registry = (pid: number, time: number, startedAt = time): CollectorBatch => {
-  const payload = entry(pid, 'busy', startedAt)
+const registry = (pid: number, time: number, startedAt = time, status = 'busy'): CollectorBatch => {
+  const payload = entry(pid, status, startedAt)
   return batchOf({ records: [{
     runtime: 'claude',
     channel: 'registry',
@@ -158,6 +163,47 @@ test('an exit found after a newer process of the session appeared does not end t
   expect(store.observations.questions(sessionId())).toMatchObject([{ decision: { value: 'requested' } }])
 })
 
+test('a resumed session that crashes again is unknown although the first crash was found after the resume', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  await engine.ingest(joinBatches(
+    started(123, 0),
+    processHook(123, 'PreToolUse', 10, bash('old', 'pnpm build')),
+    started(456, 50),
+  ))
+  await engine.ingest(joinBatches(
+    exited(123, 100, 0),
+    processHook(456, 'PreToolUse', 110, bash('new', 'pnpm test')),
+    processHook(456, 'PermissionRequest', 111, { tool_name: 'Bash', tool_input: { command: 'pnpm test' } }),
+  ))
+  expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'turn_running', execution: { state: 'waiting', reason: 'human' } })
+
+  await engine.ingest(exited(456, 200, 50))
+
+  expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'unknown', execution: { state: 'unknown' } })
+  expect(actionOf(store, 'new')).toMatchObject(unknownAfter(store, 456, 200))
+  expect(actionOf(store, 'old')).toMatchObject(unknownAfter(store, 123, 100))
+  expect(store.observations.questions(sessionId())).toMatchObject([{ decision: { value: 'unknown' }, answered_at: null }])
+})
+
+test('an older process still running after a newer one started does not hide the exit of the newer one', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  await engine.ingest(joinBatches(
+    started(123, 0),
+    started(456, 50),
+    registry(123, 60, 0, 'idle'),
+    exited(123, 100, 0),
+    processHook(456, 'PreToolUse', 110, bash('new', 'pnpm test')),
+  ))
+  expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'turn_running', execution: { state: 'running' } })
+
+  await engine.ingest(exited(456, 200, 50))
+
+  expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'unknown', execution: { state: 'unknown' } })
+  expect(actionOf(store, 'new')).toMatchObject(unknownAfter(store, 456, 200))
+})
+
 test('an ended session stays ended when the stale registry file of its process is found later', async () => {
   const store = (await createHome(onTestFinished)).open()
   const { engine } = clockedEngine(store)
@@ -168,4 +214,45 @@ test('an ended session stays ended when the stale registry file of its process i
     exited(123, 100, 0),
   ))
   expect(store.observations.getSession(sessionId())).toMatchObject({ state: 'ended', execution: { state: 'done' } })
+})
+
+test('the collector never finds exited a played process that removes and writes its registry entry again', async () => {
+  const processCheckIntervalMs = 20
+  const store = (await createHome(onTestFinished)).open()
+  const roots = await createLiveRoots(onTestFinished)
+  const home = join(dirname(roots.spool), 'home')
+  await mkdir(home, { recursive: true })
+  const live = runLive(onTestFinished, roots, store, startEngine(store, { all: true }), { processCheckIntervalMs })
+  const target = { root: 'claude', path: 'sessions/4545.json' } as const
+  const player = createPlayer(
+    {
+      file: 'rewritten registry entry',
+      steps: [
+        { at: 0, kind: 'write', target, source: 'busy.json' },
+        { at: 0, kind: 'remove', target },
+        { at: 0, kind: 'write', target, source: 'idle.json' },
+        { at: 0, kind: 'remove', target, label: 'removed' },
+      ],
+      sources: new Map([
+        ['busy.json', Buffer.from(entry(4545, 'busy', 0))],
+        ['idle.json', Buffer.from(entry(4545, 'idle', 0))],
+      ]),
+    },
+    { roots: { home, claude: roots.claude, codex: roots.codex }, timeScale: 0 },
+  )
+  onTestFinished(player.close)
+  const positions = () =>
+    live.batches().flatMap(({ records }) => records.map(({ position, payload }) => ({ kind: position.kind, payload })))
+
+  await player.play({ until: 'removed' })
+  await vi.waitFor(() => {
+    expect(positions()).toContainEqual({ kind: 'file', payload: expect.stringContaining('"status":"idle"') as string })
+  }, { timeout: 15_000 })
+  await sleep(processCheckIntervalMs * 10)
+  await player.play()
+  await vi.waitFor(() => {
+    expect(positions().at(-1)).toMatchObject({ kind: 'file_removed' })
+  }, { timeout: 15_000 })
+
+  expect(positions().map(({ kind }) => kind)).not.toContain('process_exited')
 })

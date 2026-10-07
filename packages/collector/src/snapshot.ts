@@ -222,23 +222,37 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     }
   }
 
-  const exitOf = async (file: SnapshotFile): Promise<CollectedRecord[]> => {
+  const exitOf = async (file: SnapshotFile): Promise<ReadOutcome> => {
     const pid = processOf(file)
     if (pid === null || !current(file) || file.exited) {
-      return []
+      return { records: [], gaps: [] }
     }
-    const content = await load(file.path).catch(absent)
+    let content: Loaded | null
+    try {
+      content = await load(file.path)
+    } catch (error) {
+      if (!isMissing(error)) {
+        return {
+          records: [],
+          gaps: retrier.failed(file, null, error, () => {
+            mark(file)
+          }),
+        }
+      }
+      content = null
+    }
+    const gaps = retrier.recovered(file)
     if (content === null || content.changing) {
-      return []
+      return { records: [], gaps }
     }
     const hash = contentHash(content.content)
     if (hash !== file.emitted) {
       mark(file)
-      return []
+      return { records: [], gaps }
     }
     file.exited = true
     const position: CollectedPosition = { kind: 'process_exited', path: file.path, pid, content_hash: hash }
-    return [record(file, position, nowNs(), content.content.toString('utf8'))]
+    return { records: [record(file, position, nowNs(), content.content.toString('utf8'))], gaps }
   }
 
   const read = async (file: SnapshotFile): Promise<ReadOutcome> => {
@@ -318,7 +332,9 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
     }
     for (const [path, file] of [...exiting]) {
       exiting.delete(path)
-      records.push(...(await exitOf(file)))
+      const outcome = await exitOf(file)
+      records.push(...outcome.records)
+      gaps.push(...outcome.gaps)
     }
     return records.length === 0 && gaps.length === 0 ? null : { records, cursors: [], gaps }
   }

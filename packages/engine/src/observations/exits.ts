@@ -14,31 +14,45 @@ interface ProcessSign {
 
 const decimal = /^\d+$/
 
-const pidOf = ({ fact, raw }: Evidence): number | null => {
+const signOf = ({ fact, raw }: Evidence): ProcessSign | null => {
   if (fact.kind === 'process_exited') {
-    return fact.payload.pid
+    const { pid, started_at: startedAt } = fact.payload
+    return startedAt === null ? null : { pid, at: startedAt }
   }
   if (fact.kind === 'json_snapshot' && fact.payload.file === 'registry') {
-    return fact.payload.content?.pid ?? null
+    const pid = fact.payload.content?.pid ?? null
+    return pid === null ? null : { pid, at: fact.at }
   }
   const pid = raw.hook?.env.CLAUDE_PID
-  return pid !== undefined && decimal.test(pid) ? Number(pid) : null
+  return pid !== undefined && decimal.test(pid) ? { pid: Number(pid), at: fact.at } : null
+}
+
+const launches = (items: readonly Evidence[]): Map<number, EpochNs> => {
+  const first = new Map<number, EpochNs>()
+  for (const item of items) {
+    const sign = signOf(item)
+    if (sign === null) {
+      continue
+    }
+    const known = first.get(sign.pid)
+    if (known === undefined || sign.at < known) {
+      first.set(sign.pid, sign.at)
+    }
+  }
+  return first
 }
 
 const earliest = (times: readonly EpochNs[]): EpochNs | null =>
   times.reduce<EpochNs | null>((first, at) => (first === null || at < first ? at : first), null)
 
 export const processExits = (items: readonly Evidence[]): ProcessExit[] => {
-  const signs = items.flatMap((item): ProcessSign[] => {
-    const pid = pidOf(item)
-    return pid === null ? [] : [{ pid, at: item.fact.at }]
-  })
+  const launched = launches(items)
   return ofKind(items, 'process_exited')
     .map((evidence): ProcessExit => {
-      const { pid, started_at: startedAt } = evidence.fact.payload
+      const { pid } = evidence.fact.payload
       const exitedAt = evidence.fact.at
-      const start = startedAt ?? earliest(signs.filter((sign) => sign.pid === pid).map(({ at }) => at)) ?? exitedAt
-      const next = earliest(signs.filter((sign) => sign.pid !== pid && sign.at > start).map(({ at }) => at))
+      const start = launched.get(pid) ?? exitedAt
+      const next = earliest([...launched].flatMap(([other, at]) => (other !== pid && at > start ? [at] : [])))
       return {
         evidence,
         cut: next !== null && next < exitedAt ? next : exitedAt,

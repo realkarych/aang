@@ -4,7 +4,7 @@ import { join, relative } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { createPlayer, loadManifest, ManifestError, PlaybackError } from '@aang/testkit'
 import { describe, test } from 'vitest'
-import { createFixture, linesOf, sampleBytes } from './manifests.js'
+import { createFixture, isAlive, linesOf, sampleBytes } from './manifests.js'
 
 const transcriptSample = 'claude-code-transcripts/session-86f93ed5-main-full.jsonl'
 const transcriptTarget = { root: 'claude', path: 'projects/-tmp-aang-spike-cc-transcripts-run/86f93ed5.jsonl' }
@@ -20,15 +20,6 @@ const filesUnder = async (root: string): Promise<Record<string, string>> => {
       }),
   )
   return Object.fromEntries(files.sort(([left], [right]) => left.localeCompare(right)))
-}
-
-const isAlive = (pid: number): boolean => {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch (error) {
-    return !(error instanceof Error && 'code' in error && error.code === 'ESRCH')
-  }
 }
 
 describe.concurrent('the file player reproduces runtime files in a temporary profile', () => {

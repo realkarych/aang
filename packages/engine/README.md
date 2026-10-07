@@ -926,11 +926,13 @@ A Claude adapter `process_exited` fact says that the process of a registry file
 payload carries the pid, the path and `started_at` from the entry's `startedAt`.
 
 The session projection derives each exit's boundary from the session's own
-evidence. A sign of a process is a registry entry, an exit or a hook with a
-`CLAUDE_PID` in its spool header. The next process is the earliest sign of
-another pid after the exited process started (`started_at`, otherwise its
-earliest sign). The boundary is the exit time, or the next process if it came
-earlier.
+evidence. A sign of a process is a registry entry, a hook with a `CLAUDE_PID` in
+its spool header, or the `started_at` of an exit of that pid; the time an exit
+was found is not a sign of any process. A process starts at its earliest sign.
+The next process is the earliest start of another pid after the exited process
+started, so the late signs of an older process, such as its own exit found
+after a resume, never count as a newer one. The boundary is the exit time, or
+the next process if it came earlier.
 
 - When no other process appeared before the exit was found, the exit is current:
   the session becomes `unknown` with `unknown` execution at the exit time,
