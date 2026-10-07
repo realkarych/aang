@@ -49,7 +49,7 @@ Commands use the existing process runner from `@aang/observer`, including proces
 
 ## Capture and control events
 
-The recorder scans during commands every 25 ms and at command boundaries and explicit checkpoints. It captures:
+The recorder scans during commands every 25 ms and at command boundaries and explicit checkpoints. A scan during a command reads only what changed, so hour-long live sessions keep their timing: a file with the same size and modification time is skipped, a growing JSONL file is read from its last complete line after its tail is compared, and only new spool deliveries are read; a tick that comes while a scan runs is skipped instead of queued. A scan at a command boundary or checkpoint reads whole files and compares the captured prefix by its digest, so a rewritten JSONL file becomes a snapshot. It captures:
 
 - Claude `projects`, `teams`, `tasks`, and session-registry JSON/JSONL files;
 - Codex `sessions` and `archived_sessions` JSON/JSONL files;
