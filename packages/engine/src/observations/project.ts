@@ -32,6 +32,7 @@ import {
   sessionEvidence,
 } from './evidence.js'
 import { projectActions } from './actions.js'
+import { exitAfter, type ProcessExit, processExits } from './exits.js'
 import { type QuestionAttention, reconcileRuleAttention } from './attention.js'
 import { questionOutcome, type SessionFacts, sessionFacts } from './questions.js'
 import { redeliveries, registrationOf } from './redelivery.js'
@@ -48,6 +49,7 @@ interface SessionContext {
   readonly identity: AgentIdentity
   readonly spawners: ReadonlyMap<string, KindEvidence<'action_start'>>
   readonly fork: boolean
+  readonly exits: readonly ProcessExit[]
 }
 
 const spawnersOf = (items: readonly Evidence[]): Map<string, KindEvidence<'action_start'>> => {
@@ -65,7 +67,7 @@ const projectAgent = (
   transaction: Transaction,
   key: AgentKey,
   items: readonly Evidence[],
-  { run, identity, spawners, fork }: SessionContext,
+  { run, identity, spawners, fork, exits }: SessionContext,
   sessionExecution: Execution,
 ): Spawn | null => {
   const starts = ofKind(items, 'agent_start')
@@ -89,6 +91,8 @@ const projectAgent = (
       ? 'teammate'
       : (start?.payload.role ?? (main ? 'main' : service !== null ? 'service' : 'subagent'))
   const status = turnState(items)
+  const startedAt = starts.toSorted(byTime)[0]?.fact.at ?? items.toSorted(byTime)[0]?.fact.at
+  const exited = startedAt !== undefined && exitAfter(exits, startedAt) !== null
   const spawnedByAction =
     spawnedBy === null ? null : objectId({ kind: 'action', runtime: key.runtime, session: key.session, call: spawnedBy })
   const draft: ObservationDraft = {
@@ -106,7 +110,9 @@ const projectAgent = (
     spawned_by: spawnedByAction,
     execution:
       main ? sessionExecution : end === undefined
-        ? status.state === 'unknown' ? { state: starts.length === 0 ? 'unknown' : 'running' } : status.execution
+        ? exited || status.state === 'unknown'
+          ? { state: exited || starts.length === 0 ? 'unknown' : 'running' }
+          : status.execution
         : {
             state:
               end.payload.outcome === 'completed'
@@ -203,11 +209,13 @@ export const projectSession = (
     return null
   }
   const identity = agentIdentity(key, items)
+  const exits = processExits(items)
   const context: SessionContext = {
     run: sessionRun(transaction, key),
     identity,
     spawners: spawnersOf(items),
     fork: isFork(lineage),
+    exits,
   }
   const root = items.filter(({ fact }) => identity.of(fact).agent.kind === 'main')
   const starts = ofKind(root, 'session_start')
@@ -233,7 +241,8 @@ export const projectSession = (
   const startedAt = times[0]
   const lastEventAt = times.at(-1)
   if (startedAt === undefined || lastEventAt === undefined) { return null }
-  const status = turnState(root, items)
+  const lapsed = new Set(exits.flatMap(({ evidence, current }) => (current ? [] : [evidence.fact.id])))
+  const status = turnState(root.filter(({ fact }) => !lapsed.has(fact.id)), items)
   const draft: Omit<Session, 'change_seq'> = {
     id,
     key,
@@ -292,10 +301,10 @@ export const projectSession = (
     }
   }
   projected.push(
-    ...projectActions(transaction, key, evidence, { run: context.run, identity, inherited: lineage.inherited }),
+    ...projectActions(transaction, key, evidence, { run: context.run, identity, inherited: lineage.inherited, exits }),
     ...projectUsage(transaction, evidence, { run: context.run, identity, inherited: lineage.inherited }),
   )
-  const facts = sessionFacts(items)
+  const facts = sessionFacts(items, exits)
   const questions: QuestionAttention[] = []
   for (const [name, entityItems] of entityEvidence(items)) {
     const entity = entityItems[0].fact.entity_key

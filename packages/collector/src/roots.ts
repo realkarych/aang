@@ -1,4 +1,4 @@
-import { join } from 'node:path'
+import { basename, join } from 'node:path'
 import type { Runtime } from '@aang/contract'
 import type { SnapshotRoot } from './snapshot.js'
 import type { TailRoot } from './tail.js'
@@ -26,6 +26,12 @@ const isTeamConfig = (segments: readonly string[]): boolean => segments.length =
 const isRegistryEntry = (segments: readonly string[]): boolean =>
   segments.length === 1 && (segments[0] ?? '').endsWith(jsonExtension)
 
+const registryPid = (path: string): number | null => {
+  const name = basename(path, jsonExtension)
+  const pid = /^\d+$/.test(name) ? Number(name) : 0
+  return Number.isSafeInteger(pid) && pid > 0 ? pid : null
+}
+
 export const collectorRoots = (runtimeRoots: Readonly<Record<Runtime, string>>): CollectorRoots => {
   const claudeProjects: TreeRoot = { directory: join(runtimeRoots.claude, 'projects'), recursive: true }
   const claudeTeams: TreeRoot = { directory: join(runtimeRoots.claude, 'teams'), recursive: true }
@@ -40,7 +46,7 @@ export const collectorRoots = (runtimeRoots: Readonly<Record<Runtime, string>>):
       { root: codexArchive, runtime: 'codex', channel: 'rollout' },
     ],
     snapshots: [
-      { root: claudeRegistry, runtime: 'claude', channel: 'registry', selects: isRegistryEntry },
+      { root: claudeRegistry, runtime: 'claude', channel: 'registry', selects: isRegistryEntry, process: registryPid },
       { root: claudeTeams, runtime: 'claude', channel: 'transcript', selects: isTeamConfig },
       { root: claudeProjects, runtime: 'claude', channel: 'transcript', selects: isProjectSnapshot },
     ],

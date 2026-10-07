@@ -22,6 +22,15 @@ const filesUnder = async (root: string): Promise<Record<string, string>> => {
   return Object.fromEntries(files.sort(([left], [right]) => left.localeCompare(right)))
 }
 
+const isAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return !(error instanceof Error && 'code' in error && error.code === 'ESRCH')
+  }
+}
+
 describe.concurrent('the file player reproduces runtime files in a temporary profile', () => {
   test('retrying a failed append writes the original chunk and resumes without skipping source bytes', async ({
     expect,
@@ -353,6 +362,62 @@ describe.concurrent('the file player reproduces runtime files in a temporary pro
         })
       ).ino,
     ).toBe(rolloutInode)
+  })
+
+  test('a recorded Claude session process is stood in by a live process that its registry entry names until the entry is removed', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const entry = { root: 'claude' as const, path: 'sessions/4242.json' }
+    const file = await manifest('session process', {
+      sources: {
+        'busy.json': '{"pid":4242,"sessionId":"s1","status":"busy"}',
+        'idle.json': '{"pid":4242,"sessionId":"s1","status":"idle"}',
+      },
+      steps: [
+        { at: 0, kind: 'write', target: entry, source: 'busy.json' },
+        { at: 1, kind: 'write', target: entry, source: 'idle.json', label: 'idle' },
+        { at: 2, kind: 'remove', target: entry, label: 'removed' },
+      ],
+    })
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0 })
+    onTestFinished(player.close)
+
+    await player.play({ until: 'idle' })
+
+    const [[standIn, recorded] = [0, 0]] = [...player.recordedPids()]
+    expect(recorded).toBe(4242)
+    expect(isAlive(standIn)).toBe(true)
+    expect(player.pathOf(entry)).toBe(join(profile.claude, 'sessions', `${String(standIn)}.json`))
+    expect(JSON.parse(await readFile(player.pathOf(entry), 'utf8'))).toEqual({ pid: standIn, sessionId: 's1', status: 'busy' })
+    expect(existsSync(join(profile.claude, 'sessions', '4242.json'))).toBe(false)
+    await player.play({ until: 'removed' })
+    expect(JSON.parse(await readFile(player.pathOf(entry), 'utf8'))).toEqual({ pid: standIn, sessionId: 's1', status: 'idle' })
+
+    await player.play()
+
+    expect(existsSync(player.pathOf(entry))).toBe(false)
+    expect(isAlive(standIn)).toBe(false)
+  })
+
+  test('killing the recorded session processes leaves their registry entries behind', async ({ expect, onTestFinished }) => {
+    const { profile, manifest } = await createFixture(onTestFinished)
+    const entry = { root: 'claude' as const, path: 'sessions/4343.json' }
+    const file = await manifest('killed session process', {
+      sources: { 'busy.json': '{"pid":4343,"sessionId":"s2","status":"busy"}' },
+      steps: [{ at: 0, kind: 'write', target: entry, source: 'busy.json' }],
+    })
+    const player = createPlayer(await loadManifest(file), { roots: profile, timeScale: 0 })
+    onTestFinished(player.close)
+    await player.play()
+    const [[standIn] = [0]] = [...player.recordedPids()]
+    expect(isAlive(standIn)).toBe(true)
+
+    await player.killSessionProcesses()
+
+    expect(isAlive(standIn)).toBe(false)
+    expect(JSON.parse(await readFile(player.pathOf(entry), 'utf8'))).toEqual({ pid: standIn, sessionId: 's2', status: 'busy' })
   })
 
   test('a manifest that cannot be played is rejected with the reason before it plays', async ({

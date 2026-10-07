@@ -18,7 +18,7 @@ Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<o
 
 ## Playback
 
-Each recording plays into a temporary HOME with the testkit player, the real `aang-hook` with a leased spool, and the collector's OTLP receiver. The collector scans every 10 ms and its batches go through `engine.ingest` with `watch.all`, wired as the daemon wires them: acknowledgements, rescans requested by the engine, and open `source_lost` gaps passed to the collector at start.
+Each recording plays into a temporary HOME with the testkit player, the real `aang-hook` with a leased spool, and the collector's OTLP receiver. The player stands in a live process for every recorded Claude session process: a registry entry and the `CLAUDE_PID` of a hook name the stand-in, so the collector's process check finds the session alive, and the stand-in ends once its registry entry is removed. The collector scans every 10 ms and its batches go through `engine.ingest` with `watch.all`, wired as the daemon wires them: acknowledgements, rescans requested by the engine, and open `source_lost` gaps passed to the collector at start.
 
 A step labelled `daemon-restart` (the reconnect scenario) restarts the ingestion once the step is reflected: the collector and the engine stop, the store closes and reopens from the same directory, and a new collector starts from the cursors and open gaps saved in the store, with the same spool and OTLP port. A `reconnect` recording without such a step fails the run, so `reconnect` is `passed` only after a real restart.
 
@@ -44,7 +44,8 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 - hook spool file names, which carry the receipt time, become `spool#<n>` in the order the hooks were collected;
 - values of fields typed as ids in the `@aang/contract` schemas (derived and assigned) become `#<n>` in order of first appearance, and lists of ids are ordered by these labels; any other text, including text shaped like a hash, stays as it is;
 - object lists are ordered by their keys with ids and times masked;
-- the temporary playback directory becomes `<base>` with `/` separators, including JSON-escaped Windows paths.
+- the temporary playback directory becomes `<base>` with `/` separators, including JSON-escaped Windows paths;
+- the pid of a stand-in process becomes the recorded pid in registry paths and in the `pid` of registry entries.
 
 ## Invariants
 

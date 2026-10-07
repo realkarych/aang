@@ -120,7 +120,7 @@ const hookTarget = (profile: Profile): { binary: string; spool: string; env: Pro
 describe.concurrent(
   'the player delivers hook events through the real aang-hook and OTLP requests to a receiver',
   () => {
-    test('hook events of both runtimes reach a leased spool without a daemon, in their original order and with their headers', async ({
+    test('hook events of both runtimes reach a leased spool without a daemon, in their original order and with their headers, the Claude pid naming the stand-in of the recorded process', async ({
       expect,
       onTestFinished,
     }) => {
@@ -145,14 +145,20 @@ describe.concurrent(
       })
       await leaseSpool(profile.spool)
 
-      await createPlayer(await loadManifest(file), { roots: profile, hook: hookTarget(profile), timeScale: 0 }).play()
+      const player = createPlayer(await loadManifest(file), { roots: profile, hook: hookTarget(profile), timeScale: 0 })
+      onTestFinished(player.close)
+      await player.play()
 
+      const standIns = [...player.recordedPids()]
+      expect(standIns.map(([, recorded]) => String(recorded))).toEqual([claudeEnv.CLAUDE_PID])
+      const standIn = String(standIns[0]?.[0])
+      expect(standIn).not.toBe(claudeEnv.CLAUDE_PID)
       const spooled = await readSpool(profile.spool)
       expect(spooled.map(({ header, payload }) => ({ ...header, payload: payload.toString('utf8') }))).toEqual(
         events.map(({ runtime, registration, env, payload }) => ({
           runtime,
           registration,
-          env,
+          env: runtime === 'claude' ? { ...env, CLAUDE_PID: standIn } : env,
           payload: payload.toString('utf8'),
         })),
       )

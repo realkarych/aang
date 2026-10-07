@@ -10,7 +10,7 @@ import type {
   Runtime,
 } from '@aang/contract'
 import { contentHash } from '@aang/contract/ids'
-import { absent, isMissing } from './errors.js'
+import { absent, errorCode, isMissing } from './errors.js'
 import type { Backoff, Failure, Retrier } from './retry.js'
 import { epochNs, millisecondsToNs, nowNs } from './time.js'
 import { segmentsOf, type TreeRoot } from './tree.js'
@@ -21,14 +21,17 @@ export interface SnapshotRoot {
   readonly runtime: Runtime
   readonly channel: 'transcript' | 'registry'
   readonly selects: (segments: readonly string[]) => boolean
+  readonly process?: (path: string) => number | null
 }
 
 export interface SnapshotOptions {
   readonly roots: readonly SnapshotRoot[]
   readonly retrier: Retrier
+  readonly processCheckIntervalMs: number
 }
 
 export interface SnapshotSource {
+  readonly open: () => void
   readonly changed: (root: TreeRoot, path: string) => void
   readonly listed: (root: TreeRoot, paths: readonly string[]) => Promise<void>
   readonly take: () => Promise<CollectorBatch | null>
@@ -47,6 +50,7 @@ interface SnapshotFile {
   emitted: ContentHash | null
   unsettled: Unsettled | null
   failure: Failure | null
+  exited: boolean
 }
 
 interface Loaded {
@@ -70,6 +74,15 @@ const fingerprint = (stats: BigIntStats): string => [stats.dev, stats.ino, stats
 const recheckAfter = (stats: BigIntStats, startedAt: EpochNs): EpochNs | null => {
   const trustedFrom = epochNs(stats.mtimeNs + mtimeGranularityNs)
   return trustedFrom > startedAt ? trustedFrom : null
+}
+
+const isAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (error) {
+    return errorCode(error) !== 'ESRCH'
+  }
 }
 
 const isJson = (text: string): boolean => {
@@ -102,13 +115,24 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
   const sources = new Map(options.roots.map((source) => [source.root, source]))
   const files = new Map<string, SnapshotFile>()
   const dirty = new Map<string, SnapshotFile>()
+  const exiting = new Map<string, SnapshotFile>()
+  let timer: NodeJS.Timeout | null = null
 
   const track = (source: SnapshotRoot, path: string): SnapshotFile => {
     const existing = files.get(path)
     if (existing !== undefined) {
       return existing
     }
-    const file: SnapshotFile = { path, source, seen: null, recheckAt: null, emitted: null, unsettled: null, failure: null }
+    const file: SnapshotFile = {
+      path,
+      source,
+      seen: null,
+      recheckAt: null,
+      emitted: null,
+      unsettled: null,
+      failure: null,
+      exited: false,
+    }
     files.set(path, file)
     return file
   }
@@ -182,7 +206,39 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
       return []
     }
     file.emitted = hash
+    file.exited = false
     return [record(file, { kind: 'file', path: file.path, content_hash: hash }, epochNs(stats.mtimeNs), payload)]
+  }
+
+  const processOf = (file: SnapshotFile): number | null => file.source.process?.(file.path) ?? null
+
+  const checkProcesses = (): void => {
+    for (const file of files.values()) {
+      const pid = processOf(file)
+      if (pid !== null && file.emitted !== null && !file.exited && !exiting.has(file.path) && !isAlive(pid)) {
+        exiting.set(file.path, file)
+        wakeup.notify()
+      }
+    }
+  }
+
+  const exitOf = async (file: SnapshotFile): Promise<CollectedRecord[]> => {
+    const pid = processOf(file)
+    if (pid === null || !current(file) || file.exited) {
+      return []
+    }
+    const content = await load(file.path).catch(absent)
+    if (content === null || content.changing) {
+      return []
+    }
+    const hash = contentHash(content.content)
+    if (hash !== file.emitted) {
+      mark(file)
+      return []
+    }
+    file.exited = true
+    const position: CollectedPosition = { kind: 'process_exited', path: file.path, pid, content_hash: hash }
+    return [record(file, position, nowNs(), content.content.toString('utf8'))]
   }
 
   const read = async (file: SnapshotFile): Promise<ReadOutcome> => {
@@ -260,15 +316,29 @@ export const createSnapshotSource = (options: SnapshotOptions, wakeup: Wakeup): 
       gaps.push(...outcome.gaps)
       bytes += outcome.records.reduce((total, { payload }) => total + payload.length, 0)
     }
+    for (const [path, file] of [...exiting]) {
+      exiting.delete(path)
+      records.push(...(await exitOf(file)))
+    }
     return records.length === 0 && gaps.length === 0 ? null : { records, cursors: [], gaps }
   }
 
+  const open = (): void => {
+    if (timer === null && options.roots.some(({ process }) => process !== undefined)) {
+      timer = setInterval(checkProcesses, options.processCheckIntervalMs)
+    }
+  }
+
   const close = (): void => {
+    if (timer !== null) {
+      clearInterval(timer)
+      timer = null
+    }
     for (const file of files.values()) {
       clearTimeout(file.unsettled?.timer)
       clearTimeout(file.failure?.timer)
     }
   }
 
-  return { changed, listed, take, close }
+  return { open, changed, listed, take, close }
 }

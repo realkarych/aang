@@ -18,6 +18,7 @@ import type {
 } from '@aang/contract'
 import { canonicalJson, objectId } from '@aang/contract/ids'
 import { agentKey, byContent, byTime, type Evidence, grouped, type KindEvidence, ofKind } from './evidence.js'
+import type { ProcessExit } from './exits.js'
 
 export interface Grounds {
   readonly at: EpochNs
@@ -40,11 +41,12 @@ export interface QuestionOutcome {
 
 export interface SessionFacts {
   readonly of: <K extends FactKind>(kind: K) => KindEvidence<K>[]
+  readonly exits: readonly ProcessExit[]
 }
 
-export const sessionFacts = (items: readonly Evidence[]): SessionFacts => {
+export const sessionFacts = (items: readonly Evidence[], exits: readonly ProcessExit[] = []): SessionFacts => {
   const kinds = grouped(items, ({ fact }) => fact.kind)
-  return { of: (kind) => ofKind(kinds.get(kind) ?? [], kind) }
+  return { of: (kind) => ofKind(kinds.get(kind) ?? [], kind), exits }
 }
 
 type Request = FactOf<'permission_request'>
@@ -141,8 +143,10 @@ const turnBoundaries = (session: SessionFacts, agent: string): Evidence[] => [
   ...session.of('prompt').filter(({ fact }) => fact.speaker === 'human' && agentName(fact) === agent),
 ]
 
-const waitEnders = (session: SessionFacts, opening: Fact): Evidence[] =>
-  since(turnBoundaries(session, agentName(opening)), opening.at)
+const waitEnders = (session: SessionFacts, opening: Fact): Evidence[] => [
+  ...since(turnBoundaries(session, agentName(opening)), opening.at),
+  ...session.exits.flatMap(({ evidence, cut }) => (opening.at < cut ? [evidence] : [])),
+]
 
 const turnOpening = (session: SessionFacts, request: Request): EpochNs | null =>
   turnBoundaries(session, agentName(request)).reduce<EpochNs | null>(

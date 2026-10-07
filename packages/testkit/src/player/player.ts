@@ -1,8 +1,9 @@
 import { setTimeout as sleep } from 'node:timers/promises'
 import { appendTo, archivedPath, move, type PlayerRoots, remove, resolveTarget, writeWhole } from './files.js'
 import { type HookTarget, invokeHook } from './hook.js'
-import type { AppendStep, LoadedManifest, PlayerStep } from './manifest.js'
+import type { AppendStep, LoadedManifest, PlayerStep, Target } from './manifest.js'
 import { sendOtlp } from './otlp.js'
+import { createSessionProcesses } from './processes.js'
 import { playbackShift, type RecordTime, shifted, unshifted } from './record-time.js'
 
 export interface PlayerOptions {
@@ -29,6 +30,10 @@ export interface Player {
   readonly position: () => number
   readonly finished: () => boolean
   readonly play: (options?: PlayOptions) => Promise<PlayedStep[]>
+  readonly pathOf: (target: Target) => string
+  readonly recordedPids: () => ReadonlyMap<number, number>
+  readonly killSessionProcesses: () => Promise<void>
+  readonly close: () => Promise<void>
 }
 
 export class PlaybackError extends Error {
@@ -77,6 +82,9 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
   const timed = new Map([...manifest.sources].map(([name, content]) => [name, shifted(content, shift)] as const))
   const offsets = new Map<string, number>()
   const state = { next: 0, playing: false, lastHookEnd: Number.NEGATIVE_INFINITY }
+  const processes = createSessionProcesses()
+
+  const pathOf = (target: Target): string => resolveTarget(roots, processes.mapped(target))
 
   const recorded = (name: string): Buffer =>
     required(timed.get(name), () => `${file}: source ${name} is not loaded`)
@@ -112,18 +120,21 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     switch (step.kind) {
       case 'append': {
         const { chunk, end } = nextChunk(step)
-        await appendTo(resolveTarget(roots, step.target), chunk)
+        await appendTo(pathOf(step.target), chunk)
         offsets.set(step.source, end)
         return
       }
-      case 'write':
-        return writeWhole(resolveTarget(roots, step.target), recorded(step.source))
+      case 'write': {
+        const target = resolveTarget(roots, await processes.started(step.target))
+        return writeWhole(target, processes.content(step.target, recorded(step.source)))
+      }
       case 'remove':
-        return remove(resolveTarget(roots, step.target))
+        await remove(pathOf(step.target))
+        return processes.removed(step.target)
       case 'move':
-        return move(resolveTarget(roots, step.target), resolveTarget(roots, step.to))
+        return move(pathOf(step.target), pathOf(step.to))
       case 'archive':
-        return move(resolveTarget(roots, step.target), archivedPath(roots, step.target.path))
+        return move(pathOf(step.target), archivedPath(roots, step.target.path))
       case 'hook': {
         const target = required(options.hook, () => 'no hook target')
         await waitUntil(state.lastHookEnd + hookSpacingMs, signal)
@@ -131,7 +142,7 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
           await invokeHook(target, {
             runtime: step.runtime,
             registration: step.registration,
-            env: step.env,
+            env: step.runtime === 'claude' ? await processes.hookEnv(step.env) : step.env,
             payload: recorded(step.source),
           })
         } finally {
@@ -194,5 +205,9 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     position: () => state.next,
     finished: () => state.next === steps.length,
     play,
+    pathOf,
+    recordedPids: processes.recorded,
+    killSessionProcesses: processes.kill,
+    close: processes.close,
   }
 }
