@@ -127,6 +127,7 @@ export const Config = z.strictObject({
   freshness: z
     .strictObject({
       quietAfterMs: milliseconds.default(5 * minute),
+      hooksInactiveAfterMs: milliseconds.default(30 * second),
     })
     .prefault({}),
 })
