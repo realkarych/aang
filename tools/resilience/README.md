@@ -13,7 +13,7 @@ node tools/resilience/dist/main.js --out resilience-report --only sources --only
 | --- | --- |
 | `--out` | report directory: `report.json` and `summary.md` (default `resilience-report`) |
 | `--only` | an area (`restart`, `sources`, `hooks`, `divergence`, `lineage`) or `area/name`; repeatable |
-| `--claude`, `--codex` | CLI executables; default: the first on `PATH` |
+| `--claude`, `--codex` | CLI executables; default: found as `tools/record` finds them (`PATH`, the native Claude install, the Codex executable of the npm package on Windows) |
 | `--aang` | entry of the built aang package (default `packages/aang/dist/main.js`) |
 | `--keep` | keep the temporary profile of each scenario and print its path |
 | `--list` | print the scenario names |
@@ -31,4 +31,8 @@ node tools/resilience/dist/main.js --out resilience-report --only sources --only
 
 Each scenario records its steps with times, its checks (expected and observed) and observations. A check that fails because of a documented finding carries `known` with the finding id from `src/findings.ts`; such a scenario is `known`, not `failed`, and does not fail the run. The process exits with 1 only for unexpected failures.
 
-The `Resilience` workflow runs all scenarios on Linux and macOS with the CLI versions pinned in it and uploads the report. Windows is not covered by this tool yet (see the research report).
+The report replaces the temporary and home directories with `<tmp>` and `~`, also inside the Claude project directory names that encode them, and is not written if it still names a user path.
+
+A daemon exit or the cleanup of a scenario that does not finish within 60 s fails that scenario: the report lists the processes of its profile that were still running, and they are killed.
+
+The `Resilience` workflow runs all scenarios on Linux, macOS and Windows with the CLI versions pinned in it and uploads the report. On Windows Claude runs its Bash tool in Git Bash and Codex its commands in PowerShell; the gate command works in both.

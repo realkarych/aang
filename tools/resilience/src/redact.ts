@@ -7,7 +7,7 @@ const literal = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\
 
 const resolved = (path: string): readonly string[] => {
   try {
-    return [path, realpathSync(path)]
+    return [path, realpathSync(path), realpathSync.native(path)]
   } catch {
     return [path]
   }
