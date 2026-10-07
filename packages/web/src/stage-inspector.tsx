@@ -19,7 +19,7 @@ import { AttentionGlyph, LevelGlyph } from './glyphs.js'
 import { BasisLine, Grounds, Groundwork, shortId } from './grounds.js'
 import { agentRoleLabel, attentionAuthorLabel, attentionKindLabel, executionLabel } from './labels.js'
 import { agentTitle } from './objects.js'
-import { stageHref, useSelect } from './route.js'
+import { stageHref, useRoutedMode, useSelect } from './route.js'
 import { StageArtifacts } from './stage-artifacts.js'
 import { StageCriteria } from './stage-criteria.js'
 import { RejectedCalls, StageHistory } from './stage-history.js'
@@ -78,8 +78,9 @@ const StageLink = ({
   readonly titles: ReadonlyMap<StageId, string>
 }): ReactElement => {
   const select = useSelect()
+  const mode = useRoutedMode()
   return (
-    <a className="stage-link" href={stageHref(run, stage)} onClick={select}>
+    <a className="stage-link" href={stageHref(run, stage, mode)} onClick={select}>
       {titles.get(stage) ?? `этап ${shortId(stage)}`}
     </a>
   )

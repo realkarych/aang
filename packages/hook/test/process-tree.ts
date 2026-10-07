@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process'
 import { existsSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { buffer } from 'node:stream/consumers'
 import { setTimeout } from 'node:timers/promises'
 
@@ -43,6 +44,13 @@ switch (mode) {
   }
   case 'orphan':
     await startDescendant()
+    break
+  case 'reply':
+    publish('root.pid', String(process.pid))
+    for await (const line of createInterface({ input: process.stdin })) {
+      process.stdout.write(`reply ${line}\n`)
+    }
+    stayAlive()
     break
   case 'hold':
     await startDescendant()

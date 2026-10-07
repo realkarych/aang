@@ -7,12 +7,12 @@ import { factPlace } from './objects.js'
 
 type PlanFact = FactOf<'plan_update'>
 
-const isPlan = (fact: RunSnapshot['plan_facts'][number]): fact is PlanFact => fact.kind === 'plan_update'
+export const isPlan = (fact: RunSnapshot['plan_facts'][number]): fact is PlanFact => fact.kind === 'plan_update'
 
-const newestFirst = (left: PlanFact, right: PlanFact): number =>
+export const newestFirst = (left: PlanFact, right: PlanFact): number =>
   left.at > right.at ? -1 : left.at < right.at ? 1 : right.seq - left.seq
 
-const PlanUpdate = ({
+export const PlanUpdate = ({
   fact,
   objects,
   now,
