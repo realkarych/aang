@@ -22,7 +22,11 @@ export const observerScenarios = {
   'map-branches': { live: phase([script('map-branches')]) },
   'map-nested': { live: phase([script('map-nested')]) },
   'claimed-done': { live: phase([script('claimed-done')]) },
+  'attention-zone': { live: phase([script('attention')]) },
   'since-last-view': { before: phase([script('map')]), after: phase([script('revision')]) },
+  report: { live: phase([script('report')]) },
+  'rejected-answer': { live: phase([script('map'), script('rejected'), script('map')]) },
+  'revised-decisions': { before: phase([script('outline')]), after: phase([script('reshape')]) },
   'stage-succession': {
     live: phase([script('map')]),
     revised: phase([script('revision')]),

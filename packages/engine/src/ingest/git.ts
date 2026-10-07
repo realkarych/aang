@@ -14,13 +14,20 @@ const gitEnvironment = (): NodeJS.ProcessEnv => ({
   GIT_OPTIONAL_LOCKS: '0',
 })
 
+const gitOptions = (cwd: string) => ({
+  cwd,
+  env: gitEnvironment(),
+  timeout: gitTimeoutMs,
+  maxBuffer: maxOutputBytes,
+  windowsHide: true,
+})
+
 export const readGit = async (cwd: string, args: readonly string[]): Promise<string> => {
-  const { stdout } = await run('git', [...readOnlySettings, ...args], {
-    cwd,
-    env: gitEnvironment(),
-    timeout: gitTimeoutMs,
-    maxBuffer: maxOutputBytes,
-    windowsHide: true,
-  })
+  const { stdout } = await run('git', [...readOnlySettings, ...args], gitOptions(cwd))
+  return stdout
+}
+
+export const readGitBytes = async (cwd: string, args: readonly string[]): Promise<Buffer> => {
+  const { stdout } = await run('git', [...readOnlySettings, ...args], { ...gitOptions(cwd), encoding: 'buffer' })
   return stdout
 }

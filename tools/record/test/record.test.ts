@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -174,6 +174,52 @@ test('captures removal and truncation, refuses replacement of an existing record
   await verifyRecording(directory)
 })
 
+test('kept TOML definition files of a temporary profile are checked before publication and replayed at their paths', async () => {
+  const config = await options('codex')
+  const canonicalHome = os === 'windows' ? 'C:/Users/USER' : os === 'macos' ? '/Users/USER' : '/home/USER'
+  const declaration = '[agents.reviewer]\ndescription = "Reviews the notes"\nconfig_file = "agents/reviewer.toml"\n'
+  let staged = ''
+  const directory = await recordSession({ ...config, check: async (recording) => { staged = await readFile(join(recording, 'playback.json'), 'utf8') } }, async (session) => {
+    await writeFile(join(session.codex, 'config.toml'), declaration)
+    await mkdir(join(session.codex, 'agents'))
+    await writeFile(join(session.codex, 'agents', 'reviewer.toml'), `developer_instructions = "Read ${join(session.home, 'notes.md').replaceAll('\\', '/')}"\n`)
+    await writeFile(join(session.codex, 'hooks.toml'), 'kept = false\n')
+    await expect(session.keep({ root: 'codex', path: 'hooks.json' })).rejects.toThrow(/TOML/)
+    await expect(session.keep({ root: 'codex', path: '../config.toml' })).rejects.toThrow(/TOML/)
+    await expect(session.keep({ root: 'codex', path: 'missing.toml' })).rejects.toMatchObject({ code: 'ENOENT' })
+    await session.keep({ root: 'codex', path: 'config.toml' })
+    await session.keep({ root: 'codex', path: 'agents/reviewer.toml' })
+    await session.run(process.execPath, [runtimeScript, 'codex', 'first'])
+    await appendFile(join(session.codex, 'config.toml'), '\n[features]\nhooks = true\n')
+    await session.run(process.execPath, [runtimeScript, 'codex', 'second'])
+  })
+  await verifyRecording(directory)
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const kept = playback.steps.flatMap((step) => step.kind === 'write' && step.target.root === 'codex' ? [step.target.path] : [])
+  expect(kept).toEqual(['config.toml', 'agents/reviewer.toml', 'config.toml'])
+  expect(staged).toBe(await readFile(join(directory, 'playback.json'), 'utf8'))
+  const profile = await createProfile()
+  try {
+    await createPlayer(playback, { roots: profile, timeScale: 0 }).play()
+    expect(await readFile(join(profile.codex, 'config.toml'), 'utf8')).toBe(`${declaration}\n[features]\nhooks = true\n`)
+    expect(await readFile(join(profile.codex, 'agents', 'reviewer.toml'), 'utf8')).toBe(`developer_instructions = "Read ${canonicalHome}/notes.md"\n`)
+    await expect(stat(join(profile.codex, 'hooks.toml'))).rejects.toMatchObject({ code: 'ENOENT' })
+  } finally {
+    await profile.dispose()
+  }
+  await expect(recordSession({ ...config, scenario: 'rejected', check: () => Promise.reject(new Error('The role is missing')) }, async (session) => {
+    await session.run(process.execPath, [runtimeScript, 'codex', 'first'])
+  })).rejects.toThrow('The role is missing')
+  await expect(stat(join(config.fixturesRoot, 'codex', '0.0.1', 'codex_exec', os, 'rejected'))).rejects.toMatchObject({ code: 'ENOENT' })
+  const owner = join(dirname(config.fixturesRoot), 'owner-codex')
+  await mkdir(owner)
+  await writeFile(join(owner, 'config.toml'), 'model = "owner"\n')
+  vi.stubEnv('CODEX_HOME', owner)
+  await expect(recordSession({ ...config, scenario: 'regular', codexHome: 'regular' }, async (session) => {
+    await expect(session.keep({ root: 'codex', path: 'config.toml' })).rejects.toThrow(/temporary profile/)
+  })).rejects.toThrow(/no captured events/)
+})
+
 test.each([
   ['surface mismatch', { surface: 'codex_exec' }],
   ['path traversal', { scenario: '../escape' }],
@@ -213,6 +259,27 @@ test('a hook control event uses its receipt time and replays before the selected
   expect(step?.kind).toBe('hook')
   const artifact = manifest.artifacts.find((item) => item.source === (step && 'source' in step ? step.source : undefined))
   expect(Date.parse(event?.observed_at ?? '')).toBe(Number(BigInt(artifact?.mtime_ns ?? '0') / 1_000_000n))
+})
+
+test('a hook control event selects a notification by its type', async () => {
+  const config = await options()
+  const directory = await recordSession(config, async (session) => {
+    for (const type of ['elicitation_dialog', 'agent_needs_input', 'elicitation_dialog']) {
+      await session.run(process.execPath, [hookScript, JSON.stringify({ hook_event_name: 'Notification', session_id: 'session-public-1', notification_type: type, message: `Needs input: ${type}` })])
+    }
+    await session.checkpoint('needs-input', { hook: { event: 'Notification', sessionId: 'session-public-1', notificationType: 'agent_needs_input' } }, 'The session needs input')
+    await session.checkpoint('form', { hook: { event: 'Notification', notificationType: 'elicitation_dialog' }, occurrence: 'first' }, 'The form needs input')
+    await expect(session.checkpoint('link', { hook: { event: 'Notification', notificationType: 'elicitation_url_dialog' } }, 'Never happens')).rejects.toThrow(/Checkpoint/)
+  })
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const labelled = (label: string): { readonly index: number; readonly payload: unknown } => {
+    const index = playback.steps.findIndex((item) => item.label === label)
+    const step = playback.steps[index]
+    return { index, payload: JSON.parse(playback.sources.get(step && 'source' in step ? step.source : '')?.toString() ?? 'null') }
+  }
+  expect(labelled('needs-input').payload).toMatchObject({ notification_type: 'agent_needs_input' })
+  expect(labelled('form').payload).toMatchObject({ notification_type: 'elicitation_dialog' })
+  expect(labelled('form').index).toBeLessThan(labelled('needs-input').index)
 })
 
 test('scenario failure stops an unfinished command and its descendants before cleanup', async () => {

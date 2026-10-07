@@ -1,5 +1,6 @@
 import type { JsonValue } from '@aang/contract'
 import { z } from 'zod'
+import { attentionScript } from './attention.js'
 import { chatAnswerScript, chatCollapseReviewersScript, chatOldGroundScript, readChatInput } from './chat.js'
 import {
   claimedDoneScript,
@@ -8,7 +9,11 @@ import {
   mapNestedScript,
   mapScript,
   mergeScript,
+  outlineScript,
   readObserverInput,
+  rejectedScript,
+  reportScript,
+  reshapeScript,
   revisionScript,
   splitScript,
 } from './observer.js'
@@ -22,6 +27,11 @@ export const ScenarioScript = z.enum([
   'revision',
   'split',
   'merge',
+  'report',
+  'rejected',
+  'outline',
+  'reshape',
+  'attention',
   'chat-answer',
   'chat-collapse-reviewers',
   'chat-old-ground',
@@ -35,8 +45,13 @@ const scripts: Readonly<Record<ScenarioScript, (input: JsonValue | undefined) =>
   'map-nested': (input) => mapNestedScript(readObserverInput(input)),
   'claimed-done': (input) => claimedDoneScript(readObserverInput(input)),
   revision: (input) => revisionScript(readObserverInput(input)),
+  report: (input) => reportScript(readObserverInput(input)),
+  rejected: (input) => rejectedScript(readObserverInput(input)),
   split: (input) => splitScript(readObserverInput(input)),
   merge: (input) => mergeScript(readObserverInput(input)),
+  outline: (input) => outlineScript(readObserverInput(input)),
+  reshape: (input) => reshapeScript(readObserverInput(input)),
+  attention: (input) => attentionScript(readObserverInput(input)),
   'chat-answer': (input) => chatAnswerScript(readChatInput(input)),
   'chat-collapse-reviewers': (input) => chatCollapseReviewersScript(readChatInput(input)),
   'chat-old-ground': (input) => chatOldGroundScript(readChatInput(input)),

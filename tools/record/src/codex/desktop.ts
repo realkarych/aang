@@ -1,10 +1,11 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { hookRecords, hooksNamed } from '../hooks.js'
 import type { RunOutput } from '../record.js'
 import type { Scenario, ScenarioSession } from '../scenario.js'
-import { checkSubagents, exists, shell, subagentFacts, subagentScript, toolSteps } from './calls.js'
+import { checkSubagents, exists, question, shell, subagentFacts, subagentScript, toolSteps } from './calls.js'
 import { hostScript, stubScenario } from './harness.js'
-import { check, completedItems, finished, hookRecords, hooksNamed, jsonLines, type Json, rolloutOf, sessionMeta } from './rollout.js'
+import { check, completedItems, containing, events, finished, jsonLines, type Json, responseItems, type Rollout, rolloutOf, sessionMeta } from './rollout.js'
 import { logRecords } from './telemetry.js'
 
 const surface = 'codex_desktop'
@@ -39,6 +40,12 @@ const rootThread = (stdout: string): string => {
 const checkDesktopOrigin = (meta: Json): void => {
   check(meta['originator'] === 'Codex Desktop' && meta['source'] === 'vscode', `the thread has originator "Codex Desktop" and source vscode (${String(meta['originator'])})`)
 }
+
+const agentMessageTurns = (rollout: Rollout, matches: (item: Json) => boolean): unknown[] =>
+  events(rollout, 'item_completed').flatMap((event) => {
+    const item = event['item']
+    return typeof item === 'object' && item !== null && 'type' in item && item.type === 'AgentMessage' && matches(item) ? [event['turn_id']] : []
+  })
 
 const fullAccess = { approvalPolicy: 'never', sandbox: 'danger-full-access' }
 
@@ -115,4 +122,35 @@ const subagent = stubScenario({
   },
 })
 
-export const desktopScenarios: readonly Scenario[] = [tools, approval, subagent]
+const questionScenario = stubScenario({
+  name: 'question',
+  surface,
+  trust: true,
+  expectedFacts: [
+    'The Desktop turn asks the user through request_user_input_async; the rollout has item_completed AgentMessage with delivery "async" and one question with two options, and the client gets no user input request',
+    'The turn ends with the final answer of the solver: an AgentMessage with phase final_answer after the question',
+    'A reply arrives as a new user message through a second turn/start in the same thread, which also ends with a final answer',
+  ],
+  script: { 'desktop-question': [[question]] },
+  run: async ({ session }) => {
+    const { stdout } = await runDesktop(session, {
+      thread: fullAccess,
+      prompts: ['[aang:desktop-question] Ask me which greeting notes.txt should use, then stop.', 'hello'],
+    })
+    const rollout = await rolloutOf(session.codex, rootThread(stdout))
+    checkDesktopOrigin(sessionMeta(rollout))
+    const turns = events(rollout, 'task_started').map((event) => event['turn_id'])
+    check(turns.length === 2, 'the reply started a second turn in the same thread')
+    const asked = agentMessageTurns(rollout, (item) => item['delivery'] === 'async' && Array.isArray(item['questions']))
+    check(asked.length === 1 && asked[0] === turns[0], 'the first turn asked one async question')
+    check(messages(stdout, 'item/tool/requestUserInput').length === 0, 'the async question sent the client no user input request')
+    const answered = agentMessageTurns(rollout, (item) => item['phase'] === 'final_answer' && !Array.isArray(item['questions']))
+    check(JSON.stringify(answered) === JSON.stringify(turns), `each turn has one final answer of the solver (${JSON.stringify(answered)})`)
+    check(responseItems(rollout, 'message').some((item) => item['role'] === 'user' && JSON.stringify(item['content']).includes('"text":"hello"')), 'the reply is in the rollout')
+    await session.checkpoint('question-asked', containing(rollout, '"delivery":"async"'), 'A non-blocking question to the user opens an attention item; it does not block the Desktop turn, nothing waits in the runtime and the stage is not waiting')
+    await session.checkpoint('final-answer', finished(rollout, 'first'), 'The Desktop turn ends with the final answer of the solver; its final text card leads to the original and the question stays open')
+    await session.checkpoint('question-reply', finished(rollout), 'A user prompt replies after the Desktop question; the attention item may be marked likely answered as an interpretation, stays open until the user dismisses it, and the stage is not waiting')
+  },
+})
+
+export const desktopScenarios: readonly Scenario[] = [tools, approval, subagent, questionScenario]

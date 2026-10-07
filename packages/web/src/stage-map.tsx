@@ -5,15 +5,27 @@ import {
   BackgroundVariant,
   Controls,
   type FitViewOptions,
+  type NodeHandle,
+  Position,
   ReactFlow,
   useReactFlow,
   useStore,
 } from '@xyflow/react'
 import { type ReactElement, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { basisLabel } from './labels.js'
-import { type MapEdge, type MapStage, type StageGraph, stageGraph, type VisibleMap, visibleMap } from './map-graph.js'
+import {
+  type MapEdge,
+  type MapStage,
+  type StageGraph,
+  stageGraph,
+  type VisibleGroup,
+  type VisibleMap,
+  visibleMap,
+} from './map-graph.js'
 import { keptViewport, layoutMap, type MapDirection, type MapLayout, revealedViewport } from './map-layout.js'
 import {
+  type GroupFlowNode,
+  GroupNode,
   RouteEdge,
   type RouteFlowEdge,
   type Selection,
@@ -24,7 +36,7 @@ import {
 import type { StageSelection } from './stage-lineage.js'
 import { type PlacementOf, placementsOf } from './view-placement.js'
 
-const nodeTypes = { stage: StageNode }
+const nodeTypes = { stage: StageNode, frame: GroupNode }
 
 const edgeTypes = { route: RouteEdge }
 
@@ -164,22 +176,58 @@ interface NodeActions {
 const selectionOf = ({ source }: MapLayout, node: StageId, selected: StageId | null): Selection =>
   selected === null ? 'none' : selected === node ? 'self' : source.holders.get(selected) === node ? 'inside' : 'none'
 
+const unplaced = { x: 0, y: 0, width: 0, height: 0 } as const
+
+const sideHandles = (width: number, height: number): NodeHandle[] => [
+  { type: 'target', position: Position.Left, x: 0, y: height / 2, width: 1, height: 1 },
+  { type: 'source', position: Position.Right, x: width - 1, y: height / 2, width: 1, height: 1 },
+]
+
+const groupNode = (layout: MapLayout, { id, name, parent, members }: VisibleGroup): GroupFlowNode => {
+  const { x, y, width, height } = layout.nodes.get(id) ?? unplaced
+  return {
+    id,
+    type: 'frame',
+    position: { x, y },
+    width,
+    height,
+    measured: { width, height },
+    handles: [],
+    ...(parent === null ? {} : { parentId: parent }),
+    data: { name, members: members.length },
+    draggable: false,
+    selectable: false,
+    connectable: false,
+    ariaRole: 'group',
+    ariaLabel: `Группа этапов «${name}»`,
+  }
+}
+
 const flowNodes = (
   layout: MapLayout,
   selected: StageId | null,
   views: ReadonlyMap<StageId, StageView>,
   { onToggle, onSelect }: NodeActions,
-): StageFlowNode[] =>
-  layout.source.stages.map(({ node, parent, open }) => {
-    const { x, y, width, height } = layout.nodes.get(node.stage.id) ?? { x: 0, y: 0, width: 0, height: 0 }
+): Array<StageFlowNode | GroupFlowNode> => {
+  const groups = new Map(layout.source.groups.map((group) => [group.id, group]))
+  const framed = new Set<string>()
+  return layout.source.stages.flatMap(({ node, parent, frame, open }) => {
+    const group = frame === null || framed.has(frame) ? undefined : groups.get(frame)
+    if (group !== undefined) {
+      framed.add(group.id)
+    }
+    const { x, y, width, height } = layout.nodes.get(node.stage.id) ?? unplaced
     const card = layout.cards.get(node.stage.id)
-    return {
+    const holder = frame ?? parent
+    const stage: StageFlowNode = {
       id: node.stage.id,
       type: 'stage',
       position: { x, y },
       width,
       height,
-      ...(parent === null ? {} : { parentId: parent }),
+      measured: { width, height },
+      handles: sideHandles(width, height),
+      ...(holder === null ? {} : { parentId: holder }),
       data: {
         node,
         view: views.get(node.stage.id) ?? plainView,
@@ -195,7 +243,9 @@ const flowNodes = (
       ariaRole: 'group',
       ariaLabel: `Этап «${node.stage.title}»`,
     }
+    return group === undefined ? [stage] : [groupNode(layout, group), stage]
   })
+}
 
 const flowEdges = ({ source, routes }: MapLayout): RouteFlowEdge[] => {
   const titles = new Map(source.stages.map(({ node }) => [node.stage.id, node.stage.title]))
@@ -276,7 +326,11 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
   const [toggled, setToggled] = useState<ReadonlyMap<StageId, boolean>>(() => new Map())
   const visible = useMemo(() => {
     const folded = (stage: MapStage): boolean => (views.get(stage.stage.id)?.folded ?? null) !== null
-    return visibleMap(graph, (stage) => !folded(stage) && (toggled.get(stage.stage.id) ?? openByDefault(stage)))
+    return visibleMap(
+      graph,
+      (stage) => !folded(stage) && (toggled.get(stage.stage.id) ?? openByDefault(stage)),
+      (stage) => views.get(stage.stage.id)?.group ?? null,
+    )
   }, [graph, toggled, views])
   const layout = useLayout(visible)
   const [following, setFollowing] = useState(true)

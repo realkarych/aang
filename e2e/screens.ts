@@ -20,8 +20,10 @@ export const runRowOf = (page: Page, run: RunId): Locator =>
 
 export const zone = (page: Page): Locator => page.getByRole('region', { name: 'Внимание', exact: true })
 
-export const zoneItem = (page: Page, kind: string): Locator =>
-  zone(page).getByRole('listitem').filter({ hasText: kind })
+export const openItems = (page: Page): Locator =>
+  zone(page).getByRole('list', { name: 'Открытые пункты', exact: true }).getByRole('listitem')
+
+export const zoneItem = (page: Page, kind: string): Locator => openItems(page).filter({ hasText: kind })
 
 export const trace = (page: Page): Locator => page.getByRole('region', { name: 'Сессии и агенты', exact: true })
 
@@ -74,4 +76,37 @@ export const textShown = async (scope: Locator, text: string): Promise<boolean> 
     }
     return false
   }, text)
+}
+
+export const historyToggle = (page: Page): Locator => zone(page).getByRole('button', { name: /^История: / })
+
+export const history = (page: Page): Locator =>
+  zone(page).getByRole('list', { name: 'История зоны внимания', exact: true }).getByRole('listitem')
+
+export const modes = (page: Page): Locator => page.getByRole('navigation', { name: 'Вид прогона' })
+
+export const sinceTab = (page: Page): Locator => modes(page).getByRole('link', { name: /^С последнего просмотра/ })
+
+export const traceTab = (page: Page): Locator => modes(page).getByRole('link', { name: 'Ход прогона', exact: true })
+
+export const mark = (page: Page): Locator => page.getByRole('group', { name: 'Отметка просмотра', exact: true })
+
+export const markButton = (page: Page): Locator => mark(page).getByRole('button', { name: 'Отметить просмотренным' })
+
+export const since = (page: Page): Locator => page.getByRole('region', { name: 'С последнего просмотра', exact: true })
+
+export const sinceSection = (page: Page, title: string): Locator =>
+  since(page).getByRole('region', { name: title, exact: true })
+
+export const change = (page: Page, section: string, text: string): Locator =>
+  sinceSection(page, section)
+    .locator(':scope > ol > li, :scope > ul > li')
+    .filter({ hasText: text })
+
+export const lampDetails = async (page: Page, label: string): Promise<Locator> => {
+  const button = lamp(page, label).getByRole('button')
+  if ((await button.getAttribute('aria-expanded')) !== 'true') {
+    await button.click()
+  }
+  return page.getByRole('region', { name: `${label}: подробности`, exact: true })
 }

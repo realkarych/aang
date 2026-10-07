@@ -12,17 +12,27 @@ export {
   type FakePurpose,
 } from './fake-cli/scenario.js'
 export {
+  checksBlockerText,
+  checksStageTitle,
+  releaseStageTitle,
+  reviewRequestText,
+} from './observer-scenarios/attention.js'
+export {
   agentStageTitle,
   branchStageTitles,
+  checkedCriterionText,
   continuationQuestionText,
   continuedStageTitle,
   goalCriterionText,
   mainStageTitle,
   mergedStageTitle,
   nestedStageTitles,
+  outlineStageTitles,
   preparationStageTitle,
+  renamedStageTitle,
   reportQuestionText,
   reportStageTitle,
+  reshapedStageTitles,
   splitStageTitles,
 } from './observer-scenarios/observer.js'
 export {

@@ -24,10 +24,12 @@ import {
   observerScenarios,
   type Player,
   type PlayerStep,
+  preparationStageTitle,
+  reportStageTitle,
   type RunningDaemon,
   sampleScenarioManifest,
 } from '@aang/testkit'
-import type { Locator, Page } from '@playwright/test'
+import type { Locator, Page, Route } from '@playwright/test'
 import { expect, type HookFields, test } from './fixtures.js'
 import { codexRecording, threadsOf } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf } from './samples.js'
@@ -112,7 +114,20 @@ const stageTitled = async (page: Page, run: RunId, title: string): Promise<Stage
 const stageId = async (page: Page, run: RunId, title: string): Promise<StageId> =>
   (await stageTitled(page, run, title)).id
 
+const encloses = async (outer: Locator, inner: Locator): Promise<boolean> => {
+  const [frame, card] = [await outer.boundingBox(), await inner.boundingBox()]
+  return (
+    frame !== null &&
+    card !== null &&
+    card.x >= frame.x &&
+    card.y >= frame.y &&
+    card.x + card.width <= frame.x + frame.width &&
+    card.y + card.height <= frame.y + frame.height
+  )
+}
 
+const postJson = (daemon: RunningDaemon, path: string, body: unknown): Promise<Response> =>
+  daemon.request(path, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
 
 const createRule = async (daemon: RunningDaemon, run: RunId, spec: ViewRuleSpec): Promise<AppliedViewRule> => {
   const response = await daemon.request(endpoints.createViewRule.path.replace(':run', run), {
@@ -633,8 +648,88 @@ test.describe('with the Claude observer answering the chat in every state', () =
   })
 })
 
+test.describe('with the Claude observer answering while the chat history cannot be read', () => {
+  test.use({ claudeScenario: { ...chatScenario.live, chatReplies: [answerReply] } })
+  test.beforeEach(async ({ daemon }) => {
+    await admitted(daemon, 'claude')
+  })
+
+  test('a failed read of the chat history holds back neither the run nor its stream, on opening and after a stream reset, and the history comes back once the read succeeds', async ({
+    page,
+    player,
+    profile,
+    hook,
+    daemon,
+  }) => {
+    test.setTimeout(120_000)
+    await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })).play()
+    const runPath = endpoints.run.path.replace(':run', claudeRun)
+    const historyPath = endpoints.chatHistory.path.replace(':run', claudeRun)
+    const stagesNow = async (): Promise<number> => {
+      const response = await daemon.request(runPath)
+      return response.ok ? endpoints.run.response.parse(await response.json()).model.stages.length : 0
+    }
+    await expect.poll(stagesNow, observed).toBeGreaterThan(0)
+    const earlier = 'Что было до открытия страницы?'
+    const question = { question: earlier, stage: null }
+    expect((await postJson(daemon, endpoints.chatQuestion.path.replace(':run', claudeRun), question)).status).toBe(200)
+    const firstStatus = async (): Promise<string | undefined> =>
+      endpoints.chatHistory.response.parse(await (await daemon.request(historyPath)).json()).messages[0]?.status
+    await expect.poll(firstStatus, observed).toBe('answered')
+
+    let dropping = true
+    const dropHistory = (route: Route): Promise<void> =>
+      dropping && route.request().method() === 'GET' ? route.abort('connectionfailed') : route.continue()
+    await page.route(`**${historyPath}`, dropHistory)
+    await page.goto(`/?run=${claudeRun}`)
+    await expect(stage(page, mainStageTitle)).toBeVisible(observed)
+    await expect(fact(page, 'Сессии')).toHaveText('1')
+    const trouble = chat(page).getByRole('status').filter({ hasText: 'История чата не загружена' })
+    await expect(trouble).toHaveText('История чата не загружена: нет связи с демоном. aang повторяет запрос.')
+    const before = entry(page, earlier)
+    await expect(before).toHaveCount(0)
+    await expect(chat(page)).not.toContainText('Вопросов по этому прогону ещё не было.')
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('PermissionRequest.Bash.json', fields)
+    await expect(zoneItem(page, approvalText)).toContainText('ждёт ответа')
+
+    dropping = false
+    await expect(before.getByText(/^By map version \d+:/)).toBeVisible()
+    await expect(trouble).toHaveCount(0)
+
+    dropping = true
+    const reread = page.waitForResponse(
+      (response) => new URL(response.url()).pathname === runPath && response.request().method() === 'GET',
+    )
+    const pruned = await postJson(daemon, endpoints.prune.path, { scope: 'run', run: runOf(codexThread) })
+    expect(pruned.status).toBe(200)
+    await hook.claude('PreToolUse.Bash.json', {
+      ...fields,
+      tool_use_id: 'toolu_h8_after_reset',
+      tool_input: { command: 'echo after-reset', description: 'After the reset' },
+    })
+    expect((await reread).status()).toBe(200)
+    await expect(trouble).toHaveText('История чата не загружена: нет связи с демоном. aang повторяет запрос.')
+    await expect(before).toBeVisible()
+    await expect(trace(page)).toContainText('echo after-reset')
+    await hook.claude('PreToolUse.Bash.json', {
+      ...fields,
+      tool_use_id: 'toolu_h8_still_live',
+      tool_input: { command: 'echo still-live', description: 'Still live' },
+    })
+    await expect(trace(page)).toContainText('echo still-live')
+    await expect(zoneItem(page, approvalText)).toContainText('ждёт ответа')
+
+    dropping = false
+    await expect(trouble).toHaveCount(0)
+    await expect(before.getByText(/^By map version \d+:/)).toBeVisible()
+    await expect(before).toHaveCount(1)
+  })
+})
+
 test.describe('with the Claude observer drawing the map for rules of the interface', () => {
-  test.use({ claudeScenario: observerScenarios['live-map'].live })
+  test.use({ claudeScenario: observerScenarios['map-layout'].live })
   test.beforeEach(async ({ daemon }) => {
     await admitted(daemon, 'claude')
   })
@@ -645,11 +740,15 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     daemon,
   }) => {
     test.setTimeout(120_000)
-    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })).play()
+    const played = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })
     await page.goto(`/?run=${claudeRun}`)
+    await played.play({ until: 'subagent' })
+    await expect(stage(page, preparationStageTitle)).toBeVisible(observed)
+    await played.play()
     const main = stage(page, mainStageTitle)
     const pinger = stage(page, /^Этап «pinger \(.+\)»$/)
     await expect(pinger).toBeVisible(observed)
+    await expect(stage(page, reportStageTitle)).toBeVisible(observed)
     const mainId = await stageId(page, claudeRun, mainStageTitle)
     const rule = (text: string): Locator => activeRules(page).filter({ hasText: text })
 
@@ -674,6 +773,29 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     await expect(pinger).toBeVisible()
     await expect(main).not.toContainText('свёрнут правилом вида')
     await expect(pinger).not.toContainText('агент: pinger')
+
+    const preparation = stage(page, preparationStageTitle)
+    const report = stage(page, reportStageTitle)
+    const grouped = [await stageId(page, claudeRun, preparationStageTitle), await stageId(page, claudeRun, reportStageTitle)]
+    const pair = await createRule(daemon, claudeRun, {
+      action: 'group',
+      selector: { kind: 'stage_ids', stages: grouped },
+      params: { name: 'Подготовка и отчёт' },
+    })
+    const frame = map(page).getByRole('group', { name: 'Группа этапов «Подготовка и отчёт»' })
+    await expect(frame).toHaveText('Группа «Подготовка и отчёт» · 2 этапа')
+    await expect.poll(async () => (await encloses(frame, preparation)) && (await encloses(frame, report))).toBe(true)
+    expect(await encloses(frame, pinger)).toBe(false)
+    expect(await encloses(main, frame)).toBe(true)
+    const uses = map(page).getByRole('img', { name: /^«Report» использует результат «pinger \(.+\)», основание: / })
+    await expect(uses).toHaveCount(1)
+    await expect(rule('Сгруппировать этапы «Preparation», «Report» под «Подготовка и отчёт»')).toContainText(
+      'затронуто: 2 элемента',
+    )
+    await revokeRule(daemon, claudeRun, pair)
+    await expect(frame).toHaveCount(0)
+    await expect(preparation).toBeVisible()
+    await expect(report).toBeVisible()
 
     await createRule(daemon, claudeRun, {
       action: 'hide',
@@ -715,12 +837,19 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     await expect(checks).toContainText('echo hi')
     await expect(trace(page)).toContainText(/Группа «Проверки» · \d+ шаг/)
     await createRule(daemon, claudeRun, {
+      action: 'detail',
+      selector: { kind: 'action_tool', tool: 'Bash' },
+      params: { level: 'stages_and_agents' },
+    })
+    await expect(checks.getByRole('listitem').first()).toContainText('детализация: этапы и агенты')
+    await expect(rule('Показать действия инструмента «Bash» с детализацией «этапы и агенты»')).toHaveCount(1)
+    await createRule(daemon, claudeRun, {
       action: 'collapse',
       selector: { kind: 'action_kind', action_kind: 'agent' },
       params: null,
     })
     await expect(stepsOf(page, 'Основной агент').getByRole('listitem').filter({ hasText: 'Agent' })).toContainText(
-      'свёрнуто правилом вида',
+      /свёрнуто правилом вида: 1 действие · (успешно|ошибка|отказ|прервано|исход неизвестен): 1/,
     )
     await expect(rule('Свернуть действия вида «запуск агента»')).toHaveCount(1)
     await createRule(daemon, claudeRun, {
@@ -738,6 +867,6 @@ test.describe('with the Claude observer drawing the map for rules of the interfa
     })
     await expect(rule('Свернуть служебных агентов')).toContainText('затронуто: 0 элементов')
     await expect(rule('Скрыть агентов с именем «nobody»')).toHaveCount(1)
-    await expect(activeRules(page)).toHaveCount(7)
+    await expect(activeRules(page)).toHaveCount(8)
   })
 })

@@ -13,14 +13,14 @@ import type {
   RunSnapshot,
   Session,
 } from '@aang/contract'
-import { type ReactElement, Suspense, use, useId, useMemo, useState } from 'react'
+import { Fragment, type ReactElement, Suspense, use, useId, useMemo, useState } from 'react'
 import { actionInput } from './action-input.js'
 import { ActionBadge, DecisionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { absoluteTime, clockTime, dayTime, duration, plural } from './format.js'
+import { useGeneration } from './generation.js'
 import {
   actionForms,
   agentForms,
-  agentRoleLabel,
   launchLabel,
   questionKindLabel,
   runtimeLabel,
@@ -30,7 +30,7 @@ import {
 } from './labels.js'
 import { LongText } from './long-text.js'
 import { Moment } from './moment.js'
-import { agentTitle, sessionTitle, shortSession } from './objects.js'
+import { agentRole, agentTitle, sessionTitle, shortSession } from './objects.js'
 import { attentionForms, detailLevelLabel, totalsText } from './view-labels.js'
 import { concealedActions, grouped, type Grouped, isHidden, type PlacementOf, placementsOf } from './view-placement.js'
 
@@ -121,7 +121,8 @@ const agentTrees = (
 }
 
 const InputText = ({ fact, now }: { readonly fact: FactId; readonly now: bigint }): ReactElement | null => {
-  const input = use(actionInput(fact, now))
+  const { inputs } = useGeneration()
+  const input = use(actionInput(inputs, fact, now))
   if (input === null || (input.detail === null && input.description === null)) {
     return null
   }
@@ -154,6 +155,18 @@ const StepTime = ({
     </time>
   )
 
+const ToolName = ({ tool }: { readonly tool: string }): ReactElement => (
+  <>
+    {tool.split('/').map((part, index) => (
+      <Fragment key={index}>
+        {index === 0 ? null : '/'}
+        {index === 0 ? null : <wbr />}
+        {part}
+      </Fragment>
+    ))}
+  </>
+)
+
 const ActionStep = ({
   action,
   placement,
@@ -164,14 +177,19 @@ const ActionStep = ({
   readonly now: bigint
 }): ReactElement => {
   const step: Step = { kind: 'action', action }
-  const visibility = placement({ kind: 'action', id: action.id })?.visibility ?? null
-  const inside = visibility?.state === 'collapsed' ? visibility.totals.actions - 1 : null
+  const placed = placement({ kind: 'action', id: action.id })
+  const visibility = placed?.visibility ?? null
+  const folded = visibility?.state === 'collapsed' ? visibility.totals : null
+  const detail = placed?.detail ?? null
+  const inside = placed?.attention.length ?? 0
   return (
     <li className="step">
       <span className="step-state">
         <ActionBadge action={action} />
       </span>
-      <span className="step-tool">{action.tool}</span>
+      <span className="step-tool" title={action.tool}>
+        <ToolName tool={action.tool} />
+      </span>
       <span className="step-body">
         {action.input_fact === null ? null : (
           <Suspense fallback={null}>
@@ -179,10 +197,14 @@ const ActionStep = ({
           </Suspense>
         )}
         {action.inherited ? <span className="step-note">унаследовано из исходной сессии</span> : null}
-        {inside === null ? null : (
-          <span className="step-note">
-            {inside === 0 ? 'свёрнуто правилом вида' : `свёрнуто правилом вида, внутри ${plural(inside, actionForms)}`}
-          </span>
+        {folded === null ? null : (
+          <span className="step-note">{`свёрнуто правилом вида: ${totalsText(folded)}`}</span>
+        )}
+        {detail === null ? null : (
+          <span className="step-note">{`детализация: ${detailLevelLabel[detail.level]}`}</span>
+        )}
+        {inside === 0 ? null : (
+          <span className="step-note">{`${plural(inside, attentionForms)} внутри — в зоне внимания`}</span>
         )}
       </span>
       <StepTime at={stepAt(step)} active={isActive(step)} now={now} />
@@ -306,7 +328,7 @@ const AgentNode = ({
         <span id={name} className="agent-name">
           {title}
         </span>
-        {agent.role === 'main' ? null : <span className="agent-role">{agentRoleLabel[agent.role]}</span>}
+        {agent.role === 'main' ? null : <span className="agent-role">{agentRole(agent)}</span>}
         <ExecutionBadge execution={agent.execution} />
         {folded === null ? null : (
           <span className="agent-fold">{folded.rule === null ? 'свёрнут по умолчанию' : 'свёрнут правилом вида'}</span>
@@ -409,7 +431,7 @@ const SessionHead = ({
     </p>
     {session.launches.length === 0 ? null : (
       <p className="session-launches">
-        {session.launches.map(({ launch, at }) => `${launchLabel[launch]} ${dayTime(at)}`).join(', ')}
+        {[...new Set(session.launches.map(({ launch, at }) => `${launchLabel[launch]} ${dayTime(at)}`))].join(', ')}
       </p>
     )}
   </header>

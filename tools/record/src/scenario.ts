@@ -36,6 +36,7 @@ export interface Scenario {
   readonly codexHome?: ProfileHome | undefined
   readonly expectedFacts: readonly string[]
   readonly run: (session: ScenarioSession) => Promise<void>
+  readonly checkRecording?: ((recording: string) => Promise<void>) | undefined
 }
 
 export interface SurfaceDriver {
@@ -83,5 +84,6 @@ export const recordScenario = async (scenario: Scenario, driver: SurfaceDriver, 
     codexHome: scenario.codexHome,
     claudeHome: options.claudeHome,
     created: options.created,
+    check: scenario.checkRecording,
   }, (context) => scenario.run({ ...context, model, engine }))
 }

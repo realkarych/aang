@@ -1,5 +1,6 @@
 import type {
   AttentionDelta,
+  AttentionView,
   FactsDelta,
   ModelChange,
   ModelDelta,
@@ -88,19 +89,33 @@ const applyChange = (snapshot: RunSnapshot, { target, after }: ModelChange): Run
 
 const applyModel = (snapshot: RunSnapshot, delta: ModelDelta): RunSnapshot => {
   const changed = delta.changes.reduce(applyChange, snapshot)
-  return { ...changed, run: { ...changed.run, version: delta.version.version } }
+  const { version } = delta.version
+  return { ...changed, run: { ...changed.run, version }, summary: { ...changed.summary, version } }
 }
 
-const applyAttention = (snapshot: RunSnapshot, delta: AttentionDelta): RunSnapshot => {
-  const views = new Map(snapshot.attention.views.map((view) => [view.item, view]))
-  for (const view of delta.views) {
-    views.set(view.item, view)
+const withViews = (views: readonly AttentionView[], updates: readonly AttentionView[]): AttentionView[] => {
+  const byItem = new Map(views.map((view) => [view.item, view]))
+  for (const update of updates) {
+    const known = byItem.get(update.item)
+    if (known === undefined || known.change_seq <= update.change_seq) {
+      byItem.set(update.item, update)
+    }
   }
-  return {
-    ...snapshot,
-    attention: { items: upsert(snapshot.attention.items, delta.items), views: [...views.values()] },
-  }
+  return [...byItem.values()]
 }
+
+const applyAttention = (snapshot: RunSnapshot, delta: AttentionDelta): RunSnapshot => ({
+  ...snapshot,
+  attention: {
+    items: upsert(snapshot.attention.items, delta.items),
+    views: withViews(snapshot.attention.views, delta.views),
+  },
+})
+
+export const applyAttentionView = (snapshot: RunSnapshot, view: AttentionView): RunSnapshot => ({
+  ...snapshot,
+  attention: { ...snapshot.attention, views: withViews(snapshot.attention.views, [view]) },
+})
 
 export const applyEvent = (snapshot: RunSnapshot, event: FeedEvent): RunSnapshot => {
   switch (event.event) {

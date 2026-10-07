@@ -2,6 +2,7 @@ import type {
   ActionOutcome,
   AttentionKind,
   BasisKind,
+  CriterionStatus,
   Execution,
   Freshness,
   HumanDecision,
@@ -139,7 +140,74 @@ export const AttentionGlyph = ({ kind }: { readonly kind: AttentionKind }): Reac
   }
 }
 
-export const OutcomeGlyph = ({ outcome }: { readonly outcome: ActionOutcome }): ReactElement => {
+const Clock = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M6 3.8V6l1.6 1.1" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </>
+)
+
+const FanOut = (): ReactElement => (
+  <>
+    <path d="M2.4 6 9.4 2.8M2.4 6l7 3.2" fill="none" stroke="currentColor" strokeWidth="1.3" />
+    <circle cx="2.4" cy="6" r="1.7" fill="currentColor" />
+    <circle cx="9.6" cy="2.8" r="1.5" fill="currentColor" />
+    <circle cx="9.6" cy="9.2" r="1.5" fill="currentColor" />
+  </>
+)
+
+const Seen = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M4.3 6.1 5.5 7.3l2.3-2.5" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </>
+)
+
+const EyeOff = (): ReactElement => (
+  <>
+    <Eye />
+    <path d="M1.8 10.6 10.2 1.4" stroke="var(--glyph-cut)" strokeWidth="2.6" />
+    <path d="M1.8 10.6 10.2 1.4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </>
+)
+
+const Stop = (): ReactElement => <rect x="2.6" y="2.6" width="6.8" height="6.8" rx="1" fill="currentColor" />
+
+const Spark = (): ReactElement => (
+  <path d="M6 1.2 7.3 4.7 10.8 6 7.3 7.3 6 10.8 4.7 7.3 1.2 6 4.7 4.7Z" fill="currentColor" />
+)
+
+const Minus = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M4 6h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+  </>
+)
+
+export type ZoneMark = 'age' | 'blocks' | 'viewed' | 'hidden' | 'ended' | 'recommended' | 'likely' | 'dismissed'
+
+export const ZoneGlyph = ({ mark }: { readonly mark: ZoneMark }): ReactElement => {
+  switch (mark) {
+    case 'age':
+      return <Glyph><Clock /></Glyph>
+    case 'blocks':
+      return <Glyph><FanOut /></Glyph>
+    case 'viewed':
+      return <Glyph><Seen /></Glyph>
+    case 'hidden':
+      return <Glyph><EyeOff /></Glyph>
+    case 'ended':
+      return <Glyph><Stop /></Glyph>
+    case 'recommended':
+      return <Glyph><Spark /></Glyph>
+    case 'likely':
+      return <Glyph><Check /></Glyph>
+    case 'dismissed':
+      return <Glyph><Minus /></Glyph>
+  }
+}
+
+export const OutcomeGlyph =({ outcome }: { readonly outcome: ActionOutcome }): ReactElement => {
   switch (outcome) {
     case 'ok':
       return <Glyph><Check /></Glyph>
@@ -185,6 +253,79 @@ export const PlanItemGlyph = ({ status }: { readonly status: PlanItemStatus }): 
   }
 }
 
+export const MarkGlyph = (): ReactElement => (
+  <Glyph>
+    <path d="M3 1h6v10L6 8.3 3 11Z" fill="currentColor" />
+  </Glyph>
+)
+
+export type ChangeKind = 'new' | 'changed' | 'closed' | 'replaced' | 'merged' | 'split'
+
+const Plus = (): ReactElement => (
+  <path d="M6 2v8M2 6h8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+)
+
+const Onward = (): ReactElement => (
+  <path
+    d="M1.5 6h8M6.5 2.8 9.7 6 6.5 9.2"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+)
+
+const Swap = (): ReactElement => (
+  <path
+    d="M1.5 4h8.5M8 1.8 10.2 4 8 6.2M10.5 8H2M4 5.8 1.8 8 4 10.2"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+)
+
+const Join = (): ReactElement => (
+  <path
+    d="M1.5 2.5 6 6l-4.5 3.5M6 6h4.5"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+)
+
+const Fork = (): ReactElement => (
+  <path
+    d="M10.5 2.5 6 6l4.5 3.5M1.5 6H6"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  />
+)
+
+export const ChangeGlyph = ({ change }: { readonly change: ChangeKind }): ReactElement => {
+  switch (change) {
+    case 'new':
+      return <Glyph><Plus /></Glyph>
+    case 'changed':
+      return <Glyph><Onward /></Glyph>
+    case 'closed':
+      return <Glyph><Check /></Glyph>
+    case 'replaced':
+      return <Glyph><Swap /></Glyph>
+    case 'merged':
+      return <Glyph><Join /></Glyph>
+    case 'split':
+      return <Glyph><Fork /></Glyph>
+  }
+}
+
 const Said = (): ReactElement => (
   <path d="M1.8 2.2h8.4v5.6H5.4L2.8 10V7.8h-1Z" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
 )
@@ -195,6 +336,39 @@ const Derived = (): ReactElement => (
     <circle cx="6" cy="6" r="1.3" fill="currentColor" />
   </>
 )
+
+const Half = (): ReactElement => (
+  <>
+    <Ring />
+    <path d="M6 2a4 4 0 0 1 0 8Z" fill="currentColor" />
+  </>
+)
+
+const Pinless = (): ReactElement => (
+  <>
+    <Dashed />
+    <path d="M3.9 6.2 5.4 7.6 8.2 4.6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+  </>
+)
+
+export const CriterionGlyph = ({ status }: { readonly status: CriterionStatus }): ReactElement => {
+  switch (status) {
+    case 'confirmed':
+      return <Glyph><Check /></Glyph>
+    case 'passed_unversioned':
+      return <Glyph><Pinless /></Glyph>
+    case 'partial':
+      return <Glyph><Half /></Glyph>
+    case 'failed':
+      return <Glyph><Cross /></Glyph>
+    case 'stale':
+      return <Glyph><Triangle /></Glyph>
+    case 'reported_done':
+      return <Glyph><Said /></Glyph>
+    case 'not_checked':
+      return <Glyph><Dashed /></Glyph>
+  }
+}
 
 export const BasisGlyph = ({ basis }: { readonly basis: BasisKind }): ReactElement => {
   switch (basis) {

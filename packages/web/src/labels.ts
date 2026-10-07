@@ -3,8 +3,12 @@ import type {
   AgentRole,
   AttentionAuthor,
   AttentionKind,
+  AttentionPriority,
+  AttentionResolution,
   BasisKind,
+  CriterionStatus,
   Execution,
+  FactKind,
   Freshness,
   GapKind,
   HookInstallation,
@@ -18,12 +22,14 @@ import type {
   Runtime,
   ServiceAgent,
   SessionLaunch,
+  Speaker,
   StageLifecycle,
   StageOrigin,
   Surface,
   SupportMode,
   SupportStatus,
   VersionKey,
+  VersionRetention,
 } from '@aang/contract'
 import { clockTime, plural } from './format.js'
 
@@ -132,9 +138,17 @@ const disabledReason: Readonly<Record<Extract<ObserverState, { state: 'disabled'
   launcher_unavailable: 'запуск недоступен',
 }
 
-const lagReason: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
-  budget: 'исчерпан бюджет',
-  backlog: 'большая очередь',
+const lagLabel: Readonly<Record<Extract<ObserverState, { state: 'lagging' }>['reason'], string>> = {
+  budget: 'отстаёт: исчерпан бюджет',
+  backlog: 'догоняющий режим',
+}
+
+export const retryLabel: Readonly<Record<Extract<ObserverState, { state: 'unavailable' }>['reason'], string>> = {
+  auth: 'Следующая проверка авторизации CLI',
+  auth_path_broken: 'Следующая проверка авторизации CLI',
+  limit: 'Следующая проба наблюдателя',
+  transient: 'Следующая проба наблюдателя',
+  process_stuck: 'Следующая проба наблюдателя',
 }
 
 export const observerStateLabel = (state: ObserverState): string => {
@@ -142,7 +156,7 @@ export const observerStateLabel = (state: ObserverState): string => {
     case 'ok':
       return 'работает'
     case 'lagging':
-      return `отстаёт: ${lagReason[state.reason]}`
+      return lagLabel[state.reason]
     case 'backoff':
       return `повтор в ${clockTime(state.until)}, попытка ${String(state.attempt)}`
     case 'unavailable':
@@ -173,6 +187,28 @@ export const attentionAuthorLabel: Readonly<Record<AttentionAuthor, string>> = {
   rule: 'по правилу aang',
   observer: 'от наблюдателя',
 }
+
+export const attentionPriorityLabel: Readonly<Record<AttentionPriority, string>> = {
+  high: 'высокий приоритет',
+  medium: 'средний приоритет',
+  low: 'низкий приоритет',
+}
+
+const closedLabel: Readonly<Record<Exclude<AttentionResolution, 'open' | 'answered'>, string>> = {
+  resolved: 'решён',
+  ended_without_answer: 'ожидание прекращено без ответа',
+}
+
+const answeredLabel: Readonly<Record<AttentionKind, string>> = {
+  question: 'отвечен',
+  permission: 'решение принято',
+  review_request: 'отвечен',
+  blocker: 'решён',
+  failed_check: 'проверка прошла',
+}
+
+export const attentionOutcomeLabel = (kind: AttentionKind, resolution: Exclude<AttentionResolution, 'open'>): string =>
+  resolution === 'answered' ? answeredLabel[kind] : closedLabel[resolution]
 
 export const questionKindLabel: Readonly<Record<QuestionKind, string>> = {
   permission: 'Запрос одобрения',
@@ -254,6 +290,7 @@ export const agentForms = { one: 'агент', few: 'агента', many: 'аг�
 export const runForms = { one: 'прогон', few: 'прогона', many: 'прогонов' } as const
 export const runInForms = { one: 'прогоне', few: 'прогонах', many: 'прогонах' } as const
 export const factForms = { one: 'факт', few: 'факта', many: 'фактов' } as const
+export const earlyFactForms = { one: 'ранний факт', few: 'ранних факта', many: 'ранних фактов' } as const
 export const fileForms = { one: 'файл', few: 'файла', many: 'файлов' } as const
 export const recordForms = { one: 'запись', few: 'записи', many: 'записей' } as const
 export const versionForms = { one: 'версия', few: 'версии', many: 'версий' } as const
@@ -261,5 +298,76 @@ export const stepForms = { one: 'ранний шаг', few: 'ранних шаг
 export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
 export const substageForms = { one: 'подэтап', few: 'подэтапа', many: 'подэтапов' } as const
 export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const
+export const itemForms = { one: 'пункт', few: 'пункта', many: 'пунктов' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
+
+export const factKindLabel: Readonly<Record<FactKind, string>> = {
+  session_start: 'начало сессии',
+  session_end: 'конец сессии',
+  turn_start: 'начало хода',
+  turn_settings: 'настройки хода',
+  turn_end: 'конец хода',
+  prompt: 'промпт',
+  message: 'сообщение',
+  agent_start: 'запуск агента',
+  agent_end: 'завершение агента',
+  action_start: 'начало действия',
+  action_end: 'итог действия',
+  tool_batch_end: 'итог группы вызовов',
+  permission_request: 'запрос одобрения',
+  permission_denied: 'отказ в одобрении',
+  permission_decision: 'решение по одобрению',
+  notification: 'уведомление',
+  question_asked: 'вопрос',
+  question_answered: 'ответ на вопрос',
+  plan_update: 'план',
+  compaction: 'сжатие контекста',
+  usage: 'расход токенов',
+  usage_total: 'итог расхода',
+  cost_state: 'состояние стоимости',
+  instructions_loaded: 'загрузка инструкций',
+  hook_run: 'hook решателя',
+  definition_listing: 'перечень определений',
+  queue_operation: 'очередь промптов',
+  runtime_error: 'ошибка рантайма',
+  runtime_event: 'событие рантайма',
+  json_snapshot: 'снимок файла',
+  git_snapshot: 'снимок git',
+  context: 'контекст',
+  source_lost: 'потеря источника',
+}
+
+export const speakerLabel: Readonly<Record<Speaker, string>> = {
+  human: 'человек',
+  solver: 'решатель',
+  tool: 'инструмент',
+  runtime: 'рантайм',
+}
+
+export const criterionStatusLabel: Readonly<Record<CriterionStatus, string>> = {
+  not_checked: 'не проверен',
+  confirmed: 'подтверждён',
+  passed_unversioned: 'пройден без версии',
+  partial: 'подтверждён частично',
+  failed: 'не выполнен',
+  stale: 'устарел',
+  reported_done: 'выполнен по словам решателя',
+}
+
+export const resolutionLabel: Readonly<Record<AttentionResolution, string>> = {
+  open: 'открыт',
+  answered: 'получен ответ',
+  resolved: 'решён',
+  ended_without_answer: 'ожидание прекращено без ответа',
+}
+
+export const retentionLabel: Readonly<Record<VersionRetention['kind'], string>> = {
+  action_payload: 'версия сохранена из действия',
+  file_read: 'версия сохранена при чтении файла',
+  commit: 'версия в коммите',
+  hash_only: 'сохранён только хэш содержимого',
+  reference: 'только ссылка',
+}
+
+export const changeForms = { one: 'изменение', few: 'изменения', many: 'изменений' } as const

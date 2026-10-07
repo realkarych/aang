@@ -1,13 +1,13 @@
 import type { Dirent } from 'node:fs'
-import { readdir, readFile, stat } from 'node:fs/promises'
-import { join, relative } from 'node:path'
+import { lstat, readdir, readFile, stat } from 'node:fs/promises'
+import { extname, join, relative } from 'node:path'
 import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang/testkit'
 import { filesIn, isMissing } from './files.js'
-import type { Artifact, ControlEvent } from './schema.js'
+import { type Artifact, type ControlEvent, Segment } from './schema.js'
 
 export type ControlTarget = (
   | (Target & { readonly contains?: string })
-  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string } }
+  | { readonly hook: { readonly event: string; readonly sessionId?: string; readonly toolUseId?: string; readonly notificationType?: string } }
 ) & { readonly occurrence?: 'first' | 'last' }
 
 export interface CapturedArtifact extends Artifact {
@@ -26,6 +26,7 @@ export interface Capture {
   readonly controlEvents: ControlEvent[]
   readonly scan: (final?: boolean) => Promise<void>
   readonly checkpoint: (label: string, target: ControlTarget, expectedMapChange: string) => Promise<void>
+  readonly keep: (target: Target) => Promise<void>
   readonly output: (text: string) => void
   readonly otlp: (body: string, receivedAt: number) => void
   readonly created: () => Promise<CreatedEntries>
@@ -109,6 +110,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   const controlEvents: ControlEvent[] = []
   const contents = new Map<string, Buffer>()
   const targets = new Map<string, Target>()
+  const kept = new Map<string, Target>()
   const hooks = new Set<string>()
   const at = (): number => Math.max(0, Date.now() - started)
   const add = (content: string, directory: string, extension: string, mtime: bigint, observed: number): string => {
@@ -168,6 +170,25 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     ignored.add(file)
     return true
   }
+  const locate = (): void => {
+    for (let index = 0; index < controlEvents.length; index += 1) {
+      const event = controlEvents[index]
+      if (event) controlEvents[index] = { ...event, step: steps.findIndex((step) => step.label === event.label) }
+    }
+  }
+  const splitAfter = (index: number, step: PlayerStep, text: string, occurrence: ControlTarget['occurrence']): void => {
+    if (step.kind !== 'append') return
+    const position = artifacts.findIndex((artifact) => artifact.source === step.source)
+    const artifact = artifacts[position]
+    if (artifact === undefined) return
+    const lines = artifact.content.split(/(?<=\n)/)
+    const line = occurrence === 'first' ? lines.findIndex((entry) => entry.includes(text)) : lines.findLastIndex((entry) => entry.includes(text))
+    if (line < 0 || line === lines.length - 1) return
+    artifacts[position] = { ...artifact, content: lines.slice(0, line + 1).join('') }
+    const source = add(lines.slice(line + 1).join(''), 'data', 'jsonl', BigInt(artifact.mtime_ns), step.at)
+    steps.splice(index + 1, 0, { ...step, source })
+    locate()
+  }
   const scan = async (final = false): Promise<void> => {
     const present = new Set<string>()
     for (const location of locations) {
@@ -206,6 +227,21 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
         targets.set(file, target)
       }
     }
+    for (const [file, target] of kept) {
+      const result = await Promise.all([readFile(file), stat(file, { bigint: true })]).catch((error: unknown) => {
+        if (isMissing(error)) return undefined
+        throw error
+      })
+      if (result === undefined) continue
+      const [bytes, info] = result
+      present.add(file)
+      if (contents.get(file)?.equals(bytes)) continue
+      const content = new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      const observed = at()
+      steps.push({ kind: 'write', at: observed, target, source: add(content, 'data', extname(file).slice(1), info.mtimeNs, observed) })
+      contents.set(file, bytes)
+      targets.set(file, target)
+    }
     for (const [file, target] of targets) {
       if (!present.has(file)) {
         steps.push({ kind: 'remove', at: at(), target })
@@ -223,10 +259,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
       hooks.add(event.name)
     }
     steps.sort((left, right) => left.at - right.at)
-    for (let index = 0; index < controlEvents.length; index += 1) {
-      const event = controlEvents[index]
-      if (event) controlEvents[index] = { ...event, step: steps.findIndex((step) => step.label === event.label) }
-    }
+    locate()
   }
   const created = async (): Promise<CreatedEntries> => {
     const ids = new Set<string>()
@@ -267,6 +300,16 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   }
   return {
     artifacts, steps, controlEvents, scan, created,
+    keep: async (target) => {
+      const segments = target.path.split('/')
+      if (!target.path.endsWith('.toml') || !segments.every((segment) => Segment.safeParse(segment).success)) {
+        throw new Error('A kept file must be a TOML file inside its root')
+      }
+      const file = join(roots[target.root], ...segments)
+      if (!(await lstat(file)).isFile()) throw new Error('A kept file must be a regular file')
+      kept.set(file, target)
+      await scan(true)
+    },
     checkpoint: async (label, target, expectedMapChange) => {
       await scan(true)
       const content = (step: PlayerStep): string | undefined => 'source' in step ? artifacts.find((artifact) => artifact.source === step.source)?.content : undefined
@@ -280,13 +323,15 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
         return payload !== null && typeof payload === 'object' &&
           'hook_event_name' in payload && payload.hook_event_name === target.hook.event &&
           (target.hook.sessionId === undefined || ('session_id' in payload && payload.session_id === target.hook.sessionId)) &&
-          (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId))
+          (target.hook.toolUseId === undefined || ('tool_use_id' in payload && payload.tool_use_id === target.hook.toolUseId)) &&
+          (target.hook.notificationType === undefined || ('notification_type' in payload && payload.notification_type === target.hook.notificationType))
       }
       const index = target.occurrence === 'first' ? steps.findIndex(matches) : steps.findLastIndex(matches)
       const step = steps[index]
       if (!label.trim() || !expectedMapChange.trim() || controlEvents.some((event) => event.label === label) || !step || step.label) {
         throw new Error('Checkpoint must name a new captured event and a unique label with an expected map change')
       }
+      if (!('hook' in target) && target.contains !== undefined) splitAfter(index, step, target.contains, target.occurrence)
       steps[index] = { ...step, label }
       controlEvents.push({ label, step: index, observed_at: new Date(started + step.at).toISOString(), expected_map_change: { description: expectedMapChange } })
     },

@@ -7,8 +7,26 @@ export const Decision = z.strictObject({
   delayMs: z.int().nonnegative().default(0),
   message: z.string().default('The user denied this action'),
   answer: z.int().nonnegative().optional(),
+  optional: z.boolean().default(false),
 })
 export type Decision = z.infer<typeof Decision>
+
+export const ElicitationAnswer = z.strictObject({
+  mode: z.enum(['form', 'url']),
+  action: z.enum(['accept', 'decline', 'cancel']),
+  content: z.record(z.string(), z.unknown()).optional(),
+  delayMs: z.int().nonnegative().default(0),
+})
+export type ElicitationAnswer = z.infer<typeof ElicitationAnswer>
+
+const McpServer = z.strictObject({ command: z.string().min(1), args: z.array(z.string()).default([]) })
+
+export const AgentDefinition = z.strictObject({
+  description: z.string().min(1),
+  prompt: z.string().min(1),
+  tools: z.array(z.string().min(1)).optional(),
+})
+export type AgentDefinition = z.infer<typeof AgentDefinition>
 
 const Turn = z.strictObject({
   prompt: z.string().min(1),
@@ -29,6 +47,11 @@ export const HostPlan = z.strictObject({
   permissionMode: z.enum(['default', 'plan']).default('default'),
   turns: z.array(Turn).min(1),
   decisions: z.array(Decision).default([]),
+  mcpServers: z.record(z.string(), McpServer).default({}),
+  plugins: z.array(z.string().min(1)).default([]),
+  agents: z.record(z.string(), AgentDefinition).default({}),
+  settings: z.string().min(1).optional(),
+  elicitations: z.array(ElicitationAnswer).default([]),
   turnTimeoutMs: z.int().positive().default(240_000),
 })
 export type HostPlan = z.infer<typeof HostPlan>
@@ -47,13 +70,23 @@ export const HostSummary = z.strictObject({
     answers: z.record(z.string(), z.string()).nullable(),
   })),
   interrupts: z.array(z.strictObject({ tool: z.string(), toolUseId: z.string() })),
+  elicitations: z.array(z.strictObject({
+    server: z.string(),
+    mode: z.enum(['form', 'url']),
+    elicitationId: z.string().nullable(),
+    action: z.enum(['accept', 'decline', 'cancel']),
+    opened: z.boolean(),
+    waitedMs: z.number(),
+  })),
+  completedElicitations: z.array(z.string()),
   error: z.string().nullable(),
 })
 export type HostSummary = z.infer<typeof HostSummary>
 
 export const readPlan = async (path: string): Promise<HostPlan> => HostPlan.parse(JSON.parse(await readFile(path, 'utf8')))
 
-export const emptySummary = (): HostSummary => ({ sessionIds: [], tools: [], results: [], toolUses: [], decisions: [], interrupts: [], error: null })
+export const emptySummary = (): HostSummary =>
+  ({ sessionIds: [], tools: [], results: [], toolUses: [], decisions: [], interrupts: [], elicitations: [], completedElicitations: [], error: null })
 
 export const writeSummary = (path: string, summary: HostSummary): Promise<void> => writeFile(path, `${JSON.stringify(summary, null, 2)}\n`)
 
