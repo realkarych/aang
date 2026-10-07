@@ -155,14 +155,16 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
   }
   const runner = createProcessRunner({ windowsLauncher: options.hookBinary, temporaryDirectory: profile.root })
   const controller = new AbortController()
-  const install = async (): Promise<void> => {
-    if (installed.length > 0) {
-      return
+  const prepare = async (): Promise<void> => {
+    if (installed.length === 0) {
+      await aang.ok(['stop'])
+      installed.push(await aang.ok(['install', `--${options.runtime}`], commandTimeoutMs))
+      await connect()
     }
-    installed.push(await aang.ok(['install', `--${options.runtime}`], commandTimeoutMs))
+    await aang.run(['status'], commandTimeoutMs)
   }
   const run = async (command: string, args: readonly string[], runOptions: RunOptions = {}): Promise<RunOutput> => {
-    await install()
+    await prepare()
     const result = await runner.run({
       command,
       args: options.runtime === 'claude' ? beforeOperands(args, ['--plugin-dir', plugin]) : [...args],

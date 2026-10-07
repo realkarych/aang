@@ -64,7 +64,7 @@ vm bash -euo pipefail -s -- "$node_version" "$AANG_CLAUDE_CODE_VERSION" "$AANG_C
   "$AANG_CLAUDE_AGENT_SDK_VERSION" "$AANG_CODEX_SDK_VERSION" <<'SETUP'
 node_version="$1"
 sudo apt-get update -qq
-sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq expect git >/dev/null
+sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq expect git libatomic1 >/dev/null
 curl -fsSL --retry 3 "https://nodejs.org/dist/$node_version/node-$node_version-linux-x64.tar.xz" | sudo tar -xJ -C /usr/local --strip-components=1
 sudo tar -xzf /tmp/bundle.tgz -C /
 sudo install -m 0755 /opt/aang-hook/aang-hook /usr/local/bin/aang-hook

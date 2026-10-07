@@ -14,7 +14,8 @@ import {
 import { type AccessReport, accessNotRun, checkAccess } from './access.js'
 import { type AangCommand, settled, signInLink } from './aang.js'
 import { type LiveRun, startLive } from './live.js'
-import { compare, type DaemonView, type Observation, observeDaemon, readReference, referencePath, versionKeyText } from './observe.js'
+import { compare, compareRecords, type DaemonView, type Observation, observeDaemon, readReference, type Reference, referencePath, versionKeyText } from './observe.js'
+import { daemonRecords } from './records.js'
 
 export const surfaceCheckFormat = 'aang-surface-check/1'
 
@@ -128,27 +129,17 @@ const daemonFailures = (options: CheckOptions, scenario: Scenario, engine: Engin
   ]
 }
 
-const checkScenario = async (
-  options: CheckOptions,
-  scenario: Scenario,
-  engine: Engine,
-  cli: Readonly<Record<Runtime, string | null>>,
-  last: boolean,
-): Promise<{ readonly report: ScenarioReport; readonly live: LiveRun }> => {
+interface Observed {
+  readonly failures: readonly string[]
+  readonly notes: readonly string[]
+  readonly daemon: DaemonView | null
+  readonly reference: Reference | null
+}
+
+const prefixed = (lines: readonly string[]): string[] => lines.map((line) => `differs from the reference recording: ${line}`)
+
+const observeScenario = async (options: CheckOptions, scenario: Scenario, engine: Engine, live: LiveRun): Promise<Observed> => {
   const runtime = driverFor(scenario.surface).runtime
-  const live = await startLive({
-    scenario,
-    engine,
-    runtime,
-    os: options.os,
-    placement: options.placement,
-    aang: options.aang,
-    hookBinary: options.hookBinary,
-    cli,
-    bind: options.bind,
-    port: options.port,
-    base: options.work,
-  })
   const failures: string[] = live.error === null ? [] : [`the scenario failed: ${live.error}`]
   const notes: string[] = []
   let daemon: DaemonView | null = null
@@ -170,32 +161,45 @@ const checkScenario = async (
       daemon = await observeDaemon(live.api, await settled(live.api, settleTimeoutMs))
       failures.push(...daemonFailures(options, scenario, engine, live, daemon))
       if (reference !== null) {
-        const comparison = compare(daemon, reference)
-        failures.push(...comparison.failures.map((difference) => `differs from the reference recording: ${difference}`))
-        notes.push(...comparison.notes.map((difference) => `differs from the reference recording: ${difference}`))
+        const comparison = compare(daemon, reference.observation)
+        failures.push(...prefixed(comparison.failures))
+        notes.push(...prefixed(comparison.notes))
       }
     } catch (error) {
       failures.push(`the daemon could not be read: ${describe(error)}`)
     }
   }
-  if (!last) {
-    await live.stop()
+  return { failures, notes, daemon, reference }
+}
+
+const finishScenario = async (live: LiveRun, observed: Observed): Promise<Observed> => {
+  await live.stop()
+  if (observed.reference === null || live.api === null) {
+    return observed
   }
-  return {
-    report: {
-      name: scenario.name,
-      result: failures.length === 0 ? 'passed' : 'failed',
-      error: live.error,
-      failures,
-      notes,
-      installed: live.installed,
-      restarts: live.restarts,
-      daemon,
-      reference,
-    },
-    live,
+  try {
+    const comparison = compareRecords(daemonRecords(live.profile.aangHome, live.profile.root), observed.reference.records)
+    return {
+      ...observed,
+      failures: [...observed.failures, ...prefixed(comparison.failures)],
+      notes: [...observed.notes, ...prefixed(comparison.notes)],
+    }
+  } catch (error) {
+    return { ...observed, failures: [...observed.failures, `the store of the daemon could not be read: ${describe(error)}`] }
   }
 }
+
+const scenarioReport = (name: string, live: LiveRun, { failures, notes, daemon, reference }: Observed): ScenarioReport => ({
+  name,
+  result: failures.length === 0 ? 'passed' : 'failed',
+  error: live.error,
+  failures,
+  notes,
+  installed: live.installed,
+  restarts: live.restarts,
+  daemon,
+  reference: reference?.observation ?? null,
+})
 
 const freshAccess = async (live: LiveRun): Promise<AccessReport> => {
   const link = signInLink(await live.aang.ok(['open']))
@@ -256,19 +260,31 @@ export const runCheck = async (options: CheckOptions): Promise<CheckReport> => {
     for (const [index, scenario] of listed.entries()) {
       const last = surface === lastSurface && index === listed.length - 1
       options.progress(`▶ ${surface} ${scenario.name} (${engine.version})`)
-      const { report, live } = await checkScenario(options, scenario, engine, cli, last)
-      reports.push(report)
-      options.progress(`${report.result === 'passed' ? '✔' : '✘'} ${surface} ${scenario.name}${report.failures.length === 0 ? '' : `\n  ${report.failures.join('\n  ')}`}`)
+      const live = await startLive({
+        scenario,
+        engine,
+        runtime: key.runtime,
+        os: options.os,
+        placement: options.placement,
+        aang: options.aang,
+        hookBinary: options.hookBinary,
+        cli,
+        bind: options.bind,
+        port: options.port,
+        base: options.work,
+      })
+      let observed = await observeScenario(options, scenario, engine, live)
       if (last) {
         access = live.api === null ? accessNotRun() : await freshAccess(live)
         kept = live
       }
       if (!(last && options.keepDaemon)) {
-        if (last) {
-          await live.stop()
-        }
+        observed = await finishScenario(live, observed)
         await live.remove()
       }
+      const report = scenarioReport(scenario.name, live, observed)
+      reports.push(report)
+      options.progress(`${report.result === 'passed' ? '✔' : '✘'} ${surface} ${scenario.name}${report.failures.length === 0 ? '' : `\n  ${report.failures.join('\n  ')}`}`)
     }
     results.push({
       key,

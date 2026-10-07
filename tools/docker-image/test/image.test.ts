@@ -113,7 +113,7 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
     expect(installed.stdout).toContain(`claude: plugin aang@aang installed from ${aangHome}/claude-plugin`)
     expect(installed.stdout).toContain('codex: aang hooks registered in /home/node/.codex/hooks.json')
     expect(await solver.exec(['cmp', '/usr/local/bin/aang-hook', `${aangHome}/bin/aang-hook`])).toEqual({ code: 0, stdout: '', stderr: '' })
-    const command = `'${aangHome}/bin/aang-hook' 'codex' 'user' '${aangPaths.spool}'`
+    const command = `'${aangHome}/bin/aang-hook' codex user '${aangPaths.spool}'`
     expect((await solver.exec(['cat', '/home/node/.codex/hooks.json'])).stdout).toContain(JSON.stringify(command).slice(1, -1))
     const session = claudeSession()
     const hooked = await solver.exec(['sh', '-c', 'exec "$1/bin/aang-hook" claude plugin "$2"', 'sh', aangHome, aangPaths.spool], {

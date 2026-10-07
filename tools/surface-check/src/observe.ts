@@ -73,7 +73,17 @@ export const observeDaemon = async (api: ApiClient, status: StatusResponse): Pro
 
 const owned = z.looseObject({ run: z.string().nullable() })
 
-const Reference = z.looseObject({
+export interface RecordCount {
+  readonly channel: string
+  readonly type: string
+  readonly parse_state: string
+  readonly count: number
+}
+
+const RecordCountEntry = z.looseObject({ channel: z.string(), type: z.string(), parse_state: z.string(), count: z.int() })
+
+const Snapshot = z.looseObject({
+  records: z.array(RecordCountEntry),
   sessions: z.array(owned.extend({ version: z.string().nullable(), support_mode: z.string(), unknown_records: z.int() })),
   agents: z.array(owned),
   actions: z.array(owned.extend({ tool: z.string(), outcome: z.looseObject({ value: z.string() }).nullable() })),
@@ -98,14 +108,19 @@ export interface ReferenceKey {
 export const referencePath = (support: string, key: ReferenceKey): string =>
   join(support, 'contract', key.runtime, key.engineVersion, key.surface, key.os, `${key.scenario}.json`)
 
-export const readReference = async (path: string): Promise<Observation | null> => {
+export interface Reference {
+  readonly observation: Observation
+  readonly records: readonly RecordCount[]
+}
+
+export const readReference = async (path: string): Promise<Reference | null> => {
   const text = await readFile(path, 'utf8').catch(() => null)
   if (text === null) {
     return null
   }
-  const snapshot = Reference.parse(JSON.parse(text))
+  const snapshot = Snapshot.parse(JSON.parse(text))
   const inRun = <T extends { readonly run: string | null }>(items: readonly T[]): T[] => items.filter(({ run }) => run !== null)
-  return {
+  return { records: snapshot.records, observation: {
     runs: snapshot.runs.length,
     sessions: count(inRun(snapshot.sessions).map(sessionText)),
     agents: inRun(snapshot.agents).length,
@@ -119,7 +134,7 @@ export const readReference = async (path: string): Promise<Observation | null> =
         }),
       ),
     ),
-  }
+  } }
 }
 
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
@@ -160,3 +175,18 @@ export const compare = (live: Observation, reference: Observation): Comparison =
     ],
   }
 }
+
+const comparedChannels: ReadonlySet<string> = new Set(['hook', 'transcript', 'rollout'])
+
+const recordCounts = (records: readonly RecordCount[], compared: boolean): Counts =>
+  Object.fromEntries(
+    records
+      .filter(({ channel }) => comparedChannels.has(channel) === compared)
+      .map(({ channel, type, parse_state: state, count: records }) => [`${channel} ${type} ${state}`, records] as const)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+  )
+
+export const compareRecords = (live: readonly RecordCount[], reference: readonly RecordCount[]): Comparison => ({
+  failures: describeDifference('raw records', recordCounts(live, true), recordCounts(reference, true)),
+  notes: describeDifference('raw records of other channels', recordCounts(live, false), recordCounts(reference, false)),
+})
