@@ -64,10 +64,11 @@ const removeAbandoned = async (lock: string, abandoned: string, deadline: number
   }
 }
 
-export const acquireLock = async (lock: string, operation: string): Promise<Unlock> => {
+export const acquireLock = async (lock: string, operation: string, signal?: AbortSignal): Promise<Unlock> => {
   const content = `${String(process.pid)} ${randomUUID()}`
   const deadline = Date.now() + lockWaitMs
   while (!(await createFileExclusively(lock, content, lockMode))) {
+    signal?.throwIfAborted()
     const held = await readLock(lock, deadline)
     if (held === undefined || (!isRunning(lockOwner(held)) && (await removeAbandoned(lock, held, deadline)))) {
       continue
@@ -78,7 +79,7 @@ export const acquireLock = async (lock: string, operation: string): Promise<Unlo
         `${lock}: ${operation} by process ${String(lockOwner(held))} has not finished`,
       )
     }
-    await delay(lockPollMs)
+    await delay(lockPollMs, undefined, { signal })
   }
   return () => rm(lock, { force: true })
 }
