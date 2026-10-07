@@ -28,8 +28,8 @@ export const ClaudeUsage = z.strictObject({
 export type ClaudeUsage = z.infer<typeof ClaudeUsage>
 
 export const ClaudeReply = z.discriminatedUnion('kind', [
-  z.strictObject({ kind: z.literal('answer'), output: z.json(), usage: ClaudeUsage.optional() }),
-  z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: ClaudeUsage.optional() }),
+  z.strictObject({ kind: z.literal('answer'), output: z.json(), usage: ClaudeUsage.optional(), gate: z.string().optional() }),
+  z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: ClaudeUsage.optional(), gate: z.string().optional() }),
   ...faults,
 ])
 export type ClaudeReply = z.input<typeof ClaudeReply>
@@ -91,7 +91,7 @@ export const CodexReply = z.discriminatedUnion('kind', [
     toolAttempts: z.array(z.string()).default(() => []),
     gate: z.string().optional(),
   }),
-  z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: CodexUsage.optional() }),
+  z.strictObject({ kind: z.literal('script'), script: ScenarioScript, usage: CodexUsage.optional(), gate: z.string().optional() }),
   ...faults,
 ])
 export type CodexReply = z.input<typeof CodexReply>

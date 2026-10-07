@@ -4,31 +4,20 @@ import { plural } from './format.js'
 import { HandoverGlyph } from './glyphs.js'
 import { stageForms } from './labels.js'
 import { replaceStage, selectStage, useRoutedStage } from './route.js'
-import { type Handover, handoverText, selectionOf } from './stage-lineage.js'
+import { type Handover, handoverText, type StageSelection, selectionOf } from './stage-lineage.js'
 import './map.css'
 
 const StageMap = lazy(async () => ({ default: (await import('./stage-map.js')).StageMap }))
 
-const HandoverNote = ({
-  handover,
-  onDismiss,
-}: {
-  readonly handover: Handover | null
-  readonly onDismiss: () => void
-}): ReactElement => (
-  <div className="map-handover" data-shown={handover !== null}>
-    {handover === null ? null : <HandoverGlyph />}
-    <p role="status">{handover === null ? null : handoverText(handover)}</p>
-    {handover === null ? null : (
-      <button type="button" className="map-dismiss" onClick={onDismiss}>
-        Скрыть
-      </button>
-    )}
-  </div>
-)
+export const mapHeading = 'map-title'
 
-export const MapSection = ({ snapshot }: { readonly snapshot: RunSnapshot }): ReactElement => {
-  const stages = snapshot.model.stages.filter(({ lifecycle }) => lifecycle.state === 'active').length
+export interface StageChoice {
+  readonly selection: StageSelection | null
+  readonly choose: (stage: StageId | null) => void
+  readonly dismissHandover: () => void
+}
+
+export const useStageChoice = (snapshot: RunSnapshot): StageChoice => {
   const run = snapshot.run.id
   const routed = useRoutedStage()
   const [chosen, setChosen] = useState(routed)
@@ -48,31 +37,66 @@ export const MapSection = ({ snapshot }: { readonly snapshot: RunSnapshot }): Re
   useEffect(() => {
     replaceStage(run, shown)
   }, [run, routed, shown])
-  const select = useCallback(
+  const choose = useCallback(
     (stage: StageId | null) => {
       selectStage(run, stage)
     },
     [run],
   )
+  const dismissHandover = useCallback(() => {
+    setChosen(selected)
+  }, [selected])
+  return { selection, choose, dismissHandover }
+}
+
+const HandoverNote = ({
+  handover,
+  onDismiss,
+}: {
+  readonly handover: Handover | null
+  readonly onDismiss: () => void
+}): ReactElement => (
+  <div className="map-handover" data-shown={handover !== null}>
+    {handover === null ? null : <HandoverGlyph />}
+    <p role="status">{handover === null ? null : handoverText(handover)}</p>
+    {handover === null ? null : (
+      <button type="button" className="map-dismiss" onClick={onDismiss}>
+        Скрыть
+      </button>
+    )}
+  </div>
+)
+
+export const MapSection = ({
+  snapshot,
+  choice,
+}: {
+  readonly snapshot: RunSnapshot
+  readonly choice: StageChoice
+}): ReactElement => {
+  const stages = snapshot.model.stages.filter(({ lifecycle }) => lifecycle.state === 'active').length
+  const hidden = snapshot.view.placements.filter(
+    ({ element, visibility }) => element.kind === 'stage' && visibility?.state === 'hidden',
+  ).length
+  const { selection, choose, dismissHandover } = choice
   return (
-    <section className="map" aria-labelledby="map-title">
+    <section className="map" aria-labelledby={mapHeading}>
       <header className="map-head">
-        <h2 id="map-title" className="map-title">
+        <h2 id={mapHeading} className="map-title">
           Карта этапов
         </h2>
         {stages === 0 ? null : <p className="map-count">{plural(stages, stageForms)}</p>}
+        {hidden === 0 ? null : <p className="map-count">{`скрыто правилами вида: ${plural(hidden, stageForms)}`}</p>}
       </header>
       <HandoverNote
         handover={selection?.handover ?? null}
-        onDismiss={() => {
-          setChosen(selected)
-        }}
+        onDismiss={dismissHandover}
       />
       {stages === 0 ? (
         <p className="map-note">Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.</p>
       ) : (
         <Suspense fallback={<p className="map-note">Загрузка карты…</p>}>
-          <StageMap snapshot={snapshot} selection={selection} onSelect={select} />
+          <StageMap snapshot={snapshot} selection={selection} onSelect={choose} />
         </Suspense>
       )}
     </section>
