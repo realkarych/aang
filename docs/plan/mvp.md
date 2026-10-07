@@ -1020,6 +1020,7 @@ E2E каждого PR идут поверх настоящего демона, �
     - обновление матрицы.
 
     Ограничения Desktop выносятся владельцу.
+  - Итог: `docs/research/q1-surface-matrix.md`. Инструмент — `tools/surface-check`, workflow — `Surface matrix`. Чек-листы владельца — `docs/research/q1-owner-checklist.md` (macOS, SSH-режим Desktop, OAuth на Linux) и `docs/research/q1-owner-checklist-windows.md`. Свидетельства проверок размещений и чек-листов для матрицы — `support/verification.json`.
 - **Q.2 Свежесть.**
   - Состав:
     - инструмент `tools/freshness`: время до выполнения ожидаемого изменения карты по предикатам манифеста, оценка разметчика для остальных контрольных событий, невыполненные ожидания как нарушения, доля времени дозапросов;

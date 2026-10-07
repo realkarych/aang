@@ -101,6 +101,31 @@ describe('the aang Docker image as the base of a solver image', { tags: ['docker
     })
   })
 
+  test('aang install in a derived image connects the Claude plugin and the Codex hooks with the aang-hook of the image', { timeout: testTimeoutMs }, async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const solver = await startSolver(images.solver, onTestFinished)
+
+    const installed = await solver.exec(['aang', 'install'])
+
+    expect(installed).toMatchObject({ code: 0, stderr: '' })
+    expect(installed.stdout).toContain(`claude: plugin aang@aang installed from ${aangHome}/claude-plugin`)
+    expect(installed.stdout).toContain('codex: aang hooks registered in /home/node/.codex/hooks.json')
+    expect(await solver.exec(['cmp', '/usr/local/bin/aang-hook', `${aangHome}/bin/aang-hook`])).toEqual({ code: 0, stdout: '', stderr: '' })
+    const command = `'${aangHome}/bin/aang-hook' 'codex' 'user' '${aangPaths.spool}'`
+    expect((await solver.exec(['cat', '/home/node/.codex/hooks.json'])).stdout).toContain(JSON.stringify(command).slice(1, -1))
+    const session = claudeSession()
+    const hooked = await solver.exec(['sh', '-c', 'exec "$1/bin/aang-hook" claude plugin "$2"', 'sh', aangHome, aangPaths.spool], {
+      input: await claudeHook('SessionStart.startup.json', session.session, '/home/node/work'),
+    })
+    expect(hooked).toEqual({ code: 0, stdout: '', stderr: '' })
+    const user = await solver.signIn()
+    await expect
+      .poll(async () => (await user.runs()).map(({ id }) => id), { timeout: ingestTimeoutMs })
+      .toEqual([runId(session)])
+  })
+
   test('aang-hook of the image hands a session start to the daemon, which lists a hooks-only run', { timeout: testTimeoutMs }, async ({
     expect,
     onTestFinished,

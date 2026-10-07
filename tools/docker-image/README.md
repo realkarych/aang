@@ -12,7 +12,7 @@ docker build --tag aang .
 | --- | --- |
 | `hook` | собирает `aang-hook` для платформы образа (`TARGETOS`, `TARGETARCH`) кросс-компиляцией на платформе сборки: `go build -trimpath -ldflags="-s -w"` с `CGO_ENABLED=0`, как бинари платформенных пакетов npm (P.1) |
 | `build` | ставит pnpm версии из `packageManager`, выполняет `pnpm install --frozen-lockfile` и `tsc -b packages/aang`, затем `pnpm deploy --prod` пакета `aang` в `/opt/aang/packages/aang`: собранные внутренние пакеты, миграции `store`, статика `web` и `zod`. Матрицу поддержки `support/matrix.json` кладёт в `/opt/aang/support/matrix.json`: команда `aang` читает её по пути `../../../support/matrix.json` от своего `dist/main.js`, поэтому `/opt/aang` повторяет раскладку репозитория |
-| `aang` (итоговая) | `node:26-slim` с `/opt/aang`, командами `aang` и `aang-hook` в `/usr/local/bin`, `git` и `tini` |
+| `aang` (итоговая) | `node:26-slim` с `/opt/aang`, командами `aang` и `aang-hook` в `/usr/local/bin`, `git` и `tini`. Ссылка `bin/aang-hook` пакета `@aang/hook` внутри `/opt/aang` ведёт на `/usr/local/bin/aang-hook`: там `aang install` ищет бинарь, который копирует в `<AANG_HOME>/bin` |
 
 В итоговом образе:
 
@@ -43,7 +43,8 @@ USER node
 1. собирает образ `aang`, стадию `build` и производный образ решателя `tools/docker-image/solver.Dockerfile`. Производный образ добавляет к `aang` поддельные CLI `claude` и `codex` из `testkit` в `/usr/local/bin`, проигрыватель и образцы сценариев;
 2. проверяет образ `aang`: пользователь `node` с `--init` и без него, Node 26, `aang status` и запуск `aang-hook`;
 3. в контейнере производного образа запускает `aang start --bind 0.0.0.0` и публикует порт API на loopback хоста. Поддельные CLI отвечают на `--version`. API без токена отвечает 401, ссылка `aang open` через опубликованный порт даёт cookie. Проигрыватель пишет образец `claude-subagent`, и `GET /api/runs` отдаёт его прогон: два агента, режим `files_only`. Затем `aang stop` останавливает демон;
-4. в отдельном контейнере `aang-hook` образа пишет в spool событие `SessionStart`, и демон показывает прогон этой сессии в режиме `hooks_only`;
-5. в отдельном контейнере до запуска демона создаёт Git-репозиторий, его linked worktree вне каталога репозитория и неотслеживаемый каталог; конфиг отслеживает только каталог репозитория (`watch.all: false`). `aang-hook` передаёт начала сессий в worktree и в неотслеживаемом каталоге, и API отдаёт прогон только сессии worktree: её признаёт отслеживаемой общий каталог Git.
+4. в отдельном контейнере `aang install` ставит плагин поддельного `claude` и hooks поддельного `codex`: в `<AANG_HOME>/bin` лежит тот же `aang-hook`, что в образе, в `hooks.json` — строка команды aang, а событие, переданное установленным бинарём, даёт прогон в API;
+5. в отдельном контейнере `aang-hook` образа пишет в spool событие `SessionStart`, и демон показывает прогон этой сессии в режиме `hooks_only`;
+6. в отдельном контейнере до запуска демона создаёт Git-репозиторий, его linked worktree вне каталога репозитория и неотслеживаемый каталог; конфиг отслеживает только каталог репозитория (`watch.all: false`). `aang-hook` передаёт начала сессий в worktree и в неотслеживаемом каталоге, и API отдаёт прогон только сессии worktree: её признаёт отслеживаемой общий каталог Git.
 
 Внутри контейнера проигрыватель и установку поддельных CLI выполняет `dist/main.js` этого пакета (`install-clis`, `play`). Он не входит в образ `aang`. Покрытие `c8` пакет не собирает (`.c8rc.json`): его код работает только внутри контейнера.

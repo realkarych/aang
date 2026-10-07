@@ -24,7 +24,7 @@ const rollout = (cwd: string, id: string): string => `${JSON.stringify({ timesta
 switch (mode) {
   case 'otlp':
     await post('application/json', JSON.stringify(logs))
-    process.stdout.write(`posted ${String(process.env['AANG_SCENARIO_MARK'])}`)
+    process.stdout.write(`posted ${String(process.env['AANG_SCENARIO_MARK'])} ${process.env['CLAUDE_AGENT_SDK_VERSION'] ?? 'without the Agent SDK version'}`)
     break
   case 'protobuf':
     await post('application/x-protobuf', 'binary')

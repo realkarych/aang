@@ -1,0 +1,16 @@
+{
+  "name": "@aang/surface-check",
+  "private": true,
+  "type": "module",
+  "bin": {
+    "aang-surface-check": "./dist/main.js"
+  },
+  "dependencies": {
+    "@aang/contract": "workspace:*",
+    "@aang/hook": "workspace:*",
+    "@aang/observer": "workspace:*",
+    "@aang/record": "workspace:*",
+    "@aang/testkit": "workspace:*",
+    "zod": "^4.6.5"
+  }
+}
