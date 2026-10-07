@@ -32,6 +32,9 @@ import { type Registry, startRegistry } from './registry.js'
 
 const hostPlatform = `${process.platform}-${process.arch}`
 const windows = process.platform === 'win32'
+const hostBinaryName = windows ? 'aang-hook.exe' : 'aang-hook'
+const codexShell = windows ? { command: 'pwsh', args: ['-NoProfile', '-Command'] } : { command: '/bin/sh', args: ['-c'] }
+const codexHookSlowdown = 'on Windows Codex starts PowerShell for every hook event, which slows each event by 0.25–0.4 s'
 const started = /^aang started: pid ([0-9]+), (http:\/\/127\.0\.0\.1:[0-9]+)$/m
 const webRoot = dirname(fileURLToPath(import.meta.resolve('@aang/web')))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
@@ -108,6 +111,13 @@ interface HooksDocument {
   readonly hooks: Readonly<Record<string, readonly { readonly hooks: readonly CommandHandler[] }[]>>
 }
 
+const powerShellQuoted = (value: string): string => `'${value.replaceAll("'", "''")}'`
+
+const codexHookCommand = (hookBinary: string, spool: string): string =>
+  windows
+    ? `& ${[hookBinary, 'codex', 'user', spool].map(powerShellQuoted).join(' ')}`
+    : `'${hookBinary}' codex user '${spool}'`
+
 const sessionStartHandlers = async (hooksFile: string): Promise<CommandHandler[]> =>
   ((JSON.parse(await readFile(hooksFile, 'utf8')) as HooksDocument).hooks.SessionStart ?? []).flatMap(
     (group) => group.hooks,
@@ -126,7 +136,7 @@ const connectedProfile = async (onTestFinished: TestContext['onTestFinished']): 
   const codex = installFakeCodex(fakes)
   const codexHome = join(fakes, 'codex-profile')
   const watched = await watchedProfile(onTestFinished, {
-    cli: { claude: claude.command, codex: codex.command },
+    cli: { claude: claude.executable, codex: codex.executable },
     runtimes: { codex: { home: codexHome } },
   })
   return { ...watched, claude, codex, codexHome }
@@ -240,7 +250,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(isAlive(Number(pid))).toBe(false)
   })
 
-  test.runIf(!windows)('in a temporary HOME the installed aang install deploys the binary of the aang-hook package and registers hooks whose commands deliver events to the running daemon', { timeout: commandTimeoutMs }, async ({
+  test('in a temporary HOME the installed aang install deploys the binary of the aang-hook package and registers hooks whose commands deliver events to the running daemon, on Windows the Codex hooks only with --codex', { timeout: commandTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
@@ -248,8 +258,19 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     const env = profile.env
     const pluginDirectory = join(profile.aangHome, 'claude-plugin')
     const codexHooks = join(codexHome, 'hooks.json')
-    const hookBinary = join(profile.aangHome, 'bin', 'aang-hook')
-    const packagedBinary = join(installed().packageDirectory, 'node_modules', `aang-hook-${hostPlatform}`, 'aang-hook')
+    const hookBinary = join(profile.aangHome, 'bin', hostBinaryName)
+    const packagedBinary = join(installed().packageDirectory, 'node_modules', `aang-hook-${hostPlatform}`, hostBinaryName)
+    const codexRegistered = [
+      `codex: aang hooks registered in ${codexHooks}`,
+      'codex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
+      ...(windows ? [`codex: ${codexHookSlowdown}`] : []),
+    ]
+    const codexByDefault = windows
+      ? [
+          'codex: hooks are not installed by default on Windows: Codex sessions are observed from their files only, so approval waits are not visible',
+          `codex: \`aang install --codex\` installs them anyway; ${codexHookSlowdown}`,
+        ]
+      : codexRegistered
 
     const connected = await installed().run('aang', ['install'], { env })
 
@@ -258,8 +279,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
       stdout: [
         `claude: plugin aang@aang installed from ${pluginDirectory}`,
         'claude: plugin aang@aang is enabled',
-        `codex: aang hooks registered in ${codexHooks}`,
-        'codex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
+        ...codexByDefault,
         '',
       ].join('\n'),
       stderr: '',
@@ -269,14 +289,22 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
       ['plugin', 'install', 'aang@aang', '--scope', 'user', '--json'],
       ['plugin', 'list', '--json'],
     ])
+    expect((await readFile(hookBinary)).equals(await readFile(packagedBinary))).toBe(true)
+    if (windows) {
+      expect(codex.calls()).toEqual([])
+      expect(await exists(codexHooks)).toBe(false)
+
+      const optedIn = await installed().run('aang', ['install', '--codex'], { env })
+
+      expect(optedIn).toEqual({ code: 0, stdout: [...codexRegistered, ''].join('\n'), stderr: '' })
+    }
     expect(codex.calls().filter((call) => call.command === 'app_server').map((call) => call.env.CODEX_HOME)).toEqual(
       Array(3).fill(codexHome),
     )
-    expect((await readFile(hookBinary)).equals(await readFile(packagedBinary))).toBe(true)
     const [pluginHandler] = await sessionStartHandlers(join(pluginDirectory, 'hooks', 'hooks.json'))
     expect(pluginHandler).toEqual({ type: 'command', command: hookBinary, args: ['claude', 'plugin', profile.spool], timeout: 2 })
     const codexHandlers = await sessionStartHandlers(codexHooks)
-    expect(codexHandlers).toEqual([{ type: 'command', command: `'${hookBinary}' codex user '${profile.spool}'`, timeout: 2 }])
+    expect(codexHandlers).toEqual([{ type: 'command', command: codexHookCommand(hookBinary, profile.spool), timeout: 2 }])
     const start = await installed().run('aang', ['start'], { env })
     const [, pid = '', url = ''] = started.exec(start.stdout) ?? []
     expect(start.code, start.stderr).toBe(0)
@@ -285,7 +313,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
       env,
       input: await sessionStart(workspace),
     })
-    const fromCodex = await run('/bin/sh', ['-c', codexHandlers[0]?.command ?? ''], {
+    const fromCodex = await run(codexShell.command, [...codexShell.args, codexHandlers[0]?.command ?? ''], {
       env,
       input: await codexSessionStart(workspace),
     })
@@ -296,29 +324,6 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(await runtimesOfRuns(url, profile.aangHome)).toEqual(['claude', 'codex'])
     const stop = await installed().run('aang', ['stop'], { env })
     expect(stop).toMatchObject({ code: 0, stdout: `aang stopped: pid ${pid}\n` })
-  })
-
-  test.runIf(windows)('on Windows the installed aang install finds the aang-hook binary and refuses to install hooks until it is enabled there', { timeout: commandTimeoutMs }, async ({
-    expect,
-    onTestFinished,
-  }) => {
-    const { profile, claude, codex, codexHome } = await connectedProfile(onTestFinished)
-
-    const connected = await installed().run('aang', ['install'], { env: profile.env })
-
-    expect(connected).toEqual({
-      code: 1,
-      stdout: '',
-      stderr: ['claude', 'codex']
-        .map(
-          (runtime) =>
-            `aang install: ${runtime}: installing hooks on Windows is not enabled yet: the hook command form for Windows runtimes is unverified\n`,
-        )
-        .join(''),
-    })
-    expect([...claude.calls(), ...codex.calls()]).toEqual([])
-    expect(await exists(join(profile.aangHome, 'bin'))).toBe(false)
-    expect(await exists(join(codexHome, 'hooks.json'))).toBe(false)
   })
 
   test('installed into a project without optional dependencies, aang-hook and aang install name the missing binary and aang still runs', { timeout: commandTimeoutMs }, async ({
