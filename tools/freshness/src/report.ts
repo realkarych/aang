@@ -152,9 +152,9 @@ const nearestRank = (values: readonly number[]): number | undefined => rank(valu
 const millisecondsPerHour = 3_600_000
 
 const spendingOf = (usages: readonly (CallUsage | null)[]): Spending => {
-  const tokens = usages.flatMap((usage) => (usage?.tokens == null ? [] : [usage.tokens]))
+  const tokens = usages.flatMap((usage) => (usage === null || usage.tokens === null ? [] : [usage.tokens]))
   const sum = (pick: (entry: (typeof tokens)[number]) => number): number => tokens.reduce((total, entry) => total + pick(entry), 0)
-  const costs = usages.flatMap((usage) => (usage?.cost_usd == null ? [] : [usage.cost_usd]))
+  const costs = usages.flatMap((usage) => (usage === null || usage.cost_usd === null ? [] : [usage.cost_usd]))
   const uncached = sum(({ uncached_input_tokens: value }) => value)
   const read = sum(({ cache_read_input_tokens: value }) => value)
   const written = sum(({ cache_write_input_tokens: value }) => value)
