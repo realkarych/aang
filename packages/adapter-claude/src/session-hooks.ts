@@ -2,6 +2,7 @@ import type {
   AnswerOutcome,
   BackgroundTask,
   FactDraft,
+  FactEntityKey,
   JsonValue,
   PlanItemStatus,
   SessionLaunch,
@@ -70,6 +71,8 @@ const ElicitationResult = HookCommon.extend({
   content: z.json().nullish(),
 })
 
+const TeammateIdle = HookCommon.extend({ teammate_name: name, team_name: name })
+
 const launches: ReadonlyMap<string, SessionLaunch> = new Map([
   ['startup', 'startup'],
   ['resume', 'resume'],
@@ -95,7 +98,6 @@ const genericEvents: ReadonlyMap<string, boolean> = new Map([
   ['MessageDisplay', true],
   ['Setup', false],
   ['UserPromptExpansion', false],
-  ['TeammateIdle', false],
   ['ConfigChange', false],
   ['CwdChanged', false],
   ['DirectoryAdded', false],
@@ -115,12 +117,12 @@ const surfaceOf = (env: SpoolEnv): SurfaceClaim | null => {
 
 const ownerOf = (event: HookCommon) => ownerKey(event.session_id, event.agent_id ?? null)
 
-const runtimeEvent = (event: HookCommon, context: HookContext, verified: boolean): FactDraft =>
+const runtimeEvent = (entity: FactEntityKey, context: HookContext, verified: boolean): FactDraft =>
   fact(
     context.origin,
     {
       kind: 'runtime_event',
-      entity_key: ownerOf(event),
+      entity_key: entity,
       speaker: 'runtime',
       urgent: false,
       payload: { event: context.event, data: context.payload },
@@ -143,21 +145,17 @@ const taskParser = (status: PlanItemStatus): HookParser =>
   hookParser(Task, (event, { origin }) => {
     const teammate = teammateOf(event)
     return facts(
-      fact(
-        origin,
-        {
-          kind: 'plan_update',
-          entity_key: teammate === null ? ownerOf(event) : teammateKey(event.session_id, teammate.name, teammate.team),
-          speaker: 'solver',
-          urgent: true,
-          payload: {
-            source: 'task_hook',
-            text: event.task_description ?? null,
-            items: [{ id: event.task_id, text: event.task_subject, status }],
-          },
+      fact(origin, {
+        kind: 'plan_update',
+        entity_key: teammate === null ? ownerOf(event) : teammateKey(event.session_id, teammate.name, teammate.team),
+        speaker: 'solver',
+        urgent: true,
+        payload: {
+          source: 'task_hook',
+          text: event.task_description ?? null,
+          items: [{ id: event.task_id, text: event.task_subject, status }],
         },
-        { verified: teammate === null },
-      ),
+      }),
     )
   })
 
@@ -176,7 +174,7 @@ export const sessionHookParsers: ReadonlyMap<string, HookParser> = new Map([
     hookParser(SessionStart, (event, context) => {
       const source = event.source ?? null
       if (source === compactSource) {
-        return facts(runtimeEvent(event, context, true))
+        return facts(runtimeEvent(ownerOf(event), context, true))
       }
       return facts(
         fact(context.origin, {
@@ -364,7 +362,7 @@ export const sessionHookParsers: ReadonlyMap<string, HookParser> = new Map([
                   questions: [{ header: event.mcp_server_name, text: event.message, options: [] }],
                 },
               },
-              { ids: { call_id: event.elicitation_id ?? null }, verified: false },
+              { ids: { call_id: event.elicitation_id ?? null } },
             ),
           ),
     ),
@@ -385,13 +383,19 @@ export const sessionHookParsers: ReadonlyMap<string, HookParser> = new Map([
                 urgent: false,
                 payload: { outcome, answers: outcome === 'answered' ? elicitationAnswers(event.content) : [] },
               },
-              { ids: { call_id: event.elicitation_id ?? null }, verified: false },
+              { ids: { call_id: event.elicitation_id ?? null } },
             ),
           )
     }),
   ],
+  [
+    'TeammateIdle',
+    hookParser(TeammateIdle, (event, context) =>
+      facts(runtimeEvent(teammateKey(event.session_id, event.teammate_name, event.team_name), context, true)),
+    ),
+  ],
   ...[...genericEvents].map(([event, verified]): [string, HookParser] => [
     event,
-    hookParser(HookCommon, (common, context) => facts(runtimeEvent(common, context, verified))),
+    hookParser(HookCommon, (common, context) => facts(runtimeEvent(ownerOf(common), context, verified))),
   ]),
 ])

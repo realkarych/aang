@@ -266,6 +266,27 @@ test('an Elicitation result answers only the agent that asked', async () => {
   expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'running' })
 })
 
+test('a result of an MCP server answers none of its form Elicitations without an id', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine } = clockedEngine(store)
+  const child = objectId({ kind: 'agent', runtime: 'claude', session: source.session, agent: { kind: 'subagent', agent_id: 'child' } })
+  const form = (milliseconds: number, message: string, fields: Record<string, string> = {}) =>
+    hook('Elicitation', milliseconds, { mcp_server_name: 'docs', mode: 'form', message, requested_schema: {}, ...fields })
+  await engine.ingest(joinBatches(hook('SessionStart', 0), hook('UserPromptSubmit', 1),
+    hook('SubagentStart', 2, { agent_id: 'child' }),
+    form(3, 'Allow the first?'), form(4, 'Allow the second?'), form(5, 'Allow the child?', { agent_id: 'child' }),
+  ))
+  await engine.ingest(hook('ElicitationResult', 6, { mcp_server_name: 'docs', mode: 'form', action: 'accept', content: { approved: 'yes' } }))
+  expect(store.observations.getSession(sessionId())?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  expect(store.observations.getAgent(child)?.execution).toEqual({ state: 'waiting', reason: 'human' })
+  expect(store.observations.questions(sessionId()).map(({ text, decision, answered_at }) => [text, decision.value, answered_at]).sort())
+    .toEqual([
+      ['Allow the child?', 'requested', null],
+      ['Allow the first?', 'requested', null],
+      ['Allow the second?', 'requested', null],
+    ])
+})
+
 test('a hooks-only Codex child starts every new turn from its prompt without changing the root', async () => {
   const store = (await createHome(onTestFinished)).open()
   const { engine } = clockedEngine(store)
