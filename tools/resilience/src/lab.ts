@@ -22,7 +22,7 @@ import { type ConfigInput, createProfile, type Profile, type RunningDaemon } fro
 import type { Clis } from './clis.js'
 import { writeGate } from './gate.js'
 import type { Journal } from './journal.js'
-import { type Finished, type Launched, launch, runToEnd, shellPath, tail } from './processes.js'
+import { type Finished, killProcess, type Launched, launch, processesUnder, runToEnd, shellPath, tail } from './processes.js'
 import { type RawCount, rawCounts, storedCursors, type UnknownRecord, unknownRecords } from './store.js'
 
 export interface LabPaths {
@@ -88,6 +88,10 @@ export interface Lab {
 const stubApiKey = 'sk-ant-api03-aang-resilience-stub'
 
 const cliTimeoutMs = 120_000
+
+const hangLimitMs = 60_000
+
+const strayKillLimitMs = 30_000
 
 const strippedVariables = /^(?:ANTHROPIC_|OPENAI_|CLAUDE|CODEX_|AANG_|AI_AGENT$)/i
 
@@ -306,13 +310,33 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
     return current
   }
 
+  const bounded = async <T>(what: string, work: Promise<T>): Promise<T> => {
+    const finished = async (limitMs: number): Promise<{ readonly value: T } | null> => {
+      const timer = new AbortController()
+      try {
+        return await Promise.race([work.then((value) => ({ value })), sleep(limitMs, null, { signal: timer.signal })])
+      } finally {
+        timer.abort()
+      }
+    }
+    const first = await finished(hangLimitMs)
+    if (first !== null) return first.value
+    const strays = processesUnder(profile.root)
+    journal.observe(`processes of the profile still running when ${what} hung`, strays.map(({ command }) => command))
+    for (const { pid } of strays) killProcess(pid)
+    const second = await finished(strayKillLimitMs)
+    throw new Error(
+      `${what} did not finish within ${String(hangLimitMs)} ms; ${String(strays.length)} processes of the profile were still running and were killed${second === null ? ', and it still did not finish' : ''}`,
+    )
+  }
+
   const killDaemon = async (): Promise<void> => {
-    const exit = await daemon().kill()
+    const exit = await bounded('the killed daemon exit', daemon().kill())
     journal.step('daemon killed with SIGKILL', exit)
   }
 
   const stopDaemon = async (): Promise<void> => {
-    const exit = await daemon().stop()
+    const exit = await bounded('the daemon shutdown', daemon().stop())
     journal.step('daemon shut down through the API', exit)
   }
 
@@ -386,14 +410,14 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
       const reached = (await readdir(gates)).filter((name) => name.endsWith('.reached'))
       await Promise.all(reached.map((name) => writeFile(join(gates, name.replace(/\.reached$/, '.open')), '')))
       await sleep(reached.length === 0 ? 0 : 500)
-      await Promise.allSettled(launched.map((child) => child.kill()))
-      await Promise.allSettled([claudeStub.close(), codexStub.close()])
+      await bounded('killing the CLIs', Promise.allSettled(launched.map((child) => child.kill())))
+      await bounded('closing the model stubs', Promise.allSettled([claudeStub.close(), codexStub.close()]))
       if (keep) {
-        if (current?.running() === true) await current.stop().catch(() => current?.kill())
+        if (current?.running() === true) await bounded('the daemon shutdown', current.stop().catch(() => current?.kill()))
         process.stdout.write(`    kept ${profile.root}\n`)
         return
       }
-      await profile.dispose()
+      await bounded('the profile disposal', profile.dispose())
     },
   }
 }

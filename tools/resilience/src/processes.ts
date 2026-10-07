@@ -1,4 +1,4 @@
-import { spawn, spawnSync } from 'node:child_process'
+import { execFileSync, spawn, spawnSync } from 'node:child_process'
 
 export const windows = process.platform === 'win32'
 
@@ -84,6 +84,51 @@ export const launch = (command: string, args: readonly string[], options: Launch
 
 export const runToEnd = async (command: string, args: readonly string[], options: LaunchOptions): Promise<Finished> =>
   launch(command, args, options).done
+
+export interface ProcessEntry {
+  readonly pid: number
+  readonly command: string
+}
+
+const listProcesses = (): ProcessEntry[] => {
+  try {
+    const output = windows
+      ? execFileSync(
+          'powershell.exe',
+          [
+            '-NoProfile',
+            '-NonInteractive',
+            '-Command',
+            '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)`t$($_.CommandLine)" }',
+          ],
+          { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
+        )
+      : execFileSync('ps', ['-A', '-o', 'pid=,args='], { encoding: 'utf8', timeout: 60_000 })
+    return output.split(/\r?\n/).flatMap((line) => {
+      const match = /^\s*(\d+)\s+(.*)$/.exec(line)
+      return match === null ? [] : [{ pid: Number(match[1]), command: match[2] ?? '' }]
+    })
+  } catch {
+    return []
+  }
+}
+
+const comparable = (text: string): string => (windows ? text.replaceAll('/', '\\').toLowerCase() : text)
+
+export const processesUnder = (directory: string): ProcessEntry[] =>
+  listProcesses().filter(({ pid, command }) => pid !== process.pid && comparable(command).includes(comparable(directory)))
+
+export const killProcess = (pid: number): void => {
+  if (windows) {
+    killTree(pid)
+    return
+  }
+  try {
+    process.kill(pid, 'SIGKILL')
+  } catch {
+    return
+  }
+}
 
 export const shellPath = (path: string): string => `"${path.replaceAll('\\', '/')}"`
 

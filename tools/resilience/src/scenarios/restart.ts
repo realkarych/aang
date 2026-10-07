@@ -151,7 +151,7 @@ const claudeStopBetweenTurns: Scenario = {
     const registryGaps = (await lab.status()).gaps.flatMap(({ details }) =>
       details?.includes('registry record') === true ? [details] : [],
     )
-    journal.equal('ended sessions leave no gap for their removed registry files', registryGaps, [], findings.registryRemovalGap)
+    journal.equal('ended sessions leave no gap for their removed registry files', registryGaps, [])
     await recordInventory(lab)
   },
 }

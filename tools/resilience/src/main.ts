@@ -119,4 +119,6 @@ for (const scenario of selected) {
   await writeReport()
 }
 
-process.exitCode = reports.some(({ status }) => status === 'failed') ? 1 : 0
+const exitCode = reports.some(({ status }) => status === 'failed') ? 1 : 0
+process.exitCode = exitCode
+setTimeout(() => process.exit(exitCode), 10_000).unref()
