@@ -90,13 +90,25 @@ const reshaped =
   }
 
 const repeatedBefore = (label: string, gapMs: number) =>
-  reshaped(label, (step) => [{ ...step, label: undefined }, { ...step, at: step.at + gapMs }])
+  reshaped(label, (step) => [
+    { ...step, label: `${label}-first` },
+    { ...step, label: `${label}-second` },
+    { ...step, at: step.at + gapMs },
+  ])
 
 const lostBetweenRepeats = (label: string, gapMs: number) =>
   reshaped(label, (step) => [
     { ...step, label: undefined },
     { ...step, at: step.at + gapMs, env: { ...(step.env as Readonly<Record<string, string>>), AANG_OBSERVER: '1' } },
     { ...step, at: step.at + 2 * gapMs, label: `${label}-repeated` },
+  ])
+
+const lostAmongRepeats = (label: string) =>
+  reshaped(label, (step) => [
+    { ...step, label: undefined },
+    { ...step, env: { ...(step.env as Readonly<Record<string, string>>), AANG_OBSERVER: '1' } },
+    { ...step, label: undefined, registration: 'user' },
+    { ...step, label: `${label}-repeated` },
   ])
 
 const splitInto = (label: string, firstBytes: number, secondBytes: number, gapMs: number) =>
@@ -496,16 +508,19 @@ describe('the measurement', () => {
   )
 
   test(
-    'takes the records of each delivery from its own step: a lost hook and a deduplicated write leave their steps unmatched, a line split across appends belongs to the step that ends it',
+    'takes the records of each delivery from its own step: a lost hook and a deduplicated write leave their steps unmatched, a record that fits several steps goes to none, a line split across appends belongs to the step that ends it',
     { timeout: 120_000 },
     async () => {
       const space = await workspace()
       const tools = claudeRecording('tools')
+      const question = claudeRecording('question')
       const workflow = claudeRecording('workflow')
       const interrupt = claudeRecording('interrupt')
       const gapMs = 3_000
       await space.mark(tools, { 'edit-finished': mainStageCitingEvent })
       await space.edit(tools, lostBetweenRepeats('edit-finished', gapMs))
+      await space.mark(question, {})
+      await space.edit(question, lostAmongRepeats('question-asked'))
       await space.mark(workflow, { 'workflow-completed': { stage: { evidence: 'event' } } })
       await space.edit(workflow, repeatedBefore('workflow-completed', gapMs))
       const split = await lineAround(interrupt, 'interrupted', '[Request interrupted by user')
@@ -513,19 +528,28 @@ describe('the measurement', () => {
       await space.edit(interrupt, splitInto('interrupted', split.inside, split.end - split.inside, gapMs))
       const cli = space.fakeClaude({ replies: [{ kind: 'script', script: 'report' }] })
       await space.writeProfile(
-        loadProfile('repeated', 5_000, cli.path, [{ recording: tools }, { recording: workflow }, { recording: interrupt }]),
+        loadProfile('repeated', 5_000, cli.path, [
+          { recording: tools },
+          { recording: question },
+          { recording: workflow },
+          { recording: interrupt },
+        ]),
       )
       expect(await space.freshness('fix', space.profile, space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0 })
       expect(await space.freshness('run', space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0, stderr: '' })
 
       const measurement = Measurement.parse(await space.read('measurement.json'))
-      const lost = measuredEvent(measurement, 'edit-finished')
-      const repeated = measuredEvent(measurement, 'edit-finished-repeated')
-      expect(lost).toMatchObject({ observed_at: null, runs: [], evaluation: { kind: 'unmatched' } })
-      expect(repeated.observed_at).toBeGreaterThan(lost.played_at)
-      expect(repeated.observed_at).toBeLessThanOrEqual(repeated.played_at)
-      expect(repeated.evaluation.kind).not.toBe('unmatched')
-      expect(measuredEvent(measurement, 'workflow-completed')).toMatchObject({ observed_at: null, runs: [], evaluation: { kind: 'unmatched' } })
+      const unmatched = { observed_at: null, runs: [], evaluation: { kind: 'unmatched' } }
+      for (const label of ['edit-finished', 'question-asked']) {
+        const lost = measuredEvent(measurement, label)
+        const repeated = measuredEvent(measurement, `${label}-repeated`)
+        expect(lost).toMatchObject(unmatched)
+        expect(repeated.observed_at).toBeGreaterThan(lost.played_at)
+        expect(repeated.evaluation.kind).not.toBe('unmatched')
+      }
+      for (const label of ['workflow-completed-first', 'workflow-completed-second', 'workflow-completed']) {
+        expect(measuredEvent(measurement, label)).toMatchObject(unmatched)
+      }
       const interrupted = measuredEvent(measurement, 'interrupted')
       expect(interrupted.observed_at).not.toBeNull()
       expect(interrupted.runs).not.toEqual([])

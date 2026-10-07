@@ -39,6 +39,11 @@ interface Slot {
   readonly until: bigint
 }
 
+interface Delivery {
+  readonly key: string
+  readonly record: IndexedRecord
+}
+
 interface Chunk {
   readonly position: number
   readonly path: string
@@ -54,7 +59,7 @@ interface FileState {
 
 const pageSize = 1_000
 const nanosecondsPerMillisecond = 1_000_000n
-const clockLagNs = 50n * nanosecondsPerMillisecond
+const clockSkewNs = 250n * nanosecondsPerMillisecond
 const lineFeed = 0x0a
 
 const deliveryKey = (...parts: readonly string[]): string => JSON.stringify(parts)
@@ -118,7 +123,7 @@ export const indexRecords = (store: Store): RecordIndex => {
 }
 
 const replay = (playback: Played, roots: PlayerRoots): { slots: Slot[]; chunks: Chunk[] } => {
-  const { recording, shift, startsAt, steps: played } = playback
+  const { recording, shift, steps: played } = playback
   const contents = new Map<string, Buffer>()
   const content = (source: string): Buffer => {
     const loaded = contents.get(source) ?? shifted(recording.playback.sources.get(source) ?? Buffer.alloc(0), shift)
@@ -138,8 +143,8 @@ const replay = (playback: Played, roots: PlayerRoots): { slots: Slot[]; chunks: 
       playback,
       position,
       key,
-      from: nanoseconds(played[position - 1]?.playedAt ?? startsAt) - clockLagNs,
-      until: nanoseconds(done.playedAt + 1),
+      from: nanoseconds(done.startedAt) - clockSkewNs,
+      until: nanoseconds(done.playedAt + 1) + clockSkewNs,
     })
     switch (step.kind) {
       case 'hook':
@@ -188,23 +193,68 @@ const replay = (playback: Played, roots: PlayerRoots): { slots: Slot[]; chunks: 
   return { slots, chunks }
 }
 
-const assign = (index: RecordIndex, slots: readonly Slot[]): Map<Slot, IndexedRecord[]> => {
-  const byKey = new Map<string, Slot[]>()
-  for (const slot of slots) {
-    add(byKey, slot.key, slot)
-  }
-  const taken = new Map<Slot, IndexedRecord[]>()
-  for (const [key, keyed] of byKey) {
-    for (const record of index.deliveries.get(key) ?? []) {
-      const at = record.raw.observed_at
-      const containing = keyed.filter(({ from, until }) => at >= from && at < until)
-      const [first] = containing
-      if (first !== undefined && containing.every(({ playback }) => playback === first.playback)) {
-        add(taken, first, record)
+const fits = (slot: Slot, { key, record }: Delivery): boolean =>
+  slot.key === key && record.raw.observed_at >= slot.from && record.raw.observed_at < slot.until
+
+const byObservedAt = (left: Delivery, right: Delivery): number =>
+  left.record.raw.observed_at < right.record.raw.observed_at ? -1 : left.record.raw.observed_at > right.record.raw.observed_at ? 1 : 0
+
+const earliest = (slots: readonly Slot[], moments: readonly (readonly Delivery[])[]): Map<Delivery, number> | null => {
+  const placed = new Map<Delivery, number>()
+  let bound = -1
+  for (const moment of moments) {
+    const taken: number[] = []
+    for (const delivery of moment) {
+      const position = slots.findIndex((slot, at) => at > bound && !taken.includes(at) && fits(slot, delivery))
+      if (position < 0) {
+        return null
       }
+      taken.push(position)
+      placed.set(delivery, position)
     }
+    bound = Math.max(...taken)
   }
-  return taken
+  return placed
+}
+
+const latest = (slots: readonly Slot[], moments: readonly (readonly Delivery[])[]): Map<Delivery, number> | null => {
+  const placed = earliest(slots.toReversed(), moments.toReversed())
+  return placed === null ? null : new Map([...placed].map(([delivery, position]) => [delivery, slots.length - 1 - position]))
+}
+
+const align = (slots: readonly Slot[], deliveries: readonly Delivery[]): [Slot, IndexedRecord][] => {
+  const moments = [...Map.groupBy(deliveries.toSorted(byObservedAt), ({ record }) => record.raw.observed_at).values()]
+  const first = earliest(slots, moments)
+  const last = latest(slots, moments)
+  if (first === null || last === null) {
+    return []
+  }
+  return moments.flatMap((moment) =>
+    moment.flatMap((delivery): [Slot, IndexedRecord][] => {
+      const position = first.get(delivery)
+      const slot = position === undefined ? undefined : slots[position]
+      const twin = moment.some((other) => other !== delivery && other.key === delivery.key)
+      return slot === undefined || twin || last.get(delivery) !== position ? [] : [[slot, delivery.record]]
+    }),
+  )
+}
+
+const assign = (index: RecordIndex, slots: readonly Slot[]): Map<Slot, IndexedRecord> => {
+  const shared = new Set(
+    [...Map.groupBy(slots, ({ key }) => key)].flatMap(([key, keyed]) =>
+      new Set(keyed.map(({ playback }) => playback)).size > 1 ? [key] : [],
+    ),
+  )
+  return new Map(
+    [...Map.groupBy(slots, ({ playback }) => playback).values()].flatMap((own) =>
+      align(
+        own,
+        [...new Set(own.map(({ key }) => key))].flatMap((key) =>
+          shared.has(key) ? [] : (index.deliveries.get(key) ?? []).map((record) => ({ key, record })),
+        ),
+      ),
+    ),
+  )
 }
 
 const completedLines = (index: RecordIndex, { path, openLine, offset, lastLineEnd }: Chunk): IndexedRecord[] =>
@@ -223,8 +273,8 @@ export const stepRecords = (index: RecordIndex, played: readonly Played[], roots
       playback,
       new Map([
         ...slots.map((slot): [number, readonly IndexedRecord[]] => {
-          const records = taken.get(slot) ?? []
-          return [slot.position, records.length === 1 ? records : []]
+          const record = taken.get(slot)
+          return [slot.position, record === undefined ? [] : [record]]
         }),
         ...chunks.map((chunk): [number, readonly IndexedRecord[]] => [chunk.position, completedLines(index, chunk)]),
       ]),
