@@ -22,7 +22,7 @@ import { type ConfigInput, createProfile, type Profile, type RunningDaemon } fro
 import type { Clis } from './clis.js'
 import { writeGate } from './gate.js'
 import type { Journal } from './journal.js'
-import { type Finished, type Launched, launch, runToEnd, tail } from './processes.js'
+import { type Finished, type Launched, launch, runToEnd, shellPath, tail } from './processes.js'
 import { type RawCount, rawCounts, storedCursors, type UnknownRecord, unknownRecords } from './store.js'
 
 export interface LabPaths {
@@ -104,8 +104,6 @@ const gateScript = [
   '',
 ].join('\n')
 
-const quoted = (value: string): string => `"${value}"`
-
 const codexConfig = (provider: string): string =>
   [
     'model_provider = "aang_stub"',
@@ -167,8 +165,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
   }
   await writeFile(join(project, 'notes.txt'), 'aang Q.4 resilience project\n')
   await writeFile(join(work, 'gate.mjs'), gateScript)
-  const gateCommand = (name: string): string =>
-    `${quoted(process.execPath)} ${quoted(join(work, 'gate.mjs'))} ${quoted(join(gates, name))}`
+  const gateCommand = (name: string): string => `node ${shellPath(join(work, 'gate.mjs'))} ${shellPath(join(gates, name))}`
   const scripts = options.scripts?.({ project, gate: gateCommand }) ?? {}
   const claudeStub: ModelStub = await startModelStub(scripts.claude ?? {}, join(work, 'claude-stub.jsonl'))
   const codexStub: ResponsesStub = await startResponsesStub(scripts.codex ?? {}, join(work, 'codex-stub.jsonl'))

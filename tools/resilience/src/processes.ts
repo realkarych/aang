@@ -85,5 +85,7 @@ export const launch = (command: string, args: readonly string[], options: Launch
 export const runToEnd = async (command: string, args: readonly string[], options: LaunchOptions): Promise<Finished> =>
   launch(command, args, options).done
 
+export const shellPath = (path: string): string => `"${path.replaceAll('\\', '/')}"`
+
 export const tail = (text: string, limit = 1200): string =>
   text.length <= limit ? text.trim() : `…${text.slice(-limit).trim()}`

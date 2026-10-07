@@ -25,6 +25,7 @@ import {
   waitView,
 } from '../drivers.js'
 import type { SessionView } from '../lab.js'
+import { shellPath } from '../processes.js'
 import { claudeSessionOf, claudeToolUses, claudeTranscript, claudeTranscripts, codexRollouts } from '../sources.js'
 
 const actionStates = (view: SessionView): Record<string, unknown>[] =>
@@ -139,7 +140,7 @@ const claudeCwdDrift: Scenario = {
     const outside = join(project, '..', 'outside')
     return {
       claude: {
-        drift: [[bash(`cd "${outside}" && ${echo('outside')}`)], [bash(echo('still'))], [{ text: 'done' }]],
+        drift: [[bash(`cd ${shellPath(outside)} && ${echo('outside')}`)], [bash(echo('still'))], [{ text: 'done' }]],
         external: [[bash(echo('external'))], [{ text: 'done' }]],
       },
     }

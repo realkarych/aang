@@ -1,11 +1,12 @@
 import { mkdir, writeFile } from 'node:fs/promises'
-import { arch, homedir, platform, release, tmpdir } from 'node:os'
+import { arch, platform, release } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { type Clis, locateCli } from './clis.js'
 import { createJournal, type ScenarioReport } from './journal.js'
 import { createLab } from './lab.js'
+import { redact, unredactedPaths } from './redact.js'
 import { scenarios } from './scenarios/index.js'
 
 const { values } = parseArgs({
@@ -40,30 +41,24 @@ if (selected.length === 0) {
   throw new Error(`no scenario matches ${String(values.only)}`)
 }
 
-const versionEnv = Object.fromEntries(
-  Object.entries(process.env).filter(([name]) => !/^(?:CLAUDE|CODEX_|AANG_|AI_AGENT$)/i.test(name)),
-)
 const clis: Clis = {
-  claude: locateCli('claude', values.claude ?? null, versionEnv),
-  codex: locateCli('codex', values.codex ?? null, versionEnv),
+  claude: await locateCli('claude', values.claude),
+  codex: await locateCli('codex', values.codex),
 }
-
-const redactions: readonly (readonly [string, string])[] = [
-  [tmpdir(), '<tmp>'],
-  [homedir(), '~'],
-]
-
-const redact = (text: string): string =>
-  redactions.reduce(
-    (current, [path, placeholder]) =>
-      current.replaceAll(path, placeholder).replaceAll(JSON.stringify(path).slice(1, -1), placeholder),
-    text.replace(/\/private\/var\/folders\/[^"\s/]+\/[^"\s/]+\/T/g, '<tmp>'),
-  )
 
 const marks: Readonly<Record<ScenarioReport['status'], string>> = { passed: '✔', known: '⚑', failed: '✘' }
 
 const reports: ScenarioReport[] = []
 const startedAt = new Date().toISOString()
+
+const publishable = (text: string): string => {
+  const redacted = redact(text)
+  const unredacted = unredactedPaths(redacted)
+  if (unredacted.length > 0) {
+    throw new Error(`the report is not written: it still names ${unredacted.join(', ')}`)
+  }
+  return redacted
+}
 
 const writeReport = async (): Promise<void> => {
   await mkdir(out, { recursive: true })
@@ -76,7 +71,10 @@ const writeReport = async (): Promise<void> => {
     failed: reports.filter(({ status }) => status === 'failed').map(qualified),
     known: reports.filter(({ status }) => status === 'known').map(qualified),
   }
-  await writeFile(join(out, 'report.json'), redact(`${JSON.stringify(report, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value), 2)}\n`))
+  await writeFile(
+    join(out, 'report.json'),
+    publishable(`${JSON.stringify(report, (_key, value: unknown) => (typeof value === 'bigint' ? value.toString() : value), 2)}\n`),
+  )
   const lines = [
     `# aang Q.4 resilience on ${platform()} ${release()} ${arch()}`,
     '',
@@ -91,7 +89,7 @@ const writeReport = async (): Promise<void> => {
     ]),
     '',
   ]
-  await writeFile(join(out, 'summary.md'), redact(lines.join('\n')))
+  await writeFile(join(out, 'summary.md'), publishable(lines.join('\n')))
 }
 
 for (const scenario of selected) {

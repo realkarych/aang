@@ -23,6 +23,7 @@ import {
 } from '../drivers.js'
 import type { Lab, SessionView } from '../lab.js'
 import { waitFor } from '../lab.js'
+import { windows } from '../processes.js'
 import { claudeSessionOf, claudeToolUses, claudeTranscript } from '../sources.js'
 
 const installation = async (lab: Lab, runtime: Runtime): Promise<HookInstallation | null> =>
@@ -162,7 +163,8 @@ const claudeLeaseLost: Scenario = {
 const prependForeignHook = async (codexHome: string): Promise<void> => {
   const path = join(codexHome, 'hooks.json')
   const document = JSON.parse(await readFile(path, 'utf8')) as { hooks: Record<string, unknown[]> }
-  document.hooks['PreToolUse'] = [{ hooks: [{ type: 'command', command: 'true', timeout: 2 }] }, ...(document.hooks['PreToolUse'] ?? [])]
+  const command = windows ? 'exit 0' : 'true'
+  document.hooks['PreToolUse'] = [{ hooks: [{ type: 'command', command, timeout: 2 }] }, ...(document.hooks['PreToolUse'] ?? [])]
   await writeFile(path, `${JSON.stringify(document, null, 2)}\n`)
 }
 

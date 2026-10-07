@@ -86,12 +86,11 @@ const claudeForks: Scenario = {
       two: await originOf(lab, views.two, ids),
       three: await originOf(lab, views.three, ids),
     }
-    journal.observe('common origin links', links)
-    journal.check(
-      'each fork has a common-origin link without a guessed parent',
-      Object.values(links).every((link) => Array.isArray(link['sessions']) && link['parent_candidate'] === null),
-      links,
-    )
+    journal.equal('each fork has a common-origin link to the other sessions without a guessed parent', links, {
+      one: { sessions: ['origin', 'three', 'two'], parent_candidate: null, basis: 'observed' },
+      two: { sessions: ['one', 'origin', 'three'], parent_candidate: null, basis: 'observed' },
+      three: { sessions: ['one', 'origin', 'two'], parent_candidate: null, basis: 'observed' },
+    })
     journal.equal('no Claude fork claims a forked-from parent', Object.values(views).map((view) => view.run.summary.forked_from), [null, null, null, null])
     journal.observe('launches', Object.fromEntries(Object.entries(views).map(([name, view]) => [name, sessionFields(view.session)['launches']])))
     const binding = endpoints.createBinding.response.parse(
@@ -139,14 +138,14 @@ const claudeForkParentUnseen: Scenario = {
     await lab.settle()
     const view = await viewOf(lab, fork)
     journal.equal('the copied history is inherited', { own: own(view), inherited: inherited(view) }, { own: 1, inherited: 1 })
-    journal.observe('common origin link', await originOf(lab, view, { fork }))
+    journal.equal(
+      'the fork has a common-origin link without visible sessions or a parent candidate',
+      origins(view).map(({ sessions, parent_candidate, basis }) => ({ sessions, parent_candidate, basis: basis.kind })),
+      [{ sessions: [], parent_candidate: null, basis: 'observed' }],
+    )
+    journal.equal('the fork claims no forked-from parent', view.run.summary.forked_from, null)
     const parent = await lab.sessionView(origin)
     journal.observe('parent session from its hooks only', parent === null ? null : sessionFields(parent.session))
-    journal.check(
-      'the fork names no parent',
-      view.run.summary.forked_from === null && origins(view).every((link) => link.parent_candidate === null || parent !== null),
-      { forked_from: view.run.summary.forked_from, origins: origins(view).map(({ sessions, parent_candidate }) => ({ sessions, parent_candidate })) },
-    )
   },
 }
 
