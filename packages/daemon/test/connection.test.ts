@@ -12,7 +12,8 @@ import {
   type SupportRow,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import { claudePluginId, installClaudePlugin, installCodexHooks } from '@aang/hook'
+import { claudePluginId, deployHookBinary, installClaudePlugin, installCodexHooks } from '@aang/hook'
+import { resolveCli } from '@aang/observer'
 import {
   type ClaudeScenario,
   type CodexScenario,
@@ -108,8 +109,9 @@ const connect = async (
   const codexHome = join(home.root, '.codex')
   await mkdir(claudeHome, { recursive: true })
   await mkdir(codexHome, { recursive: true })
+  await deployHookBinary({ aangHome: home.paths.home, hookBinarySource: hookBinary })
   await writeConfig(home, {
-    cli: { claude: claude.command, codex: codex.command },
+    cli: { claude: claude.executable, codex: codex.executable },
     collector: { rootsScanIntervalMs: 200 },
     watch: { roots: [{ path: workspace }] },
   })
@@ -164,7 +166,7 @@ const supportRow = (row: Pick<SupportRow, 'runtime' | 'surface' | 'engine_versio
   verified_on: null,
 })
 
-describe.skipIf(process.platform === 'win32')('the static hooks state of ADR-0004 in /api/status', () => {
+describe('the static hooks state of ADR-0004 in /api/status', () => {
   test(
     'Codex hooks go from not installed through untrusted to active and disabled, stale aang entries never count, and a session without hook events stays visible',
     { timeout: 60_000 },
@@ -225,7 +227,7 @@ describe.skipIf(process.platform === 'win32')('the static hooks state of ADR-000
       await installClaudePlugin({
         aangHome: home.paths.home,
         hookBinarySource: hookBinary,
-        claude: { command: claude.command, configDir: null },
+        claude: { command: claude.executable, configDir: null },
       })
       const installed = fakeCalls(claude, 'plugin').length
       for (let read = 0; read < 10; read += 1) {
@@ -243,7 +245,7 @@ describe.skipIf(process.platform === 'win32')('the static hooks state of ADR-000
       expect(fakeCalls(claude, 'plugin')).toHaveLength(installed + 1)
       expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
 
-      await runFile(claude.command, ['plugin', 'disable', claudePluginId, '--json'])
+      await runFile(claude.executable, ['plugin', 'disable', claudePluginId, '--json'])
       await writeFile(join(claudeHome, 'settings.json'), JSON.stringify({ enabledPlugins: { [claudePluginId]: false } }))
       await statusUntil(daemon, home, (status) => hooksOf(status).claude === 'disabled')
       expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
@@ -280,10 +282,31 @@ describe.skipIf(process.platform === 'win32')('the static hooks state of ADR-000
       daemon.abort()
       await daemon.stopped
       expect(Date.now() - stopping).toBeLessThan(7_000)
-      expect(hanging.filter(({ pid }) => isRunning(pid))).toEqual([])
+      await waitUntil(() => !hanging.some(({ pid }) => isRunning(pid)), 10_000)
     },
   )
 })
+
+const installedCodex = process.env.AANG_ISOLATION_CODEX
+
+test.skipIf(installedCodex === undefined)(
+  'with the installed Codex CLI the aang hooks registered through its own app-server show as untrusted in /api/status',
+  { timeout: 120_000 },
+  async ({ expect, onTestFinished }) => {
+    const home = await createHome(onTestFinished)
+    const codexHome = join(home.root, '.codex')
+    await mkdir(codexHome, { recursive: true })
+    await writeConfig(home, { cli: { claude: join(home.root, 'no-cli', 'claude') } })
+    const codex = resolveCli('codex', installedCodex ?? 'codex', process.env)
+
+    const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+    const daemon = await startDaemon(home, onTestFinished)
+    const checked = await checkHooks(daemon, home)
+
+    expect(installation.backup).toBeNull()
+    expect(hooksOf(checked).codex).toBe('untrusted')
+  },
+)
 
 test(
   'versions of the sessions carry their support status from the matrix by the OS and placement of the daemon, a version of an unknown surface stays visible as unverified, and a configured placement has its own rows',

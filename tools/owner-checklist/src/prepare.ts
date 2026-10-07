@@ -42,7 +42,7 @@ const requireSupport = (options: PrepareOptions): void => {
     return
   }
   if (options.claude === 'marketplace') {
-    throw new Error('на Windows продуктовая установка плагина закрыта (ADR-0013); используйте --claude plugin-dir')
+    throw new Error('на Windows чек-лист подключает плагин только флагом --plugin-dir, без изменения пользовательских настроек (ADR-0013); используйте --claude plugin-dir')
   }
   if (options.codexHooks) {
     throw new Error('--codex-hooks нужен только для Codex Desktop на macOS; Desktop на Windows в MVP не проверяется (ADR-0013, решение 3)')

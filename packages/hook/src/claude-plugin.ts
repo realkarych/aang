@@ -3,7 +3,6 @@ import { dirname, join } from 'node:path'
 import type { RegistrationTag, Runtime } from '@aang/contract'
 import { deployHookBinary } from './binary.js'
 import { type ClaudeCli, type ClaudeCompleted, listPlugins, type PluginListing, pluginListingOf, runPluginCommand } from './claude-cli.js'
-import { requireHookInstallSupport } from './errors.js'
 import { jsonText, readIfReadable, replaceFile } from './files.js'
 import { hookInstallPaths } from './layout.js'
 
@@ -123,7 +122,6 @@ export const installClaudePlugin = async ({
   hookBinarySource,
   claude,
 }: ClaudePluginInstallOptions): Promise<ClaudePluginInstallation> => {
-  requireHookInstallSupport()
   const paths = hookInstallPaths(aangHome)
   const binary = await deployHookBinary({ aangHome, hookBinarySource })
   await writeClaudePlugin({ directory: paths.claudePlugin, hookBinary: binary, spool: paths.spool })
@@ -133,7 +131,6 @@ export const installClaudePlugin = async ({
 }
 
 export const uninstallClaudePlugin = async ({ aangHome, claude }: ClaudePluginUninstallOptions): Promise<void> => {
-  requireHookInstallSupport()
   await runPluginCommand(claude, ['uninstall', claudePluginId, '--scope', scope], ['not_installed'])
   await runPluginCommand(claude, ['marketplace', 'remove', marketplaceName, '--scope', scope], ['not_configured'])
   await rm(hookInstallPaths(aangHome).claudePlugin, { recursive: true, force: true })

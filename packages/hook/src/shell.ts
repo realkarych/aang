@@ -1,5 +1,7 @@
 export const posixQuote = (value: string): string => `'${value.replaceAll("'", `'\\''`)}'`
 
+export const powerShellQuote = (value: string): string => `'${value.replaceAll("'", "''")}'`
+
 const unquote = (word: string): string =>
   word.replace(
     /'([^']*)'|"((?:\\[\s\S]|[^"\\])*)"|\\([\s\S])|([^'"\\]+)/g,

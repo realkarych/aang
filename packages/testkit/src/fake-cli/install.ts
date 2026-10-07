@@ -15,6 +15,7 @@ export interface FakeCli<S> {
   readonly runtime: Runtime
   readonly command: string
   readonly args: readonly string[]
+  readonly executable: string
   readonly path: string
   readonly held: (hold: FakeCliHold) => string
   readonly setScenario: (scenario: S) => void
@@ -86,11 +87,13 @@ const launcher = (
   directory: string,
   script: string,
   state: string,
-): Pick<FakeCli<never>, 'command' | 'args'> => {
+): Pick<FakeCli<never>, 'command' | 'args' | 'executable'> => {
+  const words = [process.execPath, script, state]
   if (windows) {
-    return { command: process.execPath, args: [script, state] }
+    return { command: process.execPath, args: [script, state], executable: nativeLauncher(join(directory, 'bin', `${runtime}.exe`), words) }
   }
-  return { command: shellLauncher(join(directory, 'bin', runtime), [process.execPath, script, state]), args: [] }
+  const command = shellLauncher(join(directory, 'bin', runtime), words)
+  return { command, args: [], executable: command }
 }
 
 const install = <S extends z.ZodType>(
