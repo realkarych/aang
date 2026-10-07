@@ -129,6 +129,12 @@ interface Lines {
   readonly hash: Hash
 }
 
+interface Stamp {
+  readonly identity: string
+  readonly size: bigint
+  readonly mtime: bigint
+}
+
 interface Change {
   readonly append: boolean
   readonly content: Buffer
@@ -147,7 +153,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   const controlEvents: ControlEvent[] = []
   const contents = new Map<string, Buffer>()
   const lines = new Map<string, Lines>()
-  const seen = new Map<string, string>()
+  const seen = new Map<string, Stamp>()
   const bySource = new Map<string, CapturedArtifact>()
   const targets = new Map<string, Target>()
   const kept = new Map<string, Target>()
@@ -245,9 +251,9 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     const bytes = await readRange(file, previous.length - previous.tail.length, size)
     return bytes.subarray(0, previous.tail.length).equals(previous.tail) ? bytes.subarray(previous.tail.length) : undefined
   }
-  const linesChange = async (file: string, size: number, final: boolean): Promise<Change> => {
+  const linesChange = async (file: string, size: number, grown: boolean, final: boolean): Promise<Change> => {
     const previous = lines.get(file)
-    const fresh = final || previous === undefined ? undefined : await appended(file, size, previous)
+    const fresh = final || !grown || previous === undefined ? undefined : await appended(file, size, previous)
     if (fresh !== undefined) return { append: true, content: decoded(jsonLines(fresh, false)) }
     const complete = decoded(jsonLines(await readFile(file), final))
     if (previous === undefined) return { append: true, content: complete }
@@ -275,12 +281,14 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
           throw error
         })
         if (info === undefined) continue
-        const stamp = `${String(info.size)}:${String(info.mtimeNs)}`
-        if (!final && seen.get(file) === stamp) continue
+        const stamp = { identity: `${String(info.dev)}:${String(info.ino)}`, size: info.size, mtime: info.mtimeNs }
+        const last = seen.get(file)
+        const same = last?.identity === stamp.identity
+        if (!final && same && last.size === stamp.size && last.mtime === stamp.mtime) continue
         const jsonl = file.endsWith('.jsonl')
         let change: Change | undefined
         try {
-          change = jsonl ? await linesChange(file, Number(info.size), final) : await documentChange(file)
+          change = jsonl ? await linesChange(file, Number(info.size), same && stamp.size > last.size, final) : await documentChange(file)
         } catch (error) {
           if (isMissing(error)) continue
           if (final) throw error

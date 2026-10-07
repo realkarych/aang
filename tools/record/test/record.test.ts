@@ -287,6 +287,17 @@ test('a long session with a large transcript and many hooks is captured while it
     ['write', ['event-shorter']],
     ['write', ['event-replaced']],
   ])
+  const large = playback.steps.filter((step) => 'target' in step && step.target.path.endsWith('large.jsonl'))
+  const records = large.map((step) =>
+    ('source' in step ? (playback.sources.get(step.source)?.toString('utf8') ?? '') : '').trim().split('\n').map((text) => JSON.parse(text) as { uuid: string; written_at: number }),
+  )
+  expect(large.map((step, position) => [step.kind, records[position]?.map(({ uuid }) => uuid)])).toEqual([
+    ['append', ['event-start', 'event-middle', 'event-end']],
+    ['write', ['event-begin', 'event-middle', 'event-end']],
+    ['write', ['event-again', 'event-middle', 'event-end', 'event-extra']],
+    ['append', ['event-after']],
+  ])
+  expect(Math.max(...large.map((step, position) => started + step.at - Math.max(...(records[position] ?? []).map(({ written_at: at }) => at))))).toBeLessThan(1_000)
 }, 180_000)
 
 test('a hook control event selects a notification by its type', async () => {

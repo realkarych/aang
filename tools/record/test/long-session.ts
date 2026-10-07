@@ -1,4 +1,4 @@
-import { appendFile, mkdir, rename, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, open, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 
@@ -27,4 +27,19 @@ await setTimeout(200)
 await writeFile(rewritten, [entry('shorter')].join(''))
 await setTimeout(200)
 await writeFile(rewritten, [entry('replaced')].join(''))
+await setTimeout(200)
+const large = join(claude, 'projects', 'record-project', 'large.jsonl')
+const record = (name: string): string =>
+  `${JSON.stringify({ type: 'user', sessionId: 'session-long', uuid: `event-${name}`, written_at: Date.now(), text: 'x'.repeat(2_000) })}\n`
+await writeFile(large, [record('start'), record('middle'), record('end')].join(''))
+await setTimeout(200)
+const handle = await open(large, 'r+')
+await handle.write(record('begin'), 0)
+await handle.close()
+await setTimeout(200)
+const [, ...rest] = (await readFile(large, 'utf8')).split(/(?<=\n)/)
+await writeFile(`${large}.next`, [record('again'), ...rest, record('extra')].join(''))
+await rename(`${large}.next`, large)
+await setTimeout(200)
+await appendFile(large, record('after'))
 await setTimeout(200)
