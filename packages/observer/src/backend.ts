@@ -90,7 +90,10 @@ export const number = (value: JsonValue | undefined): number | null => typeof va
 
 export const validateOutput = <T>(protocol: CallProtocol<T>, value: JsonValue | undefined, usage: CallUsage): CallOutcome<T> => {
   const parsed = protocol.output.safeParse(value)
-  if (!parsed.success) throw new LaunchError('invalid_output', `${protocol.name} output does not match its schema`, usage)
+  if (!parsed.success) {
+    const issues = parsed.error.issues.slice(0, 3).map(({ path, message }) => `${path.length === 0 ? 'output' : path.map(String).join('.')}: ${message}`)
+    throw new LaunchError('invalid_output', `${protocol.name} output does not match its schema: ${issues.join('; ')}`, usage)
+  }
   return { ok: true, output: parsed.data, usage }
 }
 
