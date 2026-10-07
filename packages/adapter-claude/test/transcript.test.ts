@@ -51,6 +51,15 @@ const typeOf = (record: CollectedRecord): string => {
     .join('/')
 }
 
+const recordedLines = async (recording: string): Promise<CollectedRecord[]> => {
+  const data = new URL(`../../../fixtures/sessions/claude/2.1.289/${recording}/data/`, import.meta.url)
+  const chunks = (await readdir(data)).filter((name) => name.endsWith('.jsonl')).sort()
+  return (await Promise.all(chunks.map((name) => readFile(new URL(name, data), 'utf8'))))
+    .flatMap((chunk) => chunk.split('\n'))
+    .filter((line) => line.length > 0)
+    .map((payload) => lineRecord({ payload, line: 1 }))
+}
+
 const epochOf = (iso: string): EpochNs => EpochNs.parse(BigInt(Date.parse(iso)) * 1_000_000n)
 
 const atLine = (record: CollectedRecord, line: number): CollectedRecord => {
@@ -384,19 +393,34 @@ describe.concurrent('Claude transcript: records', () => {
   })
 
   test('the plan mode reminders of the reference plan session are context without facts', async ({ expect }) => {
-    const recording = new URL('../../../fixtures/sessions/claude/2.1.289/claude_cli/macos/plan/data/', import.meta.url)
-    const chunks = (await readdir(recording)).filter((name) => name.endsWith('.jsonl')).sort()
-    const lines = (await Promise.all(chunks.map((name) => readFile(new URL(name, recording), 'utf8'))))
-      .flatMap((chunk) => chunk.split('\n'))
-      .filter((line) => line.length > 0)
-    const reminders = lines
-      .map((payload) => lineRecord({ payload, line: 1 }))
-      .filter((record) => typeOf(record).startsWith('attachment/plan_mode'))
+    const reminders = (await recordedLines('claude_cli/macos/plan')).filter((record) =>
+      typeOf(record).startsWith('attachment/plan_mode'),
+    )
 
     expect(reminders.map(typeOf)).toEqual(['attachment/plan_mode', 'attachment/plan_mode_exit'])
     for (const record of reminders) {
       expect(claudeAdapter.parse(record), typeOf(record)).toMatchObject({ parse_state: 'parsed', facts: [] })
     }
+  })
+
+  test('the interactive lines of the reference teammates session are parsed, killed agents are an event', async ({
+    expect,
+  }) => {
+    const interactive = new Set(['permission-mode', 'file-history-snapshot', 'system/turn_duration', 'system/agents_killed'])
+    const results = (await recordedLines('claude_cli/macos/teammates'))
+      .filter((record) => interactive.has(typeOf(record)))
+      .map((record) => [typeOf(record), claudeAdapter.parse(record)] as const)
+
+    expect(new Set(results.map(([type]) => type))).toEqual(interactive)
+    expect(results.filter(([, result]) => result.parse_state !== 'parsed')).toEqual([])
+    expect(results.flatMap(([, result]) => factsOf(result))).toMatchObject([
+      {
+        kind: 'runtime_event',
+        entity_key: { kind: 'session', session: '1ccf19ba-9b77-484f-abb4-26392b1c69d2' },
+        format_verified: true,
+        payload: { event: 'agents_killed', data: {} },
+      },
+    ])
   })
 
   test('the subagent prompt comes from the parent agent and its answer goes back to it', async ({ expect }) => {
@@ -555,9 +579,7 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
   })
 
   test('unfamiliar system lines and attachments are unknown until their parsers land', ({ expect }) => {
-    expect(parseLine({ type: 'system', subtype: 'turn_duration', sessionId: mainSession, durationMs: 5 }).parse_state).toBe(
-      'unknown',
-    )
+    expect(parseLine({ type: 'system', subtype: 'api_error', sessionId: mainSession, uuid: 'u' }).parse_state).toBe('unknown')
     expect(
       parseLine({ type: 'attachment', sessionId: mainSession, attachment: { type: 'edited_text_file' } }).parse_state,
     ).toBe('unknown')
