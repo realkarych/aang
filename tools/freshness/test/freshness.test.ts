@@ -586,6 +586,7 @@ describe('the measurement', () => {
       const measurement = Measurement.parse(await space.read('measurement.json'))
       expect(measurement.events.find(({ label }) => label === 'workflow-completed')?.observed_at).not.toBeNull()
       expect(measurement.events.find(({ label }) => label === 'tasks-listed')).toMatchObject({ observed_at: null, runs: [] })
+      expect(measurement.calls.filter(({ outcome }) => outcome === 'failed').map(({ error }) => error)).toContain('limit')
 
       const [claude] = report.backends
       expect(claude?.calls.accepted).toBe(0)

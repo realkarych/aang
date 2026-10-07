@@ -436,7 +436,7 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
   })
   await shutDown(daemon)
   const store = openStore({ home: aang })
-  const { events, spent } = (() => {
+  const { events, spent, calls } = (() => {
     try {
       return {
         events: evaluateEvents({
@@ -448,6 +448,7 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
           timeScale: profile.time_scale,
         }),
         spent: spentCalls(store, store.model.runs().map(({ id }) => id)),
+        calls: collected.calls.map((call) => ({ ...call, error: store.observerCalls.get(call.id)?.error?.class ?? call.error })),
       }
     } finally {
       store.close()
@@ -467,7 +468,7 @@ export const measure = async (options: MeasureOptions): Promise<Measurement> => 
       finished_at: steps.at(-1)?.playedAt ?? startsAt,
     })),
     events,
-    calls: collected.calls,
+    calls,
     states: collected.states,
     questions: collected.questions,
     spent,
