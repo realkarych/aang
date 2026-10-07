@@ -1,0 +1,55 @@
+name: Resilience
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/resilience.yml
+      - tools/resilience/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CLAUDE_CODE_VERSION: 2.1.292
+  CODEX_VERSION: 0.160.0
+
+jobs:
+  resilience:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: >-
+          npm install --global --allow-scripts=@anthropic-ai/claude-code
+          "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}"
+        shell: bash
+      - run: node tools/resilience/dist/main.js --out resilience-report
+      - if: always()
+        run: cat resilience-report/summary.md >> "$GITHUB_STEP_SUMMARY"
+        shell: bash
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: resilience-${{ runner.os }}
+          path: resilience-report
+          if-no-files-found: error
