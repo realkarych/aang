@@ -53,6 +53,7 @@ const stopStandIn = async (child: ChildProcess, signal: NodeJS.Signals): Promise
     return
   }
   const exited = once(child, 'exit')
+  child.ref()
   child.kill(signal)
   await exited
 }
