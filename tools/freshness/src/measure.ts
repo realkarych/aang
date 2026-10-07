@@ -346,6 +346,7 @@ const collect = async (daemon: RunningDaemon, plan: Plan): Promise<Collected> =>
   const startedAt = Date.now()
   const asking = new AbortController()
   const questions = askAll(daemon, plan, startedAt, asking.signal)
+  void questions.catch(() => undefined)
   const played = await playAll(plan, startedAt, endpoint).catch(async (error: unknown) => {
     asking.abort(error)
     await Promise.allSettled([questions, sampler.stop()])
