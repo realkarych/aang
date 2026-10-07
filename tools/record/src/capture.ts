@@ -1,5 +1,6 @@
+import { createHash, type Hash } from 'node:crypto'
 import type { Dirent } from 'node:fs'
-import { lstat, readdir, readFile, stat } from 'node:fs/promises'
+import { lstat, open, readdir, readFile, stat } from 'node:fs/promises'
 import { extname, join, relative } from 'node:path'
 import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang/testkit'
 import { filesIn, isMissing } from './files.js'
@@ -104,18 +105,59 @@ const readBytes = (file: string): Promise<Buffer> => readFile(file).catch((error
   throw error
 })
 
+const readRange = async (file: string, start: number, end: number): Promise<Buffer> => {
+  const handle = await open(file, 'r')
+  try {
+    const buffer = Buffer.alloc(end - start)
+    let filled = 0
+    while (filled < buffer.length) {
+      const { bytesRead } = await handle.read(buffer, filled, buffer.length - filled, start + filled)
+      if (bytesRead === 0) break
+      filled += bytesRead
+    }
+    return buffer.subarray(0, filled)
+  } finally {
+    await handle.close()
+  }
+}
+
+const tailLength = 4096
+
+interface Lines {
+  readonly length: number
+  readonly tail: Buffer
+  readonly hash: Hash
+}
+
+interface Change {
+  readonly append: boolean
+  readonly content: Buffer
+}
+
+const decoded = (bytes: Buffer): Buffer => {
+  new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+  return bytes
+}
+
+const digestOf = (bytes: Buffer): string => createHash('sha256').update(bytes).digest('hex')
+
 export const createCapture = async (roots: PlayerRoots, spool: string, started: number, options: CaptureOptions = {}): Promise<Capture> => {
   const artifacts: CapturedArtifact[] = []
   const steps: PlayerStep[] = []
   const controlEvents: ControlEvent[] = []
   const contents = new Map<string, Buffer>()
+  const lines = new Map<string, Lines>()
+  const seen = new Map<string, string>()
+  const bySource = new Map<string, CapturedArtifact>()
   const targets = new Map<string, Target>()
   const kept = new Map<string, Target>()
   const hooks = new Set<string>()
   const at = (): number => Math.max(0, Date.now() - started)
   const add = (content: string, directory: string, extension: string, mtime: bigint, observed: number): string => {
     const source = `${directory}/${String(artifacts.length + 1).padStart(6, '0')}.${extension}`
-    artifacts.push({ source, content, observed_at: new Date(started + observed).toISOString(), mtime_ns: String(mtime) })
+    const artifact = { source, content, observed_at: new Date(started + observed).toISOString(), mtime_ns: String(mtime) }
+    artifacts.push(artifact)
+    bySource.set(source, artifact)
     return source
   }
   const { regular } = options
@@ -181,13 +223,41 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     const position = artifacts.findIndex((artifact) => artifact.source === step.source)
     const artifact = artifacts[position]
     if (artifact === undefined) return
-    const lines = artifact.content.split(/(?<=\n)/)
-    const line = occurrence === 'first' ? lines.findIndex((entry) => entry.includes(text)) : lines.findLastIndex((entry) => entry.includes(text))
-    if (line < 0 || line === lines.length - 1) return
-    artifacts[position] = { ...artifact, content: lines.slice(0, line + 1).join('') }
-    const source = add(lines.slice(line + 1).join(''), 'data', 'jsonl', BigInt(artifact.mtime_ns), step.at)
+    const parts = artifact.content.split(/(?<=\n)/)
+    const line = occurrence === 'first' ? parts.findIndex((entry) => entry.includes(text)) : parts.findLastIndex((entry) => entry.includes(text))
+    if (line < 0 || line === parts.length - 1) return
+    const head = { ...artifact, content: parts.slice(0, line + 1).join('') }
+    artifacts[position] = head
+    bySource.set(head.source, head)
+    const source = add(parts.slice(line + 1).join(''), 'data', 'jsonl', BigInt(artifact.mtime_ns), step.at)
     steps.splice(index + 1, 0, { ...step, source })
     locate()
+  }
+  const remember = (file: string, change: Change): void => {
+    const previous = change.append ? lines.get(file) : undefined
+    const hash = previous?.hash ?? createHash('sha256')
+    hash.update(change.content)
+    const tail = Buffer.concat([previous?.tail ?? Buffer.alloc(0), change.content.subarray(-tailLength)]).subarray(-tailLength)
+    lines.set(file, { length: (previous?.length ?? 0) + change.content.length, tail: Buffer.from(tail), hash })
+  }
+  const appended = async (file: string, size: number, previous: Lines): Promise<Buffer | undefined> => {
+    if (size < previous.length) return undefined
+    const bytes = await readRange(file, previous.length - previous.tail.length, size)
+    return bytes.subarray(0, previous.tail.length).equals(previous.tail) ? bytes.subarray(previous.tail.length) : undefined
+  }
+  const linesChange = async (file: string, size: number, final: boolean): Promise<Change> => {
+    const previous = lines.get(file)
+    const fresh = final || previous === undefined ? undefined : await appended(file, size, previous)
+    if (fresh !== undefined) return { append: true, content: decoded(jsonLines(fresh, false)) }
+    const complete = decoded(jsonLines(await readFile(file), final))
+    if (previous === undefined) return { append: true, content: complete }
+    const prefix = complete.length >= previous.length && digestOf(complete.subarray(0, previous.length)) === previous.hash.copy().digest('hex')
+    return prefix ? { append: true, content: complete.subarray(previous.length) } : { append: false, content: complete }
+  }
+  const documentChange = async (file: string): Promise<Change | undefined> => {
+    const bytes = decoded(await readFile(file))
+    JSON.parse(bytes.toString('utf8'))
+    return contents.get(file)?.equals(bytes) ? undefined : { append: false, content: bytes }
   }
   const scan = async (final = false): Promise<void> => {
     const present = new Set<string>()
@@ -200,30 +270,30 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
           const session = sessionOf(relative(location.directory, file).split(/[\\/]/)[1] ?? '')
           if (session !== undefined) sessions.add(session)
         }
-        const result = await Promise.all([readFile(file), stat(file, { bigint: true })]).catch((error: unknown) => {
+        const info = await stat(file, { bigint: true }).catch((error: unknown) => {
           if (isMissing(error)) return undefined
           throw error
         })
-        if (result === undefined) continue
-        const [raw, info] = result
-        let bytes: Buffer
+        if (info === undefined) continue
+        const stamp = `${String(info.size)}:${String(info.mtimeNs)}`
+        if (!final && seen.get(file) === stamp) continue
+        const jsonl = file.endsWith('.jsonl')
+        let change: Change | undefined
         try {
-          new TextDecoder('utf-8', { fatal: true }).decode(file.endsWith('.jsonl') ? raw.subarray(0, raw.lastIndexOf(0x0a) + 1) : raw)
-          bytes = file.endsWith('.jsonl') ? jsonLines(raw, final) : raw
-          if (file.endsWith('.json')) JSON.parse(bytes.toString('utf8'))
+          change = jsonl ? await linesChange(file, Number(info.size), final) : await documentChange(file)
         } catch (error) {
+          if (isMissing(error)) continue
           if (final) throw error
           continue
         }
-        const previous = contents.get(file)
-        if (previous?.equals(bytes) || (bytes.length === 0 && previous === undefined)) continue
+        seen.set(file, stamp)
+        if (change === undefined || (change.append && change.content.length === 0)) continue
         const target = { root: location.root, path: `${location.prefix}/${relative(location.directory, file).replaceAll('\\', '/')}` }
         const observed = at()
-        const append = file.endsWith('.jsonl') && (previous === undefined || bytes.subarray(0, previous.length).equals(previous))
-        const content = append ? bytes.subarray(previous?.length ?? 0) : bytes
-        const source = add(content.toString('utf8'), 'data', file.endsWith('.jsonl') ? 'jsonl' : 'json', info.mtimeNs, observed)
-        steps.push({ kind: append ? 'append' : 'write', at: observed, target, source })
-        contents.set(file, bytes)
+        const source = add(change.content.toString('utf8'), 'data', jsonl ? 'jsonl' : 'json', info.mtimeNs, observed)
+        steps.push({ kind: change.append ? 'append' : 'write', at: observed, target, source })
+        if (jsonl) remember(file, change)
+        else contents.set(file, change.content)
         targets.set(file, target)
       }
     }
@@ -246,11 +316,12 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
       if (!present.has(file)) {
         steps.push({ kind: 'remove', at: at(), target })
         contents.delete(file)
+        lines.delete(file)
+        seen.delete(file)
         targets.delete(file)
       }
     }
-    for (const event of await readSpool(spool)) {
-      if (hooks.has(event.name)) continue
+    for (const event of await readSpool(spool, hooks)) {
       const observed = Math.max(0, Number(event.receivedAt / 1_000_000n) - started)
       const bytes = await readFile(join(spool, 'new', event.name))
       add(new TextDecoder('utf-8', { fatal: true }).decode(bytes), 'spool', 'spool', event.receivedAt, observed)
@@ -312,7 +383,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     },
     checkpoint: async (label, target, expectedMapChange) => {
       await scan(true)
-      const content = (step: PlayerStep): string | undefined => 'source' in step ? artifacts.find((artifact) => artifact.source === step.source)?.content : undefined
+      const content = (step: PlayerStep): string | undefined => 'source' in step ? bySource.get(step.source)?.content : undefined
       const matches = (step: PlayerStep): boolean => {
         if (!('hook' in target)) {
           return 'target' in step && step.target.root === target.root && step.target.path === target.path &&

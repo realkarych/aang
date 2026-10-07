@@ -11,6 +11,7 @@ import { recordSession, verifyRecording, type RecordContext, type RecordOptions 
 const temporary: string[] = []
 const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
 const hookScript = fileURLToPath(new URL('./hook-event.ts', import.meta.url))
+const longSession = fileURLToPath(new URL('./long-session.ts', import.meta.url))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
@@ -260,6 +261,33 @@ test('a hook control event uses its receipt time and replays before the selected
   const artifact = manifest.artifacts.find((item) => item.source === (step && 'source' in step ? step.source : undefined))
   expect(Date.parse(event?.observed_at ?? '')).toBe(Number(BigInt(artifact?.mtime_ns ?? '0') / 1_000_000n))
 })
+
+test('a long session with a large transcript and many hooks is captured while it runs, line by line', async () => {
+  const config = await options()
+  const written = 6_000
+  const appended = 60
+  const delivered = 600
+  const directory = await recordSession(config, async (session) => {
+    await session.run(process.execPath, [longSession, String(written), String(delivered), String(appended)], { timeoutMs: 120_000 })
+  })
+  const manifest = JSON.parse(await readFile(join(directory, 'manifest.json'), 'utf8')) as { recorded_at: string }
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const started = Date.parse(manifest.recorded_at)
+  const transcript = playback.steps.filter((step) => 'target' in step && step.target.path.endsWith('long.jsonl'))
+  const lines = transcript.map((step) =>
+    ('source' in step ? (playback.sources.get(step.source)?.toString('utf8') ?? '') : '').trim().split('\n').map((text) => JSON.parse(text) as { index: number; written_at: number }),
+  )
+  expect(transcript.every((step) => step.kind === 'append')).toBe(true)
+  expect(lines.flat().map(({ index }) => index)).toEqual(Array.from({ length: written + appended }, (_, index) => index))
+  expect(Math.max(...transcript.map((step, position) => started + step.at - Math.max(...(lines[position] ?? []).map(({ written_at: at }) => at))))).toBeLessThan(1_000)
+  expect(playback.steps.filter((step) => step.kind === 'hook')).toHaveLength(delivered)
+  const rewritten = playback.steps.filter((step) => 'target' in step && step.target.path.endsWith('rewritten.jsonl'))
+  expect(rewritten.map((step) => [step.kind, 'source' in step ? (playback.sources.get(step.source)?.toString('utf8') ?? '').match(/event-\w+/g) : null])).toEqual([
+    ['append', ['event-first', 'event-second', 'event-third']],
+    ['write', ['event-shorter']],
+    ['write', ['event-replaced']],
+  ])
+}, 180_000)
 
 test('a hook control event selects a notification by its type', async () => {
   const config = await options()
