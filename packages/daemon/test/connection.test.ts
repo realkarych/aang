@@ -1,7 +1,7 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { existsSync } from 'node:fs'
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { createInterface } from 'node:readline'
 import { promisify } from 'node:util'
@@ -158,6 +158,21 @@ const holdUnreadable = async (path: string): Promise<ChildProcess> => {
     }
   }
   throw new Error(`the holder of ${path} exited before it opened the file`)
+}
+
+const appServerLaunchersQuery =
+  "Get-CimInstance Win32_Process -Filter \"Name = 'aang-hook.exe' AND ParentProcessId = $env:AANG_PARENT\" | Where-Object { $_.CommandLine -like '* app-server*' } | ForEach-Object { $_.ProcessId }"
+
+const appServerLauncher = async (): Promise<number> => {
+  const { stdout } = await runFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', appServerLaunchersQuery], {
+    env: { ...process.env, AANG_PARENT: String(process.pid) },
+    windowsHide: true,
+  })
+  const [launcher, ...others] = stdout.split(/\s+/).filter((word) => word !== '').map(Number)
+  if (launcher === undefined || others.length > 0) {
+    throw new Error(`expected one app-server launcher of the daemon, found: ${stdout.trim()}`)
+  }
+  return launcher
 }
 
 const release = async (holder: ChildProcess): Promise<void> => {
@@ -341,8 +356,8 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
   )
 
   test(
-    'after a failed explicit check the daemon takes the state neither from an earlier installation nor from its memory, and a rewrite with the same bytes checks again',
-    { timeout: 90_000 },
+    'after a failed explicit check the daemon takes the state neither from an earlier installation nor from its memory: a rewrite with the same bytes checks again, and so does hooks.json coming back with the bytes of the installation after it was gone',
+    { timeout: 120_000 },
     async ({ expect, onTestFinished }) => {
       const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
       const daemon = await startDaemon(home, onTestFinished)
@@ -359,11 +374,51 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       expect(fakeCalls(codex, 'app_server')).toHaveLength(3)
 
       const hooksFile = join(codexHome, 'hooks.json')
-      await writeFile(hooksFile, await readFile(hooksFile))
+      const installed = await readFile(hooksFile)
+      await writeFile(hooksFile, installed)
       await sleep(quietPeriodMs)
 
       expect(hooksOf(await readStatus(daemon, home)).codex).toBe('unknown')
       expect(fakeCalls(codex, 'app_server')).toHaveLength(4)
+
+      await rm(hooksFile)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(4)
+
+      await writeFile(hooksFile, installed)
+      await waitUntil(() => fakeCalls(codex, 'app_server').length === 5)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'unknown')
+    },
+  )
+
+  test.runIf(process.platform === 'win32')(
+    'a launcher lost during an explicit check keeps the Codex hooks unknown without a new app-server, also after hooks.json was gone and came back with the bytes of the installation',
+    { timeout: 90_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      expect(installation.status).toBe('active')
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
+      await sleep(quietPeriodMs)
+
+      codex.setScenario({ hooks: 'unanswered' })
+      const checking = checkHooks(daemon, home)
+      await waitUntil(() => fakeCalls(codex, 'app_server').length === 3)
+      process.kill(await appServerLauncher(), 'SIGKILL')
+      expect(hooksOf(await checking).codex).toBe('unknown')
+
+      const hooksFile = join(codexHome, 'hooks.json')
+      const installed = await readFile(hooksFile)
+      await rm(hooksFile)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      codex.setScenario({ hooks: 'trusted' })
+      await writeFile(hooksFile, installed)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'unknown')
+
+      expect(hooksOf(await checkHooks(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(3)
     },
   )
 

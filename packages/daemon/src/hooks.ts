@@ -90,6 +90,7 @@ const claudePlugin = async (
 
 const codexProbe = ({ aangHome, config, runtimeRoots }: HookChecksOptions): Probe => {
   let known: CodexHooksCheck | null = null
+  let failed = false
   return {
     files: [
       join(runtimeRoots.codex, 'hooks.json'),
@@ -98,20 +99,22 @@ const codexProbe = ({ aangHome, config, runtimeRoots }: HookChecksOptions): Prob
     ],
     read: async (signal, fresh) => {
       try {
-        known = await checkCodexHooks({
+        const checked = await checkCodexHooks({
           aangHome,
           codexHome: runtimeRoots.codex,
           codex: () => resolveCli('codex', config.cli.codex ?? 'codex', inheritedEnvironment()),
           timeoutMs: hookProbeTimeoutMs,
           signal,
           known,
-          fresh,
+          fresh: fresh || failed,
         })
+        known = checked
+        failed &&= !checked.listed
+        return codexInstallations[checked.status]
       } catch (error) {
-        known = null
+        failed = true
         throw error
       }
-      return codexInstallations[known.status]
     },
   }
 }

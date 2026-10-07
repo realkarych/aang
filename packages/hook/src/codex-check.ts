@@ -9,25 +9,29 @@ export interface CodexHooksCheckOptions extends Omit<CodexHooksStateOptions, 'co
   readonly fresh: boolean
 }
 
-export const checkCodexHooks = async ({ codex, known, fresh, ...options }: CodexHooksCheckOptions): Promise<CodexHooksCheck> => {
+export interface CodexHooksCheckResult extends CodexHooksCheck {
+  readonly listed: boolean
+}
+
+export const checkCodexHooks = async ({ codex, known, fresh, ...options }: CodexHooksCheckOptions): Promise<CodexHooksCheckResult> => {
   const { aangHome, codexHome, signal } = options
   const unlocked = await readCodexHooksFiles(aangHome, codexHome)
   if (unlocked.unregistered) {
-    return { status: 'not_installed', fingerprint: unlocked.fingerprint }
+    return { status: 'not_installed', fingerprint: unlocked.fingerprint, listed: false }
   }
   return withCodexHooksLock(codexHome, signal, async () => {
     const files = await readCodexHooksFiles(aangHome, codexHome)
     if (files.unregistered) {
-      return { status: 'not_installed', fingerprint: files.fingerprint }
+      return { status: 'not_installed', fingerprint: files.fingerprint, listed: false }
     }
-    if (!fresh && known !== null) {
+    if (!fresh) {
       for (const remembered of [known, await readCodexHooksRecord(aangHome, codexHome)]) {
         if (remembered?.fingerprint === files.fingerprint) {
-          return remembered
+          return { ...remembered, listed: true }
         }
       }
     }
     const { status } = await codexHooksState({ ...options, codex: codex() })
-    return { status, fingerprint: await unchangedFingerprint(aangHome, codexHome, files) }
+    return { status, fingerprint: await unchangedFingerprint(aangHome, codexHome, files), listed: true }
   })
 }
