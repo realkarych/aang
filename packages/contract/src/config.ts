@@ -65,6 +65,7 @@ export const Config = z.strictObject({
       fsWatch: z.boolean().default(true),
       spoolScanIntervalMs: milliseconds.default(5 * second),
       rootsScanIntervalMs: milliseconds.default(minute),
+      processCheckIntervalMs: milliseconds.default(5 * second),
     })
     .prefault({}),
   spool: z

@@ -466,6 +466,13 @@ export const SourceLostPayload = z.strictObject({
 })
 export type SourceLostPayload = z.infer<typeof SourceLostPayload>
 
+export const ProcessExitedPayload = z.strictObject({
+  pid: z.int().positive(),
+  path: name,
+  started_at: EpochNs.nullable(),
+})
+export type ProcessExitedPayload = z.infer<typeof ProcessExitedPayload>
+
 export const factPayloads = {
   session_start: SessionStartPayload,
   session_end: SessionEndPayload,
@@ -500,6 +507,7 @@ export const factPayloads = {
   git_snapshot: GitSnapshotPayload,
   context: ContextPayload,
   source_lost: SourceLostPayload,
+  process_exited: ProcessExitedPayload,
 } as const
 
 export const RuntimeIds = z.strictObject({
@@ -581,6 +589,7 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('git_snapshot', shape),
     variant('context', shape),
     variant('source_lost', shape),
+    variant('process_exited', shape),
   ] as const
 
 export const FactDraft = z.discriminatedUnion('kind', variantsWith(draftShape))

@@ -43,6 +43,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   git_snapshot: 'снимок git',
   context: 'контекст',
   source_lost: 'потеря источника',
+  process_exited: 'процесс завершился',
 }
 
 export const speakerLabel: Readonly<Record<Speaker, string>> = {
