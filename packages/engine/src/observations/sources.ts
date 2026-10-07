@@ -1,7 +1,17 @@
-import { CollectedRecord, type EpochNs, type RawRecord, type RawSeq, type RecordOwner, type Session, type StreamKey } from '@aang/contract'
+import {
+  CollectedRecord,
+  type EpochNs,
+  type RawRecord,
+  type RawSeq,
+  type RecordOwner,
+  type Session,
+  type StreamKey,
+  type SupportMode,
+} from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import type { RawRecordReader, Transaction } from '@aang/store'
 import { type Adapters, collectedFields } from '../ingest/records.js'
+import { type HooksSilence, isSilent } from './silence.js'
 
 export interface SourceRecord {
   readonly raw: RawRecord
@@ -30,17 +40,54 @@ export const streamOwner = (
   }
 }
 
-export const sourceGaps = (transaction: Transaction, session: Omit<Session, 'change_seq'>, at: EpochNs): void => {
+const silenceGaps = (
+  transaction: Transaction,
+  session: Omit<Session, 'change_seq'>,
+  at: EpochNs,
+  silences: readonly HooksSilence[],
+  previous: SupportMode | null,
+): void => {
+  const current = new Set<string>()
+  for (const { from, until } of silences) {
+    const key = { kind: 'gap', gap: 'hooks_inactive', subject: `${session.id}/${String(from)}` } as const
+    current.add(objectId(key))
+    transaction.gaps.save({
+      key, session: session.id, run: session.run, stream: null,
+      details: 'A turn in the session files has no hook events',
+      detected_at: from,
+      closed_at: until,
+    })
+  }
+  if (previous !== 'files_only') { return }
+  for (const gap of transaction.gaps.open('hooks_inactive')) {
+    if (gap.session === session.id && gap.key.subject !== session.id && !current.has(gap.id)) {
+      transaction.gaps.save({
+        key: gap.key, session: gap.session, run: gap.run, stream: gap.stream,
+        details: gap.details, detected_at: gap.detected_at, closed_at: at,
+      })
+    }
+  }
+}
+
+export const sourceGaps = (
+  transaction: Transaction,
+  session: Omit<Session, 'change_seq'>,
+  at: EpochNs,
+  silences: readonly HooksSilence[],
+  previous: SupportMode | null,
+): void => {
   const key = { kind: 'gap', gap: 'hooks_inactive', subject: session.id } as const
-  const previous = transaction.gaps.get(objectId(key))
-  if (session.support_mode === 'files_only' || previous !== null) {
+  const whole = transaction.gaps.get(objectId(key))
+  const inactive = session.support_mode === 'files_only' && !isSilent(silences)
+  if (inactive || whole !== null) {
     transaction.gaps.save({
       key, session: session.id, run: session.run, stream: null,
       details: 'Session files are available without hook events',
-      detected_at: previous?.detected_at ?? at,
-      closed_at: session.support_mode === 'files_only' ? null : previous?.closed_at ?? at,
+      detected_at: whole?.detected_at ?? at,
+      closed_at: inactive ? null : whole?.closed_at ?? at,
     })
   }
+  silenceGaps(transaction, session, at, silences, previous)
   const unknown = { kind: 'gap', gap: 'unknown_records', subject: session.id } as const
   const unrecognised = transaction.gaps.get(objectId(unknown))
   if (session.unknown_records > 0) {

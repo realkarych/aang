@@ -1,4 +1,5 @@
 import { expect, onTestFinished, test } from 'vitest'
+import { EpochNs, type GapId, type JsonValue, type Runtime } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
 import { batchOf, joinBatches, jsonlFile } from './batches.js'
 import { createHome } from './home.js'
@@ -20,6 +21,154 @@ test.each(['claude', 'codex'] as const)('files without hooks expose inactive hoo
   await engine.ingest(hook('UserPromptSubmit', 100, { prompt: 'Continue' }, runtime))
   expect(store.observations.getSession(sessionId(runtime))).toMatchObject({ support_mode: 'full', freshness: 'ok' })
   expect(store.gaps.get(gapId)?.closed_at).not.toBeNull()
+})
+
+const iso = (milliseconds: number): string => new Date(Number(at(milliseconds) / 1_000_000n)).toISOString()
+
+const lineAt = (milliseconds: number): EpochNs => EpochNs.parse(BigInt(Date.parse(iso(milliseconds))) * 1_000_000n)
+
+const claudeLine = (record: Record<string, JsonValue>): string =>
+  JSON.stringify({ sessionId: source.session, cwd: source.cwd, ...record })
+
+const claudeTurn = (turn: string, milliseconds: number, content = `Turn ${turn}`): string[] => [
+  claudeLine({
+    type: 'user', uuid: `${turn}-prompt`, promptId: turn, timestamp: iso(milliseconds), promptSource: 'typed',
+    message: { role: 'user', content },
+  }),
+  claudeLine({
+    type: 'assistant', uuid: `${turn}-reply`, timestamp: iso(milliseconds + 10),
+    message: { id: `${turn}-message`, role: 'assistant', content: [{ type: 'text', text: 'Done' }], stop_reason: 'end_turn' },
+  }),
+]
+
+const retimed = (lines: readonly string[], milliseconds: number): string[] =>
+  lines.map((line) => {
+    const record = JSON.parse(line) as Record<string, JsonValue>
+    const payload = record['payload']
+    const millis = Date.parse(iso(milliseconds))
+    const timing = typeof payload === 'object' && payload !== null && !Array.isArray(payload) && 'started_at_ms' in payload
+      ? { payload: { ...payload, started_at_ms: millis, completed_at_ms: millis } }
+      : {}
+    return JSON.stringify({ ...record, timestamp: iso(milliseconds), ...timing })
+  })
+
+const codexTurns = codexRollout({ thread: source.session, cwd: source.cwd })
+
+const turnScript = (runtime: Runtime) => runtime === 'claude'
+  ? { field: 'prompt_id', turn: 'first', first: claudeTurn('first', 10), second: claudeTurn('second', 1_000) }
+  : {
+    field: 'turn_id',
+    turn: '01a0f752-4102-7740-9432-0533263c2dc1',
+    first: retimed(codexTurns.slice(0, 20), 10),
+    second: retimed(codexTurns.slice(20), 1_000),
+  }
+
+const silenceGap = (runtime: Runtime, from: EpochNs): GapId =>
+  objectId({ kind: 'gap', gap: 'hooks_inactive', subject: `${sessionId(runtime)}/${String(from)}` })
+
+test.each(['claude', 'codex'] as const)('a turn in the files without hook events after active hooks makes the session files-only until the next hook event: %s', async (runtime) => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine, advance } = clockedEngine(store)
+  const script = turnScript(runtime)
+  const file = jsonlFile({ runtime, path: '/silence.jsonl', lines: [...script.first, ...script.second], ino: 1n })
+  await engine.ingest(joinBatches(
+    hook('SessionStart', 0, {}, runtime),
+    hook('UserPromptSubmit', 11, { prompt: 'First', [script.field]: script.turn }, runtime),
+    file.batch(1, script.first.length),
+  ))
+  expect(store.observations.getSession(sessionId(runtime))).toMatchObject({ support_mode: 'full', freshness: 'ok' })
+  advance(1_100)
+  await engine.ingest(file.batch(script.first.length + 1, file.lines.length))
+  advance(30_999)
+  await engine.refreshFreshness()
+  expect(store.observations.getSession(sessionId(runtime))?.support_mode).toBe('full')
+  expect(store.gaps.open('hooks_inactive')).toEqual([])
+  advance(31_000)
+  await engine.refreshFreshness()
+  expect(store.observations.getSession(sessionId(runtime))).toMatchObject({
+    support_mode: 'files_only', freshness: 'hooks_inactive',
+  })
+  const gap = silenceGap(runtime, lineAt(1_000))
+  expect(store.gaps.open('hooks_inactive')).toEqual([expect.objectContaining({
+    id: gap, session: sessionId(runtime), detected_at: lineAt(1_000), closed_at: null,
+  })])
+  const head = store.changes.head()
+  await engine.refreshFreshness()
+  expect(store.changes.head()).toBe(head)
+  advance(40_000)
+  await engine.ingest(hook('UserPromptSubmit', 40_000, { prompt: 'Third', [script.field]: 'third' }, runtime))
+  expect(store.observations.getSession(sessionId(runtime))).toMatchObject({ support_mode: 'full', freshness: 'ok' })
+  expect(store.gaps.get(gap)).toMatchObject({ detected_at: lineAt(1_000), closed_at: at(40_000) })
+  expect(store.gaps.get(objectId({ kind: 'gap', gap: 'hooks_inactive', subject: sessionId(runtime) }))).toBeNull()
+})
+
+test('hooks of a turn count by its id before the file prompt, a command opens no turn and a short silence leaves no gap', async () => {
+  const store = (await createHome(onTestFinished)).open()
+  const { engine, advance } = clockedEngine(store)
+  const command = claudeLine({
+    type: 'user', uuid: 'command-prompt', timestamp: iso(2_000),
+    message: { role: 'user', content: '<command-name>/model</command-name>' },
+  })
+  const file = jsonlFile({
+    runtime: 'claude', path: '/turns.jsonl', ino: 1n,
+    lines: [...claudeTurn('first', 10), ...claudeTurn('second', 1_000), command, ...claudeTurn('fourth', 50_000)],
+  })
+  await engine.ingest(joinBatches(
+    hook('SessionStart', 0),
+    hook('UserPromptSubmit', 11, { prompt: 'First', prompt_id: 'first' }),
+    file.batch(1, 2),
+  ))
+  advance(1_100)
+  await engine.ingest(joinBatches(hook('UserPromptSubmit', 990, { prompt: 'Second', prompt_id: 'second' }), file.batch(3, 4)))
+  advance(2_100)
+  await engine.ingest(file.batch(5, 5))
+  advance(45_000)
+  await engine.refreshFreshness()
+  expect(store.observations.getSession(sessionId())).toMatchObject({ support_mode: 'full', freshness: 'ok' })
+  advance(50_100)
+  await engine.ingest(file.batch(6, 7))
+  advance(55_000)
+  await engine.ingest(hook('UserPromptSubmit', 55_000, { prompt: 'Fifth', prompt_id: 'fifth' }))
+  advance(200_000)
+  await engine.refreshFreshness()
+  expect(store.observations.getSession(sessionId())?.support_mode).toBe('full')
+  expect(store.gaps.open('hooks_inactive')).toEqual([])
+  expect(store.gaps.get(silenceGap('claude', lineAt(50_000)))).toBeNull()
+})
+
+test('turns without hook events in a row make one gap that a restart before its deadline and a reparse keep', async () => {
+  const home = await createHome(onTestFinished)
+  let store = home.open()
+  const first = clockedEngine(store)
+  const file = jsonlFile({
+    runtime: 'claude', path: '/restart.jsonl', ino: 1n,
+    lines: [...claudeTurn('first', 10), ...claudeTurn('second', 1_000), ...claudeTurn('third', 2_000)],
+  })
+  await first.engine.ingest(joinBatches(
+    hook('SessionStart', 0),
+    hook('UserPromptSubmit', 11, { prompt: 'First', prompt_id: 'first' }),
+    file.batch(1, 2),
+  ))
+  first.advance(2_100)
+  await first.engine.ingest(file.batch(3, 6))
+  await first.engine.close()
+  store.close()
+  store = home.open()
+  const { engine, advance } = clockedEngine(store)
+  await engine.refreshFreshness()
+  expect(store.observations.getSession(sessionId())?.support_mode).toBe('full')
+  advance(31_000)
+  await engine.refreshFreshness()
+  expect(store.observations.getSession(sessionId())).toMatchObject({ support_mode: 'files_only', freshness: 'hooks_inactive' })
+  const silent = [expect.objectContaining({ id: silenceGap('claude', lineAt(1_000)), closed_at: null })]
+  expect(store.gaps.open('hooks_inactive')).toEqual(silent)
+  await engine.reparse()
+  expect(store.observations.getSession(sessionId())?.support_mode).toBe('files_only')
+  expect(store.gaps.open('hooks_inactive')).toEqual(silent)
+  advance(40_000)
+  await engine.ingest(hook('Stop', 40_000))
+  expect(store.observations.getSession(sessionId())?.support_mode).toBe('full')
+  expect(store.gaps.get(silenceGap('claude', lineAt(1_000)))?.closed_at).toBe(at(40_000))
 })
 
 test('quiet changes only freshness at the threshold and survives restart without duplicate changes', async () => {

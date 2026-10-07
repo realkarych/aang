@@ -34,7 +34,15 @@ import { createCriteriaMonitor, UnresolvedChecks, versionedSnapshots } from '../
 import type { CriterionCheck } from '../criteria/plan.js'
 import { addBinding, type BindingOutcome, revokeBinding } from '../observations/bindings.js'
 import { projectSession } from '../observations/project.js'
-import { lostSessions, type QuietWatch, quietWatchOf, settleQuiet, watchQuiet } from '../observations/freshness.js'
+import {
+  copyWatch,
+  type FreshnessLimits,
+  type FreshnessWatch,
+  freshnessWatchOf,
+  lostSessions,
+  settleFreshness,
+  watchFreshness,
+} from '../observations/freshness.js'
 import { type SourceRecord, streamOwner } from '../observations/sources.js'
 import { sessionRun } from '../observations/runs.js'
 import { reparse, type ReparseResult } from '../reparse/reparse.js'
@@ -79,6 +87,7 @@ export interface EngineOptions {
   readonly holding?: Partial<HoldingLimits>
   readonly now?: () => EpochNsType
   readonly quietAfterMs?: number
+  readonly hooksInactiveAfterMs?: number
   readonly maxBlobBytes?: number
   readonly fsWatch?: boolean
 }
@@ -149,7 +158,7 @@ interface Committed {
   readonly files: Map<string, TrackedFile>
   readonly hooks: readonly HeldHook[]
   readonly rescan: readonly StreamKey[]
-  readonly quiet: QuietWatch
+  readonly watch: FreshnessWatch
   readonly snapshots: readonly SnapshotRequest[]
   readonly criteria: readonly CriterionCheck[]
 }
@@ -215,12 +224,16 @@ const heldLines = (files: ReadonlyMap<string, TrackedFile>): number =>
 
 export const createEngine = ({
   store, adapters: registry, watch, holding = {},
-  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000, maxBlobBytes = 5 * mebibyte,
-  fsWatch = true,
+  now = () => EpochNs.parse(BigInt(Date.now()) * 1_000_000n), quietAfterMs = 300_000, hooksInactiveAfterMs = 30_000,
+  maxBlobBytes = 5 * mebibyte, fsWatch = true,
 }: EngineOptions): Engine => {
   if (!Number.isSafeInteger(quietAfterMs) || quietAfterMs < 1) {
     throw new RangeError('quiet interval must be a positive safe integer in milliseconds')
   }
+  if (!Number.isSafeInteger(hooksInactiveAfterMs) || hooksInactiveAfterMs < 1) {
+    throw new RangeError('hooks inactivity interval must be a positive safe integer in milliseconds')
+  }
+  const freshnessLimits: FreshnessLimits = { quietAfterMs, hooksInactiveAfterMs }
   if (!Number.isSafeInteger(maxBlobBytes) || maxBlobBytes < 1) {
     throw new RangeError('blob size limit must be a positive safe integer in bytes')
   }
@@ -229,7 +242,7 @@ export const createEngine = ({
   let contracts = createContractCatalog(watch)
   const limits: HoldingLimits = { ...defaultHolding, ...holding }
   let state: State = { files: trackedFiles(store.cursors.list()), hooks: [], evidence: new Map(), open: [] }
-  let quiet = quietWatchOf(store.observations.sessions())
+  let freshness = freshnessWatchOf(store.observations.sessions())
   let queue: Promise<unknown> = Promise.resolve()
   let failure: { readonly error: unknown } | null = null
 
@@ -245,6 +258,30 @@ export const createEngine = ({
     queue = result.then(() => undefined, () => undefined)
     return result
   }
+
+  const recoverAwaitedHooks = (): void => {
+    const sessions = store.observations.sessions()
+    const latest = sessions.reduce<bigint>((top, { last_event_at: at }) => (at > top ? at : top), 0n)
+    const horizon = latest - 2n * BigInt(hooksInactiveAfterMs) * 1_000_000n
+    const recent = sessions.filter(
+      ({ support_mode: mode, state, last_event_at: at }) => mode === 'full' && state !== 'ended' && at > horizon,
+    )
+    if (recent.length === 0) { return }
+    const watch = copyWatch(freshness)
+    store.transaction((transaction) => {
+      const instant = now()
+      const lost = lostSessions(transaction)
+      for (const { key } of recent) {
+        const projection = projectSession(transaction, key, [], lost, instant, freshnessLimits)
+        if (projection !== null) { watchFreshness(watch, projection) }
+      }
+      settleFreshness(transaction, watch, instant, freshnessLimits)
+    })
+    freshness = watch
+  }
+  enqueue(recoverAwaitedHooks).catch((error: unknown) => {
+    failure ??= { error }
+  })
 
   const criteria = createCriteriaMonitor({
     store,
@@ -600,11 +637,12 @@ export const createEngine = ({
       inserted.push(...otelFacts)
       changed(otelFacts)
       const instant = now()
-      const watch = new Map(quiet)
+      const watch = copyWatch(freshness)
       const lost = changedSessions.size === 0 ? new Set<SessionId>() : lostSessions(transaction)
       for (const key of changedSessions.values()) {
-        const projection = projectSession(transaction, key, sourceRecords.get(sessionName(key)) ?? [], lost, instant, quietAfterMs)
-        if (projection !== null) { watchQuiet(watch, projection.session) }
+        const records = sourceRecords.get(sessionName(key)) ?? []
+        const projection = projectSession(transaction, key, records, lost, instant, freshnessLimits)
+        if (projection !== null) { watchFreshness(watch, projection) }
       }
       queueFacts(transaction, inserted)
       const checked = changedRunChecks(transaction, changedSessions.values(), contracts)
@@ -616,8 +654,8 @@ export const createEngine = ({
         ...versionedSnapshots(transaction, latest.filter(({ run }) => ended.has(run)), 'turn_end'),
         ...checkSnapshots(transaction, changedActions.values(), contracts),
       ])
-      settleQuiet(transaction, watch, instant, quietAfterMs)
-      return { tally, files, hooks, rescan: [...rescan], quiet: watch, snapshots, criteria: latest }
+      settleFreshness(transaction, watch, instant, freshnessLimits)
+      return { tally, files, hooks, rescan: [...rescan], watch, snapshots, criteria: latest }
     })
 
   const withinLimits = (committed: Committed) => {
@@ -678,7 +716,7 @@ export const createEngine = ({
     const evidence = gatherEvidence(steps, items, scopes)
     const decided = await decideSessions(evidence, scopes)
     const committed = await prepared(() => commit(batch, items, steps, decided, scopes))
-    quiet = committed.quiet
+    freshness = committed.watch
     const kept = withinLimits(committed)
     const holdingBatches = new Set(kept.hooks.map((hook) => hook.batch))
     const candidates = [...state.open, batch]
@@ -718,11 +756,11 @@ export const createEngine = ({
         const instant = now()
         const outcome = change(transaction, instant)
         const moved = outcome.moved.map(({ session }) => session)
-        const watch = new Map(quiet)
+        const watch = copyWatch(freshness)
         const lost = moved.length === 0 ? new Set<SessionId>() : lostSessions(transaction)
         for (const key of moved) {
-          const projection = projectSession(transaction, key, [], lost, instant, quietAfterMs)
-          if (projection !== null) { watchQuiet(watch, projection.session) }
+          const projection = projectSession(transaction, key, [], lost, instant, freshnessLimits)
+          if (projection !== null) { watchFreshness(watch, projection) }
         }
         const runs = [
           ...changedRunChecks(transaction, moved, contracts),
@@ -732,7 +770,7 @@ export const createEngine = ({
         return { binding: outcome.binding, watch, latest: refreshRuns(transaction, runs, instant, sessions) }
       }),
     )
-    quiet = watch
+    freshness = watch
     await criteria.settle([], latest)
     return { binding, head: store.changes.head() }
   }
@@ -763,30 +801,36 @@ export const createEngine = ({
       }
       transaction.settings.save(pruneEpochSetting, transaction.nextChangeSeq(), at)
     })
-    quiet = quietWatchOf(store.observations.sessions())
+    const sessions = store.observations.sessions()
+    const watch = freshnessWatchOf(sessions)
+    for (const { id } of sessions) {
+      const awaiting = freshness.hooks.get(id)
+      if (awaiting !== undefined) { watch.hooks.set(id, awaiting) }
+    }
+    freshness = watch
     return { runs, boundaries }
   }
 
   return {
     refreshFreshness: () =>
       enqueue(() => {
-        const watch = new Map(quiet)
-        store.transaction((transaction) => { settleQuiet(transaction, watch, now(), quietAfterMs) })
-        quiet = watch
+        const watch = copyWatch(freshness)
+        store.transaction((transaction) => { settleFreshness(transaction, watch, now(), freshnessLimits) })
+        freshness = watch
         return store.changes.head()
       }),
     ingest: (batch) => enqueue(() => ingestBatch(batch)),
     reparse: () =>
       enqueue(async () => {
         const { result, watch, latest } = await prepared(() => {
-          const watch = new Map(quiet)
+          const watch = copyWatch(freshness)
           let latest: CriterionCheck[] = []
-          const result = reparse(store, adapters, watch, now(), quietAfterMs, (transaction, sessions, at) => {
+          const result = reparse(store, adapters, watch, now(), freshnessLimits, (transaction, sessions, at) => {
             latest = refreshRuns(transaction, changedRunChecks(transaction, sessions, contracts), at, new Set())
           })
           return { result, watch, latest }
         })
-        quiet = watch
+        freshness = watch
         await criteria.settle([], latest)
         return result
       }),
