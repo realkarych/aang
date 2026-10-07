@@ -94,6 +94,8 @@ const CompactBoundaryLine = Line.extend({
   }),
 })
 
+const SystemLine = Line.extend({ uuid: name, subtype: name })
+
 const QueueOperationLine = Line.extend({ operation: name, content: optionalText })
 
 const HookRunLine = Line.extend({ attachment: HookRunAttachment })
@@ -122,7 +124,13 @@ const userBlockTypes: ReadonlySet<string> = blockTypes(UserBlock)
 
 const assistantBlockTypes: ReadonlySet<string> = blockTypes(AssistantBlock)
 
-const metadataLineTypes: ReadonlySet<string> = new Set(['last-prompt', 'atis-latch', 'mode'])
+const metadataLineTypes: ReadonlySet<string> = new Set([
+  'last-prompt',
+  'atis-latch',
+  'mode',
+  'permission-mode',
+  'file-history-snapshot',
+])
 
 const contextAttachmentTypes: ReadonlySet<string> = new Set([
   'environment',
@@ -413,9 +421,25 @@ const parseStopHookSummary = lineParser('stop hook summary', StopHookSummaryLine
     : unknown(sourceTs),
 )
 
+const parseMetadata: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
+
+const parseAgentsKilled = lineParser('agents killed', SystemLine, (line, { origin, sourceTs }) =>
+  parsed(sourceTs, [
+    fact(origin, {
+      kind: 'runtime_event',
+      entity_key: ownerKey(line.sessionId, line.agentId ?? null),
+      speaker: 'runtime',
+      urgent: false,
+      payload: { event: line.subtype, data: {} },
+    }),
+  ]),
+)
+
 const systemParsers: ReadonlyMap<string, LineParser> = new Map([
   ['compact_boundary', parseCompactBoundary],
   ['stop_hook_summary', parseStopHookSummary],
+  ['agents_killed', parseAgentsKilled],
+  ['turn_duration', parseMetadata],
 ])
 
 const parseSystem: LineParser = (payload, record, sourceTs) => {
@@ -445,8 +469,6 @@ const parseAttachment: LineParser = (payload, record, sourceTs) => {
     isJsonObject(attachment) && typeof attachment.type === 'string' ? attachmentParsers.get(attachment.type) : undefined
   return parser === undefined ? unknown(sourceTs) : parser(payload, record, sourceTs)
 }
-
-const parseMetadata: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
 
 const lineParsers: ReadonlyMap<string, LineParser> = new Map([
   ['user', parseUser],

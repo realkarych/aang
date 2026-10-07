@@ -17,7 +17,7 @@ import {
 } from './claude-events.js'
 import { emulatePluginCommand } from './claude-plugin.js'
 import { claudeOptions, claudeViolations } from './claude-profile.js'
-import { emit, finish, hang, parseJson, readStdin, say, tryReadText, type TextRead } from './io.js'
+import { appeared, emit, finish, hang, parseJson, readStdin, say, tryReadText, type TextRead } from './io.js'
 import { lastValue, parseOptions, type ParsedOptions } from './options.js'
 import { invocation, purposeOf, runEntry } from './invocation.js'
 import { isolationMessage, scenarioMessage } from './profile.js'
@@ -168,6 +168,9 @@ const print = async (scenario: Scenario, options: ParsedOptions): Promise<void> 
     return
   }
   await startDescendant(scenario.descendant)
+  if ((reply.kind === 'answer' || reply.kind === 'script') && reply.gate !== undefined) {
+    await appeared(reply.gate)
+  }
   respond(session, reply, input)
 }
 

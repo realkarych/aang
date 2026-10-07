@@ -22,6 +22,7 @@ export const observerScenarios = {
   'map-branches': { live: phase([script('map-branches')]) },
   'map-nested': { live: phase([script('map-nested')]) },
   'claimed-done': { live: phase([script('claimed-done')]) },
+  'attention-zone': { live: phase([script('attention')]) },
   'since-last-view': { before: phase([script('map')]), after: phase([script('revision')]) },
   report: { live: phase([script('report')]) },
   'rejected-answer': { live: phase([script('map'), script('rejected'), script('map')]) },
@@ -33,6 +34,7 @@ export const observerScenarios = {
     merged: phase([script('merge')]),
   },
   chat: { live: phase([script('map')], [script('chat-answer'), script('chat-collapse-reviewers')]) },
+  'old-ground': { live: phase([script('map')], [script('chat-old-ground')]) },
   'llm-failure': {
     healthy: phase([script('map')]),
     failing: phase([{ kind: 'limit' }]),

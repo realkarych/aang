@@ -1,5 +1,6 @@
 import type { Action, Agent, Basis, BasisKind, RunSnapshot, Stage, StageId } from '@aang/contract'
 import { predecessorsOf } from './stage-lineage.js'
+import { isHidden, placementsOf } from './view-placement.js'
 
 export interface Span {
   readonly start: bigint
@@ -41,11 +42,20 @@ export interface MapEdge {
 export interface VisibleStage {
   readonly node: MapStage
   readonly parent: StageId | null
+  readonly frame: string | null
   readonly open: boolean
+}
+
+export interface VisibleGroup {
+  readonly id: string
+  readonly name: string
+  readonly parent: StageId | null
+  readonly members: readonly StageId[]
 }
 
 export interface VisibleMap {
   readonly stages: readonly VisibleStage[]
+  readonly groups: readonly VisibleGroup[]
   readonly edges: readonly MapEdge[]
   readonly holders: ReadonlyMap<StageId, StageId>
 }
@@ -99,8 +109,21 @@ export const stageGraph = (snapshot: RunSnapshot): StageGraph => {
   const all = new Map(snapshot.model.stages.map((stage) => [stage.id, stage]))
   const predecessors = predecessorsOf(snapshot.model.stages)
   const placeOf = inheritedPlaces(all, predecessors)
+  const placement = placementsOf(snapshot.view)
+  const concealed = (stage: Stage): boolean => {
+    const passed = new Set<StageId>()
+    let next: Stage | undefined = stage
+    while (next !== undefined && !passed.has(next.id)) {
+      if (isHidden(placement({ kind: 'stage', id: next.id }))) {
+        return true
+      }
+      passed.add(next.id)
+      next = next.parent === null ? undefined : all.get(next.parent)
+    }
+    return false
+  }
   const active = snapshot.model.stages
-    .filter(({ lifecycle }) => lifecycle.state === 'active')
+    .filter((stage) => stage.lifecycle.state === 'active' && !concealed(stage))
     .sort((left, right) => byModelOrder(placeOf(left), placeOf(right)) || byModelOrder(left, right))
   const shown = new Set(active.map(({ id }) => id))
   const actions = new Map(snapshot.objects.actions.map((action) => [action.id, action]))
@@ -183,13 +206,34 @@ const orderOf = (siblings: readonly MapStage[]): Array<readonly [StageId, StageI
       .map((earlier) => [earlier.stage.id, later.stage.id] as const),
   )
 
-export const visibleMap = (graph: StageGraph, isOpen: (stage: MapStage) => boolean): VisibleMap => {
+const groupId = (parent: StageId | null, name: string): string => `group:${parent ?? ''}:${name}`
+
+export const visibleMap = (
+  graph: StageGraph,
+  isOpen: (stage: MapStage) => boolean,
+  groupOf: (stage: MapStage) => string | null = () => null,
+): VisibleMap => {
   const stages: VisibleStage[] = []
+  const frames = new Map<string, { readonly name: string; readonly parent: StageId | null; readonly members: StageId[] }>()
   const shownAs = new Map<StageId, StageId>()
+  const frameOf = (node: MapStage): string | null => {
+    const name = groupOf(node)
+    if (name === null) {
+      return null
+    }
+    const id = groupId(node.parent, name)
+    const frame = frames.get(id)
+    if (frame === undefined) {
+      frames.set(id, { name, parent: node.parent, members: [node.stage.id] })
+    } else {
+      frame.members.push(node.stage.id)
+    }
+    return id
+  }
   const place = (node: MapStage, holder: StageId | null): void => {
     const open = holder === null && node.children.length > 0 && isOpen(node)
     if (holder === null) {
-      stages.push({ node, parent: node.parent, open })
+      stages.push({ node, parent: node.parent, frame: frameOf(node), open })
     }
     shownAs.set(node.stage.id, holder ?? node.stage.id)
     for (const child of node.children) {
@@ -221,5 +265,10 @@ export const visibleMap = (graph: StageGraph, isOpen: (stage: MapStage) => boole
       }
     }
   }
-  return { stages, edges: [...edges.values()], holders: shownAs }
+  return {
+    stages,
+    groups: [...frames].map(([id, { name, parent, members }]) => ({ id, name, parent, members })),
+    edges: [...edges.values()],
+    holders: shownAs,
+  }
 }

@@ -4,6 +4,8 @@ import type { VisibleMap } from './map-graph.js'
 
 export const card = { width: 248, height: 156, inset: 12 } as const
 
+export const frameHead = 32
+
 export type MapDirection = 'RIGHT' | 'DOWN'
 
 export interface Placement {
@@ -47,6 +49,11 @@ const enclosureOptions = (direction: MapDirection): Record<string, string> => ({
   'elk.padding': `[top=${px(card.inset)},left=${px(card.inset)},bottom=${px(card.inset + 8)},right=${px(card.inset + 8)}]`,
 })
 
+const frameOptions = (direction: MapDirection): Record<string, string> => ({
+  ...levelOptions(direction),
+  'elk.padding': `[top=${px(frameHead)},left=${px(card.inset)},bottom=${px(card.inset)},right=${px(card.inset)}]`,
+})
+
 const cardOptions: Record<string, string> = { 'elk.layered.layering.layerConstraint': 'FIRST' }
 
 const cardOf = (stage: string): string => `${stage}:card`
@@ -79,9 +86,21 @@ const elkMap = (map: VisibleMap, direction: MapDirection, cardsFirst: boolean): 
     edges: [],
   }
   const enclosures = new Map<string, ElkNode>()
+  const carded = new Set<string>()
   const containerOf = (stage: string | null): ElkNode => (stage === null ? graph : (enclosures.get(stage) ?? graph))
-  const parents = new Map<string, StageId | null>()
-  for (const { node, parent, open } of map.stages) {
+  const parents = new Map<string, string | null>()
+  const groups = new Map(map.groups.map((group) => [group.id, group]))
+  const framed = (frame: string): void => {
+    if (enclosures.has(frame)) {
+      return
+    }
+    const parent = groups.get(frame)?.parent ?? null
+    const elkNode: ElkNode = { id: frame, layoutOptions: frameOptions(direction), ports: [], children: [], edges: [] }
+    enclosures.set(frame, elkNode)
+    parents.set(frame, parent)
+    containerOf(parent).children?.push(elkNode)
+  }
+  for (const { node, parent, frame, open } of map.stages) {
     const id = node.stage.id
     const elkNode: ElkNode = open
       ? {
@@ -101,9 +120,14 @@ const elkMap = (map: VisibleMap, direction: MapDirection, cardsFirst: boolean): 
       : { id, width: card.width, height: card.height }
     if (open) {
       enclosures.set(id, elkNode)
+      carded.add(id)
     }
-    parents.set(id, parent)
-    containerOf(parent).children?.push(elkNode)
+    if (frame !== null) {
+      framed(frame)
+    }
+    const holder = frame ?? parent
+    parents.set(id, holder)
+    containerOf(holder).children?.push(elkNode)
   }
   const ancestry = (stage: string): string[] => {
     const parent = parents.get(stage) ?? null
@@ -147,6 +171,9 @@ const elkMap = (map: VisibleMap, direction: MapDirection, cardsFirst: boolean): 
       return parent === null ? null : parent === enclosure ? stage : holder(enclosure, parent)
     }
     for (const [enclosure, frame] of enclosures) {
+      if (!carded.has(enclosure)) {
+        continue
+      }
       const led = new Set<string>()
       const next = new Map<string, string[]>()
       for (const { from, to } of map.edges) {
@@ -157,9 +184,9 @@ const elkMap = (map: VisibleMap, direction: MapDirection, cardsFirst: boolean): 
           next.set(source, [...(next.get(source) ?? []), target])
         }
       }
-      const anchors = map.stages
-        .filter(({ parent }) => parent === enclosure)
-        .map(({ node }) => node.stage.id)
+      const anchors = [...parents]
+        .filter(([, parent]) => parent === enclosure)
+        .map(([child]) => child)
         .filter((stage) => !led.has(stage) || loops(stage, next))
         .map((stage): ElkExtendedEdge => ({ id: `${cardOf(enclosure)}>${stage}`, sources: [cardOf(enclosure)], targets: [stage] }))
       frame.edges?.push(...anchors)

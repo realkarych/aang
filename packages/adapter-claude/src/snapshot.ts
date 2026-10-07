@@ -59,13 +59,8 @@ interface Snapshot {
   readonly content: JsonValue
 }
 
-const snapshotFact = (
-  origin: FactOrigin,
-  entity: FactEntityKey,
-  payload: JsonSnapshotPayload,
-  verified: boolean,
-): FactDraft =>
-  fact(origin, { kind: 'json_snapshot', entity_key: entity, speaker: 'runtime', urgent: false, payload }, { verified })
+const snapshotFact = (origin: FactOrigin, entity: FactEntityKey, payload: JsonSnapshotPayload): FactDraft =>
+  fact(origin, { kind: 'json_snapshot', entity_key: entity, speaker: 'runtime', urgent: false, payload })
 
 const teammateOf = ({ name: member, teamName: team }: AgentMetaFile) =>
   typeof member === 'string' && typeof team === 'string' ? { name: member, team } : null
@@ -74,12 +69,12 @@ const agentMeta = (snapshot: Snapshot, file: Extract<SnapshotFile, { kind: 'agen
   const origin = fileOrigin(snapshot.record, file.session, file.agent)
   if (snapshot.removed) {
     return parsed(null, [
-      snapshotFact(
-        origin,
-        agentKey(file.session, file.agent),
-        { file: 'agent_meta', path: snapshot.path, removed: true, content: null },
-        !file.workflow,
-      ),
+      snapshotFact(origin, agentKey(file.session, file.agent), {
+        file: 'agent_meta',
+        path: snapshot.path,
+        removed: true,
+        content: null,
+      }),
     ])
   }
   const meta = AgentMetaFile.safeParse(snapshot.content)
@@ -89,44 +84,34 @@ const agentMeta = (snapshot: Snapshot, file: Extract<SnapshotFile, { kind: 'agen
   const teammate = teammateOf(meta.data)
   const entity =
     teammate === null ? agentKey(file.session, file.agent) : teammateKey(file.session, teammate.name, teammate.team)
-  const verified = teammate === null && !file.workflow
   const { agentType, description, toolUseId, spawnDepth, requestShape } = meta.data
   return parsed(null, [
-    snapshotFact(
-      origin,
-      entity,
-      {
-        file: 'agent_meta',
-        path: snapshot.path,
-        removed: false,
-        content: {
-          agent_type: agentType ?? null,
-          description: description ?? null,
-          tool_use_id: toolUseId ?? null,
-          spawn_depth: spawnDepth ?? null,
-        },
+    snapshotFact(origin, entity, {
+      file: 'agent_meta',
+      path: snapshot.path,
+      removed: false,
+      content: {
+        agent_type: agentType ?? null,
+        description: description ?? null,
+        tool_use_id: toolUseId ?? null,
+        spawn_depth: spawnDepth ?? null,
       },
-      verified,
-    ),
-    fact(
-      origin,
-      {
-        kind: 'agent_start',
-        entity_key: entity,
-        speaker: 'runtime',
-        urgent: false,
-        payload: startedAgent({
-          role: teammate === null ? 'subagent' : 'teammate',
-          agent_type: agentType ?? null,
-          description: description ?? null,
-          nickname: teammate?.name ?? null,
-          spawned_by_call: toolUseId ?? null,
-          background: (typeof requestShape === 'string' ? backgroundByShape.get(requestShape) : undefined) ?? null,
-          depth: spawnDepth ?? null,
-        }),
-      },
-      { verified },
-    ),
+    }),
+    fact(origin, {
+      kind: 'agent_start',
+      entity_key: entity,
+      speaker: 'runtime',
+      urgent: false,
+      payload: startedAgent({
+        role: teammate === null ? 'subagent' : 'teammate',
+        agent_type: agentType ?? null,
+        description: description ?? null,
+        nickname: teammate?.name ?? null,
+        spawned_by_call: toolUseId ?? null,
+        background: (typeof requestShape === 'string' ? backgroundByShape.get(requestShape) : undefined) ?? null,
+        depth: spawnDepth ?? null,
+      }),
+    }),
   ])
 }
 
@@ -144,17 +129,12 @@ const workflow = (snapshot: Snapshot, file: Extract<SnapshotFile, { kind: 'workf
     return invalid('workflow snapshot is not a JSON object')
   }
   return parsed(null, [
-    snapshotFact(
-      fileOrigin(snapshot.record, file.session, null),
-      sessionKey(file.session),
-      {
-        file: 'workflow',
-        path: snapshot.path,
-        removed,
-        content: isJsonObject(content) ? workflowSummary(content) : null,
-      },
-      false,
-    ),
+    snapshotFact(fileOrigin(snapshot.record, file.session, null), sessionKey(file.session), {
+      file: 'workflow',
+      path: snapshot.path,
+      removed,
+      content: isJsonObject(content) ? workflowSummary(content) : null,
+    }),
   ])
 }
 
@@ -168,24 +148,19 @@ const team = (snapshot: Snapshot, file: Extract<SnapshotFile, { kind: 'team' }>)
   }
   const { leadSessionId: lead, members } = config.data
   return parsed(null, [
-    snapshotFact(
-      fileOrigin(snapshot.record, lead, null),
-      sessionKey(lead),
-      {
-        file: 'team',
-        path: snapshot.path,
-        removed: false,
-        content: {
-          team: config.data.name ?? file.team,
-          members: (members ?? []).map((member) => ({
-            name: member.name,
-            agent_id: member.agentId ?? null,
-            session_id: member.sessionId ?? null,
-          })),
-        },
+    snapshotFact(fileOrigin(snapshot.record, lead, null), sessionKey(lead), {
+      file: 'team',
+      path: snapshot.path,
+      removed: false,
+      content: {
+        team: config.data.name ?? file.team,
+        members: (members ?? []).map((member) => ({
+          name: member.name,
+          agent_id: member.agentId ?? null,
+          session_id: member.sessionId ?? null,
+        })),
       },
-      false,
-    ),
+    }),
   ])
 }
 

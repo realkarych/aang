@@ -8,6 +8,7 @@ import {
   type Link,
   LinkId,
   ModelVersion,
+  type OperatingSystem,
   StageId,
   type SupportKey,
   type SupportMatrix,
@@ -399,26 +400,16 @@ const cliKey = (os: SupportKey['os'], placement: SupportKey['placement'] = 'loca
 const desktopOnWindows: SupportKey = { ...cliKey('windows'), surface: 'claude_desktop' }
 
 const contractScenarios = [
-  'tools',
-  'subagents',
-  'resume',
-  'compaction',
-  'fork',
-  'plan',
-  'approval',
-  'question',
-  'interrupt',
-  'reconnect',
-  'source-loss',
-  'plugin',
-  'agents-flag',
-  'user-hooks',
+  'tools', 'subagents', 'resume', 'compaction', 'fork', 'plan', 'approval', 'question', 'interrupt', 'reconnect', 'source-loss', 'elicitation', 'workflow',
+  'plugin', 'agents-flag', 'user-hooks',
 ]
+
+const runScenarios = (os: OperatingSystem): string[] => (os === 'windows' ? contractScenarios : [...contractScenarios, 'teammates', 'input-dialogs'])
 
 describe('the support matrix generated from the contract run', () => {
   test('a row keeps its claimed status only while recordings of its own OS pass every scenario of the run', async () => {
     const { sessions, support } = await workspace()
-    for (const scenario of contractScenarios) {
+    for (const scenario of runScenarios(hostOs)) {
       await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: hostOs, scenario })
     }
     for (const scenario of ['plan', 'question']) {
@@ -449,7 +440,7 @@ describe('the support matrix generated from the contract run', () => {
     })
     expect(row(cliKey(otherOs))).toMatchObject({
       status: 'unverified',
-      gaps: [supportGaps.missing(contractScenarios.filter((name) => name !== 'subagents').sort())],
+      gaps: [supportGaps.missing(runScenarios(otherOs).filter((name) => name !== 'subagents').sort())],
       scenarios: { child_sessions: 'passed', resume: 'not_run', during_work: 'passed' },
     })
     expect(row(cliKey(thirdOs))).toMatchObject({ status: 'unverified', gaps: [supportGaps.noRecordings], scenarios: notRunContract })
@@ -459,10 +450,10 @@ describe('the support matrix generated from the contract run', () => {
     }
     expect(supportStatusOf(matrix, { ...cliKey(hostOs), engine_version: '2.1.287' })).toBe('unverified')
     expect(await readdirNames(join(support, 'contract/claude/2.1.286/claude_cli', hostOs))).toEqual(
-      contractScenarios.map((name) => `${name}.json`).sort(),
+      runScenarios(hostOs).map((name) => `${name}.json`).sort(),
     )
     expect(await readdirNames(join(support, 'contract'))).toEqual(['claude', 'codex'])
-  }, 180_000)
+  }, 240_000)
 
   test('a claimed full or limited row whose E2E 1 or 4 failed is not verified, even when every scenario of the run passes', async () => {
     const { sessions, support } = await workspace()
