@@ -217,8 +217,7 @@ Q.4 проверяет пять областей:
 
 - **Windows.** Инструмент на Windows не запускается. Нужны:
   - Bash Claude через Git Bash и строка шлюза для него;
-  - hooks Codex через PowerShell (решения владельца от 2026-10-06, PR #150);
-  - `hooks/list` на Windows (`listCodexHooks` там пока отключён).
+  - hooks Codex через PowerShell: они ставятся только `aang install --codex`, а `hooks/list` идёт через лаунчер (решения владельца от 2026-10-06, PR #150).
 
   Отдельно стоит проверить зондом `fs.watch` на `windows-latest`, видит ли `ReadDirectoryChangesW` дописывание через открытый файл: от этого зависит, касается ли Q4-1 Windows. Пользовательская часть — пункт B6 чек-листа владельца.
 - **Desktop, интерактивные TUI, диалог `/hooks`, `/clear`** — чек-лист владельца, разделы A и B.
