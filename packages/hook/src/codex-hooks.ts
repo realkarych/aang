@@ -3,10 +3,10 @@ import type { BigIntStats } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { deployHookBinary } from './binary.js'
-import { listCodexHooks, type CodexAppServerOptions } from './codex-app-server.js'
+import { type CodexAppServerOptions, type CodexHookListing, listCodexHooks } from './codex-app-server.js'
 import { codexHookCommand, isAangCommand } from './codex-command.js'
 import { verifyForeignTrust } from './codex-state.js'
-import { HookInstallError, requireHookInstallSupport } from './errors.js'
+import { HookInstallError } from './errors.js'
 import {
   createFileExclusively,
   hasContent,
@@ -34,7 +34,7 @@ const codexHookEvents: readonly string[] = [
 ]
 
 const hookTimeoutSeconds = 2
-const neutralCommand = 'true'
+const neutralCommand = process.platform === 'win32' ? 'exit 0' : 'true'
 const hooksFileName = 'hooks.json'
 const lockSuffix = '.aang-lock'
 const newHooksFileMode = 0o600
@@ -206,7 +206,7 @@ const saveHooksDocument = async ({ file, document }: LoadedHooks): Promise<SaveO
 }
 
 interface TrustVerification {
-  readonly options: CodexHooksInstallOptions
+  readonly list: () => Promise<CodexHookListing>
   readonly prepare: () => Promise<unknown>
 }
 
@@ -249,7 +249,7 @@ const changeHooksFile = async (
   try {
     for (let attempt = 1; attempt <= hooksFileAttempts; attempt += 1) {
       const loaded = await readHooks(codexHome)
-      const before = verification === undefined ? undefined : await listCodexHooks(verification.options)
+      const before = await verification?.list()
       await verification?.prepare()
       const changed = change(loaded.document)
       if (!changed && verification === undefined) {
@@ -259,7 +259,7 @@ const changeHooksFile = async (
       if (outcome.saved) {
         if (before !== undefined && verification !== undefined) {
           try {
-            verifyForeignTrust(before, await listCodexHooks(verification.options))
+            verifyForeignTrust(before, await verification.list())
           } catch (error) {
             if (changed) {
               await rollbackHooks(loaded, outcome.backup)
@@ -316,20 +316,18 @@ const neutralizeAang = ({ hooks }: HooksDocument): boolean => {
 }
 
 export const installCodexHooks = async (options: CodexHooksInstallOptions): Promise<CodexHooksInstallation> => {
-  requireHookInstallSupport()
   const { aangHome, codexHome } = options
   const initial = await readHooks(codexHome)
   const binary = hookInstallPaths(aangHome).binary
   const command = codexHookCommand(aangHome)
   const backup = await changeHooksFile(codexHome, initial, (document) => registerAang(document, command), {
-    options,
+    list: () => listCodexHooks(options, options.hookBinarySource),
     prepare: () => deployHookBinary(options),
   })
   return { binary, command, hooksFile: initial.file.path, backup }
 }
 
 export const uninstallCodexHooks = async ({ codexHome }: CodexHooksOptions): Promise<CodexHooksChange> => {
-  requireHookInstallSupport()
   const initial = await readHooks(codexHome)
   const backup = await changeHooksFile(codexHome, initial, neutralizeAang)
   return { hooksFile: initial.file.path, backup }

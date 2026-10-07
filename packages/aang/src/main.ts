@@ -5,29 +5,25 @@ import { dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { runCli } from '@aang/cli'
 import { runDaemon } from '@aang/daemon'
+import { findHookBinary, missingHookBinary } from './hook-binary.js'
 
 const entry = fileURLToPath(import.meta.url)
-const staticRoot = dirname(fileURLToPath(import.meta.resolve('@aang/web')))
-const supportMatrix = fileURLToPath(new URL('../../../support/matrix.json', import.meta.url))
+const staticRoot = dirname(fileURLToPath(import.meta.resolve('#web')))
+const packagedSupportMatrix = new URL('../support/matrix.json', import.meta.url)
+const supportMatrix = fileURLToPath(
+  existsSync(packagedSupportMatrix) ? packagedSupportMatrix : new URL('../../../support/matrix.json', import.meta.url),
+)
 const placement = existsSync('/.dockerenv') ? 'docker' : 'local'
 const { version } = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8')) as {
   readonly version: string
 }
-const platform = `${process.platform}-${process.arch}`
-const missingCodes: readonly unknown[] = ['ERR_MODULE_NOT_FOUND', 'ERR_PACKAGE_IMPORT_NOT_DEFINED']
 
 const locateHookBinary = (): string => {
-  try {
-    return fileURLToPath(import.meta.resolve(`#aang-hook-${platform}`))
-  } catch (error) {
-    if (error instanceof Error && 'code' in error && missingCodes.includes(error.code)) {
-      throw new Error(
-        `no aang-hook binary is installed for ${platform}; reinstall aang without omitting its optional dependencies`,
-        { cause: error },
-      )
-    }
-    throw error
+  const binary = findHookBinary()
+  if (binary === undefined) {
+    throw new Error(missingHookBinary)
   }
+  return binary
 }
 
 process.exitCode = await runCli(process.argv.slice(2), {

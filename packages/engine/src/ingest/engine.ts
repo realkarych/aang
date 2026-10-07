@@ -585,9 +585,14 @@ export const createEngine = ({
             insert({ ...parsed, record: item.record, key: adapters[item.record.runtime].rawKey(item.record) })
             break
           }
-          case 'unowned':
+          case 'unowned': {
             tally.discarded += 1
-            transaction.gaps.save(unattributedGap(parseRecord(adapters, item.record)))
+            const parsed = parseRecord(adapters, item.record)
+            if (parsed.result.parse_state !== 'parsed' || parsed.result.facts.length > 0) {
+              transaction.gaps.save(unattributedGap(parsed))
+            }
+            break
+          }
         }
       }
       batch.gaps.forEach(resolveGap)
