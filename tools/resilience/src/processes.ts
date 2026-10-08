@@ -14,6 +14,7 @@ export interface Launched {
   readonly pid: number
   readonly done: Promise<Finished>
   readonly running: () => boolean
+  readonly terminate: () => void
   readonly kill: () => Promise<Finished>
 }
 
@@ -71,12 +72,16 @@ export const launch = (command: string, args: readonly string[], options: Launch
     })
   })
   const running = (): boolean => child.exitCode === null && child.signalCode === null
+  const terminate = (): void => {
+    if (pid !== undefined && running()) killTree(pid)
+  }
   return {
     pid: pid ?? -1,
     done,
     running,
+    terminate,
     kill: async () => {
-      if (pid !== undefined && running()) killTree(pid)
+      terminate()
       return done
     },
   }
@@ -87,6 +92,7 @@ export const runToEnd = async (command: string, args: readonly string[], options
 
 export interface ProcessEntry {
   readonly pid: number
+  readonly parent: number
   readonly command: string
 }
 
@@ -99,14 +105,14 @@ const listProcesses = (): ProcessEntry[] => {
             '-NoProfile',
             '-NonInteractive',
             '-Command',
-            '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)`t$($_.CommandLine)" }',
+            '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)`t$($_.ParentProcessId)`t$($_.CommandLine)" }',
           ],
           { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
         )
-      : execFileSync('ps', ['-A', '-o', 'pid=,args='], { encoding: 'utf8', timeout: 60_000 })
+      : execFileSync('ps', ['-A', '-o', 'pid=,ppid=,args='], { encoding: 'utf8', timeout: 60_000 })
     return output.split(/\r?\n/).flatMap((line) => {
-      const match = /^\s*(\d+)\s+(.*)$/.exec(line)
-      return match === null ? [] : [{ pid: Number(match[1]), command: match[2] ?? '' }]
+      const match = /^\s*(\d+)\s+(\d+)\s*(.*)$/.exec(line)
+      return match === null ? [] : [{ pid: Number(match[1]), parent: Number(match[2]), command: match[3] ?? '' }]
     })
   } catch {
     return []
@@ -115,8 +121,30 @@ const listProcesses = (): ProcessEntry[] => {
 
 const comparable = (text: string): string => (windows ? text.replaceAll('/', '\\').toLowerCase() : text)
 
-export const processesUnder = (directory: string): ProcessEntry[] =>
-  listProcesses().filter(({ pid, command }) => pid !== process.pid && comparable(command).includes(comparable(directory)))
+export const processTree = (roots: readonly number[], directory: string): ProcessEntry[] => {
+  const listed = listProcesses().filter(({ pid }) => pid !== process.pid)
+  const selected = new Set(
+    listed
+      .filter(({ pid, command }) => roots.includes(pid) || comparable(command).includes(comparable(directory)))
+      .map(({ pid }) => pid),
+  )
+  let grown = true
+  while (grown) {
+    const children = listed.filter(({ pid, parent }) => !selected.has(pid) && selected.has(parent))
+    for (const { pid } of children) selected.add(pid)
+    grown = children.length > 0
+  }
+  return listed.filter(({ pid }) => selected.has(pid))
+}
+
+export const exists = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
+}
 
 export const killProcess = (pid: number): void => {
   if (windows) {

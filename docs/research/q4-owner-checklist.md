@@ -28,9 +28,40 @@ $env:CLAUDE_CONFIG_DIR = "$env:AANG_Q4\.claude"; $env:CODEX_HOME = "$env:AANG_Q4
 Затем в том же терминале:
 
 1. Вход в тестовом профиле: `claude`, затем `/login`; `codex login`. Штатные логины в этот профиль не копируются.
-2. Если в штатном профиле уже работает aang, тестовому демону нужны другие порты: `{"api":{"port":4290},"otel":{"port":4291}}` в `$AANG_HOME/config.json`.
-3. aang из этой ветки или выпуска: `aang install`, `aang start`, `aang watch "$AANG_Q4/проект q4"`. Сессии B и C запускаются из каталога `проект q4`.
-4. После раздела: `aang stop`, закрыть сессии и удалить каталог `$AANG_Q4` вместе с тестовыми логинами.
+2. Если в штатном профиле уже работает aang, тестовому демону нужны другие порты: `{"api":{"port":4290},"otel":{"port":4291}}` в `config.json` тестового `AANG_HOME` — `$AANG_HOME/config.json`, в PowerShell `$env:AANG_HOME\config.json`.
+3. aang из этой ветки или выпуска: `aang install`, `aang start`, `aang watch` для каталога `проект q4`. Сессии B и C запускаются из этого каталога.
+4. После раздела: `aang stop`, закрыть сессии и удалить временный каталог профиля вместе с тестовыми логинами.
+
+Шаг 3 в macOS и Linux:
+
+```sh
+aang install && aang start
+aang watch "$AANG_Q4/проект q4"
+cd "$AANG_Q4/проект q4"
+```
+
+Шаг 3 в PowerShell:
+
+```powershell
+aang install; aang start
+aang watch (Join-Path $env:AANG_Q4 'проект q4')
+Set-Location (Join-Path $env:AANG_Q4 'проект q4')
+```
+
+Шаг 4 в macOS и Linux:
+
+```sh
+aang stop
+rm -rf "$(dirname "${AANG_Q4:?}")"
+```
+
+Шаг 4 в PowerShell:
+
+```powershell
+aang stop
+Set-Location ([IO.Path]::GetTempPath())
+Remove-Item -Recurse -Force (Split-Path $env:AANG_Q4)
+```
 
 **Desktop (раздел A) — в отдельной учётной записи macOS.** Claude Desktop и ChatGPT читают только штатный профиль пользователя, переназначить его нельзя. Поэтому раздел A выполняется в тестовой учётной записи macOS: в ней ставится aang (`aang install`, `aang start`), выполняется вход в Claude Desktop и ChatGPT, создаётся тестовый проект для `aang watch`. В основной учётной записи aang для раздела A не устанавливается.
 
@@ -59,10 +90,10 @@ $env:CLAUDE_CONFIG_DIR = "$env:AANG_Q4\.claude"; $env:CODEX_HOME = "$env:AANG_Q4
 | --- | --- | --- |
 | B1 | Codex TUI после `aang install --codex`: открыть `/hooks`. | Записи aang перечислены как недоверенные. `aang status` показывает Codex hooks `untrusted`. Сессия до доверия идёт в режиме «только файлы». |
 | B2 | Подтвердить доверие записям aang в `/hooks`. | Без перезапуска демона `aang status` показывает `active`, новая сессия получает полный режим. Инструмент проверяет это записью `hooks.state`, здесь проверяется настоящий диалог. |
-| B3 | Повторить `aang install --codex`. Затем вставить в `$CODEX_HOME/hooks.json` тестового профиля собственную запись `PreToolUse` перед записью aang. | После повторной установки доверие сохраняется. После вставки `/hooks` показывает запись aang недоверенной, `aang status` — `untrusted`. |
+| B3 | Повторить `aang install --codex`. Затем вставить в `hooks.json` тестового профиля (`$CODEX_HOME/hooks.json`, в PowerShell `$env:CODEX_HOME\hooks.json`) собственную запись `PreToolUse` перед записью aang. | После повторной установки доверие сохраняется. После вставки `/hooks` показывает запись aang недоверенной, `aang status` — `untrusted`. |
 | B4 | Claude TUI: `/clear` посреди сессии, затем `/resume` прежней сессии. | После `/clear` — новый прогон без связи. После `/resume` прежний прогон получает запуск `resume`. |
 | B5 | Claude TUI и Codex TUI: закрыть окно терминала во время команды. | Как в A7. |
-| B6 | Только Windows, PowerShell: A1 и A2 для Claude CLI и Codex CLI, в профиле с пробелом и кириллицей в пути. | Как в A1 и A2. Spool и аренда работают через `aang stop` и `aang start`. Codex hooks на Windows подключаются по решениям владельца от 2026-10-06 (PR #150). |
+| B6 | Только Windows, PowerShell: A1 и A2 для Claude CLI и Codex CLI, в профиле с пробелом и кириллицей в пути. Демон в A1 снимается командой `Stop-Process -Id <pid> -Force` вместо `kill -9 <pid>`. | Как в A1 и A2. Spool и аренда работают через `aang stop` и `aang start`. Codex hooks на Windows подключаются по решениям владельца от 2026-10-06 (PR #150). |
 
 ## C. Настоящая модель (по желанию)
 

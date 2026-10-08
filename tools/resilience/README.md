@@ -33,6 +33,6 @@ Each scenario records its steps with times, its checks (expected and observed) a
 
 The report replaces the temporary and home directories with `<tmp>` and `~`, also inside the Claude project directory names that encode them, and is not written if it still names a user path.
 
-A daemon exit or the cleanup of a scenario that does not finish within 60 s fails that scenario: the report lists the processes of its profile that were still running, and they are killed.
+A daemon exit or a cleanup step of a scenario that does not finish within 60 s fails that scenario. The tool then kills the daemons and CLIs the scenario started, their descendants and the processes whose command line names the profile, and the report lists them. Every cleanup step runs even when an earlier one fails, the scenario reports all their errors, and the cleanup ends with the same kill of whatever still runs, so no process of a scenario outlives it.
 
 The `Resilience` workflow runs all scenarios on Linux, macOS and Windows with the CLI versions pinned in it and uploads the report. On Windows Claude runs its Bash tool in Git Bash and Codex its commands in PowerShell; the gate command works in both.

@@ -22,7 +22,7 @@ import { type ConfigInput, createProfile, type Profile, type RunningDaemon } fro
 import type { Clis } from './clis.js'
 import { writeGate } from './gate.js'
 import type { Journal } from './journal.js'
-import { type Finished, killProcess, type Launched, launch, processesUnder, runToEnd, shellPath, tail } from './processes.js'
+import { exists, type Finished, killProcess, type Launched, launch, processTree, runToEnd, shellPath, tail } from './processes.js'
 import { type RawCount, rawCounts, storedCursors, type UnknownRecord, unknownRecords } from './store.js'
 
 export interface LabPaths {
@@ -201,6 +201,7 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
     DISABLE_ERROR_REPORTING: '1',
   }
   const launched: Launched[] = []
+  const daemons: RunningDaemon[] = []
   let current: RunningDaemon | null = null
 
   const daemon = (): RunningDaemon => {
@@ -306,8 +307,27 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
 
   const startDaemon = async (): Promise<RunningDaemon> => {
     current = await profile.startDaemon({ entry: aangEntry })
+    daemons.push(current)
     journal.step('daemon started', { pid: current.pid })
     return current
+  }
+
+  const reap = async (when: string): Promise<{ readonly killed: number; readonly surviving: readonly number[] }> => {
+    const children = [...daemons, ...launched].filter((child) => child.pid > 0 && child.running())
+    const listed = processTree(children.map(({ pid }) => pid), profile.root)
+    const pids = [...new Set([...children.map(({ pid }) => pid), ...listed.map(({ pid }) => pid)])]
+    if (pids.length === 0) return { killed: 0, surviving: [] }
+    journal.observe(
+      `processes of the profile still running ${when}`,
+      pids.map((pid) => listed.find((entry) => entry.pid === pid)?.command ?? `pid ${String(pid)}`),
+    )
+    for (const child of launched) child.terminate()
+    for (const pid of pids) killProcess(pid)
+    const surviving = (): number[] => pids.filter(exists)
+    await waitFor('the killed processes of the profile to exit', () => Promise.resolve(surviving().length === 0), strayKillLimitMs).catch(
+      () => undefined,
+    )
+    return { killed: pids.length, surviving: surviving() }
   }
 
   const bounded = async <T>(what: string, work: Promise<T>): Promise<T> => {
@@ -321,12 +341,14 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
     }
     const first = await finished(hangLimitMs)
     if (first !== null) return first.value
-    const strays = processesUnder(profile.root)
-    journal.observe(`processes of the profile still running when ${what} hung`, strays.map(({ command }) => command))
-    for (const { pid } of strays) killProcess(pid)
+    const { killed, surviving } = await reap(`when ${what} hung`)
     const second = await finished(strayKillLimitMs)
     throw new Error(
-      `${what} did not finish within ${String(hangLimitMs)} ms; ${String(strays.length)} processes of the profile were still running and were killed${second === null ? ', and it still did not finish' : ''}`,
+      [
+        `${what} did not finish within ${String(hangLimitMs)} ms; ${String(killed)} processes of the profile were still running and were killed`,
+        ...(surviving.length === 0 ? [] : [`, ${String(surviving.length)} of them still run (${surviving.join(', ')})`]),
+        ...(second === null ? [', and it still did not finish'] : []),
+      ].join(''),
     )
   }
 
@@ -407,17 +429,42 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
       return { unknown: unknownRecords(database.path), counts: rawCounts(database.path) }
     },
     dispose: async (keep) => {
-      const reached = (await readdir(gates)).filter((name) => name.endsWith('.reached'))
-      await Promise.all(reached.map((name) => writeFile(join(gates, name.replace(/\.reached$/, '.open')), '')))
-      await sleep(reached.length === 0 ? 0 : 500)
-      await bounded('killing the CLIs', Promise.allSettled(launched.map((child) => child.kill())))
-      await bounded('closing the model stubs', Promise.allSettled([claudeStub.close(), codexStub.close()]))
-      if (keep) {
-        if (current?.running() === true) await bounded('the daemon shutdown', current.stop().catch(() => current?.kill()))
-        process.stdout.write(`    kept ${profile.root}\n`)
-        return
+      const failures: unknown[] = []
+      const stage = async (work: () => Promise<unknown>): Promise<void> => {
+        try {
+          await work()
+        } catch (error) {
+          failures.push(error)
+        }
       }
-      await bounded('the profile disposal', profile.dispose())
+      await stage(async () => {
+        const reached = (await readdir(gates)).filter((name) => name.endsWith('.reached'))
+        await Promise.all(reached.map((name) => writeFile(join(gates, name.replace(/\.reached$/, '.open')), '')))
+        await sleep(reached.length === 0 ? 0 : 500)
+      })
+      await stage(() => bounded('killing the CLIs', Promise.allSettled(launched.map((child) => child.kill()))))
+      await stage(() => bounded('closing the model stubs', Promise.allSettled([claudeStub.close(), codexStub.close()])))
+      const last = current
+      if (last?.running() === true) {
+        await stage(() => bounded('the daemon shutdown', last.stop().catch(() => last.kill())))
+      }
+      await stage(async () => {
+        const { killed, surviving } = await reap('after the cleanup')
+        if (surviving.length > 0) {
+          throw new Error(
+            `${String(surviving.length)} of ${String(killed)} processes of the profile still run after the cleanup killed them: ${surviving.join(', ')}`,
+          )
+        }
+      })
+      if (keep) {
+        process.stdout.write(`    kept ${profile.root}\n`)
+      } else {
+        await stage(() => bounded('the profile disposal', profile.dispose()))
+      }
+      if (failures.length === 0) return
+      const messages = failures.map((failure) => (failure instanceof Error ? failure.message : String(failure)))
+      journal.observe('cleanup failures', messages)
+      throw failures.length === 1 ? failures[0] : new AggregateError(failures, messages.join('; '))
     },
   }
 }
