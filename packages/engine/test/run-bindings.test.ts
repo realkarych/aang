@@ -130,14 +130,14 @@ const pending = (store: Store, run: RunId): string[] =>
     .flatMap(({ fact, status }) => (status === 'pending' ? [fact] : []))
     .sort()
 
-const factsOfSession = (store: Store, ...sessions: readonly string[]): string[] =>
+const interpretableFacts = (store: Store, ...sessions: readonly string[]): string[] =>
   factsOf(store)
-    .filter(({ entity_key: key }) => sessions.includes(key.session))
+    .filter(({ kind, entity_key: key }) => kind !== 'definition_listing' && sessions.includes(key.session))
     .map(({ id }) => id)
     .sort()
 
 const queuedOf = (store: Store, sessions: readonly string[]) =>
-  factsOfSession(store, ...sessions).map((fact) => ({ fact, status: 'pending', attempts: 0 }))
+  interpretableFacts(store, ...sessions).map((fact) => ({ fact, status: 'pending', attempts: 0 }))
 
 const bindingsOf = (store: Store, run: RunId): ModelEntity[] =>
   store.model.entities(run).filter((entity) => entity.kind === 'binding')
@@ -275,7 +275,7 @@ describe('moving a session between runs', () => {
       ['rule', 'session.move', 'session_membership'],
       ['rule', 'session.move', 'link'],
     ])
-    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'first', 'second'))
+    expect(pending(store, secondRun)).toEqual(interpretableFacts(store, 'first', 'second'))
     expect(pending(store, firstRun)).toEqual([])
   })
 
@@ -301,8 +301,8 @@ describe('moving a session between runs', () => {
       ['rule', 'session.move', 'session_membership'],
       ['rule', 'session.move', 'link'],
     ])
-    expect(pending(store, firstRun)).toEqual(factsOfSession(store, 'first'))
-    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'second'))
+    expect(pending(store, firstRun)).toEqual(interpretableFacts(store, 'first'))
+    expect(pending(store, secondRun)).toEqual(interpretableFacts(store, 'second'))
     expect((await engine.revokeBinding(binding.id)).binding).toEqual(revoked.binding)
   })
 
@@ -543,7 +543,7 @@ describe('moving a session during an observer call', () => {
 
     expect(answerCall(store, call)).toBe(`observer call ${call} is missing or already finished`)
     expect(queueOf(store, firstRun)).toEqual(queuedOf(store, ['first']))
-    expect(pending(store, secondRun)).toEqual(factsOfSession(store, 'second'))
+    expect(pending(store, secondRun)).toEqual(interpretableFacts(store, 'second'))
     const retry = beginCall(store, 'call-after-return', firstRun, [moving])
     expect(store.interpretations.ofCall(retry).map(({ run, fact }) => [run, fact])).toEqual([[firstRun, moving.id]])
   })

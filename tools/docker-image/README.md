@@ -11,7 +11,7 @@ docker build --tag aang .
 | Стадия | Что делает |
 | --- | --- |
 | `hook` | собирает `aang-hook` для платформы образа (`TARGETOS`, `TARGETARCH`) кросс-компиляцией на платформе сборки: `go build -trimpath -ldflags="-s -w"` с `CGO_ENABLED=0`, как бинари платформенных пакетов npm (P.1) |
-| `build` | ставит pnpm версии из `packageManager`, выполняет `pnpm install --frozen-lockfile` и `tsc -b packages/aang`, затем `pnpm deploy --prod` пакета `aang` в `/opt/aang/packages/aang`: собранные внутренние пакеты, миграции `store`, статика `web` и `zod`. Матрицу поддержки `support/matrix.json` кладёт в `/opt/aang/support/matrix.json`: команда `aang` читает её по пути `../../../support/matrix.json` от своего `dist/main.js`, поэтому `/opt/aang` повторяет раскладку репозитория |
+| `build` | ставит pnpm версии из `packageManager`, выполняет `pnpm install --frozen-lockfile` и `tsc -b packages/aang`, затем `pnpm deploy --prod` пакета `aang` в `/opt/aang/packages/aang`: собранные внутренние пакеты, миграции `store`, статика `web`, `zod` и `smol-toml`. Матрицу поддержки `support/matrix.json` кладёт в `/opt/aang/support/matrix.json`: команда `aang` читает её по пути `../../../support/matrix.json` от своего `dist/main.js`, поэтому `/opt/aang` повторяет раскладку репозитория |
 | `aang` (итоговая) | `node:26-slim` с `/opt/aang`, командами `aang` и `aang-hook` в `/usr/local/bin`, `git` и `tini`. Ссылка `bin/aang-hook` пакета `@aang/hook` внутри `/opt/aang` ведёт на `/usr/local/bin/aang-hook`: там `aang install` ищет бинарь, который копирует в `<AANG_HOME>/bin` |
 
 В итоговом образе:
