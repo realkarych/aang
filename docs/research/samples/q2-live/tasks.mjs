@@ -141,7 +141,7 @@ export const tasks = {
     turns: [
       turn('plan', 'Read SPEC.md. Write PLAN.md with five to seven numbered implementation stages, each with acceptance criteria that a test can check. Do not write any code yet. Reply with a short summary of the plan.', [
         write('plan-written', /PLAN\.md$/, 'PLAN.md is written: the map shows the planned implementation stages of the ledger library from the plan (parsing, balances, conversion, CLI, monthly export) as planned stages'),
-        end('plan-ready', 'The planning turn ends: no stage is running yet and the run brief states the goal, a bookkeeping library and CLI from SPEC.md'),
+        end('plan-ready', 'The planning turn ends: no stage is running yet'),
       ]),
       turn('parse', 'Implement the first stage of PLAN.md: CSV parsing in src/parse.js with tests in test/parse.test.js, including quoted memos with commas and malformed lines. Run the tests with node --test and make them pass.', [
         tests('parse-tested', 'The parsing tests run and pass: the parsing stage is running or done and its test criterion is met'),
@@ -196,7 +196,7 @@ export const tasks = {
       ]),
       turn('plan', 'Read SPEC.md and write PLAN.md with numbered implementation stages for the remaining features, each with acceptance criteria. Track the stages with your task list tool. No code in this step.', [
         write('plan-written', /PLAN\.md$/, 'PLAN.md is written: the map shows the planned stages of logstats (aggregation, CLI, HTML report, streaming) as planned stages'),
-        end('plan-ready', 'The planning turn ends: the planned stages wait and the run brief states the goal, a log analysis library and CLI'),
+        end('plan-ready', 'The planning turn ends: the planned stages wait'),
       ]),
       turn('aggregate', 'Implement the aggregation stage in src/aggregate.js with exact p50/p95/p99 by nearest rank, with tests on a generated log. Run all tests.', [
         tests('aggregate-tested', 'The aggregation tests pass: the aggregation stage is running or done and its criterion is met'),
@@ -243,7 +243,7 @@ export const tasks = {
     turns: [
       turn('plan', 'Read SPEC.md and write PLAN.md with numbered implementation stages, each with acceptance criteria a test can check, including the crash cases. No code yet. Reply with a short summary.', [
         write('plan-written', /PLAN\.md$/, 'PLAN.md is written: the map shows the planned stages of the key-value store (log, replay, compaction, batches, CLI) as planned stages'),
-        end('plan-ready', 'The planning turn ends: the planned stages wait and the run brief states the goal, a persistent key-value store'),
+        end('plan-ready', 'The planning turn ends: the planned stages wait'),
       ]),
       turn('log', 'Implement the write-ahead log and the in-memory store with set, get, delete and list in src/store.js, with tests in test/store.test.js that reopen the store from its log. Run the tests.', [
         tests('log-tested', 'The store tests pass: the log stage is running or done and its criterion is met'),
@@ -297,7 +297,7 @@ export const tasks = {
       ]),
       turn('plan', 'Write PLAN.md with numbered implementation stages for mdlinks, each with acceptance criteria a test can check. Track the stages with your task list tool. No code yet.', [
         write('plan-written', /PLAN\.md$/, 'PLAN.md is written: the map shows the planned stages of mdlinks (extraction, file checks, anchors, report, fix) as planned stages'),
-        end('plan-ready', 'The planning turn ends: the planned stages wait and the run brief states the goal, a link checker for Markdown'),
+        end('plan-ready', 'The planning turn ends: the planned stages wait'),
       ]),
       turn('extract', 'Implement link extraction in src/extract.js (inline, reference and autolinks; ignore code spans and fenced code) with tests. Run the tests.', [
         tests('extract-tested', 'The extraction tests pass: the extraction stage is running or done and its criterion is met'),
