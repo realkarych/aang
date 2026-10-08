@@ -55,7 +55,7 @@ let initialized = false
 let ready = false
 for await (const line of createInterface({ input: process.stdin })) {
   const request = JSON.parse(line) as { method?: string; id?: number; params?: unknown }
-  appendFileSync(`${state}.jsonl`, `${JSON.stringify({ pid: process.pid, argv, cwd: process.cwd(), codexHome, request })}\n`)
+  appendFileSync(`${state}.jsonl`, `${JSON.stringify({ pid: process.pid, ppid: process.ppid, argv, cwd: process.cwd(), codexHome, request })}\n`)
   if (argv.join(' ') !== 'app-server' || request.method === undefined) {
     process.exit(2)
   }

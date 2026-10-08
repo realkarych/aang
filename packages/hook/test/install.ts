@@ -29,7 +29,7 @@ export interface FakeClaude extends FakeCli<ClaudeScenario> {
 
 const execFileAsync = promisify(execFile)
 
-const unusualHome = join('Имя Фамилия', process.platform === 'win32' ? 'aang home' : "it's $HOME")
+const unusualHome = join('Имя Фамилия', "it's $HOME")
 
 export const sampleText = (path: string): Promise<string> =>
   readFile(new URL(`../../../docs/research/samples/${path}`, import.meta.url), 'utf8')
@@ -75,7 +75,7 @@ export const createInstallHome = async (onTestFinished: TestContext['onTestFinis
       const fake = installFakeClaude(join(root, 'fakes'), scenario)
       return {
         ...fake,
-        cli: { command: fake.command, configDir: null },
+        cli: { command: fake.executable, configDir: null },
         argv: () => fake.calls().map((call) => call.argv),
         run: async (args: readonly string[]) => {
           await execFileAsync(fake.command, [...fake.args, ...args])

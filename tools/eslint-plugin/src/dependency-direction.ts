@@ -1,8 +1,9 @@
-import { posix, relative } from 'node:path'
+import { join, posix, relative } from 'node:path'
 import { fileURLToPath, pathToFileURL } from 'node:url'
 import { AST_NODE_TYPES, ASTUtils, ESLintUtils, type TSESTree } from '@typescript-eslint/utils'
 import { allowedDependencies, isPackageDirectory, locatableDependencies } from './dependencies.js'
-import { staticSource } from './syntax.js'
+import { isSubpathImport, subpathImportTargets } from './subpath-imports.js'
+import { staticSource, templateHead } from './syntax.js'
 import { toPosix, workspaceRoot } from './workspace.js'
 
 type MessageId =
@@ -126,8 +127,16 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
       }
     }
 
+    const packageDirectory = join(root, packagesDirectory, file.directory)
+
     const check = (node: TSESTree.Node, source: string | undefined, reference: Reference = 'import'): void => {
       if (source === undefined) {
+        return
+      }
+      if (isSubpathImport(source)) {
+        for (const target of subpathImportTargets(packageDirectory, source, true)) {
+          check(node, target, reference)
+        }
         return
       }
       if (isRelative(source)) {
@@ -145,6 +154,15 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
         return
       }
       context.report({ node, messageId: 'forbiddenPackage', data: { ...data, imported: packageName(imported) } })
+    }
+
+    const checkComputed = (node: TSESTree.Expression, reference: Reference): void => {
+      const head = templateHead(node)
+      if (head !== undefined && isSubpathImport(head)) {
+        for (const target of subpathImportTargets(packageDirectory, head, false)) {
+          check(node, target, reference)
+        }
+      }
     }
 
     const isImportMetaResolve = (node: TSESTree.Expression): boolean =>
@@ -165,7 +183,12 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
         }
       },
       ImportExpression: (node) => {
-        check(node.source, staticSource(node.source))
+        const source = staticSource(node.source)
+        if (source === undefined) {
+          checkComputed(node.source, 'import')
+          return
+        }
+        check(node.source, source)
       },
       TSImportType: (node) => {
         check(node.source, node.source.value)
@@ -181,7 +204,13 @@ export const dependencyDirection = ESLintUtils.RuleCreator.withoutDocs<[], Messa
           return
         }
         const source = staticSource(argument)
-        if (parent === undefined || (source !== undefined && !isRelative(source))) {
+        if (source === undefined) {
+          if (parent === undefined) {
+            checkComputed(argument, 'locate')
+          }
+          return
+        }
+        if (parent === undefined || !isRelative(source)) {
           check(argument, source, 'locate')
         }
       },

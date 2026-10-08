@@ -92,6 +92,8 @@ const CompactBoundaryLine = Line.extend({
   }),
 })
 
+const SystemLine = Line.extend({ uuid: name, subtype: name })
+
 const QueueOperationLine = Line.extend({ operation: name, content: optionalText })
 
 const CostStateLine = Line.extend(CostState.shape)
@@ -114,7 +116,13 @@ const userBlockTypes: ReadonlySet<string> = blockTypes(UserBlock)
 
 const assistantBlockTypes: ReadonlySet<string> = blockTypes(AssistantBlock)
 
-const metadataLineTypes: ReadonlySet<string> = new Set(['last-prompt', 'atis-latch', 'mode'])
+const metadataLineTypes: ReadonlySet<string> = new Set([
+  'last-prompt',
+  'atis-latch',
+  'mode',
+  'permission-mode',
+  'file-history-snapshot',
+])
 
 const contextAttachmentTypes: ReadonlySet<string> = new Set([
   'environment',
@@ -400,8 +408,30 @@ const parseCostState = lineParser('cost state', CostStateLine, (line, { origin, 
   ]),
 )
 
-const parseSystem: LineParser = (payload, record, sourceTs) =>
-  payload.subtype === 'compact_boundary' ? parseCompactBoundary(payload, record, sourceTs) : unknown(sourceTs)
+const parseMetadata: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
+
+const parseAgentsKilled = lineParser('agents killed', SystemLine, (line, { origin, sourceTs }) =>
+  parsed(sourceTs, [
+    fact(origin, {
+      kind: 'runtime_event',
+      entity_key: ownerKey(line.sessionId, line.agentId ?? null),
+      speaker: 'runtime',
+      urgent: false,
+      payload: { event: line.subtype, data: {} },
+    }),
+  ]),
+)
+
+const systemParsers: ReadonlyMap<string, LineParser> = new Map([
+  ['compact_boundary', parseCompactBoundary],
+  ['agents_killed', parseAgentsKilled],
+  ['turn_duration', parseMetadata],
+])
+
+const parseSystem: LineParser = (payload, record, sourceTs) => {
+  const parser = typeof payload.subtype === 'string' ? systemParsers.get(payload.subtype) : undefined
+  return parser === undefined ? unknown(sourceTs) : parser(payload, record, sourceTs)
+}
 
 const parseAttachment: LineParser = (payload, _record, sourceTs) => {
   const { attachment } = payload
@@ -411,8 +441,6 @@ const parseAttachment: LineParser = (payload, _record, sourceTs) => {
     ? parsed(sourceTs, [])
     : unknown(sourceTs)
 }
-
-const parseMetadata: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
 
 const lineParsers: ReadonlyMap<string, LineParser> = new Map([
   ['user', parseUser],

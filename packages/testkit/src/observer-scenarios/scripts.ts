@@ -1,6 +1,7 @@
 import type { JsonValue } from '@aang/contract'
 import { z } from 'zod'
-import { chatAnswerScript, chatCollapseReviewersScript, readChatInput } from './chat.js'
+import { attentionScript } from './attention.js'
+import { chatAnswerScript, chatCollapseReviewersScript, chatOldGroundScript, readChatInput } from './chat.js'
 import {
   claimedDoneScript,
   mapBranchesScript,
@@ -30,8 +31,10 @@ export const ScenarioScript = z.enum([
   'rejected',
   'outline',
   'reshape',
+  'attention',
   'chat-answer',
   'chat-collapse-reviewers',
+  'chat-old-ground',
 ])
 export type ScenarioScript = z.infer<typeof ScenarioScript>
 
@@ -48,8 +51,10 @@ const scripts: Readonly<Record<ScenarioScript, (input: JsonValue | undefined) =>
   merge: (input) => mergeScript(readObserverInput(input)),
   outline: (input) => outlineScript(readObserverInput(input)),
   reshape: (input) => reshapeScript(readObserverInput(input)),
+  attention: (input) => attentionScript(readObserverInput(input)),
   'chat-answer': (input) => chatAnswerScript(readChatInput(input)),
   'chat-collapse-reviewers': (input) => chatCollapseReviewersScript(readChatInput(input)),
+  'chat-old-ground': (input) => chatOldGroundScript(readChatInput(input)),
 }
 
 export const runScenarioScript = (script: ScenarioScript, input: JsonValue | undefined): JsonValue =>

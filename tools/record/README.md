@@ -167,14 +167,14 @@ Owner's decision of 2026-10-04: the scope of R.2b follows what the engines do.
 
 | Scenario | `claude_cli` | `claude_sdk` | `claude_desktop` (engine emulation) |
 | --- | --- | --- | --- |
-| `elicitation` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS, engine 2.1.288 or later (2.1.286 declares form elicitation only, without URL) |
+| `elicitation` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS, engine 2.1.288 or later (2.1.286 declares form elicitation only, without URL); not recorded in R.4b: the Desktop engine of R.4 is 2.1.286 |
 | `workflow` | `-p`: macOS, Linux, Windows | macOS, Linux, Windows | macOS |
-| `teammates` | TUI: macOS, Linux; Windows: `unverified` or recorded manually by the owner | not applicable: no session team outside the interactive CLI | not applicable: no session team outside the interactive CLI |
-| `input-dialogs` | TUI: macOS, Linux; Windows: `unverified` or recorded manually by the owner | not applicable: the dialogs exist only in the TUI | not applicable: the dialogs exist only in the TUI |
+| `teammates` | TUI: macOS, Linux; Windows: `unverified`, no manual recording by the owner | not applicable: no session team outside the interactive CLI | not applicable: no session team outside the interactive CLI |
+| `input-dialogs` | TUI: macOS, Linux; Windows: `unverified`, no manual recording by the owner | not applicable: the dialogs exist only in the TUI | not applicable: the dialogs exist only in the TUI |
 
 - R.2b: the catalog covers exactly these cells. The `Scenarios` workflow requires `claude_cli` and `claude_sdk` (`AANG_RECORD_REQUIRE`), so every CLI and SDK cell of its OS must record and verify, the TUI cells on macOS and Linux included; the Desktop cells are verified locally on macOS.
-- R.4b: records these cells with the versions of R.4; the Desktop `elicitation` cell needs a Desktop engine 2.1.288 or later. A Windows TUI cell gets a manual recording by the owner or none.
-- B.8: makes the R.4b recordings of these cells mandatory in the contract run. Cells that are not applicable have no recordings and nothing to verify. Without a manual recording, teammates and the dialog notifications stay `unverified` on Windows (ADR-0010). `elicitation_dialog`, `elicitation_url_dialog` and `agent_needs_input` come only from the TUI cells; in `-p`, the SDK and the Desktop engine the host gets `elicitation` control requests and the stream carries `elicitation_response` and `elicitation_complete` instead.
+- R.4b: recorded every CLI and SDK cell of the table with engine 2.1.289 (SDK 0.3.289) and the Desktop `workflow` cell with the Desktop engine 2.1.286. The Desktop `elicitation` cell waits for a Desktop with engine 2.1.288 or later. The Windows TUI cells have no manual recording.
+- B.8: made these recordings mandatory in the contract run and verified the formats they confirm. Cells that are not applicable have no recordings and nothing to verify. The cells without a recording stay `unverified`: the Desktop engine 2.1.286 row of the matrix lists `elicitation` as missing, and teammates and the dialog notifications stay `unverified` on Windows (ADR-0010). `elicitation_dialog`, `elicitation_url_dialog` and `agent_needs_input` come only from the TUI cells; in `-p`, the SDK and the Desktop engine the host gets `elicitation` control requests and the stream carries `elicitation_response` and `elicitation_complete` instead.
 
 ### Applicability of R.2c
 

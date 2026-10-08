@@ -1,9 +1,12 @@
 import {
   type ChatCitation,
   ChatInput,
+  type ChatMaterial,
   type ChatOutput,
+  type JournalMaterial,
   type JsonValue,
   type RunAgentBrief,
+  type StageId,
   type ViewSelector,
 } from '@aang/contract'
 import { ScenarioError } from '../fake-cli/scenario-error.js'
@@ -58,11 +61,12 @@ export const chatAnswerScript = (input: ChatInput): ChatOutput => {
   }
 }
 
-const reviews = (agent: RunAgentBrief): boolean =>
-  [agent.agent_type, agent.name, agent.description].some((value) => value !== null && /review/i.test(value))
+const reviewing = (value: string | null): boolean => value !== null && /review/i.test(value)
+
+const reviews = (agent: RunAgentBrief): boolean => [agent.agent_type, agent.name, agent.description].some(reviewing)
 
 const reviewerSelector = (reviewers: readonly RunAgentBrief[]): ViewSelector | null => {
-  const agentType = reviewers.find(({ agent_type }) => agent_type !== null)?.agent_type
+  const agentType = reviewers.find(({ agent_type }) => reviewing(agent_type))?.agent_type
   if (agentType !== undefined && agentType !== null) {
     return { kind: 'agent_type', agent_type: agentType }
   }
@@ -83,4 +87,43 @@ export const chatCollapseReviewersScript = (input: ChatInput): ChatOutput => {
     insufficient_data: false,
     view_rule: { action: 'collapse', selector, params: null },
   }
+}
+
+const journalOf = (input: ChatInput, stage: StageId): JournalMaterial | undefined =>
+  input.materials.find(
+    (material: ChatMaterial): material is JournalMaterial =>
+      material.kind === 'journal' && material.entity.kind === 'stage' && material.entity.id === stage,
+  )
+
+export const chatOldGroundScript = (input: ChatInput): ChatOutput => {
+  const focused = input.focus.kind === 'stage' ? input.focus.stage : null
+  const stage =
+    input.model.stages.find(({ id }) => id === focused) ?? input.model.stages.find(({ parent }) => parent === null)
+  if (stage === undefined) {
+    return unanswerable('The map has no stage whose grounds could be traced.')
+  }
+  const journal = journalOf(input, stage.id)
+  if (journal === undefined) {
+    return {
+      needs: [{ kind: 'journal', entity: { kind: 'stage', id: stage.id } }],
+      answer: null,
+      citations: [],
+      insufficient_data: false,
+      view_rule: null,
+    }
+  }
+  const carried = JSON.stringify({ ...input, materials: [] })
+  const ground = journal.entries.flatMap(({ evidence }) => evidence).find((fact) => !carried.includes(fact))
+  return ground === undefined
+    ? { ...unanswerable(`Every ground of ${stage.title} is already in the input.`), citations: [{ kind: 'stage', id: stage.id }] }
+    : {
+        needs: [],
+        answer: `${stage.title} began from a ground the first input did not carry.`,
+        citations: [
+          { kind: 'stage', id: stage.id },
+          { kind: 'fact', id: ground },
+        ],
+        insufficient_data: false,
+        view_rule: null,
+      }
 }
