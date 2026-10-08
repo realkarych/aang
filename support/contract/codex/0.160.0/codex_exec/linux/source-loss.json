@@ -2438,47 +2438,16 @@
   "runs": [
     {
       "run": {
-        "id": "#52",
-        "runtime": "codex",
-        "root_session": "#51",
-        "goal": null,
-        "brief": null,
-        "start_pruned": false,
-        "version": 1,
-        "created_at": "<time>"
-      },
-      "entities": [
-        {
-          "kind": "run",
-          "value": {
-            "id": "#52",
-            "runtime": "codex",
-            "root_session": "#51",
-            "goal": null,
-            "brief": null,
-            "start_pruned": false,
-            "version": 1,
-            "created_at": "<time>"
-          }
-        },
-        {
-          "kind": "session_membership",
-          "value": {
-            "session": "#51",
-            "run": "#52"
-          }
-        }
-      ]
-    },
-    {
-      "run": {
         "id": "#50",
         "runtime": "codex",
         "root_session": "#49",
-        "goal": null,
+        "goal": {
+          "text": "[aang:archive] Run `echo archive`, then reply done.",
+          "fact": "#6"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2488,10 +2457,13 @@
             "id": "#50",
             "runtime": "codex",
             "root_session": "#49",
-            "goal": null,
+            "goal": {
+              "text": "[aang:archive] Run `echo archive`, then reply done.",
+              "fact": "#6"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },
@@ -2500,6 +2472,46 @@
           "value": {
             "session": "#49",
             "run": "#50"
+          }
+        }
+      ]
+    },
+    {
+      "run": {
+        "id": "#52",
+        "runtime": "codex",
+        "root_session": "#51",
+        "goal": {
+          "text": "[aang:delete] Run `echo delete`, then reply done.",
+          "fact": "#29"
+        },
+        "brief": null,
+        "start_pruned": false,
+        "version": 2,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#52",
+            "runtime": "codex",
+            "root_session": "#51",
+            "goal": {
+              "text": "[aang:delete] Run `echo delete`, then reply done.",
+              "fact": "#29"
+            },
+            "brief": null,
+            "start_pruned": false,
+            "version": 2,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#51",
+            "run": "#52"
           }
         }
       ]

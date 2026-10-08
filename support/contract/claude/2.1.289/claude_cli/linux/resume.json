@@ -2005,7 +2005,10 @@
         "id": "#39",
         "runtime": "claude",
         "root_session": "#38",
-        "goal": null,
+        "goal": {
+          "text": "[aang:resume-first] Run `echo first` with the Bash tool and reply with its output.",
+          "fact": "#9"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -2018,7 +2021,10 @@
             "id": "#39",
             "runtime": "claude",
             "root_session": "#38",
-            "goal": null,
+            "goal": {
+              "text": "[aang:resume-first] Run `echo first` with the Bash tool and reply with its output.",
+              "fact": "#9"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,

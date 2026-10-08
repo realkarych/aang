@@ -2296,10 +2296,13 @@
         "id": "#49",
         "runtime": "codex",
         "root_session": "#48",
-        "goal": null,
+        "goal": {
+          "text": "[aang:reconnect-first] Run `echo first`, then reply done.",
+          "fact": "#3"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2309,10 +2312,13 @@
             "id": "#49",
             "runtime": "codex",
             "root_session": "#48",
-            "goal": null,
+            "goal": {
+              "text": "[aang:reconnect-first] Run `echo first`, then reply done.",
+              "fact": "#3"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

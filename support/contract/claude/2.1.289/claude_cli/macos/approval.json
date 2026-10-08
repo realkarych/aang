@@ -1655,7 +1655,10 @@
         "id": "#30",
         "runtime": "claude",
         "root_session": "#29",
-        "goal": null,
+        "goal": {
+          "text": "[aang:approval] Run `node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"` with the Bash tool. After it finishes, run `node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"` with the Bash tool. If a command is denied, do not retry it and reply with one sentence.",
+          "fact": "#9"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 3,
@@ -1718,7 +1721,10 @@
             "id": "#30",
             "runtime": "claude",
             "root_session": "#29",
-            "goal": null,
+            "goal": {
+              "text": "[aang:approval] Run `node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"` with the Bash tool. After it finishes, run `node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"` with the Bash tool. If a command is denied, do not retry it and reply with one sentence.",
+              "fact": "#9"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 3,

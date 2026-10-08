@@ -457,11 +457,15 @@ button.lamp[data-level='warning']:hover {
 }
 
 .run-link {
-  display: block;
+  display: -webkit-box;
+  overflow: hidden;
   color: var(--ink);
   font-weight: 500;
   text-decoration: none;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .run-link::after {
@@ -528,6 +532,27 @@ button.lamp[data-level='warning']:hover {
   font-size: 21px;
   line-height: 1.25;
   overflow-wrap: anywhere;
+}
+
+.long-title {
+  display: -webkit-box;
+  overflow: hidden;
+  white-space: pre-line;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+
+.long-title[data-expanded='true'] {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: none;
+  line-clamp: none;
+}
+
+.run-head .text-toggle {
+  margin-top: 2px;
+  font-size: 12.5px;
 }
 
 .brief {

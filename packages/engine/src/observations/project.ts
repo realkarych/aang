@@ -3,6 +3,7 @@ import type {
   AgentStartPayload,
   EpochNs,
   Execution,
+  FactOf,
   QuestionKey,
   RunId,
   Session,
@@ -49,6 +50,11 @@ interface SessionContext {
   readonly spawners: ReadonlyMap<string, KindEvidence<'action_start'>>
   readonly fork: boolean
 }
+
+const firstPrompt = (items: readonly Evidence[]): FactOf<'prompt'> | null =>
+  ofKind(items, 'prompt')
+    .filter(({ fact }) => fact.speaker === 'human' && fact.payload.text.trim() !== '')
+    .toSorted(byTime)[0]?.fact ?? null
 
 const spawnersOf = (items: readonly Evidence[]): Map<string, KindEvidence<'action_start'>> => {
   const spawners = new Map<string, KindEvidence<'action_start'>>()
@@ -320,6 +326,7 @@ export const projectSession = (
       key,
       run: context.run,
       root: first.fact,
+      goal: firstPrompt(root),
       at,
       spawns,
       replacements: [...replacements, ...moved],

@@ -2246,44 +2246,13 @@
   "runs": [
     {
       "run": {
-        "id": "#44",
-        "runtime": "claude",
-        "root_session": "#43",
-        "goal": null,
-        "brief": null,
-        "start_pruned": false,
-        "version": 2,
-        "created_at": "<time>"
-      },
-      "entities": [
-        {
-          "kind": "run",
-          "value": {
-            "id": "#44",
-            "runtime": "claude",
-            "root_session": "#43",
-            "goal": null,
-            "brief": null,
-            "start_pruned": false,
-            "version": 2,
-            "created_at": "<time>"
-          }
-        },
-        {
-          "kind": "session_membership",
-          "value": {
-            "session": "#43",
-            "run": "#44"
-          }
-        }
-      ]
-    },
-    {
-      "run": {
         "id": "#42",
         "runtime": "claude",
         "root_session": "#41",
-        "goal": null,
+        "goal": {
+          "text": "[aang:loss-moved] Run `echo moved` with the Bash tool and reply with its output.",
+          "fact": "#29"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -2296,7 +2265,10 @@
             "id": "#42",
             "runtime": "claude",
             "root_session": "#41",
-            "goal": null,
+            "goal": {
+              "text": "[aang:loss-moved] Run `echo moved` with the Bash tool and reply with its output.",
+              "fact": "#29"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,
@@ -2308,6 +2280,46 @@
           "value": {
             "session": "#41",
             "run": "#42"
+          }
+        }
+      ]
+    },
+    {
+      "run": {
+        "id": "#44",
+        "runtime": "claude",
+        "root_session": "#43",
+        "goal": {
+          "text": "[aang:loss-removed] Run `echo removed` with the Bash tool and reply with its output.",
+          "fact": "#9"
+        },
+        "brief": null,
+        "start_pruned": false,
+        "version": 2,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#44",
+            "runtime": "claude",
+            "root_session": "#43",
+            "goal": {
+              "text": "[aang:loss-removed] Run `echo removed` with the Bash tool and reply with its output.",
+              "fact": "#9"
+            },
+            "brief": null,
+            "start_pruned": false,
+            "version": 2,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#43",
+            "run": "#44"
           }
         }
       ]

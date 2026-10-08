@@ -1464,7 +1464,10 @@
         "id": "#25",
         "runtime": "claude",
         "root_session": "#24",
-        "goal": null,
+        "goal": {
+          "text": "Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type \"pinger\" and prompt \"ping\". Step 3: reply with exactly: OK",
+          "fact": "#10"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 3,
@@ -1495,7 +1498,10 @@
             "id": "#25",
             "runtime": "claude",
             "root_session": "#24",
-            "goal": null,
+            "goal": {
+              "text": "Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type \"pinger\" and prompt \"ping\". Step 3: reply with exactly: OK",
+              "fact": "#10"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 3,

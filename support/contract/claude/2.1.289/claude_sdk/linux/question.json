@@ -2127,7 +2127,10 @@
         "id": "#37",
         "runtime": "claude",
         "root_session": "#36",
-        "goal": null,
+        "goal": {
+          "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+          "fact": "#12"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 4,
@@ -2215,7 +2218,10 @@
             "id": "#37",
             "runtime": "claude",
             "root_session": "#36",
-            "goal": null,
+            "goal": {
+              "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+              "fact": "#12"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 4,

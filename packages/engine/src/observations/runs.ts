@@ -6,9 +6,11 @@ import {
   type EpochNs,
   type Fact,
   type FactId,
+  type FactOf,
   type Link,
   LinkId,
   type ModelEntity,
+  type Run,
   type RunId,
   type Session,
   type SessionKey,
@@ -31,6 +33,7 @@ export interface SessionLinks {
   readonly key: SessionKey
   readonly run: RunId
   readonly root: Fact
+  readonly goal: FactOf<'prompt'> | null
   readonly at: EpochNs
   readonly spawns: readonly Spawn[]
   readonly replacements: readonly Replacement[]
@@ -66,6 +69,16 @@ const spawnLink = (run: RunId, { parent, child, via, evidence }: Spawn): Extract
   evidence: [...new Set(evidence)].sort(compareText),
 })
 
+const runDraft = ({ id, runtime, root_session: session, goal, brief, start_pruned: pruned, created_at: created }: Run): RunDraft => ({
+  id,
+  runtime,
+  root_session: session,
+  goal,
+  brief,
+  start_pruned: pruned,
+  created_at: created,
+})
+
 const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks, startPruned: boolean): RunDraft | null => {
   const session = objectId(key)
   if (current === null) {
@@ -82,20 +95,33 @@ const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks
   if (current.kind !== 'run' || current.value.root_session !== session || root.at >= current.value.created_at) {
     return null
   }
-  const { id, runtime, goal, brief, start_pruned: pruned } = current.value
-  return { id, runtime, root_session: session, goal, brief, start_pruned: pruned, created_at: root.at }
+  return { ...runDraft(current.value), created_at: root.at }
 }
 
+const goalChange = (run: RunDraft | null, prompt: FactOf<'prompt'> | null): ModelChangeDraft | null =>
+  run === null || prompt === null || run.goal?.text === prompt.payload.text
+    ? null
+    : {
+        op: 'run.goal',
+        basis: observed,
+        evidence: [prompt.id],
+        put: { kind: 'run', value: { ...run, goal: { text: prompt.payload.text, fact: prompt.id } } },
+      }
+
 const rootChanges = (transaction: Transaction, links: SessionLinks): ModelChangeDraft[] => {
-  const { key, run, root } = links
+  const { key, run, root, goal } = links
   const session = objectId(key)
   const grounds = { op: 'run.create', basis: observed, evidence: [root.id] } satisfies Omit<ModelChangeDraft, 'put'>
   const startPruned = run === runId(key) && transaction.pruned.ofSession(key).length > 0
-  const draft = runUpdate(transaction.model.entity(run, { kind: 'run', id: run }), links, startPruned)
+  const current = transaction.model.entity(run, { kind: 'run', id: run })
+  const draft = runUpdate(current, links, startPruned)
+  const rooted = current?.kind === 'run' && current.value.root_session === session ? runDraft(current.value) : null
   const member = transaction.model.entity(run, { kind: 'session_membership', id: session }) !== null
+  const goalSet = goalChange(draft ?? rooted, goal)
   return [
     ...(draft === null ? [] : [{ ...grounds, put: { kind: 'run', value: draft } } as const]),
     ...(member ? [] : [{ ...grounds, put: { kind: 'session_membership', value: { session, run } } } as const]),
+    ...(goalSet === null ? [] : [goalSet]),
   ]
 }
 
