@@ -477,13 +477,14 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
     await expect(inspected(page)).toHaveText(mainStageTitle)
+    const selected = await page.evaluate(() => window.scrollY)
 
     const nested = await versionShown(page)
     await played.play({ until: 'resume' })
     await expect.poll(async () => versionShown(page), observed).toBeGreaterThan(nested)
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
     near(await settled(main), read)
-    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+    expect(await page.evaluate(() => window.scrollY)).toBe(selected)
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].revised)
     await played.play({ until: 'continue' })
