@@ -6,6 +6,7 @@ export type SnapshotFile =
 
 export interface WorkflowJournal {
   readonly session: string
+  readonly run: string
 }
 
 const agentMetaPath = /(?:^|[\\/])([^\\/]+)[\\/]subagents[\\/](?:workflows[\\/][^\\/]+[\\/])?agent-([^\\/]+)\.meta\.json$/
@@ -16,7 +17,7 @@ const teamPath = /(?:^|[\\/])teams[\\/]([^\\/]+)[\\/]config\.json$/
 
 const toolResultPath = /(?:^|[\\/])([^\\/]+)[\\/]tool-results[\\/][^\\/]+$/
 
-const workflowJournalPath = /(?:^|[\\/])([^\\/]+)[\\/]subagents[\\/]workflows[\\/][^\\/]+[\\/]journal\.jsonl$/
+const workflowJournalPath = /(?:^|[\\/])([^\\/]+)[\\/]subagents[\\/]workflows[\\/]([^\\/]+)[\\/]journal\.jsonl$/
 
 export const snapshotFile = (path: string): SnapshotFile | null => {
   const session = toolResultPath.exec(path)?.[1]
@@ -36,6 +37,6 @@ export const snapshotFile = (path: string): SnapshotFile | null => {
 }
 
 export const workflowJournal = (path: string): WorkflowJournal | null => {
-  const session = workflowJournalPath.exec(path)?.[1]
-  return session === undefined ? null : { session }
+  const [, session, run] = workflowJournalPath.exec(path) ?? []
+  return session === undefined || run === undefined ? null : { session, run }
 }

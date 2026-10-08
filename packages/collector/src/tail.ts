@@ -366,7 +366,7 @@ export const createTailSource = (options: TailOptions, wakeup: Wakeup): TailSour
     }
     const { bytes } = await readChunk(file.path, 0, Number(stats.size))
     const complete = bytes.subarray(0, bytes.lastIndexOf(lineFeed) + 1).toString('utf8')
-    return adapter.streamKey(complete.split(/\r?\n/).filter((line) => line.length > 0))
+    return adapter.streamKey(file.path, complete.split(/\r?\n/).filter((line) => line.length > 0))
   }
 
   const prepare = async (file: TrackedFile): Promise<void> => {

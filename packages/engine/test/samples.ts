@@ -192,3 +192,45 @@ export const claudeAgentTranscript = (session: ClaudeSession, agent: string): st
     const record = parseObject(line)
     return JSON.stringify('agentId' in record ? { ...record, agentId: agent } : record)
   })
+
+const workflowRecording = new URL('../../../fixtures/sessions/claude/2.1.289/claude_cli/macos/workflow/', import.meta.url)
+
+interface PlaybackStep {
+  readonly kind: string
+  readonly target?: { readonly path: string }
+  readonly source?: string
+}
+
+export interface RecordedJournal {
+  readonly run: string
+  readonly appends: readonly (readonly string[])[]
+}
+
+export const recordedWorkflowJournal = (): RecordedJournal => {
+  const { steps } = JSON.parse(readFileSync(new URL('playback.json', workflowRecording), 'utf8')) as {
+    readonly steps: readonly PlaybackStep[]
+  }
+  const appends = steps.flatMap(({ kind, target, source }) =>
+    kind === 'append' && target?.path.endsWith('/journal.jsonl') === true && source !== undefined
+      ? [{ path: target.path, source }]
+      : [],
+  )
+  const run = appends[0]?.path.split('/').at(-2)
+  if (run === undefined) {
+    throw new Error('the workflow recording has no journal')
+  }
+  return {
+    run,
+    appends: appends.map(({ source }) =>
+      readFileSync(new URL(source, workflowRecording), 'utf8')
+        .split('\n')
+        .filter((line) => line !== ''),
+    ),
+  }
+}
+
+export const claudeWorkflowJournal = (agents: readonly string[]): string[] => [
+  JSON.stringify({ type: 'launched' }),
+  ...agents.map((agent) => JSON.stringify({ type: 'started', key: `v2:${agent}`, agentId: agent, label: agent, phase: 'Echo' })),
+  ...agents.map((agent) => JSON.stringify({ type: 'result', key: `v2:${agent}`, agentId: agent, result: agent })),
+]

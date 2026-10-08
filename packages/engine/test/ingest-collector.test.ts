@@ -1,8 +1,9 @@
 import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import type { ScopeDecision } from '@aang/contract'
+import type { ScopeDecision, StreamKey } from '@aang/contract'
+import type { Store } from '@aang/store'
 import { describe, expect, test, vi } from 'vitest'
-import { gapsOf, noObservationRows, observationRows, recordsOf, sessionKey, startEngine, streamOf } from './harness.js'
+import { factsOf, gapsOf, noObservationRows, observationRows, recordsOf, sessionKey, startEngine, streamOf } from './harness.js'
 import { createHome } from './home.js'
 import {
   appendLines,
@@ -14,7 +15,15 @@ import {
   spoolLeft,
   writeLines,
 } from './live.js'
-import { claudeHook, claudeHookEnv, claudeSubagentTranscript, claudeTranscript, codexRollout } from './samples.js'
+import {
+  claudeHook,
+  claudeHookEnv,
+  claudeSubagentTranscript,
+  claudeTranscript,
+  claudeWorkflowJournal,
+  codexRollout,
+  recordedWorkflowJournal,
+} from './samples.js'
 import { createWorkspace } from './workspace.js'
 
 const settleTimeout = { timeout: 15_000, interval: 25 }
@@ -211,4 +220,119 @@ describe('metadata arriving after a transcript exceeds its holding budget', () =
       expect(recordsOf(store)).toHaveLength(lines.length)
     },
   )
+})
+
+describe('a Claude workflow journal read by the real collector', () => {
+  const journalOf = (store: Store, stream: StreamKey) => {
+    const records = recordsOf(store).filter((record) => record.stream === stream)
+    const seqs = new Set(records.map(({ seq }) => seq))
+    return {
+      lines: records.map(({ payload, parse_state }) => [payload, parse_state]),
+      facts: factsOf(store)
+        .filter(({ seq }) => seqs.has(seq))
+        .map(({ kind, entity_key, format_verified }) => [
+          kind,
+          entity_key.kind === 'agent' && entity_key.agent.kind === 'subagent' ? entity_key.agent.agent_id : null,
+          format_verified,
+        ]),
+    }
+  }
+
+  const layoutGaps = (store: Store) => gapsOf(store).filter(({ key }) => key.gap === 'unknown_stream_layout')
+
+  test('keeps its launched, started and result lines across a restart, and the workflow agents start and end', async ({
+    onTestFinished,
+  }) => {
+    const workspace = await createWorkspace(onTestFinished)
+    const home = await createHome(onTestFinished)
+    const roots = await createLiveRoots(onTestFinished)
+    const store = home.open()
+    const { run, appends } = recordedWorkflowJournal()
+    const [launched = [], started = [], whileStopped = [], afterRestart = []] = appends
+    const path = claudeFile(roots, 's-flow', 'subagents', 'workflows', run, 'journal.jsonl')
+    const stream = streamOf('claude', [], path)
+    const cursorLine = () => store.cursors.list().find((cursor) => cursor.path === path)?.line
+    await writeLines(claudeFile(roots, 's-flow.jsonl'), claudeTranscript({ session: 's-flow', cwd: workspace.repository }))
+    await writeLines(path, [...launched, ...started])
+
+    const first = runLive(onTestFinished, roots, store, startEngine(store, { roots: [workspace.repository] }))
+    await vi.waitFor(() => {
+      expect(cursorLine()).toBe(launched.length + started.length)
+    }, settleTimeout)
+    await first.stop()
+    await appendLines(path, whileStopped)
+    const restarted = runLive(onTestFinished, roots, store, startEngine(store, { roots: [workspace.repository] }))
+    await vi.waitFor(() => {
+      expect(cursorLine()).toBe(launched.length + started.length + whileStopped.length)
+    }, settleTimeout)
+    await appendLines(path, afterRestart)
+    await vi.waitFor(() => {
+      expect(cursorLine()).toBe(appends.flat().length)
+    }, settleTimeout)
+    await restarted.stop()
+
+    const reread = restarted.batches().flatMap(({ records }) =>
+      records.flatMap(({ position }) => (position.kind === 'line' && position.path === path ? [position.line] : [])),
+    )
+    expect(reread).toEqual([4, 5, 6, 7])
+    expect(store.cursors.list().find((cursor) => cursor.path === path)?.stream).toBe(stream)
+    expect(store.scopes.get(stream)?.scope).toBe('watched')
+    expect(journalOf(store, stream)).toEqual({
+      lines: appends.flat().map((line) => [line, 'parsed']),
+      facts: [
+        ['agent_start', 'acc569b1b4e757f67', true],
+        ['agent_start', 'a3ec0bfb65b074891', true],
+        ['agent_end', 'acc569b1b4e757f67', true],
+        ['agent_end', 'a3ec0bfb65b074891', true],
+        ['agent_start', 'adbe167606b9275e1', true],
+        ['agent_end', 'adbe167606b9275e1', true],
+      ],
+    })
+    const [session] = store.observations.sessions()
+    const subagents = Object.fromEntries(
+      (session === undefined ? [] : store.observations.agents(session.id)).flatMap(({ key, description, execution }) =>
+        key.agent.kind === 'subagent' ? [[key.agent.agent_id, [description, execution.state]]] : [],
+      ),
+    )
+    expect(subagents).toMatchObject({
+      acc569b1b4e757f67: ['left', 'done'],
+      a3ec0bfb65b074891: ['right', 'done'],
+      adbe167606b9275e1: ['report', 'done'],
+    })
+    expect(layoutGaps(store)).toEqual([])
+  })
+
+  test('of eight agents arrives before its main transcript, waits for the scope of its session and is taken in whole', async ({
+    onTestFinished,
+  }) => {
+    const workspace = await createWorkspace(onTestFinished)
+    const home = await createHome(onTestFinished)
+    const roots = await createLiveRoots(onTestFinished)
+    const store = home.open()
+    const agents = Array.from({ length: 8 }, (_, index) => `a${String(index)}c0820ae7496641`)
+    const lines = claudeWorkflowJournal(agents)
+    const path = claudeFile(roots, 's-wide', 'subagents', 'workflows', 'wf_0b5c2a51-7f4', 'journal.jsonl')
+    const stream = streamOf('claude', [], path)
+    await writeLines(path, lines)
+
+    const live = runLive(onTestFinished, roots, store, startEngine(store, { roots: [workspace.repository] }))
+    await vi.waitFor(() => {
+      expect(live.results().at(-1)?.waiting).toBe(lines.length)
+    }, settleTimeout)
+    await writeLines(claudeFile(roots, 's-wide.jsonl'), claudeTranscript({ session: 's-wide', cwd: workspace.repository }))
+    await vi.waitFor(() => {
+      expect(store.cursors.list().find((cursor) => cursor.path === path)?.line).toBe(lines.length)
+    }, settleTimeout)
+    await live.stop()
+
+    expect(store.scopes.get(stream)?.scope).toBe('watched')
+    expect(journalOf(store, stream)).toEqual({
+      lines: lines.map((line) => [line, 'parsed']),
+      facts: [
+        ...agents.map((agent) => ['agent_start', agent, true]),
+        ...agents.map((agent) => ['agent_end', agent, true]),
+      ],
+    })
+    expect(layoutGaps(store)).toEqual([])
+  })
 })
