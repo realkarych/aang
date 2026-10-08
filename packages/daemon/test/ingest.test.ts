@@ -11,6 +11,7 @@ import { bearer, createHome, missingCli, spawnDaemon, startDaemon } from './daem
 import {
   claudeHook,
   claudeSession,
+  claudeTranscript,
   codexHook,
   enqueue,
   hookEvent,
@@ -269,6 +270,40 @@ describe.concurrent('the daemon takes collected records through the engine and a
     expect(store.observations.actions(sessionId).map(({ key, execution }) => ({ call: key.call, execution }))).toEqual([
       { call: 'call_MxHF39QIUjLqImvlqfhdfE2y', execution: { state: 'running' } },
     ])
+  })
+
+  test('the first Claude and Codex sessions of a profile without runtime roots are taken within seconds of their files while the roots scan waits a minute', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { home, workspace } = await watchedHome(onTestFinished, { collector: {} })
+    const session = 'q4-6-first-session'
+    const rollout = join(home.root, '.codex', 'sessions', '2026', '10', '08', 'rollout-q4-6.jsonl')
+    const taken = (channel: string): number => storedCount(home, 'SELECT count(*) AS count FROM raw_records WHERE channel = ?', channel)
+    const lagUntilTaken = async (channel: string, write: () => Promise<unknown>): Promise<number> => {
+      const writtenAt = performance.now()
+      await write()
+      await waitUntil(() => taken(channel) > 0)
+      return performance.now() - writtenAt
+    }
+    const daemon = await spawnDaemon(home, onTestFinished)
+
+    const transcriptLagMs = await lagUntilTaken('transcript', () =>
+      claudeTranscript(home, '-work', session, transcriptLines(session, workspace, 22)),
+    )
+    const rolloutLagMs = await lagUntilTaken('rollout', async () => {
+      await mkdir(dirname(rollout), { recursive: true })
+      await writeFile(rollout, `${rolloutLines(workspace).join('\n')}\n`)
+    })
+    expect(await daemon.shutdown()).toBe(0)
+
+    expect(transcriptLagMs).toBeLessThanOrEqual(5_000)
+    expect(rolloutLagMs).toBeLessThanOrEqual(5_000)
+    const store = openFinished(home, onTestFinished)
+    expect(store.observations.getSession(objectId(claudeSession(session)))).toMatchObject({ cwd: workspace })
+    expect(store.observations.getSession(objectId({ kind: 'session', runtime: 'codex', session: rolloutThread }))).toMatchObject({
+      cwd: workspace,
+    })
   })
 
   test('a busy OTel port fails the start and leaves the home free for the next start', async ({
