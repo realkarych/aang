@@ -529,6 +529,15 @@ test.describe('with the Claude observer tracing an old ground', () => {
       calls: () => fakeClaude.calls(),
       gate,
     })
+
+    await page.getByRole('link', { name: 'три журнала', exact: true }).click()
+    const spent = page.getByRole('region', { name: 'Чат', exact: true })
+    await expect(spent.getByText('1 вызов', { exact: true })).toBeVisible()
+    const output = spent
+      .getByRole('row')
+      .filter({ has: page.getByRole('rowheader', { name: 'Вывод', exact: true }) })
+      .getByRole('cell')
+    await expect(output.first()).toHaveText('1 744')
   })
 })
 
