@@ -225,9 +225,9 @@ const SolverUsage = ({ usage }: { readonly usage: Inspected['usage'] }): ReactEl
   const costs = [usage.stage.cost_usd, usage.unassigned_in_sessions.cost_usd].filter((cost): cost is number => cost !== null)
   if (usage.stage.records === 0 && usage.unassigned_in_sessions.records === 0) {
     return (
-      <div className="usage-pending">
+      <div className="usage-empty">
         <p className="usage-caption">Расход решателя, токены</p>
-        <p className="section-empty">Пока нет данных: решатель ещё не сообщил расход в сессиях этапа.</p>
+        <p className="section-empty">Нет записей расхода для этого этапа.</p>
       </div>
     )
   }
