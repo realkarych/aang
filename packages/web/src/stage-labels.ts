@@ -78,6 +78,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   git_snapshot: 'Снимок рабочего дерева',
   context: 'Контекст наблюдателя',
   source_lost: 'Источник потерян',
+  process_exited: 'Процесс завершился',
 }
 
 export const rawChannelLabel: Readonly<Record<RawChannel, string>> = {
