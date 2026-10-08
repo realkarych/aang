@@ -519,6 +519,24 @@ importers:
         specifier: workspace:*
         version: link:../../packages/adapter-codex
 
+  tools/resilience:
+    dependencies:
+      '@aang/contract':
+        specifier: workspace:*
+        version: link:../../packages/contract
+      '@aang/hook':
+        specifier: workspace:*
+        version: link:../../packages/hook
+      '@aang/record':
+        specifier: workspace:*
+        version: link:../record
+      '@aang/testkit':
+        specifier: workspace:*
+        version: link:../../packages/testkit
+      zod:
+        specifier: ^4.6.5
+        version: 4.6.5
+
   tools/runtime-check:
     dependencies:
       '@aang/adapter-claude':
