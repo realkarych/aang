@@ -1,9 +1,11 @@
-import { isAbsolute, join, resolve } from 'node:path'
+import { dirname, isAbsolute, join, resolve } from 'node:path'
 import {
   type Action,
+  type Agent,
   type ContentHash,
   ContextSourceKind,
   DedupeKey,
+  type DefinitionCatalog,
   type EpochNs,
   type Fact,
   type FactDraftOf,
@@ -18,12 +20,15 @@ import {
   type RunId,
   type Runtime,
   type Session,
+  type SessionId,
   type SessionKey,
 } from '@aang/contract'
-import { canonicalJson, contentHash } from '@aang/contract/ids'
+import { canonicalJson, contentHash, objectId } from '@aang/contract/ids'
 import type { RawRecordReader, Store } from '@aang/store'
+import { parse as parseToml } from 'smol-toml'
 import { agentKey, compareText } from '../observations/evidence.js'
 import {
+  agentFileOf,
   ancestors,
   definitionPaths,
   type FileText,
@@ -44,7 +49,13 @@ export interface RunContextOptions {
   readonly crossVendor: boolean
   readonly at: EpochNs
   readonly claudeConfigDir?: string | null
+  readonly codexHome?: string | null
   readonly limits?: Partial<ContextLimits>
+}
+
+interface Homes {
+  readonly claude: string | null
+  readonly codex: string | null
 }
 
 type ContextReader = Pick<Store, 'model' | 'observations' | 'facts'>
@@ -152,45 +163,189 @@ const instructionSources = async (sessions: readonly SessionFacts[]): Promise<So
   return files.flatMap((file) => (file === null ? [] : [fromFile('instructions', file.path, file)]))
 }
 
-const claudeSessions = (sessions: readonly SessionFacts[]): Session[] =>
-  sessions.flatMap(({ session }) => (session.key.runtime === 'claude' ? [session] : []))
+const ofRuntime = (sessions: readonly SessionFacts[], runtime: Runtime): SessionFacts[] =>
+  sessions.filter(({ session }) => session.key.runtime === runtime)
 
-interface Named {
+const listedDefinitions = (facts: readonly Fact[], catalog: DefinitionCatalog): ReadonlyMap<string, string> =>
+  new Map(
+    facts
+      .filter(
+        (fact): fact is FactOf<'definition_listing'> =>
+          fact.kind === 'definition_listing' && fact.format_verified && fact.payload.catalog === catalog,
+      )
+      .sort(byFactTime)
+      .flatMap((fact) => fact.payload.definitions.map(({ name, description }) => [name, description] as const)),
+  )
+
+interface Used {
   readonly name: string
+  readonly session: SessionId
   readonly cwd: string | null
+  readonly listed: string | null
 }
 
-const distinctNamed = (named: readonly Named[]): Named[] => [
-  ...new Map(named.map((entry) => [canonicalJson([entry.name, entry.cwd]), entry])).values(),
-]
+interface Resolved {
+  readonly source: Source
+  readonly session: SessionId | null
+}
 
-const distinctSources = (sources: readonly Source[]): Source[] => [
-  ...new Map(sources.map((source) => [canonicalJson([source.kind, source.ref]), source])).values(),
-]
+interface Attributed {
+  readonly source: Source
+  readonly sessions: Set<SessionId>
+}
+
+const usedIn = ({ id, cwd }: Session, names: readonly string[], listed: ReadonlyMap<string, string>): Used[] =>
+  unique(names).map((name) => ({ name, session: id, cwd: directoryOf(cwd), listed: listed.get(name) ?? null }))
+
+interface UsedAgent extends Used {
+  readonly prompts: readonly string[]
+}
+
+const agentPrompts = (agents: readonly Agent[], facts: readonly Fact[]): ReadonlyMap<string, readonly string[]> => {
+  const types = new Map(
+    agents.flatMap(({ id, role, agent_type: type }) =>
+      role === 'subagent' && type !== null ? [[id, type] as const] : [],
+    ),
+  )
+  const prompts = new Map<string, readonly string[]>()
+  const given = facts
+    .filter((fact): fact is FactOf<'agent_prompt'> => fact.kind === 'agent_prompt' && fact.format_verified)
+    .sort(byFactTime)
+  for (const fact of given) {
+    const type = types.get(objectId(agentKey(fact)))
+    if (type !== undefined) {
+      prompts.set(type, unique([...(prompts.get(type) ?? []), fact.payload.text]))
+    }
+  }
+  return prompts
+}
+
+const onDisk = (source: Source): Resolved => ({ source, session: null })
+
+const inSession = (session: SessionId, source: Source): Resolved => ({ source, session })
+
+const attributed = (resolved: readonly Resolved[]): Source[] => {
+  const merged = new Map<string, Attributed>()
+  for (const { source, session } of resolved) {
+    const key = canonicalJson([source.kind, source.ref, session === null ? null : source.text])
+    const entry = merged.get(key) ?? { source, sessions: new Set<SessionId>() }
+    merged.set(key, entry)
+    if (session !== null) {
+      entry.sessions.add(session)
+    }
+  }
+  return [...merged.values()].map(({ source, sessions }) =>
+    sessions.size === 0
+      ? source
+      : { ...source, ref: `${source.ref} (sessions: ${[...sessions].sort(compareText).join(', ')})` },
+  )
+}
+
+const definesAgent = ({ name, listed }: Used, ran: string | null, file: FileText): boolean => {
+  if (listed === null && ran === null) {
+    return true
+  }
+  const { type, listedLine, prompt } = agentFileOf(file.text)
+  return type === name && prompt === ran && (listed === null || listed === listedLine)
+}
+
+const sessionDefinition = (listed: string | null, prompts: readonly (string | null)[]): string =>
+  [listed, ...prompts].flatMap((text) => (text === null ? [] : [text])).join('\n\n')
 
 const agentDefinitionSources = async (
   reader: ContextReader,
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const types = distinctNamed(
-    claudeSessions(sessions).flatMap((session) =>
-      reader.observations.agents(session.id).flatMap((agent) =>
-        (agent.role === 'subagent' || agent.role === 'teammate') &&
-        agent.agent_type !== null &&
-        safeName(agent.agent_type)
-          ? [{ name: agent.agent_type, cwd: directoryOf(session.cwd) }]
-          : [],
+  const used = ofRuntime(sessions, 'claude').flatMap(({ session, facts }) => {
+    const agents = reader.observations.agents(session.id)
+    const prompts = agentPrompts(agents, facts)
+    return usedIn(
+      session,
+      agents.flatMap((agent) =>
+        (agent.role === 'subagent' || agent.role === 'teammate') && agent.agent_type !== null ? [agent.agent_type] : [],
       ),
-    ),
-  )
+      listedDefinitions(facts, 'agents'),
+    ).map((agent): UsedAgent => ({ ...agent, prompts: prompts.get(agent.name) ?? [] }))
+  })
   const definitions = await Promise.all(
-    types.map(async ({ name, cwd }) => {
-      const file = await firstText(definitionPaths(cwd, home, ['agents', `${name}.md`]))
-      return file === null ? [] : [fromFile('agent_definition', file.path, file)]
+    used.map(async (agent): Promise<Resolved[]> => {
+      const paths = safeName(agent.name) ? definitionPaths(agent.cwd, home, ['agents', `${agent.name}.md`]) : []
+      const ran: readonly (string | null)[] = agent.prompts.length === 0 ? [null] : agent.prompts
+      const files = await Promise.all(
+        ran.map((prompt) => firstText(paths, (found) => definesAgent(agent, prompt, found))),
+      )
+      const unmatched = ran.filter((_, index) => files[index] === null)
+      const text = sessionDefinition(agent.listed, unmatched)
+      return [
+        ...files.flatMap((file) => (file === null ? [] : [onDisk(fromFile('agent_definition', file.path, file))])),
+        ...(unmatched.length === 0 || text === ''
+          ? []
+          : [inSession(agent.session, plain('agent_definition', agent.name, text))]),
+      ]
     }),
   )
-  return distinctSources(definitions.flat())
+  return attributed(definitions.flat())
+}
+
+type TomlTable = Readonly<Record<string, unknown>>
+
+const isTable = (value: unknown): value is TomlTable =>
+  typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)
+
+const readToml = async (path: string): Promise<TomlTable | null> => {
+  const file = await readText(path)
+  if (file === null || file.length > file.text.length) {
+    return null
+  }
+  try {
+    return parseToml(file.text)
+  } catch {
+    return null
+  }
+}
+
+const textField = (table: TomlTable | null, field: string): string | null => {
+  const value = table?.[field]
+  return typeof value === 'string' ? value : null
+}
+
+const roleText = async (config: string, declared: TomlTable): Promise<string> => {
+  const description = textField(declared, 'description')
+  const configFile = textField(declared, 'config_file')
+  const layer = configFile === null ? null : await readToml(resolve(dirname(config), configFile))
+  const instructions = textField(layer, 'developer_instructions')
+  return [
+    ...(description === null ? [] : [`description: ${description}`]),
+    ...(instructions === null ? [] : [`developer_instructions: ${instructions}`]),
+  ].join('\n')
+}
+
+const codexRoleSources = async (
+  reader: ContextReader,
+  sessions: readonly SessionFacts[],
+  codexHome: string | null,
+): Promise<Source[]> => {
+  const roles = unique(
+    ofRuntime(sessions, 'codex').flatMap(({ session }) =>
+      reader.observations
+        .agents(session.id)
+        .flatMap((agent) => (agent.role === 'subagent' && agent.agent_role !== null ? [agent.agent_role] : [])),
+    ),
+  )
+  if (codexHome === null || roles.length === 0) {
+    return []
+  }
+  const config = join(codexHome, 'config.toml')
+  const agents = (await readToml(config))?.['agents']
+  const definitions = await Promise.all(
+    roles.map(async (role) => {
+      const declared = isTable(agents) ? agents[role] : undefined
+      const text = isTable(declared) ? await roleText(config, declared) : ''
+      return text === '' ? [] : [plain('agent_definition', `${config} [agents.${role}]`, text)]
+    }),
+  )
+  return definitions.flat()
 }
 
 const invokedSkill = (reader: ContextReader, action: Action): string | null => {
@@ -207,21 +362,25 @@ const skillSources = async (
   sessions: readonly SessionFacts[],
   home: string | null,
 ): Promise<Source[]> => {
-  const skills = distinctNamed(
-    claudeSessions(sessions).flatMap((session) =>
+  const used = ofRuntime(sessions, 'claude').flatMap(({ session, facts }) =>
+    usedIn(
+      session,
       reader.observations.actions(session.id).flatMap((action) => {
         const name = invokedSkill(reader, action)
-        return name === null ? [] : [{ name, cwd: directoryOf(session.cwd) }]
+        return name === null ? [] : [name]
       }),
+      listedDefinitions(facts, 'skills'),
     ),
   )
   const resolved = await Promise.all(
-    skills.map(async ({ name, cwd }) => {
+    used.map(async ({ name, session, cwd, listed }) => {
       const file = safeName(name) ? await firstText(definitionPaths(cwd, home, ['skills', name, 'SKILL.md'])) : null
-      return file === null ? plain('skill', name, '') : plain('skill', file.path, frontmatterDescription(file.text) ?? '')
+      return file === null
+        ? inSession(session, plain('skill', name, listed ?? ''))
+        : onDisk(plain('skill', file.path, frontmatterDescription(file.text) ?? ''))
     }),
   )
-  return distinctSources(resolved)
+  return attributed(resolved)
 }
 
 const mcpCall = (tool: string): readonly [string, string] => {
@@ -241,6 +400,17 @@ const mcpSources = (reader: ContextReader, sessions: readonly SessionFacts[]): S
     servers.set(server, new Set([...(servers.get(server) ?? []), ...(tool === '' ? [] : [tool])]))
   }
   return [...servers].map(([server, tools]) => plain('mcp_server', server, [...tools].sort(compareText).join(', ')))
+}
+
+const hookSources = (sessions: readonly SessionFacts[]): Source[] => {
+  const hooks = new Map<string, Set<string>>()
+  for (const fact of sessions.flatMap(({ facts }) => facts)) {
+    if (fact.kind === 'hook_run' && fact.format_verified && fact.payload.name !== null) {
+      const { name, trigger, event } = fact.payload
+      hooks.set(name, new Set([...(hooks.get(name) ?? []), trigger ?? event]))
+    }
+  }
+  return [...hooks].map(([hook, triggers]) => plain('hook', hook, [...triggers].sort(compareText).join(', ')))
 }
 
 const masksOf = (snapshot: GitSnapshotPayload): string => canonicalJson([...snapshot.masks].sort(compareText))
@@ -323,20 +493,23 @@ const collectSources = async (
   reader: ContextReader,
   root: SessionFacts,
   sessions: readonly SessionFacts[],
-  home: string | null,
+  homes: Homes,
 ): Promise<Source[]> => {
-  const [instructions, definitions, skills, git] = await Promise.all([
+  const [instructions, definitions, roles, skills, git] = await Promise.all([
     instructionSources(sessions),
-    agentDefinitionSources(reader, sessions, home),
-    skillSources(reader, sessions, home),
+    agentDefinitionSources(reader, sessions, homes.claude),
+    codexRoleSources(reader, sessions, homes.codex),
+    skillSources(reader, sessions, homes.claude),
     gitSources(reader, root.session.key, sessions),
   ])
   return [
     ...taskSources(root),
     ...instructions,
     ...definitions,
+    ...roles,
     ...skills,
     ...mcpSources(reader, sessions),
+    ...hookSources(sessions),
     ...git,
   ]
 }
@@ -379,7 +552,10 @@ export const recordRunContext = async (store: Store, options: RunContextOptions)
   if (root === undefined) {
     return null
   }
-  const sources = await collectSources(store, root, sessions, options.claudeConfigDir ?? null)
+  const sources = await collectSources(store, root, sessions, {
+    claude: options.claudeConfigDir ?? null,
+    codex: options.codexHome ?? null,
+  })
   const entries = sources.map((source) => entryOf(source, limits.textLength)).sort(byKindAndRef)
   if (entries.length === 0) {
     return null

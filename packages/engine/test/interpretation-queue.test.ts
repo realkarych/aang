@@ -20,7 +20,7 @@ import { claudeHook, claudeTranscript, codexChildRollout, codexHook, codexRollou
 
 const cwd = '/watched'
 
-test('the ingest transaction queues every new fact in the run of its session once', async () => {
+test('the ingest transaction queues every new fact in the run of its session once, a definition listing never', async () => {
   const home = await createHome(onTestFinished)
   const store = home.open()
   const engine = startEngine(store, { all: true })
@@ -40,12 +40,13 @@ test('the ingest transaction queues every new fact in the run of its session onc
     )
   const expected = files.map(({ session }) =>
     factsOf(store)
-      .filter(({ entity_key: key }) => key.session === session)
+      .filter(({ kind, entity_key: key }) => kind !== 'definition_listing' && key.session === session)
       .map(({ id }) => id)
       .toSorted()
       .map((id) => [id, 'pending', 0, null]),
   )
   expect(expected.every((facts) => facts.length > 0)).toBe(true)
+  expect(factsOf(store).filter(({ kind }) => kind === 'definition_listing')).toHaveLength(8)
   expect(queued()).toEqual(expected)
 
   const [first] = files

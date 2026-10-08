@@ -1,15 +1,4 @@
-import type { RawChannel, RawRecord, Runtime } from '@aang/contract'
-
-interface UncoveredType {
-  readonly runtime: Runtime
-  readonly channel: RawChannel
-  readonly type: string
-  readonly parsedBy: string
-}
-
-const uncoveredTypes: readonly UncoveredType[] = [
-  { runtime: 'claude', channel: 'transcript', type: 'system:stop_hook_summary', parsedBy: 'F.7d' },
-]
+import type { RawRecord } from '@aang/contract'
 
 const textOf = (value: unknown): string | null => (typeof value === 'string' ? value : null)
 
@@ -32,15 +21,11 @@ export const recordType = (record: RawRecord): string => {
   return detail === null ? name : `${name}:${detail}`
 }
 
-const isUncovered = (record: RawRecord, type: string): boolean =>
-  uncoveredTypes.some(({ runtime, channel, type: uncovered }) => runtime === record.runtime && channel === record.channel && uncovered === type)
-
 export const unparsedRecords = (records: readonly RawRecord[]): string[] => {
   const counts = new Map<string, number>()
   for (const record of records) {
-    const type = recordType(record)
-    if (record.parse_state === 'invalid' || (record.parse_state === 'unknown' && !isUncovered(record, type))) {
-      const text = `${record.runtime ?? '-'} ${record.channel} records of type ${type} are ${record.parse_state}`
+    if (record.parse_state === 'invalid' || record.parse_state === 'unknown') {
+      const text = `${record.runtime ?? '-'} ${record.channel} records of type ${recordType(record)} are ${record.parse_state}`
       counts.set(text, (counts.get(text) ?? 0) + 1)
     }
   }
