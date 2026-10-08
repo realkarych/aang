@@ -329,6 +329,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   instructions_loaded: 'загрузка инструкций',
   hook_run: 'hook решателя',
   definition_listing: 'перечень определений',
+  agent_prompt: 'системный промпт агента',
   queue_operation: 'очередь промптов',
   runtime_error: 'ошибка рантайма',
   runtime_event: 'событие рантайма',

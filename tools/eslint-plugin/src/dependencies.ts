@@ -30,7 +30,7 @@ const productionDependencies: Readonly<Record<PackageDirectory, readonly Package
 }
 
 const locateOnlyDependencies: Readonly<Partial<Record<PackageDirectory, readonly PackageDirectory[]>>> = {
-  aang: ['web'],
+  aang: ['web', 'hook'],
 }
 
 const testDependenciesOfEveryPackage: readonly PackageDirectory[] = ['testkit']
