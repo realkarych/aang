@@ -215,7 +215,7 @@ const namelessGap = (path: string, first: CollectedRecord): GapDraft => ({
   run: null,
   session: null,
   stream: null,
-  details: `the ${first.runtime} adapter names no stream from the first lines of ${path}`,
+  details: `the ${first.runtime} adapter names no stream from the path or the first lines of ${path}`,
   detected_at: first.observed_at,
   closed_at: null,
 })
@@ -552,7 +552,7 @@ export const createEngine = ({
           tally.discarded += 1
         } else {
           const record = held.hook.record
-          const stream = adapters[record.runtime].streamKey([record.payload])
+          const stream = adapters[record.runtime].streamKey(null, [record.payload])
           if (stream !== null && streamScope(stream) === null) {
             decideStream(stream, record.runtime, scope)
           }
