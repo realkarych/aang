@@ -14,6 +14,7 @@ import {
 } from '@aang/contract'
 import { canonicalJson, contentHash } from '@aang/contract/ids'
 import { isJsonObject, parseJson, stringField } from './json.js'
+import { workflowJournal } from './paths.js'
 
 const runtime = 'claude'
 
@@ -65,11 +66,19 @@ const hookStream = (record: JsonValue | undefined): StreamKey | null => {
     : streamOf(session, stringField(record, 'agent_id'))
 }
 
-export const streamKey = (firstLines: readonly string[]): StreamKey | null => {
+const journalStream = (path: string | null): StreamKey | null => {
+  const journal = path === null ? null : workflowJournal(path)
+  return journal === null ? null : StreamKey.parse(composite([journal.session, 'workflow', journal.run, 'journal']))
+}
+
+const lineStream = (firstLines: readonly string[]): StreamKey | null => {
   const records = firstLines.map(parseJson).filter(isJsonObject)
   const session = firstString(records, 'sessionId')
   return session === null ? hookStream(records[0]) : streamOf(session, firstString(records, 'agentId'))
 }
+
+export const streamKey = (path: string | null, firstLines: readonly string[]): StreamKey | null =>
+  journalStream(path) ?? lineStream(firstLines)
 
 const dedupe = (parts: readonly JsonValue[]): DedupeKey => DedupeKey.parse(composite(parts))
 

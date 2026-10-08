@@ -86,8 +86,8 @@ export const noObservationRows = Object.fromEntries(observationTables.map((table
 
 const adapterOf = (runtime: Runtime): Adapter => (runtime === 'claude' ? claudeAdapter : codexAdapter)
 
-export const streamOf = (runtime: Runtime, lines: readonly string[]): StreamKey => {
-  const stream = adapterOf(runtime).streamKey(lines)
+export const streamOf = (runtime: Runtime, lines: readonly string[], path: string | null = null): StreamKey => {
+  const stream = adapterOf(runtime).streamKey(path, lines)
   if (stream === null) {
     throw new Error('the sample lines do not name a stream')
   }

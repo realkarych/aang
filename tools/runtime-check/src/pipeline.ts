@@ -103,7 +103,7 @@ const withStreams = async (records: readonly CollectedRecord[]): Promise<Collect
     const { path } = record.position
     if (!streams.has(path)) {
       const firstLines = (await readFile(path, 'utf8').catch(() => '')).split(/\r?\n/).slice(0, 8)
-      streams.set(path, adapters[record.runtime].streamKey(firstLines))
+      streams.set(path, adapters[record.runtime].streamKey(path, firstLines))
     }
     assigned.push({ ...record, stream: record.stream ?? streams.get(path) ?? null })
   }
