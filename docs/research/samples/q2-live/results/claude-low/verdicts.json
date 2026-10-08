@@ -38,8 +38,9 @@
     "reason": "С v7 этап «Write PLAN.md from SPEC.md» выполнен и этапы «Stage 1…6» в planned, но ни один бриф в окне (v7–v17) не называет цель — библиотеку и CLI для анализа логов: в нём только «remaining logstats features», PLAN.md и затем работа над stage 3."
   },
   "workload-logstats:review-fixed": {
-    "candidate": 1,
-    "reason": "v108: общий этап ревью и исправлений «Subagent project review and fixes» done: исправлены 8 из 9 подтверждённых находок, 61/61 тестов, бриф: «review fixes reported done». В v107 этап ещё running."
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: подтверждённая находка ревью 9 включает переполнение суммы байтов («The byte total can go past Number.MAX_SAFE_INTEGER silently»), решатель признал его находкой и оставил неисправленным («I fixed everything except one finding that needs petabytes of data», «Not fixed: Byte total overflow … so I left it»), поэтому «the confirmed findings are fixed» в этой сессии не наступает. Две неподтверждённые находки решатель перечисляет отдельно, они в описание не входят. Карта верно показывает исключение: в v108 этап «Subagent project review and fixes» done со сводкой «Agent reports 8 of 9 confirmed findings fixed … The ~9 PB byte overflow and 2 speculative findings were left unfixed»; так же до последнего кандидата v111."
   },
   "workload-logstats:review-reported": {
     "candidate": 1,

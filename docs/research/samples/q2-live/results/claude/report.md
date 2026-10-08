@@ -19,7 +19,7 @@
 
 | Backend | CLI | Модель | Effort | Ориентир p95 | p95 | Ориентир выполнен | В пределах ориентира | Выполнено | Нарушения | Без оценки | Выполнено до события | Не соответствует записи | Полная задержка p95 | Доля дозапросов |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| claude | 2.1.293 | claude-opus-5-5 | умолчание CLI | 30,0 с | 730,5 с | нет | 67 % | 61 из 66 | 5 | 0 | 13 | 10 | — | 0 % (0) |
+| claude | 2.1.293 | claude-opus-5-5 | умолчание CLI | 30,0 с | 730,5 с | нет | 66 % | 60 из 65 | 5 | 0 | 13 | 11 | — | 0 % (0) |
 
 ## Контрольные события
 
@@ -61,7 +61,7 @@
 | claude/2.1.292/claude_cli/macos/workload-logstats | report-tested | предикат | выполнено до события, разметка некорректна | — | — | — | 40 | — |
 | claude/2.1.292/claude_cli/macos/workload-logstats | report-done | предикат | выполнено | 34,4 | — | 0,0 | 44 | наблюдатель |
 | claude/2.1.292/claude_cli/macos/workload-logstats | review-reported | разметчик | выполнено | 14,1 | — | 0,0 | 75 | наблюдатель |
-| claude/2.1.292/claude_cli/macos/workload-logstats | review-fixed | разметчик | выполнено | 28,0 | — | 0,0 | 97 | наблюдатель |
+| claude/2.1.292/claude_cli/macos/workload-logstats | review-fixed | разметчик | описание не соответствует записи, разметка некорректна | — | — | — | — | — |
 | claude/2.1.292/claude_cli/macos/workload-logstats | streaming-tested | предикат | выполнено | 19,0 | — | 0,0 | 107 | наблюдатель |
 | claude/2.1.292/claude_cli/macos/workload-logstats | streaming-done | предикат | выполнено | 18,1 | — | 0,0 | 108 | наблюдатель |
 | claude/2.1.292/claude_cli/macos/workload-logstats | docs-reported | разметчик | выполнено | 23,3 | — | 0,0 | 134 | наблюдатель |

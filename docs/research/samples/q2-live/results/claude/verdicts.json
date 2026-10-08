@@ -122,8 +122,9 @@
     "reason": "С v6 этап «Write PLAN.md and track stages in the task list» выполнен и этапы «Stage 1…6» в planned, но ни один бриф в окне (v6–v10) не называет цель — библиотеку и CLI для анализа логов: бриф пересказывает исправление parse.js, PLAN.md и задачи, в v10 — уже работу над stage 3."
   },
   "workload-logstats:review-fixed": {
-    "candidate": 1,
-    "reason": "v97: этап исправлений «Fix confirmed review findings with tests» done (61 из 61 тестов проходят, исправлено всё, кроме переполнения суммы байтов), этап ревью «Subagent reviews the project for bugs» тоже done — ревью, разбитое на два этапа, завершено. В v96 этап исправлений ещё running."
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: подтверждённая находка ревью 9 включает переполнение суммы байтов («The byte total can go past Number.MAX_SAFE_INTEGER silently»), решатель признал его находкой и оставил неисправленным («I fixed everything except one finding that needs petabytes of data», «Not fixed: Byte total overflow … so I left it»), поэтому «the confirmed findings are fixed» в этой сессии не наступает. Две неподтверждённые находки решатель перечисляет отдельно, они в описание не входят. Карта верно показывает исключение: в v97 этап «Fix confirmed review findings with tests» done со сводкой «fixed all 9 findings except the byte-total overflow», критерий «Confirmed findings are fixed with tests.» partial; так же до последнего кандидата v100."
   },
   "workload-logstats:review-reported": {
     "candidate": 2,
