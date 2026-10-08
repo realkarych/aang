@@ -172,6 +172,7 @@ describe('Codex hooks.json installation', () => {
       command: expect.any(String) as unknown,
       hooksFile: home.hooksFile,
       backup: expect.stringMatching(/hooks\.json\.aang-backup-/) as unknown,
+      status: 'untrusted',
     })
     expect(await readJson(home.hooksFile)).toEqual(
       withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),

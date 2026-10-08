@@ -543,7 +543,9 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     const daemon = await startDaemon(home, onTestFinished)
     const api = apiOf(daemon.base, home)
 
-    const initial = await api.get('/api/status', endpoints.status.response)
+    const initial = await api.until('/api/status', endpoints.status.response, ({ runtimes }) =>
+      runtimes.some(({ runtime, hooks }) => runtime === 'codex' && hooks === 'not_installed'),
+    )
     expect(initial.daemon).toMatchObject({
       version: testVersion,
       pid: process.pid,
@@ -570,7 +572,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
         runtime: 'codex',
         root: join(home.root, '.codex'),
         root_exists: false,
-        hooks: 'unknown',
+        hooks: 'not_installed',
         hooks_inactive_sessions: [],
         double_registration_sessions: [],
       },
