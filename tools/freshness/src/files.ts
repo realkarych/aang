@@ -161,6 +161,8 @@ export type Measurement = z.infer<typeof Measurement>
 export const Verdict = z.union([
   z.strictObject({ met: z.literal(false) }),
   z.strictObject({ met: z.literal(true), run: RunId, version }),
+  z.strictObject({ held_before: z.literal(true) }),
+  z.strictObject({ mismatch: z.literal(true) }),
 ])
 export type Verdict = z.infer<typeof Verdict>
 

@@ -75,11 +75,11 @@ A chat question is asked in the run that contains a session of the recording (th
 
 ## Annotation and report
 
-`annotations.json` lists the events without a predicate with their candidates. The annotator sets each `verdict`: `{ "met": true, "run": …, "version": … }` for the first candidate in which the description holds, `{ "met": false }` when none does; `null` leaves the event unassessed. `report` recomputes `report.json` and `report.md` and can be run after every change of the verdicts.
+`annotations.json` lists the events without a predicate with their candidates. The annotator sets each `verdict`: `{ "met": true, "run": …, "version": … }` for the first candidate in which the description holds, `{ "met": false }` when none does, `{ "held_before": true }` when the description already held before the event, and `{ "mismatch": true }` when the recording contradicts the description, for example the session never did what the description assumes; `null` leaves the event unassessed. `report` recomputes `report.json` and `report.md` and can be run after every change of the verdicts.
 
 Per backend, the report gives:
 
-- statuses: met, late (met after the window), missed, unmatched, held before the event, unassessed; late, missed and unmatched are violations;
+- statuses: met, late (met after the window), missed, unmatched, held before the event, mismatched with the recording, unassessed; late, missed and unmatched are violations, held before and mismatched are markup defects and stay out of the statistics;
 - p95 by nearest rank over the assessed events, with missed and unmatched events beyond the window, and whether it meets the target; the share of assessed events within the target;
 - p95 of the full latency from the event's own time, for events whose records have one;
 - the share of `needs` time: the follow-up time of the observer call whose transaction produced each reached version, summed over the reached events, divided by their summed latency. A version the rules make in the same transaction as the observer's answer counts as the call's, its author stays `rule`;

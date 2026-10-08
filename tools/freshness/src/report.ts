@@ -18,7 +18,7 @@ import {
 import { renderReport } from './markdown.js'
 import { type FixedProfile, observerOf, RecordingPath } from './profile.js'
 
-export const EventStatus = z.enum(['met', 'late', 'missed', 'unmatched', 'held_before', 'unassessed'])
+export const EventStatus = z.enum(['met', 'late', 'missed', 'unmatched', 'held_before', 'mismatched', 'unassessed'])
 export type EventStatus = z.infer<typeof EventStatus>
 
 const count = z.int().nonnegative()
@@ -62,6 +62,7 @@ export const BackendReport = z.strictObject({
   violations: count,
   unassessed: count,
   held_before: count,
+  mismatched: count,
   within_target: share.nullable(),
   p95: Percentile.nullable(),
   target_met: z.boolean().nullable(),
@@ -229,10 +230,18 @@ const backendSpending = (measurement: Measurement, runtime: Runtime): BackendSpe
   }
 }
 
-const annotated = (event: MeasuredEvent, annotation: AnnotatedEvent | undefined): Reached | 'missed' | null => {
+type Judged = Reached | 'missed' | 'held_before' | 'mismatched'
+
+const annotated = (event: MeasuredEvent, annotation: AnnotatedEvent | undefined): Judged | null => {
   const verdict = annotation?.verdict ?? null
   if (verdict === null || event.evaluation.kind !== 'annotation') {
     return null
+  }
+  if ('held_before' in verdict) {
+    return 'held_before'
+  }
+  if ('mismatch' in verdict) {
+    return 'mismatched'
   }
   if (!verdict.met) {
     return 'missed'
@@ -254,20 +263,22 @@ const reportEvent = (
 ): ReportedEvent => {
   const { evaluation } = event
   const reached = evaluation.kind === 'satisfied' ? evaluation : annotated(event, annotation)
-  const latency = reached === null || reached === 'missed' || event.observed_at === null ? null : reached.at - event.observed_at
+  const found = typeof reached === 'object' && reached !== null ? reached : null
+  const latency = found === null || event.observed_at === null ? null : found.at - event.observed_at
   const status: EventStatus =
     evaluation.kind === 'unmatched'
       ? 'unmatched'
-      : evaluation.kind === 'held_before'
+      : evaluation.kind === 'held_before' || reached === 'held_before'
         ? 'held_before'
-        : evaluation.kind === 'unsatisfied' || reached === 'missed'
-          ? 'missed'
-          : latency === null
-            ? 'unassessed'
-            : latency <= windowMs
-              ? 'met'
-              : 'late'
-  const found = reached === null || reached === 'missed' ? null : reached
+        : reached === 'mismatched'
+          ? 'mismatched'
+          : evaluation.kind === 'unsatisfied' || reached === 'missed'
+            ? 'missed'
+            : latency === null
+              ? 'unassessed'
+              : latency <= windowMs
+                ? 'met'
+                : 'late'
   const call = found?.observer_call ?? null
   return {
     recording: event.recording,
@@ -333,6 +344,7 @@ const backendReport = (
     violations: own.filter(({ status }) => violations.has(status)).length,
     unassessed: own.filter(({ status }) => status === 'unassessed').length,
     held_before: own.filter(({ status }) => status === 'held_before').length,
+    mismatched: own.filter(({ status }) => status === 'mismatched').length,
     within_target:
       judged.length === 0
         ? null

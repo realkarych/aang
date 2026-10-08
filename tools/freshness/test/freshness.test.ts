@@ -198,7 +198,7 @@ describe('the load profile', () => {
 
 describe('the measurement', () => {
   test(
-    'of parallel recordings times every expected map change, separates the needs time, flags violations and markup that held before the event, and takes the annotator verdicts',
+    'of parallel recordings times every expected map change, separates the needs time, flags violations and markup that held before the event, and takes the annotator verdicts with markup defects',
     { timeout: 180_000 },
     async () => {
       const space = await workspace()
@@ -323,6 +323,23 @@ describe('the measurement', () => {
       expect(summary).toContain(`| ${approval} | denial-requested | разметчик | выполнено |`)
       expect(summary).toContain(`| ${tools} | turn-finished | предикат | не выполнено, нарушение |`)
       expect(summary).toContain(`| ${approval} | approved-finished | предикат | выполнено до события, разметка некорректна |`)
+
+      await annotate([{ held_before: true }, { mismatch: true }])
+      expect((await space.freshness('report', space.measurement)).code).toBe(0)
+      const defective = Report.parse(await space.read('report.json'))
+      expect(eventOf(defective, 'denial-requested')).toMatchObject({ status: 'held_before', latency_ms: null, version: null })
+      expect(eventOf(defective, 'command-running')).toMatchObject({ status: 'mismatched', latency_ms: null })
+      expect(defective.backends[0]).toMatchObject({
+        assessed: 4,
+        met: 3,
+        violations: 1,
+        unassessed: 0,
+        held_before: (annotated.backends[0]?.held_before ?? 0) + 1,
+        mismatched: 1,
+      })
+      expect(await readFile(join(space.measurement, 'report.md'), 'utf8')).toContain(
+        `| ${interrupt} | command-running | разметчик | описание не соответствует записи, разметка некорректна |`,
+      )
 
       await annotate([{ met: true, run: opened.run, version: 999 }, null])
       const foreign = await space.freshness('report', space.measurement)
