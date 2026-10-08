@@ -44,7 +44,7 @@ export const millis = (value: number): EpochNs => EpochNs.parse(BigInt(value) * 
 export const iso = (value: string): EpochNs => millis(Date.parse(value))
 
 export const streamFrom = (sessionMetaLine: string): StreamKey => {
-  const stream = codexAdapter.streamKey([sessionMetaLine])
+  const stream = codexAdapter.streamKey(null, [sessionMetaLine])
   if (stream === null) {
     throw new Error('session_meta line did not yield a stream')
   }

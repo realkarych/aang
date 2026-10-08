@@ -14,6 +14,7 @@ import {
   transcriptRecords,
 } from './samples.js'
 
+const projects = '/home/user/.claude/projects'
 const mainSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const forkSession = 'cdfb3544-67c1-4590-a4d9-280593b6ed55'
 const subagent = 'aad616394e806288d'
@@ -593,8 +594,8 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
       expect(parseLine(line)).toEqual({ parse_state: 'unknown', source_ts: epochOf(line.timestamp as string) })
     }
     expect(claudeAdapter.rawKey(record(deepResult))).toBe(claudeAdapter.rawKey(record(result)))
-    expect(claudeAdapter.streamKey([JSON.stringify(deepResult)])).toBe(
-      claudeAdapter.streamKey([JSON.stringify(result)]),
+    expect(claudeAdapter.streamKey(null, [JSON.stringify(deepResult)])).toBe(
+      claudeAdapter.streamKey(null, [JSON.stringify(result)]),
     )
     expect(factsOf(parseLine(withInput(nestedArrays(100))))).toMatchObject([
       { kind: 'action_start', payload: { input: nestedArrays(100) } },
@@ -709,9 +710,9 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
   const firstLines = async (path: string) => (await sampleLines(`claude-code-transcripts/${path}`)).slice(0, 10)
 
   test('the main file, the fork and the subagent are three different streams', async ({ expect }) => {
-    const main = claudeAdapter.streamKey(await firstLines('session-86f93ed5-main-full.jsonl'))
-    const fork = claudeAdapter.streamKey(await firstLines('session-cdfb3544-fork-full.jsonl'))
-    const agent = claudeAdapter.streamKey(await firstLines('subagent-agent-aad616394e806288d.jsonl'))
+    const main = claudeAdapter.streamKey(null, await firstLines('session-86f93ed5-main-full.jsonl'))
+    const fork = claudeAdapter.streamKey(null, await firstLines('session-cdfb3544-fork-full.jsonl'))
+    const agent = claudeAdapter.streamKey(null, await firstLines('subagent-agent-aad616394e806288d.jsonl'))
 
     expect(main).toBe(JSON.stringify(['claude', mainSession, 'main']))
     expect(fork).toBe(JSON.stringify(['claude', forkSession, 'main']))
@@ -720,13 +721,16 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
 
   test('a stream is found again from the first lines of a moved file', async ({ expect }) => {
     const lines = await sampleLines('claude-code-transcripts/session-86f93ed5-main-full.jsonl')
+    const moved = `${projects}/-moved/${mainSession}.jsonl`
 
-    expect(claudeAdapter.streamKey(['', 'garbage', ...lines.slice(0, 3)])).toBe(claudeAdapter.streamKey(lines.slice(0, 1)))
+    expect(claudeAdapter.streamKey(moved, ['', 'garbage', ...lines.slice(0, 3)])).toBe(
+      claudeAdapter.streamKey(`${projects}/-work/${mainSession}.jsonl`, lines.slice(0, 1)),
+    )
   })
 
   test('first lines without a session give no stream', ({ expect }) => {
-    expect(claudeAdapter.streamKey([])).toBeNull()
-    expect(claudeAdapter.streamKey(['not json', '{"type":"summary"}', '[]'])).toBeNull()
+    expect(claudeAdapter.streamKey(null, [])).toBeNull()
+    expect(claudeAdapter.streamKey(null, ['not json', '{"type":"summary"}', '[]'])).toBeNull()
   })
 
   test('a hook event names the stream of its transcript: the main one, or the subagent one for an event inside a subagent', async ({
@@ -735,11 +739,11 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
     const prompt = await readJsonSample('claude-code-hooks/UserPromptSubmit.json')
     const inside = await readJsonSample('claude-code-hooks/PreToolUse.Bash.inside-subagent.json')
 
-    expect(claudeAdapter.streamKey([JSON.stringify(prompt)])).toBe(JSON.stringify(['claude', prompt['session_id'], 'main']))
-    expect(claudeAdapter.streamKey([JSON.stringify(inside)])).toBe(
+    expect(claudeAdapter.streamKey(null, [JSON.stringify(prompt)])).toBe(JSON.stringify(['claude', prompt['session_id'], 'main']))
+    expect(claudeAdapter.streamKey(null, [JSON.stringify(inside)])).toBe(
       JSON.stringify(['claude', inside['session_id'], 'agent', inside['agent_id']]),
     )
-    expect(claudeAdapter.streamKey([JSON.stringify({ ...prompt, hook_event_name: null })])).toBeNull()
+    expect(claudeAdapter.streamKey(null, [JSON.stringify({ ...prompt, hook_event_name: null })])).toBeNull()
   })
 
   test('a record with a uuid is keyed by session and uuid, so a fork copy is a record of its own stream', async ({

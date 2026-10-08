@@ -31,17 +31,13 @@ const entryParsers: ReadonlyMap<string, EntryParser> = new Map<string, EntryPars
       }
       const { agentId: agent, label } = started.data
       return parsed(null, [
-        fact(
-          fileOrigin(record, journal.session, agent),
-          {
-            kind: 'agent_start',
-            entity_key: agentKey(journal.session, agent),
-            speaker: 'runtime',
-            urgent: false,
-            payload: startedAgent({ role: 'subagent', description: label ?? null }),
-          },
-          { verified: false },
-        ),
+        fact(fileOrigin(record, journal.session, agent), {
+          kind: 'agent_start',
+          entity_key: agentKey(journal.session, agent),
+          speaker: 'runtime',
+          urgent: false,
+          payload: startedAgent({ role: 'subagent', description: label ?? null }),
+        }),
       ])
     },
   ],
@@ -54,22 +50,18 @@ const entryParsers: ReadonlyMap<string, EntryParser> = new Map<string, EntryPars
       }
       const { agentId: agent } = result.data
       return parsed(null, [
-        fact(
-          fileOrigin(record, journal.session, agent),
-          {
-            kind: 'agent_end',
-            entity_key: agentKey(journal.session, agent),
-            speaker: 'runtime',
-            urgent: true,
-            payload: {
-              outcome: 'completed',
-              final_message: resultText(result.data.result),
-              agent_type: null,
-              transcript_path: null,
-            },
+        fact(fileOrigin(record, journal.session, agent), {
+          kind: 'agent_end',
+          entity_key: agentKey(journal.session, agent),
+          speaker: 'runtime',
+          urgent: true,
+          payload: {
+            outcome: 'completed',
+            final_message: resultText(result.data.result),
+            agent_type: null,
+            transcript_path: null,
           },
-          { verified: false },
-        ),
+        }),
       ])
     },
   ],

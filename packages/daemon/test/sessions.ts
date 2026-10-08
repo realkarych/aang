@@ -241,7 +241,7 @@ export const claudeTranscript = async (home: Home, project: string, session: str
 }
 
 export const claudeStream = (session: string): StreamKey => {
-  const stream = claudeAdapter.streamKey([JSON.stringify({ sessionId: session })])
+  const stream = claudeAdapter.streamKey(null, [JSON.stringify({ sessionId: session })])
   if (stream === null) {
     throw new Error(`no Claude stream for ${session}`)
   }

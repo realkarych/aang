@@ -914,7 +914,7 @@ test('a response that is not valid output keeps its error class and spends an at
   await scene.scheduler.idle()
 
   expect(scene.calls(session.run).map(({ verdict, error }) => [verdict, error])).toEqual([
-    ['rejected', { class: 'invalid_output', message: 'Observer output does not match its schema' }],
+    ['rejected', { class: 'invalid_output', message: 'Observer output does not match its schema: output: Invalid input: expected object, received undefined' }],
   ])
   expect(scene.scheduler.state(session.run)).toEqual({ state: 'ok' })
   scene.advance(10_000)
