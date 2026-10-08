@@ -226,6 +226,55 @@ test('needs get exactly one immediate follow-up that does not spend an attempt',
   ])
 })
 
+const planSteps = [
+  'Stage 1: Parse the commands',
+  'Stage 2: Keep the values in memory',
+  'Stage 3: Write the log to disk',
+  'Stage 4: Recover the store after a crash',
+  'Stage 5: Document the command line',
+  'Stage 6: Test the failure modes',
+]
+
+const longPlan = [
+  '# Plan',
+  '',
+  ...planSteps.flatMap((step, stage) => [
+    `## ${step}`,
+    '',
+    ...Array.from(
+      { length: 14 },
+      (_, task) =>
+        `- Task ${String(stage + 1)}.${String(task + 1)}: change the code of this stage, cover it with a test, run the whole suite and note the result.`,
+    ),
+    '',
+  ]),
+].join('\n')
+
+test('a plan file longer than a batch line reaches the follow-up whole, and every step of it becomes a planned stage', async (context) => {
+  const scene = await createScene(context, { claude: [{ kind: 'script', script: 'plan' }] })
+  const session = scene.claudeSession('session-plan')
+  await session.start()
+  await session.write('PLAN.md', longPlan)
+  scene.scheduler.wake()
+  scene.advance(5_000)
+  await scene.scheduler.idle()
+
+  expect(scene.calls(session.run).map(({ verdict }) => verdict)).toEqual(['needs_requested', 'accepted'])
+  const [first, followUp] = scene.prompts('claude')
+  const written = first?.batch.facts.find(({ kind }) => kind === 'action_start')
+  expect(written?.truncated).toEqual([{ path: 'payload.input.content', length: longPlan.length }])
+  expect(followUp?.batch).toEqual(first?.batch)
+  expect(followUp?.materials).toMatchObject([{ kind: 'raw_record', seq: written?.seq, truncated: null }])
+  const [material] = followUp?.materials ?? []
+  expect(material?.kind === 'raw_record' ? JSON.parse(material.payload) : null).toMatchObject({ tool_input: { content: longPlan } })
+  expect(followUp === undefined ? Infinity : observerInputTokens(followUp)).toBeLessThanOrEqual(batchLimits.inputTokens)
+  const stages = scene.store.model
+    .entities(session.run)
+    .flatMap((entity) => (entity.kind === 'stage' ? [[entity.value.title, entity.value.origin, entity.value.execution.value.state]] : []))
+    .sort(([left], [right]) => String(left).localeCompare(String(right)))
+  expect(stages).toEqual(planSteps.map((title) => [title, 'inferred', 'planned']))
+})
+
 test('one call per run, two observer calls at once, chat keeps its own slot, and timeouts pause the backend', { timeout: 90_000 }, async (context) => {
   const hang = { kind: 'timeout' } as const
   const scene = await createScene(context, {

@@ -9,6 +9,7 @@ import {
   mapScript,
   mergeScript,
   outlineScript,
+  planScript,
   readObserverInput,
   rejectedScript,
   reportScript,
@@ -30,6 +31,7 @@ export const ScenarioScript = z.enum([
   'rejected',
   'outline',
   'reshape',
+  'plan',
   'chat-answer',
   'chat-collapse-reviewers',
 ])
@@ -48,6 +50,7 @@ const scripts: Readonly<Record<ScenarioScript, (input: JsonValue | undefined) =>
   merge: (input) => mergeScript(readObserverInput(input)),
   outline: (input) => outlineScript(readObserverInput(input)),
   reshape: (input) => reshapeScript(readObserverInput(input)),
+  plan: (input) => planScript(readObserverInput(input)),
   'chat-answer': (input) => chatAnswerScript(readChatInput(input)),
   'chat-collapse-reviewers': (input) => chatCollapseReviewersScript(readChatInput(input)),
 }

@@ -307,6 +307,14 @@ export const createScene = async ({ onTestFinished }: TestContext, options: Scen
         offsetMs,
       ),
     permission: (offsetMs = 0) => deliver('claude', [claudeHook('PermissionRequest.Bash.json', session, workspace)], offsetMs),
+    write: (file: string, content: string) =>
+      deliver('claude', [
+        claudeHook('PreToolUse.Bash.json', session, workspace, {
+          tool_name: 'Write',
+          tool_use_id: `${session}-write`,
+          tool_input: { file_path: join(workspace, file), content },
+        }),
+      ]),
     command: (command: string) =>
       deliver('claude', [
         claudeHook('PreToolUse.Bash.json', session, workspace, {

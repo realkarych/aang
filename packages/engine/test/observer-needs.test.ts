@@ -208,12 +208,12 @@ const editResponse = {
   filePath: 'src/answer.ts',
   oldString: editInput.old_string,
   newString: editInput.new_string,
-  originalFile: `${'export const filler = 0\n'.repeat(400)}export const answer = 41\n`,
+  originalFile: `${'export const filler = 0\n'.repeat(700)}export const answer = 41\n`,
   structuredPatch: [
     {
-      oldStart: 401,
+      oldStart: 701,
       oldLines: 1,
-      newStart: 401,
+      newStart: 701,
       newLines: 1,
       lines: ['-export const answer = 41', '+export const answer = 42'],
     },
@@ -665,7 +665,7 @@ test('thinking and reasoning blocks never reach the observer input', async ({ on
     JSON.stringify(stripped(compactionRecord.payload, 'payload', 'replacement_history')),
     'out_of_scope',
     'out_of_scope',
-    batchRecord.payload.slice(0, 4_000),
+    batchRecord.payload.slice(0, 16_000),
   ])
   const sent = JSON.stringify(store.observerCalls.get(followUpId)?.input)
   for (const secret of Object.values(secrets)) {
@@ -721,7 +721,7 @@ test('an action carries its text output together with the structured result and 
     tool: 'Edit',
     outcome: 'ok',
     input: editInput,
-    output: envelope(null, { ...editResponse, originalFile: editResponse.originalFile.slice(0, 4_000) }),
+    output: envelope(null, { ...editResponse, originalFile: editResponse.originalFile.slice(0, 16_000) }),
     truncated: [{ path: 'result.originalFile', length: editResponse.originalFile.length }],
   })
   expect(edit?.kind === 'action' ? edit.output : null).toContain('+export const answer = 42')

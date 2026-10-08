@@ -25,7 +25,7 @@ export interface MaterialLimits {
   readonly textLength: number
 }
 
-export const defaultMaterialLimits: MaterialLimits = { needs: 8, textLength: 4_000 }
+export const defaultMaterialLimits: MaterialLimits = { needs: 8, textLength: 16_000 }
 
 const nanosecondsPerMillisecond = 1_000_000n
 
