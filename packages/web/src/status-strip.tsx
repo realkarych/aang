@@ -2,6 +2,8 @@ import { type ReactElement, useId, useState } from 'react'
 import { LevelGlyph } from './glyphs.js'
 import type { Lamp, LampId } from './lamps.js'
 
+const lampText = ({ label, value }: Lamp): string => `${label}: ${value}`
+
 const LampFace = ({ lamp }: { readonly lamp: Lamp }): ReactElement => (
   <>
     <span className="lamp-label">
@@ -22,7 +24,7 @@ export const StatusStrip = ({ lamps }: { readonly lamps: readonly Lamp[] }): Rea
         {lamps.map((lamp) => (
           <li key={lamp.id} className="lamp-slot">
             {lamp.details.length === 0 ? (
-              <span className="lamp" data-level={lamp.level}>
+              <span className="lamp" data-level={lamp.level} title={lampText(lamp)}>
                 <LampFace lamp={lamp} />
               </span>
             ) : (
@@ -30,6 +32,7 @@ export const StatusStrip = ({ lamps }: { readonly lamps: readonly Lamp[] }): Rea
                 type="button"
                 className="lamp"
                 data-level={lamp.level}
+                title={lampText(lamp)}
                 aria-expanded={opened?.id === lamp.id}
                 aria-controls={panel}
                 onClick={() => {

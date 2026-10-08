@@ -514,6 +514,16 @@
   font-size: 11.5px;
 }
 
+.usage-pending {
+  margin-top: 8px;
+}
+
+.usage-caption {
+  margin: 0 0 2px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
 .usage-note {
   max-width: 68ch;
   margin: 6px 0 0;
@@ -771,19 +781,35 @@ code.artifact-path {
 }
 
 @media (min-width: 1100px) {
-  .run-screen[data-inspecting='true'] {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(400px, 38rem);
-    align-items: start;
-    gap: 12px;
+  #root:has(> .run-screen) {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
   }
 
-  .run-screen[data-inspecting='true'] > .inspector {
-    position: sticky;
-    top: 12px;
-    max-height: calc(100vh - 24px);
+  #root:has(> .run-screen) > :not(.run-screen) {
+    flex: none;
+  }
+
+  .run-screen {
+    display: grid;
+    flex: 1 1 auto;
+    grid-template-columns: minmax(0, 1fr);
+    min-height: 0;
+  }
+
+  .run-screen[data-inspecting='true'] {
+    grid-template-columns: minmax(0, 1fr) minmax(400px, 38rem);
+  }
+
+  .run-pane,
+  .run-screen > .inspector {
+    min-height: 0;
     overflow: auto;
-    overscroll-behavior: contain;
+  }
+
+  .run-screen > .inspector {
+    border-width: 3px 0 0 1px;
   }
 }
 

@@ -457,10 +457,12 @@ test.describe('with the observer revising the map', () => {
     await drag(page, { x: frame.right - 24, y: frame.y + 24 }, { x: -60 - fitted.x, y: 0 })
     const read = await settled(main)
     near(read, { x: -60, y: fitted.y })
-    await page.evaluate(() => {
-      window.scrollTo(0, 96)
+    const pane = page.getByRole('main')
+    const readingPlace = (): Promise<number> => pane.evaluate((element) => element.scrollTop)
+    await pane.evaluate((element) => {
+      element.scrollTo(0, 96)
     })
-    const scrolled = await page.evaluate(() => window.scrollY)
+    const scrolled = await readingPlace()
     expect(scrolled).toBeGreaterThan(0)
     const notice = map(page).getByRole('status')
 
@@ -468,7 +470,7 @@ test.describe('with the observer revising the map', () => {
     const pinger = stage(page, pingerTitle)
     await expect(pinger).toBeVisible(observed)
     near(await settled(main), read)
-    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+    expect(await readingPlace()).toBe(scrolled)
     await expect(notice).toBeEmpty()
 
     await pick(main, mainStageTitle).click()
@@ -476,13 +478,15 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
     await expect(inspected(page)).toHaveText(mainStageTitle)
+    await expect(pick(main, mainStageTitle)).toBeInViewport()
+    const inspecting = await readingPlace()
 
     const nested = await versionShown(page)
     await played.play({ until: 'resume' })
     await expect.poll(async () => versionShown(page), observed).toBeGreaterThan(nested)
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
     near(await settled(main), read)
-    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+    expect(await readingPlace()).toBe(inspecting)
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].revised)
     await played.play({ until: 'continue' })
@@ -571,7 +575,7 @@ test.describe('with the observer revising the map', () => {
 
     const pan = async (by: { x: number; y: number }): Promise<void> => {
       const frame = await box(canvas)
-      const top = Math.max(frame.y, 0)
+      const top = Math.max(frame.y, (await box(page.getByRole('main'))).y, 0)
       const bottom = Math.min(frame.bottom, page.viewportSize()?.height ?? frame.bottom)
       await drag(page, { x: frame.x + 70, y: by.y < 0 ? bottom - 30 : top + 30 }, by)
     }

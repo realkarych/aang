@@ -143,7 +143,7 @@ const briefUpdate = (input: ObserverInput): ObserverOpOf<'brief.update'>[] => {
       return [
         {
           op: 'brief.update',
-          text: `Working towards: ${goal.slice(0, briefLength)}`,
+          text: `Working towards: ${goal.length > briefLength ? `${goal.slice(0, briefLength)}…` : goal}`,
           evidence: [fact.id],
           rationale: 'Retelling of the task the human gave',
         },

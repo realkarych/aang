@@ -221,29 +221,18 @@ const UsageRow = ({ label, totals }: { readonly label: string; readonly totals: 
   </tr>
 )
 
-const TimeAndUsage = ({ inspected }: { readonly inspected: Inspected }): ReactElement => {
-  const { time, usage } = inspected
+const SolverUsage = ({ usage }: { readonly usage: Inspected['usage'] }): ReactElement => {
   const costs = [usage.stage.cost_usd, usage.unassigned_in_sessions.cost_usd].filter((cost): cost is number => cost !== null)
+  if (usage.stage.records === 0 && usage.unassigned_in_sessions.records === 0) {
+    return (
+      <div className="usage-pending">
+        <p className="usage-caption">Расход решателя, токены</p>
+        <p className="section-empty">Пока нет данных: решатель ещё не сообщил расход в сессиях этапа.</p>
+      </div>
+    )
+  }
   return (
     <>
-      {time.started_at === null ? (
-        <p className="section-empty">К этапу не привязано действий со временем.</p>
-      ) : (
-        <dl className="figures">
-          <div>
-            <dt>Начало</dt>
-            <dd>{absoluteTime(time.started_at)}</dd>
-          </div>
-          <div>
-            <dt>Конец</dt>
-            <dd>{time.ended_at === null ? 'ещё идёт' : absoluteTime(time.ended_at)}</dd>
-          </div>
-          <div>
-            <dt>Активное время</dt>
-            <dd>{time.active_ms === null ? '—' : activeTime(time.active_ms)}</dd>
-          </div>
-        </dl>
-      )}
       <table className="usage">
         <caption>Расход решателя, токены</caption>
         <thead>
@@ -278,6 +267,33 @@ const TimeAndUsage = ({ inspected }: { readonly inspected: Inspected }): ReactEl
           </>
         )}
       </p>
+    </>
+  )
+}
+
+const TimeAndUsage = ({ inspected }: { readonly inspected: Inspected }): ReactElement => {
+  const { time, usage } = inspected
+  return (
+    <>
+      {time.started_at === null ? (
+        <p className="section-empty">К этапу не привязано действий со временем.</p>
+      ) : (
+        <dl className="figures">
+          <div>
+            <dt>Начало</dt>
+            <dd>{absoluteTime(time.started_at)}</dd>
+          </div>
+          <div>
+            <dt>Конец</dt>
+            <dd>{time.ended_at === null ? 'ещё идёт' : absoluteTime(time.ended_at)}</dd>
+          </div>
+          <div>
+            <dt>Активное время</dt>
+            <dd>{time.active_ms === null ? '—' : activeTime(time.active_ms)}</dd>
+          </div>
+        </dl>
+      )}
+      <SolverUsage usage={usage} />
     </>
   )
 }

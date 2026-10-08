@@ -219,8 +219,8 @@ h2 {
 }
 
 .lamps {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -228,16 +228,28 @@ h2 {
 
 .lamp-slot {
   display: flex;
+  flex: 1 1 9.5rem;
+  min-width: 0;
   box-shadow:
     inset -1px 0 var(--panel-rule),
     inset 0 -1px var(--panel-rule);
 }
 
+@media (min-width: 1100px) {
+  .lamps {
+    display: grid;
+    grid-auto-columns: minmax(6.5rem, auto);
+    grid-auto-flow: column;
+  }
+}
+
 .lamp {
   display: grid;
   flex: 1 1 auto;
+  grid-template-columns: minmax(0, 1fr);
   align-content: center;
   gap: 1px;
+  min-width: 0;
   min-height: 46px;
   padding: 6px 12px 7px;
   border: 0;
@@ -269,12 +281,21 @@ button.lamp[aria-expanded='true'] {
   display: flex;
   align-items: center;
   gap: 6px;
+  min-width: 0;
+  overflow: hidden;
   color: var(--panel-faint);
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .lamp-value {
+  display: -webkit-box;
+  overflow: hidden;
   font-weight: 500;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
 .lamp[data-level='caution'] {
@@ -340,6 +361,10 @@ button.lamp[data-level='warning']:hover {
 
 .page {
   padding: 16px var(--gutter) 40px;
+}
+
+.run-pane {
+  container: run / inline-size;
 }
 
 .loading {
@@ -474,6 +499,14 @@ button.lamp[data-level='warning']:hover {
   text-decoration: underline;
 }
 
+.run-name {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
 .run-link:focus-visible {
   outline: none;
 }
@@ -524,10 +557,15 @@ button.lamp[data-level='warning']:hover {
 }
 
 .run-title {
+  display: -webkit-box;
   max-width: 70ch;
+  overflow: hidden;
   font-size: 21px;
   line-height: 1.25;
   overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
 }
 
 .brief {
@@ -581,8 +619,8 @@ button.lamp[data-level='warning']:hover {
 }
 
 @media (max-width: 760px) {
-  .lamps {
-    grid-template-columns: repeat(auto-fit, minmax(112px, 1fr));
+  .lamp-slot {
+    flex-basis: 7rem;
   }
 
   .runs,
@@ -918,6 +956,10 @@ button.lamp[data-level='warning']:hover {
   border: 1px solid var(--rule);
 }
 
+.trace {
+  container: trace / inline-size;
+}
+
 .sessions {
   display: grid;
   gap: 18px;
@@ -1076,6 +1118,10 @@ button.lamp[data-level='warning']:hover {
   min-width: 0;
 }
 
+.step[data-kind='question'] .step-body {
+  flex-wrap: wrap;
+}
+
 .step-detail {
   flex: 0 1 auto;
   min-width: 0;
@@ -1101,6 +1147,7 @@ button.lamp[data-level='warning']:hover {
 
 .step-question {
   display: -webkit-box;
+  flex: 1 1 12rem;
   min-width: 0;
   overflow: hidden;
   white-space: pre-line;
@@ -1229,10 +1276,35 @@ button.lamp[data-level='warning']:hover {
   white-space: nowrap;
 }
 
-@media (min-width: 1100px) {
+@container run (min-width: 1040px) {
   .run-body {
     grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
     align-items: start;
+  }
+}
+
+@container trace (max-width: 600px) {
+  .step {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .step-state {
+    grid-column: 1;
+  }
+
+  .step-tool {
+    grid-row: 2;
+    grid-column: 1;
+  }
+
+  .step-body {
+    grid-row: 3;
+    grid-column: 1 / -1;
+  }
+
+  .step-time {
+    grid-row: 1;
+    grid-column: 2;
   }
 }
 
@@ -1269,29 +1341,6 @@ button.lamp[data-level='warning']:hover {
   .zone-past-outcome {
     grid-row: 3;
     grid-column: 1 / -1;
-  }
-
-  .step {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-
-  .step-state {
-    grid-column: 1;
-  }
-
-  .step-tool {
-    grid-row: 2;
-    grid-column: 1;
-  }
-
-  .step-body {
-    grid-row: 3;
-    grid-column: 1 / -1;
-  }
-
-  .step-time {
-    grid-row: 1;
-    grid-column: 2;
   }
 
   .agent .agents {

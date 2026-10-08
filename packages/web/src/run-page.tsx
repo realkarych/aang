@@ -163,7 +163,9 @@ const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps)
         <p className="run-origin">
           {title === null ? <span>цель не определена</span> : <span>{runtimeLabel[summary.runtime]}</span>}
         </p>
-        <h1 className="run-title">{title ?? <span className="untitled">{untitledRun(summary)}</span>}</h1>
+        <h1 className="run-title" title={title ?? undefined}>
+          {title ?? <span className="untitled">{untitledRun(summary)}</span>}
+        </h1>
         {run.brief === null || run.brief.text === title ? null : (
           <p className="brief">
             {run.brief.text}
