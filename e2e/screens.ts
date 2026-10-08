@@ -20,8 +20,10 @@ export const runRowOf = (page: Page, run: RunId): Locator =>
 
 export const zone = (page: Page): Locator => page.getByRole('region', { name: 'Внимание', exact: true })
 
-export const zoneItem = (page: Page, kind: string): Locator =>
-  zone(page).getByRole('listitem').filter({ hasText: kind })
+export const openItems = (page: Page): Locator =>
+  zone(page).getByRole('list', { name: 'Открытые пункты', exact: true }).getByRole('listitem')
+
+export const zoneItem = (page: Page, kind: string): Locator => openItems(page).filter({ hasText: kind })
 
 export const trace = (page: Page): Locator => page.getByRole('region', { name: 'Сессии и агенты', exact: true })
 
@@ -76,15 +78,20 @@ export const textShown = async (scope: Locator, text: string): Promise<boolean> 
   }, text)
 }
 
+export const historyToggle = (page: Page): Locator => zone(page).getByRole('button', { name: /^История: / })
+
+export const history = (page: Page): Locator =>
+  zone(page).getByRole('list', { name: 'История зоны внимания', exact: true }).getByRole('listitem')
+
 export const modes = (page: Page): Locator => page.getByRole('navigation', { name: 'Вид прогона' })
 
 export const sinceTab = (page: Page): Locator => modes(page).getByRole('link', { name: /^С последнего просмотра/ })
 
 export const traceTab = (page: Page): Locator => modes(page).getByRole('link', { name: 'Ход прогона', exact: true })
 
-export const markButton = (page: Page): Locator => page.getByRole('button', { name: 'Отметить просмотренным' })
-
 export const mark = (page: Page): Locator => page.getByRole('group', { name: 'Отметка просмотра', exact: true })
+
+export const markButton = (page: Page): Locator => mark(page).getByRole('button', { name: 'Отметить просмотренным' })
 
 export const since = (page: Page): Locator => page.getByRole('region', { name: 'С последнего просмотра', exact: true })
 

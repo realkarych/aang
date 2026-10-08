@@ -12,6 +12,12 @@ export {
   type FakePurpose,
 } from './fake-cli/scenario.js'
 export {
+  checksBlockerText,
+  checksStageTitle,
+  releaseStageTitle,
+  reviewRequestText,
+} from './observer-scenarios/attention.js'
+export {
   agentStageTitle,
   branchStageTitles,
   checkedCriterionText,

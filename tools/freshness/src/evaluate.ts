@@ -2,7 +2,7 @@ import type { ArtifactRef, ArtifactVersionId, FactId, ObserverCallId, RunId } fr
 import type { MapPredicate } from '@aang/record'
 import type { Store } from '@aang/store'
 import type { PlayerRoots } from '@aang/testkit'
-import { controlRecords, deliveryKeys, indexRecords, type Played, type RecordIndex } from './control.js'
+import { controlRecords, indexRecords, type Played, stepRecords } from './control.js'
 import type { Candidate, Evaluation, MeasuredCall, MeasuredEvent } from './files.js'
 import { describeChange, emptyModel, type VersionState, versionStates } from './journal.js'
 import { holds, type PredicateScope } from './predicate.js'
@@ -52,7 +52,7 @@ const judge = (
 }
 
 export const evaluateEvents = ({ store, played, calls, roots, windowMs, timeScale }: EvaluationOptions): MeasuredEvent[] => {
-  const index: RecordIndex = indexRecords(store)
+  const delivered = stepRecords(indexRecords(store), played, roots)
   const results = new Map(
     calls.flatMap(({ id, result_version: last }): [ObserverCallId, number][] => (last === null ? [] : [[id, last]])),
   )
@@ -100,9 +100,8 @@ export const evaluateEvents = ({ store, played, calls, roots, windowMs, timeScal
 
   return played.flatMap((playback) => {
     const { recording, startsAt, steps } = playback
-    const keys = deliveryKeys(playback, roots)
     return recording.events.map((event): MeasuredEvent => {
-      const records = controlRecords(index, playback, keys, event.index, roots)
+      const records = controlRecords(delivered.get(playback)?.get(event.index) ?? [])
       const { description, predicate } = event.expected
       const start = records.observedAt
       const evaluation: Evaluation =

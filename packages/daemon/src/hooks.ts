@@ -86,7 +86,7 @@ const probes = (options: HookChecksOptions, runner: ProcessRunner): Readonly<Rec
     codex: {
       files: [join(runtimeRoots.codex, 'hooks.json'), join(runtimeRoots.codex, 'config.toml')],
       read: async (signal) => {
-        const codex = { command: config.cli.codex ?? 'codex' }
+        const codex = resolveCli('codex', config.cli.codex ?? 'codex', inheritedEnvironment())
         const state = await codexHooksState({
           aangHome,
           codexHome: runtimeRoots.codex,

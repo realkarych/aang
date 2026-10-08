@@ -1,45 +1,117 @@
-import { readFile, readdir, stat, writeFile } from 'node:fs/promises'
-import { codexHooksState, installClaudePlugin, installCodexHooks, uninstallClaudePlugin, uninstallCodexHooks } from '@aang/hook'
-import { inject, test } from 'vitest'
-import { createInstallHome, sampleText } from './install.js'
+import { delimiter, dirname, join } from 'node:path'
+import { codexHooksState, deployHookBinary, hookBinaryName } from '@aang/hook'
+import { installFakeCodex } from '@aang/testkit'
+import { inject, test, vi } from 'vitest'
+import { type AppServerCall, fakeAppServer } from './app-server.js'
+import { createInstallHome, type InstallHome } from './install.js'
+import { isAlive, resumeWindowsProcess, suspendWindowsProcess, waitUntil } from './launcher.js'
 
-test.runIf(process.platform === 'win32')(
-  'on Windows checking Codex hook state fails explicitly without starting the CLI',
+const onWindows = test.runIf(process.platform === 'win32')
+
+const hangingCheck = async (home: InstallHome, signal?: AbortSignal) => {
+  await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: inject('hookBinaries').plain })
+  const cli = await fakeAppServer(home, { failure: 'timeout' })
+  const options = { aangHome: home.aangHome, codexHome: home.codexHome, codex: cli }
+  const checking = codexHooksState({ ...options, timeoutMs: 120_000, ...(signal === undefined ? {} : { signal }) })
+  checking.catch(() => undefined)
+  const server = await vi.waitFor(async (): Promise<AppServerCall> => {
+    const listing = (await cli.calls()).find((call) => call.request.method === 'hooks/list')
+    if (listing === undefined) {
+      throw new Error('the app-server has not received hooks/list yet')
+    }
+    return listing
+  }, { timeout: 20_000, interval: 50 })
+  return { cli, options, checking, server }
+}
+
+onWindows(
+  'on Windows the Codex hooks state needs the launcher of the installation and fails explicitly without it, starting no CLI',
   async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
-    const originalFiles = await readdir(home.root)
 
     await expect(codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: home.codex })).rejects.toMatchObject({
-      reason: 'unsupported_platform',
-      message: expect.stringMatching(/Windows.*process.tree/u) as unknown,
+      reason: 'codex_app_server',
+      message: expect.stringContaining(hookBinaryName) as unknown,
     })
 
-    expect(await readdir(home.root)).toEqual(originalFiles)
     await expect(home.codex.calls()).rejects.toMatchObject({ code: 'ENOENT' })
   },
 )
 
-test.runIf(process.platform === 'win32')(
-  'on Windows hooks are not installed or removed for either runtime and nothing is written',
+onWindows(
+  'on Windows a Codex command given by name runs the codex.exe found in PATH through the launcher',
   async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
-    const hookBinarySource = inject('hookBinaries').plain
-    const claude = { command: 'claude', configDir: null }
-    const hooksJson = await sampleText('codex-cli/hooks/hooks.json.logger-config.json')
-    await writeFile(home.hooksFile, hooksJson)
-    const refused = { reason: 'unsupported_platform' }
+    await deployHookBinary({ aangHome: home.aangHome, hookBinarySource: inject('hookBinaries').plain })
+    const codex = installFakeCodex(join(home.root, 'fakes'))
+    vi.stubEnv('PATH', `${dirname(codex.executable)}${delimiter}${process.env.PATH ?? ''}`)
+    onTestFinished(() => {
+      vi.unstubAllEnvs()
+    })
 
-    await expect(installClaudePlugin({ aangHome: home.aangHome, hookBinarySource, claude })).rejects.toMatchObject(
-      refused,
-    )
-    await expect(uninstallClaudePlugin({ aangHome: home.aangHome, claude })).rejects.toMatchObject(refused)
-    await expect(
-      installCodexHooks({ aangHome: home.aangHome, hookBinarySource, codexHome: home.codexHome, codex: home.codex }),
-    ).rejects.toMatchObject(refused)
-    await expect(uninstallCodexHooks({ codexHome: home.codexHome })).rejects.toMatchObject(refused)
+    const state = await codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: { command: 'codex' } })
 
-    expect(await readFile(home.hooksFile, 'utf8')).toBe(hooksJson)
-    await expect(stat(home.paths.binary)).rejects.toMatchObject({ code: 'ENOENT' })
-    await expect(stat(home.paths.claudePlugin)).rejects.toMatchObject({ code: 'ENOENT' })
+    expect(state.status).toBe('not_installed')
+    expect(codex.calls().filter((call) => call.command === 'app_server')).toHaveLength(1)
+  },
+)
+
+onWindows(
+  'a suspended launcher bounds a cancelled check by the stop deadline and blocks checks of the profile until it confirms the stop late',
+  { timeout: 90_000 },
+  async ({ expect, onTestFinished }) => {
+    const home = await createInstallHome(onTestFinished)
+    const cancel = new AbortController()
+    const { cli, options, checking, server } = await hangingCheck(home, cancel.signal)
+    const launcher = server.ppid
+    await suspendWindowsProcess(launcher)
+    onTestFinished(async () => {
+      if (isAlive(launcher)) {
+        await resumeWindowsProcess(launcher)
+      }
+    })
+
+    const cancelledAt = Date.now()
+    cancel.abort()
+    await expect(checking).rejects.toMatchObject({ reason: 'codex_app_server', message: expect.stringContaining('did not stop') as unknown })
+    expect(Date.now() - cancelledAt).toBeLessThan(30_000)
+
+    const calls = (await cli.calls()).length
+    await expect(codexHooksState(options)).rejects.toMatchObject({
+      reason: 'codex_app_server',
+      message: expect.stringContaining('not confirmed stopped') as unknown,
+    })
+    expect(await cli.calls()).toHaveLength(calls)
+    expect(isAlive(server.pid)).toBe(true)
+
+    await resumeWindowsProcess(launcher)
+    await waitUntil(() => !isAlive(launcher) && !isAlive(server.pid))
+
+    const state = await vi.waitFor(() => codexHooksState(options), { timeout: 20_000, interval: 100 })
+    expect(state.status).toBe('not_installed')
+    expect((await cli.calls()).length).toBeGreaterThan(calls)
+  },
+)
+
+onWindows(
+  'a launcher lost without a status file fails the check at once and blocks further checks of the profile',
+  { timeout: 60_000 },
+  async ({ expect, onTestFinished }) => {
+    const home = await createInstallHome(onTestFinished)
+    const { cli, options, checking, server } = await hangingCheck(home)
+
+    process.kill(server.ppid, 'SIGKILL')
+
+    await expect(checking).rejects.toMatchObject({
+      reason: 'codex_app_server',
+      message: expect.stringContaining('without a status file') as unknown,
+    })
+    await waitUntil(() => !isAlive(server.pid))
+    const calls = (await cli.calls()).length
+    await expect(codexHooksState(options)).rejects.toMatchObject({
+      reason: 'codex_app_server',
+      message: expect.stringContaining('not confirmed stopped') as unknown,
+    })
+    expect(await cli.calls()).toHaveLength(calls)
   },
 )

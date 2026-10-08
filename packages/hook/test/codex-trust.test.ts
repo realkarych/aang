@@ -1,16 +1,23 @@
 import { lstat, readFile, readdir, stat, symlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import * as hook from '@aang/hook'
-import { describe, inject, test } from 'vitest'
+import { describe, inject, test, type TestContext } from 'vitest'
 import { fakeAppServer, hooksListing, sampleHook } from './app-server.js'
-import { createInstallHome } from './install.js'
+import { createInstallHome, type InstallHome } from './install.js'
 import { isAlive, waitUntil } from './launcher.js'
 
 const binaries = inject('hookBinaries')
+const posixOnly = test.skipIf(process.platform === 'win32')
 
-describe.skipIf(process.platform === 'win32')('Codex hook installation state over stdio', () => {
+const createInstalledHome = async (onTestFinished: TestContext['onTestFinished']): Promise<InstallHome> => {
+  const home = await createInstallHome(onTestFinished)
+  await hook.deployHookBinary({ aangHome: home.aangHome, hookBinarySource: binaries.plain })
+  return home
+}
+
+describe('Codex hook installation state over stdio', () => {
   test('a wrapper cannot leave its server running after the listing', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const cli = await fakeAppServer(home, { descendant: true })
     const descendantFile = join(home.root, 'app-server.json.descendant')
     onTestFinished(async () => {
@@ -26,7 +33,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
     await expect(waitUntil(() => !isAlive(descendant))).resolves.toBeUndefined()
   })
   test('a server that exits right after answering still yields its listing', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const entry = await sampleHook({ command: hook.codexHookCommand(home.aangHome), trustStatus: 'trusted' })
     const cli = await fakeAppServer(home, { exitAfterListing: true, listings: [hooksListing([entry])] })
 
@@ -43,7 +50,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
     { trustStatus: 'modified', expected: 'untrusted' },
     { trustStatus: 'trusted', expected: 'active' },
   ])('$trustStatus hooks are reported as $expected', async ({ trustStatus, expected }, { expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const command = hook.codexHookCommand(home.aangHome)
     const entry = await sampleHook({ command, trustStatus })
     const cli = await fakeAppServer(home, { listings: [hooksListing([entry])] })
@@ -63,7 +70,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   })
 
   test('foreign hooks do not count as an aang installation', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const cli = await fakeAppServer(home, { listings: [hooksListing([await sampleHook()])] })
 
     expect(hook).toHaveProperty('codexHooksState')
@@ -71,7 +78,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   })
 
   test('a disabled or partly trusted installation is never active', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const cli = await fakeAppServer(home, { listings: [hooksListing([
       await sampleHook({ key: 'a', command: hook.codexHookCommand(home.aangHome), trustStatus: 'trusted' }),
       await sampleHook({ key: 'b', command: hook.codexHookCommand(home.aangHome), trustStatus: 'trusted', enabled: false }),
@@ -82,7 +89,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   })
 
   test('one untrusted hook keeps an otherwise trusted installation untrusted', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const cli = await fakeAppServer(home, { fragmented: true, listings: [hooksListing([
       await sampleHook({ key: 'a', command: hook.codexHookCommand(home.aangHome), trustStatus: 'trusted' }),
       await sampleHook({ key: 'b', command: hook.codexHookCommand(home.aangHome) }),
@@ -91,11 +98,15 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
     const state = await hook.codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: cli })
 
     expect(state.status).toBe('untrusted')
-    expect(state.hooks[1]?.command).toBe(`'${home.paths.binary.replaceAll("'", "'\\''")}' codex user '${home.paths.spool.replaceAll("'", "'\\''")}'`)
+    expect(state.hooks[1]?.command).toBe(
+      process.platform === 'win32'
+        ? `& '${home.paths.binary.replaceAll("'", "''")}' 'codex' 'user' '${home.paths.spool.replaceAll("'", "''")}'`
+        : `'${home.paths.binary.replaceAll("'", "'\\''")}' codex user '${home.paths.spool.replaceAll("'", "'\\''")}'`,
+    )
   })
 
   test('stale aang entries of earlier installations never make the installation active', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const elsewhere = hook.codexHookCommand(join(home.root, 'another aang home'))
     const stale = [
       await sampleHook({ key: 'old', command: '~/src/aang/bin/aang hook', trustStatus: 'trusted' }),
@@ -115,7 +126,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   })
 
   test('spawn and initialize failures are explicit', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const cli = await fakeAppServer(home, { failure: 'rpc_error', failMethod: 'initialize' })
 
     await expect(hook.codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: cli })).rejects.toMatchObject({ reason: 'codex_app_server' })
@@ -125,7 +136,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   test.for(['timeout', 'exit', 'invalid_json', 'rpc_error', 'oversized'] as const)(
     '%s produces an explicit failure and reaps the server',
     async (failure, { expect, onTestFinished }) => {
-      const home = await createInstallHome(onTestFinished)
+      const home = await createInstalledHome(onTestFinished)
       const cli = await fakeAppServer(home, { failure })
 
       expect(hook).toHaveProperty('codexHooksState')
@@ -147,7 +158,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
     hooksListing([], [{ path: '/hooks.json', message: 'invalid file' }]),
     hooksListing([{ command: 'aang hook' }]),
   ])('invalid or incomplete hook listings fail instead of reporting no installation', async (listing, { expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const cli = await fakeAppServer(home, { listings: [listing] })
 
     expect(hook).toHaveProperty('codexHooksState')
@@ -155,7 +166,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   })
 
   test('duplicate keys and command hooks without commands are rejected', async ({ expect, onTestFinished }) => {
-    const home = await createInstallHome(onTestFinished)
+    const home = await createInstalledHome(onTestFinished)
     const entry = await sampleHook()
     const missing = { ...entry, command: undefined }
     for (const entries of [[entry, entry], [missing]]) {
@@ -165,7 +176,7 @@ describe.skipIf(process.platform === 'win32')('Codex hook installation state ove
   })
 })
 
-describe.skipIf(process.platform === 'win32')('Codex installation trust transaction', () => {
+describe('Codex installation trust transaction', () => {
   test('changed foreign trust rejects installation and restores the original bytes and mode', async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
     const original = '{ "hooks": { "Stop": [{"hooks":[{"type":"command","command":"notify-send done"}]}] } }\n'
@@ -176,7 +187,9 @@ describe.skipIf(process.platform === 'win32')('Codex installation trust transact
     await expect(hook.installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome: home.codexHome, codex: cli })).rejects.toMatchObject({ reason: 'foreign_hook_trust_changed' })
 
     expect(await readFile(home.hooksFile, 'utf8')).toBe(original)
-    expect((await stat(home.hooksFile)).mode & 0o777).toBe(0o640)
+    if (process.platform !== 'win32') {
+      expect((await stat(home.hooksFile)).mode & 0o777).toBe(0o640)
+    }
   })
 
   test('failure to verify a newly created hooks file rolls it back to absence', async ({ expect, onTestFinished }) => {
@@ -189,7 +202,7 @@ describe.skipIf(process.platform === 'win32')('Codex installation trust transact
     await expect(stat(join(home.codexHome, 'config.toml'))).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  test('a missing foreign entry also rolls back, preserving a hooks.json symlink', async ({ expect, onTestFinished }) => {
+  posixOnly('a missing foreign entry also rolls back, preserving a hooks.json symlink', async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
     const original = '{"hooks":{}}\n'
     const target = join(home.root, 'shared-hooks.json')
@@ -248,7 +261,7 @@ describe.skipIf(process.platform === 'win32')('Codex installation trust transact
     expect(state.hooks).toHaveLength(12)
     expect(await readFile(home.hooksFile, 'utf8')).toBe(content)
     expect((await home.codex.calls()).filter((call) => call.request.method === 'hooks/list')).toHaveLength(5)
-    expect(installation.command).toContain('codex user')
+    expect(installation.command).toBe(hook.codexHookCommand(home.aangHome))
     await hook.uninstallCodexHooks({ codexHome: home.codexHome })
     expect((await hook.codexHooksState(options)).status).toBe('not_installed')
     expect(await readFile(config, 'utf8')).toBe(original)
@@ -264,6 +277,6 @@ describe.skipIf(process.platform === 'win32')('Codex installation trust transact
     const installed = await hook.installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome: home.codexHome, codex: cli })
 
     expect(installed.backup).not.toBeNull()
-    expect(await readFile(home.hooksFile, 'utf8')).toContain('"command": "true"')
+    expect(await readFile(home.hooksFile, 'utf8')).toContain(`"command": "${process.platform === 'win32' ? 'exit 0' : 'true'}"`)
   })
 })

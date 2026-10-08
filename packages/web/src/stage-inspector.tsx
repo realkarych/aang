@@ -25,14 +25,14 @@ import { StageCriteria } from './stage-criteria.js'
 import { RejectedCalls, StageHistory } from './stage-history.js'
 import { priorityLabel, resolutionLabel, stageOriginLabel } from './stage-labels.js'
 import { useRead } from './use-read.js'
-import type { RunFeedState } from './use-run-feed.js'
+import type { RunFeed } from './use-run-feed.js'
 import { useStage } from './use-stage.js'
 import './inspector.css'
 
 export interface StageInspectorProps {
   readonly run: RunId
   readonly stage: StageId
-  readonly feed: RunFeedState
+  readonly feed: RunFeed
   readonly onSignedOut: () => void
   readonly onClose: () => void
 }

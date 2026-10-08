@@ -23,7 +23,8 @@ const usage = `usage: aang <command>
   prune --run <id> | --before <date>        delete runs with all their records
   usage [--run <id>] [--from <date>] [--to <date>]
                                             show the solver, observer and chat usage
-  install [--claude] [--codex]              connect Claude Code and Codex hooks to aang
+  install [--claude] [--codex]              connect Claude Code and Codex hooks to aang;
+                                            on Windows Codex hooks only with --codex
   uninstall                                 remove the Claude plugin and neutralize the Codex hooks of aang
   otel-config [--rotate]                    print the [otel] section of the Codex config for aang
 `
