@@ -113,7 +113,7 @@ const streamWindow = 10
 
 export const transcriptRecords = async (path: string): Promise<CollectedRecord[]> => {
   const lines = await sampleLines(path)
-  const stream = claudeAdapter.streamKey(lines.slice(0, streamWindow))
+  const stream = claudeAdapter.streamKey(`/samples/${path}`, lines.slice(0, streamWindow))
   const offsets = lines.map((_, index) =>
     lines.slice(0, index).reduce((total, line) => total + Buffer.byteLength(line) + 1, 0),
   )

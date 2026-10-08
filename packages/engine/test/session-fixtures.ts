@@ -54,10 +54,12 @@ export const registry = (status: string, milliseconds: number, updated = millise
   }] })
 }
 
-export const clockedEngine = (store: Store, quietAfterMs = 300_000) => {
+export const clockedEngine = (store: Store, quietAfterMs = 300_000, hooksInactiveAfterMs = 30_000) => {
   let now = at(0)
   return {
-    engine: createEngine({ store, adapters, watch: { all: true, roots: [] }, now: () => now, quietAfterMs }),
+    engine: createEngine({
+      store, adapters, watch: { all: true, roots: [] }, now: () => now, quietAfterMs, hooksInactiveAfterMs,
+    }),
     advance: (milliseconds: number) => { now = at(milliseconds) },
   }
 }

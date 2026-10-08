@@ -193,7 +193,7 @@ test('a rejected response returns the whole batch to pending, and the third cont
   expect(scene.prompts('claude').map(({ previous_attempt: previous }) => previous?.reasons ?? null)).toEqual([
     null,
     ['version: base_version does not match the saved observer call'],
-    ['schema: Observer output does not match its schema'],
+    ['schema: Observer output does not match its schema: output: Invalid input: expected object, received undefined'],
   ])
   expect(scene.statuses(session.run).map(({ status, attempts }) => [status, attempts])).toEqual([
     ['not_interpreted', 3],
@@ -205,6 +205,54 @@ test('a rejected response returns the whole batch to pending, and the third cont
   scene.advance(60_000)
   await scene.scheduler.idle()
   expect(scene.calls(session.run)).toHaveLength(3)
+})
+
+test('an answer that names a file as the artifact of a stage dependency is rejected with that field, and the next attempt is told about it', async (context) => {
+  const stage = (temp_id: string, title: string) => ({
+    op: 'stage.create',
+    temp_id,
+    title,
+    expected_result: null,
+    summary: null,
+    parent: null,
+    origin: 'inferred',
+    evidence: { $input: '/batch/facts/*/id' },
+    rationale: 'Permission request',
+  })
+  const fileAsVia: ClaudeReply = {
+    kind: 'answer',
+    output: {
+      base_version: { $input: '/model/version' },
+      ops: [
+        stage('read', 'Read the specification'),
+        stage('plan', 'Write the plan'),
+        {
+          op: 'stage.depends',
+          stage: { kind: 'new', temp_id: 'plan' },
+          depends_on: { kind: 'new', temp_id: 'read' },
+          via: 'SPEC.md',
+          evidence: { $input: '/batch/facts/*/id' },
+          rationale: 'The plan follows the specification',
+        },
+      ],
+      needs: [],
+    },
+  }
+  const scene = await createScene(context, { claude: [fileAsVia, accepted] })
+  const session = scene.claudeSession('session-via')
+  await session.start()
+  await session.permission()
+  scene.scheduler.wake()
+  await scene.scheduler.idle()
+  scene.advance(10_000)
+  await scene.scheduler.idle()
+
+  expect(scene.calls(session.run).map(({ verdict }) => verdict)).toEqual(['rejected', 'accepted'])
+  expect(scene.prompts('claude').map(({ previous_attempt: previous }) => previous?.reasons ?? null)).toEqual([
+    null,
+    ['schema: Observer output does not match its schema: ops.2.via: Invalid string: must match pattern /^[0-9a-f]{32}$/'],
+  ])
+  expect(observerSystemPrompt).toContain('its via is the id of the artifact version from batch.artifact_versions that carries that result, or null, never a path or a file name')
 })
 
 test('needs get exactly one immediate follow-up that does not spend an attempt', async (context) => {

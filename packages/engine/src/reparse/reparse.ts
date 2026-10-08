@@ -17,7 +17,14 @@ import { queueFacts } from '../ingest/queue.js'
 import { type Adapters, collectedFields, sessionName } from '../ingest/records.js'
 import type { AgentMove } from '../observations/agents.js'
 import { agentKey } from '../observations/evidence.js'
-import { lostSessions, type QuietWatch, settleQuiet, watchQuiet } from '../observations/freshness.js'
+import {
+  type FreshnessLimits,
+  type FreshnessWatch,
+  lostSessions,
+  settleFreshness,
+  unwatchFreshness,
+  watchFreshness,
+} from '../observations/freshness.js'
 import { projectSession } from '../observations/project.js'
 import { streamOwner } from '../observations/sources.js'
 import { saveReparseBoundary } from './boundary.js'
@@ -133,9 +140,9 @@ const storedObservations = (transaction: Transaction, key: SessionKey): Observat
 const rebuildProjections = (
   transaction: Transaction,
   reparsed: Reparsed,
-  quiet: QuietWatch,
+  watch: FreshnessWatch,
   now: EpochNs,
-  quietAfterMs: number,
+  limits: FreshnessLimits,
 ): SessionKey[] => {
   const supported = new Map(reparsed.keys)
   for (const key of transaction.facts.sessions()) {
@@ -150,12 +157,12 @@ const rebuildProjections = (
   for (const [name, key] of sessions) {
     const rebuild = { unknownRecords: reparsed.unknown.get(name) ?? 0, moves: reparsed.moves }
     const projection = supported.has(name)
-      ? projectSession(transaction, key, [], lost, now, quietAfterMs, rebuild)
+      ? projectSession(transaction, key, [], lost, now, limits, rebuild)
       : null
     if (projection === null) {
-      quiet.delete(objectId(key))
+      unwatchFreshness(watch, objectId(key))
     } else {
-      watchQuiet(quiet, projection.session)
+      watchFreshness(watch, projection)
       rebuilt.push(key)
     }
     const projected = new Set(projection?.objects)
@@ -173,19 +180,19 @@ export type RefreshSessions = (transaction: Transaction, sessions: Iterable<Sess
 export const reparse = (
   store: Store,
   adapters: Adapters,
-  quiet: QuietWatch,
+  watch: FreshnessWatch,
   now: EpochNs,
-  quietAfterMs: number,
+  limits: FreshnessLimits,
   refresh: RefreshSessions,
 ): ReparseResult => {
   const tally = store.transaction((transaction) => {
     const before = store.changes.head()
     const reparsed: Reparsed = { keys: new Map(), unknown: new Map(), moves: new Map(), added: [] }
     const counted = reparseRecords(transaction, adapters, reparsed)
-    const sessions = rebuildProjections(transaction, reparsed, quiet, now, quietAfterMs)
+    const sessions = rebuildProjections(transaction, reparsed, watch, now, limits)
     queueFacts(transaction, reparsed.added)
     refresh(transaction, sessions, now)
-    settleQuiet(transaction, quiet, now, quietAfterMs)
+    settleFreshness(transaction, watch, now, limits)
     const after = store.changes.head()
     if (after > before) {
       saveReparseBoundary(transaction.settings, after, now)
