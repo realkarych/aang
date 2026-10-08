@@ -55,14 +55,27 @@ export const placeOf = (
 
 const sameKey = (left: FactEntityKey, right: FactEntityKey): boolean => JSON.stringify(left) === JSON.stringify(right)
 
-export const factPlace = (objects: ObservationObjects, key: FactEntityKey): string | null => {
+export interface FactOwner {
+  readonly session: SessionId | null
+  readonly agent: AgentId | null
+}
+
+export const factOwner = (objects: ObservationObjects, key: FactEntityKey): FactOwner => {
   if (key.kind === 'run') {
-    return null
+    return { session: null, agent: null }
   }
   const session = objects.sessions.find((candidate) => candidate.key.session === key.session) ?? null
   const action = key.kind === 'action' ? objects.actions.find((candidate) => sameKey(candidate.key, key)) : undefined
   const agent = key.kind === 'agent' ? objects.agents.find((candidate) => sameKey(candidate.key, key)) : undefined
-  return placeOf(objects, session?.id ?? null, action?.agent ?? agent?.id ?? null)
+  return { session: session?.id ?? null, agent: action?.agent ?? agent?.id ?? null }
+}
+
+export const factPlace = (objects: ObservationObjects, key: FactEntityKey): string | null => {
+  if (key.kind === 'run') {
+    return null
+  }
+  const { session, agent } = factOwner(objects, key)
+  return placeOf(objects, session, agent)
 }
 
 export const attentionPlace = (objects: ObservationObjects, item: AttentionItem): string | null => {

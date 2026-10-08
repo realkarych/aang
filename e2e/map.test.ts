@@ -274,12 +274,18 @@ test.describe('with the observer building the map', () => {
     await expect.poll(fitted).toBe(true)
     await map(page).getByRole('button', { name: 'Приблизить' }).click()
     await expect.poll(async () => width(report)).toBeGreaterThan(fittedWidth)
-    await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
+    await map(page).getByRole('button', { name: 'Вписать карту' }).click()
     await expect.poll(fitted).toBe(true)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect.poll(async () => stacked(page, [preparationStageTitle, pingerTitle, reportStageTitle])).toBe(true)
-    await expect.poll(fitted).toBe(true)
+    const startShown = async (): Promise<boolean> => {
+      const [frame, whole] = [await box(canvas), await box(main)]
+      return whole.x >= frame.x && whole.y >= frame.y && whole.x < frame.right && whole.y < frame.bottom
+    }
+    await expect.poll(startShown).toBe(true)
+    const title = await box(pick(main, mainStageTitle))
+    expect(title.bottom - title.y).toBeGreaterThanOrEqual(14)
   })
 
   test('a preparation whose action took no time still precedes the subagent stage by a time-order line (E2E 1, map)', async ({
@@ -558,7 +564,7 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
     await expect(page.getByRole('complementary')).toHaveCount(0)
-    await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
+    await map(page).getByRole('button', { name: 'Вписать карту' }).click()
     await pinger.getByRole('list').click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
     await expect(inspected(page)).toHaveText(/^pinger/)

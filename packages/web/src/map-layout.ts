@@ -17,6 +17,7 @@ export interface Placement {
 
 export interface MapLayout {
   readonly source: VisibleMap
+  readonly width: number
   readonly height: number
   readonly nodes: ReadonlyMap<string, Placement>
   readonly cards: ReadonlyMap<string, Placement>
@@ -253,7 +254,7 @@ export const layoutMap = async (
   const routes = new Map(
     [...pieces].map(([id, route]) => [id, joined(route.flatMap((piece) => segments.get(piece) ?? []))] as const),
   )
-  return { source: map, height: result.height ?? 0, nodes, cards, cardsOnMap, routes }
+  return { source: map, width: result.width ?? 0, height: result.height ?? 0, nodes, cards, cardsOnMap, routes }
 }
 
 export interface Area {
@@ -343,4 +344,16 @@ export const revealedViewport = (
     x: view.x + reveal(anchor.x * view.zoom + view.x, card.width * view.zoom, view.width),
     y: view.y + reveal(anchor.y * view.zoom + view.y, card.height * view.zoom, view.height),
   }
+}
+
+export const readableZoom = 0.8
+
+const fitPadding = 0.08
+
+export const fittedViewport = (layout: MapLayout, area: Area): Omit<Viewport, keyof Area> => {
+  const room = Math.min(area.width / layout.width, area.height / layout.height) / (1 + fitPadding)
+  const zoom = Math.min(1, Math.max(readableZoom, room))
+  const place = (size: number, space: number): number =>
+    size * zoom <= space ? (space - size * zoom) / 2 : margin
+  return { x: place(layout.width, area.width), y: place(layout.height, area.height), zoom }
 }

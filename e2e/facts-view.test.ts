@@ -1,7 +1,8 @@
 import { rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { loadManifest, sampleScenarioManifest } from '@aang/testkit'
 import { expect, type HookFields, test } from './fixtures.js'
+import { recording } from './recordings.js'
 import { claudeFork, claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
 import {
   agentsOf,
@@ -404,5 +405,49 @@ test.describe('with a fast spool scan for decisions and long questions', () => {
     await expect.poll(() => textShown(question, 'Пояснение 1:')).toBe(true)
     await question.getByRole('button', { name: 'Показать полностью' }).click()
     await expect.poll(() => textShown(question, last)).toBe(true)
+  })
+})
+
+test.describe('with a fast spool scan for a recorded plan', () => {
+  test.use({ config: { ...watchAll, collector: { spoolScanIntervalMs: 250 } } })
+
+  test('the plan of a recorded Claude run shows one task list with the last states and one plan for approval, every record stays in a collapsed history', async ({
+    page,
+    player,
+    otelEndpoint,
+  }) => {
+    const manifest = await loadManifest(recording('claude', '2.1.289', 'claude_cli', 'plan'))
+    await (await player(manifest, { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() })).play()
+    await page.goto('/')
+    await page.getByRole('row').nth(1).getByRole('link').click()
+
+    const current = plan(page).getByRole('list', { name: 'Текущий план', exact: true })
+    const blocks = current.getByRole('listitem').filter({ has: page.getByText(/^Задачи решателя$|^План на одобрение$/) })
+    await expect(blocks).toHaveCount(2)
+    const tasks = blocks.nth(0)
+    await expect(tasks).toContainText('Задачи решателя')
+    await expect(tasks).toContainText('Сессия')
+    const items = tasks.getByRole('listitem')
+    await expect(items).toHaveCount(2)
+    await expect(items.nth(0)).toContainText('Write checklist')
+    await expect(items.nth(0)).toContainText('Create checklist.txt with both steps')
+    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(1)).toContainText('Review checklist')
+    await expect(items.nth(1)).toContainText('выполнен')
+    await expect(blocks.nth(1)).toContainText('План на одобрение')
+    await expect(blocks.nth(1)).toContainText('# Checklist plan')
+    await expect(plan(page).getByText('Задачи из hooks')).toHaveCount(0)
+
+    const toggle = plan(page).getByRole('button', { name: /^История записей: \d+$/ })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
+    await expect(history).toHaveCount(0)
+    const records = Number((await toggle.textContent())?.replace(/\D/g, ''))
+    expect(records).toBeGreaterThan(4)
+    await toggle.click()
+    await expect(history).toContainText('Задачи из hooks')
+    await expect(history.getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$/) })).not.toHaveCount(0)
+    await plan(page).getByRole('button', { name: 'Скрыть историю записей' }).click()
+    await expect(history).toHaveCount(0)
   })
 })

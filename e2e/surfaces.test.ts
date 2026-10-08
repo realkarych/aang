@@ -157,6 +157,8 @@ const interpreted = async (page: Page, run: RunId, delegates: readonly Delegate[
   return staged
 }
 
+const titleOnMap = (agent: Agent): string => agentStageTitle(agent).replace(agent.id, agent.id.slice(0, 8))
+
 const agentOf = (staged: ReadonlyMap<string, Agent>, { description }: Delegate): Agent => {
   const agent = staged.get(description)
   if (agent === undefined) {
@@ -219,9 +221,14 @@ for (const variant of variants) {
 
     const outer = await box(main)
     for (const delegate of variant.delegates) {
-      const card = stage(page, agentStageTitle(agentOf(staged, delegate)))
+      const delegated = agentOf(staged, delegate)
+      const card = stage(page, titleOnMap(delegated))
+      await expect(card.getByRole('heading', { level: 3 })).toHaveText(titleOnMap(delegated))
+      await expect(card.getByRole('heading', { level: 3 })).toHaveAttribute('title', agentStageTitle(delegated))
       await expect(card).toContainText(`агент: ${variant.agentType}`)
       await expect(card).toContainText('1 действие')
+      const heading = await box(card.getByRole('heading', { level: 3 }))
+      expect(heading.bottom - heading.y).toBeGreaterThanOrEqual(14)
       const inner = await box(card)
       expect(inner.x).toBeGreaterThan(outer.x)
       expect(inner.y).toBeGreaterThan(outer.y)
@@ -231,7 +238,7 @@ for (const variant of variants) {
 
     const agent = agentOf(staged, chosen)
     const title = agentStageTitle(agent)
-    await stage(page, title).getByRole('button', { name: title, exact: true }).click()
+    await stage(page, titleOnMap(agent)).getByRole('button', { name: titleOnMap(agent), exact: true }).click()
     const heading = inspector(page).getByRole('heading', { level: 2 })
     await expect(heading).toHaveText(title)
     await expect(

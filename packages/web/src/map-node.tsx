@@ -13,7 +13,7 @@ import {
   stageOriginLabel,
   substageForms,
 } from './labels.js'
-import type { EdgeKind, MapStage } from './map-graph.js'
+import { type EdgeKind, type MapStage, mapTitle } from './map-graph.js'
 import { detailLevelLabel, totalsText } from './view-labels.js'
 
 export type Selection = 'self' | 'inside' | 'none'
@@ -61,6 +61,7 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
   const { stage, children, actions, agents } = node
   const team = agents.map(agentLabel).join(', ')
   const selected = selection === 'self'
+  const title = mapTitle(stage.title)
   return (
     <article
       className="stage-card"
@@ -79,7 +80,7 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
             type="button"
             className="stage-toggle nodrag nopan"
             aria-expanded={open}
-            aria-label={`${open ? 'Свернуть' : 'Развернуть'} «${stage.title}»`}
+            aria-label={`${open ? 'Свернуть' : 'Развернуть'} «${title}»`}
             onClick={(event) => {
               event.stopPropagation()
               onToggle(stage.id, !open)
@@ -90,7 +91,7 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
         )}
         <h3 className="stage-title" title={stage.title}>
           <button type="button" className="stage-pick" aria-pressed={selected}>
-            {stage.title}
+            {title}
           </button>
         </h3>
       </header>

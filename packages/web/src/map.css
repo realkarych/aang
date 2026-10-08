@@ -36,13 +36,12 @@
 
 .map-canvas {
   --xy-background-color: var(--paper);
-  --xy-attribution-background-color: color-mix(in srgb, var(--paper) 80%, transparent);
   position: relative;
   background: var(--paper);
 }
 
-.map-canvas .react-flow__attribution a {
-  color: var(--ink-faint);
+.map-canvas[data-fitted='false'] .react-flow__viewport {
+  visibility: hidden;
 }
 
 .map-markers {
