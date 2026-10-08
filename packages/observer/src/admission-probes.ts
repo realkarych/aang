@@ -69,7 +69,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       registryMarkers.clear()
       const branch = [...args]
       if (positive) branch[branch.indexOf('--setting-sources') + 1] = 'project'
-      const result = await run(branch, prompt, directory)
+      const result = await run(branch, prompt, directory, env, marker)
       inspect()
       parseClaudeResult(result, options, observerProtocol, { anyBuiltinPlugin: true, hooks: positive })
       plugins = initPlugins(result.stdout)

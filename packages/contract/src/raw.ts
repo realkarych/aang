@@ -42,6 +42,14 @@ export const StreamLostPosition = z.strictObject({
 })
 export type StreamLostPosition = z.infer<typeof StreamLostPosition>
 
+export const ProcessExitedPosition = z.strictObject({
+  kind: z.literal('process_exited'),
+  path: z.string().min(1),
+  pid: z.int().positive(),
+  content_hash: ContentHash,
+})
+export type ProcessExitedPosition = z.infer<typeof ProcessExitedPosition>
+
 export const SpoolPosition = z.strictObject({
   kind: z.literal('spool'),
   file: SpoolFileName,
@@ -63,6 +71,7 @@ export const CollectedPosition = z.discriminatedUnion('kind', [
   FilePosition,
   FileRemovedPosition,
   StreamLostPosition,
+  ProcessExitedPosition,
   SpoolPosition,
   OtelPosition,
 ])

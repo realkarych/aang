@@ -31,7 +31,7 @@ export interface RecordOwner {
 export interface Adapter {
   readonly runtime: Runtime
   readonly normalizerVersion: NormalizerVersion
-  streamKey(firstLines: readonly string[]): StreamKey | null
+  streamKey(path: string | null, firstLines: readonly string[]): StreamKey | null
   rawKey(record: CollectedRecord): DedupeKey
   parse(record: CollectedRecord): ParseResult
   owner(record: CollectedRecord): RecordOwner | null

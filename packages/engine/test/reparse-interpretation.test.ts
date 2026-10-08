@@ -33,7 +33,7 @@ const previousNormalizer = (runtime: Runtime, parse: Adapter['parse']): Adapter 
   return {
     runtime,
     normalizerVersion: anotherVersion,
-    streamKey: (lines) => adapter.streamKey(lines),
+    streamKey: (path, lines) => adapter.streamKey(path, lines),
     rawKey: (record) => adapter.rawKey(record),
     owner: (record) => adapter.owner(record),
     parse,

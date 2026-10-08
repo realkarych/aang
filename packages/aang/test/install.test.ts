@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { type ClaudeScenario, type CodexScenario, type FakeCli, installFakeClaude, installFakeCodex } from '@aang/testkit'
 import type { TestContext } from 'vitest'
 import { describe, test } from 'vitest'
-import { isAlive, waitUntil } from './processes.js'
+import { isAlive, sleep, waitUntil } from './processes.js'
 import { createSandbox, type Sandbox } from './sandbox.js'
 
 const posix = process.platform !== 'win32'
@@ -37,6 +37,10 @@ interface HooksDocument {
 
 interface RunListing {
   readonly runs: readonly { readonly runtime: string }[]
+}
+
+interface StatusListing {
+  readonly runtimes: readonly { readonly runtime: string; readonly hooks: string }[]
 }
 
 const sample = async (path: string): Promise<Record<string, unknown>> =>
@@ -89,14 +93,22 @@ const run = async (command: string, args: readonly string[], stdin: string): Pro
   return code
 }
 
-const runs = async ({ sandbox }: Connected): Promise<RunListing['runs']> => {
+const readApi = async ({ sandbox }: Connected, path: string): Promise<unknown> => {
   const state = await sandbox.daemonState()
   const token = (await readFile(join(sandbox.aangHome, 'token'), 'utf8')).trim()
-  const response = await fetch(`http://127.0.0.1:${String(state?.api.port ?? 0)}/api/runs`, {
+  const response = await fetch(`http://127.0.0.1:${String(state?.api.port ?? 0)}${path}`, {
     headers: { authorization: `Bearer ${token}` },
   })
-  return ((await response.json()) as RunListing).runs
+  return response.json()
 }
+
+const runs = async (connected: Connected): Promise<RunListing['runs']> =>
+  ((await readApi(connected, '/api/runs')) as RunListing).runs
+
+const daemonCodexHooks = async (connected: Connected): Promise<string | undefined> =>
+  ((await readApi(connected, '/api/status')) as StatusListing).runtimes.find(({ runtime }) => runtime === 'codex')?.hooks
+
+const appServers = (codex: FakeCli<CodexScenario>) => codex.calls().filter((call) => call.command === 'app_server')
 
 const pluginCalls = (claude: FakeCli<ClaudeScenario>): string[][] =>
   claude.calls().filter((call) => call.command === 'plugin').map((call) => call.argv)
@@ -127,9 +139,7 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
       ['plugin', 'install', 'aang@aang', '--scope', 'user', '--json'],
       ['plugin', 'list', '--json'],
     ])
-    const appServers = codex.calls().filter((call) => call.command === 'app_server')
-    expect(appServers).toHaveLength(3)
-    expect(appServers.map((call) => call.env.CODEX_HOME)).toEqual(Array(3).fill(codexHome))
+    expect(appServers(codex).map((call) => call.env.CODEX_HOME)).toEqual(Array(2).fill(codexHome))
 
     const [pluginHandler] = handlersOf(await readHooks(pluginHooks), 'SessionStart')
     expect(pluginHandler).toEqual({
@@ -259,12 +269,11 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
         { type: 'command', command: 'true', timeout: 2 },
         aangHandler,
       ])
-      const appServers = codex.calls().filter((call) => call.command === 'app_server')
-      expect(codex.calls()).toEqual(appServers)
-      expect(appServers.map((call) => [call.env.CODEX_HOME, call.cwd])).toEqual(
-        Array(3).fill([profile, defaultCodexHome]),
+      expect(codex.calls()).toEqual(appServers(codex))
+      expect(appServers(codex).map((call) => [call.env.CODEX_HOME, call.cwd])).toEqual(
+        Array(2).fill([profile, defaultCodexHome]),
       )
-      expect(appServers.filter((call) => isAlive(call.pid))).toEqual([])
+      expect(appServers(codex).filter((call) => isAlive(call.pid))).toEqual([])
     },
   )
 
@@ -377,6 +386,7 @@ describe.concurrent('aang install and uninstall on any platform', () => {
       expect((await sandbox.aang('status')).stdout).toContain(
         `claude hooks: active\ncodex hooks: not installed\n${offByDefault}\n`,
       )
+      expect(appServers(codex)).toEqual([])
 
       const optedIn = await sandbox.aang('install', '--codex')
 
@@ -398,6 +408,9 @@ describe.concurrent('aang install and uninstall on any platform', () => {
           timeout: 2,
         },
       ])
+      await waitUntil(async () => (await daemonCodexHooks(connected)) === 'untrusted')
+      await sleep(5_000)
+      expect(appServers(codex)).toHaveLength(2)
       expect((await sandbox.aang('status')).stdout).toContain(
         `codex hooks: not trusted; trust them in Codex with /hooks\ncodex: ${slowdown}\n`,
       )
@@ -424,7 +437,7 @@ describe.concurrent('aang install and uninstall on any platform', () => {
 
       await waitUntil(async () => (await runs(connected)).length === 2)
       expect((await runs(connected)).map((listed) => listed.runtime).sort()).toEqual(['claude', 'codex'])
-      expect(codex.calls().filter((call) => call.command === 'app_server' && isAlive(call.pid))).toEqual([])
+      expect(appServers(codex).filter((call) => isAlive(call.pid))).toEqual([])
       expect((await sandbox.aang('stop')).code).toBe(0)
 
       const removed = await sandbox.aang('uninstall')

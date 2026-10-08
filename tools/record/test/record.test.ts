@@ -608,7 +608,7 @@ test('the host name in OTLP resource attributes is replaced while the Codex adap
   expect(resource['user.account_id']).toMatch(/^ACCOUNT_\d+$/)
   expect(received).toEqual(identified({ resourceLogs }, String(resource['host.name']), String(resource['user.account_id'])))
   const conversation = resourceLogs[0]?.scopeLogs[0]?.logRecords[0]?.attributes.find(({ key }) => key === 'conversation.id')?.value.stringValue
-  const stream = codexAdapter.streamKey([JSON.stringify({ hook_event_name: 'SessionStart', session_id: conversation })])
+  const stream = codexAdapter.streamKey(null, [JSON.stringify({ hook_event_name: 'SessionStart', session_id: conversation })])
   const parse = (payload: string): ParseResult => codexAdapter.parse(CollectedRecord.parse({
     channel: 'otel', runtime: 'codex', stream, hook: null, observed_at: 1_790_856_592_228_739_000n, payload, position: { kind: 'otel' },
   }))

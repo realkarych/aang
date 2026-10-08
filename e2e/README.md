@@ -61,4 +61,4 @@ test('прогон из образца виден в API', async ({ player, page
 2. `coverage:e2e` — Playwright под `c8 --clean=false`. Демоны и `aang open` наследуют `NODE_V8_COVERAGE` через окружение профиля и пишут покрытие при штатной остановке. Фикстура `page` снимает JS-покрытие Chromium и пишет его для сборки `web` в тот же каталог; `c8` переводит его в исходники через source map;
 3. `coverage:report` — общий отчёт и покрытие `aang-hook`.
 
-В CI это шаги задания `check` на macOS, Linux и Windows. При падении выкладываются `test-results/` с трассами Playwright.
+После выхода обёрнутой команды `c8` сводит весь каталог `coverage/tmp`, даже при `--reporter=none`. Поэтому задание `check` в CI на macOS, Linux и Windows собирает те же сырые данные без промежуточных сводок: `pnpm test` и `pnpm e2e` идут с `NODE_V8_COVERAGE=coverage/tmp`, а сводит их один раз `coverage:report`. При падении выкладываются `test-results/` с трассами Playwright.
