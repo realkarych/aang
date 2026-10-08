@@ -22,7 +22,7 @@ import { type ConfigInput, createProfile, type Profile, type RunningDaemon } fro
 import type { Clis } from './clis.js'
 import { writeGate } from './gate.js'
 import type { Journal } from './journal.js'
-import { exists, type Finished, killProcess, type Launched, launch, processTree, runToEnd, shellPath, tail } from './processes.js'
+import { type Finished, killProcess, type Launched, launch, type ProcessEntry, processTree, shellPath, tail } from './processes.js'
 import { type RawCount, rawCounts, storedCursors, type UnknownRecord, unknownRecords } from './store.js'
 
 export interface LabPaths {
@@ -312,22 +312,26 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
     return current
   }
 
+  const strays = (): ProcessEntry[] => {
+    const running = [...daemons, ...launched].filter((child) => child.pid > 0 && child.running()).map(({ pid }) => pid)
+    const listed = processTree(running, launched.map(({ pid }) => pid), profile.root)
+    const unlisted = running.filter((pid) => !listed.some((entry) => entry.pid === pid))
+    return [...listed, ...unlisted.map((pid) => ({ pid, parent: 0, group: 0, command: `pid ${String(pid)}` }))]
+  }
+
   const reap = async (when: string): Promise<{ readonly killed: number; readonly surviving: readonly number[] }> => {
-    const children = [...daemons, ...launched].filter((child) => child.pid > 0 && child.running())
-    const listed = processTree(children.map(({ pid }) => pid), profile.root)
-    const pids = [...new Set([...children.map(({ pid }) => pid), ...listed.map(({ pid }) => pid)])]
-    if (pids.length === 0) return { killed: 0, surviving: [] }
-    journal.observe(
-      `processes of the profile still running ${when}`,
-      pids.map((pid) => listed.find((entry) => entry.pid === pid)?.command ?? `pid ${String(pid)}`),
-    )
-    for (const child of launched) child.terminate()
-    for (const pid of pids) killProcess(pid)
-    const surviving = (): number[] => pids.filter(exists)
-    await waitFor('the killed processes of the profile to exit', () => Promise.resolve(surviving().length === 0), strayKillLimitMs).catch(
-      () => undefined,
-    )
-    return { killed: pids.length, surviving: surviving() }
+    const killed = new Map<number, string>()
+    const deadline = performance.now() + strayKillLimitMs
+    let left = strays()
+    while (left.length > 0 && performance.now() < deadline) {
+      for (const { pid, command } of left) killed.set(pid, command)
+      for (const child of launched) child.terminate()
+      for (const { pid } of left) killProcess(pid)
+      await sleep(250)
+      left = strays()
+    }
+    if (killed.size > 0) journal.observe(`processes of the profile still running ${when}`, [...killed.values()])
+    return { killed: killed.size, surviving: left.map(({ pid }) => pid) }
   }
 
   const bounded = async <T>(what: string, work: Promise<T>): Promise<T> => {
@@ -363,11 +367,13 @@ export const createLab = async (options: LabOptions): Promise<Lab> => {
   }
 
   const aang = async (...args: readonly string[]): Promise<Finished> => {
-    const result = await runToEnd(process.execPath, [aangEntry, ...args], {
+    const child = launch(process.execPath, [aangEntry, ...args], {
       cwd: profile.home,
       env: profile.env,
       timeoutMs: cliTimeoutMs,
     })
+    launched.push(child)
+    const result = await child.done
     journal.step(`aang ${args.join(' ')}`, { code: result.code, stdout: tail(result.stdout), stderr: tail(result.stderr) })
     return result
   }

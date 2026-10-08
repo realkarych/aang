@@ -33,6 +33,12 @@ Each scenario records its steps with times, its checks (expected and observed) a
 
 The report replaces the temporary and home directories with `<tmp>` and `~`, also inside the Claude project directory names that encode them, and is not written if it still names a user path.
 
-A daemon exit or a cleanup step of a scenario that does not finish within 60 s fails that scenario. The tool then kills the daemons and CLIs the scenario started, their descendants and the processes whose command line names the profile, and the report lists them. Every cleanup step runs even when an earlier one fails, the scenario reports all their errors, and the cleanup ends with the same kill of whatever still runs, so no process of a scenario outlives it.
+A daemon exit or a cleanup step of a scenario that does not finish within 60 s fails that scenario. Every cleanup step runs even when an earlier one fails, and the scenario reports all their errors. After such a hang and at the end of every cleanup the tool kills, until none is left, and lists in the report:
+
+- the running daemons, CLIs and `aang` commands of the scenario with their descendants;
+- on Linux and macOS, every process in the process group of a CLI or `aang` command of the scenario, also after that command exited;
+- every process whose command line or environment names the profile.
+
+If one of them still runs 30 s later, the scenario fails. Only a process outside these process groups whose parent exited and whose command line and environment do not name the profile is not found. macOS `ps` does not show the environment of system binaries such as `/bin/sleep`. Windows has no process groups and the tool does not read the environment there, so such a process is found on Windows only by its command line.
 
 The `Resilience` workflow runs all scenarios on Linux, macOS and Windows with the CLI versions pinned in it and uploads the report. On Windows Claude runs its Bash tool in Git Bash and Codex its commands in PowerShell; the gate command works in both.

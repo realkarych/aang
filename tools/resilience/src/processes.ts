@@ -57,9 +57,14 @@ export const launch = (command: string, args: readonly string[], options: Launch
   child.stdin.on('error', () => undefined)
   child.stdin.end(options.input ?? '')
   const pid = child.pid
+  let closed = false
+  const running = (): boolean => child.exitCode === null && child.signalCode === null
+  const terminate = (): void => {
+    if (pid !== undefined && (windows ? running() : !closed)) killTree(pid)
+  }
   const timer = setTimeout(() => {
     timedOut = true
-    if (pid !== undefined) killTree(pid)
+    terminate()
   }, options.timeoutMs)
   const done = new Promise<Finished>((resolve, reject) => {
     child.on('error', (error) => {
@@ -67,14 +72,11 @@ export const launch = (command: string, args: readonly string[], options: Launch
       reject(error)
     })
     child.on('close', (code, signal) => {
+      closed = true
       clearTimeout(timer)
       resolve({ code, signal, stdout, stderr, timedOut })
     })
   })
-  const running = (): boolean => child.exitCode === null && child.signalCode === null
-  const terminate = (): void => {
-    if (pid !== undefined && running()) killTree(pid)
-  }
   return {
     pid: pid ?? -1,
     done,
@@ -87,46 +89,64 @@ export const launch = (command: string, args: readonly string[], options: Launch
   }
 }
 
-export const runToEnd = async (command: string, args: readonly string[], options: LaunchOptions): Promise<Finished> =>
-  launch(command, args, options).done
-
 export interface ProcessEntry {
   readonly pid: number
   readonly parent: number
+  readonly group: number
   readonly command: string
 }
 
-const listProcesses = (): ProcessEntry[] => {
+const listingLimit = 64 * 1024 * 1024
+
+const listing = (command: string, args: readonly string[]): string[] => {
   try {
-    const output = windows
-      ? execFileSync(
-          'powershell.exe',
-          [
-            '-NoProfile',
-            '-NonInteractive',
-            '-Command',
-            '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)`t$($_.ParentProcessId)`t$($_.CommandLine)" }',
-          ],
-          { encoding: 'utf8', windowsHide: true, timeout: 60_000 },
-        )
-      : execFileSync('ps', ['-A', '-o', 'pid=,ppid=,args='], { encoding: 'utf8', timeout: 60_000 })
-    return output.split(/\r?\n/).flatMap((line) => {
-      const match = /^\s*(\d+)\s+(\d+)\s*(.*)$/.exec(line)
-      return match === null ? [] : [{ pid: Number(match[1]), parent: Number(match[2]), command: match[3] ?? '' }]
-    })
+    return execFileSync(command, args, { encoding: 'utf8', windowsHide: true, timeout: 60_000, maxBuffer: listingLimit }).split(
+      /\r?\n/,
+    )
   } catch {
     return []
   }
 }
 
+const listProcesses = (): ProcessEntry[] =>
+  windows
+    ? listing('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        '[Console]::OutputEncoding = [Text.Encoding]::UTF8; Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId)`t$($_.ParentProcessId)`t$($_.CommandLine)" }',
+      ]).flatMap((line) => {
+        const match = /^\s*(\d+)\s+(\d+)\s*(.*)$/.exec(line)
+        return match === null ? [] : [{ pid: Number(match[1]), parent: Number(match[2]), group: 0, command: match[3] ?? '' }]
+      })
+    : listing('ps', ['-A', '-o', 'pid=,ppid=,pgid=,stat=,args=']).flatMap((line) => {
+        const match = /^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s*(.*)$/.exec(line)
+        return match === null || match[4]?.startsWith('Z') === true
+          ? []
+          : [{ pid: Number(match[1]), parent: Number(match[2]), group: Number(match[3]), command: match[5] ?? '' }]
+      })
+
+const environments = (): ReadonlyMap<number, string> =>
+  new Map(
+    windows
+      ? []
+      : listing('ps', ['-A', process.platform === 'darwin' ? '-E' : 'e', '-o', 'pid=,args=']).flatMap((line) => {
+          const match = /^\s*(\d+) (.*)$/.exec(line)
+          return match === null ? [] : [[Number(match[1]), match[2] ?? ''] as const]
+        }),
+  )
+
 const comparable = (text: string): string => (windows ? text.replaceAll('/', '\\').toLowerCase() : text)
 
-export const processTree = (roots: readonly number[], directory: string): ProcessEntry[] => {
+export const processTree = (roots: readonly number[], groups: readonly number[], directory: string): ProcessEntry[] => {
   const listed = listProcesses().filter(({ pid }) => pid !== process.pid)
+  const environment = environments()
+  const present = new Set(listed.map(({ pid }) => pid))
+  const leaders = new Set(groups.filter((group) => group > 0 && (roots.includes(group) || !present.has(group))))
+  const names = (entry: ProcessEntry): boolean =>
+    [entry.command, environment.get(entry.pid) ?? ''].some((text) => comparable(text).includes(comparable(directory)))
   const selected = new Set(
-    listed
-      .filter(({ pid, command }) => roots.includes(pid) || comparable(command).includes(comparable(directory)))
-      .map(({ pid }) => pid),
+    listed.filter((entry) => roots.includes(entry.pid) || leaders.has(entry.group) || names(entry)).map(({ pid }) => pid),
   )
   let grown = true
   while (grown) {
@@ -135,15 +155,6 @@ export const processTree = (roots: readonly number[], directory: string): Proces
     grown = children.length > 0
   }
   return listed.filter(({ pid }) => selected.has(pid))
-}
-
-export const exists = (pid: number): boolean => {
-  try {
-    process.kill(pid, 0)
-    return true
-  } catch {
-    return false
-  }
 }
 
 export const killProcess = (pid: number): void => {
