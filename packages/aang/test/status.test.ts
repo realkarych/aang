@@ -15,6 +15,12 @@ const notObservable = 'not observable: claude_cowork, claude_cloud, codex_cloud,
 
 const hostOs = process.platform === 'win32' ? 'windows' : process.platform === 'darwin' ? 'macos' : 'linux'
 
+const codexNotInstalled = `codex hooks: not installed\n${
+  process.platform === 'win32'
+    ? 'codex: hooks are not installed by default on Windows: Codex sessions are observed from their files only, so approval waits are not visible\n'
+    : ''
+}`
+
 const codexRollout = fileURLToPath(
   new URL(
     '../../../docs/research/samples/codex-cli/rollout/rollout-real-exec-then-resume-with-compaction.jsonl',
@@ -36,7 +42,7 @@ const closedPort = async (): Promise<number> => {
 }
 
 describe.concurrent('aang status shows the connection state of the running daemon', () => {
-  test('without runtime CLIs the hooks state is unknown, and a stopped daemon shows no connection state', async ({
+  test('without runtime CLIs the Claude hooks state is unknown, Codex without aang hooks needs no CLI to be not installed, and a stopped daemon shows no connection state', async ({
     expect,
     onTestFinished,
   }) => {
@@ -49,7 +55,7 @@ describe.concurrent('aang status shows the connection state of the running daemo
 
     expect(running.code).toBe(0)
     expect(running.stdout).toContain(
-      `claude hooks: unknown, the check did not succeed\ncodex hooks: unknown, the check did not succeed\n${notObservable}`,
+      `claude hooks: unknown, the check did not succeed\n${codexNotInstalled}${notObservable}`,
     )
     expect(stopped.code).toBe(0)
     expect(stopped.stdout).not.toContain('hooks:')
@@ -134,7 +140,7 @@ describe.concurrent('aang status shows the connection state of the running daemo
 
     expect(status.code).toBe(0)
     expect(status.stdout).toContain(
-      `codex hooks: unknown, the check did not succeed\ncodex: hooks inactive in 1 session\n${version}${notObservable}`,
+      `${codexNotInstalled}codex: hooks inactive in 1 session\n${version}${notObservable}`,
     )
   })
 
