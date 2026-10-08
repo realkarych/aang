@@ -407,6 +407,11 @@ export const DefinitionListingPayload = z.strictObject({
 })
 export type DefinitionListingPayload = z.infer<typeof DefinitionListingPayload>
 
+export const AgentPromptPayload = z.strictObject({
+  text,
+})
+export type AgentPromptPayload = z.infer<typeof AgentPromptPayload>
+
 export const QueueOperationPayload = z.strictObject({
   operation: name,
   content: text.nullable(),
@@ -493,6 +498,7 @@ export const factPayloads = {
   instructions_loaded: InstructionsLoadedPayload,
   hook_run: HookRunPayload,
   definition_listing: DefinitionListingPayload,
+  agent_prompt: AgentPromptPayload,
   queue_operation: QueueOperationPayload,
   runtime_error: RuntimeErrorPayload,
   runtime_event: RuntimeEventPayload,
@@ -574,6 +580,7 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('instructions_loaded', shape),
     variant('hook_run', shape),
     variant('definition_listing', shape),
+    variant('agent_prompt', shape),
     variant('queue_operation', shape),
     variant('runtime_error', shape),
     variant('runtime_event', shape),
