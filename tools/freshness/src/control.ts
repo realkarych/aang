@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import { ChangeSeq, type FactId, type RawRecord, type RawSeq, type RunId } from '@aang/contract'
 import type { Store } from '@aang/store'
-import { type PlayedStep, type PlayerRoots, type PlayerStep, type RecordShift, shifted, type Target } from '@aang/testkit'
+import { type PlayedStep, type PlayerRoots, type RecordShift, shifted, type Target } from '@aang/testkit'
 import type { Recording } from './recording.js'
 
 export interface Played {
@@ -22,6 +22,8 @@ export interface RecordIndex {
   readonly lines: ReadonlyMap<string, readonly IndexedRecord[]>
 }
 
+export type StepRecords = ReadonlyMap<Played, ReadonlyMap<number, readonly IndexedRecord[]>>
+
 export interface ControlRecords {
   readonly observedAt: bigint | null
   readonly sourceAt: bigint | null
@@ -29,7 +31,36 @@ export interface ControlRecords {
   readonly runs: readonly RunId[]
 }
 
+interface Slot {
+  readonly playback: Played
+  readonly position: number
+  readonly key: string
+  readonly from: bigint
+  readonly until: bigint
+}
+
+interface Delivery {
+  readonly key: string
+  readonly record: IndexedRecord
+}
+
+interface Chunk {
+  readonly position: number
+  readonly path: string
+  readonly openLine: number | null
+  readonly offset: number
+  readonly lastLineEnd: number | null
+}
+
+interface FileState {
+  readonly end: number
+  readonly lineStart: number | null
+}
+
 const pageSize = 1_000
+const nanosecondsPerMillisecond = 1_000_000n
+const clockSkewNs = 250n * nanosecondsPerMillisecond
+const lineFeed = 0x0a
 
 const deliveryKey = (...parts: readonly string[]): string => JSON.stringify(parts)
 
@@ -41,6 +72,8 @@ const recordKey = ({ channel, runtime, hook, position, payload }: RawRecord): st
       : null
 
 const pathOf = (roots: PlayerRoots, target: Target): string => join(roots[target.root], ...target.path.split('/'))
+
+const nanoseconds = (ms: number): bigint => BigInt(ms) * nanosecondsPerMillisecond
 
 const rawRecords = (store: Store): RawRecord[] => {
   const records: RawRecord[] = []
@@ -55,15 +88,12 @@ const rawRecords = (store: Store): RawRecord[] => {
   }
 }
 
-const byObservation = ({ raw: left }: IndexedRecord, { raw: right }: IndexedRecord): number =>
-  left.observed_at === right.observed_at ? left.seq - right.seq : left.observed_at < right.observed_at ? -1 : 1
-
-const add = (groups: Map<string, IndexedRecord[]>, key: string, record: IndexedRecord): void => {
+const add = <K, V>(groups: Map<K, V[]>, key: K, value: V): void => {
   const group = groups.get(key)
   if (group === undefined) {
-    groups.set(key, [record])
+    groups.set(key, [value])
   } else {
-    group.push(record)
+    group.push(value)
   }
 }
 
@@ -89,62 +119,174 @@ export const indexRecords = (store: Store): RecordIndex => {
       add(lines, raw.position.path, record)
     }
   }
-  for (const group of deliveries.values()) {
-    group.sort(byObservation)
-  }
   return { deliveries, lines }
 }
 
-export const deliveryKeys = ({ recording, shift }: Played, roots: PlayerRoots): (string | null)[] => {
-  const content = (source: string): string =>
-    shifted(recording.playback.sources.get(source) ?? Buffer.alloc(0), shift).toString('utf8')
-  return recording.playback.steps.map((step: PlayerStep): string | null => {
+const replay = (playback: Played, roots: PlayerRoots): { slots: Slot[]; chunks: Chunk[] } => {
+  const { recording, shift, steps: played } = playback
+  const contents = new Map<string, Buffer>()
+  const content = (source: string): Buffer => {
+    const loaded = contents.get(source) ?? shifted(recording.playback.sources.get(source) ?? Buffer.alloc(0), shift)
+    contents.set(source, loaded)
+    return loaded
+  }
+  const consumed = new Map<string, number>()
+  const files = new Map<string, FileState>()
+  const slots: Slot[] = []
+  const chunks: Chunk[] = []
+  recording.playback.steps.forEach((step, position) => {
+    const done = played[position]
+    if (done === undefined) {
+      return
+    }
+    const slot = (key: string): Slot => ({
+      playback,
+      position,
+      key,
+      from: nanoseconds(done.startedAt) - clockSkewNs,
+      until: nanoseconds(done.playedAt + 1) + clockSkewNs,
+    })
     switch (step.kind) {
       case 'hook':
-        return deliveryKey('hook', step.runtime, step.registration, content(step.source))
-      case 'write':
-        return deliveryKey('file', pathOf(roots, step.target), content(step.source))
-      default:
-        return null
+        slots.push(slot(deliveryKey('hook', step.runtime, step.registration, content(step.source).toString('utf8'))))
+        return
+      case 'write': {
+        const path = pathOf(roots, step.target)
+        const written = content(step.source)
+        files.set(path, { end: written.length, lineStart: written.lastIndexOf(lineFeed) + 1 })
+        slots.push(slot(deliveryKey('file', path, written.toString('utf8'))))
+        return
+      }
+      case 'append': {
+        if (done.appended === null) {
+          return
+        }
+        const { offset, bytes } = done.appended
+        const start = consumed.get(step.source) ?? 0
+        consumed.set(step.source, start + bytes)
+        const appended = content(step.source).subarray(start, start + bytes)
+        const path = pathOf(roots, step.target)
+        const before = files.get(path)
+        const openLine = before?.end === offset ? before.lineStart : offset === 0 ? 0 : null
+        const lastLineFeed = appended.lastIndexOf(lineFeed)
+        files.set(path, { end: offset + appended.length, lineStart: lastLineFeed < 0 ? openLine : offset + lastLineFeed + 1 })
+        chunks.push({ position, path, openLine, offset, lastLineEnd: lastLineFeed < 0 ? null : offset + lastLineFeed })
+        return
+      }
+      case 'move': {
+        const from = pathOf(roots, step.target)
+        const moved = files.get(from)
+        files.delete(from)
+        if (moved !== undefined) {
+          files.set(pathOf(roots, step.to), moved)
+        }
+        return
+      }
+      case 'archive':
+      case 'remove':
+        files.delete(pathOf(roots, step.target))
+        return
+      case 'otlp':
+        return
     }
   })
+  return { slots, chunks }
+}
+
+const fits = (slot: Slot, { key, record }: Delivery): boolean =>
+  slot.key === key && record.raw.observed_at >= slot.from && record.raw.observed_at < slot.until
+
+const byObservedAt = (left: Delivery, right: Delivery): number =>
+  left.record.raw.observed_at < right.record.raw.observed_at ? -1 : left.record.raw.observed_at > right.record.raw.observed_at ? 1 : 0
+
+const earliest = (slots: readonly Slot[], moments: readonly (readonly Delivery[])[]): Map<Delivery, number> | null => {
+  const placed = new Map<Delivery, number>()
+  let bound = -1
+  for (const moment of moments) {
+    const taken: number[] = []
+    for (const delivery of moment) {
+      const position = slots.findIndex((slot, at) => at > bound && !taken.includes(at) && fits(slot, delivery))
+      if (position < 0) {
+        return null
+      }
+      taken.push(position)
+      placed.set(delivery, position)
+    }
+    bound = Math.max(...taken)
+  }
+  return placed
+}
+
+const latest = (slots: readonly Slot[], moments: readonly (readonly Delivery[])[]): Map<Delivery, number> | null => {
+  const placed = earliest(slots.toReversed(), moments.toReversed())
+  return placed === null ? null : new Map([...placed].map(([delivery, position]) => [delivery, slots.length - 1 - position]))
+}
+
+const align = (slots: readonly Slot[], deliveries: readonly Delivery[]): [Slot, IndexedRecord][] => {
+  const moments = [...Map.groupBy(deliveries.toSorted(byObservedAt), ({ record }) => record.raw.observed_at).values()]
+  const first = earliest(slots, moments)
+  const last = latest(slots, moments)
+  if (first === null || last === null) {
+    return []
+  }
+  return moments.flatMap((moment) =>
+    moment.flatMap((delivery): [Slot, IndexedRecord][] => {
+      const position = first.get(delivery)
+      const slot = position === undefined ? undefined : slots[position]
+      const twin = moment.some((other) => other !== delivery && other.key === delivery.key)
+      return slot === undefined || twin || last.get(delivery) !== position ? [] : [[slot, delivery.record]]
+    }),
+  )
+}
+
+const assign = (index: RecordIndex, slots: readonly Slot[]): Map<Slot, IndexedRecord> => {
+  const shared = new Set(
+    [...Map.groupBy(slots, ({ key }) => key)].flatMap(([key, keyed]) =>
+      new Set(keyed.map(({ playback }) => playback)).size > 1 ? [key] : [],
+    ),
+  )
+  return new Map(
+    [...Map.groupBy(slots, ({ playback }) => playback).values()].flatMap((own) =>
+      align(
+        own,
+        [...new Set(own.map(({ key }) => key))].flatMap((key) =>
+          shared.has(key) ? [] : (index.deliveries.get(key) ?? []).map((record) => ({ key, record })),
+        ),
+      ),
+    ),
+  )
+}
+
+const completedLines = (index: RecordIndex, { path, openLine, offset, lastLineEnd }: Chunk): IndexedRecord[] =>
+  lastLineEnd === null
+    ? []
+    : (index.lines.get(path) ?? []).filter(
+        ({ raw: { position: line } }) =>
+          line.kind === 'line' && (line.offset === openLine || (line.offset >= offset && line.offset <= lastLineEnd)),
+      )
+
+export const stepRecords = (index: RecordIndex, played: readonly Played[], roots: PlayerRoots): StepRecords => {
+  const replayed = played.map((playback) => ({ playback, ...replay(playback, roots) }))
+  const taken = assign(index, replayed.flatMap(({ slots }) => slots))
+  return new Map(
+    replayed.map(({ playback, slots, chunks }) => [
+      playback,
+      new Map([
+        ...slots.map((slot): [number, readonly IndexedRecord[]] => {
+          const record = taken.get(slot)
+          return [slot.position, record === undefined ? [] : [record]]
+        }),
+        ...chunks.map((chunk): [number, readonly IndexedRecord[]] => [chunk.position, completedLines(index, chunk)]),
+      ]),
+    ]),
+  )
 }
 
 const minimum = (values: readonly bigint[]): bigint | null =>
   values.reduce<bigint | null>((least, value) => (least === null || value < least ? value : least), null)
 
-const delivered = (
-  index: RecordIndex,
-  played: Played,
-  keys: readonly (string | null)[],
-  position: number,
-  roots: PlayerRoots,
-): IndexedRecord[] => {
-  const step = played.recording.playback.steps[position]
-  const appended = played.steps[position]?.appended ?? null
-  if (step?.kind === 'append' && appended !== null) {
-    const end = appended.offset + appended.bytes
-    return (index.lines.get(pathOf(roots, step.target)) ?? []).filter(
-      ({ raw: { position: line } }) => line.kind === 'line' && line.offset >= appended.offset && line.offset < end,
-    )
-  }
-  const key = keys[position] ?? null
-  if (key === null) {
-    return []
-  }
-  const occurrence = keys.slice(0, position).filter((earlier) => earlier === key).length
-  const record = index.deliveries.get(key)?.[occurrence]
-  return record === undefined ? [] : [record]
-}
-
-export const controlRecords = (
-  index: RecordIndex,
-  played: Played,
-  keys: readonly (string | null)[],
-  position: number,
-  roots: PlayerRoots,
-): ControlRecords => {
-  const matched = delivered(index, played, keys, position, roots).filter(({ runs }) => runs.size > 0)
+export const controlRecords = (delivered: readonly IndexedRecord[]): ControlRecords => {
+  const matched = delivered.filter(({ runs }) => runs.size > 0)
   return {
     observedAt: minimum(matched.map(({ raw }) => raw.observed_at)),
     sourceAt: minimum(matched.flatMap(({ raw }) => (raw.source_ts === null ? [] : [raw.source_ts]))),

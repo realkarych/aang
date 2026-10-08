@@ -1,5 +1,5 @@
 import { ChangeSeq, type CollectedGap, EpochNs, ModelVersion } from '@aang/contract'
-import { runId } from '@aang/contract/ids'
+import { contentHash, runId } from '@aang/contract/ids'
 import { createEngine } from '@aang/engine'
 import { describe, expect, test } from 'vitest'
 import { batchOf, hookBatch, joinBatches, jsonlFile } from './batches.js'
@@ -446,6 +446,39 @@ describe('a hook record that names no session', () => {
         detected_at: batch.records[0]?.observed_at,
         closed_at: null,
       }),
+    ])
+  })
+})
+
+describe('a removed session registry file', () => {
+  test('is discarded without a gap, while an unreadable registry file still leaves one', async ({ onTestFinished }) => {
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const engine = startEngine(store, { roots: [] })
+    const registry = (path: string, payload: string, observed: number) => ({
+      runtime: 'claude' as const,
+      channel: 'registry' as const,
+      stream: null,
+      hook: null,
+      observed_at: EpochNs.parse(1_790_856_592_228_739_000n + BigInt(observed)),
+      position:
+        payload === ''
+          ? { kind: 'file_removed' as const, path, last_content_hash: null }
+          : { kind: 'file' as const, path, content_hash: contentHash(payload) },
+      payload,
+    })
+    const removed = batchOf({ records: [registry('/home/u/.claude/sessions/4242.json', '', 1)] })
+    const unreadable = batchOf({ records: [registry('/home/u/.claude/sessions/4343.json', '{"pid": 4343', 2)] })
+
+    const removal = await engine.ingest(removed)
+    await engine.ingest(removed)
+    expect(removal).toMatchObject({ inserted: 0, discarded: 1 })
+    expect(recordsOf(store)).toEqual([])
+    expect(gapsOf(store)).toEqual([])
+
+    await engine.ingest(unreadable)
+    expect(gapsOf(store).map(({ key, details }) => [key.gap, details])).toEqual([
+      ['unknown_records', 'claude registry record (invalid) discarded: it names no session'],
     ])
   })
 })

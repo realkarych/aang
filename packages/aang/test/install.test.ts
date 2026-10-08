@@ -10,6 +10,7 @@ import { isAlive, waitUntil } from './processes.js'
 import { createSandbox, type Sandbox } from './sandbox.js'
 
 const posix = process.platform !== 'win32'
+const hookBinaryName = posix ? 'aang-hook' : 'aang-hook.exe'
 
 interface Connected {
   readonly sandbox: Sandbox
@@ -55,7 +56,7 @@ const connect = async (
   const codex = installFakeCodex(join(outside, 'fakes'))
   const codexHome = join(outside, 'codex')
   const sandbox = await createSandbox(onTestFinished, {
-    cli: { claude: claude.command, codex: codex.command },
+    cli: { claude: claude.executable, codex: codex.executable },
     watch: { roots: [{ path: workspace }] },
     runtimes: { codex: { home: codexHome } },
     ...config,
@@ -69,17 +70,20 @@ const connect = async (
     defaultCodexHome: join(sandbox.env.HOME ?? '', '.codex'),
     pluginHooks: join(sandbox.aangHome, 'claude-plugin', 'hooks', 'hooks.json'),
     codexHooks: join(codexHome, 'hooks.json'),
-    hookBinary: join(sandbox.aangHome, 'bin', 'aang-hook'),
+    hookBinary: join(sandbox.aangHome, 'bin', hookBinaryName),
   }
 }
 
 const readHooks = async (path: string): Promise<HooksDocument> => JSON.parse(await readFile(path, 'utf8')) as HooksDocument
 
+const powerShellQuoted = (value: string): string => `'${value.replaceAll("'", "''")}'`
+
 const handlersOf = (document: HooksDocument, event: string): CommandHandler[] =>
   (document.hooks[event] ?? []).flatMap((group) => group.hooks)
 
 const run = async (command: string, args: readonly string[], stdin: string): Promise<number | null> => {
-  const child = spawn(command, args, { env: { PATH: process.env.PATH ?? '' }, stdio: ['pipe', 'ignore', 'ignore'] })
+  const env = posix ? { PATH: process.env.PATH ?? '' } : process.env
+  const child = spawn(command, args, { env, stdio: ['pipe', 'ignore', 'ignore'] })
   child.stdin.end(stdin)
   const [code] = (await once(child, 'close')) as [number | null]
   return code
@@ -343,25 +347,96 @@ describe.runIf(posix).concurrent('aang install and uninstall connect Claude Code
 })
 
 describe.concurrent('aang install and uninstall on any platform', () => {
-  test.runIf(!posix)('installing and removing hooks is refused on Windows until it is enabled there', async ({
-    expect,
-    onTestFinished,
-  }) => {
-    const { sandbox, codexHooks } = await connect(onTestFinished)
+  test.runIf(!posix)(
+    'on Windows install connects Claude Code and leaves Codex to its files, --codex installs the Codex hooks for PowerShell with a warning that status repeats, and uninstall removes both',
+    { timeout: 120_000 },
+    async ({ expect, onTestFinished }) => {
+      const connected = await connect(onTestFinished)
+      const { sandbox, workspace, codex, codexHome, pluginHooks, codexHooks, hookBinary } = connected
+      const offByDefault =
+        'codex: hooks are not installed by default on Windows: Codex sessions are observed from their files only, so approval waits are not visible'
+      const slowdown = 'on Windows Codex starts PowerShell for every hook event, which slows each event by 0.25–0.4 s'
 
-    const installed = await sandbox.aang('install')
-    const removed = await sandbox.aang('uninstall')
+      const installed = await sandbox.aang('install')
 
-    for (const [result, command] of [
-      [installed, 'install'],
-      [removed, 'uninstall'],
-    ] as const) {
-      expect(result.code).toBe(1)
-      expect(result.stderr).toContain(`aang ${command}: claude: installing hooks on Windows is not enabled yet`)
-      expect(result.stderr).toContain(`aang ${command}: codex: installing hooks on Windows is not enabled yet`)
-    }
-    await expect(readFile(codexHooks)).rejects.toThrow()
-  })
+      expect(installed).toEqual({
+        code: 0,
+        stdout: [
+          `claude: plugin aang@aang installed from ${join(sandbox.aangHome, 'claude-plugin')}`,
+          'claude: plugin aang@aang is enabled',
+          offByDefault,
+          `codex: \`aang install --codex\` installs them anyway; ${slowdown}`,
+          '',
+        ].join('\n'),
+        stderr: '',
+      })
+      expect(codex.calls()).toEqual([])
+      await expect(readFile(codexHooks)).rejects.toThrow()
+      await mkdir(codexHome)
+      expect((await sandbox.aang('start')).code).toBe(0)
+      expect((await sandbox.aang('status')).stdout).toContain(
+        `claude hooks: active\ncodex hooks: not installed\n${offByDefault}\n`,
+      )
+
+      const optedIn = await sandbox.aang('install', '--codex')
+
+      expect(optedIn).toEqual({
+        code: 0,
+        stdout: [
+          `codex: aang hooks registered in ${codexHooks}`,
+          'codex: aang hooks are not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
+          `codex: ${slowdown}`,
+          '',
+        ].join('\n'),
+        stderr: '',
+      })
+      const codexHandlers = handlersOf(await readHooks(codexHooks), 'SessionStart')
+      expect(codexHandlers).toEqual([
+        {
+          type: 'command',
+          command: `& ${[hookBinary, 'codex', 'user', sandbox.spool].map(powerShellQuoted).join(' ')}`,
+          timeout: 2,
+        },
+      ])
+      expect((await sandbox.aang('status')).stdout).toContain(
+        `codex hooks: not trusted; trust them in Codex with /hooks\ncodex: ${slowdown}\n`,
+      )
+      const [pluginHandler] = handlersOf(await readHooks(pluginHooks), 'SessionStart')
+      const claudeStart = await sample('claude-code-hooks/SessionStart.startup.json')
+      const { stdin: codexStart } = (await sample('codex-cli/hooks/SessionStart.startup.json')) as {
+        readonly stdin: Record<string, unknown>
+      }
+
+      expect(
+        await run(
+          pluginHandler?.command ?? '',
+          pluginHandler?.args ?? [],
+          JSON.stringify({ ...claudeStart, session_id: 'g12-windows-claude', cwd: workspace }),
+        ),
+      ).toBe(0)
+      expect(
+        await run(
+          'pwsh',
+          ['-NoProfile', '-Command', codexHandlers[0]?.command ?? ''],
+          JSON.stringify({ ...codexStart, session_id: '01a0f75c-caa3-7032-aff1-00000000a613', cwd: workspace }),
+        ),
+      ).toBe(0)
+
+      await waitUntil(async () => (await runs(connected)).length === 2)
+      expect((await runs(connected)).map((listed) => listed.runtime).sort()).toEqual(['claude', 'codex'])
+      expect(codex.calls().filter((call) => call.command === 'app_server' && isAlive(call.pid))).toEqual([])
+      expect((await sandbox.aang('stop')).code).toBe(0)
+
+      const removed = await sandbox.aang('uninstall')
+
+      expect(removed).toMatchObject({ code: 0, stderr: '' })
+      expect(removed.stdout).toContain(`codex: aang hooks neutralized in ${codexHooks}; the previous file is kept in `)
+      await expect(readFile(pluginHooks)).rejects.toThrow()
+      expect(handlersOf(await readHooks(codexHooks), 'SessionStart')).toEqual([
+        { type: 'command', command: 'exit 0', timeout: 2 },
+      ])
+    },
+  )
 
   test.for([
     { args: ['install', 'claude'], message: 'aang install takes no positional arguments' },

@@ -1,17 +1,33 @@
-import type { Agent, StageId } from '@aang/contract'
+import type { Agent, DetailLevel, StageId, ViewTotals } from '@aang/contract'
 import { type Edge, type EdgeProps, Handle, type Node, type NodeProps, Position } from '@xyflow/react'
 import type { ElkPoint } from 'elkjs/lib/elk.bundled.js'
 import type { ReactElement } from 'react'
 import { BasisBadge, DecisionBadge, ExecutionBadge, executionTone } from './badges.js'
 import { plural } from './format.js'
 import { DisclosureGlyph } from './glyphs.js'
-import { actionForms, agentRoleLabel, serviceAgentLabel, stageOriginLabel, substageForms } from './labels.js'
+import {
+  actionForms,
+  agentRoleLabel,
+  serviceAgentLabel,
+  stageForms,
+  stageOriginLabel,
+  substageForms,
+} from './labels.js'
 import type { EdgeKind, MapStage } from './map-graph.js'
+import { detailLevelLabel, totalsText } from './view-labels.js'
 
 export type Selection = 'self' | 'inside' | 'none'
 
+export interface StageView {
+  readonly folded: ViewTotals | null
+  readonly group: string | null
+  readonly detail: DetailLevel | null
+  readonly level: DetailLevel
+}
+
 type StageNodeData = {
   readonly node: MapStage
+  readonly view: StageView
   readonly open: boolean
   readonly card?: ElkPoint
   readonly selection: Selection
@@ -20,6 +36,13 @@ type StageNodeData = {
 }
 
 export type StageFlowNode = Node<StageNodeData, 'stage'>
+
+type GroupNodeData = {
+  readonly name: string
+  readonly members: number
+}
+
+export type GroupFlowNode = Node<GroupNodeData, 'frame'>
 
 type RouteEdgeData = {
   readonly kind: EdgeKind
@@ -34,7 +57,7 @@ const agentLabel = (agent: Agent): string =>
   agent.name ??
   (agent.service === null ? agentRoleLabel[agent.role] : serviceAgentLabel[agent.service])
 
-const StageCard = ({ node, open, card, selection, onToggle, onSelect }: StageNodeData): ReactElement => {
+const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: StageNodeData): ReactElement => {
   const { stage, children, actions, agents } = node
   const team = agents.map(agentLabel).join(', ')
   const selected = selection === 'self'
@@ -43,6 +66,7 @@ const StageCard = ({ node, open, card, selection, onToggle, onSelect }: StageNod
       className="stage-card"
       data-tone={executionTone(stage.execution.value)}
       data-stacked={!open && children.length > 0}
+      data-folded={view.folded !== null}
       data-selection={selection}
       style={card === undefined ? undefined : { left: card.x, top: card.y }}
       onClick={() => {
@@ -50,7 +74,7 @@ const StageCard = ({ node, open, card, selection, onToggle, onSelect }: StageNod
       }}
     >
       <header className="stage-head">
-        {children.length === 0 ? null : (
+        {children.length === 0 || view.folded !== null ? null : (
           <button
             type="button"
             className="stage-toggle nodrag nopan"
@@ -85,12 +109,21 @@ const StageCard = ({ node, open, card, selection, onToggle, onSelect }: StageNod
         </li>
       </ul>
       <p className="stage-meta">
-        <span>{stageOriginLabel[stage.origin]}</span>
-        {children.length === 0 ? null : <span>{plural(children.length, substageForms)}</span>}
-        {actions === 0 ? null : <span>{plural(actions, actionForms)}</span>}
-        {agents.length === 0 ? null : (
-          <span className="stage-team" title={team}>
-            {`${agents.length === 1 ? 'агент' : 'агенты'}: ${team}`}
+        {view.detail === null ? null : <span>{`детализация: ${detailLevelLabel[view.detail]}`}</span>}
+        {view.folded === null ? (
+          <>
+            <span>{stageOriginLabel[stage.origin]}</span>
+            {children.length === 0 ? null : <span>{plural(children.length, substageForms)}</span>}
+            {actions === 0 || view.level !== 'all_actions' ? null : <span>{plural(actions, actionForms)}</span>}
+            {agents.length === 0 || view.level === 'stages' ? null : (
+              <span className="stage-team" title={team}>
+                {`${agents.length === 1 ? 'агент' : 'агенты'}: ${team}`}
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="stage-folded" title={totalsText(view.folded)}>
+            {`свёрнут правилом вида: ${totalsText(view.folded)}`}
           </span>
         )}
       </p>
@@ -103,6 +136,14 @@ export const StageNode = ({ data }: NodeProps<StageFlowNode>): ReactElement => (
     <Handle type="target" position={Position.Left} isConnectable={false} className="map-handle" />
     <StageCard {...data} />
     <Handle type="source" position={Position.Right} isConnectable={false} className="map-handle" />
+  </div>
+)
+
+export const GroupNode = ({ data }: NodeProps<GroupFlowNode>): ReactElement => (
+  <div className="map-group">
+    <p className="map-group-name" title={data.name}>
+      {`Группа «${data.name}» · ${plural(data.members, stageForms)}`}
+    </p>
   </div>
 )
 
