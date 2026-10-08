@@ -37,7 +37,7 @@ The load profile is fixed before the measurement. `fix` validates it, loads ever
 | --- | --- |
 | `time_scale` | Player time scale: 1 replays the recorded intervals, 2 replays them twice as slow; default 1 |
 | `window_ms` | Measurement window: an expectation not met within it after its event is a violation |
-| `observer.<runtime>` | Observer of the runs of that runtime: absolute CLI path (`null` finds it on `PATH`), model and effort (`null` keeps the daemon defaults) and the p95 target. Every runtime of the recordings needs an entry; a runtime without one has no observer in the measurement |
+| `observer.<runtime>` | Observer of the runs of that runtime: absolute CLI path (`null` finds it on `PATH`), model (`null` keeps the daemon default), effort (`null` passes none, so the CLI default applies, unlike the daemon default `low` of Claude) and the p95 target. Every runtime of the recordings needs an entry; a runtime without one has no observer in the measurement |
 | `runs` | Recordings under `--fixtures`, each played once, starting `start_ms` after the measurement starts. Overlapping runs are the parallel load |
 | `runs[].chat` | Chat questions of the run: each is asked `after_ms` after the recording starts, in the run of the recording; default none |
 

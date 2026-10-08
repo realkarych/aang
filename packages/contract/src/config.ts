@@ -88,7 +88,7 @@ export const Config = z.strictObject({
         .prefault({}),
       effort: z
         .strictObject({
-          claude: name.nullable().default(null),
+          claude: name.nullable().default('low'),
           codex: name.nullable().default(null),
         })
         .prefault({}),
