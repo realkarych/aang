@@ -19,11 +19,18 @@ export interface PlayOptions {
   readonly signal?: AbortSignal
 }
 
+export interface AppendedChunk {
+  readonly offset: number
+  readonly bytes: number
+}
+
 export interface PlayedStep {
   readonly index: number
   readonly label: string | null
   readonly at: number
+  readonly startedAt: number
   readonly playedAt: number
+  readonly appended: AppendedChunk | null
 }
 
 export interface Player {
@@ -128,31 +135,33 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     return { chunk: content.subarray(offset, end), end }
   }
 
-  const perform = async (step: PlayerStep, signal: AbortSignal | undefined): Promise<void> => {
+  const perform = async (step: PlayerStep): Promise<AppendedChunk | null> => {
     switch (step.kind) {
       case 'append': {
         const { chunk, end } = nextChunk(step)
-        await appendTo(pathOf(step.target), chunk)
+        const offset = await appendTo(pathOf(step.target), chunk)
         offsets.set(step.source, end)
-        return
+        return { offset, bytes: chunk.length }
       }
       case 'write': {
         const target = resolveTarget(roots, await processes.started(step.target))
-        return writeWhole(target, processes.content(step.target, recorded(step.source)))
+        await writeWhole(target, processes.content(step.target, recorded(step.source)))
+        return null
       }
       case 'remove':
         await remove(pathOf(step.target))
         if (!rewritten.has(step)) {
           await processes.removed(step.target)
         }
-        return
+        return null
       case 'move':
-        return move(pathOf(step.target), pathOf(step.to))
+        await move(pathOf(step.target), pathOf(step.to))
+        return null
       case 'archive':
-        return move(pathOf(step.target), archivedPath(roots, step.target.path))
+        await move(pathOf(step.target), archivedPath(roots, step.target.path))
+        return null
       case 'hook': {
         const target = required(options.hook, () => 'no hook target')
-        await waitUntil(state.lastHookEnd + hookSpacingMs, signal)
         try {
           await invokeHook(target, {
             runtime: step.runtime,
@@ -163,10 +172,11 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
         } finally {
           state.lastHookEnd = performance.now()
         }
-        return
+        return null
       }
       case 'otlp':
-        return sendOtlp(required(options.otlp, () => 'no OTLP endpoint'), recorded(step.source))
+        await sendOtlp(required(options.otlp, () => 'no OTLP endpoint'), recorded(step.source))
+        return null
     }
   }
 
@@ -191,24 +201,26 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     const end = endIndex(until)
     state.playing = true
     try {
-      const startedAt = performance.now()
+      const start = performance.now()
       const origin = steps[state.next]?.at ?? 0
       const played: PlayedStep[] = []
       for (; state.next < end; state.next += 1) {
         const index = state.next
         const step = required(steps[index], () => `${file} has no step ${String(index)}`)
-        await waitUntil(startedAt + (step.at - origin) * timeScale, signal)
-        try {
-          await perform(step, signal)
-        } catch (error) {
+        await waitUntil(start + (step.at - origin) * timeScale, signal)
+        if (step.kind === 'hook') {
+          await waitUntil(state.lastHookEnd + hookSpacingMs, signal)
+        }
+        const startedAt = Date.now()
+        const appended = await perform(step).catch((error: unknown) => {
           throw new PlaybackError(
             `${file}: ${stepName(index, step)} failed: ${error instanceof Error ? error.message : String(error)}`,
             {
               cause: error,
             },
           )
-        }
-        played.push({ index, label: step.label ?? null, at: step.at, playedAt: Date.now() })
+        })
+        played.push({ index, label: step.label ?? null, at: step.at, startedAt, playedAt: Date.now(), appended })
       }
       return played
     } finally {

@@ -31,6 +31,7 @@ export interface ObserverOptions {
   readonly config: Config
   readonly aangHome: string
   readonly claudeConfigDir: string
+  readonly codexHome: string
   readonly environment: Readonly<Partial<Record<string, string>>>
   readonly onAccepted: (run: RunId) => void
 }
@@ -86,7 +87,7 @@ const admissionOf = (status: AdmissionStatus): Admission | null => {
 }
 
 export const startObserver = (options: ObserverOptions): Observer => {
-  const { store, config, claudeConfigDir } = options
+  const { store, config, claudeConfigDir, codexHome } = options
   const backends: Readonly<Record<Runtime, Backend>> = {
     claude: createClaudeBackend(backendOptions(options, 'claude')),
     codex: createCodexBackend(backendOptions(options, 'codex')),
@@ -149,6 +150,7 @@ export const startObserver = (options: ObserverOptions): Observer => {
         backend: config.observer.backend,
         crossVendor: config.observer.crossVendor,
         claudeConfigDir,
+        codexHome,
         budgetTokensPerHour: config.observer.budgetTokensPerHour,
         limits: { inputTokens: config.observer.inputLimitTokens },
         onAccepted: options.onAccepted,

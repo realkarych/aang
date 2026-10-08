@@ -191,6 +191,7 @@ export const test = base.extend<AangOptions & AangFixtures>({
       return file === null ? [] : [{ scriptId, url: pathToFileURL(file).href, functions }]
     })
     if (result.length > 0) {
+      await mkdir(coverage, { recursive: true })
       await writeFile(join(coverage, `coverage-web-${randomUUID()}.json`), JSON.stringify({ result }))
     }
   },

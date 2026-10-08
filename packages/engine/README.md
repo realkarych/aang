@@ -569,7 +569,10 @@ The ingest transaction queues every new fact as `pending` in the run of its sess
 after the observation projection, including the facts of OTel records normalized in
 that transaction (ADR-0005). `context` and `git_snapshot` facts are never queued: the daemon writes
 them as run context, which reaches the observer through the context of the run (ADR-0007), not
-through a batch. A redelivered record adds no facts and queues nothing.
+through a batch. `definition_listing` and `agent_prompt` facts are never queued either: the
+catalog of agents and skills and the system prompts of agents are only sources of definitions of
+the run context, and an agent or skill that is listed but not used never reaches the observer
+(ADR-0007). A redelivered record adds no facts and queues nothing.
 A reparse queues the facts it adds the same way after it rebuilds the projections,
 including the OTel facts it resolves; the facts it keeps keep their status and
 attempts.
@@ -577,7 +580,7 @@ attempts.
 `startObserverBatch(transaction, { run, backend, crossVendor, id, at, limits, context, catchUpMs? })`
 starts the next call of a run from its pending facts in the order of their records:
 
-- a queued `context` or `git_snapshot` fact leaves the queue without a status;
+- a queued `context`, `git_snapshot`, `definition_listing` or `agent_prompt` fact leaves the queue without a status;
 - a fact that the input scope excludes, from a session of another vendor without
   `crossVendor` or outside the run, becomes `not_interpreted`, and its session gets
   an open gap `cross_vendor_excluded` or `not_interpreted`;
@@ -838,8 +841,9 @@ binding's transaction:
 - every stage that references the session's actions or agents by assignment or
   participation is marked `session_moved` while any of them lies outside its run;
 - the session's facts become `pending` in the target run and leave the pending
-  queue of the source run. Its `context` and `git_snapshot` facts are not queued:
-  they are run context and are never interpreted as facts;
+  queue of the source run. Its `context`, `git_snapshot`, `definition_listing` and
+  `agent_prompt` facts are not queued: they are run context and are never interpreted
+  as facts;
 - an observer call of the source run whose batch or summary holds any of these
   facts or whose input describes the session is ended as `rejected` with a `scope`
   reason, a call with the summary alone included: the rest of its batch returns to
@@ -1021,7 +1025,7 @@ keeps do not change.
 
 ## Run context
 
-`recordRunContext(store, { run, backend, crossVendor, at, claudeConfigDir, limits })`
+`recordRunContext(store, { run, backend, crossVendor, at, claudeConfigDir, codexHome, limits })`
 collects the context of a run for the observer input (ADR-0007) from the allowed
 sources only:
 
@@ -1030,18 +1034,59 @@ sources only:
 - `instructions`: the files named by `InstructionsLoaded` facts of a session, or,
   when a session has none, `CLAUDE.md` (Claude) or `AGENTS.md` (Codex) in its `cwd`
   and every ancestor directory; `ref` is the path.
-- `agent_definition`: for each subagent or teammate type of a Claude session, the
-  file `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
-  hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
-  file. Types without such a file, such as built-in and plugin agents, have no entry.
+- `agent_definition`:
+  - for each subagent or teammate type of a Claude session, the file
+    `.claude/agents/<type>.md` in the nearest directory of the session's `cwd`
+    hierarchy, or `agents/<type>.md` in `claudeConfigDir`; `ref` is the path of the
+    file. When the session lists the type (`definition_listing` fact of the `agents`
+    catalog) or a subagent of the type has its system prompt (`agent_prompt` fact),
+    only a file that gives the whole definition the subagent ran with stands for it,
+    the first such file in this order. The file is read as Claude Code reads it: the
+    frontmatter is the text from the leading `---` to the next `---` (after a byte
+    order mark), parsed as YAML, and on a parse error parsed again with plain values
+    that hold YAML indicators quoted and leading tabs turned into spaces; the body is
+    the rest. The file then needs all of:
+    - `name` equal to the type;
+    - its prompt, the body trimmed, equal to a system prompt of a subagent of the
+      type in the session. A file without such a prompt, as before the subagent's
+      transcript arrives, does not stand for it;
+    - when the session lists the type, the listed text: `description` (with `\n`
+      turned into a line break) followed by ` (Tools: …)` with the tools Claude Code
+      derives from `tools` and `disallowedTools` (a string or a list, names split at
+      commas and spaces outside parentheses, `*` for every tool): the allowed tools
+      without the disallowed ones, `None` when none is left, `All tools except …`
+      with only disallowed tools and `All tools` with neither.
+
+    An agent given for one run (`--agents`, the `agents` option of the SDK) takes
+    precedence over a file of the same name, so a file that differs from it in name,
+    listed text or prompt does not stand in for it. When the session neither lists
+    the type nor has a prompt of it, the first file is its definition.
+    A type without such a file, such as a built-in agent, a plugin agent
+    (`<plugin>:<agent>`) or an agent given for one run, takes the latest definition
+    the session's listing has for it, the listed description with its tools,
+    followed by the distinct system prompts of its subagents in the session, each
+    after an empty line. A type that is neither in a file, nor listed, nor has a
+    prompt has no entry. Only subagents give prompts: the system prompt of a
+    teammate starts with the prompt of Claude Code itself;
+  - for each role of a Codex subagent (`agent_role`), the table `[agents.<role>]` of
+    `config.toml` in `codexHome`: its `description` and the `developer_instructions`
+    of its `config_file`, resolved against the directory of `config.toml`. `ref` is
+    `<path of config.toml> [agents.<role>]`. A subagent without a role, or a role
+    that `config.toml` does not declare, has no entry.
 - `skill`: only skills invoked through the `Skill` tool of a Claude session, except
   calls that ended with an error or were denied. A skill listed in the catalog but
   not invoked is never included. The text is the `description` of `SKILL.md` in
   `.claude/skills/<name>/` of the nearest directory of the session's `cwd` hierarchy
   or in `skills/<name>/` of `claudeConfigDir`, and `ref` is the path of that file.
-  When there is no such file, `ref` is the name of the skill and the text is empty.
+  When there is no such file, as for a plugin skill (`<plugin>:<skill>`), the text is
+  the latest description the session's skill listing (`definition_listing` fact of
+  the `skills` catalog) has for it, or empty when the listing has none.
   Codex has no skill tool, so a Codex run has no skill entries.
 - `mcp_server`: the servers of MCP actions with the names of the tools called.
+- `hook`: the hooks of the solver that ran in a session, from its `hook_run` facts
+  that carry the hook's command; `ref` is the command and the text lists where it
+  ran (the runtime's trigger, such as `PostToolUse:Bash`, or the event). The aang
+  hook is not a hook of the solver: the adapter gives it no `hook_run` fact.
 - `git`: one entry per worktree, whose `ref` is the top of the worktree (or the `cwd`
   of a session outside git): the branch of each session working there and, for each
   set of masks, the latest git snapshot (`git_snapshot` fact of the run): the masks,
@@ -1050,8 +1095,14 @@ sources only:
 Only sessions of the run are read, and a session of a vendor other than `backend` is
 skipped unless `crossVendor` is set; when the root session is skipped, or the run is
 unknown, there is no context. Skills and agent definitions are resolved in the
-directory of each session, so files of the same name in different projects stay
-separate entries. The `cwd` of each session that is read and the working directories
+directory and with the listings of each session, so files of the same name in
+different projects stay separate entries. An entry that does not come from a file
+belongs to the sessions that used the name: its `ref` is `<name> (sessions: <id>, …)`
+with their ids. Sessions of one run that list a name differently keep an entry each,
+only the same text of the same name joins their sessions in one entry, and a session
+that does not list a name takes nothing from the listing of another session. A file
+is the same definition for every session that resolves to it and stays one entry with
+its path as `ref`. The `cwd` of each session that is read and the working directories
 of its facts are resolved to the top of their git worktree with
 `git rev-parse --show-toplevel`, as the snapshot writer of E.7b does. A git snapshot
 is included only when its worktree is one of these tops or exactly one of these
@@ -1064,10 +1115,12 @@ Each text is cut to `limits.textLength` characters (4000 by default) and reports
 original length; files are read up to 1 MiB, and a larger file reports its size in
 bytes.
 
-Names of the solver's hooks, definitions of plugin agents, of agents given by the
-`--agents` flag and of Codex roles, and descriptions of plugin skills are allowed
-sources that need facts or formats the adapters do not provide yet; plan item F.7d
-adds them.
+Only sources whose format a reference session confirms enter the context (F.7d):
+`hook_run`, `definition_listing` and `agent_prompt` facts count only with `format_verified`, and of
+a Codex role only the keys recorded by the `agent-role` reference session are read.
+Codex reference sessions record no hook of the solver (the rollout carries no hook
+events), so a Codex session names no hooks. A listed skill that was not invoked and
+a listed agent that never ran stay out.
 
 Entries are ordered by kind and `ref`, and `content_hash` is the SHA-256 of their
 canonical JSON. A nonempty context is stored as a raw record of the `context` channel
