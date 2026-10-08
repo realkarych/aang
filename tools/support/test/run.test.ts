@@ -1,6 +1,6 @@
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   ActionId,
@@ -57,7 +57,11 @@ import {
 } from './fixtures.js'
 
 interface Snapshot {
-  readonly facts: readonly { readonly kind: string }[]
+  readonly facts: readonly {
+    readonly kind: string
+    readonly format_verified: boolean
+    readonly payload: Readonly<Record<string, unknown>>
+  }[]
   readonly sessions: readonly { readonly id: string }[]
   readonly gaps: readonly { readonly kind: string; readonly closed_at: string | null }[]
   readonly agents: readonly {
@@ -69,7 +73,7 @@ interface Snapshot {
     readonly parent: string | null
   }[]
   readonly actions: readonly { readonly tool: string; readonly session: string; readonly execution: { readonly state: string } }[]
-  readonly records: readonly { readonly channel: string; readonly parse_state: string; readonly count: number }[]
+  readonly records: readonly { readonly channel: string; readonly type: string; readonly parse_state: string; readonly count: number }[]
   readonly questions: readonly { readonly kind: string; readonly key: { readonly question: string } }[]
 }
 
@@ -242,6 +246,60 @@ describe('the contract run over recordings generated from the spike samples', ()
     expect(update.code).toBe(1)
     expect(update.stderr).toContain(`claude/2.1.286/claude_cli/${hostOs}/reconnect: ${notRestarted}`)
     await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
+  }, 120_000)
+
+  test('the R.4b workflow recording keeps its journal when the daemon restarts between journal appends, and the restart changes nothing in the snapshot', async () => {
+    const { sessions, support } = await workspace()
+    const reference = resolve('fixtures/sessions/claude/2.1.289/claude_cli/macos/workflow')
+    await placeRecording(reference, sessions)
+    const restartedCopy = await placeRecording(reference, sessions, { scenario: 'reconnect' })
+    const playbackPath = join(restartedCopy, 'playback.json')
+    const playback = JSON.parse(await readFile(playbackPath, 'utf8')) as {
+      readonly steps: readonly { readonly kind: string; readonly target?: { readonly path: string } }[]
+    }
+    const journalAppends = playback.steps.flatMap(({ kind, target }, index) =>
+      kind === 'append' && target?.path.endsWith('/journal.jsonl') === true ? [index] : [],
+    )
+    const restartAt = journalAppends[1]
+    await writeFile(
+      playbackPath,
+      JSON.stringify({ ...playback, steps: playback.steps.map((step, index) => (index === restartAt ? { ...step, label: 'daemon-restart' } : step)) }),
+    )
+    const recordings = await findRecordings(sessions)
+    const run = (scenario: string): Promise<RecordingCheck> => {
+      const recording = recordings.find(({ manifest }) => manifest.scenario === scenario)
+      if (recording === undefined) {
+        throw new Error(`${scenario} is not placed`)
+      }
+      return checkRecording(recording, { sessions, support, hookBinary })
+    }
+
+    const restarted = await run('reconnect')
+    const continuous = await run('workflow')
+
+    expect(journalAppends).toHaveLength(4)
+    expect(restarted).toMatchObject({ restarts: 1, violations: [] })
+    expect(continuous).toMatchObject({ restarts: 0, violations: [] })
+    expect(restarted.snapshot).toBe(continuous.snapshot)
+    const snapshot = JSON.parse(continuous.snapshot) as Snapshot
+    expect(snapshot.records.filter(({ type }) => ['launched', 'started', 'result'].includes(type))).toEqual([
+      { channel: 'transcript', type: 'launched', parse_state: 'parsed', count: 1 },
+      { channel: 'transcript', type: 'result', parse_state: 'parsed', count: 3 },
+      { channel: 'transcript', type: 'started', parse_state: 'parsed', count: 3 },
+    ])
+    expect(
+      snapshot.facts
+        .filter(({ kind, payload }) => (kind === 'agent_start' || kind === 'agent_end') && payload.agent_type === null)
+        .map(({ kind, payload, format_verified }) => [kind, payload.description ?? payload.final_message, format_verified]),
+    ).toEqual([
+      ['agent_start', 'left', true],
+      ['agent_start', 'right', true],
+      ['agent_end', 'left', true],
+      ['agent_end', 'right', true],
+      ['agent_start', 'report', true],
+      ['agent_end', 'report', true],
+    ])
+    expect(snapshot.gaps.filter(({ kind }) => kind === 'unknown_stream_layout')).toEqual([])
   }, 120_000)
 
   test('a JSONL file under tool-results, which the collector leaves out, does not hold up the run', async () => {

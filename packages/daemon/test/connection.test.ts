@@ -1,6 +1,9 @@
-import { execFile } from 'node:child_process'
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { type ChildProcess, execFile, spawn } from 'node:child_process'
+import { once } from 'node:events'
+import { existsSync } from 'node:fs'
+import { appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { createInterface } from 'node:readline'
 import { promisify } from 'node:util'
 import {
   endpoints,
@@ -12,7 +15,7 @@ import {
   type SupportRow,
 } from '@aang/contract'
 import { objectId } from '@aang/contract/ids'
-import { claudePluginId, deployHookBinary, installClaudePlugin, installCodexHooks } from '@aang/hook'
+import { claudePluginId, codexHookCommand, deployHookBinary, installClaudePlugin, installCodexHooks } from '@aang/hook'
 import { resolveCli } from '@aang/observer'
 import {
   type ClaudeScenario,
@@ -125,6 +128,13 @@ const staleHooks = JSON.stringify({
   },
 })
 
+const registeredHooks = (home: Home): string =>
+  JSON.stringify({
+    hooks: { Stop: [{ hooks: [{ type: 'command', command: codexHookCommand(home.paths.home), timeout: 2 }] }] },
+  })
+
+const quietPeriodMs = 5_000
+
 const writeRollout = async (codexHome: string, workspace: string): Promise<void> => {
   const path = join(codexHome, 'sessions', '2026', '10', '04', 'rollout-g7.jsonl')
   await mkdir(join(codexHome, 'sessions', '2026', '10', '04'), { recursive: true })
@@ -132,6 +142,46 @@ const writeRollout = async (codexHome: string, workspace: string): Promise<void>
 }
 
 const fakeCalls = (fake: Pick<FakeCli<never>, 'calls'>, command: FakeCommand) => fake.calls().filter((call) => call.command === command)
+
+const unreadableHolder =
+  "$ErrorActionPreference = 'Stop'; $held = [System.IO.File]::Open($env:AANG_HELD_FILE, 'CreateNew', 'ReadWrite', 'None'); [Console]::Out.WriteLine('held'); Start-Sleep -Seconds 300"
+
+const holdUnreadable = async (path: string): Promise<ChildProcess> => {
+  const holder = spawn('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', unreadableHolder], {
+    env: { ...process.env, AANG_HELD_FILE: path },
+    stdio: ['ignore', 'pipe', 'inherit'],
+    windowsHide: true,
+  })
+  for await (const line of createInterface({ input: holder.stdout })) {
+    if (line === 'held') {
+      return holder
+    }
+  }
+  throw new Error(`the holder of ${path} exited before it opened the file`)
+}
+
+const appServerLaunchersQuery =
+  "Get-CimInstance Win32_Process -Filter \"Name = 'aang-hook.exe' AND ParentProcessId = $env:AANG_PARENT\" | Where-Object { $_.CommandLine -like '* app-server*' } | ForEach-Object { $_.ProcessId }"
+
+const appServerLauncher = async (): Promise<number> => {
+  const { stdout } = await runFile('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', appServerLaunchersQuery], {
+    env: { ...process.env, AANG_PARENT: String(process.pid) },
+    windowsHide: true,
+  })
+  const [launcher, ...others] = stdout.split(/\s+/).filter((word) => word !== '').map(Number)
+  if (launcher === undefined || others.length > 0) {
+    throw new Error(`expected one app-server launcher of the daemon, found: ${stdout.trim()}`)
+  }
+  return launcher
+}
+
+const release = async (holder: ChildProcess): Promise<void> => {
+  if (holder.exitCode === null && holder.signalCode === null) {
+    const exited = once(holder, 'exit')
+    holder.kill()
+    await exited
+  }
+}
 
 const isRunning = (pid: number): boolean => {
   try {
@@ -179,7 +229,8 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       expect(stale.not_observable).toEqual(unobservable)
 
       codex.setScenario({ hooks: 'untrusted' })
-      await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      expect(installation.status).toBe('untrusted')
       await writeRollout(codexHome, workspace)
       const untrusted = await statusUntil(
         daemon,
@@ -201,6 +252,8 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
         },
       ])
 
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+
       codex.setScenario({ hooks: 'trusted' })
       await writeFile(join(codexHome, 'config.toml'), '[hooks.state."aang"]\ntrusted_hash = "sha256:aang"\n')
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
@@ -210,19 +263,173 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'disabled')
 
       const servers = fakeCalls(codex, 'app_server')
-      expect(servers.length).toBeGreaterThanOrEqual(6)
+      expect(servers).toHaveLength(4)
       expect(servers.filter(({ pid }) => isRunning(pid))).toEqual([])
     },
   )
 
   test(
-    'reading the status never starts a CLI; a changed runtime config and an explicit hooks check do, and the Claude plugin goes from not installed to active and disabled',
+    'without aang hooks in hooks.json the daemon starts no codex app-server, neither at start nor on changes of hooks.json and config.toml nor on an explicit check',
+    { timeout: 60_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, hooksAre({ claude: 'not_installed', codex: 'not_installed' }))
+
+      await writeFile(join(codexHome, 'config.toml'), '[projects."/work"]\ntrust_level = "trusted"\n')
+      await writeFile(join(codexHome, 'hooks.json'), staleHooks)
+      await sleep(quietPeriodMs)
+      await appendFile(join(codexHome, 'config.toml'), '[features]\nhooks = true\n')
+      await sleep(quietPeriodMs)
+      const checked = await checkHooks(daemon, home)
+
+      expect(hooksOf(checked).codex).toBe('not_installed')
+      expect(fakeCalls(codex, 'app_server')).toEqual([])
+    },
+  )
+
+  test(
+    'an installation while the daemon runs never meets a codex app-server of the daemon: a config change during it waits for its end, and the daemon takes the state from its result',
+    { timeout: 90_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'untrusted' })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      const options = { aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome }
+
+      await installCodexHooks({ ...options, codex })
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'untrusted')
+      await sleep(quietPeriodMs)
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+
+      const hold = { started: join(home.root, 'install-started'), gate: join(home.root, 'install-gate') }
+      const installing = installCodexHooks({
+        ...options,
+        codex: resolveCli('codex', codex.held(hold), process.env),
+        timeoutMs: 60_000,
+      })
+      await waitUntil(() => existsSync(hold.started))
+      await writeFile(join(codexHome, 'config.toml'), '[hooks.state."aang"]\ntrusted_hash = "sha256:aang"\n')
+      await sleep(quietPeriodMs)
+
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+      expect(hooksOf(await readStatus(daemon, home)).codex).toBe('untrusted')
+
+      codex.setScenario({ hooks: 'trusted' })
+      await writeFile(hold.gate, '')
+      expect((await installing).status).toBe('active')
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
+      await sleep(quietPeriodMs)
+
+      const servers = fakeCalls(codex, 'app_server')
+      expect(servers).toHaveLength(4)
+      expect(servers.filter(({ pid }) => isRunning(pid))).toEqual([])
+    },
+  )
+
+  test(
+    'changes in a burst start one codex app-server, and a rewrite that leaves the checked files as they were starts none',
+    { timeout: 60_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'untrusted' })
+      await writeFile(join(codexHome, 'hooks.json'), registeredHooks(home))
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'untrusted')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(1)
+
+      codex.setScenario({ hooks: 'trusted' })
+      const config = join(codexHome, 'config.toml')
+      for (let change = 0; change < 4; change += 1) {
+        await appendFile(config, `[hooks.state."aang-${String(change)}"]\ntrusted_hash = "sha256:aang"\n`)
+        await sleep(250)
+      }
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
+      await sleep(quietPeriodMs)
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+
+      await writeFile(config, await readFile(config))
+      await writeFile(join(codexHome, 'hooks.json'), registeredHooks(home))
+      await sleep(quietPeriodMs)
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+      expect(hooksOf(await readStatus(daemon, home)).codex).toBe('active')
+    },
+  )
+
+  test(
+    'after a failed explicit check the daemon takes the state neither from an earlier installation nor from its memory: a rewrite with the same bytes checks again, and so does hooks.json coming back with the bytes of the installation after it was gone',
+    { timeout: 120_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+
+      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      expect(installation.status).toBe('active')
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
+      await sleep(quietPeriodMs)
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+
+      codex.setScenario({ hooks: 'unanswered' })
+      expect(hooksOf(await checkHooks(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(3)
+
+      const hooksFile = join(codexHome, 'hooks.json')
+      const installed = await readFile(hooksFile)
+      await writeFile(hooksFile, installed)
+      await sleep(quietPeriodMs)
+
+      expect(hooksOf(await readStatus(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(4)
+
+      await rm(hooksFile)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(4)
+
+      await writeFile(hooksFile, installed)
+      await waitUntil(() => fakeCalls(codex, 'app_server').length === 5)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'unknown')
+    },
+  )
+
+  test.runIf(process.platform === 'win32')(
+    'a launcher lost during an explicit check keeps the Codex hooks unknown without a new app-server, also after hooks.json was gone and came back with the bytes of the installation',
+    { timeout: 90_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, { hooks: 'trusted' })
+      const daemon = await startDaemon(home, onTestFinished)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      const installation = await installCodexHooks({ aangHome: home.paths.home, hookBinarySource: hookBinary, codexHome, codex })
+      expect(installation.status).toBe('active')
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'active')
+      await sleep(quietPeriodMs)
+
+      codex.setScenario({ hooks: 'unanswered' })
+      const checking = checkHooks(daemon, home)
+      await waitUntil(() => fakeCalls(codex, 'app_server').length === 3)
+      process.kill(await appServerLauncher(), 'SIGKILL')
+      expect(hooksOf(await checking).codex).toBe('unknown')
+
+      const hooksFile = join(codexHome, 'hooks.json')
+      const installed = await readFile(hooksFile)
+      await rm(hooksFile)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'not_installed')
+      codex.setScenario({ hooks: 'trusted' })
+      await writeFile(hooksFile, installed)
+      await statusUntil(daemon, home, (status) => hooksOf(status).codex === 'unknown')
+
+      expect(hooksOf(await checkHooks(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toHaveLength(3)
+    },
+  )
+
+  test(
+    'reading the status never starts a CLI; a changed runtime config and an explicit hooks check start the Claude CLI, and the Claude plugin goes from not installed to active and disabled',
     { timeout: 60_000 },
     async ({ expect, onTestFinished }) => {
       const { home, claude, codex, claudeHome } = await connect(onTestFinished, {})
       const daemon = await startDaemon(home, onTestFinished)
       await statusUntil(daemon, home, hooksAre({ claude: 'not_installed', codex: 'not_installed' }))
-      await waitUntil(() => fakeCalls(claude, 'plugin').length === 1 && fakeCalls(codex, 'app_server').length === 1)
+      await waitUntil(() => fakeCalls(claude, 'plugin').length === 1)
 
       await installClaudePlugin({
         aangHome: home.paths.home,
@@ -235,7 +442,6 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       }
       await sleep(1_500)
       expect(fakeCalls(claude, 'plugin')).toHaveLength(installed)
-      expect(fakeCalls(codex, 'app_server')).toHaveLength(1)
 
       const anonymous = await fetch(`${daemon.base}${endpoints.hooksCheck.path}`, { method: 'POST', body: '{}' })
       expect(anonymous.status).toBe(401)
@@ -243,12 +449,11 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       expect(hooksOf(checked)).toEqual({ claude: 'active', codex: 'not_installed' })
       expect(checked.not_observable).toEqual(unobservable)
       expect(fakeCalls(claude, 'plugin')).toHaveLength(installed + 1)
-      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
 
       await runFile(claude.executable, ['plugin', 'disable', claudePluginId, '--json'])
       await writeFile(join(claudeHome, 'settings.json'), JSON.stringify({ enabledPlugins: { [claudePluginId]: false } }))
       await statusUntil(daemon, home, (status) => hooksOf(status).claude === 'disabled')
-      expect(fakeCalls(codex, 'app_server')).toHaveLength(2)
+      expect(fakeCalls(codex, 'app_server')).toEqual([])
     },
   )
 
@@ -267,7 +472,7 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       codex.setScenario({ hooks: 'unanswered' })
       const finished = { claude: fakeCalls(claude, 'plugin').length, codex: fakeCalls(codex, 'app_server').length }
       await writeFile(join(claudeHome, 'settings.json'), '{}')
-      await writeFile(join(codexHome, 'hooks.json'), '{}')
+      await writeFile(join(codexHome, 'hooks.json'), registeredHooks(home))
       await waitUntil(
         () =>
           fakeCalls(claude, 'plugin').length > finished.claude && fakeCalls(codex, 'app_server').length > finished.codex,
@@ -283,6 +488,27 @@ describe('the static hooks state of ADR-0004 in /api/status', () => {
       await daemon.stopped
       expect(Date.now() - stopping).toBeLessThan(7_000)
       await waitUntil(() => !hanging.some(({ pid }) => isRunning(pid)), 10_000)
+    },
+  )
+
+  test.runIf(process.platform === 'win32')(
+    'stopping the daemon cancels a Codex hooks check that waits for a lock file another process keeps unreadable',
+    { timeout: 60_000 },
+    async ({ expect, onTestFinished }) => {
+      const { home, codex, codexHome } = await connect(onTestFinished, {})
+      await writeFile(join(codexHome, 'hooks.json'), registeredHooks(home))
+      const holder = await holdUnreadable(join(codexHome, 'hooks.json.aang-lock'))
+      onTestFinished(() => release(holder))
+      const daemon = await startDaemon(home, onTestFinished)
+      await sleep(2_000)
+      expect(hooksOf(await readStatus(daemon, home)).codex).toBe('unknown')
+      expect(fakeCalls(codex, 'app_server')).toEqual([])
+
+      const stopping = Date.now()
+      daemon.abort()
+      await daemon.stopped
+      expect(Date.now() - stopping).toBeLessThan(7_000)
+      await release(holder)
     },
   )
 })
@@ -357,7 +583,7 @@ test(
         sessions: 1,
       },
     ])
-    expect(hooksOf(seen)).toEqual({ claude: 'unknown', codex: 'unknown' })
+    expect(hooksOf(seen)).toEqual({ claude: 'unknown', codex: 'not_installed' })
     expect(runtimeOf(seen, 'claude')?.hooks_inactive_sessions).toEqual([objectId(claudeSession(filesOnly))])
     expect(runtimeOf(seen, 'codex')?.hooks_inactive_sessions).toEqual([
       objectId({ kind: 'session', runtime: 'codex', session: rolloutThread }),

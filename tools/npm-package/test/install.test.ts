@@ -299,7 +299,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
       expect(optedIn).toEqual({ code: 0, stdout: [...codexRegistered, ''].join('\n'), stderr: '' })
     }
     expect(codex.calls().filter((call) => call.command === 'app_server').map((call) => call.env.CODEX_HOME)).toEqual(
-      Array(3).fill(codexHome),
+      Array(2).fill(codexHome),
     )
     const [pluginHandler] = await sessionStartHandlers(join(pluginDirectory, 'hooks', 'hooks.json'))
     expect(pluginHandler).toEqual({ type: 'command', command: hookBinary, args: ['claude', 'plugin', profile.spool], timeout: 2 })

@@ -36,6 +36,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   instructions_loaded: 'загрузка инструкций',
   hook_run: 'hook решателя',
   definition_listing: 'перечень определений',
+  agent_prompt: 'системный промпт агента',
   queue_operation: 'очередь промптов',
   runtime_error: 'ошибка рантайма',
   runtime_event: 'событие рантайма',
@@ -43,6 +44,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   git_snapshot: 'снимок git',
   context: 'контекст',
   source_lost: 'потеря источника',
+  process_exited: 'процесс завершился',
 }
 
 export const speakerLabel: Readonly<Record<Speaker, string>> = {
