@@ -123,7 +123,8 @@ const firstPrompt = [
   'Step 3: reply with exactly: OK',
 ].join(' ')
 
-const timestampAt = (second: number): string => new Date(Date.UTC(2026, 9, 1, 12, 0, second)).toISOString()
+const timestampAt = (second: number, millisecond = 0): string =>
+  new Date(Date.UTC(2026, 9, 1, 12, 0, second, millisecond)).toISOString()
 
 const transcriptLine = (
   source: Source,
@@ -955,8 +956,26 @@ interface DefinedSession {
   readonly source: Source
   readonly agents: Listed
   readonly skills: Listed
-  readonly prompts?: Readonly<Record<string, string>>
+  readonly prompts?: Readonly<Record<string, readonly string[]>>
 }
+
+interface DefinedAgent {
+  readonly id: string
+  readonly type: string
+  readonly prompt: string | null
+  readonly order: number
+}
+
+const definedAgents = ({ source, agents, prompts = {} }: DefinedSession): DefinedAgent[] =>
+  Object.keys(agents).flatMap((type) => {
+    const given = prompts[type] ?? []
+    return (given.length === 0 ? [null] : given).map((prompt, index) => ({
+      id: `${source.session}-${type}-${String(index)}`,
+      type,
+      prompt,
+      order: index,
+    }))
+  })
 
 const listedLines = (listed: Listed): string[] =>
   Object.entries(listed).flatMap(([name, description]) => (description === null ? [] : [`- ${name}: ${description}`]))
@@ -985,18 +1004,22 @@ const listings = ({ source, agents, skills }: DefinedSession, second: number): s
       ]),
 ]
 
-const promptSnapshots = ({ source, prompts = {} }: DefinedSession, second: number): string[] =>
-  Object.entries(prompts).map(([type, prompt]) =>
-    JSON.stringify({
-      type: 'attachment',
-      sessionId: source.session,
-      agentId: `${source.session}-${type}`,
-      isSidechain: true,
-      uuid: `${source.session}-${type}-prompt`,
-      timestamp: timestampAt(second),
-      cwd: source.cwd,
-      attachment: { type: 'prompt_snapshot', systemPrompt: [prompt, 'Notes for every agent.'] },
-    }),
+const promptSnapshots = (defined: DefinedSession, second: number): string[] =>
+  definedAgents(defined).flatMap(({ id, prompt, order }) =>
+    prompt === null
+      ? []
+      : [
+          JSON.stringify({
+            type: 'attachment',
+            sessionId: defined.source.session,
+            agentId: id,
+            isSidechain: true,
+            uuid: `${id}-prompt`,
+            timestamp: timestampAt(second, order),
+            cwd: defined.source.cwd,
+            attachment: { type: 'prompt_snapshot', systemPrompt: [prompt, 'Notes for every agent.'] },
+          }),
+        ],
   )
 
 const definedRun = async (workspace: Workspace, sessions: readonly DefinedSession[]): Promise<RunContext> => {
@@ -1009,11 +1032,11 @@ const definedRun = async (workspace: Workspace, sessions: readonly DefinedSessio
   attach(store, run, root, ...attached)
   await engine.ingest(
     hookBatch(
-      ...sessions.flatMap(({ source, agents }, index) => [
-        hook(source, 'SessionStart.startup.json', 'start', index * 10, {}),
-        ...Object.keys(agents).map((type, offset) =>
-          hook(source, 'SubagentStart.json', `subagent-${type}`, index * 10 + offset + 1, {
-            agent_id: `${source.session}-${type}`,
+      ...sessions.flatMap((defined, index) => [
+        hook(defined.source, 'SessionStart.startup.json', 'start', index * 10, {}),
+        ...definedAgents(defined).map(({ id, type }, offset) =>
+          hook(defined.source, 'SubagentStart.json', `subagent-${id}`, index * 10 + offset + 1, {
+            agent_id: id,
             agent_type: type,
           }),
         ),
@@ -1155,7 +1178,7 @@ test('a file of the subagent type is its definition only when it gives the name,
         scribe: null,
       },
       skills: {},
-      prompts: { reviewer: 'Review the notes.', [checker]: checkFlag, scribe },
+      prompts: { reviewer: ['Review the notes.'], [checker]: [checkFlag], scribe: [scribe] },
     },
   ])
 
@@ -1168,6 +1191,42 @@ test('a file of the subagent type is its definition only when it gives the name,
     ].sort(byRef),
   )
 })
+
+test.for([
+  ['a file that gives one of them', true],
+  ['no file', false],
+] as const)(
+  'subagents of one type that ran with different prompts in a session keep each prompt, with %s',
+  async ([, filed], { onTestFinished }) => {
+    const workspace = await setup(onTestFinished)
+    const { project, cwd } = workspace
+    const reviewerFile = join(project, '.claude', 'agents', 'reviewer.md')
+    const reviewer = '---\nname: reviewer\ndescription: Reviews the code.\ntools: Bash, Read\n---\nReview the UI.\n'
+    const listed = 'Reviews the code. (Tools: Bash, Read)'
+    if (filed) {
+      await write(reviewerFile, reviewer)
+    }
+    const source = { session: 'prompts-session', cwd }
+
+    const context = await definedRun(workspace, [
+      {
+        source,
+        agents: { reviewer: listed },
+        skills: {},
+        prompts: { reviewer: ['Review the API.', 'Review the UI.'] },
+      },
+    ])
+
+    expect(ofKind(context, 'agent_definition')).toEqual(
+      filed
+        ? [
+            entry('agent_definition', reviewerFile, reviewer),
+            entry('agent_definition', listedRef('reviewer', source), `${listed}\n\nReview the API.`),
+          ].sort(byRef)
+        : [entry('agent_definition', listedRef('reviewer', source), `${listed}\n\nReview the API.\n\nReview the UI.`)],
+    )
+  },
+)
 
 test('a file stands for a listed subagent in each form of its tools and disallowed tools', async ({
   onTestFinished,
@@ -1195,7 +1254,7 @@ test('a file stands for a listed subagent in each form of its tools and disallow
   const listed = Object.fromEntries(
     Object.entries(forms).map(([type, [, tools]]) => [type, `Works with ${type}. (Tools: ${tools})`]),
   )
-  const prompts = Object.fromEntries(Object.keys(forms).map((type) => [type, 'Work.']))
+  const prompts = Object.fromEntries(Object.keys(forms).map((type) => [type, ['Work.']]))
 
   const context = await definedRun(workspace, [
     { source: { session: 'forms-session', cwd }, agents: listed, skills: {}, prompts },

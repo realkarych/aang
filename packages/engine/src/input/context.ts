@@ -241,16 +241,16 @@ const attributed = (resolved: readonly Resolved[]): Source[] => {
   )
 }
 
-const definesAgent = ({ name, listed, prompts }: UsedAgent, file: FileText): boolean => {
-  if (listed === null && prompts.length === 0) {
+const definesAgent = ({ name, listed }: Used, ran: string | null, file: FileText): boolean => {
+  if (listed === null && ran === null) {
     return true
   }
   const { type, listedLine, prompt } = agentFileOf(file.text)
-  return type === name && prompts.includes(prompt) && (listed === null || listed === listedLine)
+  return type === name && prompt === ran && (listed === null || listed === listedLine)
 }
 
-const sessionDefinition = ({ listed, prompts }: UsedAgent): string =>
-  [...(listed === null ? [] : [listed]), ...prompts].join('\n\n')
+const sessionDefinition = (listed: string | null, prompts: readonly (string | null)[]): string =>
+  [listed, ...prompts].flatMap((text) => (text === null ? [] : [text])).join('\n\n')
 
 const agentDefinitionSources = async (
   reader: ContextReader,
@@ -270,16 +270,19 @@ const agentDefinitionSources = async (
   })
   const definitions = await Promise.all(
     used.map(async (agent): Promise<Resolved[]> => {
-      const file = safeName(agent.name)
-        ? await firstText(definitionPaths(agent.cwd, home, ['agents', `${agent.name}.md`]), (found) =>
-            definesAgent(agent, found),
-          )
-        : null
-      if (file !== null) {
-        return [onDisk(fromFile('agent_definition', file.path, file))]
-      }
-      const text = sessionDefinition(agent)
-      return text === '' ? [] : [inSession(agent.session, plain('agent_definition', agent.name, text))]
+      const paths = safeName(agent.name) ? definitionPaths(agent.cwd, home, ['agents', `${agent.name}.md`]) : []
+      const ran: readonly (string | null)[] = agent.prompts.length === 0 ? [null] : agent.prompts
+      const files = await Promise.all(
+        ran.map((prompt) => firstText(paths, (found) => definesAgent(agent, prompt, found))),
+      )
+      const unmatched = ran.filter((_, index) => files[index] === null)
+      const text = sessionDefinition(agent.listed, unmatched)
+      return [
+        ...files.flatMap((file) => (file === null ? [] : [onDisk(fromFile('agent_definition', file.path, file))])),
+        ...(unmatched.length === 0 || text === ''
+          ? []
+          : [inSession(agent.session, plain('agent_definition', agent.name, text))]),
+      ]
     }),
   )
   return attributed(definitions.flat())
