@@ -265,17 +265,20 @@ test.skipIf(process.platform === 'win32')('Codex fails admission when its profil
   expect(fake.calls().filter((call) => call.prompt !== null)).toHaveLength(1)
 })
 
-test.skipIf(process.platform === 'win32')('Codex fails admission when a process of the control hook session visits another group and returns to the hook group', async (context) => {
-  const { root, options } = await sandbox(context)
-  const helper = join(root, 'group-return')
-  const returned = join(root, 'returned.pid')
-  await promisify(execFile)('cc', [fileURLToPath(new URL('group-return.c', import.meta.url)), '-o', helper])
-  const fake = installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
-  const backend = createCodexBackend({ ...options, cli: wrapped('hook-session-wrapper.ts', `'${helper}' 500 '${returned}'`, fake.command, ...fake.args), model: 'gpt-6.1-sol' })
-  expect(await backend.admit()).toMatchObject({ admitted: false, reason: 'CLI descendant left its process group: group-return' })
-  expect(existsSync(returned)).toBe(true)
-  expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
-})
+for (const runtime of ['claude', 'codex'] as const) {
+  test.skipIf(process.platform === 'win32')(`${runtime} fails admission when a process of the control hook session visits another group and returns to the hook group`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const helper = join(root, 'group-return')
+    const returned = join(root, 'returned.pid')
+    await promisify(execFile)('cc', [fileURLToPath(new URL('group-return.c', import.meta.url)), '-o', helper])
+    const fake = runtime === 'claude' ? installFakeClaude(root, { replies: [{ kind: 'answer', output }] }) : installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
+    const cli = wrapped('hook-session-wrapper.ts', `'${helper}' 500 '${returned}'`, fake.command, ...fake.args)
+    const backend = runtime === 'claude' ? createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins }) : createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+    expect(await backend.admit()).toMatchObject({ admitted: false, reason: 'CLI descendant left its process group: group-return' })
+    expect(existsSync(returned)).toBe(true)
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
+  })
+}
 
 for (const runtime of ['claude', 'codex'] as const) {
   test.skipIf(process.platform === 'win32')(`${runtime} fails admission when the process table cannot be read during a call even if the final read succeeds`, async (context) => {

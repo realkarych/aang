@@ -922,7 +922,7 @@ is not part of the item. Notifications other than requests for input
 
 A Claude adapter `process_exited` fact says that the process of a registry file
 `<claude>/sessions/<pid>.json` was found gone while the file was still there
-(ADR-0004, decision 12). Its time is the moment the collector found it; its
+(ADR-0004, decision 13). Its time is the moment the collector found it; its
 payload carries the pid, the path and `started_at` from the entry's `startedAt`.
 
 The session projection derives each exit's boundary from the session's own
