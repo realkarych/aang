@@ -98,15 +98,15 @@ const runUpdate = (current: ModelEntity | null, { key, run, root }: SessionLinks
   return { ...runDraft(current.value), created_at: root.at }
 }
 
-const goalChange = (run: RunDraft | null, prompt: FactOf<'prompt'> | null): ModelChangeDraft | null =>
-  run === null || prompt === null || run.goal?.text === prompt.payload.text
+const goalChange = (run: RunDraft | null, prompt: FactOf<'prompt'> | null): ModelChangeDraft | null => {
+  if (run === null || prompt === null) {
+    return null
+  }
+  const goal = { text: prompt.payload.text, fact: prompt.id }
+  return isDeepStrictEqual(run.goal, goal)
     ? null
-    : {
-        op: 'run.goal',
-        basis: observed,
-        evidence: [prompt.id],
-        put: { kind: 'run', value: { ...run, goal: { text: prompt.payload.text, fact: prompt.id } } },
-      }
+    : { op: 'run.goal', basis: observed, evidence: [prompt.id], put: { kind: 'run', value: { ...run, goal } } }
+}
 
 const rootChanges = (transaction: Transaction, links: SessionLinks): ModelChangeDraft[] => {
   const { key, run, root, goal } = links

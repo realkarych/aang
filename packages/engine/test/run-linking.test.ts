@@ -243,6 +243,62 @@ test('takes the goal of a run from the first human prompt of its root session as
   expect(goalOf()).toEqual(goal)
 })
 
+test('takes the goal from the earliest of two prompts with the same text regardless of delivery order', async () => {
+  const thread = 'codex-goal'
+  const run = runOf('codex', thread)
+  const lines = codexRollout({ thread, cwd })
+  const rollout = jsonlFile({ runtime: 'codex', path: `${codexSessions}/${thread}.jsonl`, lines, ino: 1n }).batch(
+    1,
+    lines.length,
+  )
+  const submit = hookBatch(
+    { runtime: 'codex', file: 'start.evt', payload: codexHook('SessionStart.startup.json', { session: thread, cwd }) },
+    {
+      runtime: 'codex',
+      file: 'prompt.evt',
+      arrival: 1,
+      payload: codexHook('UserPromptSubmit.json', { session: thread, cwd }, { prompt: codexGoal }),
+    },
+  )
+  const firsts = []
+  const models = []
+  for (const [early, late] of [
+    [submit, rollout],
+    [rollout, submit],
+  ] as const) {
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const goalOf = () => {
+      const entity = store.model.entity(run, { kind: 'run', id: run })
+      return entity?.kind === 'run' ? entity.value.goal : null
+    }
+    const engine = startEngine(store, { all: true })
+    await engine.ingest(early)
+    const first = goalOf()
+    await engine.ingest(late)
+    const [earliest, ...later] = factsOf(store)
+      .flatMap((fact) => (fact.kind === 'prompt' && fact.payload.text === codexGoal ? [fact] : []))
+      .toSorted((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : left.id < right.id ? -1 : 1))
+    if (first === null || earliest === undefined) {
+      throw new Error('the run has no goal')
+    }
+    expect(later.length).toBeGreaterThan(0)
+    expect(goalOf()).toEqual({ text: codexGoal, fact: earliest.id })
+    expect(
+      store.model
+        .changes(run, ModelVersion.parse(0))
+        .filter(({ op }) => op === 'run.goal')
+        .map(({ author, basis, evidence }) => ({ author, basis, evidence })),
+    ).toEqual(
+      [...new Set([first.fact, earliest.id])].map((fact) => ({ author: 'rule', basis: { kind: 'observed' }, evidence: [fact] })),
+    )
+    firsts.push(first.fact)
+    models.push(store.model.entities(run).map(({ kind, value }) => [kind, withoutCounters(value)]))
+  }
+  expect(new Set(firsts).size).toBe(2)
+  expect(models[1]).toEqual(models[0])
+})
+
 test('never links sessions that share a directory without runtime identifiers', async () => {
   const home = await createHome(onTestFinished)
   const store = home.open()

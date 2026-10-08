@@ -116,9 +116,10 @@ a rule version only when a decision changes.
   prompt of a human to the main agent of the root session, the same prompt the run
   context calls the task. Its fact is the evidence and the basis is observed. The
   change goes into the change set that links the session, so a run whose first
-  batch holds the prompt gets its goal in the version that creates it. A prompt
-  with the same text delivered again keeps the goal and its fact, even when its time
-  is earlier; a prompt that turns out earlier and has another text replaces the goal.
+  batch holds the prompt gets its goal in the version that creates it. The same
+  prompt delivered again keeps the goal. A prompt that turns out earlier replaces the
+  goal and its fact even with the same text, as the Codex prompt of a rollout does
+  after its hook, so the goal does not depend on the delivery order.
 
 ## Attention operations
 
