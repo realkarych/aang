@@ -1,5 +1,5 @@
 import { once } from 'node:events'
-import { chmod, mkdir, rename, writeFile } from 'node:fs/promises'
+import { chmod, mkdir, open, rename, writeFile } from 'node:fs/promises'
 import { createServer } from 'node:net'
 import type { AddressInfo } from 'node:net'
 import { dirname, join } from 'node:path'
@@ -25,6 +25,7 @@ import {
   sample,
   sleep,
   spoolFilesOf,
+  storedCount,
   transcriptLines,
   waitUntil,
   watchedHome,
@@ -236,6 +237,39 @@ describe.concurrent('the daemon takes collected records through the engine and a
       expect(rawRecords(store).filter(({ channel }) => channel === 'rollout')).toHaveLength(lines.length)
     },
   )
+
+  test('a command appended to a rollout that Codex holds open is taken within seconds while the roots scan waits a minute', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { home, workspace } = await watchedHome(onTestFinished, { collector: {} })
+    const lines = rolloutLines(workspace)
+    const commandAt = lines.findIndex((line) => (JSON.parse(line) as { readonly payload: { readonly type?: string } }).payload.type === 'custom_tool_call')
+    const rollout = join(home.root, '.codex', 'sessions', '2026', '10', '01', 'rollout-q4-held.jsonl')
+    const taken = "SELECT count(*) AS count FROM raw_records WHERE channel = 'rollout'"
+    await mkdir(dirname(rollout), { recursive: true })
+    const daemon = await spawnDaemon(home, onTestFinished)
+    const writer = await open(rollout, 'a')
+    let lagMs: number
+    try {
+      await writer.write(`${lines.slice(0, commandAt).join('\n')}\n`)
+      await waitUntil(() => storedCount(home, taken) === commandAt)
+      const appendedAt = performance.now()
+      await writer.write(`${lines[commandAt] ?? ''}\n`)
+      await waitUntil(() => storedCount(home, taken) === commandAt + 1)
+      lagMs = performance.now() - appendedAt
+    } finally {
+      await writer.close()
+    }
+    expect(await daemon.shutdown()).toBe(0)
+
+    expect(lagMs).toBeLessThanOrEqual(3_000)
+    const store = openFinished(home, onTestFinished)
+    const sessionId = objectId({ kind: 'session', runtime: 'codex', session: rolloutThread })
+    expect(store.observations.actions(sessionId).map(({ key, execution }) => ({ call: key.call, execution }))).toEqual([
+      { call: 'call_MxHF39QIUjLqImvlqfhdfE2y', execution: { state: 'running' } },
+    ])
+  })
 
   test('a busy OTel port fails the start and leaves the home free for the next start', async ({
     expect,
