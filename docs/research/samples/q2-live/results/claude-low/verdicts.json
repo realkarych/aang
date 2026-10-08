@@ -1,0 +1,96 @@
+{
+  "workload-logstats:big-log": {
+    "candidate": 4,
+    "reason": "v24: этап «Benchmark aggregation on 300k-line log» running, сводка: сгенерирован лог на 300k строк (15M, 293 битых). В v23 этап waiting, сводка: generate.js написан, но генерация 300k строк ещё ждёт разрешения."
+  },
+  "workload-logstats:commit-done": {
+    "candidate": 0,
+    "reason": "v161: этап «Remove tmp/ and commit all work» done, сводка «tmp/ removed; commit 07daa98 adds 16 files», в брифе то же. В базовой v160 этап waiting на разрешение rm -rf tmp."
+  },
+  "workload-logstats:committed": {
+    "candidate": 2,
+    "reason": "v161: этап «Remove tmp/ and commit all work» done со сводкой «commit 07daa98 adds 16 files», бриф: вся работа закоммичена как 07daa98. В v160 этап waiting на разрешение."
+  },
+  "workload-logstats:docs-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: README.md и docs/FORMAT.md написаны, но этап документации PLAN.md (этап 6) так и не завершён — в package.json нет записи bin, итоговая проверка решателя: «Stage 6 stays pending until the bin entry exists». Ожидание «the documentation stage is done» в этой сессии не наступает. Карта верно держит этап 6 «Documentation and cleanup» в waiting до последнего кандидата v165."
+  },
+  "workload-logstats:docs-reported": {
+    "candidate": 4,
+    "reason": "v143: этап «Stage 6: Documentation and cleanup» (agents 3), сводка: «Both subagents finished: README.md … and docs/FORMAT.md …» — оба субагента названы и закончили. В v142 сводка: субагент FORMAT.md «has not finished yet»."
+  },
+  "workload-logstats:final-done": {
+    "candidate": 0,
+    "reason": "v166: этап «Final test run and PLAN.md criteria check» done со сводкой «of 27 PLAN.md criteria, 25 met, 1 partly met … 1 not met», критерий о таблице критериев reported_done, бриф содержит тот же итог. В базовой v165 этап running, критерий not_checked."
+  },
+  "workload-logstats:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон проходит (65 из 65), но этап 6 PLAN.md не завершён (нет bin в package.json, решатель: «Stage 6 stays pending»), поэтому «every stage of the plan is done» в этой сессии не наступает. Карта верно держит этап 6 в waiting до последнего кандидата v167."
+  },
+  "workload-logstats:format-answered": {
+    "candidate": 2,
+    "reason": "v44: вопрос «Should the HTML report be a single self-contained file…» answered, этап «Stage 5: HTML report» running со сводкой «User chose a self-contained report.html with inline <style>», бриф говорит о том же. В v43 вопрос уже закрыт, но этап waiting, а бриф говорит, что агент ждёт выбора."
+  },
+  "workload-logstats:plan-ready": {
+    "candidate": null,
+    "reason": "С v7 этап «Write PLAN.md from SPEC.md» выполнен и этапы «Stage 1…6» в planned, но ни один бриф в окне (v7–v17) не называет цель — библиотеку и CLI для анализа логов: в нём только «remaining logstats features», PLAN.md и затем работа над stage 3."
+  },
+  "workload-logstats:review-fixed": {
+    "candidate": 1,
+    "reason": "v108: общий этап ревью и исправлений «Subagent project review and fixes» done: исправлены 8 из 9 подтверждённых находок, 61/61 тестов, бриф: «review fixes reported done». В v107 этап ещё running."
+  },
+  "workload-logstats:review-reported": {
+    "candidate": 1,
+    "reason": "v83: этап «Subagent project review and fixes» (agents 2) со сводкой «Subagent review done (read-only): reports 9 confirmed issues…» с перечнем находок, бриф: ревью субагента сообщает о 9 багах. В v82 сводка содержит только промежуточные пробы, и бриф говорит, что субагент ещё проверяет."
+  },
+  "workload-mdlinks:commit-done": {
+    "candidate": 2,
+    "reason": "v235: этап «Remove tmp/ and commit all work» done, бриф: «The work is committed as 864980c on the branch mdlinks-implementation», критерий про коммит reported_done. В v234 этап waiting, коммит ждёт разрешения."
+  },
+  "workload-mdlinks:committed": {
+    "candidate": 4,
+    "reason": "v235: этап «Remove tmp/ and commit all work» done, сводка и бриф: «committed as 864980c on the branch mdlinks-implementation», критерий про коммит reported_done. В v234 этап waiting, git commit ждёт разрешения."
+  },
+  "workload-mdlinks:docs-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: README.md не написан (решатель: «README.md is still not written»), поэтому «README.md is written» в этой сессии не наступает. Карта верно показывает, что README не написан."
+  },
+  "workload-mdlinks:docs-reported": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: Claude Code 2.1.293 запустил оба субагента асинхронно, и событие стоит на их запуске; субагент docs/ закончил через 24,6 с, субагент README результата так и не сдал (решатель: «The agent stopped when it lost shell access»). Предпосылка «оба субагента закончили» ложна. Карта показывает итоги обоих субагентов в v218 (+70,6 с)."
+  },
+  "workload-mdlinks:explore-done": {
+    "candidate": 1,
+    "reason": "v5: этап «Read SPEC.md and docs/ to find broken links» done, сводка и бриф называют две битые ссылки (docs/index.md:5 faq.md, docs/guide/usage.md:5 ../setup.md) с причинами, критерий про список ссылок reported_done. В v4 этап ещё running, ссылки лишь «look unresolved»."
+  },
+  "workload-mdlinks:final-done": {
+    "candidate": 0,
+    "reason": "v243: этап «Rerun all tests and check PLAN.md acceptance criteria» done, сводка и бриф: итоговая таблица статусов по критериям PLAN.md (27 pass, 1 met but its test fails, 10 fail). В базовом v242 этап running, «The status table is not produced yet»."
+  },
+  "workload-mdlinks:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон не проходит — 64 из 72, 8 тестов ждут прежние битые ссылки в docs/ (итог решателя). Карта верно показывает 64 из 72."
+  },
+  "workload-mdlinks:plan-ready": {
+    "candidate": null,
+    "reason": "Этапы «Stage 1: Project skeleton» … «Stage 7: --fix» ждут в planned с v8, но ни в одном кандидате бриф не формулирует цель — линк-чекер для Markdown: только «wrote PLAN.md with 7 mdlinks stages»; в последнем кандидате v12 бриф говорит о реализации извлечения ссылок в src/extract.js."
+  },
+  "workload-mdlinks:review-fixed": {
+    "candidate": 1,
+    "reason": "v107: этап «Subagent review of src/extract.js against CommonMark corner cases» done, критерий «Failing inputs added as tests and fixed; all tests run» reported_done, бриф: все найденные сабагентом ошибки исправлены, 59/59 tests pass. В v106 этап ещё running, критерий partial."
+  },
+  "workload-mdlinks:review-reported": {
+    "candidate": 2,
+    "reason": "v92: сводка этапа «Subagent review of src/extract.js against CommonMark corner cases»: «The subagent finished and reported failing inputs» с группами (nested brackets, escapes, titles, angle-bracket destinations и др.), бриф о failing CommonMark inputs, критерий про отчёт сабагента reported_done. В v91 сводка: «it has not reported findings yet»."
+  },
+  "workload-mdlinks:slugs-answered": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: решатель предложил варианты в порядке «Case-insensitive», «Case-sensitive», хост записи выбрал первый, и ответ — case-insensitive, а не case-sensitive. Карта показывает выбор верно. С фактическим ответом вопрос закрыт и проверка продолжается с выбором в v45 (+16,7 с)."
+  }
+}

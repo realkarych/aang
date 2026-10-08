@@ -1,0 +1,74 @@
+{
+  "outages": [
+    {
+      "run": "cc995e48e11752c755f4154864a6b6c5",
+      "state": "unavailable:limit",
+      "duration_ms": 144909,
+      "pending_peak": 442,
+      "pending_at_recovery": 442,
+      "drained_after_ms": 241123,
+      "versions_during": {
+        "rule": 2,
+        "observer": 0,
+        "user": 0
+      },
+      "failed_calls": []
+    },
+    {
+      "run": "27cbfd006578a7a8cad82d7cca86aed8",
+      "state": "unavailable:limit",
+      "duration_ms": 144909,
+      "pending_peak": 532,
+      "pending_at_recovery": 532,
+      "drained_after_ms": null,
+      "versions_during": {
+        "rule": 0,
+        "observer": 0,
+        "user": 0
+      },
+      "failed_calls": [
+        "limit"
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "kind": "probe",
+      "verdict": "accepted",
+      "error": null,
+      "at": "2026-10-07T18:08:29.008Z"
+    }
+  ],
+  "questions": [
+    {
+      "status": "answered",
+      "during_outage": true,
+      "answer_ms": 503
+    },
+    {
+      "status": "answered",
+      "during_outage": true,
+      "answer_ms": 502
+    },
+    {
+      "status": "answered",
+      "during_outage": false,
+      "answer_ms": 587
+    },
+    {
+      "status": "answered",
+      "during_outage": true,
+      "answer_ms": 488
+    },
+    {
+      "status": "answered",
+      "during_outage": false,
+      "answer_ms": 496
+    },
+    {
+      "status": "answered",
+      "during_outage": false,
+      "answer_ms": 569
+    }
+  ]
+}

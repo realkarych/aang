@@ -8,6 +8,9 @@ const { values } = parseArgs({
     fixtures: { type: 'string' },
     surface: { type: 'string' },
     cli: { type: 'string' },
+    effort: { type: 'string' },
+    name: { type: 'string' },
+    lanes: { type: 'string' },
     out: { type: 'string' },
     'second-lane-ms': { type: 'string', default: '300000' },
     'gap-ms': { type: 'string', default: '90000' },
@@ -16,9 +19,9 @@ const { values } = parseArgs({
 })
 const { runtime, fixtures, surface, out } = values
 if (runtime === undefined || fixtures === undefined || surface === undefined || out === undefined) {
-  throw new Error('Usage: profile.mjs --runtime claude|codex --fixtures <dir> --surface <surface> [--cli <observer CLI>] --out <profile.json>')
+  throw new Error('Usage: profile.mjs --runtime claude|codex --fixtures <dir> --surface <surface> [--cli <observer CLI>] [--effort <effort>] [--name <name>] [--lanes <a,b;c,d>] --out <profile.json>')
 }
-const lanes = [['ledger', 'kvstore'], ['logstats', 'mdlinks']]
+const lanes = (values.lanes ?? 'ledger,kvstore;logstats,mdlinks').split(';').map((lane) => lane.split(','))
 const questions = [
   [0.3, 'Что сейчас делает прогон и что осталось сделать по плану?'],
   [0.6, 'Какие тесты падали за прогон и чем это закончилось?'],
@@ -53,10 +56,10 @@ for (const [lane, tasks] of lanes.entries()) {
 }
 const profile = {
   format: 'aang-freshness-profile/1',
-  name: `${runtime}-workload`,
+  name: values.name ?? `${runtime}-workload`,
   time_scale: 1,
   window_ms: Number(values['window-ms']),
-  observer: { [runtime]: { cli: values.cli ?? null, model: null, effort: null, target_p95_ms: runtime === 'claude' ? 30_000 : 40_000 } },
+  observer: { [runtime]: { cli: values.cli ?? null, model: null, effort: values.effort ?? null, target_p95_ms: runtime === 'claude' ? 30_000 : 40_000 } },
   runs: runs.toSorted((left, right) => left.start_ms - right.start_ms),
 }
 await writeFile(out, `${JSON.stringify(profile, null, 2)}\n`)
