@@ -131,6 +131,9 @@ export const createChat = (options: ChatOptions): Chat => {
     })
   }
 
+  const awaited = (transaction: Transaction, { run, started }: Conversation): boolean =>
+    transaction.chat.message(run, started.message.id)?.status === 'pending'
+
   const conclude = (transaction: Transaction, { run, started }: Conversation, { input, result }: Exchange, at: EpochNs): void => {
     const message = started.message.id
     if (result.ok) {
@@ -151,6 +154,9 @@ export const createChat = (options: ChatOptions): Chat => {
     }
     const first = await exchange(executor, started.input)
     const followUp = store.transaction((transaction): ChatInput | null => {
+      if (!awaited(transaction, conversation)) {
+        return null
+      }
       const at = epoch(now())
       record(transaction, conversation, first, null, at)
       if (!first.result.ok || !requested(first.result.output)) {
@@ -179,6 +185,9 @@ export const createChat = (options: ChatOptions): Chat => {
     }
     const second = await exchange(executor, followUp)
     store.transaction((transaction) => {
+      if (!awaited(transaction, conversation)) {
+        return
+      }
       const at = epoch(now())
       record(transaction, conversation, second, first.id, at)
       conclude(transaction, conversation, second, at)

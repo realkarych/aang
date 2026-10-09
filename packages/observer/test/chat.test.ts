@@ -234,6 +234,53 @@ test('questions left pending by a stopped daemon fail, a run without a backend f
   expect(journal(scene, session.run).map(({ verdict, error }) => [verdict, error])).toEqual([['failed', null]])
 })
 
+test('a run deleted while its chat waits for the CLI in either phase gets back neither its chat calls nor its message, and the chat goes on', async (context) => {
+  const scene = await createScene(context)
+  const [beforeAnswer, beforeFollowUp] = [join(scene.root, 'answer-gate'), join(scene.root, 'follow-up-gate')]
+  scene.fakeClaude.setScenario({
+    replies: [],
+    chatReplies: [
+      { kind: 'answer', output: chatOutput({ answer: 'Gone with the run.' }), gate: beforeAnswer },
+      reply(chatOutput({ needs: [{ kind: 'fact', fact: 'f'.repeat(32) }] })),
+      { kind: 'answer', output: chatOutput({ answer: 'Gone after its needs.' }), gate: beforeFollowUp },
+      reply(chatOutput({ answer: 'The chat still answers.' })),
+    ],
+  })
+  const chat = chatOf(scene)
+  let failed: unknown = null
+  void chat.failure.then((error: unknown) => {
+    failed = error
+  })
+  const inFirst = scene.claudeSession('session-first-phase')
+  const inSecond = scene.claudeSession('session-second-phase')
+  const kept = scene.claudeSession('session-kept')
+  for (const session of [inFirst, inSecond, kept]) {
+    await session.start()
+  }
+  const deleted = async (run: RunId, gate: string, calls: number): Promise<void> => {
+    await until(() => chatCalls(scene.fakeClaude.calls()).length === calls)
+    await scene.engine.prune({ scope: 'run', run }, () => Promise.resolve(null))
+    await writeFile(gate, '')
+    await chat.idle()
+  }
+
+  chat.ask(inFirst.run, { question: 'Deleted before the answer?', stage: null })
+  await deleted(inFirst.run, beforeAnswer, 1)
+  chat.ask(inSecond.run, { question: 'Deleted before the follow-up answer?', stage: null })
+  await deleted(inSecond.run, beforeFollowUp, 3)
+  const answered = chat.ask(kept.run, { question: 'Still there?', stage: null })
+  await chat.idle()
+
+  expect(failed).toBeNull()
+  for (const run of [inFirst.run, inSecond.run]) {
+    expect(scene.store.model.entity(run, { kind: 'run', id: run })).toBeNull()
+    expect(messages(scene, run)).toEqual([])
+    expect(journal(scene, run)).toEqual([])
+  }
+  expect(messageOf(scene, kept.run, answered)).toMatchObject({ status: 'answered', answer: 'The chat still answers.' })
+  expect(journal(scene, kept.run).map(({ verdict, previous }) => [verdict, previous])).toEqual([['accepted', null]])
+})
+
 test('an earlier answer reaches a later chat input only when the backend and crossVendor of the daemon admit the input it was built from', async (context) => {
   const own = 'The review stage waits for a decision.'
   const shared = 'One Claude session works in the run.'
