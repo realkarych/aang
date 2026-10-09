@@ -226,7 +226,7 @@ export const createSpoolSource = (options: SpoolOptions, wakeup: Wakeup): SpoolS
           hinted.add(name)
           wakeup.notify()
         },
-        lost: requestListing,
+        missed: requestListing,
       })
       watch.ensure()
     }
