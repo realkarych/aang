@@ -1,4 +1,5 @@
 import type {
+  Action,
   Agent,
   AgentId,
   AttentionItem,
@@ -60,12 +61,15 @@ export interface FactOwner {
   readonly agent: AgentId | null
 }
 
+export const factAction = (objects: ObservationObjects, key: FactEntityKey): Action | null =>
+  key.kind === 'action' ? (objects.actions.find((candidate) => sameKey(candidate.key, key)) ?? null) : null
+
 export const factOwner = (objects: ObservationObjects, key: FactEntityKey): FactOwner => {
   if (key.kind === 'run') {
     return { session: null, agent: null }
   }
   const session = objects.sessions.find((candidate) => candidate.key.session === key.session) ?? null
-  const action = key.kind === 'action' ? objects.actions.find((candidate) => sameKey(candidate.key, key)) : undefined
+  const action = factAction(objects, key)
   const agent = key.kind === 'agent' ? objects.agents.find((candidate) => sameKey(candidate.key, key)) : undefined
   return { session: session?.id ?? null, agent: action?.agent ?? agent?.id ?? null }
 }

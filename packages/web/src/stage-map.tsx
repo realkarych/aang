@@ -104,14 +104,16 @@ interface FollowLayoutProps {
 
 const FollowLayout = ({ layout, following, request, onFitted }: FollowLayoutProps): null => {
   const { setViewport } = useReactFlow()
+  const canvas = useStore((state) => state.domNode)
   const width = useStore((state) => state.width)
   const height = useStore((state) => state.height)
   useEffect(() => {
-    if (following && width > 0 && height > 0) {
-      void setViewport(fittedViewport(layout, { width, height }))
+    const area = { width: canvas?.offsetWidth ?? width, height: canvas?.offsetHeight ?? height }
+    if (following && area.width > 0 && area.height > 0) {
+      void setViewport(fittedViewport(layout, area))
       onFitted()
     }
-  }, [layout, following, request, setViewport, onFitted, width, height])
+  }, [layout, following, request, setViewport, onFitted, canvas, width, height])
   return null
 }
 

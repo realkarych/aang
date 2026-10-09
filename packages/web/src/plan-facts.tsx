@@ -1,12 +1,14 @@
 import type { AgentId, FactOf, ObservationObjects, PlanItemStatus, PlanSource, RunSnapshot, SessionId } from '@aang/contract'
-import { type ReactElement, useId, useState } from 'react'
+import { type ReactElement, type ReactNode, useId, useState } from 'react'
 import { plural } from './format.js'
 import { PlanItemGlyph } from './glyphs.js'
 import { planItemLabel, planSourceLabel } from './labels.js'
 import { Moment } from './moment.js'
-import { factOwner, factPlace, placeOf } from './objects.js'
+import { factAction, factOwner, factPlace, placeOf } from './objects.js'
 
 type PlanFact = FactOf<'plan_update'>
+
+type PlanItem = PlanFact['payload']['items'][number]
 
 export const isPlan = (fact: RunSnapshot['plan_facts'][number]): fact is PlanFact => fact.kind === 'plan_update'
 
@@ -17,7 +19,7 @@ const oldestFirst = (left: PlanFact, right: PlanFact): number => newestFirst(rig
 
 const sameRecordForms = { one: 'одинаковая запись', few: 'одинаковые записи', many: 'одинаковых записей' } as const
 
-type PlanFamily = 'tasks' | 'approval' | 'goal' | 'codex'
+type PlanFamily = 'tasks' | 'todos' | 'approval' | 'goal' | 'codex'
 
 const familyOf: Readonly<Record<PlanSource, PlanFamily>> = {
   task_tool: 'tasks',
@@ -27,85 +29,121 @@ const familyOf: Readonly<Record<PlanSource, PlanFamily>> = {
   rollout_plan: 'codex',
 }
 
-interface PlanTask {
-  id: string | null
-  text: string
-  status: PlanItemStatus
-  description: string | null
+const todoTool = 'TodoWrite'
+
+interface PlanRecord {
+  readonly fact: PlanFact
+  readonly family: PlanFamily
+  readonly session: SessionId | null
+  readonly agent: AgentId | null
+  readonly call: string | null
 }
+
+const mainAgentOf = (objects: ObservationObjects, session: SessionId | null): AgentId | null =>
+  objects.agents.find((agent) => agent.session === session && agent.role === 'main')?.id ?? null
+
+const recordOf =
+  (objects: ObservationObjects) =>
+  (fact: PlanFact): PlanRecord => {
+    const owner = factOwner(objects, fact.entity_key)
+    const tool = factAction(objects, fact.entity_key)?.tool
+    return {
+      fact,
+      family: tool === todoTool ? 'todos' : familyOf[fact.payload.source],
+      session: owner.session,
+      agent: owner.agent ?? mainAgentOf(objects, owner.session),
+      call: fact.entity_key.kind === 'action' ? JSON.stringify(fact.entity_key) : null,
+    }
+  }
+
+const ownerKey = ({ session, agent }: PlanRecord): string => `${session ?? ''}:${agent ?? ''}`
 
 interface PlanBlock {
   readonly key: string
   readonly family: PlanFamily
   readonly session: SessionId | null
   readonly agent: AgentId | null
-  readonly facts: readonly PlanFact[]
+  readonly records: readonly PlanRecord[]
   readonly latest: PlanFact
 }
 
-const mainAgentOf = (objects: ObservationObjects, session: SessionId | null): AgentId | null =>
-  objects.agents.find((agent) => agent.session === session && agent.role === 'main')?.id ?? null
-
-const blocksOf = (facts: readonly PlanFact[], objects: ObservationObjects): PlanBlock[] => {
+const blocksOf = (records: readonly PlanRecord[]): PlanBlock[] => {
   const blocks = new Map<string, PlanBlock>()
-  for (const fact of facts.toSorted(oldestFirst)) {
-    const family = familyOf[fact.payload.source]
-    const owner = factOwner(objects, fact.entity_key)
-    const agent = owner.agent ?? mainAgentOf(objects, owner.session)
-    const key = `${family}:${owner.session ?? ''}:${agent ?? ''}`
-    const known = blocks.get(key)?.facts ?? []
-    blocks.set(key, { key, family, session: owner.session, agent, facts: [...known, fact], latest: fact })
+  for (const record of records.toSorted((left, right) => oldestFirst(left.fact, right.fact))) {
+    const { family, session, agent, fact } = record
+    const key = `${family}:${ownerKey(record)}`
+    const known = blocks.get(key)?.records ?? []
+    blocks.set(key, { key, family, session, agent, records: [...known, record], latest: fact })
   }
   return [...blocks.values()].toSorted((left, right) => newestFirst(left.latest, right.latest))
 }
 
-const mergedTasks = (facts: readonly PlanFact[]): PlanTask[] => {
-  const tasks: PlanTask[] = []
-  const byId = new Map<string, PlanTask>()
-  const byText = new Map<string, PlanTask>()
-  const absorb = (kept: PlanTask, gone: PlanTask): void => {
-    kept.description ??= gone.description
-    tasks.splice(tasks.indexOf(gone), 1)
-    for (const index of [byId, byText]) {
-      for (const [key, known] of index) {
-        if (known === gone) {
-          index.set(key, kept)
-        }
-      }
-    }
+interface PlanTask {
+  readonly id: string | null
+  readonly text: string
+  readonly status: PlanItemStatus
+  readonly description: string | null
+}
+
+interface TrackedTask {
+  id: string | null
+  text: string
+  status: PlanItemStatus
+  description: string | null
+  created: boolean
+}
+
+const taskCreated = (tasks: TrackedTask[], { text, status }: PlanItem, description: string | null): void => {
+  const known = tasks.find((task) => task.id !== null && !task.created && task.text === text)
+  if (known === undefined) {
+    tasks.push({ id: null, text, status, description, created: true })
+    return
   }
-  for (const fact of facts) {
-    const { items, text: description } = fact.payload
-    for (const item of items) {
-      const withId = item.id === null ? undefined : byId.get(item.id)
-      const withText = item.text === '' ? undefined : byText.get(item.text)
-      if (withId !== undefined && withText !== undefined && withId !== withText) {
-        absorb(withId, withText)
-      }
-      const known = withId ?? withText
-      const task = known ?? { id: null, text: '', status: item.status, description: null }
-      if (known === undefined) {
-        tasks.push(task)
-      }
-      task.status = item.status
-      if (item.id !== null) {
-        task.id = item.id
-        byId.set(item.id, task)
-      }
-      if (item.text !== '') {
-        task.text = item.text
-        byText.set(item.text, task)
-      }
-      if (items.length === 1 && description !== null) {
-        task.description = description
+  known.created = true
+  known.description ??= description
+}
+
+const taskUpdated = (
+  tasks: TrackedTask[],
+  id: string,
+  { text, status }: PlanItem,
+  description: string | null,
+): void => {
+  const known =
+    tasks.find((task) => task.id === id) ?? tasks.find((task) => task.id === null && text !== '' && task.text === text)
+  if (known === undefined) {
+    tasks.push({ id, text, status, description, created: false })
+    return
+  }
+  known.id = id
+  known.text = text === '' ? known.text : text
+  known.status = status === 'unknown' ? known.status : status
+  known.description = description ?? known.description
+}
+
+const mergedTasks = (records: readonly PlanRecord[]): PlanTask[] => {
+  const tasks: TrackedTask[] = []
+  const applied = new Set<string>()
+  for (const { fact, call } of records) {
+    if (call !== null && applied.has(call)) {
+      continue
+    }
+    if (call !== null) {
+      applied.add(call)
+    }
+    for (const item of fact.payload.items) {
+      if (item.id === null) {
+        taskCreated(tasks, item, fact.payload.text)
+      } else {
+        taskUpdated(tasks, item.id, item, fact.payload.text)
       }
     }
   }
   return tasks
 }
 
-const blockLabel = ({ family, facts, latest }: PlanBlock): string =>
-  family === 'tasks' && facts.some(({ payload }) => payload.source === 'task_tool')
+const blockLabel = ({ family, records, latest }: PlanBlock): string =>
+  family === 'tasks' && records.some(({ fact }) => fact.payload.source === 'task_tool')
     ? planSourceLabel.task_tool
     : planSourceLabel[latest.payload.source]
 
@@ -138,12 +176,13 @@ const CurrentPlan = ({
 }): ReactElement => {
   const { latest } = block
   const place = block.session === null ? null : placeOf(objects, block.session, block.agent)
-  const tasks =
-    block.family === 'tasks'
-      ? mergedTasks(block.facts)
-      : latest.payload.items.map(({ id, text, status }) => ({ id, text, status, description: null }))
-  const text = block.family === 'tasks' ? null : latest.payload.text
-  const unverified = block.facts.some(({ format_verified: verified }) => !verified)
+  const merged = block.family === 'tasks'
+  const tasks = merged
+    ? mergedTasks(block.records)
+    : latest.payload.items.map(({ id, text, status }) => ({ id, text, status, description: null }))
+  const text = merged ? null : latest.payload.text
+  const shown = merged ? block.records.map(({ fact }) => fact) : [latest]
+  const unverified = shown.some(({ format_verified: verified }) => !verified)
   return (
     <li className="plan-update">
       <p className="plan-head">
@@ -152,10 +191,11 @@ const CurrentPlan = ({
       </p>
       <p className="plan-meta">
         {place === null ? null : <span>{place}</span>}
-        {block.facts.length === 1 ? null : <span>{`сведено записей: ${String(block.facts.length)}`}</span>}
+        {block.records.length === 1 ? null : <span>{`сведено записей: ${String(block.records.length)}`}</span>}
         {unverified ? <span className="plan-unverified">формат записи не проверен</span> : null}
       </p>
       {text === null ? null : <p className="plan-text">{text}</p>}
+      {block.family === 'todos' && tasks.length === 0 ? <p className="plan-text">Список дел пуст</p> : null}
       {tasks.length === 0 ? null : <TaskList tasks={tasks} />}
     </li>
   )
@@ -165,12 +205,12 @@ export const PlanUpdate = ({
   fact,
   objects,
   now,
-  repeated = 1,
+  children,
 }: {
   readonly fact: PlanFact
   readonly objects: ObservationObjects
   readonly now: bigint
-  readonly repeated?: number
+  readonly children?: ReactNode
 }): ReactElement => {
   const { payload } = fact
   const place = factPlace(objects, fact.entity_key)
@@ -182,7 +222,7 @@ export const PlanUpdate = ({
       </p>
       <p className="plan-meta">
         {place === null ? null : <span>{place}</span>}
-        {repeated === 1 ? null : <span>{`${plural(repeated, sameRecordForms)} подряд`}</span>}
+        {children}
         {fact.format_verified ? null : <span className="plan-unverified">формат записи не проверен</span>}
       </p>
       {payload.text === null ? null : <p className="plan-text">{payload.text}</p>}
@@ -201,30 +241,62 @@ export const PlanUpdate = ({
   )
 }
 
-interface Repeat {
-  readonly fact: PlanFact
-  readonly count: number
-}
+const sameRecord = (left: PlanRecord, right: PlanRecord): boolean =>
+  left.family === right.family &&
+  ownerKey(left) === ownerKey(right) &&
+  left.fact.payload.source === right.fact.payload.source &&
+  left.fact.format_verified === right.fact.format_verified &&
+  left.fact.payload.text === right.fact.payload.text &&
+  JSON.stringify(left.fact.payload.items) === JSON.stringify(right.fact.payload.items)
 
-const sameContent = (left: PlanFact, right: PlanFact): boolean =>
-  familyOf[left.payload.source] === familyOf[right.payload.source] &&
-  left.payload.text === right.payload.text &&
-  JSON.stringify(left.payload.items) === JSON.stringify(right.payload.items)
+type Repeat = readonly [PlanRecord, ...PlanRecord[]]
 
-const repeats = (facts: readonly PlanFact[]): Repeat[] =>
-  facts.reduce<Repeat[]>((runs, fact) => {
+const repeats = (records: readonly PlanRecord[]): Repeat[] =>
+  records.reduce<Repeat[]>((runs, record) => {
     const last = runs.at(-1)
-    return last !== undefined && sameContent(last.fact, fact)
-      ? [...runs.slice(0, -1), { fact: last.fact, count: last.count + 1 }]
-      : [...runs, { fact, count: 1 }]
+    return last !== undefined && sameRecord(last[0], record)
+      ? [...runs.slice(0, -1), [...last, record]]
+      : [...runs, [record]]
   }, [])
 
-const PlanHistory = ({
-  facts,
+const Repeated = ({
+  records,
   objects,
   now,
 }: {
-  readonly facts: readonly PlanFact[]
+  readonly records: Repeat
+  readonly objects: ObservationObjects
+  readonly now: bigint
+}): ReactElement => {
+  const [open, setOpen] = useState(false)
+  const [first, ...rest] = records
+  return (
+    <>
+      <PlanUpdate fact={first.fact} objects={objects} now={now}>
+        {rest.length === 0 ? null : (
+          <button
+            type="button"
+            className="text-button"
+            aria-expanded={open}
+            onClick={() => {
+              setOpen(!open)
+            }}
+          >
+            {`${plural(records.length, sameRecordForms)} подряд`}
+          </button>
+        )}
+      </PlanUpdate>
+      {open ? rest.map(({ fact }) => <PlanUpdate key={fact.id} fact={fact} objects={objects} now={now} />) : null}
+    </>
+  )
+}
+
+const PlanHistory = ({
+  records,
+  objects,
+  now,
+}: {
+  readonly records: readonly PlanRecord[]
   readonly objects: ObservationObjects
   readonly now: bigint
 }): ReactElement => {
@@ -241,12 +313,12 @@ const PlanHistory = ({
           setOpen(!open)
         }}
       >
-        {open ? 'Скрыть историю записей' : `История записей: ${String(facts.length)}`}
+        {open ? 'Скрыть историю записей' : `История записей: ${String(records.length)}`}
       </button>
       {open ? (
         <ol id={list} className="plan-updates" aria-label="История записей плана">
-          {repeats(facts).map(({ fact, count }) => (
-            <PlanUpdate key={fact.id} fact={fact} objects={objects} now={now} repeated={count} />
+          {repeats(records).map((run) => (
+            <Repeated key={run[0].fact.id} records={run} objects={objects} now={now} />
           ))}
         </ol>
       ) : null}
@@ -256,14 +328,14 @@ const PlanHistory = ({
 
 export const PlanFacts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; readonly now: bigint }): ReactElement => {
   const heading = useId()
-  const facts = snapshot.plan_facts.filter(isPlan).toSorted(newestFirst)
-  const blocks = blocksOf(facts, snapshot.objects)
+  const records = snapshot.plan_facts.filter(isPlan).toSorted(newestFirst).map(recordOf(snapshot.objects))
+  const blocks = blocksOf(records)
   return (
     <section className="plan" aria-labelledby={heading}>
       <h2 id={heading} className="section-title">
         План решателя
       </h2>
-      {facts.length === 0 ? (
+      {records.length === 0 ? (
         <p className="plan-empty">
           Решатель не объявлял план. Задачи, списки дел и планы на одобрение появятся здесь в том виде, в каком он их
           записал.
@@ -275,7 +347,9 @@ export const PlanFacts = ({ snapshot, now }: { readonly snapshot: RunSnapshot; r
               <CurrentPlan key={block.key} block={block} objects={snapshot.objects} now={now} />
             ))}
           </ol>
-          {facts.length === blocks.length ? null : <PlanHistory facts={facts} objects={snapshot.objects} now={now} />}
+          {records.length === blocks.length ? null : (
+            <PlanHistory records={records} objects={snapshot.objects} now={now} />
+          )}
         </>
       )}
     </section>
