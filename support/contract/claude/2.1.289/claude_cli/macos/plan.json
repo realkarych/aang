@@ -1004,9 +1004,10 @@
       "id": "#21",
       "kind": "permission_request",
       "entity_key": {
-        "kind": "session",
+        "kind": "question",
         "runtime": "claude",
-        "session": "134c4704-16b8-4e53-b952-1ed5a9281546"
+        "session": "134c4704-16b8-4e53-b952-1ed5a9281546",
+        "question": "spool#15"
       },
       "speaker": "runtime",
       "urgent": true,
@@ -3987,6 +3988,39 @@
         "kind": "question",
         "runtime": "claude",
         "session": "134c4704-16b8-4e53-b952-1ed5a9281546",
+        "question": "spool#15"
+      },
+      "session": "#79",
+      "agent": "#81",
+      "run": "#80",
+      "kind": "permission",
+      "blocking": true,
+      "text": null,
+      "asked_at": "<time>",
+      "answered_at": null,
+      "action": null,
+      "decision": {
+        "value": "unknown",
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-decision"
+          }
+        },
+        "evidence": [
+          "#21",
+          "#65"
+        ]
+      },
+      "redelivery_group": null
+    },
+    {
+      "id": "#90",
+      "key": {
+        "kind": "question",
+        "runtime": "claude",
+        "session": "134c4704-16b8-4e53-b952-1ed5a9281546",
         "question": "spool#19"
       },
       "session": "#79",
@@ -4015,7 +4049,7 @@
       "redelivery_group": null
     },
     {
-      "id": "#90",
+      "id": "#91",
       "key": {
         "kind": "question",
         "runtime": "claude",
@@ -4056,7 +4090,7 @@
   ],
   "usage": [
     {
-      "id": "#91",
+      "id": "#92",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4080,7 +4114,7 @@
       "at": "<time>"
     },
     {
-      "id": "#92",
+      "id": "#93",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4104,7 +4138,7 @@
       "at": "<time>"
     },
     {
-      "id": "#93",
+      "id": "#94",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4128,7 +4162,7 @@
       "at": "<time>"
     },
     {
-      "id": "#94",
+      "id": "#95",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4152,7 +4186,7 @@
       "at": "<time>"
     },
     {
-      "id": "#95",
+      "id": "#96",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4176,7 +4210,7 @@
       "at": "<time>"
     },
     {
-      "id": "#96",
+      "id": "#97",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4200,7 +4234,7 @@
       "at": "<time>"
     },
     {
-      "id": "#97",
+      "id": "#98",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4224,7 +4258,7 @@
       "at": "<time>"
     },
     {
-      "id": "#98",
+      "id": "#99",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4250,7 +4284,7 @@
   ],
   "artifacts": [
     {
-      "id": "#99",
+      "id": "#100",
       "key": {
         "kind": "artifact_version",
         "run": "#80",
@@ -4264,7 +4298,7 @@
         }
       },
       "run": "#80",
-      "artifact": "#100",
+      "artifact": "#101",
       "ref": {
         "kind": "file",
         "path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-cryptic-flask.md"
@@ -4276,7 +4310,7 @@
       "observed_at": "<time>"
     },
     {
-      "id": "#101",
+      "id": "#102",
       "key": {
         "kind": "artifact_version",
         "run": "#80",
@@ -4290,7 +4324,7 @@
         }
       },
       "run": "#80",
-      "artifact": "#102",
+      "artifact": "#103",
       "ref": {
         "kind": "file",
         "path": "/fixture/project/checklist.txt"
@@ -4313,20 +4347,45 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 3,
+        "version": 4,
         "created_at": "<time>"
       },
       "entities": [
         {
           "kind": "attention_item",
           "value": {
-            "id": "#103",
+            "id": "#104",
+            "run": "#80",
+            "kind": "permission",
+            "author": "rule",
+            "text": "ExitPlanMode",
+            "stage": null,
+            "question": "#89",
+            "action": null,
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#21"
+            ],
+            "runtime_wait": "ended",
+            "resolution": "ended_without_answer",
+            "likely_resolved": null,
+            "priority": null,
+            "opened_at": "<time>",
+            "closed_at": "<time>"
+          }
+        },
+        {
+          "kind": "attention_item",
+          "value": {
+            "id": "#105",
             "run": "#80",
             "kind": "permission",
             "author": "rule",
             "text": "Write: /fixture/project/checklist.txt",
             "stage": null,
-            "question": "#89",
+            "question": "#90",
             "action": null,
             "basis": {
               "kind": "observed"
@@ -4345,13 +4404,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#104",
+            "id": "#106",
             "run": "#80",
             "kind": "question",
             "author": "rule",
             "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.",
             "stage": null,
-            "question": "#90",
+            "question": "#91",
             "action": "#85",
             "basis": {
               "kind": "observed"
@@ -4376,7 +4435,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 3,
+            "version": 4,
             "created_at": "<time>"
           }
         },
