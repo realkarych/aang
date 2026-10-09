@@ -61,3 +61,9 @@ export const filesOnly = (manifest: LoadedManifest): LoadedManifest =>
     manifest,
     manifest.steps.filter(({ kind }) => kind !== 'hook' && kind !== 'otlp'),
   )
+
+export const hooksOnly = (manifest: LoadedManifest): LoadedManifest =>
+  withSteps(
+    manifest,
+    manifest.steps.filter(({ kind }) => kind === 'hook'),
+  )

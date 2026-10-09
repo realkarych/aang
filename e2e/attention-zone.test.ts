@@ -10,7 +10,7 @@ import {
 } from '@aang/testkit'
 import type { Page } from '@playwright/test'
 import { expect, type HookFields, test } from './fixtures.js'
-import { after, recording, through } from './recordings.js'
+import { hooksOnly, recording } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
 import { fact, history, historyToggle, openItems, sessionOf, step, zone, zoneItem } from './screens.js'
 
@@ -98,11 +98,10 @@ test.describe('with a fast spool scan', () => {
   test('one AskUserQuestion of a recorded Claude run is one question in the zone and in the trace, not a question and an approval request', async ({
     page,
     player,
-    otelEndpoint,
   }) => {
     const manifest = await loadManifest(recording('claude', '2.1.289', 'claude_cli', 'question'))
-    const settings = { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() } as const
-    await (await player(through(manifest, 'question-asked'), settings)).play()
+    const played = await player(hooksOnly(manifest), { timeScale: 0 })
+    await played.play({ until: 'question-answered' })
     await page.goto('/')
     await page.getByRole('row').nth(1).getByRole('link').click()
 
@@ -116,7 +115,7 @@ test.describe('with a fast spool scan', () => {
     await expect(step(page, 'Основной агент', greeting)).toContainText('ждёт решения')
     await expect(step(page, 'Основной агент', 'Запрос одобрения')).toHaveCount(0)
 
-    await (await player(after(manifest, 'question-asked'), settings)).play()
+    await played.play()
     await expect(openItems(page)).toHaveCount(0)
     await historyToggle(page).click()
     await expect(history(page).filter({ hasText: greeting })).toHaveCount(1)
