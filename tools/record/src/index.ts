@@ -1,5 +1,15 @@
 export { recordSession, type RecordContext, type RecordOptions } from './record.js'
-export { RecordingManifest } from './schema.js'
+export {
+  AttentionPredicate,
+  CardPredicate,
+  ControlEvent,
+  CriterionPredicate,
+  ExpectedMapChange,
+  LinkPredicate,
+  MapPredicate,
+  RecordingManifest,
+  StagePredicate,
+} from './schema.js'
 export { verifyRecording } from './verify.js'
 export type { ControlTarget, CreatedEntries } from './capture.js'
 export { drivers, driverOf, scenarios } from './catalog.js'
