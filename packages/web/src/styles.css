@@ -1248,6 +1248,23 @@ button.lamp[data-level='warning']:hover {
   overflow-wrap: anywhere;
 }
 
+.plan-item-note {
+  display: block;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.plan-history {
+  padding-top: 8px;
+  border-top: 1px solid var(--rule);
+  font-size: 12.5px;
+}
+
+.plan-history .plan-updates {
+  margin-top: 8px;
+  font-size: 14px;
+}
+
 .plan-item-status {
   color: var(--ink-faint);
   font-size: 12px;
