@@ -18,10 +18,10 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CLAUDE_CODE_VERSION: 2.1.289
-  CLAUDE_AGENT_SDK_VERSION: 0.3.289
-  CODEX_VERSION: 0.160.0
-  CODEX_SDK_VERSION: 0.160.0
+  AANG_CLAUDE_CODE_VERSION: 2.1.289
+  AANG_CLAUDE_AGENT_SDK_VERSION: 0.3.289
+  AANG_CODEX_VERSION: 0.160.0
+  AANG_CODEX_SDK_VERSION: 0.160.0
 
 jobs:
   scenarios:
@@ -48,14 +48,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install --yes expect
       - if: runner.os == 'Windows'
         shell: pwsh
-        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:CLAUDE_CODE_VERSION'
+        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:AANG_CLAUDE_CODE_VERSION'
       - run: >-
           npm install --global --allow-scripts=@anthropic-ai/claude-code
-          "@anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}" "@openai/codex@${CODEX_VERSION}"
+          "@anthropic-ai/claude-code@${AANG_CLAUDE_CODE_VERSION}" "@openai/codex@${AANG_CODEX_VERSION}"
         shell: bash
       - run: >-
           npm install --prefix "$RUNNER_TEMP/sdk"
-          "@anthropic-ai/claude-agent-sdk@${CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${CODEX_SDK_VERSION}"
+          "@anthropic-ai/claude-agent-sdk@${AANG_CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${AANG_CODEX_SDK_VERSION}"
         shell: bash
       - run: pnpm scenarios
         env:

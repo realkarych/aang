@@ -1,24 +1,32 @@
 import { existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
-import type { Runtime } from '@aang/contract'
+import type { OperatingSystem, Runtime } from '@aang/contract'
 import type { LoadedManifest, PlayerStep } from '@aang/testkit'
+import type { SurfaceVariant } from './variants.js'
 
-const recordingOs: Readonly<Partial<Record<NodeJS.Platform, string>>> = {
+const recordingOs: Readonly<Partial<Record<NodeJS.Platform, OperatingSystem>>> = {
   darwin: 'macos',
   linux: 'linux',
   win32: 'windows',
 }
 
+export const runnerOs: OperatingSystem | null = recordingOs[process.platform] ?? null
+
 const fallbackOs = 'macos'
 
-const playback = (runtime: Runtime, version: string, surface: string, os: string, scenario: string): string =>
+const playback = (runtime: Runtime, version: string, surface: string, os: OperatingSystem, scenario: string): string =>
   fileURLToPath(new URL(`../fixtures/sessions/${runtime}/${version}/${surface}/${os}/${scenario}/playback.json`, import.meta.url))
 
 export const recording = (runtime: Runtime, version: string, surface: string, scenario: string): string => {
-  const own = recordingOs[process.platform]
-  const native = own === undefined ? null : playback(runtime, version, surface, own, scenario)
+  const native = runnerOs === null ? null : playback(runtime, version, surface, runnerOs, scenario)
   return native !== null && existsSync(native) ? native : playback(runtime, version, surface, fallbackOs, scenario)
 }
+
+export const variantRecordingOn = ({ runtime, version, surface }: SurfaceVariant, os: OperatingSystem, scenario: string): string =>
+  playback(runtime, version, surface, os, scenario)
+
+export const variantRecording = (variant: SurfaceVariant, scenario: string): string =>
+  variantRecordingOn(variant, runnerOs !== null && variant.recordedOn.includes(runnerOs) ? runnerOs : variant.recordedOn[0], scenario)
 
 export const codexRecording = (surface: string, scenario: string): string => recording('codex', '0.160.0', surface, scenario)
 

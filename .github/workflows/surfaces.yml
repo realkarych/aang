@@ -1,0 +1,140 @@
+name: Surface matrix
+
+on:
+  pull_request:
+    paths:
+      - .github/workflows/surfaces.yml
+      - tools/surface-check/**
+      - tools/record/src/**
+      - Dockerfile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  AANG_CLAUDE_CODE_VERSION: 2.1.289
+  AANG_CLAUDE_AGENT_SDK_VERSION: 0.3.289
+  AANG_CODEX_VERSION: 0.160.0
+  AANG_CODEX_SDK_VERSION: 0.160.0
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install --yes expect
+      - if: runner.os == 'Windows'
+        shell: pwsh
+        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:AANG_CLAUDE_CODE_VERSION'
+      - run: >-
+          npm install --global --allow-scripts=@anthropic-ai/claude-code
+          "@anthropic-ai/claude-code@${AANG_CLAUDE_CODE_VERSION}" "@openai/codex@${AANG_CODEX_VERSION}"
+        shell: bash
+      - run: >-
+          npm install --prefix "$RUNNER_TEMP/sdk"
+          "@anthropic-ai/claude-agent-sdk@${AANG_CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${AANG_CODEX_SDK_VERSION}"
+        shell: bash
+      - run: >-
+          node tools/surface-check/dist/main.js run --placement local
+          --require "${{ runner.os == 'Windows' && 'claude_cli,claude_sdk,codex_exec,codex_sdk' || 'claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui' }}"
+          --out "$RUNNER_TEMP/surface-check"
+        shell: bash
+        env:
+          AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
+          AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
+      - id: anonymous
+        if: always()
+        run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check"
+        shell: bash
+      - if: always() && steps.anonymous.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: surface-check-${{ runner.os }}
+          path: ${{ runner.temp }}/surface-check
+          if-no-files-found: ignore
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: tools/surface-check/ci/docker.sh "$RUNNER_TEMP/surface-check-docker"
+        env:
+          AANG_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
+      - id: anonymous
+        if: always()
+        run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check-docker"
+      - if: always() && steps.anonymous.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: surface-check-docker
+          path: ${{ runner.temp }}/surface-check-docker
+          if-no-files-found: ignore
+
+  vm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - run: |
+          sudo apt-get update
+          sudo apt-get install --yes qemu-system-x86 qemu-utils cloud-image-utils
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - run: tools/surface-check/ci/vm.sh "$RUNNER_TEMP/surface-check-vm"
+        env:
+          AANG_SURFACE_REQUIRE: claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui
+      - id: anonymous
+        if: always()
+        run: node tools/surface-check/dist/main.js anonymous "$RUNNER_TEMP/surface-check-vm"
+      - if: always() && steps.anonymous.outcome == 'success'
+        uses: actions/upload-artifact@v7
+        with:
+          name: surface-check-vm
+          path: ${{ runner.temp }}/surface-check-vm
+          if-no-files-found: ignore
