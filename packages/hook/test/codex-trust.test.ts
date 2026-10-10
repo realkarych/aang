@@ -133,19 +133,22 @@ describe('Codex hook installation state over stdio', () => {
     await expect(hook.codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: { command: join(home.root, 'missing') } })).rejects.toMatchObject({ reason: 'codex_app_server' })
   })
 
-  test.for(['timeout', 'exit', 'invalid_json', 'rpc_error', 'oversized'] as const)(
-    '%s produces an explicit failure and reaps the server',
-    async (failure, { expect, onTestFinished }) => {
+  test.for([
+    { failure: 'timeout', message: 'timed out after 5000 ms', timeoutMs: 5000 },
+    { failure: 'exit', message: 'exited before hooks/list completed (7)' },
+    { failure: 'invalid_json', message: 'invalid JSON-RPC response' },
+    { failure: 'rpc_error', message: 'request 2 failed' },
+    { failure: 'oversized', message: 'stdout exceeded the size limit' },
+  ] as const)(
+    '$failure produces an explicit failure and reaps the server',
+    async ({ failure, message, ...options }, { expect, onTestFinished }) => {
       const home = await createInstalledHome(onTestFinished)
       const cli = await fakeAppServer(home, { failure })
 
       expect(hook).toHaveProperty('codexHooksState')
-      const timeoutMs = failure === 'oversized' ? 20_000 : 5000
-      const checking = hook.codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: cli, timeoutMs })
+      const checking = hook.codexHooksState({ aangHome: home.aangHome, codexHome: home.codexHome, codex: cli, ...options })
       await expect(checking).rejects.toMatchObject({ reason: 'codex_app_server' })
-      if (failure === 'oversized') {
-        await expect(checking).rejects.toThrow('size limit')
-      }
+      await expect(checking).rejects.toThrow(message)
       for (const pid of new Set((await cli.calls()).map((call) => call.pid))) {
         expect(() => process.kill(pid, 0)).toThrow()
       }
