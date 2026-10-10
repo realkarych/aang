@@ -1,1 +1,22 @@
-{"session_id":"d556ff13-519a-484a-9e82-3a36de00ad0d","transcript_path":"/home/USER/.claude/projects/-fixture-project/d556ff13-519a-484a-9e82-3a36de00ad0d.jsonl","cwd":"/fixture/project","prompt_id":"aa79966a-353e-4016-86ef-d7fb3ce66c8c","permission_mode":"default","agent_id":"ahelper-a6d12323cbaa6fcb","agent_type":"helper","effort":{"level":"medium"},"hook_event_name":"SubagentStop","stop_hook_active":false,"agent_transcript_path":"/home/USER/.claude/projects/-fixture-project/d556ff13-519a-484a-9e82-3a36de00ad0d/subagents/agent-ahelper-a6d12323cbaa6fcb.jsonl","last_assistant_message":"done","background_tasks":[{"id":"t1vxodq3x","type":"teammate","status":"running","description":"[aang:teammate] Run `echo mate` with the Bash tool..."}],"session_crons":[]}
+[
+  {
+    "from": "helper",
+    "text": "{\"type\":\"idle_notification\",\"from\":\"helper\",\"timestamp\":\"2026-10-10T09:09:01.981Z\",\"result\":\"mate\"}",
+    "timestamp": "2026-10-10T09:09:01.981Z",
+    "color": "blue",
+    "msgV": 1,
+    "msg_id": "0b79f6a7-1158-4dd0-b39d-90058fa903b6",
+    "type": "message",
+    "read": false
+  },
+  {
+    "from": "helper",
+    "text": "{\"type\":\"idle_notification\",\"from\":\"helper\",\"timestamp\":\"2026-10-10T09:09:02.037Z\",\"idleReason\":\"available\",\"result\":\"done\"}",
+    "timestamp": "2026-10-10T09:09:02.037Z",
+    "color": "blue",
+    "msgV": 1,
+    "msg_id": "eff2ce01-84cb-4b4e-a1f4-8915b9cce793",
+    "type": "message",
+    "read": false
+  }
+]

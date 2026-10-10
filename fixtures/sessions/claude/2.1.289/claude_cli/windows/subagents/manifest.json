@@ -7,7 +7,7 @@
   "os": "windows",
   "scenario": "subagents",
   "model": "stub",
-  "recorded_at": "2026-10-04T01:21:52.795Z",
+  "recorded_at": "2026-10-10T09:09:23.034Z",
   "expected_facts": [
     "A foreground subagent runs a Bash action and reports back to the root session",
     "Two foreground subagents start from one assistant message and run in parallel, each with its own Bash action",
@@ -17,24 +17,24 @@
   "control_events": [
     {
       "label": "solo-finished",
-      "step": 15,
-      "observed_at": "2026-10-04T01:21:54.780Z",
+      "step": 14,
+      "observed_at": "2026-10-10T09:09:24.697Z",
       "expected_map_change": {
         "description": "The foreground subagent finishes: its Agent action completes with the subagent report and the child agent is closed"
       }
     },
     {
       "label": "parallel-finished",
-      "step": 35,
-      "observed_at": "2026-10-04T01:21:55.329Z",
+      "step": 36,
+      "observed_at": "2026-10-10T09:09:25.344Z",
       "expected_map_change": {
         "description": "Both parallel subagents are finished; the root session shows two completed child agents started by one message"
       }
     },
     {
       "label": "background-finished",
-      "step": 53,
-      "observed_at": "2026-10-04T01:21:57.803Z",
+      "step": 54,
+      "observed_at": "2026-10-10T09:09:28.643Z",
       "expected_map_change": {
         "description": "The background subagent finishes after the root turn ended; the root session is notified and runs a short follow-up turn"
       }
@@ -43,508 +43,503 @@
   "artifacts": [
     {
       "source": "data/000001.json",
-      "observed_at": "2026-10-04T01:21:53.626Z",
-      "mtime_ns": "1791076913593414800"
+      "observed_at": "2026-10-10T09:09:23.638Z",
+      "mtime_ns": "1791623363626983400"
     },
     {
-      "source": "data/000002.json",
-      "observed_at": "2026-10-04T01:21:53.715Z",
-      "mtime_ns": "1791076913712073800"
+      "source": "spool/000002.spool",
+      "observed_at": "2026-10-10T09:09:23.653Z",
+      "mtime_ns": "1791623363653430800"
     },
     {
-      "source": "spool/000003.spool",
-      "observed_at": "2026-10-04T01:21:53.690Z",
-      "mtime_ns": "1791076913690394900"
+      "source": "data/000003.json",
+      "observed_at": "2026-10-10T09:09:23.653Z",
+      "mtime_ns": "1791623363653430800"
     },
     {
       "source": "data/000004.json",
-      "observed_at": "2026-10-04T01:21:53.690Z",
-      "mtime_ns": "1791076913690394900"
+      "observed_at": "2026-10-10T09:09:23.702Z",
+      "mtime_ns": "1791623363683033700"
     },
     {
-      "source": "data/000005.json",
-      "observed_at": "2026-10-04T01:21:53.741Z",
-      "mtime_ns": "1791076913727625400"
+      "source": "spool/000005.spool",
+      "observed_at": "2026-10-10T09:09:23.728Z",
+      "mtime_ns": "1791623363728284700"
     },
     {
-      "source": "spool/000006.spool",
-      "observed_at": "2026-10-04T01:21:53.779Z",
-      "mtime_ns": "1791076913779252700"
+      "source": "data/000006.json",
+      "observed_at": "2026-10-10T09:09:23.728Z",
+      "mtime_ns": "1791623363728284700"
     },
     {
-      "source": "data/000007.json",
-      "observed_at": "2026-10-04T01:21:53.779Z",
-      "mtime_ns": "1791076913779252700"
+      "source": "spool/000007.spool",
+      "observed_at": "2026-10-10T09:09:23.812Z",
+      "mtime_ns": "1791623363812136400"
     },
     {
-      "source": "spool/000008.spool",
-      "observed_at": "2026-10-04T01:21:53.874Z",
-      "mtime_ns": "1791076913874057900"
+      "source": "data/000008.json",
+      "observed_at": "2026-10-10T09:09:23.812Z",
+      "mtime_ns": "1791623363812136400"
     },
     {
-      "source": "data/000009.json",
-      "observed_at": "2026-10-04T01:21:53.874Z",
-      "mtime_ns": "1791076913874057900"
+      "source": "data/000009.jsonl",
+      "observed_at": "2026-10-10T09:09:23.867Z",
+      "mtime_ns": "1791623363846688300"
     },
     {
-      "source": "data/000010.jsonl",
-      "observed_at": "2026-10-04T01:21:53.928Z",
-      "mtime_ns": "1791076913909692000"
+      "source": "data/000010.json",
+      "observed_at": "2026-10-10T09:09:23.893Z",
+      "mtime_ns": "1791623363888369700"
     },
     {
       "source": "spool/000011.spool",
-      "observed_at": "2026-10-04T01:21:53.938Z",
-      "mtime_ns": "1791076913938510000"
+      "observed_at": "2026-10-10T09:09:23.871Z",
+      "mtime_ns": "1791623363871593400"
     },
     {
       "source": "data/000012.json",
-      "observed_at": "2026-10-04T01:21:53.938Z",
-      "mtime_ns": "1791076913938510000"
+      "observed_at": "2026-10-10T09:09:23.871Z",
+      "mtime_ns": "1791623363871593400"
     },
     {
-      "source": "data/000013.json",
-      "observed_at": "2026-10-04T01:21:54.012Z",
-      "mtime_ns": "1791076913990951900"
+      "source": "spool/000013.spool",
+      "observed_at": "2026-10-10T09:09:23.916Z",
+      "mtime_ns": "1791623363916317100"
     },
     {
-      "source": "spool/000014.spool",
-      "observed_at": "2026-10-04T01:21:54.009Z",
-      "mtime_ns": "1791076914009383400"
+      "source": "data/000014.json",
+      "observed_at": "2026-10-10T09:09:23.916Z",
+      "mtime_ns": "1791623363916317100"
     },
     {
-      "source": "data/000015.json",
-      "observed_at": "2026-10-04T01:21:54.009Z",
-      "mtime_ns": "1791076914009383400"
+      "source": "data/000015.jsonl",
+      "observed_at": "2026-10-10T09:09:23.999Z",
+      "mtime_ns": "1791623363976933400"
     },
     {
-      "source": "data/000016.jsonl",
-      "observed_at": "2026-10-04T01:21:54.070Z",
-      "mtime_ns": "1791076914047086800"
+      "source": "spool/000016.spool",
+      "observed_at": "2026-10-10T09:09:24.476Z",
+      "mtime_ns": "1791623364476539300"
     },
     {
-      "source": "spool/000017.spool",
-      "observed_at": "2026-10-04T01:21:54.653Z",
-      "mtime_ns": "1791076914653484700"
+      "source": "data/000017.json",
+      "observed_at": "2026-10-10T09:09:24.476Z",
+      "mtime_ns": "1791623364476539300"
     },
     {
-      "source": "data/000018.json",
-      "observed_at": "2026-10-04T01:21:54.653Z",
-      "mtime_ns": "1791076914653484700"
+      "source": "spool/000018.spool",
+      "observed_at": "2026-10-10T09:09:24.521Z",
+      "mtime_ns": "1791623364521324100"
     },
     {
-      "source": "spool/000019.spool",
-      "observed_at": "2026-10-04T01:21:54.682Z",
-      "mtime_ns": "1791076914682768000"
+      "source": "data/000019.json",
+      "observed_at": "2026-10-10T09:09:24.521Z",
+      "mtime_ns": "1791623364521324100"
     },
     {
-      "source": "data/000020.json",
-      "observed_at": "2026-10-04T01:21:54.682Z",
-      "mtime_ns": "1791076914682768000"
+      "source": "spool/000020.spool",
+      "observed_at": "2026-10-10T09:09:24.573Z",
+      "mtime_ns": "1791623364573978100"
     },
     {
-      "source": "spool/000021.spool",
-      "observed_at": "2026-10-04T01:21:54.727Z",
-      "mtime_ns": "1791076914727408900"
+      "source": "data/000021.json",
+      "observed_at": "2026-10-10T09:09:24.573Z",
+      "mtime_ns": "1791623364573978100"
     },
     {
-      "source": "data/000022.json",
-      "observed_at": "2026-10-04T01:21:54.727Z",
-      "mtime_ns": "1791076914727408900"
+      "source": "data/000022.jsonl",
+      "observed_at": "2026-10-10T09:09:24.610Z",
+      "mtime_ns": "1791623364606323900"
     },
     {
-      "source": "data/000023.jsonl",
-      "observed_at": "2026-10-04T01:21:54.767Z",
-      "mtime_ns": "1791076914760729300"
+      "source": "spool/000023.spool",
+      "observed_at": "2026-10-10T09:09:24.697Z",
+      "mtime_ns": "1791623364697000000"
     },
     {
-      "source": "spool/000024.spool",
-      "observed_at": "2026-10-04T01:21:54.780Z",
-      "mtime_ns": "1791076914780698000"
+      "source": "data/000024.json",
+      "observed_at": "2026-10-10T09:09:24.697Z",
+      "mtime_ns": "1791623364697000000"
     },
     {
-      "source": "data/000025.json",
-      "observed_at": "2026-10-04T01:21:54.780Z",
-      "mtime_ns": "1791076914780698000"
+      "source": "spool/000025.spool",
+      "observed_at": "2026-10-10T09:09:24.779Z",
+      "mtime_ns": "1791623364779559100"
     },
     {
-      "source": "spool/000026.spool",
-      "observed_at": "2026-10-04T01:21:54.806Z",
-      "mtime_ns": "1791076914806666200"
+      "source": "data/000026.json",
+      "observed_at": "2026-10-10T09:09:24.779Z",
+      "mtime_ns": "1791623364779559100"
     },
     {
-      "source": "data/000027.json",
-      "observed_at": "2026-10-04T01:21:54.806Z",
-      "mtime_ns": "1791076914806666200"
+      "source": "data/000027.jsonl",
+      "observed_at": "2026-10-10T09:09:24.822Z",
+      "mtime_ns": "1791623364819345100"
     },
     {
-      "source": "data/000028.jsonl",
-      "observed_at": "2026-10-04T01:21:54.909Z",
-      "mtime_ns": "1791076914888455700"
+      "source": "spool/000028.spool",
+      "observed_at": "2026-10-10T09:09:24.834Z",
+      "mtime_ns": "1791623364834074800"
     },
     {
-      "source": "spool/000029.spool",
-      "observed_at": "2026-10-04T01:21:54.907Z",
-      "mtime_ns": "1791076914907284900"
+      "source": "data/000029.json",
+      "observed_at": "2026-10-10T09:09:24.834Z",
+      "mtime_ns": "1791623364834074800"
     },
     {
-      "source": "data/000030.json",
-      "observed_at": "2026-10-04T01:21:54.907Z",
-      "mtime_ns": "1791076914907284900"
+      "source": "spool/000030.spool",
+      "observed_at": "2026-10-10T09:09:24.835Z",
+      "mtime_ns": "1791623364835594300"
     },
     {
-      "source": "spool/000031.spool",
-      "observed_at": "2026-10-04T01:21:54.909Z",
-      "mtime_ns": "1791076914909488200"
+      "source": "data/000031.json",
+      "observed_at": "2026-10-10T09:09:24.835Z",
+      "mtime_ns": "1791623364835594300"
     },
     {
-      "source": "data/000032.json",
-      "observed_at": "2026-10-04T01:21:54.909Z",
-      "mtime_ns": "1791076914909488200"
+      "source": "spool/000032.spool",
+      "observed_at": "2026-10-10T09:09:24.882Z",
+      "mtime_ns": "1791623364882689800"
     },
     {
-      "source": "spool/000033.spool",
-      "observed_at": "2026-10-04T01:21:54.947Z",
-      "mtime_ns": "1791076914947592500"
+      "source": "data/000033.json",
+      "observed_at": "2026-10-10T09:09:24.882Z",
+      "mtime_ns": "1791623364882689800"
     },
     {
-      "source": "data/000034.json",
-      "observed_at": "2026-10-04T01:21:54.947Z",
-      "mtime_ns": "1791076914947592500"
+      "source": "spool/000034.spool",
+      "observed_at": "2026-10-10T09:09:24.884Z",
+      "mtime_ns": "1791623364884243900"
     },
     {
-      "source": "spool/000035.spool",
-      "observed_at": "2026-10-04T01:21:54.949Z",
-      "mtime_ns": "1791076914949825700"
+      "source": "data/000035.json",
+      "observed_at": "2026-10-10T09:09:24.884Z",
+      "mtime_ns": "1791623364884243900"
     },
     {
       "source": "data/000036.json",
-      "observed_at": "2026-10-04T01:21:54.949Z",
-      "mtime_ns": "1791076914949825700"
+      "observed_at": "2026-10-10T09:09:24.961Z",
+      "mtime_ns": "1791623364953752200"
     },
     {
-      "source": "spool/000037.spool",
-      "observed_at": "2026-10-04T01:21:55.048Z",
-      "mtime_ns": "1791076915048296600"
+      "source": "data/000037.json",
+      "observed_at": "2026-10-10T09:09:24.968Z",
+      "mtime_ns": "1791623364954398500"
     },
     {
-      "source": "data/000038.json",
-      "observed_at": "2026-10-04T01:21:55.048Z",
-      "mtime_ns": "1791076915048296600"
+      "source": "data/000038.jsonl",
+      "observed_at": "2026-10-10T09:09:25.015Z",
+      "mtime_ns": "1791623365015377200"
     },
     {
-      "source": "data/000039.json",
-      "observed_at": "2026-10-04T01:21:55.052Z",
-      "mtime_ns": "1791076915048296600"
+      "source": "data/000039.jsonl",
+      "observed_at": "2026-10-10T09:09:25.016Z",
+      "mtime_ns": "1791623365016034400"
     },
     {
-      "source": "data/000040.json",
-      "observed_at": "2026-10-04T01:21:55.052Z",
-      "mtime_ns": "1791076915047351100"
+      "source": "spool/000040.spool",
+      "observed_at": "2026-10-10T09:09:24.995Z",
+      "mtime_ns": "1791623364995690700"
     },
     {
-      "source": "spool/000041.spool",
-      "observed_at": "2026-10-04T01:21:55.049Z",
-      "mtime_ns": "1791076915049800900"
+      "source": "data/000041.json",
+      "observed_at": "2026-10-10T09:09:24.995Z",
+      "mtime_ns": "1791623364995690700"
     },
     {
-      "source": "data/000042.json",
-      "observed_at": "2026-10-04T01:21:55.049Z",
-      "mtime_ns": "1791076915049800900"
+      "source": "spool/000042.spool",
+      "observed_at": "2026-10-10T09:09:25.071Z",
+      "mtime_ns": "1791623365071814800"
     },
     {
-      "source": "data/000043.jsonl",
-      "observed_at": "2026-10-04T01:21:55.080Z",
-      "mtime_ns": "1791076915054338300"
+      "source": "data/000043.json",
+      "observed_at": "2026-10-10T09:09:25.071Z",
+      "mtime_ns": "1791623365071814800"
     },
     {
-      "source": "data/000044.jsonl",
-      "observed_at": "2026-10-04T01:21:55.080Z",
-      "mtime_ns": "1791076915053905400"
+      "source": "spool/000044.spool",
+      "observed_at": "2026-10-10T09:09:25.144Z",
+      "mtime_ns": "1791623365144151600"
     },
     {
-      "source": "spool/000045.spool",
-      "observed_at": "2026-10-04T01:21:55.199Z",
-      "mtime_ns": "1791076915199999100"
+      "source": "data/000045.json",
+      "observed_at": "2026-10-10T09:09:25.144Z",
+      "mtime_ns": "1791623365144151600"
     },
     {
-      "source": "data/000046.json",
-      "observed_at": "2026-10-04T01:21:55.199Z",
-      "mtime_ns": "1791076915199999100"
+      "source": "spool/000046.spool",
+      "observed_at": "2026-10-10T09:09:25.181Z",
+      "mtime_ns": "1791623365181676600"
     },
     {
-      "source": "spool/000047.spool",
-      "observed_at": "2026-10-04T01:21:55.200Z",
-      "mtime_ns": "1791076915200705700"
+      "source": "data/000047.json",
+      "observed_at": "2026-10-10T09:09:25.181Z",
+      "mtime_ns": "1791623365181676600"
     },
     {
-      "source": "data/000048.json",
-      "observed_at": "2026-10-04T01:21:55.200Z",
-      "mtime_ns": "1791076915200705700"
+      "source": "spool/000048.spool",
+      "observed_at": "2026-10-10T09:09:25.187Z",
+      "mtime_ns": "1791623365187835000"
     },
     {
-      "source": "spool/000049.spool",
-      "observed_at": "2026-10-04T01:21:55.236Z",
-      "mtime_ns": "1791076915236047500"
+      "source": "data/000049.json",
+      "observed_at": "2026-10-10T09:09:25.187Z",
+      "mtime_ns": "1791623365187835000"
     },
     {
-      "source": "data/000050.json",
-      "observed_at": "2026-10-04T01:21:55.236Z",
-      "mtime_ns": "1791076915236047500"
+      "source": "spool/000050.spool",
+      "observed_at": "2026-10-10T09:09:25.239Z",
+      "mtime_ns": "1791623365239508000"
     },
     {
-      "source": "spool/000051.spool",
-      "observed_at": "2026-10-04T01:21:55.237Z",
-      "mtime_ns": "1791076915237289700"
+      "source": "data/000051.json",
+      "observed_at": "2026-10-10T09:09:25.239Z",
+      "mtime_ns": "1791623365239508000"
     },
     {
-      "source": "data/000052.json",
-      "observed_at": "2026-10-04T01:21:55.237Z",
-      "mtime_ns": "1791076915237289700"
+      "source": "data/000052.jsonl",
+      "observed_at": "2026-10-10T09:09:25.274Z",
+      "mtime_ns": "1791623365255673000"
     },
     {
-      "source": "spool/000053.spool",
-      "observed_at": "2026-10-04T01:21:55.296Z",
-      "mtime_ns": "1791076915296088300"
+      "source": "data/000053.jsonl",
+      "observed_at": "2026-10-10T09:09:25.275Z",
+      "mtime_ns": "1791623365257140600"
     },
     {
-      "source": "data/000054.json",
-      "observed_at": "2026-10-04T01:21:55.296Z",
-      "mtime_ns": "1791076915296088300"
+      "source": "spool/000054.spool",
+      "observed_at": "2026-10-10T09:09:25.279Z",
+      "mtime_ns": "1791623365279675800"
     },
     {
-      "source": "spool/000055.spool",
-      "observed_at": "2026-10-04T01:21:55.297Z",
-      "mtime_ns": "1791076915297183600"
+      "source": "data/000055.json",
+      "observed_at": "2026-10-10T09:09:25.279Z",
+      "mtime_ns": "1791623365279675800"
     },
     {
-      "source": "data/000056.json",
-      "observed_at": "2026-10-04T01:21:55.297Z",
-      "mtime_ns": "1791076915297183600"
+      "source": "spool/000056.spool",
+      "observed_at": "2026-10-10T09:09:25.312Z",
+      "mtime_ns": "1791623365312642100"
     },
     {
-      "source": "data/000057.jsonl",
-      "observed_at": "2026-10-04T01:21:55.332Z",
-      "mtime_ns": "1791076915312941600"
+      "source": "data/000057.json",
+      "observed_at": "2026-10-10T09:09:25.312Z",
+      "mtime_ns": "1791623365312642100"
     },
     {
-      "source": "data/000058.jsonl",
-      "observed_at": "2026-10-04T01:21:55.333Z",
-      "mtime_ns": "1791076915308905200"
+      "source": "spool/000058.spool",
+      "observed_at": "2026-10-10T09:09:25.326Z",
+      "mtime_ns": "1791623365326379400"
     },
     {
-      "source": "spool/000059.spool",
-      "observed_at": "2026-10-04T01:21:55.327Z",
-      "mtime_ns": "1791076915327762400"
+      "source": "data/000059.json",
+      "observed_at": "2026-10-10T09:09:25.326Z",
+      "mtime_ns": "1791623365326379400"
     },
     {
-      "source": "data/000060.json",
-      "observed_at": "2026-10-04T01:21:55.327Z",
-      "mtime_ns": "1791076915327762400"
+      "source": "data/000060.jsonl",
+      "observed_at": "2026-10-10T09:09:25.362Z",
+      "mtime_ns": "1791623365362427200"
     },
     {
-      "source": "spool/000061.spool",
-      "observed_at": "2026-10-04T01:21:55.329Z",
-      "mtime_ns": "1791076915329946600"
+      "source": "data/000061.jsonl",
+      "observed_at": "2026-10-10T09:09:25.363Z",
+      "mtime_ns": "1791623365362427200"
     },
     {
-      "source": "data/000062.json",
-      "observed_at": "2026-10-04T01:21:55.329Z",
-      "mtime_ns": "1791076915329946600"
+      "source": "spool/000062.spool",
+      "observed_at": "2026-10-10T09:09:25.344Z",
+      "mtime_ns": "1791623365344774600"
     },
     {
-      "source": "spool/000063.spool",
-      "observed_at": "2026-10-04T01:21:55.356Z",
-      "mtime_ns": "1791076915356070500"
+      "source": "data/000063.json",
+      "observed_at": "2026-10-10T09:09:25.344Z",
+      "mtime_ns": "1791623365344774600"
     },
     {
-      "source": "data/000064.json",
-      "observed_at": "2026-10-04T01:21:55.356Z",
-      "mtime_ns": "1791076915356070500"
+      "source": "spool/000064.spool",
+      "observed_at": "2026-10-10T09:09:25.374Z",
+      "mtime_ns": "1791623365374155400"
     },
     {
-      "source": "spool/000065.spool",
-      "observed_at": "2026-10-04T01:21:55.396Z",
-      "mtime_ns": "1791076915396500400"
+      "source": "data/000065.json",
+      "observed_at": "2026-10-10T09:09:25.374Z",
+      "mtime_ns": "1791623365374155400"
     },
     {
-      "source": "data/000066.json",
-      "observed_at": "2026-10-04T01:21:55.396Z",
-      "mtime_ns": "1791076915396500400"
+      "source": "spool/000066.spool",
+      "observed_at": "2026-10-10T09:09:25.431Z",
+      "mtime_ns": "1791623365431513900"
     },
     {
-      "source": "spool/000067.spool",
-      "observed_at": "2026-10-04T01:21:55.426Z",
-      "mtime_ns": "1791076915426359300"
+      "source": "data/000067.json",
+      "observed_at": "2026-10-10T09:09:25.431Z",
+      "mtime_ns": "1791623365431513900"
     },
     {
-      "source": "data/000068.json",
-      "observed_at": "2026-10-04T01:21:55.426Z",
-      "mtime_ns": "1791076915426359300"
+      "source": "data/000068.jsonl",
+      "observed_at": "2026-10-10T09:09:25.508Z",
+      "mtime_ns": "1791623365482303500"
     },
     {
       "source": "spool/000069.spool",
-      "observed_at": "2026-10-04T01:21:55.427Z",
-      "mtime_ns": "1791076915427805800"
+      "observed_at": "2026-10-10T09:09:25.963Z",
+      "mtime_ns": "1791623365963946000"
     },
     {
       "source": "data/000070.json",
-      "observed_at": "2026-10-04T01:21:55.427Z",
-      "mtime_ns": "1791076915427805800"
+      "observed_at": "2026-10-10T09:09:25.963Z",
+      "mtime_ns": "1791623365963946000"
     },
     {
-      "source": "data/000071.jsonl",
-      "observed_at": "2026-10-04T01:21:55.451Z",
-      "mtime_ns": "1791076915448623900"
+      "source": "data/000071.json",
+      "observed_at": "2026-10-10T09:09:26.010Z",
+      "mtime_ns": "1791623365983834100"
     },
     {
       "source": "data/000072.jsonl",
-      "observed_at": "2026-10-04T01:21:55.452Z",
-      "mtime_ns": "1791076915441345900"
+      "observed_at": "2026-10-10T09:09:26.072Z",
+      "mtime_ns": "1791623366071819200"
     },
     {
-      "source": "data/000073.json",
-      "observed_at": "2026-10-04T01:21:55.490Z",
-      "mtime_ns": "1791076915449425000"
+      "source": "spool/000073.spool",
+      "observed_at": "2026-10-10T09:09:26.228Z",
+      "mtime_ns": "1791623366228715200"
     },
     {
-      "source": "data/000074.jsonl",
-      "observed_at": "2026-10-04T01:21:55.546Z",
-      "mtime_ns": "1791076915544968700"
+      "source": "data/000074.json",
+      "observed_at": "2026-10-10T09:09:26.228Z",
+      "mtime_ns": "1791623366228715200"
     },
     {
-      "source": "data/000075.jsonl",
-      "observed_at": "2026-10-04T01:21:55.547Z",
-      "mtime_ns": "1791076915544968700"
+      "source": "spool/000075.spool",
+      "observed_at": "2026-10-10T09:09:26.230Z",
+      "mtime_ns": "1791623366230732800"
     },
     {
-      "source": "spool/000076.spool",
-      "observed_at": "2026-10-04T01:21:55.594Z",
-      "mtime_ns": "1791076915594455900"
+      "source": "data/000076.json",
+      "observed_at": "2026-10-10T09:09:26.230Z",
+      "mtime_ns": "1791623366230732800"
     },
     {
-      "source": "data/000077.json",
-      "observed_at": "2026-10-04T01:21:55.594Z",
-      "mtime_ns": "1791076915594455900"
+      "source": "data/000077.jsonl",
+      "observed_at": "2026-10-10T09:09:26.409Z",
+      "mtime_ns": "1791623366381286000"
     },
     {
       "source": "spool/000078.spool",
-      "observed_at": "2026-10-04T01:21:55.596Z",
-      "mtime_ns": "1791076915596578800"
+      "observed_at": "2026-10-10T09:09:26.380Z",
+      "mtime_ns": "1791623366380124800"
     },
     {
       "source": "data/000079.json",
-      "observed_at": "2026-10-04T01:21:55.596Z",
-      "mtime_ns": "1791076915596578800"
+      "observed_at": "2026-10-10T09:09:26.380Z",
+      "mtime_ns": "1791623366380124800"
     },
     {
       "source": "data/000080.jsonl",
-      "observed_at": "2026-10-04T01:21:55.696Z",
-      "mtime_ns": "1791076915683466600"
+      "observed_at": "2026-10-10T09:09:26.531Z",
+      "mtime_ns": "1791623366510912000"
     },
     {
       "source": "spool/000081.spool",
-      "observed_at": "2026-10-04T01:21:55.677Z",
-      "mtime_ns": "1791076915677428400"
+      "observed_at": "2026-10-10T09:09:26.589Z",
+      "mtime_ns": "1791623366589616300"
     },
     {
       "source": "data/000082.json",
-      "observed_at": "2026-10-04T01:21:55.677Z",
-      "mtime_ns": "1791076915677428400"
+      "observed_at": "2026-10-10T09:09:26.589Z",
+      "mtime_ns": "1791623366589616300"
     },
     {
-      "source": "spool/000083.spool",
-      "observed_at": "2026-10-04T01:21:57.736Z",
-      "mtime_ns": "1791076917736424300"
+      "source": "data/000083.jsonl",
+      "observed_at": "2026-10-10T09:09:26.615Z",
+      "mtime_ns": "1791623366596156900"
     },
     {
-      "source": "data/000084.json",
-      "observed_at": "2026-10-04T01:21:57.736Z",
-      "mtime_ns": "1791076917736424300"
+      "source": "spool/000084.spool",
+      "observed_at": "2026-10-10T09:09:28.573Z",
+      "mtime_ns": "1791623368573349700"
     },
     {
-      "source": "spool/000085.spool",
-      "observed_at": "2026-10-04T01:21:57.763Z",
-      "mtime_ns": "1791076917763217400"
+      "source": "data/000085.json",
+      "observed_at": "2026-10-10T09:09:28.573Z",
+      "mtime_ns": "1791623368573349700"
     },
     {
-      "source": "data/000086.json",
-      "observed_at": "2026-10-04T01:21:57.763Z",
-      "mtime_ns": "1791076917763217400"
+      "source": "spool/000086.spool",
+      "observed_at": "2026-10-10T09:09:28.601Z",
+      "mtime_ns": "1791623368601779600"
     },
     {
-      "source": "spool/000087.spool",
-      "observed_at": "2026-10-04T01:21:57.803Z",
-      "mtime_ns": "1791076917803434000"
+      "source": "data/000087.json",
+      "observed_at": "2026-10-10T09:09:28.601Z",
+      "mtime_ns": "1791623368601779600"
     },
     {
-      "source": "data/000088.json",
-      "observed_at": "2026-10-04T01:21:57.803Z",
-      "mtime_ns": "1791076917803434000"
+      "source": "spool/000088.spool",
+      "observed_at": "2026-10-10T09:09:28.643Z",
+      "mtime_ns": "1791623368643047700"
     },
     {
-      "source": "data/000089.jsonl",
-      "observed_at": "2026-10-04T01:21:57.861Z",
-      "mtime_ns": "1791076917842536700"
+      "source": "data/000089.json",
+      "observed_at": "2026-10-10T09:09:28.643Z",
+      "mtime_ns": "1791623368643047700"
     },
     {
       "source": "data/000090.jsonl",
-      "observed_at": "2026-10-04T01:21:57.862Z",
-      "mtime_ns": "1791076917842536700"
+      "observed_at": "2026-10-10T09:09:28.700Z",
+      "mtime_ns": "1791623368679740000"
     },
     {
-      "source": "spool/000091.spool",
-      "observed_at": "2026-10-04T01:21:57.849Z",
-      "mtime_ns": "1791076917849191800"
+      "source": "data/000091.jsonl",
+      "observed_at": "2026-10-10T09:09:28.701Z",
+      "mtime_ns": "1791623368679740000"
     },
     {
-      "source": "data/000092.json",
-      "observed_at": "2026-10-04T01:21:57.849Z",
-      "mtime_ns": "1791076917849191800"
+      "source": "spool/000092.spool",
+      "observed_at": "2026-10-10T09:09:28.750Z",
+      "mtime_ns": "1791623368750149300"
     },
     {
-      "source": "data/000093.jsonl",
-      "observed_at": "2026-10-04T01:21:57.956Z",
-      "mtime_ns": "1791076917955664400"
+      "source": "data/000093.json",
+      "observed_at": "2026-10-10T09:09:28.750Z",
+      "mtime_ns": "1791623368750149300"
     },
     {
       "source": "data/000094.jsonl",
-      "observed_at": "2026-10-04T01:21:57.982Z",
-      "mtime_ns": "1791076917982981500"
+      "observed_at": "2026-10-10T09:09:28.816Z",
+      "mtime_ns": "1791623368812903600"
     },
     {
-      "source": "spool/000095.spool",
-      "observed_at": "2026-10-04T01:21:57.968Z",
-      "mtime_ns": "1791076917968232800"
+      "source": "data/000095.json",
+      "observed_at": "2026-10-10T09:09:28.816Z",
+      "mtime_ns": "1791623368814189300"
     },
     {
-      "source": "data/000096.json",
-      "observed_at": "2026-10-04T01:21:57.968Z",
-      "mtime_ns": "1791076917968232800"
+      "source": "spool/000096.spool",
+      "observed_at": "2026-10-10T09:09:28.796Z",
+      "mtime_ns": "1791623368796375200"
     },
     {
-      "source": "data/000097.jsonl",
-      "observed_at": "2026-10-04T01:21:58.007Z",
-      "mtime_ns": "1791076917989965200"
+      "source": "data/000097.json",
+      "observed_at": "2026-10-10T09:09:28.796Z",
+      "mtime_ns": "1791623368796375200"
     },
     {
-      "source": "data/000098.json",
-      "observed_at": "2026-10-04T01:21:58.008Z",
-      "mtime_ns": "1791076917989965200"
+      "source": "spool/000098.spool",
+      "observed_at": "2026-10-10T09:09:28.838Z",
+      "mtime_ns": "1791623368838344800"
     },
     {
-      "source": "spool/000099.spool",
-      "observed_at": "2026-10-04T01:21:58.029Z",
-      "mtime_ns": "1791076918029537800"
+      "source": "data/000099.json",
+      "observed_at": "2026-10-10T09:09:28.838Z",
+      "mtime_ns": "1791623368838344800"
     },
     {
-      "source": "data/000100.json",
-      "observed_at": "2026-10-04T01:21:58.029Z",
-      "mtime_ns": "1791076918029537800"
-    },
-    {
-      "source": "output/000101.txt",
-      "observed_at": "2026-10-04T01:21:58.140Z",
-      "mtime_ns": "1791076918140000000"
+      "source": "output/000100.txt",
+      "observed_at": "2026-10-10T09:09:28.899Z",
+      "mtime_ns": "1791623368899000000"
     }
   ],
   "playback": "playback.json"
