@@ -19,18 +19,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        work: ['d']
-        attempt: [1, 2, 3, 4]
+        side:
+          - { name: fix, ref: 9ef64566cb9db367a1b54eac5f2a145a0194eade, work: '--work "$RUNNER_TEMP/surface-check-work"' }
+        attempt: [1, 2, 3, 4, 5, 6]
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
-      - shell: pwsh
-        run: |
-          "DEBUG_START=$((Get-Date).ToUniversalTime().ToString('o'))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
-          Get-CimInstance Win32_OperatingSystem | Format-List LastBootUpTime,LocalDateTime
-          Get-Volume | Format-Table DriveLetter,FileSystemLabel,Size,SizeRemaining
-          Get-MpComputerStatus | Format-List RealTimeProtectionEnabled
+        with:
+          ref: ${{ matrix.side.ref }}
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -52,78 +49,12 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/sdk"
           "@anthropic-ai/claude-agent-sdk@${AANG_CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${AANG_CODEX_SDK_VERSION}"
         shell: bash
-      - shell: pwsh
-        run: |
-          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\debug-out" | Out-Null
-          Start-Process -FilePath typeperf -ArgumentList '"\Processor(_Total)\% Processor Time"','"\System\Processor Queue Length"','"\PhysicalDisk(_Total)\% Disk Time"','"\PhysicalDisk(_Total)\Avg. Disk Queue Length"','"\Memory\Available MBytes"','"\LogicalDisk(C:)\Avg. Disk Queue Length"','"\LogicalDisk(D:)\Avg. Disk Queue Length"','"\LogicalDisk(C:)\Disk Write Bytes/sec"','"\LogicalDisk(D:)\Disk Write Bytes/sec"','-si','1','-o',"$env:RUNNER_TEMP\debug-out\perf.csv",'-y' -WindowStyle Hidden
-          $sampler = @'
-          $out = Join-Path $env:RUNNER_TEMP 'debug-out\processes.log'
-          $previous = @{}
-          while ($true) {
-            $now = Get-Date
-            $current = @{}
-            $rows = foreach ($process in Get-Process) {
-              $key = "$($process.Name)#$($process.Id)"
-              $cpu = $process.TotalProcessorTime.TotalMilliseconds
-              $current[$key] = $cpu
-              $delta = if ($previous.ContainsKey($key)) { $cpu - $previous[$key] } else { $cpu }
-              [pscustomobject]@{ Key = $key; Delta = $delta }
-            }
-            $top = $rows | Sort-Object Delta -Descending | Select-Object -First 8 | ForEach-Object { "$($_.Key)=$([math]::Round($_.Delta))" }
-            $hooks = $rows | Where-Object { $_.Key -match 'hook' } | ForEach-Object { $_.Key }
-            Add-Content -Path $out -Value ("{0} {1} | {2}" -f $now.ToUniversalTime().ToString('o'), ($top -join ' '), ($hooks -join ' '))
-            $previous = $current
-            Start-Sleep -Milliseconds 500
-          }
-          '@
-          Set-Content -Path "$env:RUNNER_TEMP\sampler.ps1" -Value $sampler
-          Start-Process -FilePath pwsh -ArgumentList '-NoProfile','-File',"$env:RUNNER_TEMP\sampler.ps1" -WindowStyle Hidden
       - run: >-
           node tools/surface-check/dist/main.js run --placement local
-          --surfaces codex_exec,codex_sdk --require codex_exec,codex_sdk
-          --work "$RUNNER_TEMP/work"
+          --require "claude_cli,claude_sdk,codex_exec,codex_sdk"
+          ${{ matrix.side.work }}
           --out "$RUNNER_TEMP/surface-check"
         shell: bash
-        continue-on-error: true
         env:
-          DEBUG_HOOK_CLAUDE_LOG: '0'
-          RUST_LOG: codex_hooks=debug
           AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
           AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
-      - if: always()
-        shell: bash
-        run: |
-          out="$(cygpath -u "$RUNNER_TEMP")/debug-out"
-          cp "$RUNNER_TEMP/surface-check/report.json" "$RUNNER_TEMP/surface-check/summary.md" "$out/" || true
-          for work in "$(cygpath -u "$(node -p "require('os').tmpdir()")")/aang-surface-check" "$(cygpath -u "$RUNNER_TEMP")/work"; do
-            [ -d "$work" ] || continue
-            cd "$work"
-            find . \( -name '*.jsonl' -o -path '*hook-trace*' -o -path '*/.codex/*' -name '*.sqlite*' -o -path '*/.codex/log/*' -o -name 'hooks.json' -o -name 'config.toml' -o -name 'daemon.log' \) -type f > "$out/files.txt"
-            tar --force-local -cf - -T "$out/files.txt" | tar --force-local -xf - -C "$out"
-          done
-          du -sh "$out"
-      - if: always()
-        shell: pwsh
-        run: |
-          $start = [datetime]::Parse($env:DEBUG_START).ToUniversalTime().ToLocalTime()
-          $out = Join-Path $env:RUNNER_TEMP 'debug-out\events.txt'
-          function Short($text) { $flat = ($text -replace '\s+', ' '); $flat.Substring(0, [math]::Min(400, $flat.Length)) }
-          "== Application" | Out-File $out
-          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$start} -ErrorAction SilentlyContinue | Sort-Object TimeCreated | ForEach-Object { "{0} {1} {2} {3}" -f $_.TimeCreated.ToUniversalTime().ToString('o'), $_.ProviderName, $_.Id, (Short $_.Message) } | Out-File -Append $out
-          "== System" | Out-File -Append $out
-          Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=$start} -ErrorAction SilentlyContinue | Sort-Object TimeCreated | ForEach-Object { "{0} {1} {2} {3}" -f $_.TimeCreated.ToUniversalTime().ToString('o'), $_.ProviderName, $_.Id, (Short $_.Message) } | Out-File -Append $out
-          "== TaskScheduler" | Out-File -Append $out
-          Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TaskScheduler/Operational'; StartTime=$start} -ErrorAction SilentlyContinue | Sort-Object TimeCreated | ForEach-Object { "{0} {1} {2}" -f $_.TimeCreated.ToUniversalTime().ToString('o'), $_.Id, (Short $_.Message) } | Out-File -Append $out
-          "== Tasks run since start" | Out-File -Append $out
-          Get-ScheduledTask | ForEach-Object { $info = $_ | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue; if ($info -and $info.LastRunTime -gt $start) { "{0}{1} last {2} result {3}" -f $_.TaskPath, $_.TaskName, $info.LastRunTime.ToUniversalTime().ToString('o'), $info.LastTaskResult } } | Out-File -Append $out
-          "== Shadows" | Out-File -Append $out
-          vssadmin list shadows 2>&1 | Out-File -Append $out
-          "== Services" | Out-File -Append $out
-          tasklist /svc 2>&1 | Out-File -Append $out
-          Get-Content $out | Select-String -Pattern 'VSS|volsnap|Shadow|Backup|Restore|Defrag|==' | Select-Object -First 200
-      - if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: codex-hooks-${{ matrix.attempt }}
-          path: ${{ runner.temp }}/debug-out
-          include-hidden-files: true
