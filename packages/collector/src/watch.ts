@@ -17,10 +17,14 @@ export interface RootWatch {
   readonly close: () => void
 }
 
+const watchStartMs = 1_000
+
 export const watchDirectory = (directory: string, recursive: boolean, events: WatchEvents): DirectoryWatch => {
   let watcher: FSWatcher | null = null
+  let starting: NodeJS.Timeout | undefined
 
   const close = (): void => {
+    clearTimeout(starting)
     watcher?.close()
     watcher = null
   }
@@ -42,6 +46,7 @@ export const watchDirectory = (directory: string, recursive: boolean, events: Wa
           events.changed(name)
         }
       }).on('error', reset)
+      starting = setTimeout(events.missed, watchStartMs)
     } catch {
       watcher = null
     }
