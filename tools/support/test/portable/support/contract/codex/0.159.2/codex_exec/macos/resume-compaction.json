@@ -1584,7 +1584,10 @@
         "id": "#32",
         "runtime": "codex",
         "root_session": "#31",
-        "goal": null,
+        "goal": {
+          "text": "Run the shell command `echo hi` exactly once, then reply with just: OK",
+          "fact": "#4"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 1,
@@ -1597,7 +1600,10 @@
             "id": "#32",
             "runtime": "codex",
             "root_session": "#31",
-            "goal": null,
+            "goal": {
+              "text": "Run the shell command `echo hi` exactly once, then reply with just: OK",
+              "fact": "#4"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 1,

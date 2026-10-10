@@ -969,7 +969,10 @@
         "id": "#18",
         "runtime": "claude",
         "root_session": "#17",
-        "goal": null,
+        "goal": {
+          "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+          "fact": "#6"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -982,7 +985,10 @@
             "id": "#18",
             "runtime": "claude",
             "root_session": "#17",
-            "goal": null,
+            "goal": {
+              "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+              "fact": "#6"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,

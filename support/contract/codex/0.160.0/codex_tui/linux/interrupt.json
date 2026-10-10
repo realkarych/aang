@@ -1035,10 +1035,13 @@
         "id": "#21",
         "runtime": "codex",
         "root_session": "#20",
-        "goal": null,
+        "goal": {
+          "text": "[aang:tui-interrupt] Run `sleep 30`, then reply done.",
+          "fact": "#7"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -1048,10 +1051,13 @@
             "id": "#21",
             "runtime": "codex",
             "root_session": "#20",
-            "goal": null,
+            "goal": {
+              "text": "[aang:tui-interrupt] Run `sleep 30`, then reply done.",
+              "fact": "#7"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },

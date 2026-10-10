@@ -17,6 +17,7 @@ import {
 } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures.js'
+import { claudeGoal } from './samples.js'
 
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' })
 
@@ -165,7 +166,7 @@ test('a run without stages explains that the observer builds the map', async ({ 
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto(`/?run=${claudeRun}`)
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Claude Code, начат/)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
   await expect(map(page)).toContainText(
     'Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.',
   )
@@ -476,13 +477,14 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
     await expect(inspected(page)).toHaveText(mainStageTitle)
+    const selected = await page.evaluate(() => window.scrollY)
 
     const nested = await versionShown(page)
     await played.play({ until: 'resume' })
     await expect.poll(async () => versionShown(page), observed).toBeGreaterThan(nested)
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
     near(await settled(main), read)
-    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+    expect(await page.evaluate(() => window.scrollY)).toBe(selected)
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].revised)
     await played.play({ until: 'continue' })

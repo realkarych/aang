@@ -34,6 +34,11 @@ export const codexThread: SampleSession = {
   file: 'sessions/2026/10/01/rollout-2026-10-01T11-55-58-01a0f752-40a7-76b2-9df9-5b374f75f98f.jsonl',
 }
 
+export const claudeGoal =
+  'Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type "pinger" and prompt "ping". Step 3: reply with exactly: OK'
+
+export const codexGoal = 'Run the shell command `echo hi` exactly once, then reply with just: OK'
+
 export const sessionFile = (profile: Profile, { runtime, file }: SampleSession): string =>
   join(runtime === 'claude' ? profile.claude : profile.codex, ...file.split('/'))
 

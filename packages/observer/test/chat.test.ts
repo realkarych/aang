@@ -2,7 +2,7 @@ import { writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ChatInput, type ChatMessage, chatOutputJsonSchema, EpochNs, type JsonValue, type RunId } from '@aang/contract'
 import { defaultChatLimits, startChat } from '@aang/engine'
-import { type ChatCallRecord, ChatClosedError, chatSystemPrompt, createChat, type ChatOptions } from '@aang/observer'
+import { ChatClosedError, chatSystemPrompt, createChat, type ChatOptions } from '@aang/observer'
 import type { ClaudeReply, CodexReply, FakeCall } from '@aang/testkit'
 import { expect, test } from 'vitest'
 import { briefed, createScene, structured, until } from './scene.js'
@@ -22,16 +22,15 @@ const chatOutput = (fields: Record<string, JsonValue>): JsonValue => ({
 
 const stageOfInput = { $input: '/model/stages/0/id' }
 
-const chatOf = (scene: Scene, records: ChatCallRecord[], options: Partial<ChatOptions> = {}) =>
+const chatOf = (scene: Scene, options: Partial<ChatOptions> = {}) =>
   createChat({
     store: scene.store,
     backends: { claude: scene.claude, codex: scene.codex },
     slot: (work) => scene.scheduler.chat(work),
-    journal: (_transaction, call) => {
-      records.push(call)
-    },
     ...options,
   })
+
+const journal = (scene: Scene, run: RunId) => scene.store.observerCalls.chats(run)
 
 const chatCalls = (calls: readonly FakeCall[]): FakeCall[] => calls.filter(({ purpose }) => purpose === 'chat')
 
@@ -74,8 +73,7 @@ test('a question about an old ground outside the first input gets an answer that
   await session.permission()
   scene.scheduler.wake()
   await scene.scheduler.idle()
-  const records: ChatCallRecord[] = []
-  const chat = chatOf(scene, records, { limits: { ...defaultChatLimits, focus: 1 } })
+  const chat = chatOf(scene, { limits: { ...defaultChatLimits, focus: 1 } })
   const asked = scene.store.model.head(session.run)
 
   const pending = chat.ask(session.run, { question: 'Why is there a review stage?', stage: null })
@@ -110,11 +108,11 @@ test('a question about an old ground outside the first input gets an answer that
       answered_at: expect.any(BigInt) as unknown,
     },
   ])
+  const records = journal(scene, session.run)
   expect(records.map(({ run, backend, base_version, previous, verdict, error }) => ({ run, backend, base_version, previous, verdict, error }))).toEqual([
     { run: session.run, backend: 'codex', base_version: asked, previous: null, verdict: 'needs_requested', error: null },
     { run: session.run, backend: 'codex', base_version: asked, previous: records[0]?.id, verdict: 'accepted', error: null },
   ])
-  expect(records.map(({ input }) => input)).toEqual([firstInput, secondInput])
   expect(records.every(({ usage, started_at, finished_at }) => usage?.model === 'gpt-6.1-sol' && started_at <= finished_at)).toBe(true)
   expect(scene.failure()).toBeNull()
 })
@@ -145,8 +143,7 @@ test('an invented citation is removed with a mark, insufficient data and failure
   await session.permission()
   scene.scheduler.wake()
   await scene.scheduler.idle()
-  const records: ChatCallRecord[] = []
-  const chat = chatOf(scene, records)
+  const chat = chatOf(scene)
   const stage = scene.store.model.entities(session.run).find((entity) => entity.kind === 'stage')
   const item = scene.store.model.entities(session.run).find((entity) => entity.kind === 'attention_item')
 
@@ -176,7 +173,7 @@ test('an invented citation is removed with a mark, insufficient data and failure
     { status: 'failed', answer: null, citations: [], unconfirmed_citations: false, insufficient_data: false, error: expect.stringMatching(/^limit: /) as unknown },
     { status: 'failed', answer: null, citations: [], unconfirmed_citations: false, insufficient_data: false, error: expect.stringMatching(/^invalid_output: /) as unknown },
   ])
-  expect(records.map(({ verdict, previous, error }) => [verdict, previous === null, error?.class ?? null])).toEqual([
+  expect(journal(scene, session.run).map(({ verdict, previous, error }) => [verdict, previous === null, error?.class ?? null])).toEqual([
     ['accepted', true, null],
     ['accepted', true, null],
     ['needs_requested', true, null],
@@ -208,8 +205,7 @@ test('questions left pending by a stopped daemon fail, a run without a backend f
     }),
   )
 
-  const records: ChatCallRecord[] = []
-  const chat = chatOf(scene, records, { backends: {}, now: () => 1_760_000_000_000 })
+  const chat = chatOf(scene, { backends: {}, now: () => 1_760_000_000_000 })
   expect(scene.store.chat.messages(session.run)).toEqual([
     {
       ...left?.message,
@@ -226,7 +222,7 @@ test('questions left pending by a stopped daemon fail, a run without a backend f
   })
   expect(chat.ask(scene.claudeSession('no-session').run, { question: 'Anyone?', stage: null })).toBeNull()
 
-  const stopping = chatOf(scene, records)
+  const stopping = chatOf(scene)
   await scene.scheduler.close()
   const late = stopping.ask(session.run, { question: 'Still there?', stage: null })
   await stopping.close()
@@ -235,7 +231,54 @@ test('questions left pending by a stopped daemon fail, a run without a backend f
     error: 'cancelled: the observer stopped before the chat answered',
   })
   expect(() => stopping.ask(session.run, { question: 'After close?', stage: null })).toThrow(ChatClosedError)
-  expect(records.map(({ verdict, error }) => [verdict, error])).toEqual([['failed', null]])
+  expect(journal(scene, session.run).map(({ verdict, error }) => [verdict, error])).toEqual([['failed', null]])
+})
+
+test('a run deleted while its chat waits for the CLI in either phase gets back neither its chat calls nor its message, and the chat goes on', async (context) => {
+  const scene = await createScene(context)
+  const [beforeAnswer, beforeFollowUp] = [join(scene.root, 'answer-gate'), join(scene.root, 'follow-up-gate')]
+  scene.fakeClaude.setScenario({
+    replies: [],
+    chatReplies: [
+      { kind: 'answer', output: chatOutput({ answer: 'Gone with the run.' }), gate: beforeAnswer },
+      reply(chatOutput({ needs: [{ kind: 'fact', fact: 'f'.repeat(32) }] })),
+      { kind: 'answer', output: chatOutput({ answer: 'Gone after its needs.' }), gate: beforeFollowUp },
+      reply(chatOutput({ answer: 'The chat still answers.' })),
+    ],
+  })
+  const chat = chatOf(scene)
+  let failed: unknown = null
+  void chat.failure.then((error: unknown) => {
+    failed = error
+  })
+  const inFirst = scene.claudeSession('session-first-phase')
+  const inSecond = scene.claudeSession('session-second-phase')
+  const kept = scene.claudeSession('session-kept')
+  for (const session of [inFirst, inSecond, kept]) {
+    await session.start()
+  }
+  const deleted = async (run: RunId, gate: string, calls: number): Promise<void> => {
+    await until(() => chatCalls(scene.fakeClaude.calls()).length === calls)
+    await scene.engine.prune({ scope: 'run', run }, () => Promise.resolve(null))
+    await writeFile(gate, '')
+    await chat.idle()
+  }
+
+  chat.ask(inFirst.run, { question: 'Deleted before the answer?', stage: null })
+  await deleted(inFirst.run, beforeAnswer, 1)
+  chat.ask(inSecond.run, { question: 'Deleted before the follow-up answer?', stage: null })
+  await deleted(inSecond.run, beforeFollowUp, 3)
+  const answered = chat.ask(kept.run, { question: 'Still there?', stage: null })
+  await chat.idle()
+
+  expect(failed).toBeNull()
+  for (const run of [inFirst.run, inSecond.run]) {
+    expect(scene.store.model.entity(run, { kind: 'run', id: run })).toBeNull()
+    expect(messages(scene, run)).toEqual([])
+    expect(journal(scene, run)).toEqual([])
+  }
+  expect(messageOf(scene, kept.run, answered)).toMatchObject({ status: 'answered', answer: 'The chat still answers.' })
+  expect(journal(scene, kept.run).map(({ verdict, previous }) => [verdict, previous])).toEqual([['accepted', null]])
 })
 
 test('an earlier answer reaches a later chat input only when the backend and crossVendor of the daemon admit the input it was built from', async (context) => {
@@ -254,16 +297,17 @@ test('an earlier answer reaches a later chat input only when the backend and cro
   await session.permission()
   scene.scheduler.wake()
   await scene.scheduler.idle()
-  const records: ChatCallRecord[] = []
   const restarted = async (question: string, options: Partial<ChatOptions>): Promise<ChatInput> => {
-    const chat = chatOf(scene, records, options)
+    const sent = (): FakeCall[][] => [chatCalls(scene.fakeClaude.calls()), chatCalls(scene.fakeCodex.calls())]
+    const before = sent().map((calls) => calls.length)
+    const chat = chatOf(scene, options)
     chat.ask(session.run, { question, stage: null })
     await chat.close()
-    const input = records.at(-1)?.input
-    if (input === undefined) {
+    const call = sent().flatMap((calls, index) => calls.slice(before[index])).at(-1)
+    if (call === undefined) {
       throw new Error('the chat must call its backend')
     }
-    return input
+    return inputOf(call)
   }
   const answersOf = (input: ChatInput): (string | null)[] => input.history.map(({ answer }) => answer)
 
@@ -277,7 +321,7 @@ test('an earlier answer reaches a later chat input only when the backend and cro
   expect(JSON.stringify(codexOnly)).not.toContain(own)
   expect(answersOf(claudeOnly)).toEqual([own])
   expect(answersOf(everyVendor)).toEqual([own, shared, foreign, later])
-  expect(records.map(({ backend, verdict }) => [backend, verdict])).toEqual([
+  expect(journal(scene, session.run).map(({ backend, verdict }) => [backend, verdict])).toEqual([
     ['claude', 'accepted'],
     ['claude', 'accepted'],
     ['codex', 'accepted'],

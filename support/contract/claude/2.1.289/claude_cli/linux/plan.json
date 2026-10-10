@@ -4310,7 +4310,10 @@
         "id": "#80",
         "runtime": "claude",
         "root_session": "#79",
-        "goal": null,
+        "goal": {
+          "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+          "fact": "#11"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -4373,7 +4376,10 @@
             "id": "#80",
             "runtime": "claude",
             "root_session": "#79",
-            "goal": null,
+            "goal": {
+              "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+              "fact": "#11"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,

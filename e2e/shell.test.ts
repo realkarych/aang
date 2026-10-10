@@ -4,10 +4,10 @@ import { join } from 'node:path'
 import { endpoints, type RunId } from '@aang/contract'
 import { aangHomePaths } from '@aang/contract/home'
 import { sampleScenarioManifest } from '@aang/testkit'
-import type { Locator, Page, Route } from '@playwright/test'
+import type { Route } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
-import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
-import { fact, lamp } from './screens.js'
+import { claudeGoal, claudeOriginal, codexGoal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
+import { fact, lamp, runRowOf } from './screens.js'
 
 const claudeSession = claudeOriginal.session
 const claudeRun = runOf(claudeOriginal)
@@ -18,9 +18,6 @@ const watchAll = { watch: { all: true } }
 
 test.use({ config: watchAll })
 
-const runRow = (page: Page, runtime: string): Locator =>
-  page.getByRole('row').filter({ has: page.getByRole('link', { name: new RegExp(`^${runtime}, начат`) }) })
-
 test('a Claude session without hook events shows inactive hooks and the files-only mode until hooks arrive (E2E 9)', async ({
   page,
   player,
@@ -30,10 +27,10 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto('/')
 
-  const row = runRow(page, 'Claude Code')
+  const row = runRowOf(page, claudeRun)
   await expect(row).toContainText('hooks не активны')
   await expect(row).toContainText('только файлы')
-  await expect(row).toContainText('цель не определена')
+  await expect(row.getByRole('link')).toHaveText(claudeGoal)
   await expect(lamp(page, 'Hooks')).toHaveText('Hooks не активны в 1 сессии')
   await lamp(page, 'Hooks').getByRole('button').click()
   await expect(page.getByRole('region', { name: 'Hooks: подробности' })).toContainText(
@@ -47,7 +44,7 @@ test('a Claude session without hook events shows inactive hooks and the files-on
 
   await row.getByRole('link').click()
   await expect(page).toHaveURL(new RegExp(`\\?run=${claudeRun}$`))
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Claude Code, начат/)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
   await expect(fact(page, 'Свежесть')).toHaveText('hooks не активны')
   await expect(fact(page, 'Режим')).toHaveText('только файлы')
   await expect(lamp(page, 'Режим')).toHaveText('Режим только файлы')
@@ -66,9 +63,9 @@ test('a Claude session without hook events shows inactive hooks and the files-on
   await expect(lamp(page, 'Hooks')).not.toContainText('не активны')
 
   await page.getByRole('navigation').getByRole('link', { name: 'Прогоны' }).click()
-  await expect(runRow(page, 'Claude Code')).toContainText('полный')
-  await expect(runRow(page, 'Claude Code')).toContainText('ждут ответа: 1')
-  await expect(runRow(page, 'Claude Code')).not.toContainText('hooks не активны')
+  await expect(runRowOf(page, claudeRun)).toContainText('полный')
+  await expect(runRowOf(page, claudeRun)).toContainText('ждут ответа: 1')
+  await expect(runRowOf(page, claudeRun)).not.toContainText('hooks не активны')
 })
 
 test('a Codex session without hook events shows inactive hooks and the files-only mode (E2E 9)', async ({
@@ -81,14 +78,14 @@ test('a Codex session without hook events shows inactive hooks and the files-onl
 
   await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Codex, начат/)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(codexGoal)
   await expect(fact(page, 'Свежесть')).toHaveText('hooks не активны')
   await expect(lamp(page, 'Режим')).toHaveText('Режим только файлы')
   await expect(lamp(page, 'Hooks')).toHaveText('Hooks не активны в 1 сессии')
   await expect(lamp(page, 'Связь')).toHaveText('Связь поток подключён')
 
   await page.getByRole('link', { name: 'aang' }).click()
-  const row = runRow(page, 'Codex')
+  const row = runRowOf(page, codexRun)
   await expect(row).toContainText('hooks не активны')
   await expect(row).toContainText('только файлы')
 })
@@ -222,7 +219,7 @@ test('the run list says when only the list request fails and shows the run once 
   )
 
   await page.unroute(runsRoute, dropRuns)
-  await expect(runRow(page, 'Claude Code')).toBeVisible()
+  await expect(runRowOf(page, claudeRun)).toBeVisible()
   await expect(trouble).toHaveCount(0)
   await expect(lamp(page, 'Связь')).toHaveText('Связь есть')
 })
@@ -240,7 +237,7 @@ test.describe('the status strip', () => {
     await expect(page.getByText('aang наблюдает все каталоги.', { exact: false })).toBeVisible()
 
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
-    await expect(runRow(page, 'Claude Code')).toBeVisible()
+    await expect(runRowOf(page, claudeRun)).toBeVisible()
     await expect(lamp(page, 'Записи')).toHaveText('Записи все распознаны')
     await expect(lamp(page, 'Источники')).toHaveText('Источники в порядке')
     await expect(lamp(page, 'Spool')).toHaveText('Spool пуст')
@@ -255,10 +252,10 @@ test.describe('the status strip', () => {
     )
 
     await rm(transcript)
-    await expect(runRow(page, 'Claude Code')).toContainText('источник потерян')
+    await expect(runRowOf(page, claudeRun)).toContainText('источник потерян')
     await expect(lamp(page, 'Источники')).toHaveText('Источники 1 источник потерян')
 
-    await runRow(page, 'Claude Code').getByRole('link').click()
+    await runRowOf(page, claudeRun).getByRole('link').click()
     await expect(fact(page, 'Свежесть')).toHaveText('источник потерян')
     await expect(lamp(page, 'Источники')).toHaveText('Источники 1 источник потерян')
     await lamp(page, 'Источники').getByRole('button').click()

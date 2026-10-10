@@ -2306,10 +2306,13 @@
         "id": "#46",
         "runtime": "codex",
         "root_session": "#45",
-        "goal": null,
+        "goal": {
+          "text": "[aang:tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.",
+          "fact": "#7"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2319,10 +2322,13 @@
             "id": "#46",
             "runtime": "codex",
             "root_session": "#45",
-            "goal": null,
+            "goal": {
+              "text": "[aang:tools] Run `echo hi`, add result.json with a patch, run `echo code` from a code cell, then reply done.",
+              "fact": "#7"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

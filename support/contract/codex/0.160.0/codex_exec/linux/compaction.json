@@ -2318,10 +2318,13 @@
         "id": "#50",
         "runtime": "codex",
         "root_session": "#49",
-        "goal": null,
+        "goal": {
+          "text": "[aang:compaction-first] Run `echo before`, then reply done.",
+          "fact": "#7"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2331,10 +2334,13 @@
             "id": "#50",
             "runtime": "codex",
             "root_session": "#49",
-            "goal": null,
+            "goal": {
+              "text": "[aang:compaction-first] Run `echo before`, then reply done.",
+              "fact": "#7"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },

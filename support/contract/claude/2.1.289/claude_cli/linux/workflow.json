@@ -4652,7 +4652,10 @@
         "id": "#87",
         "runtime": "claude",
         "root_session": "#86",
-        "goal": null,
+        "goal": {
+          "text": "[aang:workflow] Run this workflow with the Workflow tool, passing the script verbatim, and reply with one sentence:\nexport const meta = { name: 'aang-echo', description: 'Echo words through workflow agents', phases: [{ title: 'Echo' }, { title: 'Report' }] }\nconst words = await parallel([\n  () => agent('[aang:wf-left] Run `echo left` with the Bash tool and report its output.', { label: 'left', phase: 'Echo' }),\n  () => agent('[aang:wf-right] Run `echo right` with the Bash tool and report its output.', { label: 'right', phase: 'Echo' }),\n])\nconst report = await agent('[aang:wf-report] Run `echo report` with the Bash tool and report its output.', { label: 'report', phase: 'Report' })\nreturn { words, report }",
+          "fact": "#9"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 3,
@@ -4690,7 +4693,10 @@
             "id": "#87",
             "runtime": "claude",
             "root_session": "#86",
-            "goal": null,
+            "goal": {
+              "text": "[aang:workflow] Run this workflow with the Workflow tool, passing the script verbatim, and reply with one sentence:\nexport const meta = { name: 'aang-echo', description: 'Echo words through workflow agents', phases: [{ title: 'Echo' }, { title: 'Report' }] }\nconst words = await parallel([\n  () => agent('[aang:wf-left] Run `echo left` with the Bash tool and report its output.', { label: 'left', phase: 'Echo' }),\n  () => agent('[aang:wf-right] Run `echo right` with the Bash tool and report its output.', { label: 'right', phase: 'Echo' }),\n])\nconst report = await agent('[aang:wf-report] Run `echo report` with the Bash tool and report its output.', { label: 'report', phase: 'Report' })\nreturn { words, report }",
+              "fact": "#9"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 3,

@@ -2387,7 +2387,10 @@
         "id": "#44",
         "runtime": "claude",
         "root_session": "#43",
-        "goal": null,
+        "goal": {
+          "text": "[aang:loss-moved] Run `echo moved` with the Bash tool and reply with its output.",
+          "fact": "#30"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -2400,7 +2403,10 @@
             "id": "#44",
             "runtime": "claude",
             "root_session": "#43",
-            "goal": null,
+            "goal": {
+              "text": "[aang:loss-moved] Run `echo moved` with the Bash tool and reply with its output.",
+              "fact": "#30"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,
@@ -2421,7 +2427,10 @@
         "id": "#46",
         "runtime": "claude",
         "root_session": "#45",
-        "goal": null,
+        "goal": {
+          "text": "[aang:loss-removed] Run `echo removed` with the Bash tool and reply with its output.",
+          "fact": "#9"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -2434,7 +2443,10 @@
             "id": "#46",
             "runtime": "claude",
             "root_session": "#45",
-            "goal": null,
+            "goal": {
+              "text": "[aang:loss-removed] Run `echo removed` with the Bash tool and reply with its output.",
+              "fact": "#9"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,

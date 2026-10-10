@@ -112,6 +112,14 @@ a rule version only when a decision changes.
 - `brief.update` stores a nonempty retelling of the run goal beside the observed
   goal from the first prompt. A user change of the brief after the base version is
   a conflict.
+- The observed goal is set by a rule (`run.goal`, ADR-0006): the earliest nonempty
+  prompt of a human to the main agent of the root session, the same prompt the run
+  context calls the task. Its fact is the evidence and the basis is observed. The
+  change goes into the change set that links the session, so a run whose first
+  batch holds the prompt gets its goal in the version that creates it. The same
+  prompt delivered again keeps the goal. A prompt that turns out earlier replaces the
+  goal and its fact even with the same text, as the Codex prompt of a rollout does
+  after its hook, so the goal does not depend on the delivery order.
 
 ## Attention operations
 
