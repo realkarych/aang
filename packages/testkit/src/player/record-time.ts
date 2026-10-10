@@ -47,11 +47,15 @@ export const playbackShift = (sources: Iterable<Buffer>, now: number): RecordShi
   const earliest = instants.reduce((least, instant) => Math.min(least, instant))
   const latest = instants.reduce((most, instant) => Math.max(most, instant))
   const timeline = { from: earliest - dayMs, to: latest + dayMs }
-  return {
-    ms: Math.floor((now - earliest) / secondMs) * secondMs,
-    ...timeline,
-    kept: new Set(texts.flatMap(epochsOf).filter((instant) => !within(instant, timeline))),
+  const epochs = texts.flatMap(epochsOf)
+  const kept = new Set(epochs.filter((instant) => !within(instant, timeline)))
+  const moved = epochs.filter((instant) => within(instant, timeline))
+  const collides = (ms: number): boolean => moved.some((instant) => kept.has(instant + BigInt(ms) * nanosecondsPerMillisecond))
+  let ms = Math.floor((now - earliest) / secondMs) * secondMs
+  while (collides(ms)) {
+    ms -= secondMs
   }
+  return { ms, ...timeline, kept }
 }
 
 const shiftedEpoch = (digits: string, shift: RecordShift): string | null => {

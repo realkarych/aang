@@ -100,11 +100,17 @@ describe('the contract snapshot of a recording played on the playback clock', ()
     expect(recordedSnapshot(later)).toEqual(recordedSnapshot(soon))
   }, 240_000)
 
-  test('an epoch time days after the recorded timeline stays as recorded when the replay comes as late as that time', async () => {
+  test('epoch times in and days after the recorded timeline keep their recorded values, also when the replay would move the first onto the second', async () => {
     const recordingStart = Date.now() - 3 * dayMs
-    const recordedInput = { cmd: 'echo hi', until: Math.floor((recordingStart + 2.5 * dayMs) / secondMs) }
-    const played = await play(recordedAt(await reference(codexTools), recordingStart), withArguments(recordedInput))
+    const recent = recordedAt(await reference(codexTools), recordingStart)
+    const collidingAt = recordingStart + 2.5 * dayMs
+    const since = Math.floor(recordingStart / secondMs)
+    const recordedInput = { cmd: 'echo hi', since, until: since + playbackShift(recent.manifest.sources.values(), collidingAt).ms / secondMs }
 
-    expect(commandInputs(recordedSnapshot(played))).toEqual([recordedInput])
-  }, 120_000)
+    const colliding = await play(recent, withArguments(recordedInput), collidingAt)
+    const later = await play(recent, withArguments(recordedInput))
+
+    expect(commandInputs(recordedSnapshot(colliding))).toEqual([recordedInput])
+    expect(recordedSnapshot(later)).toEqual(recordedSnapshot(colliding))
+  }, 240_000)
 })
