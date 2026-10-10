@@ -9,7 +9,7 @@ import {
   type RunningDaemon,
 } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
-import { expect, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { threadsOf, variantRecording } from './recordings.js'
 import { fact, sessionOf } from './screens.js'
 import { duringWorkScenario, duringWorkVariants, skippedHere, type SurfaceVariant } from './variants.js'
@@ -134,7 +134,7 @@ const rootSession = (runtime: Runtime, manifest: LoadedManifest): string => {
 }
 
 const snapshotOf = async (page: Page, run: RunId): Promise<RunSnapshot> => {
-  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
   expect(response.status()).toBe(200)
   return endpoints.run.response.parse(await response.json())
 }

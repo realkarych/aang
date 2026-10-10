@@ -17,7 +17,7 @@ import {
   sampleScenarioManifest,
 } from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
+import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { claudeOriginal, hookFields, runOf } from './samples.js'
 import {
   change,
@@ -48,7 +48,7 @@ const reportPath = `${claudeOriginal.cwd}/report.md`
 const observed = { timeout: 60_000 }
 
 const snapshotOf = async (request: APIRequestContext): Promise<RunSnapshot | null> => {
-  const response = await request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(request, endpoints.run.path.replace(':run', run))
   return response.status() === 200 ? endpoints.run.response.parse(await response.json()) : null
 }
 
@@ -73,12 +73,13 @@ const stageId = async (request: APIRequestContext, title: string): Promise<Stage
 }
 
 const recordOf = async (request: APIRequestContext, id: FactId): Promise<string> => {
-  const response = await request.get(endpoints.fact.path.replace(':id', id))
+  const response = await getWithoutKeepAlive(request, endpoints.fact.path.replace(':id', id))
   return `сырая запись № ${String(endpoints.fact.response.parse(await response.json()).fact.seq)}`
 }
 
 const journalRecords = async (request: APIRequestContext, title: string, op: string): Promise<string[]> => {
-  const response = await request.get(
+  const response = await getWithoutKeepAlive(
+    request,
     endpoints.stage.path.replace(':run', run).replace(':stage', await stageId(request, title)),
   )
   const { history } = endpoints.stage.response.parse(await response.json())

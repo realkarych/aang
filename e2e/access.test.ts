@@ -2,7 +2,7 @@ import { once } from 'node:events'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { endpoints } from '@aang/contract'
-import { expect, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 
 test.describe('a browser without the session cookie', () => {
   test.use({ signedIn: false })
@@ -13,7 +13,7 @@ test.describe('a browser without the session cookie', () => {
     signInLink,
     baseURL,
   }) => {
-    const api = await request.get(endpoints.runs.path)
+    const api = await getWithoutKeepAlive(request, endpoints.runs.path)
     expect(api.status()).toBe(401)
     expect(await api.json()).toMatchObject({ error: { code: 'unauthorized' } })
 
