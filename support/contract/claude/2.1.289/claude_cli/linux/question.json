@@ -439,10 +439,9 @@
       "id": "#8",
       "kind": "permission_request",
       "entity_key": {
-        "kind": "question",
+        "kind": "session",
         "runtime": "claude",
-        "session": "713f9d81-208e-4ff4-ab28-4624c3f0981a",
-        "question": "spool#4"
+        "session": "713f9d81-208e-4ff4-ab28-4624c3f0981a"
       },
       "speaker": "runtime",
       "urgent": true,
@@ -2039,39 +2038,6 @@
         "kind": "question",
         "runtime": "claude",
         "session": "713f9d81-208e-4ff4-ab28-4624c3f0981a",
-        "question": "spool#4"
-      },
-      "session": "#38",
-      "agent": "#40",
-      "run": "#39",
-      "kind": "permission",
-      "blocking": true,
-      "text": null,
-      "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
-      "decision": {
-        "value": "unknown",
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-decision"
-          }
-        },
-        "evidence": [
-          "#8",
-          "#32"
-        ]
-      },
-      "redelivery_group": null
-    },
-    {
-      "id": "#44",
-      "key": {
-        "kind": "question",
-        "runtime": "claude",
-        "session": "713f9d81-208e-4ff4-ab28-4624c3f0981a",
         "question": "spool#8"
       },
       "session": "#38",
@@ -2100,7 +2066,7 @@
       "redelivery_group": null
     },
     {
-      "id": "#45",
+      "id": "#44",
       "key": {
         "kind": "question",
         "runtime": "claude",
@@ -2136,7 +2102,7 @@
   ],
   "usage": [
     {
-      "id": "#46",
+      "id": "#45",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2160,7 +2126,7 @@
       "at": "<time>"
     },
     {
-      "id": "#47",
+      "id": "#46",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2184,7 +2150,7 @@
       "at": "<time>"
     },
     {
-      "id": "#48",
+      "id": "#47",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2210,7 +2176,7 @@
   ],
   "artifacts": [
     {
-      "id": "#49",
+      "id": "#48",
       "key": {
         "kind": "artifact_version",
         "run": "#39",
@@ -2224,7 +2190,7 @@
         }
       },
       "run": "#39",
-      "artifact": "#50",
+      "artifact": "#49",
       "ref": {
         "kind": "file",
         "path": "/fixture/project/greeting.txt"
@@ -2247,45 +2213,20 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 4,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
         {
           "kind": "attention_item",
           "value": {
-            "id": "#51",
-            "run": "#39",
-            "kind": "permission",
-            "author": "rule",
-            "text": "AskUserQuestion",
-            "stage": null,
-            "question": "#43",
-            "action": null,
-            "basis": {
-              "kind": "observed"
-            },
-            "evidence": [
-              "#8"
-            ],
-            "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
-            "likely_resolved": null,
-            "priority": null,
-            "opened_at": "<time>",
-            "closed_at": "<time>"
-          }
-        },
-        {
-          "kind": "attention_item",
-          "value": {
-            "id": "#52",
+            "id": "#50",
             "run": "#39",
             "kind": "permission",
             "author": "rule",
             "text": "Write: /fixture/project/greeting.txt",
             "stage": null,
-            "question": "#44",
+            "question": "#43",
             "action": null,
             "basis": {
               "kind": "observed"
@@ -2304,13 +2245,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#53",
+            "id": "#51",
             "run": "#39",
             "kind": "question",
             "author": "rule",
             "text": "Which greeting should I use?",
             "stage": null,
-            "question": "#45",
+            "question": "#44",
             "action": "#41",
             "basis": {
               "kind": "observed"
@@ -2335,7 +2276,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 4,
+            "version": 3,
             "created_at": "<time>"
           }
         },
