@@ -1,7 +1,7 @@
 import { readdir } from 'node:fs/promises'
 import { join, relative, sep } from 'node:path'
 import type { Wakeup } from './wakeup.js'
-import { type DirectoryWatch, watchDirectory } from './watch.js'
+import { type RootWatch, watchRoot } from './watch.js'
 
 export interface TreeRoot {
   readonly directory: string
@@ -45,7 +45,7 @@ const listFiles = async (root: TreeRoot): Promise<string[]> => {
 }
 
 export const createTree = (options: TreeOptions, events: TreeEvents, wakeup: Wakeup): Tree => {
-  const watches = new Map<TreeRoot, DirectoryWatch>()
+  const watches = new Map<TreeRoot, RootWatch>()
   let scanRequested = false
   let scanning: Promise<void> | null = null
   let timer: NodeJS.Timeout | undefined
@@ -77,12 +77,12 @@ export const createTree = (options: TreeOptions, events: TreeEvents, wakeup: Wak
       for (const root of options.roots) {
         watches.set(
           root,
-          watchDirectory(root.directory, root.recursive, {
+          watchRoot(root.directory, root.recursive, {
             changed: (name) => {
               events.changed(root, join(root.directory, name))
               requestScan()
             },
-            lost: requestScan,
+            missed: requestScan,
           }),
         )
       }
