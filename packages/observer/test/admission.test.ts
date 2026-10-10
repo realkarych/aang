@@ -8,7 +8,7 @@ import { promisify } from 'node:util'
 import { expect, test, type TestContext } from 'vitest'
 import { createClaudeBackend, createCodexBackend, type LaunchStatus } from '@aang/observer'
 import { installFakeClaude, installFakeCodex, type ClaudeScenario } from '@aang/testkit'
-import { failNextProcessTableRead } from './process-table.js'
+import { failNextProcessTableRead, showExitedProcessesWhileReleased } from './process-table.js'
 import { until, wrapped } from './scene.js'
 
 const builtins = { mcpServers: [], skills: [], plugins: ['cc-plugin-agents-md', 'cc-plugin-plugin-authoring'] }
@@ -291,6 +291,23 @@ for (const runtime of ['claude', 'codex'] as const) {
     const count = cli.calls().length
     expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
     expect(cli.calls()).toHaveLength(count)
+  })
+}
+
+for (const runtime of ['claude', 'codex'] as const) {
+  test.runIf(process.platform === 'linux')(`${runtime} admission takes a call process the kernel is releasing for a vanished one, and a descendant that left the group still fails it`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const kernel = showExitedProcessesWhileReleased()
+    context.onTestFinished(kernel.restore)
+    const cli = runtime === 'claude' ? installFakeClaude(root, { replies: [{ kind: 'answer', output }] }) : installFakeCodex(root, { replies: [{ kind: 'answer', output }] })
+    const backend = runtime === 'claude' ? createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins }) : createCodexBackend({ ...options, cli, model: 'gpt-6.1-sol' })
+    expect(await backend.admit()).toMatchObject({ admitted: true, reason: null, isolationViolated: false })
+    const probes = cli.calls().filter((call) => call.prompt !== null).map((call) => call.pid)
+    expect(probes).toHaveLength(2)
+    expect(kernel.released()).toEqual(expect.arrayContaining(probes))
+    cli.setScenario({ groupEscape: { lifetimeMs: 200 }, replies: [{ kind: 'answer', output }] })
+    expect(await backend.admit()).toMatchObject({ admitted: false, isolationViolated: true, reason: expect.stringMatching(/^CLI descendant left its process group: /) as unknown })
+    expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
   })
 }
 
