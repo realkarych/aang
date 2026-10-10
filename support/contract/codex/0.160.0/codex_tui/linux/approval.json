@@ -1266,20 +1266,25 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
-      "decision": {
-        "value": "unknown",
+      "answered_at": "<time>",
+      "action": {
+        "action": "#29",
+        "ambiguous": false,
         "basis": {
           "kind": "interpreted",
           "interpreter": {
             "kind": "rule",
-            "rule": "permission-decision"
+            "rule": "permission-link"
           }
+        }
+      },
+      "decision": {
+        "value": "approved",
+        "basis": {
+          "kind": "observed"
         },
         "evidence": [
-          "#9",
-          "#18"
+          "#24"
         ]
       },
       "redelivery_group": null
@@ -1377,7 +1382,7 @@
             "text": "Bash: touch approved.txt",
             "stage": null,
             "question": "#30",
-            "action": null,
+            "action": "#29",
             "basis": {
               "kind": "observed"
             },
@@ -1385,7 +1390,7 @@
               "#9"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",

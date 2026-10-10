@@ -15,8 +15,8 @@ export {
   supportGaps,
   withObserver,
 } from './matrix.js'
-export { playRecording, type Played, type PlaybackRoots, type PlayOptions, removeRoots, restartLabel } from './play.js'
-export { findRecordings, type Recording, recordingName } from './recordings.js'
+export { playRecording, type Played, type PlaybackRoots, type PlayOptions, recordedTimes, type RecordedTimes, removeRoots, restartLabel } from './play.js'
+export { findRecordings, readRecordingManifest, type Recording, recordingName } from './recordings.js'
 export {
   checkRecording,
   contractRun,

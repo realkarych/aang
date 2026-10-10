@@ -2212,10 +2212,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#48",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -2225,7 +2235,7 @@
         },
         "evidence": [
           "#24",
-          "#37"
+          "#35"
         ]
       },
       "redelivery_group": null
@@ -2273,10 +2283,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#47",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -2286,7 +2306,7 @@
         },
         "evidence": [
           "#7",
-          "#37"
+          "#20"
         ]
       },
       "redelivery_group": null
@@ -2406,7 +2426,7 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 3,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2420,7 +2440,7 @@
             "text": "mcp__aang-elicitation__choose_greeting",
             "stage": null,
             "question": "#51",
-            "action": null,
+            "action": "#47",
             "basis": {
               "kind": "observed"
             },
@@ -2428,7 +2448,7 @@
               "#7"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -2445,7 +2465,7 @@
             "text": "mcp__aang-elicitation__confirm_link",
             "stage": null,
             "question": "#49",
-            "action": null,
+            "action": "#48",
             "basis": {
               "kind": "observed"
             },
@@ -2453,7 +2473,7 @@
               "#24"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -2519,7 +2539,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 3,
+            "version": 2,
             "created_at": "<time>"
           }
         },

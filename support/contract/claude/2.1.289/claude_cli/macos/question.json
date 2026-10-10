@@ -1950,10 +1950,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#39",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -1963,7 +1973,7 @@
         },
         "evidence": [
           "#6",
-          "#30"
+          "#16"
         ]
       },
       "redelivery_group": null
@@ -1983,10 +1993,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#40",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -1996,7 +2016,7 @@
         },
         "evidence": [
           "#21",
-          "#30"
+          "#28"
         ]
       },
       "redelivery_group": null
@@ -2030,7 +2050,7 @@
           "kind": "observed"
         },
         "evidence": [
-          "#24"
+          "#17"
         ]
       },
       "redelivery_group": null
@@ -2149,7 +2169,7 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 4,
+        "version": 1,
         "created_at": "<time>"
       },
       "entities": [
@@ -2163,7 +2183,7 @@
             "text": "AskUserQuestion",
             "stage": null,
             "question": "#41",
-            "action": null,
+            "action": "#39",
             "basis": {
               "kind": "observed"
             },
@@ -2171,7 +2191,7 @@
               "#6"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -2188,7 +2208,7 @@
             "text": "Write: /fixture/project/greeting.txt",
             "stage": null,
             "question": "#42",
-            "action": null,
+            "action": "#40",
             "basis": {
               "kind": "observed"
             },
@@ -2196,7 +2216,7 @@
               "#21"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -2237,7 +2257,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 4,
+            "version": 1,
             "created_at": "<time>"
           }
         },

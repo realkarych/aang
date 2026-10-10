@@ -4095,10 +4095,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#87",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -4108,7 +4118,7 @@
         },
         "evidence": [
           "#39",
-          "#75"
+          "#45"
         ]
       },
       "redelivery_group": null
@@ -4128,10 +4138,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#88",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -4141,7 +4161,7 @@
         },
         "evidence": [
           "#48",
-          "#75"
+          "#54"
         ]
       },
       "redelivery_group": null
@@ -4180,7 +4200,7 @@
         },
         "evidence": [
           "#41",
-          "#49"
+          "#45"
         ]
       },
       "redelivery_group": null
@@ -4445,7 +4465,7 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 1,
         "created_at": "<time>"
       },
       "entities": [
@@ -4459,7 +4479,7 @@
             "text": "ExitPlanMode",
             "stage": null,
             "question": "#91",
-            "action": null,
+            "action": "#87",
             "basis": {
               "kind": "observed"
             },
@@ -4467,7 +4487,7 @@
               "#39"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -4484,7 +4504,7 @@
             "text": "Write: C:\\fixture\\project\\checklist.txt",
             "stage": null,
             "question": "#92",
-            "action": null,
+            "action": "#88",
             "basis": {
               "kind": "observed"
             },
@@ -4492,7 +4512,7 @@
               "#48"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -4533,7 +4553,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 1,
             "created_at": "<time>"
           }
         },

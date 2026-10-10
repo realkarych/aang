@@ -2486,10 +2486,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#52",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -2499,7 +2509,7 @@
         },
         "evidence": [
           "#21",
-          "#40"
+          "#28"
         ]
       },
       "redelivery_group": null
@@ -2519,10 +2529,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#53",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -2532,7 +2552,7 @@
         },
         "evidence": [
           "#32",
-          "#40"
+          "#37"
         ]
       },
       "redelivery_group": null
@@ -2739,7 +2759,7 @@
             "text": "Edit: /fixture/project/result.txt",
             "stage": null,
             "question": "#55",
-            "action": null,
+            "action": "#53",
             "basis": {
               "kind": "observed"
             },
@@ -2747,7 +2767,7 @@
               "#32"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -2764,7 +2784,7 @@
             "text": "Write: /fixture/project/result.txt",
             "stage": null,
             "question": "#54",
-            "action": null,
+            "action": "#52",
             "basis": {
               "kind": "observed"
             },
@@ -2772,7 +2792,7 @@
               "#21"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",

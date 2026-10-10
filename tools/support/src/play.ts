@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat } from 'node:fs/promises'
+import { mkdir, mkdtemp, readdir, readFile, realpath, rm, stat, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
@@ -11,6 +11,7 @@ import {
   type CollectedGap,
   type CollectorBatch,
   Config,
+  EpochNs,
   type Gap,
   type Runtime,
   spoolLayout,
@@ -18,15 +19,22 @@ import {
 import { contentHash } from '@aang/contract/ids'
 import { createEngine } from '@aang/engine'
 import { openStore, type Store } from '@aang/store'
-import { createPlayer, leaseSpool, type LoadedManifest, type PlayerStep, type Target } from '@aang/testkit'
+import type { RecordingManifest } from '@aang/record'
+import { createPlayer, leaseSpool, type LoadedManifest, playbackShift, type PlayerStep, type RecordShift, type Target } from '@aang/testkit'
 
 export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
   ['claude', claudeAdapter],
   ['codex', codexAdapter],
 ])
 
+export interface RecordedTimes {
+  readonly startedAt: number
+  readonly mtimes: ReadonlyMap<string, bigint>
+}
+
 export interface PlayOptions {
   readonly hookBinary: string
+  readonly recorded: RecordedTimes
   readonly stepTimeoutMs?: number
 }
 
@@ -41,6 +49,7 @@ export interface Played {
   readonly store: Store
   readonly roots: PlaybackRoots
   readonly restarts: number
+  readonly shift: RecordShift
 }
 
 interface Ingestion {
@@ -73,7 +82,39 @@ const otelToken = 'contract-run-otel-token-0123456789'
 const otelDirectory = 'otel'
 const toolDecisionEvent = 'codex.tool_decision'
 
+const secondMs = 1_000
+const nanosecondsPerMs = 1_000_000n
+const nanosecondsPerSecond = 1_000_000_000
+
 export const restartLabel = 'daemon-restart'
+
+export const recordedTimes = ({ recorded_at: recordedAt, artifacts }: Pick<RecordingManifest, 'recorded_at' | 'artifacts'>): RecordedTimes => ({
+  startedAt: Date.parse(recordedAt),
+  mtimes: new Map(artifacts.map(({ source, mtime_ns: mtime }) => [source, BigInt(mtime)])),
+})
+
+const wholeSeconds = (ms: number): number => Math.floor(ms / secondMs) * secondMs
+
+const busyCodes: readonly string[] = ['EBUSY', 'EPERM', 'EACCES']
+const busyAttempts = 50
+const busyRetryMs = 20
+
+const isBusy = (error: unknown): boolean =>
+  process.platform === 'win32' && error instanceof Error && 'code' in error && busyCodes.includes(String(error.code))
+
+const touch = async (path: string, seconds: number): Promise<void> => {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      await utimes(path, seconds, seconds)
+      return
+    } catch (error) {
+      if (!isBusy(error) || attempt === busyAttempts) {
+        throw error
+      }
+      await sleep(busyRetryMs)
+    }
+  }
+}
 
 const stepLabel = (index: number): string => `contract-step-${String(index)}`
 
@@ -218,13 +259,23 @@ const stepName = (index: number, step: PlayerStep): string =>
 export const playRecording = async (manifest: LoadedManifest, options: PlayOptions): Promise<Played> => {
   const roots = await createRoots()
   const spool = join(roots.base, 'spool')
+  const ready = join(spool, spoolLayout.readyDirectory)
   await leaseSpool(spool)
   const observed: Observed = { otel: 0, reads: new Map(), offsets: new Map(), streams: new Map(), files: new Map(), lost: new Set() }
   const state = { failure: null as Error | null }
+  const startsAt = Date.now()
+  const shift = playbackShift(manifest.sources.values(), startsAt)
+  const shiftNs = BigInt(shift.to === 0 ? wholeSeconds(startsAt - options.recorded.startedAt) : shift.ms) * nanosecondsPerMs
+  const stepTime = (step: PlayerStep): bigint => BigInt(options.recorded.startedAt + step.at) * nanosecondsPerMs + shiftNs
+  const modifiedAt = (step: PlayerStep): bigint => {
+    const recorded = 'source' in step ? options.recorded.mtimes.get(step.source) : undefined
+    return recorded === undefined ? stepTime(step) : recorded + shiftNs
+  }
+  const clock = { now: EpochNs.parse(manifest.steps[0] === undefined ? BigInt(startsAt) * nanosecondsPerMs : stepTime(manifest.steps[0])) }
 
   const startIngestion = (): Ingestion => {
     const store = openStore({ home: join(roots.base, 'aang') })
-    const engine = createEngine({ store, adapters, watch: { all: true, roots: [] } })
+    const engine = createEngine({ store, adapters, watch: { all: true, roots: [] }, now: () => clock.now })
     const collector = createCollector({
       spool,
       runtimeRoots: { claude: roots.claude, codex: roots.codex },
@@ -323,6 +374,24 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     }
   }
 
+  const retime = async (step: PlayerStep, spooled: ReadonlySet<string>): Promise<void> => {
+    const seconds = Number(modifiedAt(step)) / nanosecondsPerSecond
+    switch (step.kind) {
+      case 'hook':
+        await Promise.all((await namesIn(ready)).filter((name) => !spooled.has(name)).map((name) => touch(join(ready, name), seconds)))
+        return
+      case 'append':
+      case 'write':
+        await touch(pathOf(step.target), seconds)
+        return
+      case 'remove':
+      case 'move':
+      case 'archive':
+      case 'otlp':
+        return
+    }
+  }
+
   let ingestion = startIngestion()
   let restarts = 0
   let failure: Error | null = null
@@ -333,11 +402,17 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
       hook: { binary: options.hookBinary, spool },
       otlp: `http://${listener.host}:${String(listener.port)}/otel/${otelToken}/v1/logs`,
       timeScale: 0,
+      recordTime: { startsAt },
     })
     for (const [index, step] of manifest.steps.entries()) {
       const next = index + 1
       const before: Before = { otel: observed.otel, reads: new Map(observed.reads) }
-      await player.play(next < manifest.steps.length ? { until: stepLabel(next) } : {})
+      clock.now = EpochNs.parse(stepTime(step) > clock.now ? stepTime(step) : clock.now)
+      await ingestion.collector.paused(async () => {
+        const spooled = new Set(await namesIn(ready))
+        await player.play(next < manifest.steps.length ? { until: stepLabel(next) } : {})
+        await retime(step, spooled)
+      })
       await awaitStep(index, step, before)
       if (step.label === restartLabel) {
         await ingestion.close()
@@ -356,5 +431,5 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     await removeRoots(roots)
     throw failure
   }
-  return { store: ingestion.store, roots, restarts }
+  return { store: ingestion.store, roots, restarts, shift }
 }

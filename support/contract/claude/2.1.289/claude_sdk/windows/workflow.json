@@ -4455,10 +4455,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#96",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -4468,7 +4478,7 @@
         },
         "evidence": [
           "#15",
-          "#29"
+          "#17"
         ]
       },
       "redelivery_group": null
@@ -4704,7 +4714,7 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 1,
         "created_at": "<time>"
       },
       "entities": [
@@ -4718,7 +4728,7 @@
             "text": "Workflow",
             "stage": null,
             "question": "#97",
-            "action": null,
+            "action": "#96",
             "basis": {
               "kind": "observed"
             },
@@ -4726,7 +4736,7 @@
               "#15"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -4742,7 +4752,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 1,
             "created_at": "<time>"
           }
         },

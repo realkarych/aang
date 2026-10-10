@@ -139,23 +139,7 @@ export const readReference = async (path: string): Promise<Reference | null> => 
 
 const same = (left: unknown, right: unknown): boolean => JSON.stringify(left) === JSON.stringify(right)
 
-const firstWords = (counts: Counts, words: number): Counts => {
-  const projected: Record<string, number> = {}
-  for (const [text, value] of Object.entries(counts)) {
-    const key = text.split(' ').slice(0, words).join(' ')
-    projected[key] = (projected[key] ?? 0) + value
-  }
-  return Object.fromEntries(Object.entries(projected).sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)))
-}
-
-const compared = (observation: Observation) => ({
-  runs: observation.runs,
-  sessions: observation.sessions,
-  agents: observation.agents,
-  actions: observation.actions,
-  questions: firstWords(observation.questions, 1),
-  attention: firstWords(observation.attention, 2),
-})
+const comparedFields = ['runs', 'sessions', 'agents', 'actions', 'questions', 'attention'] as const satisfies readonly (keyof Observation)[]
 
 const describeDifference = (field: string, live: unknown, reference: unknown): string[] =>
   same(live, reference) ? [] : [`${field}: live ${JSON.stringify(live)}, reference ${JSON.stringify(reference)}`]
@@ -165,16 +149,8 @@ export interface Comparison {
   readonly notes: readonly string[]
 }
 
-export const compare = (live: Observation, reference: Observation): Comparison => {
-  const [left, right] = [compared(live), compared(reference)]
-  return {
-    failures: (Object.keys(left) as (keyof typeof left)[]).flatMap((field) => describeDifference(field, left[field], right[field])),
-    notes: [
-      ...describeDifference('question decisions', live.questions, reference.questions),
-      ...describeDifference('attention resolutions', live.attention, reference.attention),
-    ],
-  }
-}
+export const compare = (live: Observation, reference: Observation): string[] =>
+  comparedFields.flatMap((field) => describeDifference(field, live[field], reference[field]))
 
 const transcriptEvents = /^(user|assistant|attachment|system(:.+)?)$/
 

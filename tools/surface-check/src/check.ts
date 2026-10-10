@@ -147,7 +147,6 @@ const prefixed = (lines: readonly string[]): string[] => lines.map((line) => `di
 const observeScenario = async (options: CheckOptions, scenario: Scenario, engine: Engine, live: LiveRun): Promise<Observed> => {
   const runtime = driverFor(scenario.surface).runtime
   const failures: string[] = live.error === null ? [] : [`the scenario failed: ${live.error}`]
-  const notes: string[] = []
   let daemon: DaemonView | null = null
   const reference = emulated(options, scenario.surface)
     ? null
@@ -167,15 +166,13 @@ const observeScenario = async (options: CheckOptions, scenario: Scenario, engine
       daemon = await observeDaemon(live.api, await settled(live.api, settleTimeoutMs))
       failures.push(...daemonFailures(options, scenario, engine, live, daemon))
       if (reference !== null) {
-        const comparison = compare(daemon, reference.observation)
-        failures.push(...prefixed(comparison.failures))
-        notes.push(...prefixed(comparison.notes))
+        failures.push(...prefixed(compare(daemon, reference.observation)))
       }
     } catch (error) {
       failures.push(`the daemon could not be read: ${describe(error)}`)
     }
   }
-  return { failures, notes, daemon, reference }
+  return { failures, notes: [], daemon, reference }
 }
 
 const finishScenario = async (live: LiveRun, observed: Observed): Promise<Observed> => {

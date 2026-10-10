@@ -1641,10 +1641,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#34",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -1654,7 +1664,7 @@
         },
         "evidence": [
           "#10",
-          "#25"
+          "#15"
         ]
       },
       "redelivery_group": null
@@ -1674,10 +1684,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#35",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "rejected",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -1687,7 +1707,7 @@
         },
         "evidence": [
           "#19",
-          "#25"
+          "#26"
         ]
       },
       "redelivery_group": null
@@ -1779,7 +1799,7 @@
         "goal": null,
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 1,
         "created_at": "<time>"
       },
       "entities": [
@@ -1793,7 +1813,7 @@
             "text": "Bash: node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"",
             "stage": null,
             "question": "#36",
-            "action": null,
+            "action": "#34",
             "basis": {
               "kind": "observed"
             },
@@ -1801,7 +1821,7 @@
               "#10"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -1818,7 +1838,7 @@
             "text": "Bash: node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"",
             "stage": null,
             "question": "#37",
-            "action": null,
+            "action": "#35",
             "basis": {
               "kind": "observed"
             },
@@ -1826,7 +1846,7 @@
               "#19"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -1842,7 +1862,7 @@
             "goal": null,
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 1,
             "created_at": "<time>"
           }
         },

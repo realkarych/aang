@@ -19,6 +19,7 @@ import {
   playRecording,
   type PlaybackRoots,
   type Recording,
+  recordedTimes,
   removeRoots,
 } from '../dist/index.js'
 import { hookBinary } from './fixtures.js'
@@ -61,7 +62,7 @@ const contextOf = async (recording: Recording, store: Store, roots: PlaybackRoot
 
 const play = async (recording: Recording, onTestFinished: Finished, edit = asRecorded): Promise<PlayedContext> => {
   const manifest = edit(await loadManifest(join(recording.directory, 'playback.json')))
-  const { store, roots } = await playRecording(manifest, { hookBinary })
+  const { store, roots } = await playRecording(manifest, { hookBinary, recorded: recordedTimes(recording.manifest) })
   onTestFinished(async () => {
     store.close()
     await removeRoots(roots)
