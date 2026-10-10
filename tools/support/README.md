@@ -59,27 +59,28 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 
 - `resume`, `compaction`, `child_sessions` (`subagents`, `fork`) and `reconnect` are `passed`, `failed` or `not_run` from the recordings of the row's own OS, whatever its placement; recordings of another OS never count;
 - `during_work` and `after_iteration` (E2E 1 and 4) are kept from the previous matrix. A row with a placement other than local takes them from the local row of the same runtime, surface, OS and engine version in the previous matrix, because E2E 1 and 4 run on the reference recordings of the OS (ADR-0010); without such a row it keeps its own values, and a new row starts with `not_run`. `e2e/support-matrix.test.ts` keeps the local columns in line with the E2E variants (`e2e/README.md`);
-- `observer`, `verified_on` and a claimed `full` or `limited` status are kept from the previous matrix;
-- the row is `unverified`, with the reasons below as gaps, while any reason holds: a claimed status needs none of them.
+- `observer` is kept from the previous matrix;
+- the gaps are the reasons below that hold, in the order they are listed, and the status follows from them, whatever the previous matrix claimed (owner decision of 2026-10-08): the row is `unverified` while a reason of the row itself or of the owner checklist holds, otherwise `full` without gaps and `limited` with them;
+- `verified_on` of a `full` or `limited` row is the latest date of the evidence it rests on: the UTC day of its latest recording, its placement check and the owner checklist it needs; an `unverified` row has none.
 
 The reasons, in the order they are listed:
 
-| Reason | Gap |
-| --- | --- |
-| Desktop runs on Windows (ADR-0013, decision 3) | `Desktop on Windows is not verified in the MVP (ADR-0013, decision 3)` |
-| the placement is not local and `verification.json` has no placement check of the exact key | `the placement is not verified until the surface matrix check (Q.1)` |
-| the placement check of the exact key failed | `the placement check fails (Q.1)` |
-| the OS has no recordings | `no reference recordings on this OS` |
-| a recording fails | `the contract run fails on: <scenarios>` |
-| a scenario that the recorder's catalog has for the surface and OS and that the run includes is not recorded | `no reference recordings of: <scenarios>` |
-| E2E 1 or 4 has failed | `user scenarios fail: <E2E 1, E2E 4>` |
-| E2E 1 or 4 has not run | `user scenarios are not verified (E2E 1 and 4)` |
-| Claude or Codex Desktop on macOS or Linux has no passed Desktop checklist of the exact key | `the owner checklist of Desktop (spike, section 11) is not passed` |
-| the Desktop checklist of the exact key failed | `the owner checklist of Desktop (spike, section 11) fails` |
-| Claude CLI, on every OS and placement, has no passed TUI checklist of the exact key | `the owner checklist of the interactive TUI (spike, section 6, a–h) is not passed` |
-| the TUI checklist of the exact key failed | `the owner checklist of the interactive TUI (spike, section 6, a–h) fails` |
+| Reason | Gap | Status |
+| --- | --- | --- |
+| Desktop runs on Windows (ADR-0013, decision 3) | `Desktop on Windows is not verified in the MVP (ADR-0013, decision 3)` | `unverified` |
+| the placement is not local and `verification.json` has no placement check of the exact key | `the placement is not verified until the surface matrix check (Q.1)` | `unverified` |
+| the placement check of the exact key failed | `the placement check fails (Q.1)` | `unverified` |
+| the OS has no recordings | `no reference recordings on this OS` | `unverified` |
+| a recording fails | `the contract run fails on: <scenarios>` | `limited` |
+| a scenario that the recorder's catalog has for the surface and OS and that the run includes is not recorded | `no reference recordings of: <scenarios>` | `limited` |
+| E2E 1 or 4 has failed | `user scenarios fail: <E2E 1, E2E 4>` | `limited` |
+| E2E 1 or 4 has not run | `user scenarios are not verified (E2E 1 and 4)` | `limited` |
+| Claude or Codex Desktop on macOS or Linux has no passed Desktop checklist of the exact key | `the owner checklist of Desktop (spike, section 11) is not passed` | `unverified` |
+| the Desktop checklist of the exact key failed | `the owner checklist of Desktop (spike, section 11) fails` | `unverified` |
+| Claude CLI on macOS or Windows, in every placement, has no passed TUI checklist of the exact key | `the owner checklist of the interactive TUI (spike, section 6, a–h) is not passed` | `unverified` |
+| the TUI checklist of the exact key failed | `the owner checklist of the interactive TUI (spike, section 6, a–h) fails` | `unverified` |
 
-Desktop on Windows needs no checklist: it is not verified in the MVP. Recordings of a Desktop engine in emulation never replace the owner's checklist (ADR-0010).
+Desktop on Windows needs no checklist: it is not verified in the MVP. Claude CLI on Linux needs no TUI checklist either: the TUI recordings of CI (`teammates` and `input-dialogs` through `expect`) are enough (ADR-0010, owner decision 4), and like every catalog scenario they are listed as missing when not recorded. Recordings of a Desktop engine in emulation never replace the owner's checklist (ADR-0010).
 
 A key outside the matrix reads as `unverified` through `supportStatusOf` from `@aang/contract`.
 
@@ -115,7 +116,7 @@ node tools/support/dist/main.js placement import <report.json>... [--support <di
 
 Local and emulated results are skipped, and so are results that did not run (`not_run`: a surface whose engine is not available and which the check did not require) and results without a key: such a surface has no engine version to record. The command prints one line with the counts, writes `verification.json` sorted by key, and leaves `matrix.json` alone: the next `pnpm support:update` turns the entries into rows and gaps.
 
-The owner's checklists are entered by hand from the owner's report: one entry per key the owner checked, `desktop` for each OS where Desktop is checked, `tui` for the interactive Claude CLI. Then `pnpm support:update` regenerates the matrix.
+The owner's checklists are entered by hand from the owner's report: one entry per key the owner checked, `desktop` for each OS where Desktop is checked, `tui` for the interactive Claude CLI on macOS and Windows. Then `pnpm support:update` regenerates the matrix.
 
 ## Observer isolation (F.10)
 
@@ -143,4 +144,4 @@ Claude rows keep `not_run` in the `observer` column: the local Claude check, the
 
 `tools/support/test/isolation.test.ts` runs `isolation codex` with the fake `codex` of `@aang/testkit` in place of the CLI: a passed admission, a hook that runs with hooks disabled, and checks without a verdict; it imports matrices written for other OSes, and with `AANG_ISOLATION_CODEX` set it runs the contract test on the installed CLI.
 
-`tools/support/test/verification.test.ts` runs the CLI on a matrix and `verification.json` without recordings: owner checklists of exact keys remove the Desktop and TUI gaps, `placement import` writes passed and failed entries from surface check reports, skips local, emulated, not run and keyless results and replaces an entry of the same key, and an invalid verification file or report is refused. The rules that need recordings (a non-local row with a passed, a failed or no placement check, E2E columns taken from the local row) are in the matrix tests of `run.test.ts`.
+`tools/support/test/verification.test.ts` runs the CLI on a matrix and `verification.json` without recordings: owner checklists of exact keys remove the Desktop and TUI gaps, Claude CLI on Linux needs no TUI checklist, `placement import` writes passed and failed entries from surface check reports, skips local, emulated, not run and keyless results and replaces an entry of the same key, and an invalid verification file or report is refused. The rules that need recordings (the status that follows from the gaps, a non-local row with a passed, a failed or no placement check, E2E columns taken from the local row, `verified_on`) are in the matrix tests of `run.test.ts`.

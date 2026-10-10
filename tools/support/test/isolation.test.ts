@@ -55,7 +55,7 @@ const claudeRow: SupportRow = {
       builtins: { mcp_servers: [], plugins: [{ name: 'cc-plugin-agents-md', source: 'cc-plugin-agents-md@builtin', path: 'builtin' }], skills: [] },
     },
   ),
-  gaps: [supportGaps.noRecordings, supportGaps.userScenarios, supportGaps.tuiChecklist],
+  gaps: [supportGaps.noRecordings, supportGaps.userScenarios, ...(hostOs === 'linux' ? [] : [supportGaps.tuiChecklist])],
 }
 
 const matrixOfRows = (rows: readonly SupportRow[]): SupportMatrix => ({ format: supportMatrixFormat, rows: [...rows] })
