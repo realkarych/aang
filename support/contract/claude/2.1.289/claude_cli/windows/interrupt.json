@@ -843,9 +843,10 @@
           "fact": "#1"
         }
       ],
-      "state": "turn_running",
+      "state": "turn_done",
       "execution": {
-        "state": "running"
+        "state": "waiting",
+        "reason": "idle"
       },
       "freshness": "ok",
       "support_mode": "full",
@@ -894,7 +895,8 @@
       "parent": null,
       "spawned_by": null,
       "execution": {
-        "state": "running"
+        "state": "waiting",
+        "reason": "idle"
       },
       "thread_total": null,
       "started_at": "<time>",
@@ -978,7 +980,7 @@
         },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -994,7 +996,7 @@
             },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

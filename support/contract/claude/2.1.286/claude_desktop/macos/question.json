@@ -2002,10 +2002,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#41",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -2015,7 +2025,7 @@
         },
         "evidence": [
           "#22",
-          "#31"
+          "#28"
         ]
       },
       "redelivery_group": null
@@ -2049,7 +2059,7 @@
           "kind": "observed"
         },
         "evidence": [
-          "#25"
+          "#18"
         ]
       },
       "redelivery_group": null
@@ -2171,7 +2181,7 @@
         },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2185,7 +2195,7 @@
             "text": "Write: /fixture/project/greeting.txt",
             "stage": null,
             "question": "#42",
-            "action": null,
+            "action": "#41",
             "basis": {
               "kind": "observed"
             },
@@ -2193,7 +2203,7 @@
               "#22"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -2237,7 +2247,7 @@
             },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

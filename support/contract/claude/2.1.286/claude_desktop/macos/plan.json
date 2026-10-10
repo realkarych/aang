@@ -3951,10 +3951,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#85",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -3964,7 +3974,7 @@
         },
         "evidence": [
           "#46",
-          "#64"
+          "#52"
         ]
       },
       "redelivery_group": null
@@ -4003,7 +4013,7 @@
         },
         "evidence": [
           "#38",
-          "#48"
+          "#42"
         ]
       },
       "redelivery_group": null
@@ -4285,7 +4295,7 @@
             "text": "Write: /fixture/project/checklist.txt",
             "stage": null,
             "question": "#88",
-            "action": null,
+            "action": "#85",
             "basis": {
               "kind": "observed"
             },
@@ -4293,7 +4303,7 @@
               "#46"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",

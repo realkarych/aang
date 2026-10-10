@@ -28,6 +28,8 @@ import {
   matrixPath,
   notRestarted,
   playRecording,
+  readRecordingManifest,
+  recordedTimes,
   type RecordingCheck,
   removeRoots,
   snapshotFile,
@@ -324,7 +326,10 @@ describe('the contract run over recordings generated from the spike samples', ()
       const path = join(placed, 'data', name)
       await writeFile(path, (await readFile(path, 'utf8')).replaceAll('Ping the pinger agent', hashLike))
     }
-    const { store, roots } = await playRecording(await loadManifest(join(placed, 'playback.json')), { hookBinary })
+    const { store, roots } = await playRecording(await loadManifest(join(placed, 'playback.json')), {
+      hookBinary,
+      recorded: recordedTimes(await readRecordingManifest(placed)),
+    })
     onTestFinished(async () => {
       store.close()
       await removeRoots(roots)

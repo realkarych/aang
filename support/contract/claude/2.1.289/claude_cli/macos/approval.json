@@ -1637,10 +1637,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#34",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "approved",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -1650,7 +1660,7 @@
         },
         "evidence": [
           "#5",
-          "#25"
+          "#15"
         ]
       },
       "redelivery_group": null
@@ -1670,10 +1680,20 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
+      "answered_at": "<time>",
+      "action": {
+        "action": "#35",
+        "ambiguous": false,
+        "basis": {
+          "kind": "interpreted",
+          "interpreter": {
+            "kind": "rule",
+            "rule": "permission-link"
+          }
+        }
+      },
       "decision": {
-        "value": "unknown",
+        "value": "rejected",
         "basis": {
           "kind": "interpreted",
           "interpreter": {
@@ -1683,7 +1703,7 @@
         },
         "evidence": [
           "#18",
-          "#25"
+          "#27"
         ]
       },
       "redelivery_group": null
@@ -1792,7 +1812,7 @@
             "text": "Bash: node -e \"require('fs').writeFileSync('approved.txt', 'approved')\"",
             "stage": null,
             "question": "#36",
-            "action": null,
+            "action": "#34",
             "basis": {
               "kind": "observed"
             },
@@ -1800,7 +1820,7 @@
               "#5"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -1817,7 +1837,7 @@
             "text": "Bash: node -e \"require('fs').writeFileSync('denied.txt', 'denied')\"",
             "stage": null,
             "question": "#37",
-            "action": null,
+            "action": "#35",
             "basis": {
               "kind": "observed"
             },
@@ -1825,7 +1845,7 @@
               "#18"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",

@@ -4,46 +4,66 @@ export interface RecordShift {
   readonly ms: number
   readonly from: number
   readonly to: number
+  readonly kept: ReadonlySet<bigint>
 }
 
-export const unshifted: RecordShift = { ms: 0, from: 0, to: 0 }
+export const unshifted: RecordShift = { ms: 0, from: 0, to: 0, kept: new Set() }
 
 const timestamp = /"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})((?:\.\d+)?Z)"/g
+
+const timestampAtAnyDepth = /"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})((?:\.\d+)?Z)(\\*")/g
 
 const secondMs = 1_000
 
 const bytewise = 'latin1'
 
-const epochValue = /(:\s*)("?)(\d{10}|\d{13}|\d{16}|\d{19})\2(?=\s*[,}\]])/g
+const epochValue = /(:(?:\s|\\+[nrt])*)((?:\\*")?)(\d{10}|\d{13}|\d{16}|\d{19})\2(?=(?:\s|\\+[nrt])*[,}\]])/g
 
 const dayMs = 24 * 60 * 60 * 1_000
 
 const nanosecondsPerMillisecond = 1_000_000n
 
-const instantsOf = (content: Buffer): number[] =>
-  [...content.toString(bytewise).matchAll(timestamp)].flatMap(([, seconds = '', fraction = '']) => {
+const instantsOf = (text: string): number[] =>
+  [...text.matchAll(timestamp)].flatMap(([, seconds = '', fraction = '']) => {
     const instant = Date.parse(`${seconds}${fraction}`)
     return Number.isNaN(instant) ? [] : [instant]
   })
 
+const unitOf = (digits: string): bigint => 10n ** BigInt(19 - digits.length)
+
+const nanosecondsOf = (digits: string): bigint => BigInt(digits) * unitOf(digits)
+
+const within = (nanoseconds: bigint, { from, to }: Pick<RecordShift, 'from' | 'to'>): boolean =>
+  nanoseconds >= BigInt(from) * nanosecondsPerMillisecond && nanoseconds <= BigInt(to) * nanosecondsPerMillisecond
+
+const epochsOf = (text: string): bigint[] => [...text.matchAll(epochValue)].map(([, , , digits = '']) => nanosecondsOf(digits))
+
 export const playbackShift = (sources: Iterable<Buffer>, now: number): RecordShift => {
-  const instants = [...sources].flatMap(instantsOf)
+  const texts = [...sources].map((content) => content.toString(bytewise))
+  const instants = texts.flatMap(instantsOf)
   if (instants.length === 0) {
     return unshifted
   }
   const earliest = instants.reduce((least, instant) => Math.min(least, instant))
   const latest = instants.reduce((most, instant) => Math.max(most, instant))
-  return { ms: Math.floor((now - earliest) / secondMs) * secondMs, from: earliest - dayMs, to: latest + dayMs }
+  const timeline = { from: earliest - dayMs, to: latest + dayMs }
+  const epochs = texts.flatMap(epochsOf)
+  const kept = new Set(epochs.filter((instant) => !within(instant, timeline)))
+  const moved = epochs.filter((instant) => within(instant, timeline))
+  const collides = (ms: number): boolean => moved.some((instant) => kept.has(instant + BigInt(ms) * nanosecondsPerMillisecond))
+  let ms = Math.floor((now - earliest) / secondMs) * secondMs
+  while (collides(ms)) {
+    ms -= secondMs
+  }
+  return { ms, ...timeline, kept }
 }
 
-const shiftedEpoch = (digits: string, { ms, from, to }: RecordShift): string | null => {
-  const unit = 10n ** BigInt(19 - digits.length)
-  const nanoseconds = BigInt(digits) * unit
-  if (nanoseconds < BigInt(from) * nanosecondsPerMillisecond || nanoseconds > BigInt(to) * nanosecondsPerMillisecond) {
+const shiftedEpoch = (digits: string, shift: RecordShift): string | null => {
+  const nanoseconds = nanosecondsOf(digits)
+  if (!within(nanoseconds, shift) || shift.kept.has(nanoseconds)) {
     return null
   }
-  const shift = (BigInt(ms) * nanosecondsPerMillisecond) / unit
-  return (BigInt(digits) + shift).toString()
+  return (BigInt(digits) + (BigInt(shift.ms) * nanosecondsPerMillisecond) / unitOf(digits)).toString()
 }
 
 export const shifted = (content: Buffer, shift: RecordShift): Buffer => {
@@ -52,11 +72,11 @@ export const shifted = (content: Buffer, shift: RecordShift): Buffer => {
   }
   const text = content
     .toString(bytewise)
-    .replaceAll(timestamp, (match, seconds: string, fraction: string) => {
+    .replaceAll(timestampAtAnyDepth, (match, seconds: string, fraction: string, close: string) => {
       const instant = Date.parse(`${seconds}Z`)
       return Number.isNaN(instant)
         ? match
-        : `"${new Date(instant + shift.ms).toISOString().slice(0, seconds.length)}${fraction}"`
+        : `"${new Date(instant + shift.ms).toISOString().slice(0, seconds.length)}${fraction}${close}`
     })
     .replaceAll(epochValue, (match, separator: string, quote: string, digits: string) => {
       const moved = shiftedEpoch(digits, shift)

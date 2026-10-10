@@ -16,6 +16,7 @@ import {
   UsageRecord,
 } from '@aang/contract'
 import type { Store } from '@aang/store'
+import { type RecordShift, shifted, unshifted } from '@aang/testkit'
 import { z } from 'zod'
 import { recordType } from './record-types.js'
 import { mapIds } from './references.js'
@@ -198,11 +199,7 @@ const factView = ({ id, kind, entity_key, speaker, urgent, at, runtime_ids, runt
 
 const byKey = (item: unknown): unknown => (isObject(item) ? item.key : undefined)
 
-export const takeSnapshot = (
-  store: Store,
-  base: string,
-  recordedPids: ReadonlyMap<number, number> = new Map(),
-): ContractSnapshot => {
+const snapshotOf = (store: Store, base: string, recordedPids: ReadonlyMap<number, number>): ContractSnapshot => {
   const changes = store.changes.after(ChangeSeq.parse(0), everything)
   const records = changes.flatMap((change) => (change.layer === 'raw_record' ? [change.record] : []))
   const facts = changes.flatMap((change) => (change.layer === 'fact' ? [withRecordedPid(change.fact, recordedPids)] : []))
@@ -232,3 +229,16 @@ export const takeSnapshot = (
     ),
   }
 }
+
+const recordedContent = (snapshot: ContractSnapshot, { ms, from, to, kept }: RecordShift): ContractSnapshot =>
+  ms === 0
+    ? snapshot
+    : (JSON.parse(shifted(Buffer.from(JSON.stringify(snapshot)), { ms: -ms, from: from + ms, to: to + ms, kept }).toString()) as ContractSnapshot)
+
+export interface SnapshotPlayback {
+  readonly recordedPids?: ReadonlyMap<number, number>
+  readonly shift?: RecordShift
+}
+
+export const takeSnapshot = (store: Store, base: string, { recordedPids = new Map(), shift = unshifted }: SnapshotPlayback = {}): ContractSnapshot =>
+  recordedContent(snapshotOf(store, base, recordedPids), shift)

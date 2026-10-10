@@ -7,7 +7,7 @@ import { loadManifest } from '@aang/testkit'
 import { isMissing, readOptional } from './files.js'
 import { invariantViolations } from './invariants.js'
 import { generateMatrix, type RecordingOutcome, serializeMatrix } from './matrix.js'
-import { playRecording, removeRoots, restartLabel } from './play.js'
+import { playRecording, recordedTimes, removeRoots, restartLabel } from './play.js'
 import { findRecordings, type Recording } from './recordings.js'
 import { takeSnapshot } from './snapshot.js'
 import { readVerification, type SupportVerification } from './verification.js'
@@ -61,11 +61,11 @@ export const passed = (check: RecordingCheck): boolean => check.violations.lengt
 export const checkRecording = async (recording: Recording, options: ContractRunOptions): Promise<RecordingCheck> => {
   await verifyRecording(recording.directory)
   const manifest = await loadManifest(join(recording.directory, 'playback.json'))
-  const { store, roots, restarts, recordedPids } = await playRecording(manifest, { hookBinary: options.hookBinary })
+  const { store, roots, restarts, shift, recordedPids } = await playRecording(manifest, { hookBinary: options.hookBinary, recorded: recordedTimes(recording.manifest) })
   try {
     return {
       recording,
-      snapshot: `${JSON.stringify(takeSnapshot(store, roots.base, recordedPids), null, 2)}\n`,
+      snapshot: `${JSON.stringify(takeSnapshot(store, roots.base, { recordedPids, shift }), null, 2)}\n`,
       expected: await readOptional(snapshotFile(options.support, recording)),
       violations: [...(recording.manifest.scenario === reconnectScenario && restarts === 0 ? [notRestarted] : []), ...invariantViolations(store)],
       restarts,

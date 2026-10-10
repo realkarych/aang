@@ -35,7 +35,7 @@ const recordingDirectories = async (root: string, segments: readonly string[] = 
   return nested.flat()
 }
 
-const readManifest = async (directory: string): Promise<RecordingManifest> => {
+export const readRecordingManifest = async (directory: string): Promise<RecordingManifest> => {
   const file = join(directory, 'manifest.json')
   const parsed = RecordingManifest.safeParse(JSON.parse(await readFile(file, 'utf8')))
   if (!parsed.success) {
@@ -51,7 +51,7 @@ export const findRecordings = async (sessions: string): Promise<Recording[]> =>
   Promise.all(
     (await recordingDirectories(sessions)).map(async (segments) => {
       const directory = join(sessions, ...segments)
-      const manifest = await readManifest(directory)
+      const manifest = await readRecordingManifest(directory)
       const name = segments.join('/')
       if (recordingName(manifest) !== name) {
         throw new Error(`${directory}: the manifest describes ${recordingName(manifest)}`)

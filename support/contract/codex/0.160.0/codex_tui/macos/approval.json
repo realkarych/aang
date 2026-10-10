@@ -1266,20 +1266,25 @@
       "blocking": true,
       "text": null,
       "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
-      "decision": {
-        "value": "unknown",
+      "answered_at": "<time>",
+      "action": {
+        "action": "#29",
+        "ambiguous": false,
         "basis": {
           "kind": "interpreted",
           "interpreter": {
             "kind": "rule",
-            "rule": "permission-decision"
+            "rule": "permission-link"
           }
+        }
+      },
+      "decision": {
+        "value": "approved",
+        "basis": {
+          "kind": "observed"
         },
         "evidence": [
-          "#12",
-          "#18"
+          "#19"
         ]
       },
       "redelivery_group": null
@@ -1362,11 +1367,11 @@
         "root_session": "#26",
         "goal": {
           "text": "[aang:tui-approval] Create approved.txt with `touch approved.txt` and ask for approval.",
-          "fact": "#8"
+          "fact": "#6"
         },
         "brief": null,
         "start_pruned": false,
-        "version": 3,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -1380,7 +1385,7 @@
             "text": "Bash: touch approved.txt",
             "stage": null,
             "question": "#30",
-            "action": null,
+            "action": "#29",
             "basis": {
               "kind": "observed"
             },
@@ -1388,7 +1393,7 @@
               "#12"
             ],
             "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
+            "resolution": "answered",
             "likely_resolved": null,
             "priority": null,
             "opened_at": "<time>",
@@ -1403,11 +1408,11 @@
             "root_session": "#26",
             "goal": {
               "text": "[aang:tui-approval] Create approved.txt with `touch approved.txt` and ask for approval.",
-              "fact": "#8"
+              "fact": "#6"
             },
             "brief": null,
             "start_pruned": false,
-            "version": 3,
+            "version": 2,
             "created_at": "<time>"
           }
         },
