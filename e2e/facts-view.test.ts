@@ -337,6 +337,62 @@ test.describe('with a fast spool scan', () => {
     await expect(currentPlan(page)).not.toContainText('статус неизвестен')
   })
 
+  test('a TaskCreate joins a task with an id only when its name, or its description among equal names, picks exactly one, also when the name comes later', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    const fields = hookFields(profile, claudeOriginal)
+    const call = (tool: string, id: string, input: Readonly<Record<string, string>>): Promise<void> =>
+      hook.claude('PreToolUse.Bash.json', { ...fields, tool_name: tool, tool_use_id: id, tool_input: input })
+    const taskHook = (event: string, id: string, subject: string, description?: string): Promise<void> =>
+      hook.claude('UserPromptSubmit.json', {
+        ...fields,
+        hook_event_name: event,
+        task_id: id,
+        task_subject: subject,
+        ...(description === undefined ? {} : { task_description: description }),
+      })
+    const items = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи/) }).getByRole('listitem')
+    const done = items.filter({ hasText: 'выполнен' })
+
+    await call('TaskCreate', 'toolu_plan_parser', { subject: 'Write parser', description: 'Parse hooks' })
+    await call('TaskUpdate', 'toolu_plan_parser_start', { taskId: '1', status: 'in_progress' })
+    await expect(items).toHaveCount(2)
+    await expect(items.nth(1)).toContainText('задача 1')
+    await expect(items.nth(1)).toContainText('в работе')
+    await taskHook('TaskCompleted', '1', 'Write parser')
+    await expect(items).toHaveCount(1)
+    await expect(items.nth(0)).toContainText('Write parser')
+    await expect(items.nth(0)).toContainText('Parse hooks')
+    await expect(items.nth(0)).toContainText('выполнен')
+
+    const code = items.filter({ hasText: 'Review the code' })
+    const docs = items.filter({ hasText: 'Review the docs' })
+    await call('TaskCreate', 'toolu_plan_review_code', { subject: 'Review', description: 'Review the code' })
+    await call('TaskCreate', 'toolu_plan_review_docs', { subject: 'Review', description: 'Review the docs' })
+    await taskHook('TaskCompleted', '3', 'Review')
+    await expect(items).toHaveCount(4)
+    await expect(code).toContainText('ожидает')
+    await expect(docs).toContainText('ожидает')
+    await expect(done).toHaveCount(2)
+    await taskHook('TaskCreated', '2', 'Review', 'Review the code')
+    await expect(items).toHaveCount(3)
+    await expect(code).toContainText('ожидает')
+    await expect(docs).toContainText('выполнен')
+
+    await taskHook('TaskCompleted', '4', 'Check')
+    await taskHook('TaskCompleted', '5', 'Check')
+    await call('TaskCreate', 'toolu_plan_check', { subject: 'Check', description: 'Check the build' })
+    await expect(items).toHaveCount(6)
+    await expect(items.filter({ hasText: 'Check the build' })).toContainText('ожидает')
+    await expect(done).toHaveCount(4)
+  })
+
   test('the current plan shows the last todo list, even an empty one, and the history folds only equal records of one owner with one format check', async ({
     page,
     player,

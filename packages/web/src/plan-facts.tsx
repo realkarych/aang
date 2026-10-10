@@ -93,32 +93,59 @@ interface TrackedTask {
   created: boolean
 }
 
-const taskCreated = (tasks: TrackedTask[], { text, status }: PlanItem, description: string | null): void => {
-  const known = tasks.find((task) => task.id !== null && !task.created && task.text === text)
-  if (known === undefined) {
-    tasks.push({ id: null, text, status, description, created: true })
-    return
-  }
-  known.created = true
-  known.description ??= description
-}
-
 const taskUpdated = (
   tasks: TrackedTask[],
   id: string,
   { text, status }: PlanItem,
   description: string | null,
 ): void => {
-  const known =
-    tasks.find((task) => task.id === id) ?? tasks.find((task) => task.id === null && text !== '' && task.text === text)
+  const known = tasks.find((task) => task.id === id)
   if (known === undefined) {
     tasks.push({ id, text, status, description, created: false })
     return
   }
-  known.id = id
   known.text = text === '' ? known.text : text
   known.status = status === 'unknown' ? known.status : status
   known.description = description ?? known.description
+}
+
+const onlyMatch = (task: TrackedTask, candidates: readonly TrackedTask[]): TrackedTask | undefined => {
+  const named = candidates.filter((candidate) => task.text !== '' && candidate.text === task.text)
+  const described =
+    named.length === 1
+      ? named
+      : named.filter((candidate) => task.description !== null && candidate.description === task.description)
+  return described.length === 1 ? described[0] : undefined
+}
+
+const createdPair = (tasks: readonly TrackedTask[]): readonly [TrackedTask, TrackedTask] | undefined => {
+  const created = tasks.filter((task) => task.id === null)
+  const updated = tasks.filter((task) => task.id !== null && !task.created)
+  for (const update of updated) {
+    const origin = onlyMatch(update, created)
+    if (origin !== undefined && onlyMatch(origin, updated) === update) {
+      return [origin, update]
+    }
+  }
+  return undefined
+}
+
+const linkCreated = (tasks: TrackedTask[]): void => {
+  const pair = createdPair(tasks)
+  if (pair === undefined) {
+    return
+  }
+  const [origin, update] = pair
+  const [kept, dropped] = tasks.indexOf(origin) < tasks.indexOf(update) ? [origin, update] : [update, origin]
+  Object.assign(kept, {
+    id: update.id,
+    text: update.text,
+    status: update.status === 'unknown' ? origin.status : update.status,
+    description: update.description ?? origin.description,
+    created: true,
+  })
+  tasks.splice(tasks.indexOf(dropped), 1)
+  linkCreated(tasks)
 }
 
 const mergedTasks = (records: readonly PlanRecord[]): PlanTask[] => {
@@ -133,10 +160,11 @@ const mergedTasks = (records: readonly PlanRecord[]): PlanTask[] => {
     }
     for (const item of fact.payload.items) {
       if (item.id === null) {
-        taskCreated(tasks, item, fact.payload.text)
+        tasks.push({ id: null, text: item.text, status: item.status, description: fact.payload.text, created: true })
       } else {
         taskUpdated(tasks, item.id, item, fact.payload.text)
       }
+      linkCreated(tasks)
     }
   }
   return tasks
