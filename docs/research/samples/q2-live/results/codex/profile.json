@@ -1,0 +1,97 @@
+{
+  "format": "aang-freshness-fixed-profile/1",
+  "fixed_at": "2026-10-07T20:51:05.952Z",
+  "profile": {
+    "format": "aang-freshness-profile/1",
+    "name": "codex-workload",
+    "time_scale": 1,
+    "window_ms": 120000,
+    "observer": {
+      "codex": {
+        "cli": "/opt/homebrew/Caskroom/codex/0.160.0/bin/codex",
+        "model": null,
+        "effort": null,
+        "target_p95_ms": 40000
+      }
+    },
+    "runs": [
+      {
+        "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+        "start_ms": 0,
+        "chat": [
+          {
+            "after_ms": 432447,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 864894,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1369416,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      },
+      {
+        "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+        "start_ms": 300000,
+        "chat": [
+          {
+            "after_ms": 471256,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 942512,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1492310,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      },
+      {
+        "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+        "start_ms": 1531490,
+        "chat": [
+          {
+            "after_ms": 561819,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 1123639,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1779094,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "start_ms": 0,
+      "runtime": "codex",
+      "digest": "b72859f45620ef035f565f8f4cc77c96387364e4d40e8cfd4c007ed696e5af21",
+      "control_events": 19
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "start_ms": 300000,
+      "runtime": "codex",
+      "digest": "c4eabfc29cdd31b44f4aaf75e03d0a63938cbdb49f5f5ce4b4727dbe18014d03",
+      "control_events": 19
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "start_ms": 1531490,
+      "runtime": "codex",
+      "digest": "571a97975277dfb0a1ebe3fe59b54795b015642edc824e4417143929a3aee9b1",
+      "control_events": 20
+    }
+  ]
+}

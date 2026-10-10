@@ -247,7 +247,7 @@ describe('the load profile', () => {
 
 describe('the measurement', () => {
   test(
-    'of parallel recordings times every expected map change, separates the needs time, flags violations and markup that held before the event, and takes the annotator verdicts',
+    'of parallel recordings times every expected map change, separates the needs time, flags violations and markup that held before the event, and takes the annotator verdicts with markup defects',
     { timeout: 180_000 },
     async () => {
       const space = await workspace()
@@ -373,6 +373,23 @@ describe('the measurement', () => {
       expect(summary).toContain(`| ${tools} | turn-finished | предикат | не выполнено, нарушение |`)
       expect(summary).toContain(`| ${approval} | approved-finished | предикат | выполнено до события, разметка некорректна |`)
 
+      await annotate([{ held_before: true }, { mismatch: true }])
+      expect((await space.freshness('report', space.measurement)).code).toBe(0)
+      const defective = Report.parse(await space.read('report.json'))
+      expect(eventOf(defective, 'denial-requested')).toMatchObject({ status: 'held_before', latency_ms: null, version: null })
+      expect(eventOf(defective, 'command-running')).toMatchObject({ status: 'mismatched', latency_ms: null })
+      expect(defective.backends[0]).toMatchObject({
+        assessed: 4,
+        met: 3,
+        violations: 1,
+        unassessed: 0,
+        held_before: (annotated.backends[0]?.held_before ?? 0) + 1,
+        mismatched: 1,
+      })
+      expect(await readFile(join(space.measurement, 'report.md'), 'utf8')).toContain(
+        `| ${interrupt} | command-running | разметчик | описание не соответствует записи, разметка некорректна |`,
+      )
+
       await annotate([{ met: true, run: opened.run, version: 999 }, null])
       const foreign = await space.freshness('report', space.measurement)
       expect(foreign.code).toBe(1)
@@ -406,8 +423,14 @@ describe('the measurement', () => {
       const space = await workspace()
       const approval = claudeRecording('approval')
       await space.mark(approval, { 'denial-requested': { card: { text: 'second one was denied' } } })
-      const cli = space.fakeClaude({ replies: [{ kind: 'script', script: 'report' }, needsReply, { kind: 'script', script: 'revision' }] })
-      await space.writeProfile({ ...loadProfile('needs', 25_000, cli.path, [{ recording: approval }]), time_scale: 2 })
+      const cli = space.fakeClaude({
+        replies: [{ kind: 'script', script: 'report' }, needsReply, { kind: 'script', script: 'revision' }],
+        chatReplies: [{ kind: 'answer', output: { needs: [], answer: 'The run waits for an approval.', citations: [], insufficient_data: false, view_rule: null } }],
+      })
+      await space.writeProfile({
+        ...loadProfile('needs', 25_000, cli.path, [{ recording: approval, chat: [{ after_ms: 2_000, question: 'What does the run wait for?' }] }]),
+        time_scale: 2,
+      })
       expect(await space.freshness('fix', space.profile, space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0 })
       expect(await space.freshness('run', space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0, stderr: '' })
 
@@ -451,6 +474,34 @@ describe('the measurement', () => {
         ms: 2 * (needsCall.needs_latency_ms ?? 0),
       })
       expect(report.backends[0]?.needs.share).toBeGreaterThan(0)
+
+      const [asked] = measurement.questions
+      expect(measurement.questions).toHaveLength(1)
+      expect(asked).toMatchObject({ recording: approval, runtime: 'claude', question: 'What does the run wait for?', status: 'answered', insufficient_data: false, error: null })
+      expect(asked?.run).toBe(carded.run)
+      expect(asked?.scheduled_at).toBe(measurement.started_at + 2_000)
+      expect(asked?.answered_at).toBeGreaterThanOrEqual(asked?.asked_at ?? Infinity)
+      expect(measurement.spent.filter(({ kind }) => kind === 'chat')).toEqual([
+        expect.objectContaining({ run: carded.run, backend: 'claude', verdict: 'accepted' }),
+      ])
+      const [spending] = report.spending
+      expect(report.spending).toHaveLength(1)
+      expect(spending).toMatchObject({
+        runtime: 'claude',
+        runs: 1,
+        observer: { calls: measurement.calls.length },
+        chat: { calls: 1 },
+        questions: { asked: 1, answered: 1, failed: 0, not_asked: 0, insufficient_data: 0 },
+      })
+      expect(spending?.observer.tokens).toBeGreaterThan(0)
+      expect(spending?.observer.cost_usd).toBeGreaterThan(0)
+      expect(spending?.chat.tokens).toBeGreaterThan(0)
+      expect(spending?.active_ms).toBe(spending?.run_ms)
+      expect(spending?.per_active_hour.observer?.tokens).toBeCloseTo(((spending?.observer.tokens ?? 0) * 3_600_000) / (spending?.active_ms ?? 1))
+      expect(report.active_hours.hours).toBeGreaterThan(0)
+      const summary = await readFile(join(space.measurement, 'report.md'), 'utf8')
+      expect(summary).toContain('## Расход')
+      expect(summary).toMatch(/\| claude \| 1 \| 1 \| 0 \| 0 \| 0 \| \d+,\d \| \d+,\d \|/)
     },
   )
 
@@ -627,6 +678,7 @@ describe('the measurement', () => {
       const measurement = Measurement.parse(await space.read('measurement.json'))
       expect(measurement.events.find(({ label }) => label === 'workflow-completed')?.observed_at).not.toBeNull()
       expect(measurement.events.find(({ label }) => label === 'tasks-listed')).toMatchObject({ observed_at: null, runs: [] })
+      expect(measurement.calls.filter(({ outcome }) => outcome === 'failed').map(({ error }) => error)).toContain('limit')
 
       const [claude] = report.backends
       expect(claude?.calls.accepted).toBe(0)
