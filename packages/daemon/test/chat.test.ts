@@ -108,6 +108,9 @@ test('a chat question is answered over the stream on its map version, with uncon
     messages: [{ ...answered, asked_at: String(pending.asked_at), answered_at: expect.any(String) as unknown }],
   })
   expect(codex.calls().filter(({ purpose }) => purpose === 'chat')).toHaveLength(1)
+  const usage = endpoints.usage.response.parse(await (await fetch(`${daemon.base}${endpoints.usage.path}?run=${run}`, { headers })).json())
+  expect(usage.chat).toMatchObject({ calls: 1, totals: { records: 1 } })
+  expect(usage.chat.totals.tokens.output_tokens).toBeGreaterThan(0)
 
   const unknownRun = `${daemon.base}/api/runs/${'0'.repeat(32)}/chat`
   const refusals = await Promise.all([

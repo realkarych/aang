@@ -1,0 +1,72 @@
+{
+  "format": "aang-freshness-fixed-profile/1",
+  "fixed_at": "2026-10-07T20:31:55.081Z",
+  "profile": {
+    "format": "aang-freshness-profile/1",
+    "name": "claude-workload-low",
+    "time_scale": 1,
+    "window_ms": 120000,
+    "observer": {
+      "claude": {
+        "cli": "/Users/USER/.local/share/claude/versions/2.1.293",
+        "model": null,
+        "effort": "low",
+        "target_p95_ms": 30000
+      }
+    },
+    "runs": [
+      {
+        "recording": "claude/2.1.292/claude_cli/macos/workload-logstats",
+        "start_ms": 0,
+        "chat": [
+          {
+            "after_ms": 368455,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 736909,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1166773,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      },
+      {
+        "recording": "claude/2.1.293/claude_cli/macos/workload-mdlinks",
+        "start_ms": 1318182,
+        "chat": [
+          {
+            "after_ms": 468941,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 937881,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1484978,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "recording": "claude/2.1.292/claude_cli/macos/workload-logstats",
+      "start_ms": 0,
+      "runtime": "claude",
+      "digest": "b90f7426d609de67093dc6266e09e4573356f5550fd9412464a59015b96912a2",
+      "control_events": 23
+    },
+    {
+      "recording": "claude/2.1.293/claude_cli/macos/workload-mdlinks",
+      "start_ms": 1318182,
+      "runtime": "claude",
+      "digest": "232b6fec0906edcc7c1a802d4651374451bc096785e1bd4b2d84fbee4330b3cc",
+      "control_events": 21
+    }
+  ]
+}

@@ -1,0 +1,91 @@
+{
+  "workload-kvstore:commit-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: README.md написан, но коммит не создан — в песочнице workspace-write каталог .git только для чтения, git add и git commit не смогли создать .git/index.lock (ответ решателя). Карта верно показывает неудачный этап коммита."
+  },
+  "workload-kvstore:final-done": {
+    "candidate": 1,
+    "reason": "v89: этап «Rerun tests and check PLAN.md acceptance criteria» done со сводкой «provides an acceptance-status table identifying incomplete crash and failure coverage», бриф подводит итог проверки приёмки. В v88 этап ещё running, таблица не готова."
+  },
+  "workload-kvstore:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон проходит (36 из 36), но итоговая проверка решателя: «Some planned crash and failure tests remain incomplete», критерии 4.7 и 4.8 Untested — этап 4 PLAN.md не закончен. Без этого прохождение отражено в v87 (+16,2 с)."
+  },
+  "workload-kvstore:parallel-done": {
+    "candidate": null,
+    "held_before": true,
+    "reason": "Уже в базовой v79 бриф гласит «Randomized tests are complete, and the benchmark passed with 289 durable sets/s…», этап «Add randomized Map comparison tests» done (все три теста проходят), а в сводке этапа «Wait for both subagents and run validation» бенчмарк завершён успешно."
+  },
+  "workload-kvstore:parallel-reported": {
+    "candidate": 1,
+    "reason": "v51: оба этапа субагентов, «Write throughput benchmark» и «Add randomized Map comparison tests», done (у каждого agents 1) и шли параллельно; бриф сообщает о завершении работы над рандомизированными тестами. В v50 этап рандомизированных тестов ещё running."
+  },
+  "workload-kvstore:plan-ready": {
+    "candidate": null,
+    "reason": "Бриф пуст во всех кандидатах до v8, поэтому цель (персистентное key-value хранилище) в нём так и не появилась; запланированные этапы появляются только в v7, по следующему запросу, а в v8 один из них уже running."
+  },
+  "workload-kvstore:review-fixed": {
+    "candidate": 0,
+    "reason": "v31: этап «Fix confirmed findings and run tests» done (синхронизация каталогов, регрессионные тесты, 22 теста проходят), этап «Review durability and concurrency with one subagent» done, бриф подтверждает. В базовой v30 этап исправлений planned, а ревью ещё running."
+  },
+  "workload-kvstore:review-reported": {
+    "candidate": 2,
+    "reason": "v30: бриф «Reviewer reportedly confirmed missing directory syncing during WAL initialization», этап «Fix confirmed findings and run tests» описывает подтверждённый дефект, этап «Review durability and concurrency with one subagent» идёт с участием субагента (agents 2). В v29 есть лишь промежуточное наблюдение субагента, который ещё «is inspecting», завершённых находок нет."
+  },
+  "workload-ledger:commit-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: README.md написан, но коммит не создан — в песочнице workspace-write каталог .git только для чтения, git add и git commit не смогли создать .git/index.lock (ответ решателя). Карта верно показывает неудачный этап коммита."
+  },
+  "workload-ledger:final-done": {
+    "candidate": 0,
+    "reason": "v60: этап «Run tests and check PLAN.md acceptance criteria» done со сводкой (63/63 теста, таблица приёмки, частичное покрытие временного CSV для этапа 6), бриф сообщает о завершённой проверке по PLAN.md. В базовой v59 проверка приёмки ещё идёт, таблицы нет."
+  },
+  "workload-ledger:final-tested": {
+    "candidate": 1,
+    "reason": "v59: в сводке этапа «Run tests and check PLAN.md acceptance criteria» указано, что полный повторный прогон node --test прошёл успешно; все этапы, соответствующие PLAN.md (парсинг, балансы, конвертация, CLI, экспорт, целые центы), done. В v58 этап только running, результата прогона нет; упавший этап коммита к этапам PLAN.md не относится. Описание соответствует записи: итоговая проверка решателя — 63 из 63, все критерии PLAN.md Pass, кроме одного Partial о способе теста CLI."
+  },
+  "workload-ledger:parallel-done": {
+    "candidate": 1,
+    "reason": "v52: этапы «Add parsing edge-case tests» и «Add conversion edge-case tests» done, этап «Wait for both subagents, fix failures and run all tests» done с успешным node --test (63 теста), критерий параллельной работы reported_done. В v51 этот этап ещё running, полный прогон после исправления BOM не выполнен."
+  },
+  "workload-ledger:plan-ready": {
+    "candidate": null,
+    "reason": "Ни в одном кандидате бриф не называет цель (библиотека и CLI для бухгалтерии из SPEC.md): в v5 он говорит лишь о создании PLAN.md с шестью этапами, в v6–v7 — о запросе CSV-парсинга. На последнем кандидате v7 к тому же этап «Implement and test CSV parsing» уже running."
+  },
+  "workload-ledger:review-fixed": {
+    "candidate": 0,
+    "reason": "v25: этап «Fix confirmed findings and test regressions» done (накопление в BigInt, регрессионные тесты, все 42 теста проходят), бриф подтверждает; этап «Review src/ against SPEC.md with one subagent» done. В базовой v24 этап исправлений ещё planned, исправление только запланировано."
+  },
+  "workload-logstats:big-log": {
+    "candidate": 0,
+    "reason": "v16: этап «Generate 300000-line log and time aggregation» done, бриф и критерий: сгенерированы 300000 записей, агрегация заняла 66.954 ms. Шаг проверки производительности уже завершён: карта опережает «running», а не отстаёт (как «работа продолжается» в регламенте — running или уже done). В базовой v15 лог ещё не сгенерирован («will generate»)."
+  },
+  "workload-logstats:commit-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: tmp/ удалён, но коммит не создан — в песочнице workspace-write каталог .git только для чтения, git add и git commit не смогли создать .git/index.lock (ответ решателя). Карта верно показывает неудачный этап коммита."
+  },
+  "workload-logstats:docs-done": {
+    "candidate": 0,
+    "reason": "v65: этапы «Write README usage examples with a subagent» и «Document log format and metrics with a subagent» done, завершающий этап документации «Run all tests and finish workflow documentation» тоже done (PLAN.md обновлён, примеры README и 29 тестов проходят). В базовой v64 этот этап ещё running, документирование workflow не завершено."
+  },
+  "workload-logstats:final-done": {
+    "candidate": 1,
+    "reason": "v74: этап «Rerun tests and check PLAN.md acceptance criteria» done со сводкой «status table reporting every PLAN.md acceptance criterion passed», бриф говорит о том же. В v73 этап ещё running, таблица критериев не готова."
+  },
+  "workload-logstats:final-tested": {
+    "candidate": 1,
+    "reason": "v72: бриф и сводка этапа «Rerun tests and check PLAN.md acceptance criteria» сообщают, что все 29 тестов снова проходят; все этапы PLAN.md (агрегация, CLI, HTML-отчёт, стриминг, документация) done. В v71 этап финальной проверки только planned, результата прогона нет; этап коммита в waiting к PLAN.md не относится."
+  },
+  "workload-logstats:plan-ready": {
+    "candidate": null,
+    "reason": "До последнего кандидата v11 бриф не называет цель (библиотека и CLI для анализа логов) — только починку парсера, создание PLAN.md и затем агрегацию. Запланированных этапов из PLAN.md в карте нет (шесть этапов упомянуты лишь в сводке), а единственный новый этап «Implement aggregation and test exact percentiles» в v11 уже running."
+  },
+  "workload-logstats:review-fixed": {
+    "candidate": 1,
+    "reason": "v40: этап «Fix confirmed findings and run all tests» done — пять находок исправлены с регрессионными тестами, 26 тестов проходят, повторное ревью субагента замечаний не нашло; этап «Review project with a general-purpose subagent» done. В v39 (и в базовой v38) этап исправлений ещё running и повторное ревью субагента продолжается."
+  }
+}

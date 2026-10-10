@@ -1,5 +1,5 @@
 import type { ChangeAuthor } from '@aang/contract'
-import type { BackendReport, EventStatus, Percentile, Report, ReportedEvent } from './report.js'
+import type { BackendReport, BackendSpending, EventStatus, Percentile, Rate, Report, ReportedEvent, Spending } from './report.js'
 
 const statusText: Readonly<Record<EventStatus, string>> = {
   met: 'выполнено',
@@ -7,6 +7,7 @@ const statusText: Readonly<Record<EventStatus, string>> = {
   missed: 'не выполнено, нарушение',
   unmatched: 'событие не найдено, нарушение',
   held_before: 'выполнено до события, разметка некорректна',
+  mismatched: 'описание не соответствует записи, разметка некорректна',
   unassessed: 'ждёт оценки разметчика',
 }
 
@@ -29,6 +30,53 @@ const verdict = (met: boolean | null): string => (met === null ? none : met ? '�
 
 const row = (cells: readonly string[]): string => `| ${cells.map((cell) => cell.replaceAll('|', '\\|')).join(' | ')} |`
 
+const amount = new Intl.NumberFormat('ru-RU', { maximumFractionDigits: 0 })
+
+const tokens = (value: number): string => amount.format(value)
+
+const dollars = (value: number | null): string => (value === null ? none : `$${value.toFixed(2).replace('.', ',')}`)
+
+const hours = (ms: number): string => (ms / 3_600_000).toFixed(2).replace('.', ',')
+
+const journalText = { observer: 'наблюдатель', chat: 'чат', checks: 'пробы и auth status' } as const
+
+const spendingRow = (runtime: string, journal: keyof typeof journalText, spending: Spending): string[] => [
+  runtime,
+  journalText[journal],
+  String(spending.calls),
+  tokens(spending.uncached_input_tokens),
+  tokens(spending.cache_read_input_tokens),
+  tokens(spending.cache_write_input_tokens),
+  tokens(spending.output_tokens),
+  tokens(spending.reasoning_output_tokens),
+  tokens(spending.tokens),
+  dollars(spending.cost_usd),
+]
+
+const rateCells = (rate: Rate | null): string[] =>
+  rate === null ? [none, none, none] : [rate.calls.toFixed(1).replace('.', ','), tokens(rate.tokens), dollars(rate.cost_usd)]
+
+const rateRows = (spending: BackendSpending): string[][] =>
+  (['observer', 'chat'] as const).map((journal) => [
+    spending.runtime,
+    journalText[journal],
+    ...rateCells(spending.per_run_hour[journal]),
+    ...rateCells(spending.per_active_hour[journal]),
+  ])
+
+const questionRow = ({ runtime, questions, chat }: BackendSpending): string[] => [
+  runtime,
+  String(questions.asked),
+  String(questions.answered),
+  String(questions.failed),
+  String(questions.not_asked),
+  String(questions.insufficient_data),
+  seconds(questions.latency_p50_ms),
+  seconds(questions.latency_p95_ms),
+  questions.answered === 0 ? none : tokens(chat.tokens / questions.answered),
+  questions.answered === 0 || chat.cost_usd === null ? none : dollars(chat.cost_usd / questions.answered),
+]
+
 const table = (header: readonly string[], rows: readonly (readonly string[])[]): string[] => [
   row(header),
   row(header.map(() => '---')),
@@ -48,6 +96,7 @@ const backendRow = (backend: BackendReport): string[] => [
   String(backend.violations),
   String(backend.unassessed),
   String(backend.held_before),
+  String(backend.mismatched),
   backend.full_latency.p95_ms === null ? none : `${seconds(backend.full_latency.p95_ms)} с (${String(backend.full_latency.events)})`,
   `${percent(backend.needs.share)} (${String(backend.needs.events)})`,
 ]
@@ -81,7 +130,7 @@ export const renderReport = (report: Report): string =>
     '',
     '## Итог по backend',
     '',
-    'Нарушение — ожидание не выполнено в окне замера. p95 считается по оценённым событиям, невыполненные события стоят в нём за окном. Полная задержка идёт от времени самого события; в скобках — число событий с известным временем. Доля дозапросов — доля времени `needs` в задержке выполненных событий; в скобках — число событий с дозапросом.',
+    'Нарушение — ожидание не выполнено в окне замера. p95 считается по оценённым событиям, невыполненные события стоят в нём за окном. Выполненные до события и не соответствующие записи события — дефекты разметки, в p95 они не входят. Полная задержка идёт от времени самого события; в скобках — число событий с известным временем. Доля дозапросов — доля времени `needs` в задержке выполненных событий; в скобках — число событий с дозапросом.',
     '',
     ...table(
       [
@@ -97,6 +146,7 @@ export const renderReport = (report: Report): string =>
         'Нарушения',
         'Без оценки',
         'Выполнено до события',
+        'Не соответствует записи',
         'Полная задержка p95',
         'Доля дозапросов',
       ],
@@ -130,5 +180,33 @@ export const renderReport = (report: Report): string =>
         states.map(({ state, ms, share }) => [runtime, state, seconds(ms), percent(share)]),
       ),
     ),
+    '',
+    '## Расход',
+    '',
+    'Расход вызовов — по данным CLI в журнале вызовов демона. Час прогона — сумма длительностей проигранных прогонов backend, активный час — время, когда шёл хотя бы один его прогон. Деньги — только у Claude, по прейскуранту; при подписке это не списание.',
+    '',
+    ...table(
+      ['Backend', 'Прогоны', 'Часы прогонов', 'Активные часы'],
+      report.spending.map(({ runtime, runs, run_ms: runMs, active_ms: activeMs }) => [runtime, String(runs), hours(runMs), hours(activeMs)]),
+    ),
+    '',
+    ...table(
+      ['Backend', 'Журнал', 'Вызовы', 'Вход без кэша', 'Чтение кэша', 'Запись кэша', 'Вывод', 'Рассуждения', 'Всего токенов', 'Стоимость'],
+      report.spending.flatMap((spending) =>
+        (['observer', 'chat', 'checks'] as const).map((journal) => spendingRow(spending.runtime, journal, spending[journal])),
+      ),
+    ),
+    '',
+    ...table(
+      ['Backend', 'Журнал', 'Вызовов на час прогона', 'Токенов на час прогона', 'Стоимость часа прогона', 'Вызовов на активный час', 'Токенов на активный час', 'Стоимость активного часа'],
+      report.spending.flatMap(rateRows),
+    ),
+    '',
+    ...table(
+      ['Backend', 'Вопросы', 'Ответы', 'Ошибки', 'Не заданы', 'Недостаточно данных', 'p50 ответа, с', 'p95 ответа, с', 'Токенов на ответ', 'Стоимость ответа'],
+      report.spending.map(questionRow),
+    ),
+    '',
+    `По учёту расхода демона (U.1) активных часов — ${String(report.active_hours.hours)}: это календарные часы, в которых была активность решателя.`,
     '',
   ].join('\n')

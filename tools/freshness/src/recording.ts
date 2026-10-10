@@ -21,6 +21,8 @@ export interface Recording {
 
 const controlKinds: ReadonlySet<PlayerStep['kind']> = new Set(['hook', 'append', 'write'])
 
+const sessionFile = /([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/i
+
 const digestOf = async (directory: string): Promise<string> => {
   const entries = await readdir(directory, { recursive: true, withFileTypes: true })
   const files = entries
@@ -60,3 +62,11 @@ export const loadFixedRecording = async (fixtures: string, fixed: FixedRecording
   }
   return recording
 }
+
+export const nativeSessions = ({ playback }: Recording): ReadonlySet<string> =>
+  new Set(
+    playback.steps.flatMap((step) => {
+      const session = 'target' in step ? sessionFile.exec(step.target.path)?.[1] : undefined
+      return session === undefined ? [] : [session]
+    }),
+  )
