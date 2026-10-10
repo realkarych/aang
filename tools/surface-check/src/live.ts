@@ -170,7 +170,7 @@ export const startLive = async (options: LiveOptions): Promise<LiveRun> => {
       command,
       args: options.runtime === 'claude' ? beforeOperands(args, ['--plugin-dir', plugin]) : [...args],
       cwd: profile.project,
-      env: { ...env, AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: scenarioHook, ...runOptions.env },
+      env: { ...env, ...(process.env['DEBUG_HOOK_CLAUDE_LOG'] === '1' ? { DEBUG_SDK: '1' } : {}), AANG_RECORD_SPOOL: spool, AANG_RECORD_HOOK: scenarioHook, ...runOptions.env },
       input: '',
       timeoutMs: runOptions.timeoutMs ?? commandTimeoutMs,
       signal: controller.signal,

@@ -294,7 +294,7 @@ export const runCheck = async (options: CheckOptions): Promise<CheckRun> => {
         kept = options.keepDaemon ? { aang_home: live.profile.aangHome, home: live.profile.home } : null
       }
       if (!(last && options.keepDaemon)) {
-        await live.remove()
+        void live
       }
       const report = scenarioReport(scenario.name, live, observed)
       reports.push(report)

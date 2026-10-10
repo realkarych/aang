@@ -39,13 +39,16 @@ var (
 )
 
 func hook(args []string) {
+	startTrace(args)
+	defer finishTrace(args)
 	defer drainStdin()
 	record(args, time.Now())
 }
 
 func drainStdin() {
 	recover()
-	_, _ = io.Copy(io.Discard, os.Stdin)
+	_, _ = io.Copy(io.Discard, stdinTrace)
+	mark("drained")
 }
 
 func record(args []string, now time.Time) {
@@ -53,7 +56,9 @@ func record(args []string, now time.Time) {
 		return
 	}
 	runtime, tag, spool := args[0], args[1], args[2]
-	if acceptsEvents(spool, now) {
+	accepted := acceptsEvents(spool, now)
+	mark("accepts")
+	if accepted {
 		deliver(spool, eventName(now), header(runtime, tag))
 	}
 }
@@ -105,9 +110,13 @@ func deliver(spool, name string, header []byte) {
 	if err != nil {
 		return
 	}
-	written, copyErr := io.Copy(file, io.MultiReader(bytes.NewReader(header), os.Stdin))
+	mark("opened")
+	written, copyErr := io.Copy(file, io.MultiReader(bytes.NewReader(header), stdinTrace))
+	mark("copied")
 	complete := errors.Join(copyErr, file.Close()) == nil && written > int64(len(header))
+	mark("closed")
 	if !complete || os.Rename(pending, filepath.Join(spool, readyDirectory, name)) != nil {
 		_ = os.Remove(pending)
 	}
+	mark("renamed")
 }

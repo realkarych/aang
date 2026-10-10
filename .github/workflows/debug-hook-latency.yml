@@ -1,0 +1,104 @@
+name: Hook latency debug
+
+on:
+  push:
+    branches:
+      - debug/hook-latency
+
+permissions:
+  contents: read
+
+env:
+  AANG_CLAUDE_CODE_VERSION: 2.1.289
+  AANG_CLAUDE_AGENT_SDK_VERSION: 0.3.289
+  AANG_CODEX_VERSION: 0.160.0
+  AANG_CODEX_SDK_VERSION: 0.160.0
+
+jobs:
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        claudelog: ['1', '0']
+        attempt: [1, 2]
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - shell: pwsh
+        run: |
+          Get-MpComputerStatus | Format-List AMServiceEnabled,AntivirusEnabled,RealTimeProtectionEnabled,BehaviorMonitorEnabled,OnAccessProtectionEnabled,IoavProtectionEnabled,AMRunningMode
+          Get-MpPreference | Format-List ExclusionPath,ExclusionProcess,ExclusionExtension,DisableRealtimeMonitoring,DisableBlockAtFirstSeen,MAPSReporting,CloudBlockLevel,CloudExtendedTimeout
+          Get-CimInstance Win32_Processor | Format-List Name,NumberOfCores,NumberOfLogicalProcessors
+          Get-CimInstance Win32_OperatingSystem | Format-List Caption,Version,TotalVisibleMemorySize,FreePhysicalMemory
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+          cache: pnpm
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: packages/hook/go.mod
+          cache: false
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build
+      - shell: pwsh
+        run: '& ([scriptblock]::Create((Invoke-RestMethod https://claude.ai/install.ps1))) $env:AANG_CLAUDE_CODE_VERSION'
+      - run: >-
+          npm install --global --allow-scripts=@anthropic-ai/claude-code
+          "@anthropic-ai/claude-code@${AANG_CLAUDE_CODE_VERSION}" "@openai/codex@${AANG_CODEX_VERSION}"
+        shell: bash
+      - run: >-
+          npm install --prefix "$RUNNER_TEMP/sdk"
+          "@anthropic-ai/claude-agent-sdk@${AANG_CLAUDE_AGENT_SDK_VERSION}" "@openai/codex-sdk@${AANG_CODEX_SDK_VERSION}"
+        shell: bash
+      - shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\debug-out" | Out-Null
+          Start-Process -FilePath typeperf -ArgumentList '"\Processor(_Total)\% Processor Time"','"\System\Processor Queue Length"','"\PhysicalDisk(_Total)\% Disk Time"','"\PhysicalDisk(_Total)\Avg. Disk Queue Length"','"\Memory\Available MBytes"','-si','1','-o',"$env:RUNNER_TEMP\debug-out\perf.csv",'-y' -WindowStyle Hidden
+          $sampler = @'
+          $out = Join-Path $env:RUNNER_TEMP 'debug-out\processes.log'
+          $previous = @{}
+          while ($true) {
+            $now = Get-Date
+            $current = @{}
+            $rows = foreach ($process in Get-Process) {
+              $key = "$($process.Name)#$($process.Id)"
+              $cpu = $process.TotalProcessorTime.TotalMilliseconds
+              $current[$key] = $cpu
+              $delta = if ($previous.ContainsKey($key)) { $cpu - $previous[$key] } else { $cpu }
+              [pscustomobject]@{ Key = $key; Delta = $delta }
+            }
+            $top = $rows | Sort-Object Delta -Descending | Select-Object -First 8 | ForEach-Object { "$($_.Key)=$([math]::Round($_.Delta))" }
+            Add-Content -Path $out -Value ("{0} {1}" -f $now.ToUniversalTime().ToString('o'), ($top -join ' '))
+            $previous = $current
+            Start-Sleep -Milliseconds 1000
+          }
+          '@
+          Set-Content -Path "$env:RUNNER_TEMP\sampler.ps1" -Value $sampler
+          Start-Process -FilePath pwsh -ArgumentList '-NoProfile','-File',"$env:RUNNER_TEMP\sampler.ps1" -WindowStyle Hidden
+      - run: >-
+          node tools/surface-check/dist/main.js run --placement local
+          --surfaces claude_cli,claude_sdk --require claude_cli,claude_sdk
+          --out "$RUNNER_TEMP/surface-check"
+        shell: bash
+        continue-on-error: true
+        env:
+          DEBUG_HOOK_CLAUDE_LOG: ${{ matrix.claudelog }}
+          AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
+          AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
+      - if: always()
+        shell: bash
+        run: |
+          work="$(node -p "require('os').tmpdir()")/aang-surface-check"
+          out="$RUNNER_TEMP/debug-out"
+          cp "$RUNNER_TEMP/surface-check/report.json" "$RUNNER_TEMP/surface-check/summary.md" "$out/" || true
+          cd "$work"
+          find . \( -name '*.jsonl' -path '*projects*' -o -path '*hook-trace*' -name '*.json' -o -path '*/.claude/debug/*' -name '*.txt' -o -name 'daemon.log' \) -type f > "$out/files.txt"
+          tar -cf - -T "$out/files.txt" | tar -xf - -C "$out"
+          du -sh "$out"
+      - if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hook-latency-${{ matrix.claudelog }}-${{ matrix.attempt }}
+          path: ${{ runner.temp }}/debug-out
