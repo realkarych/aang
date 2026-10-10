@@ -17,7 +17,8 @@ import {
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
 import { aangEntry, expect, test } from './fixtures.js'
 import { freshManifest } from './fresh.js'
-import { trace } from './screens.js'
+import { claudeOriginal, hookFields } from './samples.js'
+import { step, strip, trace } from './screens.js'
 
 const claudeSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: claudeSession })
@@ -64,6 +65,14 @@ const liveSample = (): Promise<string> =>
 const jsonText = (value: string): string => JSON.stringify(value).slice(1, -1)
 
 const inspector = (page: Page): Locator => page.getByRole('complementary')
+
+const box = async (locator: Locator): Promise<{ x: number; y: number; right: number; bottom: number }> => {
+  const found = await locator.boundingBox()
+  if (found === null) {
+    throw new Error('the element has no box')
+  }
+  return { x: found.x, y: found.y, right: found.x + found.width, bottom: found.y + found.height }
+}
 
 const section = (page: Page, title: string): Locator =>
   inspector(page).getByRole('region', { name: new RegExp(`^${title}`) })
@@ -112,6 +121,87 @@ test('the inspector of a stage shows its axes, criteria, work and relations, and
   await page.keyboard.press('Escape')
   await expect(panel).toHaveCount(0)
   await expect(page).toHaveURL(new RegExp(`\\?run=${claudeRun}$`))
+})
+
+test.describe('the run screen on a wide window', () => {
+  test.use({ config: { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } } })
+
+  test('keeps the lamps in one row, docks the inspector at the top of the work area and keeps a question row readable beside it', async ({
+    page,
+    player,
+    profile,
+    hook,
+    fakeClaude,
+  }) => {
+    fakeClaude.setScenario(observerScenarios['live-map'].live)
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await (await player(await liveSample(), { timeScale: 0 })).play()
+    const main = stageTitled(await interpreted(page.request, claudeRun), (title) => title === mainStageTitle)
+    const question =
+      'Which of the three report layouts should I use for the weekly summary: the compact table, the detailed list with notes for every stage, or the chart first?'
+    const fields = hookFields(profile, claudeOriginal)
+    await hook.claude('UserPromptSubmit.json', fields)
+    await hook.claude('PreToolUse.Bash.json', {
+      ...fields,
+      tool_name: 'AskUserQuestion',
+      tool_use_id: 'toolu_layout_ask',
+      tool_input: { questions: [{ question, header: 'Layout', options: [{ label: 'Table' }, { label: 'List' }], multiSelect: false }] },
+    })
+
+    await page.goto(`/?run=${claudeRun}`)
+    const asked = step(page, 'Основной агент', question)
+    await expect(asked).toContainText('ждёт решения')
+
+    const lamps = strip(page).getByRole('listitem')
+    await expect(lamps).toHaveCount(10)
+    const rows = new Set(await Promise.all((await lamps.all()).map(async (lamp) => Math.round((await box(lamp)).y))))
+    expect(rows.size).toBe(1)
+    const coverage = lamps.filter({ hasText: 'Не наблюдаемо' }).getByRole('button')
+    const surfaces = ((await coverage.textContent()) ?? '').replace(/^Не наблюдаемо\s*/, '')
+    expect(surfaces).toContain('облачный Codex')
+    await expect(coverage).toHaveAttribute('title', `Не наблюдаемо: ${surfaces}`)
+    const title = page.getByRole('heading', { level: 1 })
+    await expect(title).toHaveAttribute('title', (await title.textContent()) ?? '')
+
+    const pane = page.getByRole('main')
+    const map = page.getByRole('region', { name: 'Карта этапов' })
+    const pick = map.getByRole('button', { name: mainStageTitle, exact: true })
+    const height = Math.max(900, Math.ceil((await box(pick)).bottom) + 40)
+    await page.setViewportSize({ width: 1440, height })
+    await expect(pick).toBeInViewport()
+    expect(await pane.evaluate((element) => element.scrollTop)).toBe(0)
+    const placed = (await box(map)).y
+    await pick.click()
+    await expect(page).toHaveURL(new RegExp(`stage=${main}`))
+    expect(Math.abs((await box(map)).y - placed)).toBeLessThanOrEqual(2)
+    await expect(pick).toBeInViewport()
+    const panel = inspector(page)
+    await expect(panel.getByRole('heading', { level: 2 })).toHaveText(mainStageTitle)
+    const top = (await box(strip(page))).bottom
+    const docked = await box(panel)
+    expect(Math.abs(docked.y - top)).toBeLessThanOrEqual(1)
+    expect(Math.abs(docked.bottom - height)).toBeLessThanOrEqual(1)
+    expect(Math.abs((await box(pane)).y - top)).toBeLessThanOrEqual(1)
+    const reading = await pane.evaluate((element) => element.scrollTop)
+    await pane.evaluate((element) => {
+      element.scrollBy(0, 300)
+    })
+    await expect.poll(() => pane.evaluate((element) => element.scrollTop)).toBeGreaterThan(reading)
+    expect(await box(panel)).toEqual(docked)
+    await expect(section(page, 'Время и расход')).toContainText('Расход решателя, токены')
+
+    await asked.scrollIntoViewIfNeeded()
+    const text = asked.getByText(question)
+    const toggle = asked.getByRole('button', { name: 'Показать полностью' })
+    const time = asked.locator('time')
+    await expect(toggle).toBeVisible()
+    const [shown, link, clock, row] = await Promise.all([box(text), box(toggle), box(time), box(asked)])
+    expect(shown.right - shown.x).toBeGreaterThan(120)
+    expect(link.right).toBeLessThanOrEqual(clock.x)
+    expect(link.right).toBeLessThanOrEqual(row.right)
+    await toggle.click()
+    await expect(asked.getByRole('button', { name: 'Свернуть' })).toBeVisible()
+  })
 })
 
 test('the open inspector follows the model live and lists the observer answer the daemon rejected', async ({

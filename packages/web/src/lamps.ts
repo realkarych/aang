@@ -353,27 +353,30 @@ const sourcesLamp = ({ status, runs, focus }: LampInput): Lamp => {
   return lamp('sources', 'Источники', 'в порядке', 'normal')
 }
 
+const unknownRecordsNote = detail(
+  'Записи неизвестного формата сохранены в журнале, но фактов из них нет: часть работы может быть не видна.',
+  'caution',
+)
+
 const recordsLamp = ({ status, focus }: LampInput): Lamp => {
+  const total = status?.unknown_records ?? 0
   const focused = focus?.run ?? null
-  const unknown =
-    focused === null
-      ? (status?.unknown_records ?? 0)
-      : focused.sessions.reduce((total, { unknown_records: count }) => total + count, 0)
-  if (unknown === 0) {
-    return lamp('records', 'Записи', 'все распознаны', 'normal')
+  if (focused === null) {
+    return total === 0
+      ? lamp('records', 'Записи', 'все распознаны', 'normal')
+      : lamp('records', 'Записи', `всего ${plural(total, unknownRecordForms)}`, 'caution', [unknownRecordsNote])
   }
-  return lamp(
-    'records',
-    'Записи',
-    plural(unknown, unknownRecordForms),
-    'caution',
-    [
-      detail(
-        'Записи неизвестного формата сохранены в журнале, но фактов из них нет: часть работы может быть не видна.',
-        'caution',
-      ),
-    ],
-  )
+  const unknown = focused.sessions.reduce((sum, { unknown_records: count }) => sum + count, 0)
+  const elsewhere =
+    total > unknown
+      ? [detail(`Всего нераспознанных записей: ${String(total)}, из них в этом прогоне — ${String(unknown)}.`)]
+      : []
+  return unknown === 0
+    ? lamp('records', 'Записи', 'в этом прогоне все распознаны', 'normal', elsewhere)
+    : lamp('records', 'Записи', `в этом прогоне ${plural(unknown, unknownRecordForms)}`, 'caution', [
+        unknownRecordsNote,
+        ...elsewhere,
+      ])
 }
 
 const spoolLamp = ({ status, now }: LampInput): Lamp => {

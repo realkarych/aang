@@ -55,8 +55,8 @@ const RunRow = ({ run, runs, now }: RunRowProps): ReactElement => {
         <ExecutionBadge execution={run.execution} />
       </td>
       <td className="run-cell">
-        <a className="run-link" href={runHref(run.id)} onClick={navigate}>
-          {title ?? <span className="untitled">{untitledRun(run)}</span>}
+        <a className="run-link" href={runHref(run.id)} onClick={navigate} title={title ?? undefined}>
+          <span className="run-name">{title ?? <span className="untitled">{untitledRun(run)}</span>}</span>
         </a>
         <span className="run-origin">
           {title === null ? <span>цель не определена</span> : <span>{runtimeLabel[run.runtime]}</span>}
