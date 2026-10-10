@@ -3,7 +3,7 @@ import { runId } from '@aang/contract/ids'
 import { type FakeCall, type LoadedManifest, loadManifest, observerScenarios } from '@aang/testkit'
 import type { Route } from '@playwright/test'
 import { expect, test } from './fixtures.js'
-import { after, codexRecording, filesOnly, threadsOf, through } from './recordings.js'
+import { after, codexRecording, filesOnly, startingAt, threadsOf, through } from './recordings.js'
 import {
   agentsOf,
   fact,
@@ -18,7 +18,9 @@ import {
   zoneItem,
 } from './screens.js'
 
-const hourMs = 60 * 60 * 1_000
+const secondMs = 1_000
+
+const hourMs = 60 * 60 * secondMs
 
 const observed = { timeout: 30_000 }
 
@@ -128,8 +130,7 @@ test.describe('with the Codex observer drawing the map', () => {
     const approval = await loadManifest(codexRecording('codex_tui', 'approval'))
     const asking = thread(approval)
     await page.goto(`/?run=${codexRun(asking)}`)
-    const approving = await player(approval, played)
-    await approving.play({ until: 'approval-granted' })
+    await (await player(approval, played)).play({ until: 'approval-granted' })
 
     const request = zoneItem(page, 'Bash: touch approved.txt')
     await expect(request).toContainText('Запрос одобрения')
@@ -140,7 +141,11 @@ test.describe('with the Codex observer drawing the map', () => {
     const permission = step(page, 'Основной агент', 'Запрос одобрения')
     await expect(permission).toContainText('ждёт решения')
 
-    await approving.play()
+    const granted = await player(startingAt(approval, 'approval-granted'), {
+      ...played,
+      recordTime: { startsAt: Date.now() + secondMs },
+    })
+    await granted.play()
     await expect(permission).toContainText('одобрено')
     await expect(permission).not.toContainText('интерпретация aang')
     await expect(permission).not.toContainText('ждёт решения')

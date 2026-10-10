@@ -1,10 +1,12 @@
 import { rm } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
-import { sampleScenarioManifest } from '@aang/testkit'
+import { loadManifest, sampleScenarioManifest } from '@aang/testkit'
 import { expect, type HookFields, test } from './fixtures.js'
+import { recording } from './recordings.js'
 import { claudeFork, claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
 import {
   agentsOf,
+  currentPlan,
   fact,
   lamp,
   openItems,
@@ -39,6 +41,8 @@ interface AskedQuestion {
 const askUser = (question: string): { readonly questions: readonly AskedQuestion[] } => ({
   questions: [{ question, header: 'Выбор', options: [{ label: 'Первый' }, { label: 'Второй' }], multiSelect: false }],
 })
+
+const pinger = 'aad616394e806288d'
 
 const subagentTranscript = (fields: HookFields, agent: string): string =>
   join(dirname(String(fields.transcript_path)), claudeOriginal.session, 'subagents', `agent-${agent}.jsonl`)
@@ -288,6 +292,205 @@ test.describe('with a fast spool scan', () => {
     await stepsOf(page, 'Основной агент').getByRole('button', { name: 'Скрыть ранние шаги' }).click()
     await expect(step(page, 'Основной агент', 'echo hi')).toHaveCount(0)
   })
+
+  test('tasks with one name stay apart by id in the current plan, and an update without a status keeps the last known one', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    const fields = hookFields(profile, claudeOriginal)
+    const taskHook = (event: string, id: string): Promise<void> =>
+      hook.claude('UserPromptSubmit.json', { ...fields, hook_event_name: event, task_id: id, task_subject: 'Review' })
+    const taskUpdate = (call: string, input: Readonly<Record<string, string>>): Promise<void> =>
+      hook.claude('PreToolUse.Bash.json', { ...fields, tool_name: 'TaskUpdate', tool_use_id: call, tool_input: input })
+    const tasks = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи/) })
+    const items = tasks.getByRole('listitem')
+
+    await taskHook('TaskCreated', '1')
+    await taskHook('TaskCreated', '2')
+    await expect(items).toHaveCount(2)
+    await taskHook('TaskCompleted', '1')
+    await expect(tasks).toHaveCount(1)
+    await expect(tasks).toContainText('Задачи из hooks')
+    await expect(tasks).toContainText('сведено записей: 3')
+    await expect(items).toHaveCount(2)
+    await expect(items.nth(0)).toContainText('Review')
+    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(1)).toContainText('Review')
+    await expect(items.nth(1)).toContainText('ожидает')
+
+    await taskUpdate('toolu_plan_start_2', { taskId: '2', status: 'in_progress' })
+    await expect(items.nth(1)).toContainText('в работе')
+    await expect(tasks).toContainText('Задачи решателя')
+    await taskUpdate('toolu_plan_rename_2', { taskId: '2', subject: 'Review again' })
+    await expect(items.nth(1)).toContainText('Review again')
+    await expect(items.nth(1)).toContainText('в работе')
+    await taskUpdate('toolu_plan_note_1', { taskId: '1', description: 'Checked twice' })
+    await expect(items.nth(0)).toContainText('Checked twice')
+    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items).toHaveCount(2)
+    await expect(tasks).toContainText('сведено записей: 6')
+    await expect(currentPlan(page)).not.toContainText('статус неизвестен')
+  })
+
+  test('a TaskCreate joins a task with an id only when its name, or its description among equal names, picks exactly one, also when the name comes later', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    const fields = hookFields(profile, claudeOriginal)
+    const call = (tool: string, id: string, input: Readonly<Record<string, string>>): Promise<void> =>
+      hook.claude('PreToolUse.Bash.json', { ...fields, tool_name: tool, tool_use_id: id, tool_input: input })
+    const taskHook = (event: string, id: string, subject: string, description?: string): Promise<void> =>
+      hook.claude('UserPromptSubmit.json', {
+        ...fields,
+        hook_event_name: event,
+        task_id: id,
+        task_subject: subject,
+        ...(description === undefined ? {} : { task_description: description }),
+      })
+    const items = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи/) }).getByRole('listitem')
+    const done = items.filter({ hasText: 'выполнен' })
+
+    await call('TaskCreate', 'toolu_plan_parser', { subject: 'Write parser', description: 'Parse hooks' })
+    await call('TaskUpdate', 'toolu_plan_parser_start', { taskId: '1', status: 'in_progress' })
+    await expect(items).toHaveCount(2)
+    await expect(items.nth(1)).toContainText('задача 1')
+    await expect(items.nth(1)).toContainText('в работе')
+    await taskHook('TaskCompleted', '1', 'Write parser')
+    await expect(items).toHaveCount(1)
+    await expect(items.nth(0)).toContainText('Write parser')
+    await expect(items.nth(0)).toContainText('Parse hooks')
+    await expect(items.nth(0)).toContainText('выполнен')
+
+    const code = items.filter({ hasText: 'Review the code' })
+    const docs = items.filter({ hasText: 'Review the docs' })
+    await call('TaskCreate', 'toolu_plan_review_code', { subject: 'Review', description: 'Review the code' })
+    await call('TaskCreate', 'toolu_plan_review_docs', { subject: 'Review', description: 'Review the docs' })
+    await taskHook('TaskCompleted', '3', 'Review')
+    await expect(items).toHaveCount(4)
+    await expect(code).toContainText('ожидает')
+    await expect(docs).toContainText('ожидает')
+    await expect(done).toHaveCount(2)
+    await taskHook('TaskCreated', '2', 'Review', 'Review the code')
+    await expect(items).toHaveCount(3)
+    await expect(code).toContainText('ожидает')
+    await expect(docs).toContainText('выполнен')
+
+    await taskHook('TaskCompleted', '4', 'Check')
+    await taskHook('TaskCompleted', '5', 'Check')
+    await call('TaskCreate', 'toolu_plan_check', { subject: 'Check', description: 'Check the build' })
+    await expect(items).toHaveCount(6)
+    await expect(items.filter({ hasText: 'Check the build' })).toContainText('ожидает')
+    await expect(done).toHaveCount(4)
+  })
+
+  test('the current plan shows the last todo list, even an empty one, and the history folds only equal records of one owner with one format check', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    const fields = hookFields(profile, claudeOriginal)
+    const call = (tool: string, id: string, input: Readonly<Record<string, unknown>>, agent?: string): Promise<void> =>
+      hook.claude('PreToolUse.Bash.json', {
+        ...fields,
+        ...(agent === undefined ? {} : { agent_id: agent }),
+        tool_name: tool,
+        tool_use_id: id,
+        tool_input: input,
+      })
+    const todos = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи решателя$/) })
+    const items = todos.getByRole('listitem')
+
+    await call('TodoWrite', 'toolu_plan_todo_1', {
+      todos: [
+        { content: 'Write the test', status: 'completed' },
+        { content: 'Open the PR', status: 'pending' },
+      ],
+    })
+    await expect(items).toHaveCount(2)
+    await call('TodoWrite', 'toolu_plan_todo_2', { todos: [{ content: 'Open the PR', status: 'in_progress' }] })
+    await expect(items).toHaveCount(1)
+    await expect(items.nth(0)).toContainText('Open the PR')
+    await expect(items.nth(0)).toContainText('в работе')
+    await expect(todos).not.toContainText('Write the test')
+    await call('TodoWrite', 'toolu_plan_todo_3', { todos: [] })
+    await expect(todos).toContainText('Список дел пуст')
+    await expect(items).toHaveCount(0)
+    await expect(todos).toContainText('сведено записей: 3')
+    await expect(todos).toContainText('формат записи не проверен')
+
+    await call('TodoWrite', 'toolu_plan_todo_4', { todos: [{ content: 'Check the plan', status: 'pending' }] })
+    await call('TaskCreate', 'toolu_plan_create', { subject: 'Check the plan' })
+    await call('ExitPlanMode', 'toolu_plan_main', { plan: 'One plan for both' })
+    await call('ExitPlanMode', 'toolu_plan_pinger', { plan: 'One plan for both' }, pinger)
+    const approvals = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$/) })
+    await expect(approvals).toHaveCount(2)
+    await expect(approvals.filter({ hasText: 'Сессия 86f93ed5, основной агент' })).toHaveCount(1)
+    await expect(approvals.filter({ hasText: 'Сессия 86f93ed5, pinger' })).toHaveCount(1)
+
+    await plan(page).getByRole('button', { name: 'История записей: 7' }).click()
+    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
+    const records = history.getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$|^Задачи решателя$/) })
+    await expect(records).toHaveCount(7)
+    await expect(history.getByRole('button', { name: /одинаков/ })).toHaveCount(0)
+    await expect(records.nth(0)).toContainText('Сессия 86f93ed5, pinger')
+    await expect(records.nth(1)).toContainText('Сессия 86f93ed5, основной агент')
+    await expect(records.nth(2)).toContainText('Check the plan')
+    await expect(records.nth(2)).not.toContainText('формат записи не проверен')
+    await expect(records.nth(3)).toContainText('Check the plan')
+    await expect(records.nth(3)).toContainText('формат записи не проверен')
+    await expect(records.nth(6)).toContainText('Write the test')
+  })
+
+  test('equal neighbouring records of one owner fold in the history and open to every record', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await page.goto(`/?run=${runOf(claudeOriginal)}`)
+    await expect(plan(page)).toContainText('Решатель не объявлял план.')
+    const fields = hookFields(profile, claudeOriginal)
+    for (const index of [1, 2, 3]) {
+      await hook.claude('PreToolUse.Bash.json', {
+        ...fields,
+        tool_name: 'ExitPlanMode',
+        tool_use_id: `toolu_plan_same_${String(index)}`,
+        tool_input: { plan: 'The same plan' },
+      })
+    }
+    await expect(currentPlan(page)).toContainText('сведено записей: 3')
+
+    await plan(page).getByRole('button', { name: 'История записей: 3' }).click()
+    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
+    const records = history.getByRole('listitem')
+    await expect(records).toHaveCount(1)
+    const folded = history.getByRole('button', { name: '3 одинаковые записи подряд' })
+    await expect(folded).toHaveAttribute('aria-expanded', 'false')
+    await folded.click()
+    await expect(folded).toHaveAttribute('aria-expanded', 'true')
+    await expect(records).toHaveCount(3)
+    for (const index of [0, 1, 2]) {
+      await expect(records.nth(index)).toContainText('The same plan')
+      await expect(records.nth(index)).toContainText('Сессия 86f93ed5, основной агент')
+    }
+    await folded.click()
+    await expect(records).toHaveCount(1)
+  })
 })
 
 test('a failed input read is retried after a pause while the step stays on screen, not in a loop', async ({
@@ -404,5 +607,48 @@ test.describe('with a fast spool scan for decisions and long questions', () => {
     await expect.poll(() => textShown(question, 'Пояснение 1:')).toBe(true)
     await question.getByRole('button', { name: 'Показать полностью' }).click()
     await expect.poll(() => textShown(question, last)).toBe(true)
+  })
+})
+
+test.describe('with a fast spool scan for a recorded plan', () => {
+  test.use({ config: { ...watchAll, collector: { spoolScanIntervalMs: 250 } } })
+
+  test('the plan of a recorded Claude run shows one task list with the last states and one plan for approval, every record stays in a collapsed history', async ({
+    page,
+    player,
+    otelEndpoint,
+  }) => {
+    const manifest = await loadManifest(recording('claude', '2.1.289', 'claude_cli', 'plan'))
+    await (await player(manifest, { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() })).play()
+    await page.goto('/')
+    await page.getByRole('row').nth(1).getByRole('link').click()
+
+    const blocks = currentPlan(page).getByRole('listitem').filter({ has: page.getByText(/^Задачи решателя$|^План на одобрение$/) })
+    await expect(blocks).toHaveCount(2)
+    const tasks = blocks.nth(0)
+    await expect(tasks).toContainText('Задачи решателя')
+    await expect(tasks).toContainText('Сессия')
+    const items = tasks.getByRole('listitem')
+    await expect(items).toHaveCount(2)
+    await expect(items.nth(0)).toContainText('Write checklist')
+    await expect(items.nth(0)).toContainText('Create checklist.txt with both steps')
+    await expect(items.nth(0)).toContainText('выполнен')
+    await expect(items.nth(1)).toContainText('Review checklist')
+    await expect(items.nth(1)).toContainText('выполнен')
+    await expect(blocks.nth(1)).toContainText('План на одобрение')
+    await expect(blocks.nth(1)).toContainText('# Checklist plan')
+    await expect(plan(page).getByText('Задачи из hooks')).toHaveCount(0)
+
+    const toggle = plan(page).getByRole('button', { name: /^История записей: \d+$/ })
+    await expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    const history = plan(page).getByRole('list', { name: 'История записей плана', exact: true })
+    await expect(history).toHaveCount(0)
+    const records = Number((await toggle.textContent())?.replace(/\D/g, ''))
+    expect(records).toBeGreaterThan(4)
+    await toggle.click()
+    await expect(history).toContainText('Задачи из hooks')
+    await expect(history.getByRole('listitem').filter({ has: page.getByText(/^План на одобрение$/) })).not.toHaveCount(0)
+    await plan(page).getByRole('button', { name: 'Скрыть историю записей' }).click()
+    await expect(history).toHaveCount(0)
   })
 })

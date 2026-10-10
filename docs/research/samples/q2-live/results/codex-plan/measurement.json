@@ -1,0 +1,1619 @@
+{
+  "format": "aang-freshness-measurement/1",
+  "profile_digest": "916331fe52d881821b0d7cd39e21111ccafc5f451804c2264b80b5316a9cc197",
+  "daemon_version": "0.0.0",
+  "started_at": 1791483026912,
+  "ended_at": 1791483499205,
+  "backends": [
+    {
+      "vendor": "codex",
+      "cli_version": "0.160.0",
+      "model": "gpt-6.1-sol",
+      "effort": null,
+      "admission": "admitted"
+    }
+  ],
+  "recordings": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "runtime": "codex",
+      "started_at": 1791483026914,
+      "finished_at": 1791483099837
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "runtime": "codex",
+      "started_at": 1791483129835,
+      "finished_at": 1791483237071
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "runtime": "codex",
+      "started_at": 1791483267069,
+      "finished_at": 1791483379096
+    }
+  ],
+  "events": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "runtime": "codex",
+      "label": "plan-written",
+      "description": "PLAN.md is written: the map shows the planned implementation stages of the ledger library from the plan (parsing, balances, conversion, CLI, monthly export) as planned stages",
+      "predicate": {
+        "all": [
+          {
+            "stage": {
+              "title": "(?i:pars|csv)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:balanc)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:conver|currenc)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:\\bcli\\b|command[ -]line)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:export|month|summar)"
+            }
+          }
+        ]
+      },
+      "played_at": 1791483092507,
+      "observed_at": 1791483092534,
+      "source_at": 1791483092491,
+      "runs": [
+        "8696d0cd56a0158997507dd0d665e221"
+      ],
+      "evaluation": {
+        "kind": "unsatisfied"
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "runtime": "codex",
+      "label": "plan-ready",
+      "description": "The planning turn ends: no stage is running yet",
+      "predicate": null,
+      "played_at": 1791483099837,
+      "observed_at": 1791483099836,
+      "source_at": 1791483099815,
+      "runs": [
+        "8696d0cd56a0158997507dd0d665e221"
+      ],
+      "evaluation": {
+        "kind": "annotation",
+        "candidates": [
+          {
+            "run": "8696d0cd56a0158997507dd0d665e221",
+            "version": 5,
+            "at": 1791483149223,
+            "after_ms": 49386,
+            "author": "observer",
+            "observer_call": "5becf583-9875-48c0-8d09-bc419d7c0ede",
+            "changes": []
+          }
+        ]
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "runtime": "codex",
+      "label": "triage-tested",
+      "description": "The failing parse tests are fixed and pass: a stage for fixing the parser is done and the failure no longer needs attention",
+      "predicate": {
+        "any": [
+          {
+            "stage": {
+              "title": "(?i:pars|fail|fix|triage)",
+              "execution": [
+                "done"
+              ]
+            }
+          },
+          {
+            "criterion": {
+              "text": "(?i:pars|fail|fix|triage)",
+              "status": [
+                "confirmed",
+                "passed_unversioned",
+                "reported_done"
+              ]
+            }
+          }
+        ]
+      },
+      "played_at": 1791483158277,
+      "observed_at": 1791483158277,
+      "source_at": 1791483158274,
+      "runs": [
+        "9307a6561ce6f9a5cafd963e11bbe456"
+      ],
+      "evaluation": {
+        "kind": "held_before",
+        "run": "9307a6561ce6f9a5cafd963e11bbe456",
+        "version": 4
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "runtime": "codex",
+      "label": "triage-done",
+      "description": "The fix of the parser is done with src/parse.js as its output",
+      "predicate": {
+        "stage": {
+          "title": "(?i:pars|fail|fix|triage)",
+          "execution": [
+            "done"
+          ]
+        }
+      },
+      "played_at": 1791483164311,
+      "observed_at": 1791483164311,
+      "source_at": 1791483164301,
+      "runs": [
+        "9307a6561ce6f9a5cafd963e11bbe456"
+      ],
+      "evaluation": {
+        "kind": "held_before",
+        "run": "9307a6561ce6f9a5cafd963e11bbe456",
+        "version": 4
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "runtime": "codex",
+      "label": "plan-written",
+      "description": "PLAN.md is written: the map shows the planned stages of logstats (aggregation, CLI, HTML report, streaming) as planned stages",
+      "predicate": {
+        "all": [
+          {
+            "stage": {
+              "title": "(?i:aggregat|statistic|percentil)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:\\bcli\\b|command[ -]line)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:html|report)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:stream|readline|memory)"
+            }
+          }
+        ]
+      },
+      "played_at": 1791483234634,
+      "observed_at": 1791483234660,
+      "source_at": 1791483234632,
+      "runs": [
+        "9307a6561ce6f9a5cafd963e11bbe456"
+      ],
+      "evaluation": {
+        "kind": "unsatisfied"
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "runtime": "codex",
+      "label": "plan-ready",
+      "description": "The planning turn ends: the planned stages wait",
+      "predicate": null,
+      "played_at": 1791483237071,
+      "observed_at": 1791483237070,
+      "source_at": 1791483237050,
+      "runs": [
+        "9307a6561ce6f9a5cafd963e11bbe456"
+      ],
+      "evaluation": {
+        "kind": "annotation",
+        "candidates": [
+          {
+            "run": "9307a6561ce6f9a5cafd963e11bbe456",
+            "version": 9,
+            "at": 1791483251700,
+            "after_ms": 14629,
+            "author": "observer",
+            "observer_call": "2a495f24-1c88-436e-9c70-cebf69f05d61",
+            "changes": []
+          },
+          {
+            "run": "9307a6561ce6f9a5cafd963e11bbe456",
+            "version": 10,
+            "at": 1791483266752,
+            "after_ms": 29681,
+            "author": "observer",
+            "observer_call": "8681bc51-156c-406f-a137-9da6ea4fee82",
+            "changes": [
+              "stage.update: stage \"Read specification and prepare implementation plan\" active running",
+              "stage.state: stage \"Read specification and prepare implementation plan\" active done",
+              "criterion.assess: criterion \"Read SPEC.md and write PLAN.md with numbered stages for remaining features, each with acceptance criteria, and track them with the plan tool without changing code.\" reported_done",
+              "brief.update: run brief \"Parser fixes and tests are complete; the agent reports creating a six-stage implementation plan with acceptance criteria and no further code changes.\""
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "runtime": "codex",
+      "label": "plan-written",
+      "description": "PLAN.md is written: the map shows the planned stages of the key-value store (log, replay, compaction, batches, CLI) as planned stages",
+      "predicate": {
+        "all": [
+          {
+            "stage": {
+              "title": "(?i:log|wal|replay)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:compact|snapshot)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:batch|transaction|atomic)"
+            }
+          },
+          {
+            "stage": {
+              "title": "(?i:\\bcli\\b|command[ -]line)"
+            }
+          }
+        ]
+      },
+      "played_at": 1791483371605,
+      "observed_at": 1791483371632,
+      "source_at": 1791483371583,
+      "runs": [
+        "ad810be0f4bc491549ea94434830aa25"
+      ],
+      "evaluation": {
+        "kind": "unsatisfied"
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "runtime": "codex",
+      "label": "plan-ready",
+      "description": "The planning turn ends: the planned stages wait",
+      "predicate": null,
+      "played_at": 1791483379096,
+      "observed_at": 1791483379095,
+      "source_at": 1791483379070,
+      "runs": [
+        "ad810be0f4bc491549ea94434830aa25"
+      ],
+      "evaluation": {
+        "kind": "annotation",
+        "candidates": [
+          {
+            "run": "ad810be0f4bc491549ea94434830aa25",
+            "version": 6,
+            "at": 1791483387150,
+            "after_ms": 8054,
+            "author": "observer",
+            "observer_call": "f3fb1c23-0a30-4c18-88be-ff50d9404699",
+            "changes": []
+          },
+          {
+            "run": "ad810be0f4bc491549ea94434830aa25",
+            "version": 7,
+            "at": 1791483406013,
+            "after_ms": 26917,
+            "author": "observer",
+            "observer_call": "7360e3ed-3fe2-47a5-b674-9d7bd31b8f49",
+            "changes": [
+              "stage.update: stage \"Read SPEC.md and write PLAN.md\" active running",
+              "stage.state: stage \"Read SPEC.md and write PLAN.md\" active done",
+              "criterion.assess: criterion \"No code is written, and the response provides a short summary.\" reported_done",
+              "criterion.assess: criterion \"PLAN.md contains numbered implementation stages, each with testable acceptance criteria, including crash cases.\" reported_done"
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "calls": [
+    {
+      "id": "4af5956e-f4f7-4f5a-bf84-d8e42fcb6b19",
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 3,
+      "started_at": 1791483272151,
+      "ended_at": 1791483282189,
+      "latency_ms": 10038,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 4,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 4639,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 273,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "1e2ec212-2515-4ea2-b97f-9677d3009794",
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 4,
+      "started_at": 1791483282198,
+      "ended_at": 1791483294850,
+      "latency_ms": 12652,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 8,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 5714,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 354,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "e064c5b5-b2a8-4583-b07e-723672f3e5b5",
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 5,
+      "started_at": 1791483294856,
+      "ended_at": 1791483306158,
+      "latency_ms": 11302,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 7,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 6098,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 279,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "f3fb1c23-0a30-4c18-88be-ff50d9404699",
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 6,
+      "started_at": 1791483376636,
+      "ended_at": 1791483387150,
+      "latency_ms": 10514,
+      "needs_latency_ms": 5729,
+      "error": null,
+      "facts": 7,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 13260,
+          "cache_read_input_tokens": 2560,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 106,
+          "reasoning_output_tokens": 22
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "7360e3ed-3fe2-47a5-b674-9d7bd31b8f49",
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 7,
+      "started_at": 1791483391427,
+      "ended_at": 1791483406013,
+      "latency_ms": 14586,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 5,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 5225,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 441,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "bd8fc4c0-029f-4c87-8003-23dd107b1d36",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 3,
+      "started_at": 1791483134913,
+      "ended_at": 1791483143440,
+      "latency_ms": 8527,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 4,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 4658,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 165,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "fd3ebc8b-581e-497d-b3c6-a49e2e22df64",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 4,
+      "started_at": 1791483144915,
+      "ended_at": 1791483158100,
+      "latency_ms": 13185,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 17,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 9539,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 471,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "da98eb3e-9a49-40e3-a1c5-ab78ce6c947f",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 5,
+      "started_at": 1791483163024,
+      "ended_at": 1791483181639,
+      "latency_ms": 18615,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 11,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 6924,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 687,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "04d3a82e-794f-483d-bc51-a01a35537246",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 6,
+      "started_at": 1791483181651,
+      "ended_at": 1791483189242,
+      "latency_ms": 7591,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 5,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 5323,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 185,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "02363e9e-8ce8-4936-8de3-efdaf846ee25",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 7,
+      "started_at": 1791483201430,
+      "ended_at": 1791483214231,
+      "latency_ms": 12801,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 4,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 5062,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 402,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "e342c0fb-7616-4260-8201-bcc9391238b4",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 8,
+      "started_at": 1791483214246,
+      "ended_at": 1791483224859,
+      "latency_ms": 10613,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 14,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 8414,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 281,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "2a495f24-1c88-436e-9c70-cebf69f05d61",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 9,
+      "started_at": 1791483237030,
+      "ended_at": 1791483251700,
+      "latency_ms": 14670,
+      "needs_latency_ms": 8907,
+      "error": null,
+      "facts": 10,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 17472,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 136,
+          "reasoning_output_tokens": 55
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "8681bc51-156c-406f-a137-9da6ea4fee82",
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 10,
+      "started_at": 1791483252801,
+      "ended_at": 1791483266752,
+      "latency_ms": 13951,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 4,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 2757,
+          "cache_read_input_tokens": 2560,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 400,
+          "reasoning_output_tokens": 45
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "4e4361c8-8994-4bbe-a700-687dcd2e80c3",
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 3,
+      "started_at": 1791483033818,
+      "ended_at": 1791483042830,
+      "latency_ms": 9012,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 4,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 4649,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 331,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "48b89ecc-5c14-4c94-a610-efd094895a9d",
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 4,
+      "started_at": 1791483043823,
+      "ended_at": 1791483057615,
+      "latency_ms": 13792,
+      "needs_latency_ms": null,
+      "error": null,
+      "facts": 15,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 7616,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 431,
+          "reasoning_output_tokens": 0
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "a518d8c6-7ce8-4251-95c1-d7d22188e551",
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "outcome": "rejected",
+      "result_version": null,
+      "started_at": 1791483097541,
+      "ended_at": 1791483137701,
+      "latency_ms": 40160,
+      "needs_latency_ms": 35550,
+      "error": null,
+      "facts": 7,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 15483,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 1337,
+          "reasoning_output_tokens": 61
+        },
+        "cost_usd": null
+      }
+    },
+    {
+      "id": "5becf583-9875-48c0-8d09-bc419d7c0ede",
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "outcome": "accepted",
+      "result_version": 5,
+      "started_at": 1791483137712,
+      "ended_at": 1791483149223,
+      "latency_ms": 11511,
+      "needs_latency_ms": 6402,
+      "error": null,
+      "facts": 12,
+      "usage": {
+        "model": "gpt-6.1-sol",
+        "tokens": {
+          "uncached_input_tokens": 17063,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 106,
+          "reasoning_output_tokens": 21
+        },
+        "cost_usd": null
+      }
+    }
+  ],
+  "states": [
+    {
+      "at": 1791483028965,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 2
+    },
+    {
+      "at": 1791483030755,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 4
+    },
+    {
+      "at": 1791483034601,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 5
+    },
+    {
+      "at": 1791483037923,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 12
+    },
+    {
+      "at": 1791483042007,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 19
+    },
+    {
+      "at": 1791483043031,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 15
+    },
+    {
+      "at": 1791483057853,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    },
+    {
+      "at": 1791483092583,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 7
+    },
+    {
+      "at": 1791483099983,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 12
+    },
+    {
+      "at": 1791483130130,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 2
+    },
+    {
+      "at": 1791483132696,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 4
+    },
+    {
+      "at": 1791483136526,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 5
+    },
+    {
+      "at": 1791483139841,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 10
+    },
+    {
+      "at": 1791483140098,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 14
+    },
+    {
+      "at": 1791483143689,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 10
+    },
+    {
+      "at": 1791483144458,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 11
+    },
+    {
+      "at": 1791483144715,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 17
+    },
+    {
+      "at": 1791483149305,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    },
+    {
+      "at": 1791483158050,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 18
+    },
+    {
+      "at": 1791483158309,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 7
+    },
+    {
+      "at": 1791483158569,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 11
+    },
+    {
+      "at": 1791483164472,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 16
+    },
+    {
+      "at": 1791483181659,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 5
+    },
+    {
+      "at": 1791483189323,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    },
+    {
+      "at": 1791483196484,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 1
+    },
+    {
+      "at": 1791483198544,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 3
+    },
+    {
+      "at": 1791483201352,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 4
+    },
+    {
+      "at": 1791483202109,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 5
+    },
+    {
+      "at": 1791483202362,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 11
+    },
+    {
+      "at": 1791483204903,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 12
+    },
+    {
+      "at": 1791483205159,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 18
+    },
+    {
+      "at": 1791483214361,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 14
+    },
+    {
+      "at": 1791483225082,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    },
+    {
+      "at": 1791483234829,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 9
+    },
+    {
+      "at": 1791483237133,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 14
+    },
+    {
+      "at": 1791483251757,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 4
+    },
+    {
+      "at": 1791483266876,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    },
+    {
+      "at": 1791483267644,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 2
+    },
+    {
+      "at": 1791483270716,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 4
+    },
+    {
+      "at": 1791483276367,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 5
+    },
+    {
+      "at": 1791483278940,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 8
+    },
+    {
+      "at": 1791483279200,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 12
+    },
+    {
+      "at": 1791483282295,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 8
+    },
+    {
+      "at": 1791483283068,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 15
+    },
+    {
+      "at": 1791483294897,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 7
+    },
+    {
+      "at": 1791483306213,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    },
+    {
+      "at": 1791483371677,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 7
+    },
+    {
+      "at": 1791483379151,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 12
+    },
+    {
+      "at": 1791483387395,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 5
+    },
+    {
+      "at": 1791483406160,
+      "run": "ad810be0f4bc491549ea94434830aa25",
+      "runtime": "codex",
+      "state": {
+        "state": "ok"
+      },
+      "pending_facts": 0
+    }
+  ],
+  "questions": [],
+  "spent": [],
+  "usage": {
+    "from": null,
+    "to": null,
+    "runs": [
+      {
+        "run": "8696d0cd56a0158997507dd0d665e221",
+        "solver": {
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 16488,
+              "cache_read_input_tokens": 43264,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1193,
+              "reasoning_output_tokens": 22
+            },
+            "records": 4,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "stages": [],
+          "unassigned": {
+            "tokens": {
+              "uncached_input_tokens": 16488,
+              "cache_read_input_tokens": 43264,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1193,
+              "reasoning_output_tokens": 22
+            },
+            "records": 4,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "sessions": [
+            {
+              "session": "ff595681495af9ce92bfdc8b31b6b4ac",
+              "fork": false,
+              "totals": {
+                "tokens": {
+                  "uncached_input_tokens": 16488,
+                  "cache_read_input_tokens": 43264,
+                  "cache_write_input_tokens": 0,
+                  "output_tokens": 1193,
+                  "reasoning_output_tokens": 22
+                },
+                "records": 4,
+                "output_lower_bound": false,
+                "cost_usd": null
+              },
+              "cost_state": null,
+              "cost_state_final": false,
+              "thread_totals": []
+            }
+          ]
+        },
+        "observer": {
+          "calls": 4,
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 44811,
+              "cache_read_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 2205,
+              "reasoning_output_tokens": 82
+            },
+            "records": 6,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "latency_ms": {
+            "p50": 11511,
+            "p95": 40160,
+            "max": 40160
+          },
+          "lag_ms": {
+            "p50": 23029,
+            "p95": 56688,
+            "max": 56688
+          }
+        },
+        "chat": {
+          "calls": 0,
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 0,
+              "reasoning_output_tokens": null
+            },
+            "records": 0,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "latency_ms": null
+        },
+        "duration_ms": 71115,
+        "active_hours": 1
+      },
+      {
+        "run": "9307a6561ce6f9a5cafd963e11bbe456",
+        "solver": {
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 36381,
+              "cache_read_input_tokens": 94848,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1919,
+              "reasoning_output_tokens": 74
+            },
+            "records": 8,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "stages": [],
+          "unassigned": {
+            "tokens": {
+              "uncached_input_tokens": 36381,
+              "cache_read_input_tokens": 94848,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1919,
+              "reasoning_output_tokens": 74
+            },
+            "records": 8,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "sessions": [
+            {
+              "session": "5c5c338cde903516d8a82fda5e41b55d",
+              "fork": false,
+              "totals": {
+                "tokens": {
+                  "uncached_input_tokens": 36381,
+                  "cache_read_input_tokens": 94848,
+                  "cache_write_input_tokens": 0,
+                  "output_tokens": 1919,
+                  "reasoning_output_tokens": 74
+                },
+                "records": 8,
+                "output_lower_bound": false,
+                "cost_usd": null
+              },
+              "cost_state": null,
+              "cost_state_final": false,
+              "thread_totals": []
+            }
+          ]
+        },
+        "observer": {
+          "calls": 8,
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 60149,
+              "cache_read_input_tokens": 2560,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 2727,
+              "reasoning_output_tokens": 100
+            },
+            "records": 9,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "latency_ms": {
+            "p50": 12801,
+            "p95": 18615,
+            "max": 18615
+          },
+          "lag_ms": {
+            "p50": 21758,
+            "p95": 29681,
+            "max": 29681
+          }
+        },
+        "chat": {
+          "calls": 0,
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 0,
+              "reasoning_output_tokens": null
+            },
+            "records": 0,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "latency_ms": null
+        },
+        "duration_ms": 107204,
+        "active_hours": 1
+      },
+      {
+        "run": "ad810be0f4bc491549ea94434830aa25",
+        "solver": {
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 17041,
+              "cache_read_input_tokens": 43264,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1925,
+              "reasoning_output_tokens": 21
+            },
+            "records": 4,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "stages": [],
+          "unassigned": {
+            "tokens": {
+              "uncached_input_tokens": 17041,
+              "cache_read_input_tokens": 43264,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1925,
+              "reasoning_output_tokens": 21
+            },
+            "records": 4,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "sessions": [
+            {
+              "session": "0c29b3da234f5a066255f4a6933dd4cd",
+              "fork": false,
+              "totals": {
+                "tokens": {
+                  "uncached_input_tokens": 17041,
+                  "cache_read_input_tokens": 43264,
+                  "cache_write_input_tokens": 0,
+                  "output_tokens": 1925,
+                  "reasoning_output_tokens": 21
+                },
+                "records": 4,
+                "output_lower_bound": false,
+                "cost_usd": null
+              },
+              "cost_state": null,
+              "cost_state_final": false,
+              "thread_totals": []
+            }
+          ]
+        },
+        "observer": {
+          "calls": 5,
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 34936,
+              "cache_read_input_tokens": 2560,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 1453,
+              "reasoning_output_tokens": 22
+            },
+            "records": 6,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "latency_ms": {
+            "p50": 11302,
+            "p95": 14586,
+            "max": 14586
+          },
+          "lag_ms": {
+            "p50": 18734,
+            "p95": 26943,
+            "max": 26943
+          }
+        },
+        "chat": {
+          "calls": 0,
+          "totals": {
+            "tokens": {
+              "uncached_input_tokens": 0,
+              "cache_read_input_tokens": 0,
+              "cache_write_input_tokens": 0,
+              "output_tokens": 0,
+              "reasoning_output_tokens": null
+            },
+            "records": 0,
+            "output_lower_bound": false,
+            "cost_usd": null
+          },
+          "latency_ms": null
+        },
+        "duration_ms": 111994,
+        "active_hours": 1
+      }
+    ],
+    "observer": {
+      "calls": 17,
+      "totals": {
+        "tokens": {
+          "uncached_input_tokens": 139896,
+          "cache_read_input_tokens": 5120,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 6385,
+          "reasoning_output_tokens": 204
+        },
+        "records": 21,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "latency_ms": {
+        "p50": 12652,
+        "p95": 40160,
+        "max": 40160
+      },
+      "lag_ms": {
+        "p50": 21758,
+        "p95": 56688,
+        "max": 56688
+      }
+    },
+    "probes": {
+      "calls": 0,
+      "totals": {
+        "tokens": {
+          "uncached_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": null
+        },
+        "records": 0,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "latency_ms": null
+    },
+    "chat": {
+      "calls": 0,
+      "totals": {
+        "tokens": {
+          "uncached_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": null
+        },
+        "records": 0,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "latency_ms": null
+    },
+    "totals": {
+      "solver": {
+        "tokens": {
+          "uncached_input_tokens": 69910,
+          "cache_read_input_tokens": 181376,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5037,
+          "reasoning_output_tokens": 117
+        },
+        "records": 16,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "observer": {
+        "tokens": {
+          "uncached_input_tokens": 139896,
+          "cache_read_input_tokens": 5120,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 6385,
+          "reasoning_output_tokens": 204
+        },
+        "records": 21,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "chat": {
+        "tokens": {
+          "uncached_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": null
+        },
+        "records": 0,
+        "output_lower_bound": false,
+        "cost_usd": null
+      }
+    },
+    "active_hours": 1,
+    "per_active_hour": {
+      "solver": {
+        "tokens": {
+          "uncached_input_tokens": 69910,
+          "cache_read_input_tokens": 181376,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5037,
+          "reasoning_output_tokens": 117
+        },
+        "records": 16,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "observer": {
+        "tokens": {
+          "uncached_input_tokens": 139896,
+          "cache_read_input_tokens": 5120,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 6385,
+          "reasoning_output_tokens": 204
+        },
+        "records": 21,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "chat": {
+        "tokens": {
+          "uncached_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": null
+        },
+        "records": 0,
+        "output_lower_bound": false,
+        "cost_usd": null
+      }
+    }
+  }
+}

@@ -150,7 +150,7 @@ const RunTitle = ({ title }: { readonly title: string }): ReactElement => {
   const { id, box, expanded, toggle } = useLongText<HTMLHeadingElement>(title)
   return (
     <>
-      <h1 id={id} ref={box} className="run-title long-title" data-expanded={expanded}>
+      <h1 id={id} ref={box} className="run-title long-title" data-expanded={expanded} title={title}>
         {title}
       </h1>
       {toggle}

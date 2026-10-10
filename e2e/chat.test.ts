@@ -411,8 +411,9 @@ test.describe('with the Codex observer answering the chat', () => {
     await played.play({ until: 'child-finished' })
     await opensQuietly(page, run)
     const reviewing = await agentOf(page, run, '/root/reviewer')
-    const reviewerStage = new RegExp(`^Этап «.+ \\(${reviewing.id}\\)»$`)
-    await expect(stage(page, reviewerStage)).toBeVisible(observed)
+    const stageOf = (id: string): RegExp => new RegExp(`^Этап «.+ \\(${id}\\)»$`)
+    const reviewerStage = stageOf(reviewing.id)
+    await expect(stage(page, stageOf(reviewing.id.slice(0, 8)))).toBeVisible(observed)
     await hook.codex('PermissionRequest.json', reviewerRequest(recording))
     const spawned = trace(page).getByRole('list', { name: 'Агенты, запущенные: Основной агент', exact: true })
     const subagent = (path: string): Locator =>

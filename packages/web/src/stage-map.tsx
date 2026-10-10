@@ -3,8 +3,8 @@ import type { DetailLevel, RunSnapshot, StageId } from '@aang/contract'
 import {
   Background,
   BackgroundVariant,
+  ControlButton,
   Controls,
-  type FitViewOptions,
   type NodeHandle,
   Position,
   ReactFlow,
@@ -16,13 +16,22 @@ import { basisLabel } from './labels.js'
 import {
   type MapEdge,
   type MapStage,
+  mapTitle,
   type StageGraph,
   stageGraph,
   type VisibleGroup,
   type VisibleMap,
   visibleMap,
 } from './map-graph.js'
-import { keptViewport, layoutMap, type MapDirection, type MapLayout, revealedViewport } from './map-layout.js'
+import { FitGlyph } from './glyphs.js'
+import {
+  fittedViewport,
+  keptViewport,
+  layoutMap,
+  type MapDirection,
+  type MapLayout,
+  revealedViewport,
+} from './map-layout.js'
 import {
   type GroupFlowNode,
   GroupNode,
@@ -44,8 +53,9 @@ const ariaLabelConfig = {
   'controls.ariaLabel': 'Масштаб карты',
   'controls.zoomIn.ariaLabel': 'Приблизить',
   'controls.zoomOut.ariaLabel': 'Отдалить',
-  'controls.fitView.ariaLabel': 'Показать всю карту',
 }
+
+const proOptions = { hideAttribution: true }
 
 type Layout = MapLayout | Error | null
 
@@ -85,17 +95,25 @@ const useLayout = (map: VisibleMap): Layout => {
   return layout
 }
 
-const fitOptions: FitViewOptions = { padding: 0.08, maxZoom: 1 }
+interface FollowLayoutProps {
+  readonly layout: MapLayout
+  readonly following: boolean
+  readonly request: number
+  readonly onFitted: () => void
+}
 
-const FollowLayout = ({ layout, following }: { readonly layout: MapLayout; readonly following: boolean }): null => {
-  const { fitView } = useReactFlow()
+const FollowLayout = ({ layout, following, request, onFitted }: FollowLayoutProps): null => {
+  const { setViewport } = useReactFlow()
+  const canvas = useStore((state) => state.domNode)
   const width = useStore((state) => state.width)
   const height = useStore((state) => state.height)
   useEffect(() => {
-    if (following) {
-      void fitView(fitOptions)
+    const area = { width: canvas?.offsetWidth ?? width, height: canvas?.offsetHeight ?? height }
+    if (following && area.width > 0 && area.height > 0) {
+      void setViewport(fittedViewport(layout, area))
+      onFitted()
     }
-  }, [layout, following, fitView, width, height])
+  }, [layout, following, request, setViewport, onFitted, canvas, width, height])
   return null
 }
 
@@ -241,14 +259,14 @@ const flowNodes = (
       selectable: false,
       connectable: false,
       ariaRole: 'group',
-      ariaLabel: `Этап «${node.stage.title}»`,
+      ariaLabel: `Этап «${mapTitle(node.stage.title)}»`,
     }
     return group === undefined ? [stage] : [groupNode(layout, group), stage]
   })
 }
 
 const flowEdges = ({ source, routes }: MapLayout): RouteFlowEdge[] => {
-  const titles = new Map(source.stages.map(({ node }) => [node.stage.id, node.stage.title]))
+  const titles = new Map(source.stages.map(({ node }) => [node.stage.id, mapTitle(node.stage.title)]))
   return source.edges.map((edge) => {
     const label = edgeLabel(edge, titles)
     return {
@@ -334,6 +352,11 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
   }, [graph, toggled, views])
   const layout = useLayout(visible)
   const [following, setFollowing] = useState(true)
+  const [fitRequest, setFitRequest] = useState(0)
+  const [fitted, setFitted] = useState(false)
+  const onFitted = useCallback(() => {
+    setFitted(true)
+  }, [])
   const onToggle = useCallback((stage: StageId, open: boolean) => {
     setToggled((current) => new Map(current).set(stage, open))
   }, [])
@@ -353,15 +376,18 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
     <>
       <Markers />
       <Legend />
-      <div className="map-canvas" style={{ height: `clamp(280px, ${String(Math.ceil(layout.height) + 48)}px, 64vh)` }}>
+      <div
+        className="map-canvas"
+        data-fitted={fitted}
+        style={{ height: `clamp(280px, ${String(Math.ceil(layout.height) + 48)}px, 72vh)` }}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           ariaLabelConfig={ariaLabelConfig}
-          fitView
-          fitViewOptions={fitOptions}
+          proOptions={proOptions}
           minZoom={0.2}
           maxZoom={1.5}
           nodesDraggable={false}
@@ -377,23 +403,32 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
             }
           }}
         >
-          <FollowLayout layout={layout} following={following} />
+          <FollowLayout layout={layout} following={following} request={fitRequest} onFitted={onFitted} />
           <KeepPlace layout={layout} following={following} selection={selection} />
           <Background variant={BackgroundVariant.Cross} gap={32} size={7} color="var(--map-grid)" />
           <Controls
             showInteractive={false}
+            showFitView={false}
             position="bottom-left"
-            fitViewOptions={fitOptions}
             onZoomIn={() => {
               setFollowing(false)
             }}
             onZoomOut={() => {
               setFollowing(false)
             }}
-            onFitView={() => {
-              setFollowing(true)
-            }}
-          />
+          >
+            <ControlButton
+              className="react-flow__controls-fitview"
+              aria-label="Вписать карту"
+              title="Вписать карту"
+              onClick={() => {
+                setFollowing(true)
+                setFitRequest((count) => count + 1)
+              }}
+            >
+              <FitGlyph />
+            </ControlButton>
+          </Controls>
         </ReactFlow>
       </div>
     </>

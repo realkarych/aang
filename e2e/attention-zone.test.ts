@@ -2,6 +2,7 @@ import { appendFile, readFile } from 'node:fs/promises'
 import { endpoints, type RunId, type Runtime, type Stage } from '@aang/contract'
 import {
   checksBlockerText,
+  checksStageTitle,
   loadManifest,
   mainStageTitle,
   observerScenarios,
@@ -443,6 +444,16 @@ test.describe('with the observer of the attention zone', () => {
     await expect(blocker).toContainText('Препятствие')
     await expect(blocker).toContainText('от наблюдателя')
     await expect(blocker).not.toContainText('рекомендация')
+
+    await page.getByRole('region', { name: 'Карта этапов' }).getByRole('button', { name: checksStageTitle, exact: true }).click()
+    const inspector = page.getByRole('complementary')
+    await expect(inspector.getByRole('heading', { level: 2 })).toHaveText(checksStageTitle)
+    const spent = inspector.getByRole('region', { name: /^Время и расход/ })
+    await expect(spent).toContainText('Расход решателя, токены')
+    await expect(spent).toContainText('Нет записей расхода для этого этапа.')
+    await expect(spent.getByRole('table')).toHaveCount(0)
+    await inspector.getByRole('button', { name: 'Закрыть' }).click()
+    await expect(inspector).toHaveCount(0)
 
     const fields = hookFields(profile, claudeOriginal)
     await hook.claude('UserPromptSubmit.json', fields)

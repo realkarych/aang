@@ -275,12 +275,18 @@ test.describe('with the observer building the map', () => {
     await expect.poll(fitted).toBe(true)
     await map(page).getByRole('button', { name: 'Приблизить' }).click()
     await expect.poll(async () => width(report)).toBeGreaterThan(fittedWidth)
-    await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
+    await map(page).getByRole('button', { name: 'Вписать карту' }).click()
     await expect.poll(fitted).toBe(true)
 
     await page.setViewportSize({ width: 390, height: 844 })
     await expect.poll(async () => stacked(page, [preparationStageTitle, pingerTitle, reportStageTitle])).toBe(true)
-    await expect.poll(fitted).toBe(true)
+    const startShown = async (): Promise<boolean> => {
+      const [frame, whole] = [await box(canvas), await box(main)]
+      return whole.x >= frame.x && whole.y >= frame.y && whole.x < frame.right && whole.y < frame.bottom
+    }
+    await expect.poll(startShown).toBe(true)
+    const title = await box(pick(main, mainStageTitle))
+    expect(title.bottom - title.y).toBeGreaterThanOrEqual(14)
   })
 
   test('a preparation whose action took no time still precedes the subagent stage by a time-order line (E2E 1, map)', async ({
@@ -458,10 +464,12 @@ test.describe('with the observer revising the map', () => {
     await drag(page, { x: frame.right - 24, y: frame.y + 24 }, { x: -60 - fitted.x, y: 0 })
     const read = await settled(main)
     near(read, { x: -60, y: fitted.y })
-    await page.evaluate(() => {
-      window.scrollTo(0, 96)
+    const pane = page.getByRole('main')
+    const readingPlace = (): Promise<number> => pane.evaluate((element) => element.scrollTop)
+    await pane.evaluate((element) => {
+      element.scrollTo(0, 96)
     })
-    const scrolled = await page.evaluate(() => window.scrollY)
+    const scrolled = await readingPlace()
     expect(scrolled).toBeGreaterThan(0)
     const notice = map(page).getByRole('status')
 
@@ -469,7 +477,7 @@ test.describe('with the observer revising the map', () => {
     const pinger = stage(page, pingerTitle)
     await expect(pinger).toBeVisible(observed)
     near(await settled(main), read)
-    expect(await page.evaluate(() => window.scrollY)).toBe(scrolled)
+    expect(await readingPlace()).toBe(scrolled)
     await expect(notice).toBeEmpty()
 
     await pick(main, mainStageTitle).click()
@@ -477,14 +485,15 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBe(stageTitled(await snapshotOf(page, claudeRun), mainStageTitle).id)
     await expect(inspected(page)).toHaveText(mainStageTitle)
-    const selected = await page.evaluate(() => window.scrollY)
+    await expect(pick(main, mainStageTitle)).toBeInViewport()
+    const inspecting = await readingPlace()
 
     const nested = await versionShown(page)
     await played.play({ until: 'resume' })
     await expect.poll(async () => versionShown(page), observed).toBeGreaterThan(nested)
     await expect(pick(main, mainStageTitle)).toHaveAttribute('aria-pressed', 'true')
     near(await settled(main), read)
-    expect(await page.evaluate(() => window.scrollY)).toBe(selected)
+    expect(await readingPlace()).toBe(inspecting)
 
     fakeClaude.setScenario(observerScenarios['stage-succession'].revised)
     await played.play({ until: 'continue' })
@@ -560,7 +569,7 @@ test.describe('with the observer revising the map', () => {
     await expect(pick(changes, changesTitle)).toHaveAttribute('aria-pressed', 'false')
     expect(stageInAddress()).toBeNull()
     await expect(page.getByRole('complementary')).toHaveCount(0)
-    await map(page).getByRole('button', { name: 'Показать всю карту' }).click()
+    await map(page).getByRole('button', { name: 'Вписать карту' }).click()
     await pinger.getByRole('list').click()
     await expect(pick(pinger, /^pinger/)).toHaveAttribute('aria-pressed', 'true')
     await expect(inspected(page)).toHaveText(/^pinger/)
@@ -573,7 +582,7 @@ test.describe('with the observer revising the map', () => {
 
     const pan = async (by: { x: number; y: number }): Promise<void> => {
       const frame = await box(canvas)
-      const top = Math.max(frame.y, 0)
+      const top = Math.max(frame.y, (await box(page.getByRole('main'))).y, 0)
       const bottom = Math.min(frame.bottom, page.viewportSize()?.height ?? frame.bottom)
       await drag(page, { x: frame.x + 70, y: by.y < 0 ? bottom - 30 : top + 30 }, by)
     }

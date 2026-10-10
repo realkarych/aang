@@ -22,6 +22,7 @@ import {
   useId,
   useState,
 } from 'react'
+import { flushSync } from 'react-dom'
 import { askChat, failureText, SignedOut } from './api.js'
 import { attentionAnchor } from './attention-zone.js'
 import { ActionBadge } from './badges.js'
@@ -113,7 +114,9 @@ const StageCite = ({ id, context }: { readonly id: Stage['id']; readonly context
           return
         }
         event.preventDefault()
-        choose(id)
+        flushSync(() => {
+          choose(id)
+        })
         document.getElementById(mapHeading)?.scrollIntoView({ block: 'start' })
       }}
     >

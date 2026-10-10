@@ -1,0 +1,305 @@
+{
+  "format": "aang-freshness-report/1",
+  "profile": "codex-plan",
+  "fixed_at": "2026-10-08T18:20:50.476Z",
+  "measured_at": "2026-10-08T18:20:57.854Z",
+  "duration_ms": 472456,
+  "window_ms": 120000,
+  "time_scale": 1,
+  "daemon_version": "0.0.0",
+  "recordings": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "runtime": "codex",
+      "start_ms": 2
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "runtime": "codex",
+      "start_ms": 102925
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "runtime": "codex",
+      "start_ms": 240158
+    }
+  ],
+  "backends": [
+    {
+      "runtime": "codex",
+      "cli_version": "0.160.0",
+      "model": "gpt-6.1-sol",
+      "effort": null,
+      "target_p95_ms": 40000,
+      "events": 8,
+      "assessed": 6,
+      "met": 2,
+      "violations": 4,
+      "unassessed": 0,
+      "held_before": 2,
+      "mismatched": 0,
+      "within_target": 0.16666666666666666,
+      "p95": {
+        "kind": "violation"
+      },
+      "target_met": false,
+      "full_latency": {
+        "events": 2,
+        "p95_ms": 44073
+      },
+      "needs": {
+        "events": 0,
+        "ms": 0,
+        "share": 0
+      },
+      "calls": {
+        "total": 17,
+        "accepted": 17,
+        "rejected": 0,
+        "failed": 0,
+        "with_needs": 3
+      },
+      "states": [
+        {
+          "state": "ok",
+          "ms": 1071189,
+          "share": 1
+        }
+      ]
+    }
+  ],
+  "events": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "label": "plan-written",
+      "runtime": "codex",
+      "description": "PLAN.md is written: the map shows the planned implementation stages of the ledger library from the plan (parsing, balances, conversion, CLI, monthly export) as planned stages",
+      "method": "predicate",
+      "status": "met",
+      "latency_ms": 44032,
+      "full_latency_ms": 44073,
+      "needs_ms": 0,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "version": 6,
+      "author": "observer",
+      "observer_call": "9c78c86d-8087-496a-93d8-74970f4c3a4b"
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "label": "plan-ready",
+      "runtime": "codex",
+      "description": "The planning turn ends: no stage is running yet",
+      "method": "annotation",
+      "status": "met",
+      "latency_ms": 36728,
+      "full_latency_ms": 36749,
+      "needs_ms": 0,
+      "run": "8696d0cd56a0158997507dd0d665e221",
+      "version": 6,
+      "author": "observer",
+      "observer_call": "9c78c86d-8087-496a-93d8-74970f4c3a4b"
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "label": "triage-tested",
+      "runtime": "codex",
+      "description": "The failing parse tests are fixed and pass: a stage for fixing the parser is done and the failure no longer needs attention",
+      "method": "predicate",
+      "status": "held_before",
+      "latency_ms": null,
+      "full_latency_ms": null,
+      "needs_ms": null,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "version": 4,
+      "author": null,
+      "observer_call": null
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "label": "triage-done",
+      "runtime": "codex",
+      "description": "The fix of the parser is done with src/parse.js as its output",
+      "method": "predicate",
+      "status": "held_before",
+      "latency_ms": null,
+      "full_latency_ms": null,
+      "needs_ms": null,
+      "run": "9307a6561ce6f9a5cafd963e11bbe456",
+      "version": 4,
+      "author": null,
+      "observer_call": null
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "label": "plan-written",
+      "runtime": "codex",
+      "description": "PLAN.md is written: the map shows the planned stages of logstats (aggregation, CLI, HTML report, streaming) as planned stages",
+      "method": "predicate",
+      "status": "missed",
+      "latency_ms": null,
+      "full_latency_ms": null,
+      "needs_ms": null,
+      "run": null,
+      "version": null,
+      "author": null,
+      "observer_call": null
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "label": "plan-ready",
+      "runtime": "codex",
+      "description": "The planning turn ends: the planned stages wait",
+      "method": "annotation",
+      "status": "missed",
+      "latency_ms": null,
+      "full_latency_ms": null,
+      "needs_ms": null,
+      "run": null,
+      "version": null,
+      "author": null,
+      "observer_call": null
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "label": "plan-written",
+      "runtime": "codex",
+      "description": "PLAN.md is written: the map shows the planned stages of the key-value store (log, replay, compaction, batches, CLI) as planned stages",
+      "method": "predicate",
+      "status": "missed",
+      "latency_ms": null,
+      "full_latency_ms": null,
+      "needs_ms": null,
+      "run": null,
+      "version": null,
+      "author": null,
+      "observer_call": null
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "label": "plan-ready",
+      "runtime": "codex",
+      "description": "The planning turn ends: the planned stages wait",
+      "method": "annotation",
+      "status": "missed",
+      "latency_ms": null,
+      "full_latency_ms": null,
+      "needs_ms": null,
+      "run": null,
+      "version": null,
+      "author": null,
+      "observer_call": null
+    }
+  ],
+  "spending": [
+    {
+      "runtime": "codex",
+      "runs": 3,
+      "run_ms": 292185,
+      "active_ms": 292185,
+      "observer": {
+        "calls": 17,
+        "uncached_input_tokens": 128171,
+        "cache_read_input_tokens": 5120,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 5440,
+        "reasoning_output_tokens": 108,
+        "tokens": 138731,
+        "cost_usd": null
+      },
+      "chat": {
+        "calls": 0,
+        "uncached_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_output_tokens": 0,
+        "tokens": 0,
+        "cost_usd": null
+      },
+      "checks": {
+        "calls": 0,
+        "uncached_input_tokens": 0,
+        "cache_read_input_tokens": 0,
+        "cache_write_input_tokens": 0,
+        "output_tokens": 0,
+        "reasoning_output_tokens": 0,
+        "tokens": 0,
+        "cost_usd": null
+      },
+      "per_run_hour": {
+        "observer": {
+          "calls": 209.45633759433235,
+          "tokens": 1709299.2453411366,
+          "cost_usd": null
+        },
+        "chat": {
+          "calls": 0,
+          "tokens": 0,
+          "cost_usd": null
+        }
+      },
+      "per_active_hour": {
+        "observer": {
+          "calls": 209.45633759433235,
+          "tokens": 1709299.2453411366,
+          "cost_usd": null
+        },
+        "chat": {
+          "calls": 0,
+          "tokens": 0,
+          "cost_usd": null
+        }
+      },
+      "questions": {
+        "asked": 0,
+        "answered": 0,
+        "failed": 0,
+        "not_asked": 0,
+        "insufficient_data": 0,
+        "latency_p50_ms": null,
+        "latency_p95_ms": null
+      }
+    }
+  ],
+  "active_hours": {
+    "hours": 1,
+    "per_active_hour": {
+      "solver": {
+        "tokens": {
+          "uncached_input_tokens": 69910,
+          "cache_read_input_tokens": 181376,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5037,
+          "reasoning_output_tokens": 117
+        },
+        "records": 16,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "observer": {
+        "tokens": {
+          "uncached_input_tokens": 128171,
+          "cache_read_input_tokens": 5120,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 5440,
+          "reasoning_output_tokens": 108
+        },
+        "records": 20,
+        "output_lower_bound": false,
+        "cost_usd": null
+      },
+      "chat": {
+        "tokens": {
+          "uncached_input_tokens": 0,
+          "cache_read_input_tokens": 0,
+          "cache_write_input_tokens": 0,
+          "output_tokens": 0,
+          "reasoning_output_tokens": null
+        },
+        "records": 0,
+        "output_lower_bound": false,
+        "cost_usd": null
+      }
+    }
+  }
+}

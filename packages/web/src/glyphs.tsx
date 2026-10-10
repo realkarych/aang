@@ -406,3 +406,16 @@ export const HandoverGlyph = (): ReactElement => (
     />
   </Glyph>
 )
+
+export const FitGlyph = (): ReactElement => (
+  <Glyph>
+    <path
+      d="M1.5 4V1.5H4M8 1.5h2.5V4M10.5 8v2.5H8M4 10.5H1.5V8"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    />
+  </Glyph>
+)

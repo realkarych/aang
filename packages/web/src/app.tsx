@@ -1,5 +1,5 @@
 import type { RunId, RunSnapshot, RunSummary, StatusResponse, UsageReport } from '@aang/contract'
-import { type ReactElement, useCallback, useEffect, useState } from 'react'
+import { type ReactElement, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { readRuns, readStatus, readUsage } from './api.js'
 import { nowNs } from './format.js'
 import { GenerationContext } from './generation.js'
@@ -123,10 +123,47 @@ const focusOf = (snapshot: RunSnapshot | null): FocusedRun | null =>
     ? null
     : { summary: snapshot.summary, sessions: snapshot.objects.sessions, gaps: snapshot.objects.gaps }
 
+interface ClickedPlace {
+  readonly element: Element
+  readonly top: number
+}
+
+const useClickedPlaceKept = (pane: RefObject<HTMLElement | null>, inspecting: boolean): void => {
+  const clicked = useRef<ClickedPlace | null>(null)
+  useEffect(() => {
+    const element = pane.current
+    if (element === null) {
+      return
+    }
+    const remember = ({ target }: Event): void => {
+      if (target instanceof Element) {
+        clicked.current = { element: target, top: target.getBoundingClientRect().top }
+        setTimeout(() => {
+          clicked.current = null
+        }, 0)
+      }
+    }
+    element.addEventListener('click', remember, true)
+    return () => {
+      element.removeEventListener('click', remember, true)
+    }
+  }, [pane])
+  useLayoutEffect(() => {
+    const kept = clicked.current
+    const element = pane.current
+    clicked.current = null
+    if (kept !== null && element !== null && kept.element.isConnected) {
+      element.scrollBy({ top: kept.element.getBoundingClientRect().top - kept.top })
+    }
+  }, [pane, inspecting])
+}
+
 const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly run: RunId }): ReactElement => {
   const feed = useRunFeed(run, onSignedOut)
   const runs = usePolled(readRuns, onSignedOut)
   const stage = useRoutedStage()
+  const pane = useRef<HTMLElement>(null)
+  useClickedPlaceKept(pane, stage !== null)
   const close = useCallback(() => {
     selectStage(run, null)
   }, [run])
@@ -144,9 +181,11 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
     <>
       <Masthead trail={[{ label: title ?? 'Прогон' }]} />
       <StatusStrip lamps={lamps} />
-      <main className="page run-screen" data-inspecting={stage !== null}>
+      <div className="run-screen" data-inspecting={stage !== null}>
         <GenerationContext value={feed.generation}>
-          <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} onSignedOut={onSignedOut} />
+          <main ref={pane} className="page run-pane">
+            <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} onSignedOut={onSignedOut} />
+          </main>
           {stage === null ? null : (
             <SignedOutContext value={onSignedOut}>
               <StageInspector
@@ -160,7 +199,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
             </SignedOutContext>
           )}
         </GenerationContext>
-      </main>
+      </div>
     </>
   )
 }

@@ -41,6 +41,9 @@ export const step = (page: Page, agent: string, text: string): Locator =>
 
 export const plan = (page: Page): Locator => page.getByRole('region', { name: 'План решателя', exact: true })
 
+export const currentPlan = (page: Page): Locator =>
+  plan(page).getByRole('list', { name: 'Текущий план', exact: true })
+
 export const textShown = async (scope: Locator, text: string): Promise<boolean> => {
   await scope.scrollIntoViewIfNeeded()
   return scope.evaluate((root, wanted) => {

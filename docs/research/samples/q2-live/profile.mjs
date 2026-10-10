@@ -15,11 +15,12 @@ const { values } = parseArgs({
     'second-lane-ms': { type: 'string', default: '300000' },
     'gap-ms': { type: 'string', default: '90000' },
     'window-ms': { type: 'string', default: '120000' },
+    'no-chat': { type: 'boolean', default: false },
   },
 })
 const { runtime, fixtures, surface, out } = values
 if (runtime === undefined || fixtures === undefined || surface === undefined || out === undefined) {
-  throw new Error('Usage: profile.mjs --runtime claude|codex --fixtures <dir> --surface <surface> [--cli <observer CLI>] [--effort <effort>] [--name <name>] [--lanes <a,b;c,d>] --out <profile.json>')
+  throw new Error('Usage: profile.mjs --runtime claude|codex --fixtures <dir> --surface <surface> [--cli <observer CLI>] [--effort <effort>] [--name <name>] [--lanes <a,b;c,d>] [--gap-ms <ms>] [--no-chat] --out <profile.json>')
 }
 const lanes = (values.lanes ?? 'ledger,kvstore;logstats,mdlinks').split(';').map((lane) => lane.split(','))
 const questions = [
@@ -49,7 +50,7 @@ for (const [lane, tasks] of lanes.entries()) {
     runs.push({
       recording,
       start_ms: start,
-      chat: questions.map(([share, question]) => ({ after_ms: Math.round(duration * share), question })),
+      ...(values['no-chat'] ? {} : { chat: questions.map(([share, question]) => ({ after_ms: Math.round(duration * share), question })) }),
     })
     start += duration + Number(values['gap-ms'])
   }

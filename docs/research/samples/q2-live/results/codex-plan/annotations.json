@@ -1,0 +1,90 @@
+{
+  "format": "aang-freshness-annotations/1",
+  "events": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "label": "plan-ready",
+      "description": "The planning turn ends: no stage is running yet",
+      "candidates": [
+        {
+          "run": "8696d0cd56a0158997507dd0d665e221",
+          "version": 5,
+          "at": 1791483149223,
+          "after_ms": 49386,
+          "author": "observer",
+          "observer_call": "5becf583-9875-48c0-8d09-bc419d7c0ede",
+          "changes": []
+        }
+      ],
+      "verdict": {
+        "met": false
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "label": "plan-ready",
+      "description": "The planning turn ends: the planned stages wait",
+      "candidates": [
+        {
+          "run": "9307a6561ce6f9a5cafd963e11bbe456",
+          "version": 9,
+          "at": 1791483251700,
+          "after_ms": 14629,
+          "author": "observer",
+          "observer_call": "2a495f24-1c88-436e-9c70-cebf69f05d61",
+          "changes": []
+        },
+        {
+          "run": "9307a6561ce6f9a5cafd963e11bbe456",
+          "version": 10,
+          "at": 1791483266752,
+          "after_ms": 29681,
+          "author": "observer",
+          "observer_call": "8681bc51-156c-406f-a137-9da6ea4fee82",
+          "changes": [
+            "stage.update: stage \"Read specification and prepare implementation plan\" active running",
+            "stage.state: stage \"Read specification and prepare implementation plan\" active done",
+            "criterion.assess: criterion \"Read SPEC.md and write PLAN.md with numbered stages for remaining features, each with acceptance criteria, and track them with the plan tool without changing code.\" reported_done",
+            "brief.update: run brief \"Parser fixes and tests are complete; the agent reports creating a six-stage implementation plan with acceptance criteria and no further code changes.\""
+          ]
+        }
+      ],
+      "verdict": {
+        "met": false
+      }
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "label": "plan-ready",
+      "description": "The planning turn ends: the planned stages wait",
+      "candidates": [
+        {
+          "run": "ad810be0f4bc491549ea94434830aa25",
+          "version": 6,
+          "at": 1791483387150,
+          "after_ms": 8054,
+          "author": "observer",
+          "observer_call": "f3fb1c23-0a30-4c18-88be-ff50d9404699",
+          "changes": []
+        },
+        {
+          "run": "ad810be0f4bc491549ea94434830aa25",
+          "version": 7,
+          "at": 1791483406013,
+          "after_ms": 26917,
+          "author": "observer",
+          "observer_call": "7360e3ed-3fe2-47a5-b674-9d7bd31b8f49",
+          "changes": [
+            "stage.update: stage \"Read SPEC.md and write PLAN.md\" active running",
+            "stage.state: stage \"Read SPEC.md and write PLAN.md\" active done",
+            "criterion.assess: criterion \"No code is written, and the response provides a short summary.\" reported_done",
+            "criterion.assess: criterion \"PLAN.md contains numbered implementation stages, each with testable acceptance criteria, including crash cases.\" reported_done"
+          ]
+        }
+      ],
+      "verdict": {
+        "met": false
+      }
+    }
+  ]
+}

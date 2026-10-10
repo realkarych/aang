@@ -53,6 +53,9 @@ export const through = (manifest: LoadedManifest, label: string): LoadedManifest
 export const after = (manifest: LoadedManifest, label: string): LoadedManifest =>
   withSteps(manifest, manifest.steps.slice(labelled(manifest, label) + 1))
 
+export const startingAt = (manifest: LoadedManifest, label: string): LoadedManifest =>
+  withSteps(manifest, manifest.steps.slice(labelled(manifest, label)))
+
 const rolloutThread = /rollout-[^/]*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/
 
 export const threadsOf = ({ steps }: LoadedManifest): string[] => [

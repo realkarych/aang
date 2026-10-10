@@ -245,7 +245,7 @@ test.describe('the status strip', () => {
     const transcript = sessionFile(profile, claudeOriginal)
     const unknownRecord = { type: 'h1-future-record', sessionId: claudeSession, cwd: claudeOriginal.cwd }
     await appendFile(transcript, `${JSON.stringify(unknownRecord)}\n`)
-    await expect(lamp(page, 'Записи')).toHaveText('Записи 1 нераспознанная')
+    await expect(lamp(page, 'Записи')).toHaveText('Записи всего 1 нераспознанная')
     await lamp(page, 'Записи').getByRole('button').click()
     await expect(page.getByRole('region', { name: 'Записи: подробности' })).toContainText(
       'Записи неизвестного формата сохранены в журнале',
@@ -260,7 +260,7 @@ test.describe('the status strip', () => {
     await expect(lamp(page, 'Источники')).toHaveText('Источники 1 источник потерян')
     await lamp(page, 'Источники').getByRole('button').click()
     await expect(page.getByRole('region', { name: 'Источники: подробности' })).toContainText('источник потерян')
-    await expect(lamp(page, 'Записи')).toHaveText('Записи 1 нераспознанная')
+    await expect(lamp(page, 'Записи')).toHaveText('Записи в этом прогоне 1 нераспознанная')
 
     const { spoolReady } = aangHomePaths(profile.aangHome)
     await mkdir(spoolReady, { recursive: true })

@@ -1,9 +1,10 @@
 import { readFileSync } from 'node:fs'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import { describe, test } from 'vitest'
-import { type CommandResult, createSandbox, type Sandbox } from './sandbox.js'
+import { sleep } from './processes.js'
+import { createSandbox, type Sandbox } from './sandbox.js'
 
 const session = 'u1-cli-session'
 const origin = Date.parse('2026-10-02T12:00:00.000Z')
@@ -97,16 +98,53 @@ const recordCalls = (sandbox: Sandbox, run: string): void => {
   }
 }
 
-const reported = async (sandbox: Sandbox, done: (stdout: string) => boolean): Promise<CommandResult> => {
+interface CollectedSession {
+  readonly session: string
+  readonly fork: boolean
+  readonly cost_state: object | null
+  readonly thread_totals: readonly object[]
+}
+
+interface CollectedRun {
+  readonly run: string
+  readonly solver: { readonly totals: { readonly records: number }; readonly sessions: readonly CollectedSession[] }
+}
+
+const collected = async (sandbox: Sandbox, done: (runs: readonly CollectedRun[]) => boolean): Promise<readonly CollectedRun[]> => {
+  const state = await sandbox.daemonState()
+  const token = (await readFile(join(sandbox.aangHome, 'token'), 'utf8')).trim()
   const deadline = Date.now() + 20_000
   for (;;) {
-    const result = await sandbox.aang('usage')
-    if (done(result.stdout) || Date.now() > deadline) {
-      return result
+    const response = await fetch(`http://127.0.0.1:${String(state?.api.port ?? 0)}/api/admin/usage`, {
+      headers: { authorization: `Bearer ${token}` },
+    })
+    const { runs } = (await response.json()) as { readonly runs: readonly CollectedRun[] }
+    if (done(runs)) {
+      return runs
     }
-    await new Promise((resolve) => setTimeout(resolve, 200))
+    if (Date.now() > deadline) {
+      throw new Error(`the daemon did not collect the sessions within 20 s: ${JSON.stringify(runs)}`)
+    }
+    await sleep(50)
   }
 }
+
+const sessionOf = (
+  runs: readonly CollectedRun[],
+  matches: (session: CollectedSession) => boolean,
+): { readonly run: string; readonly session: string } => {
+  for (const { run, solver } of runs) {
+    const found = solver.sessions.find(matches)
+    if (found !== undefined) {
+      return { run, session: found.session }
+    }
+  }
+  throw new Error(`no such session in ${JSON.stringify(runs)}`)
+}
+
+const reportsTotal = ({ cost_state: state }: CollectedSession): boolean => state !== null
+const inheritsTotal = (session: CollectedSession): boolean => session.fork && reportsTotal(session)
+const hasThreadTotal = ({ thread_totals: threads }: CollectedSession): boolean => threads.length > 0
 
 interface Watched {
   readonly workspace: string
@@ -195,17 +233,20 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
     const { workspace, projects } = await watching(sandbox)
     await writeFile(join(projects, `${session}.jsonl`), lines(transcript(workspace)))
     expect((await sandbox.aang('start')).code).toBe(0)
-    const collected = await reported(sandbox, (stdout) => stdout.includes('2 records\n    session '))
+    const runs = await collected(sandbox, (runs) =>
+      runs.some(({ solver }) => solver.totals.records === 2 && solver.sessions.some(reportsTotal)),
+    )
     expect((await sandbox.aang('stop')).code).toBe(0)
-    const run = idOf(/^run ([0-9a-f]{32}):/m, collected.stdout)
-    const sessionId = idOf(/session ([0-9a-f]{32}):/, collected.stdout)
+    const { run, session: sessionId } = sessionOf(runs, reportsTotal)
     recordCalls(sandbox, run)
 
     expect((await sandbox.aang('start')).code).toBe(0)
-    const ofRun = await sandbox.aang('usage', '--run', run)
-    const all = await sandbox.aang('usage')
-    const period = await sandbox.aang('usage', '--from', '2026-10-02T13:00:00Z', '--to', '2026-10-02T14:00:00Z')
-    const unknown = await sandbox.aang('usage', '--run', '0'.repeat(32))
+    const [ofRun, all, period, unknown] = await Promise.all([
+      sandbox.aang('usage', '--run', run),
+      sandbox.aang('usage'),
+      sandbox.aang('usage', '--from', '2026-10-02T13:00:00Z', '--to', '2026-10-02T14:00:00Z'),
+      sandbox.aang('usage', '--run', '0'.repeat(32)),
+    ])
     expect((await sandbox.aang('stop')).code).toBe(0)
 
     const sessionLine = `    session ${sessionId}: Claude Code reports 6 input, 2,000 cache read, 200 cache write, 100 output, $0.50; final`
@@ -285,20 +326,30 @@ describe.concurrent('aang usage shows the three journals of the running daemon',
       lines(codexWithoutRecords('legacy-fork', workspace, { forked_from_id: 'legacy', forked_from_ordinal_exclusive: 3 })),
     )
     expect((await sandbox.aang('start')).code).toBe(0)
-    const all = await reported(sandbox, (stdout) => (stdout.match(/^run /gm) ?? []).length === 4 && stdout.includes(inherited))
-    const fork = runWith(inherited, all.stdout)
-    const legacy = runWith('thread total', all.stdout)
-    const ofFork = await sandbox.aang('usage', '--run', fork)
-    const ofLegacy = await sandbox.aang('usage', '--run', legacy)
-    const period = await sandbox.aang('usage', '--from', '2000-01-01')
+    const runs = await collected(
+      sandbox,
+      (runs) =>
+        runs.length === 4 &&
+        runs.some(({ solver }) => solver.sessions.some(inheritsTotal)) &&
+        runs.some(({ solver }) => solver.sessions.some(hasThreadTotal)),
+    )
+    const fork = sessionOf(runs, inheritsTotal)
+    const legacy = sessionOf(runs, hasThreadTotal).run
+    const [all, ofFork, ofLegacy, period] = await Promise.all([
+      sandbox.aang('usage'),
+      sandbox.aang('usage', '--run', fork.run),
+      sandbox.aang('usage', '--run', legacy),
+      sandbox.aang('usage', '--from', '2000-01-01'),
+    ])
     expect((await sandbox.aang('stop')).code).toBe(0)
 
-    const forkSession = idOf(/^ {4}session ([0-9a-f]{32}): Claude Code reports/m, ofFork.stdout)
+    expect(runWith(inherited, all.stdout)).toBe(fork.run)
+    expect(runWith('thread total', all.stdout)).toBe(legacy)
     expect(ofFork.code).toBe(0)
     expect(ofFork.stdout).toContain(
       [
         '  solver: 2 input, 18,341 cache read, 427 cache write, 5 output, 1 record',
-        `    session ${forkSession}: Claude Code reports 14 input, 100,625 cache read, 10,415 cache write, 228 output, $0.1026; ${inherited}; final`,
+        `    session ${fork.session}: Claude Code reports 14 input, 100,625 cache read, 10,415 cache write, 228 output, $0.1026; ${inherited}; final`,
         '',
       ].join('\n'),
     )

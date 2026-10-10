@@ -22,7 +22,7 @@
       "channel": "registry",
       "type": "-",
       "parse_state": "parsed",
-      "count": 2
+      "count": 3
     },
     {
       "channel": "transcript",
@@ -74,13 +74,13 @@
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
@@ -99,11 +99,11 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "7743ae4d5fa23f7da12a96cdedcb26634b3bac265dd06730336844061ff8e08f",
+      "redelivery_key": "f14ab3933ae1bffc366e958e89e3813c07e1e08ae5219b1d966e7081a85347eb",
       "payload": {
         "launch": "startup",
         "surface": {
-          "surface": "claude_sdk",
+          "surface": "claude_cli",
           "basis": "observed"
         },
         "cwd": "/fixture/project",
@@ -117,13 +117,13 @@
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
@@ -145,18 +145,18 @@
       "redelivery_key": null,
       "payload": {
         "file": "registry",
-        "path": "<base>/home/.claude/sessions/5131.json",
+        "path": "<base>/home/.claude/sessions/6589.json",
         "removed": false,
         "content": {
-          "pid": 5131,
-          "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+          "pid": 6589,
+          "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
           "kind": "interactive",
           "entrypoint": "sdk-cli",
-          "status": "idle",
+          "status": null,
           "waiting_for": null,
           "cwd": "/fixture/project",
           "version": "2.1.289",
-          "status_updated_at": "<time>"
+          "status_updated_at": null
         }
       }
     },
@@ -166,13 +166,13 @@
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
@@ -194,14 +194,14 @@
       "redelivery_key": null,
       "payload": {
         "file": "registry",
-        "path": "<base>/home/.claude/sessions/5131.json",
+        "path": "<base>/home/.claude/sessions/6589.json",
         "removed": false,
         "content": {
-          "pid": 5131,
-          "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+          "pid": 6589,
+          "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
           "kind": "interactive",
           "entrypoint": "sdk-cli",
-          "status": "busy",
+          "status": "idle",
           "waiting_for": null,
           "cwd": "/fixture/project",
           "version": "2.1.289",
@@ -215,17 +215,17 @@
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
-        "prompt_id": "07f88a28-bae6-442a-886c-66e543acbeec",
+        "prompt_id": "ce46bb13-89ef-4fad-9a62-004ade85270e",
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
@@ -240,27 +240,76 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "2f47977a3631914f56c8255b9a95f07c68c92ae225912cf12651b6b257ddec1d",
+      "redelivery_key": "6b63f2f70c73bd8b4ec7265efdef3e45c558f6e8d56d049fca71e18986296fb1",
       "payload": {}
     },
     {
       "id": "#5",
+      "kind": "json_snapshot",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "file": "registry",
+        "path": "<base>/home/.claude/sessions/6589.json",
+        "removed": false,
+        "content": {
+          "pid": 6589,
+          "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
+          "kind": "interactive",
+          "entrypoint": "sdk-cli",
+          "status": "busy",
+          "waiting_for": null,
+          "cwd": "/fixture/project",
+          "version": "2.1.289",
+          "status_updated_at": "<time>"
+        }
+      }
+    },
+    {
+      "id": "#6",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "call": "toolu_aang_interrupt_0_0"
       },
       "speaker": "solver",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
-        "prompt_id": "07f88a28-bae6-442a-886c-66e543acbeec",
+        "prompt_id": "ce46bb13-89ef-4fad-9a62-004ade85270e",
         "record_uuid": null,
         "parent_uuid": null,
         "message_id": null,
@@ -275,7 +324,7 @@
         "git_branch": null
       },
       "format_verified": true,
-      "redelivery_key": "2a0da8188b7eb4c7f6d90eaf490bbf5f3230cd9f91f4c1f79530f01afa31e3e7",
+      "redelivery_key": "a6375b7f27d14546f584054279312cd0b3b4864502e4633b63df95b5ec06015d",
       "payload": {
         "tool": "Bash",
         "action_kind": "command",
@@ -288,18 +337,18 @@
       }
     },
     {
-      "id": "#6",
+      "id": "#7",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
@@ -325,18 +374,18 @@
       }
     },
     {
-      "id": "#7",
+      "id": "#8",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
@@ -362,24 +411,24 @@
       }
     },
     {
-      "id": "#8",
+      "id": "#9",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
-        "message": "f5221d76-b41f-48aa-b2c4-da4a15100f27"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
+        "message": "926112a8-924a-4d0a-9a2e-d948d0a17a7f"
       },
       "speaker": "human",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
-        "prompt_id": "07f88a28-bae6-442a-886c-66e543acbeec",
-        "record_uuid": "f5221d76-b41f-48aa-b2c4-da4a15100f27",
+        "prompt_id": "ce46bb13-89ef-4fad-9a62-004ade85270e",
+        "record_uuid": "926112a8-924a-4d0a-9a2e-d948d0a17a7f",
         "parent_uuid": null,
         "message_id": null,
         "call_id": null,
@@ -401,24 +450,24 @@
       }
     },
     {
-      "id": "#9",
+      "id": "#10",
       "kind": "definition_listing",
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
         "prompt_id": null,
-        "record_uuid": "9121a8fd-19c0-4da5-abca-91fabd41af0f",
-        "parent_uuid": "86349ea9-7717-4708-be3c-2f690de75257",
+        "record_uuid": "c26e547f-7bf1-48e3-8887-47d26176056e",
+        "parent_uuid": "aa06113b-36f2-4aea-8a09-a5fd314893a7",
         "message_id": null,
         "call_id": null,
         "ordinal": null
@@ -459,24 +508,24 @@
       }
     },
     {
-      "id": "#10",
+      "id": "#11",
       "kind": "definition_listing",
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
         "prompt_id": null,
-        "record_uuid": "7496a8d8-4624-4d0e-bff5-f72fd9ddd54f",
-        "parent_uuid": "9121a8fd-19c0-4da5-abca-91fabd41af0f",
+        "record_uuid": "baad0782-2db9-4b57-bcd6-d9ec5514150e",
+        "parent_uuid": "c26e547f-7bf1-48e3-8887-47d26176056e",
         "message_id": null,
         "call_id": null,
         "ordinal": null
@@ -549,25 +598,25 @@
       }
     },
     {
-      "id": "#11",
+      "id": "#12",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "call": "toolu_aang_interrupt_0_0"
       },
       "speaker": "solver",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
         "prompt_id": null,
-        "record_uuid": "c54a1205-d914-4cf3-ad81-541f8f0ba9a4",
-        "parent_uuid": "af3f7c0d-d65b-428f-b75b-44d05e6dceb8",
+        "record_uuid": "15762cff-7518-47b7-82a8-2cf3e83d6753",
+        "parent_uuid": "a89b63b5-8703-4682-a06f-3ad26eac7008",
         "message_id": "msg_aang_1",
         "call_id": "toolu_aang_interrupt_0_0",
         "ordinal": null
@@ -593,25 +642,25 @@
       }
     },
     {
-      "id": "#12",
+      "id": "#13",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "usage": "msg_aang_1"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
         "prompt_id": null,
-        "record_uuid": "c54a1205-d914-4cf3-ad81-541f8f0ba9a4",
-        "parent_uuid": "af3f7c0d-d65b-428f-b75b-44d05e6dceb8",
+        "record_uuid": "15762cff-7518-47b7-82a8-2cf3e83d6753",
+        "parent_uuid": "a89b63b5-8703-4682-a06f-3ad26eac7008",
         "message_id": "msg_aang_1",
         "call_id": null,
         "ordinal": null
@@ -639,25 +688,25 @@
       }
     },
     {
-      "id": "#13",
+      "id": "#14",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "call": "toolu_aang_interrupt_0_0"
       },
       "speaker": "tool",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
-        "prompt_id": "07f88a28-bae6-442a-886c-66e543acbeec",
-        "record_uuid": "578f5919-6041-440a-b5be-74766e658081",
-        "parent_uuid": "c54a1205-d914-4cf3-ad81-541f8f0ba9a4",
+        "prompt_id": "ce46bb13-89ef-4fad-9a62-004ade85270e",
+        "record_uuid": "5b7bcb6b-0a85-40b1-ab28-a681c8cba270",
+        "parent_uuid": "15762cff-7518-47b7-82a8-2cf3e83d6753",
         "message_id": null,
         "call_id": "toolu_aang_interrupt_0_0",
         "ordinal": null
@@ -681,25 +730,25 @@
       }
     },
     {
-      "id": "#14",
+      "id": "#15",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
-        "message": "fe00d40b-bca8-4357-8db9-36313aeda8d9"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
+        "message": "1aae8a6b-62a1-4637-9dd5-2f5e18c08dcd"
       },
       "speaker": "human",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
-        "prompt_id": "07f88a28-bae6-442a-886c-66e543acbeec",
-        "record_uuid": "fe00d40b-bca8-4357-8db9-36313aeda8d9",
-        "parent_uuid": "a9ccac22-5052-4d25-88a9-668197860180",
+        "prompt_id": "ce46bb13-89ef-4fad-9a62-004ade85270e",
+        "record_uuid": "1aae8a6b-62a1-4637-9dd5-2f5e18c08dcd",
+        "parent_uuid": "7c062238-6e68-447b-91be-aa189912f184",
         "message_id": null,
         "call_id": null,
         "ordinal": null
@@ -720,18 +769,18 @@
       }
     },
     {
-      "id": "#15",
+      "id": "#16",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
       "speaker": "runtime",
       "urgent": false,
       "at": "<time>",
       "runtime_ids": {
-        "session_id": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session_id": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent_id": null,
         "thread_id": null,
         "turn_id": null,
@@ -753,7 +802,7 @@
       "redelivery_key": null,
       "payload": {
         "total_cost_usd": 0.0001396,
-        "total_duration_ms": 2287,
+        "total_duration_ms": 2349,
         "models": [
           {
             "model": "claude-opus-5-5",
@@ -772,15 +821,15 @@
   ],
   "sessions": [
     {
-      "id": "#16",
+      "id": "#17",
       "key": {
         "kind": "session",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2"
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6"
       },
-      "run": "#17",
+      "run": "#18",
       "surface": {
-        "surface": "claude_sdk",
+        "surface": "claude_cli",
         "basis": "observed"
       },
       "version": "2.1.289",
@@ -804,7 +853,7 @@
       "unknown_records": 0,
       "cost_state": {
         "total_cost_usd": 0.0001396,
-        "total_duration_ms": 2287,
+        "total_duration_ms": 2349,
         "models": [
           {
             "model": "claude-opus-5-5",
@@ -825,17 +874,17 @@
   ],
   "agents": [
     {
-      "id": "#18",
+      "id": "#19",
       "key": {
         "kind": "agent",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "agent": {
           "kind": "main"
         }
       },
-      "session": "#16",
-      "run": "#17",
+      "session": "#17",
+      "run": "#18",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -854,16 +903,16 @@
   ],
   "actions": [
     {
-      "id": "#19",
+      "id": "#20",
       "key": {
         "kind": "action",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "call": "toolu_aang_interrupt_0_0"
       },
-      "session": "#16",
-      "agent": "#18",
-      "run": "#17",
+      "session": "#17",
+      "agent": "#19",
+      "run": "#18",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -876,30 +925,30 @@
           "kind": "observed"
         },
         "evidence": [
-          "#13"
+          "#14"
         ]
       },
       "execution": {
         "state": "cancelled"
       },
-      "input_fact": "#11",
-      "output_fact": "#13",
+      "input_fact": "#12",
+      "output_fact": "#14",
       "inherited": false
     }
   ],
   "questions": [],
   "usage": [
     {
-      "id": "#20",
+      "id": "#21",
       "key": {
         "kind": "usage",
         "runtime": "claude",
-        "session": "87c30539-9c45-42ab-95ac-79b66417f1c2",
+        "session": "839ab3ef-7440-43e8-83b7-c601b35b03c6",
         "usage": "msg_aang_1"
       },
-      "session": "#16",
-      "agent": "#18",
-      "run": "#17",
+      "session": "#17",
+      "agent": "#19",
+      "run": "#18",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -920,40 +969,40 @@
   "runs": [
     {
       "run": {
-        "id": "#17",
+        "id": "#18",
         "runtime": "claude",
-        "root_session": "#16",
+        "root_session": "#17",
         "goal": {
           "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
-          "fact": "#8"
+          "fact": "#9"
         },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
         {
           "kind": "run",
           "value": {
-            "id": "#17",
+            "id": "#18",
             "runtime": "claude",
-            "root_session": "#16",
+            "root_session": "#17",
             "goal": {
               "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
-              "fact": "#8"
+              "fact": "#9"
             },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },
         {
           "kind": "session_membership",
           "value": {
-            "session": "#16",
-            "run": "#17"
+            "session": "#17",
+            "run": "#18"
           }
         }
       ]
