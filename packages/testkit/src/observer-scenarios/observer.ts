@@ -672,3 +672,46 @@ export const mapNestedScript = (input: ObserverInput): ObserverOutput => {
     onRelease('sign'),
   ])
 }
+
+const PlanWrite = z.object({ input: z.object({ file_path: z.string().endsWith('PLAN.md'), content: z.string() }) })
+
+const planStepPattern = /^## (.+)\n/gm
+
+const planSteps = (text: string): string[] => [...text.matchAll(planStepPattern)].flatMap(([, title]) => title ?? [])
+
+interface PlanWriteFact {
+  readonly fact: InputFact
+  readonly text: string | null
+}
+
+const planText = (input: ObserverInput, fact: InputFact, content: string): string | null => {
+  if (!fact.truncated.some(({ path }) => path === 'payload.input.content')) {
+    return content
+  }
+  const record = input.materials.find((material) => material.kind === 'raw_record' && material.seq === fact.seq)
+  return record?.kind === 'raw_record' ? record.payload.replaceAll('\\n', '\n') : null
+}
+
+const planWrites = (input: ObserverInput): PlanWriteFact[] =>
+  input.batch.facts.flatMap((fact) => {
+    const write = PlanWrite.safeParse(fact.payload)
+    return fact.kind === 'action_start' && write.success ? [{ fact, text: planText(input, fact, write.data.input.content) }] : []
+  })
+
+export const planScript = (input: ObserverInput): ObserverOutput => {
+  const writes = planWrites(input)
+  const cut = writes.filter(({ text }) => text === null)
+  if (cut.length > 0 && input.materials.length === 0) {
+    return {
+      base_version: input.model.version,
+      ops: [],
+      needs: cut.map(({ fact }) => ({ kind: 'raw_record', seq: fact.seq })),
+    }
+  }
+  const evidence = writes.map(({ fact }) => fact.id)
+  const steps = [...new Set(writes.flatMap(({ text }) => (text === null ? [] : planSteps(text))))]
+  const created = steps
+    .filter((title) => stageTitled(input, title) === undefined)
+    .map((title, index) => createStage(`plan-${String(index)}`, title, null, null, evidence))
+  return output(input, created)
+}
