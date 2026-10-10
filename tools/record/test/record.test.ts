@@ -201,12 +201,13 @@ test.runIf(process.platform === 'win32')('a scan during a command keeps a source
   const capture = await createCapture(roots, join(root, 'spool'), Date.now())
   const kinds = (path: string): string[] => capture.steps.flatMap((step) => 'target' in step && step.target.path === path ? [step.kind] : [])
   await capture.checkpoint('written', { root: 'home', path: 'project/pending.json' }, 'The source and the task are written')
+  await writeFile(pending, '{"state":"deleting"}\n')
   const held: FileHandle[] = []
   try {
     held.push(await pendingDeletion(pending))
     held.push(await pendingDeletion(lock))
     held.push(await open(tasks, exclusive))
-    await expect(stat(pending)).rejects.toMatchObject({ code: 'EPERM', syscall: 'stat' })
+    await expect(readFile(pending)).rejects.toMatchObject({ code: 'EPERM', syscall: 'open' })
     await expect(readdir(lock)).rejects.toMatchObject({ code: 'EPERM', syscall: 'scandir' })
     await expect(readdir(tasks)).rejects.toMatchObject({ code: 'EBUSY', syscall: 'scandir' })
     await capture.scan()
