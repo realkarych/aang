@@ -113,8 +113,14 @@ export interface DaemonProcess {
 
 const host = fileURLToPath(new URL('host.ts', import.meta.url))
 
-export const spawnDaemon = async (home: Home, onTestFinished: TestContext['onTestFinished']): Promise<DaemonProcess> => {
-  const child = spawn(process.execPath, [host, home.paths.home, home.root], { stdio: ['ignore', 'pipe', 'pipe'] })
+export const lateWatch: readonly string[] = ['--import', new URL('late-watch.ts', import.meta.url).href]
+
+export const spawnDaemon = async (
+  home: Home,
+  onTestFinished: TestContext['onTestFinished'],
+  nodeOptions: readonly string[] = [],
+): Promise<DaemonProcess> => {
+  const child = spawn(process.execPath, [...nodeOptions, host, home.paths.home, home.root], { stdio: ['ignore', 'pipe', 'pipe'] })
   let errors = ''
   child.stderr.setEncoding('utf8').on('data', (chunk: string) => {
     errors += chunk
