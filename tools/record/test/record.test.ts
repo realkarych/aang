@@ -6,13 +6,13 @@ import { codexAdapter } from '@aang/adapter-codex'
 import { CollectedRecord, type ParseResult } from '@aang/contract'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
 import { afterEach, expect, test, vi } from 'vitest'
+import { createCapture } from '../dist/capture.js'
 import { recordSession, verifyRecording, type RecordContext, type RecordOptions } from '../dist/index.js'
 
 const temporary: string[] = []
 const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
 const hookScript = fileURLToPath(new URL('./hook-event.ts', import.meta.url))
 const longSession = fileURLToPath(new URL('./long-session.ts', import.meta.url))
-const awaitRemoval = fileURLToPath(new URL('./await-removal.ts', import.meta.url))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
@@ -185,40 +185,41 @@ const pendingDeletion = async (path: string): Promise<FileHandle> => {
   return held
 }
 
-test.runIf(process.platform === 'win32')('a source that another process is deleting or holds exclusively is read by a later scan of the command and rejected by a checkpoint', async () => {
-  const config = await options()
-  const directory = await recordSession(config, async (session) => {
-    const pending = join(session.project, 'pending.json')
-    const tasks = join(session.claude, 'tasks', 'task-list')
-    const lock = join(session.claude, 'tasks', 'lock-list', '.lock.lock')
-    await mkdir(tasks, { recursive: true })
-    await mkdir(lock, { recursive: true })
-    await writeFile(pending, '{"state":"pending"}\n')
-    await writeFile(join(tasks, '1.json'), '{"id":"1"}\n')
-    await session.checkpoint('written', { root: 'home', path: 'project/pending.json' }, 'The source and the task are written')
-    const held: FileHandle[] = []
-    try {
-      held.push(await pendingDeletion(pending))
-      held.push(await pendingDeletion(lock))
-      held.push(await open(tasks, exclusive))
-      await expect(stat(pending)).rejects.toMatchObject({ code: 'EPERM', syscall: 'stat' })
-      await expect(readdir(lock)).rejects.toMatchObject({ code: 'EPERM', syscall: 'scandir' })
-      await expect(readdir(tasks)).rejects.toMatchObject({ code: 'EBUSY', syscall: 'scandir' })
-      await expect(session.checkpoint('held', { root: 'home', path: 'project/pending.json' }, 'The source is still held')).rejects.toThrow(/EPERM|EBUSY/)
-      const started = join(session.work, 'started')
-      const command = session.run(process.execPath, [awaitRemoval, started, pending, lock])
-      const settled = command.then(() => true, () => true)
-      while (!await Promise.race([settled, stat(started).then(() => true, () => false)])) await new Promise((done) => setTimeout(done, 25))
-      await Promise.all(held.splice(0).map((handle) => handle.close()))
-      await command
-    } finally {
-      await Promise.all(held.map((handle) => handle.close()))
-    }
-    await session.checkpoint('removed', { root: 'home', path: 'project/pending.json' }, 'The deleted source is removed')
-  })
-  const playback = await loadManifest(join(directory, 'playback.json'))
-  const kinds = (path: string): string[] => playback.steps.flatMap((step) => 'target' in step && step.target.path === path ? [step.kind] : [])
+test.runIf(process.platform === 'win32')('a scan during a command keeps a source that another process is deleting or holds exclusively as captured, reads it in a later scan, a checkpoint rejects it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aang-record-test-'))
+  temporary.push(root)
+  const home = join(root, 'home')
+  const roots = { home, claude: join(home, '.claude'), codex: join(home, '.codex') }
+  const pending = join(home, 'project', 'pending.json')
+  const tasks = join(roots.claude, 'tasks', 'task-list')
+  const lock = join(roots.claude, 'tasks', 'lock-list', '.lock.lock')
+  await mkdir(dirname(pending), { recursive: true })
+  await mkdir(tasks, { recursive: true })
+  await mkdir(lock, { recursive: true })
+  await writeFile(pending, '{"state":"pending"}\n')
+  await writeFile(join(tasks, '1.json'), '{"id":"1"}\n')
+  const capture = await createCapture(roots, join(root, 'spool'), Date.now())
+  const kinds = (path: string): string[] => capture.steps.flatMap((step) => 'target' in step && step.target.path === path ? [step.kind] : [])
+  await capture.checkpoint('written', { root: 'home', path: 'project/pending.json' }, 'The source and the task are written')
+  const held: FileHandle[] = []
+  try {
+    held.push(await pendingDeletion(pending))
+    held.push(await pendingDeletion(lock))
+    held.push(await open(tasks, exclusive))
+    await expect(stat(pending)).rejects.toMatchObject({ code: 'EPERM', syscall: 'stat' })
+    await expect(readdir(lock)).rejects.toMatchObject({ code: 'EPERM', syscall: 'scandir' })
+    await expect(readdir(tasks)).rejects.toMatchObject({ code: 'EBUSY', syscall: 'scandir' })
+    await capture.scan()
+    expect(kinds('project/pending.json')).toEqual(['write'])
+    expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
+    await expect(capture.checkpoint('held', { root: 'home', path: 'project/pending.json' }, 'The source is still held')).rejects.toThrow(/EPERM|EBUSY/)
+  } finally {
+    await Promise.all(held.map((handle) => handle.close()))
+  }
+  await capture.scan()
   expect(kinds('project/pending.json')).toEqual(['write', 'remove'])
+  expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
+  await capture.checkpoint('removed', { root: 'home', path: 'project/pending.json' }, 'The deleted source is removed')
   expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
 })
 
