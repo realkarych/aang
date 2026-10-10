@@ -63,7 +63,7 @@ Workflow `CI` (`.github/workflows/ci.yml`) вызывает `.github/workflows/c
 
 | Задание | Что делает |
 | --- | --- |
-| `build` | `pnpm build` и артефакт `build-<ОС>`: каталоги `dist` пакетов и инструментов и бинари Go из `bin` |
+| `build` | `pnpm build` и артефакт `build-<ОС>`: каталоги `dist` пакетов и инструментов, `tsconfig.tsbuildinfo` пакета `web` и бинари Go из `bin` |
 | `typecheck, lint` | `pnpm typecheck` и `pnpm lint` поверх сборки |
 | `vitest i/n` | часть `pnpm test --shard=i/n` с установленным `codex` и `AANG_ISOLATION_CODEX` |
 | `e2e i/n` | часть `pnpm e2e --shard=i/n` |
