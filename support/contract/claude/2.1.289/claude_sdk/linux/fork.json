@@ -93,7 +93,7 @@
     {
       "channel": "transcript",
       "type": "system:stop_hook_summary",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 3
     },
     {
@@ -567,6 +567,154 @@
     },
     {
       "id": "#12",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4352afa6-8fc1-487e-b0ea-82636874ec67"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4352afa6-8fc1-487e-b0ea-82636874ec67",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "84243365-6a0e-46ca-84f1-f8e2710aff6d",
+        "parent_uuid": "db8e2f5d-fba1-4de0-bcd4-4c803d51b958",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "agents",
+        "definitions": [
+          {
+            "name": "claude",
+            "description": "Catch-all for any task that doesn't fit a more specific agent. FleetView's default when no agent name is typed. (Tools: *)"
+          },
+          {
+            "name": "Explore",
+            "description": "Read-only search agent for broad fan-out searches — when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It reads excerpts rather than whole files, so it locates code; it doesn't review or audit it. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "general-purpose",
+            "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)"
+          },
+          {
+            "name": "Plan",
+            "description": "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "statusline-setup",
+            "description": "Use this agent to configure the user's Claude Code status line setting. (Tools: Read, Edit)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#13",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "4352afa6-8fc1-487e-b0ea-82636874ec67"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "4352afa6-8fc1-487e-b0ea-82636874ec67",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "b07af756-2c32-4029-ae33-71da0b21dc1a",
+        "parent_uuid": "84243365-6a0e-46ca-84f1-f8e2710aff6d",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\"."
+          },
+          {
+            "name": "update-config",
+            "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command."
+          },
+          {
+            "name": "keybindings-help",
+            "description": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\"."
+          },
+          {
+            "name": "code-review",
+            "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's review recipe covers them) at the given effort level (low/medium: fewer, high-confidence findings; high→max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default."
+          },
+          {
+            "name": "simplify",
+            "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that."
+          },
+          {
+            "name": "fewer-permission-prompts",
+            "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+          },
+          {
+            "name": "loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace. - When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval (e.g. \"check the deploy every 5 minutes\", \"keep running /babysit-prs\"). Do NOT invoke for one-off tasks."
+          },
+          {
+            "name": "claude-api",
+            "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER — read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file)."
+          },
+          {
+            "name": "workflow-authoring",
+            "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one."
+          },
+          {
+            "name": "run",
+            "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library)."
+          },
+          {
+            "name": "plugin-authoring",
+            "description": "Make a mod: a live pane, band, status line, toast or hook inside Claude Code (terminal or desktop Code tab), written as a plugin of function hooks that hot-reloads in this session. Load before writing or debugging a hooks module."
+          },
+          {
+            "name": "init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation"
+          },
+          {
+            "name": "security-review",
+            "description": "Complete a security review of the pending changes on the current branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#14",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -610,7 +758,7 @@
       }
     },
     {
-      "id": "#13",
+      "id": "#15",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -656,7 +804,7 @@
       }
     },
     {
-      "id": "#14",
+      "id": "#16",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -704,7 +852,7 @@
       }
     },
     {
-      "id": "#15",
+      "id": "#17",
       "kind": "session_end",
       "entity_key": {
         "kind": "session",
@@ -740,7 +888,7 @@
       }
     },
     {
-      "id": "#16",
+      "id": "#18",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -780,7 +928,7 @@
       }
     },
     {
-      "id": "#17",
+      "id": "#19",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -826,7 +974,7 @@
       }
     },
     {
-      "id": "#18",
+      "id": "#20",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
@@ -876,7 +1024,7 @@
       }
     },
     {
-      "id": "#19",
+      "id": "#21",
       "kind": "session_start",
       "entity_key": {
         "kind": "session",
@@ -919,7 +1067,7 @@
       }
     },
     {
-      "id": "#20",
+      "id": "#22",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "session",
@@ -968,7 +1116,7 @@
       }
     },
     {
-      "id": "#21",
+      "id": "#23",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "session",
@@ -1017,7 +1165,7 @@
       }
     },
     {
-      "id": "#22",
+      "id": "#24",
       "kind": "turn_start",
       "entity_key": {
         "kind": "session",
@@ -1051,7 +1199,7 @@
       "payload": {}
     },
     {
-      "id": "#23",
+      "id": "#25",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1095,7 +1243,7 @@
       }
     },
     {
-      "id": "#24",
+      "id": "#26",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1143,7 +1291,7 @@
       }
     },
     {
-      "id": "#25",
+      "id": "#27",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "session",
@@ -1185,7 +1333,7 @@
       }
     },
     {
-      "id": "#26",
+      "id": "#28",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
@@ -1222,7 +1370,7 @@
       }
     },
     {
-      "id": "#27",
+      "id": "#29",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
@@ -1259,7 +1407,7 @@
       }
     },
     {
-      "id": "#28",
+      "id": "#30",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -1298,7 +1446,155 @@
       }
     },
     {
-      "id": "#29",
+      "id": "#31",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "84243365-6a0e-46ca-84f1-f8e2710aff6d",
+        "parent_uuid": "db8e2f5d-fba1-4de0-bcd4-4c803d51b958",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "agents",
+        "definitions": [
+          {
+            "name": "claude",
+            "description": "Catch-all for any task that doesn't fit a more specific agent. FleetView's default when no agent name is typed. (Tools: *)"
+          },
+          {
+            "name": "Explore",
+            "description": "Read-only search agent for broad fan-out searches — when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It reads excerpts rather than whole files, so it locates code; it doesn't review or audit it. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "general-purpose",
+            "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)"
+          },
+          {
+            "name": "Plan",
+            "description": "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "statusline-setup",
+            "description": "Use this agent to configure the user's Claude Code status line setting. (Tools: Read, Edit)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#32",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "b07af756-2c32-4029-ae33-71da0b21dc1a",
+        "parent_uuid": "84243365-6a0e-46ca-84f1-f8e2710aff6d",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-ts",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\"."
+          },
+          {
+            "name": "update-config",
+            "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command."
+          },
+          {
+            "name": "keybindings-help",
+            "description": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\"."
+          },
+          {
+            "name": "code-review",
+            "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's review recipe covers them) at the given effort level (low/medium: fewer, high-confidence findings; high→max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default."
+          },
+          {
+            "name": "simplify",
+            "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that."
+          },
+          {
+            "name": "fewer-permission-prompts",
+            "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+          },
+          {
+            "name": "loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace. - When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval (e.g. \"check the deploy every 5 minutes\", \"keep running /babysit-prs\"). Do NOT invoke for one-off tasks."
+          },
+          {
+            "name": "claude-api",
+            "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER — read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file)."
+          },
+          {
+            "name": "workflow-authoring",
+            "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one."
+          },
+          {
+            "name": "run",
+            "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library)."
+          },
+          {
+            "name": "plugin-authoring",
+            "description": "Make a mod: a live pane, band, status line, toast or hook inside Claude Code (terminal or desktop Code tab), written as a plugin of function hooks that hot-reloads in this session. Load before writing or debugging a hooks module."
+          },
+          {
+            "name": "init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation"
+          },
+          {
+            "name": "security-review",
+            "description": "Complete a security review of the pending changes on the current branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#33",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1342,7 +1638,7 @@
       }
     },
     {
-      "id": "#30",
+      "id": "#34",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1388,7 +1684,7 @@
       }
     },
     {
-      "id": "#31",
+      "id": "#35",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1436,7 +1732,7 @@
       }
     },
     {
-      "id": "#32",
+      "id": "#36",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1476,7 +1772,7 @@
       }
     },
     {
-      "id": "#33",
+      "id": "#37",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1522,7 +1818,7 @@
       }
     },
     {
-      "id": "#34",
+      "id": "#38",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -1561,7 +1857,7 @@
       }
     },
     {
-      "id": "#35",
+      "id": "#39",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1605,7 +1901,7 @@
       }
     },
     {
-      "id": "#36",
+      "id": "#40",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1651,7 +1947,7 @@
       }
     },
     {
-      "id": "#37",
+      "id": "#41",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1699,7 +1995,7 @@
       }
     },
     {
-      "id": "#38",
+      "id": "#42",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
@@ -1738,7 +2034,7 @@
       }
     },
     {
-      "id": "#39",
+      "id": "#43",
       "kind": "session_end",
       "entity_key": {
         "kind": "session",
@@ -1774,7 +2070,7 @@
       }
     },
     {
-      "id": "#40",
+      "id": "#44",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1814,7 +2110,7 @@
       }
     },
     {
-      "id": "#41",
+      "id": "#45",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1860,7 +2156,7 @@
       }
     },
     {
-      "id": "#42",
+      "id": "#46",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
@@ -1912,13 +2208,13 @@
   ],
   "sessions": [
     {
-      "id": "#43",
+      "id": "#47",
       "key": {
         "kind": "session",
         "runtime": "claude",
         "session": "4352afa6-8fc1-487e-b0ea-82636874ec67"
       },
-      "run": "#44",
+      "run": "#48",
       "surface": {
         "surface": "claude_sdk",
         "basis": "observed"
@@ -1941,7 +2237,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 1,
+      "unknown_records": 0,
       "cost_state": {
         "total_cost_usd": 0.0002792,
         "total_duration_ms": 413,
@@ -1963,13 +2259,13 @@
       "last_event_at": "<time>"
     },
     {
-      "id": "#45",
+      "id": "#49",
       "key": {
         "kind": "session",
         "runtime": "claude",
         "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425"
       },
-      "run": "#46",
+      "run": "#50",
       "surface": {
         "surface": "claude_sdk",
         "basis": "observed"
@@ -1982,7 +2278,7 @@
         {
           "launch": "fork",
           "at": "<time>",
-          "fact": "#19"
+          "fact": "#21"
         }
       ],
       "state": "ended",
@@ -1992,7 +2288,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 2,
+      "unknown_records": 0,
       "cost_state": {
         "total_cost_usd": 0.0005584,
         "total_duration_ms": 584,
@@ -2016,7 +2312,7 @@
   ],
   "agents": [
     {
-      "id": "#47",
+      "id": "#51",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -2025,8 +2321,8 @@
           "kind": "main"
         }
       },
-      "session": "#43",
-      "run": "#44",
+      "session": "#47",
+      "run": "#48",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -2043,7 +2339,7 @@
       "ended_at": null
     },
     {
-      "id": "#48",
+      "id": "#52",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -2052,8 +2348,8 @@
           "kind": "main"
         }
       },
-      "session": "#45",
-      "run": "#46",
+      "session": "#49",
+      "run": "#50",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -2072,16 +2368,16 @@
   ],
   "actions": [
     {
-      "id": "#49",
+      "id": "#53",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "4352afa6-8fc1-487e-b0ea-82636874ec67",
         "call": "toolu_aang_fork-base_0_0"
       },
-      "session": "#43",
-      "agent": "#47",
-      "run": "#44",
+      "session": "#47",
+      "agent": "#51",
+      "run": "#48",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -2094,27 +2390,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#14"
+          "#16"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#12",
-      "output_fact": "#14",
+      "input_fact": "#14",
+      "output_fact": "#16",
       "inherited": false
     },
     {
-      "id": "#50",
+      "id": "#54",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
         "call": "toolu_aang_fork-base_0_0"
       },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#49",
+      "agent": "#52",
+      "run": "#50",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -2127,27 +2423,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#31"
+          "#35"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#29",
-      "output_fact": "#31",
+      "input_fact": "#33",
+      "output_fact": "#35",
       "inherited": true
     },
     {
-      "id": "#51",
+      "id": "#55",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
         "call": "toolu_aang_fork-branch_0_0"
       },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#49",
+      "agent": "#52",
+      "run": "#50",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -2160,126 +2456,30 @@
           "kind": "observed"
         },
         "evidence": [
-          "#37"
+          "#41"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#35",
-      "output_fact": "#37",
+      "input_fact": "#39",
+      "output_fact": "#41",
       "inherited": false
     }
   ],
   "questions": [],
   "usage": [
     {
-      "id": "#52",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "4352afa6-8fc1-487e-b0ea-82636874ec67",
-        "usage": "msg_aang_1"
-      },
-      "session": "#43",
-      "agent": "#47",
-      "run": "#44",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#53",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "4352afa6-8fc1-487e-b0ea-82636874ec67",
-        "usage": "msg_aang_2"
-      },
-      "session": "#43",
-      "agent": "#47",
-      "run": "#44",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": false,
-      "at": "<time>"
-    },
-    {
-      "id": "#54",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
-        "usage": "msg_aang_1"
-      },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": true,
-      "at": "<time>"
-    },
-    {
-      "id": "#55",
-      "key": {
-        "kind": "usage",
-        "runtime": "claude",
-        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
-        "usage": "msg_aang_2"
-      },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
-      "model": "claude-opus-5-5",
-      "tokens": {
-        "uncached_input_tokens": 12,
-        "cache_read_input_tokens": 8,
-        "cache_write_input_tokens": 2,
-        "output_tokens": 4,
-        "reasoning_output_tokens": 0
-      },
-      "output_lower_bound": false,
-      "synthetic": false,
-      "inherited": true,
-      "at": "<time>"
-    },
-    {
       "id": "#56",
       "key": {
         "kind": "usage",
         "runtime": "claude",
-        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
-        "usage": "msg_aang_3"
+        "session": "4352afa6-8fc1-487e-b0ea-82636874ec67",
+        "usage": "msg_aang_1"
       },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#47",
+      "agent": "#51",
+      "run": "#48",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2298,12 +2498,108 @@
       "key": {
         "kind": "usage",
         "runtime": "claude",
+        "session": "4352afa6-8fc1-487e-b0ea-82636874ec67",
+        "usage": "msg_aang_2"
+      },
+      "session": "#47",
+      "agent": "#51",
+      "run": "#48",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#58",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
+        "usage": "msg_aang_1"
+      },
+      "session": "#49",
+      "agent": "#52",
+      "run": "#50",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": true,
+      "at": "<time>"
+    },
+    {
+      "id": "#59",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
+        "usage": "msg_aang_2"
+      },
+      "session": "#49",
+      "agent": "#52",
+      "run": "#50",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": true,
+      "at": "<time>"
+    },
+    {
+      "id": "#60",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
+        "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
+        "usage": "msg_aang_3"
+      },
+      "session": "#49",
+      "agent": "#52",
+      "run": "#50",
+      "model": "claude-opus-5-5",
+      "tokens": {
+        "uncached_input_tokens": 12,
+        "cache_read_input_tokens": 8,
+        "cache_write_input_tokens": 2,
+        "output_tokens": 4,
+        "reasoning_output_tokens": 0
+      },
+      "output_lower_bound": false,
+      "synthetic": false,
+      "inherited": false,
+      "at": "<time>"
+    },
+    {
+      "id": "#61",
+      "key": {
+        "kind": "usage",
+        "runtime": "claude",
         "session": "ef1351d4-0391-48c7-a9c9-6917ae77d425",
         "usage": "msg_aang_4"
       },
-      "session": "#45",
-      "agent": "#48",
-      "run": "#46",
+      "session": "#49",
+      "agent": "#52",
+      "run": "#50",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -2319,45 +2615,14 @@
     }
   ],
   "artifacts": [],
-  "gaps": [
-    {
-      "id": "#58",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "16a9f1cda16b00399b189102035b43e7"
-      },
-      "kind": "unknown_records",
-      "run": "#46",
-      "session": "#45",
-      "stream": null,
-      "details": "2 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
-    },
-    {
-      "id": "#59",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "2a9dc1f20a4356bc6e174c2801bbae69"
-      },
-      "kind": "unknown_records",
-      "run": "#44",
-      "session": "#43",
-      "stream": null,
-      "details": "1 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
-    }
-  ],
+  "gaps": [],
   "removals": [],
   "runs": [
     {
       "run": {
-        "id": "#44",
+        "id": "#48",
         "runtime": "claude",
-        "root_session": "#43",
+        "root_session": "#47",
         "goal": {
           "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
           "fact": "#11"
@@ -2371,9 +2636,9 @@
         {
           "kind": "run",
           "value": {
-            "id": "#44",
+            "id": "#48",
             "runtime": "claude",
-            "root_session": "#43",
+            "root_session": "#47",
             "goal": {
               "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
               "fact": "#11"
@@ -2387,20 +2652,20 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#43",
-            "run": "#44"
+            "session": "#47",
+            "run": "#48"
           }
         }
       ]
     },
     {
       "run": {
-        "id": "#46",
+        "id": "#50",
         "runtime": "claude",
-        "root_session": "#45",
+        "root_session": "#49",
         "goal": {
           "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
-          "fact": "#34"
+          "fact": "#38"
         },
         "brief": null,
         "start_pruned": false,
@@ -2411,32 +2676,32 @@
         {
           "kind": "link",
           "value": {
-            "id": "#60",
-            "run": "#46",
+            "id": "#62",
+            "run": "#50",
             "basis": {
               "kind": "observed"
             },
             "evidence": [
-              "#11",
-              "#19",
-              "#26"
+              "#13",
+              "#21",
+              "#28"
             ],
             "kind": "common_origin",
             "sessions": [
-              "#43"
+              "#47"
             ],
-            "parent_candidate": "#43"
+            "parent_candidate": "#47"
           }
         },
         {
           "kind": "run",
           "value": {
-            "id": "#46",
+            "id": "#50",
             "runtime": "claude",
-            "root_session": "#45",
+            "root_session": "#49",
             "goal": {
               "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
-              "fact": "#34"
+              "fact": "#38"
             },
             "brief": null,
             "start_pruned": false,
@@ -2447,8 +2712,8 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#45",
-            "run": "#46"
+            "session": "#49",
+            "run": "#50"
           }
         }
       ]

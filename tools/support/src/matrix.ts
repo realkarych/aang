@@ -9,8 +9,10 @@ import {
   type SupportRow,
   type SupportScenarios,
   supportKeyText,
+  supportRowOf,
 } from '@aang/contract'
 import { driverOf, type RecordingManifest, scenarios as catalog, supportsOs } from '@aang/record'
+import { byKeyText, checklistSurfaces, OwnerChecklistName, sameKey, type SupportVerification } from './verification.js'
 
 export interface RecordingOutcome {
   readonly manifest: RecordingManifest
@@ -20,6 +22,7 @@ export interface RecordingOutcome {
 export interface MatrixOptions {
   readonly outcomes: readonly RecordingOutcome[]
   readonly previous: SupportMatrix | null
+  readonly verification: SupportVerification
   readonly contractScenarios: (manifest: Pick<RecordingManifest, 'runtime' | 'scenario'>) => boolean
 }
 
@@ -37,12 +40,22 @@ const desktopSurfaces: readonly Surface[] = ['claude_desktop', 'codex_desktop']
 export const supportGaps = {
   desktopOnWindows: 'Desktop on Windows is not verified in the MVP (ADR-0013, decision 3)',
   placement: 'the placement is not verified until the surface matrix check (Q.1)',
+  placementFails: 'the placement check fails (Q.1)',
   noRecordings: 'no reference recordings on this OS',
   failed: (names: readonly string[]) => `the contract run fails on: ${names.join(', ')}`,
   missing: (names: readonly string[]) => `no reference recordings of: ${names.join(', ')}`,
   userScenarios: 'user scenarios are not verified (E2E 1 and 4)',
   userScenariosFail: (names: readonly string[]) => `user scenarios fail: ${names.join(', ')}`,
+  desktopChecklist: 'the owner checklist of Desktop (spike, section 11) is not passed',
+  desktopChecklistFails: 'the owner checklist of Desktop (spike, section 11) fails',
+  tuiChecklist: 'the owner checklist of the interactive TUI (spike, section 6, a–h) is not passed',
+  tuiChecklistFails: 'the owner checklist of the interactive TUI (spike, section 6, a–h) fails',
 } as const
+
+const checklistGaps: Readonly<Record<OwnerChecklistName, { readonly missing: string; readonly fails: string }>> = {
+  desktop: { missing: supportGaps.desktopChecklist, fails: supportGaps.desktopChecklistFails },
+  tui: { missing: supportGaps.tuiChecklist, fails: supportGaps.tuiChecklistFails },
+}
 
 const userScenarios: readonly (readonly [Exclude<keyof SupportScenarios, ContractField>, string])[] = [
   ['during_work', 'E2E 1'],
@@ -72,11 +85,6 @@ const keyOf = (manifest: RecordingManifest): SupportKey => ({
   engine_version: manifest.engine_version,
 })
 
-const byKeyText = (left: SupportKey, right: SupportKey): number => {
-  const [a, b] = [supportKeyText(left), supportKeyText(right)]
-  return a < b ? -1 : a > b ? 1 : 0
-}
-
 const sameEngine = (manifest: RecordingManifest, key: SupportKey): boolean =>
   manifest.runtime === key.runtime &&
   manifest.surface === key.surface &&
@@ -100,11 +108,37 @@ const latestAppVersion = (outcomes: readonly RecordingOutcome[]): string | null 
     .filter((manifest) => manifest.app_version !== null)
     .toSorted((left, right) => Date.parse(right.recorded_at) - Date.parse(left.recorded_at))[0]?.app_version ?? null
 
+const placementGaps = (key: SupportKey, { placements }: SupportVerification): string[] => {
+  if (key.placement === 'local') {
+    return []
+  }
+  const check = placements.find((entry) => sameKey(entry, key))
+  return check === undefined ? [supportGaps.placement] : check.result === 'passed' ? [] : [supportGaps.placementFails]
+}
+
+const requiredChecklist = ({ surface, os }: SupportKey): OwnerChecklistName | null =>
+  desktopSurfaces.includes(surface) && os === 'windows'
+    ? null
+    : (OwnerChecklistName.options.find((checklist) => checklistSurfaces[checklist].includes(surface)) ?? null)
+
+const ownerChecklistGaps = (key: SupportKey, { owner_checklists: checklists }: SupportVerification): string[] => {
+  const checklist = requiredChecklist(key)
+  if (checklist === null) {
+    return []
+  }
+  const entry = checklists.find((candidate) => candidate.checklist === checklist && sameKey(candidate, key))
+  return entry?.result === 'passed' ? [] : [entry === undefined ? checklistGaps[checklist].missing : checklistGaps[checklist].fails]
+}
+
+const userScenarioSource = (key: SupportKey, previous: SupportRow | null, options: MatrixOptions): SupportRow | null =>
+  key.placement === 'local' || options.previous === null ? previous : (supportRowOf(options.previous, { ...key, placement: 'local' }) ?? previous)
+
 const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOptions): SupportRow => {
   const own = options.outcomes.filter(({ manifest }) => sameEngine(manifest, key))
+  const userSource = userScenarioSource(key, previous, options)
   const scenarios: SupportScenarios = {
-    during_work: previous?.scenarios.during_work ?? notRun.during_work,
-    after_iteration: previous?.scenarios.after_iteration ?? notRun.after_iteration,
+    during_work: userSource?.scenarios.during_work ?? notRun.during_work,
+    after_iteration: userSource?.scenarios.after_iteration ?? notRun.after_iteration,
     resume: fieldResult(own, contractFields.resume),
     compaction: fieldResult(own, contractFields.compaction),
     child_sessions: fieldResult(own, contractFields.child_sessions),
@@ -116,12 +150,13 @@ const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOpt
   const missing = requiredScenarios(key.surface, key.os, options.contractScenarios).filter((name) => !recorded.has(name)).sort()
   const reasons = [
     ...(desktopSurfaces.includes(key.surface) && key.os === 'windows' ? [supportGaps.desktopOnWindows] : []),
-    ...(key.placement === 'local' ? [] : [supportGaps.placement]),
+    ...placementGaps(key, options.verification),
     ...(own.length === 0 ? [supportGaps.noRecordings] : []),
     ...(failed.length === 0 ? [] : [supportGaps.failed(failed)]),
     ...(own.length === 0 || missing.length === 0 ? [] : [supportGaps.missing(missing)]),
     ...(failedUser.length === 0 ? [] : [supportGaps.userScenariosFail(failedUser)]),
     ...(userScenarios.some(([field]) => scenarios[field] === 'not_run') ? [supportGaps.userScenarios] : []),
+    ...ownerChecklistGaps(key, options.verification),
   ]
   const claimed = previous !== null && previous.status !== 'unverified' && reasons.length === 0 ? previous : null
   return {
@@ -148,7 +183,11 @@ export const generateMatrix = (options: MatrixOptions): SupportMatrix => {
     }
   }
   const previous = new Map((options.previous?.rows ?? []).map((row) => [supportKeyText(row), row]))
-  for (const { runtime, surface, os, placement, engine_version } of previous.values()) {
+  for (const { runtime, surface, os, placement, engine_version } of [
+    ...previous.values(),
+    ...options.verification.placements,
+    ...options.verification.owner_checklists,
+  ]) {
     add({ runtime, surface, os, placement, engine_version })
   }
   return {
@@ -165,22 +204,34 @@ const keyOfRow = ({ runtime, surface, os, placement, engine_version }: SupportKe
   engine_version,
 })
 
-export const withObserver = (matrix: SupportMatrix | null, key: SupportKey, observer: ObserverIsolationResult): SupportMatrix => {
+export const withObserver = (
+  matrix: SupportMatrix | null,
+  key: SupportKey,
+  observer: ObserverIsolationResult,
+  verification: SupportVerification,
+): SupportMatrix => {
   const text = supportKeyText(key)
   const rows = matrix?.rows ?? []
   const row =
     rows.find((candidate) => supportKeyText(candidate) === text) ??
-    rowFor(keyOfRow(key), null, { outcomes: [], previous: null, contractScenarios: () => false })
+    rowFor(keyOfRow(key), null, { outcomes: [], previous: matrix, verification, contractScenarios: () => false })
   return {
     format: supportMatrixFormat,
     rows: [...rows.filter((candidate) => supportKeyText(candidate) !== text), { ...row, observer }].sort(byKeyText),
   }
 }
 
-export const importObservers = (matrix: SupportMatrix | null, sources: readonly SupportMatrix[]): SupportMatrix =>
+export const importObservers = (
+  matrix: SupportMatrix | null,
+  sources: readonly SupportMatrix[],
+  verification: SupportVerification,
+): SupportMatrix =>
   sources
     .flatMap(({ rows }) => rows)
     .filter(({ observer }) => observer.admission !== 'not_run' || observer.cross_session_inbound !== 'not_run')
-    .reduce<SupportMatrix>((merged, row) => withObserver(merged, row, row.observer), matrix ?? { format: supportMatrixFormat, rows: [] })
+    .reduce<SupportMatrix>(
+      (merged, row) => withObserver(merged, row, row.observer, verification),
+      matrix ?? { format: supportMatrixFormat, rows: [] },
+    )
 
 export const serializeMatrix = (matrix: SupportMatrix): string => `${JSON.stringify(matrix, null, 2)}\n`

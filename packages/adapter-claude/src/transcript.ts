@@ -14,8 +14,10 @@ import { callStarted } from './calls.js'
 import { compactionTrigger } from './compaction.js'
 import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
+import { HookRunAttachment, hookRunAttachmentTypes, hookRunFacts, StopHookSummary, stopHookFacts } from './hook-runs.js'
 import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
-import { actionKey, messageKey, ownerKey, sessionKey } from './keys.js'
+import { actionKey, agentKey, messageKey, ownerKey, sessionKey } from './keys.js'
+import { DefinitionListing, definitionListingFacts, definitionListingTypes } from './listings.js'
 import { questionsAnswered } from './questions.js'
 import { epochFromIso } from './time.js'
 import { exitCode, outputText, persistedOutputPath } from './tools.js'
@@ -96,6 +98,16 @@ const SystemLine = Line.extend({ uuid: name, subtype: name })
 
 const QueueOperationLine = Line.extend({ operation: name, content: optionalText })
 
+const HookRunLine = Line.extend({ attachment: HookRunAttachment })
+
+const DefinitionListingLine = Line.extend({ attachment: DefinitionListing })
+
+const StopHookSummaryLine = Line.extend(StopHookSummary.shape)
+
+const PromptSnapshotLine = Line.extend({
+  attachment: z.object({ type: z.literal('prompt_snapshot'), systemPrompt: z.array(z.string()) }),
+})
+
 const CostStateLine = Line.extend(CostState.shape)
 
 interface LineContext {
@@ -129,18 +141,16 @@ const contextAttachmentTypes: ReadonlySet<string> = new Set([
   'model',
   'deferred_tools_delta',
   'deferred_tools_record',
-  'agent_listing_delta',
   'mcp_instructions_delta',
-  'skill_listing',
   'total_tokens_reminder',
   'budget_usd',
   'session_context',
   'date',
   'credential_org',
   'remote_session_change',
-  'prompt_snapshot',
   'plan_mode',
   'plan_mode_exit',
+  'command_permissions',
 ])
 
 const finalStopReason = 'end_turn'
@@ -408,6 +418,12 @@ const parseCostState = lineParser('cost state', CostStateLine, (line, { origin, 
   ]),
 )
 
+const parseStopHookSummary = lineParser('stop hook summary', StopHookSummaryLine, (line, { origin, sourceTs }) =>
+  (line.agentId ?? null) === null
+    ? parsed(sourceTs, stopHookFacts(origin, sessionKey(line.sessionId), line))
+    : unknown(sourceTs),
+)
+
 const parseMetadata: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
 
 const parseAgentsKilled = lineParser('agents killed', SystemLine, (line, { origin, sourceTs }) =>
@@ -424,6 +440,7 @@ const parseAgentsKilled = lineParser('agents killed', SystemLine, (line, { origi
 
 const systemParsers: ReadonlyMap<string, LineParser> = new Map([
   ['compact_boundary', parseCompactBoundary],
+  ['stop_hook_summary', parseStopHookSummary],
   ['agents_killed', parseAgentsKilled],
   ['turn_duration', parseMetadata],
 ])
@@ -433,13 +450,47 @@ const parseSystem: LineParser = (payload, record, sourceTs) => {
   return parser === undefined ? unknown(sourceTs) : parser(payload, record, sourceTs)
 }
 
-const parseAttachment: LineParser = (payload, _record, sourceTs) => {
+const parseHookRun = lineParser('hook attachment', HookRunLine, (line, { origin, sourceTs }) =>
+  parsed(sourceTs, hookRunFacts(origin, ownerKey(line.sessionId, line.agentId ?? null), line.attachment)),
+)
+
+const parseDefinitionListing = lineParser('definition listing', DefinitionListingLine, (line, { origin, sourceTs }) =>
+  parsed(sourceTs, definitionListingFacts(origin, ownerKey(line.sessionId, line.agentId ?? null), line.attachment)),
+)
+
+const parsePromptSnapshot = lineParser('prompt snapshot', PromptSnapshotLine, (line, { origin, sourceTs }) => {
+  const agent = line.agentId ?? null
+  const [prompt] = line.attachment.systemPrompt
+  return parsed(
+    sourceTs,
+    agent === null || prompt === undefined
+      ? []
+      : [
+          fact(origin, {
+            kind: 'agent_prompt',
+            entity_key: agentKey(line.sessionId, agent),
+            speaker: 'runtime',
+            urgent: false,
+            payload: { text: prompt },
+          }),
+        ],
+  )
+})
+
+const parseContextAttachment: LineParser = (_payload, _record, sourceTs) => parsed(sourceTs, [])
+
+const attachmentParsers: ReadonlyMap<string, LineParser> = new Map([
+  ...[...contextAttachmentTypes].map((type): [string, LineParser] => [type, parseContextAttachment]),
+  ...hookRunAttachmentTypes.map((type): [string, LineParser] => [type, parseHookRun]),
+  ...definitionListingTypes.map((type): [string, LineParser] => [type, parseDefinitionListing]),
+  ['prompt_snapshot', parsePromptSnapshot],
+])
+
+const parseAttachment: LineParser = (payload, record, sourceTs) => {
   const { attachment } = payload
-  return isJsonObject(attachment) &&
-    typeof attachment.type === 'string' &&
-    contextAttachmentTypes.has(attachment.type)
-    ? parsed(sourceTs, [])
-    : unknown(sourceTs)
+  const parser =
+    isJsonObject(attachment) && typeof attachment.type === 'string' ? attachmentParsers.get(attachment.type) : undefined
+  return parser === undefined ? unknown(sourceTs) : parser(payload, record, sourceTs)
 }
 
 const lineParsers: ReadonlyMap<string, LineParser> = new Map([

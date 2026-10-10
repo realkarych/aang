@@ -1,4 +1,4 @@
-import { type Agent, endpoints, type RunId, type RunSnapshot, type Runtime } from '@aang/contract'
+import { type Agent, endpoints, type RunId, type RunSnapshot, type Runtime, type Surface } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import {
   agentStageTitle,
@@ -10,19 +10,17 @@ import {
 } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures.js'
-import { recording, threadsOf } from './recordings.js'
+import { threadsOf, variantRecording } from './recordings.js'
 import { fact, sessionOf } from './screens.js'
+import { duringWorkScenario, duringWorkVariants, skippedHere, type SurfaceVariant } from './variants.js'
 
 interface Delegate {
   readonly description: string
   readonly command: string
 }
 
-interface Variant {
-  readonly surface: string
+interface Variant extends SurfaceVariant {
   readonly origin: string
-  readonly runtime: Runtime
-  readonly version: string
   readonly agentType: string
   readonly firstEvent: string
   readonly early: string
@@ -43,11 +41,19 @@ const codexDelegates = [
   { description: '/root/builder', command: 'echo builder' },
 ] as const
 
-const claudeVariant = (surface: string, origin: string, version: string): Variant => ({
-  surface,
-  origin: `${origin} ${version}`,
-  runtime: 'claude',
-  version,
+const origins: Readonly<Record<Surface, string>> = {
+  claude_cli: 'Claude Code CLI',
+  claude_desktop: 'Claude Desktop',
+  claude_sdk: 'Claude Agent SDK',
+  codex_tui: 'Codex TUI',
+  codex_exec: 'codex exec',
+  codex_desktop: 'Codex Desktop (предположительно)',
+  codex_sdk: 'Codex SDK',
+}
+
+const claudeVariant = (variant: SurfaceVariant): Variant => ({
+  ...variant,
+  origin: `${origins[variant.surface]} ${variant.version}`,
   agentType: 'general-purpose',
   firstEvent: 'solo-finished',
   early: '1 подэтап',
@@ -56,11 +62,9 @@ const claudeVariant = (surface: string, origin: string, version: string): Varian
   inspected: claudeDelegates[1],
 })
 
-const codexVariant = (surface: string, origin: string, version: string): Variant => ({
-  surface,
-  origin: `${origin} ${version}`,
-  runtime: 'codex',
-  version,
+const codexVariant = (variant: SurfaceVariant): Variant => ({
+  ...variant,
+  origin: `${origins[variant.surface]} ${variant.version}`,
   agentType: 'default',
   firstEvent: 'child-finished',
   early: '2 подэтапа',
@@ -69,13 +73,9 @@ const codexVariant = (surface: string, origin: string, version: string): Variant
   inspected: codexDelegates[1],
 })
 
-const variants: readonly Variant[] = [
-  claudeVariant('claude_sdk', 'Claude Agent SDK', '2.1.289'),
-  claudeVariant('claude_desktop', 'Claude Desktop', '2.1.286'),
-  codexVariant('codex_exec', 'codex exec', '0.160.0'),
-  codexVariant('codex_sdk', 'Codex SDK', '0.160.0'),
-  codexVariant('codex_desktop', 'Codex Desktop (предположительно)', '0.159.2'),
-]
+const variants: readonly Variant[] = duringWorkVariants.map((variant) =>
+  variant.runtime === 'claude' ? claudeVariant(variant) : codexVariant(variant),
+)
 
 const runtimeName: Readonly<Record<Runtime, string>> = { claude: 'Claude Code', codex: 'Codex' }
 
@@ -189,88 +189,93 @@ const participantName = ({ runtime, agentType }: Variant, agent: Agent): string 
 const mapVersion = async (page: Page): Promise<number> => Number(await fact(page, 'Версия карты').textContent())
 
 for (const variant of variants) {
-  const { surface, runtime, version, inspected: chosen } = variant
+  const { surface, runtime, inspected: chosen } = variant
 
-  test(`live observation of a subagent and parallel agents on ${variant.origin}: the map nests a stage per delegated agent, the inspector shows its work and its grounds lead to the original event in the hook and in the file of the agent (E2E 1, ${surface})`, async ({
-    page,
-    player,
-    daemon,
-    otelEndpoint,
-  }) => {
-    test.setTimeout(180_000)
-    await admitted(daemon, runtime)
-    const manifest = await loadManifest(recording(runtime, version, surface, 'subagents'))
-    const session = rootSession(runtime, manifest)
-    const run = runId({ kind: 'session', runtime, session })
-    const played = await player(manifest, { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() })
+  test.describe(() => {
+    const reason = skippedHere(variant)
+    test.skip(reason !== undefined, reason)
 
-    await page.goto(`/?run=${run}`)
-    await played.play({ until: variant.firstEvent })
-    const main = stage(page, mainStageTitle)
-    await expect(main).toContainText(variant.early, observed)
-    await expect(sessionOf(page, session)).toContainText(variant.origin)
-    const early = await mapVersion(page)
+    test(`live observation of a subagent and parallel agents on ${variant.origin}: the map nests a stage per delegated agent, the inspector shows its work and its grounds lead to the original event in the hook and in the file of the agent (E2E 1, ${surface})`, async ({
+      page,
+      player,
+      daemon,
+      otelEndpoint,
+    }) => {
+      test.setTimeout(180_000)
+      await admitted(daemon, runtime)
+      const manifest = await loadManifest(variantRecording(variant, duringWorkScenario))
+      const session = rootSession(runtime, manifest)
+      const run = runId({ kind: 'session', runtime, session })
+      const played = await player(manifest, { timeScale: 0, recordTime: 'playback', otlp: await otelEndpoint() })
 
-    await played.play()
-    await expect(main).toContainText(variant.whole, observed)
-    const staged = await interpreted(page, run, variant.delegates)
-    await expect.poll(async () => mapVersion(page)).toBeGreaterThan(early)
-    await expect(sessionOf(page, session)).toContainText(variant.origin)
+      await page.goto(`/?run=${run}`)
+      await played.play({ until: variant.firstEvent })
+      const main = stage(page, mainStageTitle)
+      await expect(main).toContainText(variant.early, observed)
+      await expect(sessionOf(page, session)).toContainText(variant.origin)
+      const early = await mapVersion(page)
 
-    const outer = await box(main)
-    for (const delegate of variant.delegates) {
-      const card = stage(page, agentStageTitle(agentOf(staged, delegate)))
-      await expect(card).toContainText(`агент: ${variant.agentType}`)
-      await expect(card).toContainText('1 действие')
-      const inner = await box(card)
-      expect(inner.x).toBeGreaterThan(outer.x)
-      expect(inner.y).toBeGreaterThan(outer.y)
-      expect(inner.right).toBeLessThan(outer.right)
-      expect(inner.bottom).toBeLessThanOrEqual(outer.bottom)
-    }
+      await played.play()
+      await expect(main).toContainText(variant.whole, observed)
+      const staged = await interpreted(page, run, variant.delegates)
+      await expect.poll(async () => mapVersion(page)).toBeGreaterThan(early)
+      await expect(sessionOf(page, session)).toContainText(variant.origin)
 
-    const agent = agentOf(staged, chosen)
-    const title = agentStageTitle(agent)
-    await stage(page, title).getByRole('button', { name: title, exact: true }).click()
-    const heading = inspector(page).getByRole('heading', { level: 2 })
-    await expect(heading).toHaveText(title)
-    await expect(
-      inspector(page)
-        .locator('dl > div')
-        .filter({ has: page.getByRole('term').getByText('Ожидаемый результат', { exact: true }) })
-        .getByRole('definition'),
-    ).toHaveText(chosen.description)
-    const work = section(page, 'Участники и действия')
-    await expect(work.getByRole('list', { name: 'Агенты этапа' })).toContainText(participantName(variant, agent))
-    await expect(work.getByRole('list', { name: 'Действия этапа' })).toContainText(chosen.command)
+      const outer = await box(main)
+      for (const delegate of variant.delegates) {
+        const card = stage(page, agentStageTitle(agentOf(staged, delegate)))
+        await expect(card).toContainText(`агент: ${variant.agentType}`)
+        await expect(card).toContainText('1 действие')
+        const inner = await box(card)
+        expect(inner.x).toBeGreaterThan(outer.x)
+        expect(inner.y).toBeGreaterThan(outer.y)
+        expect(inner.right).toBeLessThan(outer.right)
+        expect(inner.bottom).toBeLessThanOrEqual(outer.bottom)
+      }
 
-    await section(page, 'Связи').getByRole('link', { name: mainStageTitle, exact: true }).click()
-    await expect(heading).toHaveText(mainStageTitle)
-    const substages = section(page, 'Связи').getByRole('link', { name: new RegExp(`^${variant.agentType} \\(`) })
-    await expect(substages).toHaveCount(variant.delegates.length)
-    await section(page, 'Связи').getByRole('link', { name: title, exact: true }).click()
-    await expect(heading).toHaveText(title)
+      const agent = agentOf(staged, chosen)
+      const title = agentStageTitle(agent)
+      await stage(page, title).getByRole('button', { name: title, exact: true }).click()
+      const heading = inspector(page).getByRole('heading', { level: 2 })
+      await expect(heading).toHaveText(title)
+      await expect(
+        inspector(page)
+          .locator('dl > div')
+          .filter({ has: page.getByRole('term').getByText('Ожидаемый результат', { exact: true }) })
+          .getByRole('definition'),
+      ).toHaveText(chosen.description)
+      const work = section(page, 'Участники и действия')
+      await expect(work.getByRole('list', { name: 'Агенты этапа' })).toContainText(participantName(variant, agent))
+      await expect(work.getByRole('list', { name: 'Действия этапа' })).toContainText(chosen.command)
 
-    const history = section(page, 'История')
-    const assignments = history.getByRole('button', { name: /^Версия \d+, привязка действий: \d+ факт/ })
-    await expect(assignments.first()).toBeVisible()
-    for (const grounds of await assignments.all()) {
-      await grounds.click()
-    }
-    await expect(history.getByText(/^Загрузка/)).toHaveCount(0)
-    const starts = history.getByRole('listitem').filter({ hasText: /^Начало действия/ }).filter({ hasText: chosen.command })
-    await expect(starts).not.toHaveCount(0)
-    for (const start of await starts.all()) {
-      await start.getByRole('button', { name: 'Сырая запись' }).click()
-    }
-    const raws = history.getByRole('region', { name: /^Сырая запись: Начало действия/ })
-    await expect(history.getByText(/^Загрузка/)).toHaveCount(0)
-    const fromFile = raws.filter({ hasText: `${ownFile(agent)}, строка` }).first()
-    await expect(fromFile).toContainText(`${fileChannel[runtime]}, ${runtimeName[runtime]}`)
-    await expect(fromFile.locator('pre')).toContainText(chosen.command)
-    const fromHook = raws.filter({ hasText: 'файл spool' }).first()
-    await expect(fromHook).toContainText(`hook, ${runtimeName[runtime]}`)
-    await expect(fromHook.locator('pre')).toContainText('"hook_event_name": "PreToolUse"')
-    await expect(fromHook.locator('pre')).toContainText(chosen.command)
+      await section(page, 'Связи').getByRole('link', { name: mainStageTitle, exact: true }).click()
+      await expect(heading).toHaveText(mainStageTitle)
+      const substages = section(page, 'Связи').getByRole('link', { name: new RegExp(`^${variant.agentType} \\(`) })
+      await expect(substages).toHaveCount(variant.delegates.length)
+      await section(page, 'Связи').getByRole('link', { name: title, exact: true }).click()
+      await expect(heading).toHaveText(title)
+
+      const history = section(page, 'История')
+      const assignments = history.getByRole('button', { name: /^Версия \d+, привязка действий: \d+ факт/ })
+      await expect(assignments.first()).toBeVisible()
+      for (const grounds of await assignments.all()) {
+        await grounds.click()
+      }
+      await expect(history.getByText(/^Загрузка/)).toHaveCount(0)
+      const starts = history.getByRole('listitem').filter({ hasText: /^Начало действия/ }).filter({ hasText: chosen.command })
+      await expect(starts).not.toHaveCount(0)
+      for (const start of await starts.all()) {
+        await start.getByRole('button', { name: 'Сырая запись' }).click()
+      }
+      const raws = history.getByRole('region', { name: /^Сырая запись: Начало действия/ })
+      await expect(history.getByText(/^Загрузка/)).toHaveCount(0)
+      const fromFile = raws.filter({ hasText: `${ownFile(agent)}, строка` }).first()
+      await expect(fromFile).toContainText(`${fileChannel[runtime]}, ${runtimeName[runtime]}`)
+      await expect(fromFile.locator('pre')).toContainText(chosen.command)
+      const fromHook = raws.filter({ hasText: 'файл spool' }).first()
+      await expect(fromHook).toContainText(`hook, ${runtimeName[runtime]}`)
+      await expect(fromHook.locator('pre')).toContainText('"hook_event_name": "PreToolUse"')
+      await expect(fromHook.locator('pre')).toContainText(chosen.command)
+    })
   })
 }

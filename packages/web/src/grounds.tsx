@@ -124,6 +124,12 @@ const positionOf = (position: RawPosition): ReactNode => {
           <code>{position.path}</code>, поток потерян
         </>
       )
+    case 'process_exited':
+      return (
+        <>
+          <code>{position.path}</code>, процесс {position.pid} завершился
+        </>
+      )
     case 'spool':
       return (
         <>

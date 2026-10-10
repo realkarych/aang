@@ -1,4 +1,4 @@
-import { endpoints, type RunId, type RunSnapshot, type Runtime } from '@aang/contract'
+import { endpoints, type RunId, type RunSnapshot, type Surface } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import {
   continuationQuestionText,
@@ -12,23 +12,12 @@ import {
 } from '@aang/testkit'
 import type { APIRequestContext, Page } from '@playwright/test'
 import { type AangFixtures, expect, type PlayerSettings, test } from './fixtures.js'
-import { recording } from './recordings.js'
+import { variantRecording } from './recordings.js'
 import { change, mark, markButton, since, sinceTab } from './screens.js'
-
-interface Surface {
-  readonly name: string
-  readonly surface: string
-  readonly version: string
-  readonly checkedOnWindows: boolean
-}
-
-interface CodexSurface extends Surface {
-  readonly finalAnswerMessagesAfterTheQuestion: readonly string[]
-}
+import { afterIterationVariants, skippedHere, type SurfaceVariant } from './variants.js'
 
 interface Continuation {
-  readonly runtime: Runtime
-  readonly surface: Surface
+  readonly variant: SurfaceVariant
   readonly scenario: string
   readonly firstToolAfterTheMark: string
 }
@@ -37,34 +26,22 @@ interface Observer {
   readonly setScenario: (scenario: ObserverScenarioPhase) => void
 }
 
-const claudeSurfaces: readonly Surface[] = [
-  { name: 'SDK', surface: 'claude_sdk', version: '2.1.289', checkedOnWindows: true },
-  { name: 'Desktop', surface: 'claude_desktop', version: '2.1.286', checkedOnWindows: false },
-]
+const surfaceNames: Readonly<Record<Surface, string>> = {
+  claude_cli: 'CLI',
+  claude_desktop: 'Desktop',
+  claude_sdk: 'SDK',
+  codex_tui: 'TUI',
+  codex_exec: 'CLI',
+  codex_desktop: 'Desktop',
+  codex_sdk: 'SDK',
+}
 
-const codexSurfaces: readonly CodexSurface[] = [
-  {
-    name: 'CLI',
-    surface: 'codex_exec',
-    version: '0.160.0',
-    checkedOnWindows: true,
-    finalAnswerMessagesAfterTheQuestion: [],
-  },
-  {
-    name: 'SDK',
-    surface: 'codex_sdk',
-    version: '0.160.0',
-    checkedOnWindows: true,
-    finalAnswerMessagesAfterTheQuestion: [],
-  },
-  {
-    name: 'Desktop',
-    surface: 'codex_desktop',
-    version: '0.159.2',
-    checkedOnWindows: false,
-    finalAnswerMessagesAfterTheQuestion: ['msg_aang_2', 'msg_aang_3'],
-  },
-]
+const finalAnswerMessagesAfterTheQuestion: Readonly<Partial<Record<Surface, readonly string[]>>> = {
+  codex_desktop: ['msg_aang_2', 'msg_aang_3'],
+}
+
+const playing = (runtime: SurfaceVariant['runtime'], scenario: string): readonly SurfaceVariant[] =>
+  afterIterationVariants.filter((variant) => variant.runtime === runtime && variant.scenarios.includes(scenario))
 
 const viewMark = 'view-mark'
 
@@ -127,14 +104,11 @@ const continuedAfterTheMark = async (
   page: Page,
   player: AangFixtures['player'],
   observer: Observer,
-  { runtime, surface: { surface, version }, scenario, firstToolAfterTheMark }: Continuation,
+  { variant, scenario, firstToolAfterTheMark }: Continuation,
 ): Promise<string> => {
-  const manifest = markedBefore(
-    await loadManifest(recording(runtime, version, surface, scenario)),
-    firstToolAfterTheMark,
-  )
+  const manifest = markedBefore(await loadManifest(variantRecording(variant, scenario)), firstToolAfterTheMark)
   const session = sessionOf(manifest)
-  const run = runId({ kind: 'session', runtime, session })
+  const run = runId({ kind: 'session', runtime: variant.runtime, session })
   const replay = await player(manifest, playback)
   await replay.play({ until: viewMark })
 
@@ -201,11 +175,9 @@ const expectCountedChanges = async (page: Page): Promise<void> => {
   await expect(sinceTab(page)).toHaveAccessibleName(/^С последнего просмотра, \d+ изменени/)
 }
 
-const checkedOnThisOs = ({ checkedOnWindows }: Surface): void => {
-  test.skip(
-    process.platform === 'win32' && !checkedOnWindows,
-    'Desktop on Windows is not checked in the MVP (ADR-0013, decision 3)',
-  )
+const checkedOnThisOs = (variant: SurfaceVariant): void => {
+  const reason = skippedHere(variant)
+  test.skip(reason !== undefined, reason)
 }
 
 test.use({ config: { watch: { all: true }, collector: { spoolScanIntervalMs: 250 } } })
@@ -216,18 +188,17 @@ test.describe('with the observer', () => {
   test.describe('of Claude', () => {
     test.use({ claudeScenario: observerScenarios['since-last-view'].before })
 
-    for (const surface of claudeSurfaces) {
+    for (const variant of playing('claude', 'tools')) {
       test.describe(() => {
-        checkedOnThisOs(surface)
+        checkedOnThisOs(variant)
 
-        test(`Claude ${surface.name}: a turn continued after the mark shows the replaced stage, the new result, the closed approvals, the observer question and the card to the original (E2E 4)`, async ({
+        test(`Claude ${surfaceNames[variant.surface]}: a turn continued after the mark shows the replaced stage, the new result, the closed approvals, the observer question and the card to the original (E2E 4)`, async ({
           page,
           player,
           fakeClaude,
         }) => {
           const session = await continuedAfterTheMark(page, player, fakeClaude, {
-            runtime: 'claude',
-            surface,
+            variant,
             scenario: 'tools',
             firstToolAfterTheMark: 'Write',
           })
@@ -252,18 +223,17 @@ test.describe('with the observer', () => {
   test.describe('of Codex', () => {
     test.use({ codexScenario: observerScenarios['since-last-view'].before })
 
-    for (const surface of codexSurfaces) {
+    for (const variant of playing('codex', 'tools')) {
       test.describe(() => {
-        checkedOnThisOs(surface)
+        checkedOnThisOs(variant)
 
-        test(`Codex ${surface.name}: a turn continued after the mark shows the replaced stage and the new result (E2E 4)`, async ({
+        test(`Codex ${surfaceNames[variant.surface]}: a turn continued after the mark shows the replaced stage and the new result (E2E 4)`, async ({
           page,
           player,
           fakeCodex,
         }) => {
           const session = await continuedAfterTheMark(page, player, fakeCodex, {
-            runtime: 'codex',
-            surface,
+            variant,
             scenario: 'tools',
             firstToolAfterTheMark: 'apply_patch',
           })
@@ -275,18 +245,17 @@ test.describe('with the observer', () => {
       })
     }
 
-    for (const surface of codexSurfaces) {
+    for (const variant of playing('codex', 'question')) {
       test.describe(() => {
-        checkedOnThisOs(surface)
+        checkedOnThisOs(variant)
 
-        test(`Codex ${surface.name}: a question asked after the mark shows the replaced stage, the solver and observer questions and the final text cards to the original (E2E 4)`, async ({
+        test(`Codex ${surfaceNames[variant.surface]}: a question asked after the mark shows the replaced stage, the solver and observer questions and the final text cards to the original (E2E 4)`, async ({
           page,
           player,
           fakeCodex,
         }) => {
           await continuedAfterTheMark(page, player, fakeCodex, {
-            runtime: 'codex',
-            surface,
+            variant,
             scenario: 'question',
             firstToolAfterTheMark: 'request_user_input_async',
           })
@@ -298,12 +267,9 @@ test.describe('with the observer', () => {
           await expect(asked).toContainText('по правилу aang')
           await expectObserverQuestion(page)
           await expectCardsToOriginal(page, codexQuestionMessage)
-          const finalAnswers = await expectCardsToOriginal(
-            page,
-            codexFinalAnswer,
-            surface.finalAnswerMessagesAfterTheQuestion.length,
-          )
-          expect(finalAnswers.toSorted()).toEqual(surface.finalAnswerMessagesAfterTheQuestion)
+          const finalAnswers = finalAnswerMessagesAfterTheQuestion[variant.surface] ?? []
+          const shown = await expectCardsToOriginal(page, codexFinalAnswer, finalAnswers.length)
+          expect(shown.toSorted()).toEqual(finalAnswers)
           await expectCountedChanges(page)
         })
       })

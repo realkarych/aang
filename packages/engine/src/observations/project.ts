@@ -36,7 +36,8 @@ import { projectActions } from './actions.js'
 import { type QuestionAttention, reconcileRuleAttention } from './attention.js'
 import { questionOutcome, type SessionFacts, sessionFacts } from './questions.js'
 import { redeliveries, registrationOf } from './redelivery.js'
-import { freshnessOf } from './freshness.js'
+import { type FreshnessLimits, freshnessOf } from './freshness.js'
+import { hooksSilence, isSilent } from './silence.js'
 import { sourceGaps, type SourceRecord } from './sources.js'
 import { turnState } from './state.js'
 import { linkSession, type Spawn, sessionRun } from './runs.js'
@@ -183,6 +184,7 @@ const projectQuestion = (
 export interface SessionProjection {
   readonly session: Omit<Session, 'change_seq'>
   readonly objects: readonly string[]
+  readonly awaitingHooks: EpochNs | null
 }
 
 export interface SessionRebuild {
@@ -196,7 +198,7 @@ export const projectSession = (
   records: readonly SourceRecord[],
   lost: ReadonlySet<SessionId>,
   now: EpochNs,
-  quietAfterMs: number,
+  limits: FreshnessLimits,
   rebuild: SessionRebuild | null = null,
 ): SessionProjection | null => {
   const evidence = sessionEvidence(transaction, key)
@@ -240,6 +242,7 @@ export const projectSession = (
   const lastEventAt = times.at(-1)
   if (startedAt === undefined || lastEventAt === undefined) { return null }
   const status = turnState(root, items)
+  const silence = hooksSilence(root, items, now, limits.hooksInactiveAfterMs)
   const draft: Omit<Session, 'change_seq'> = {
     id,
     key,
@@ -258,7 +261,7 @@ export const projectSession = (
     launches: starts.map(({ fact }) => ({ launch: fact.payload.launch, at: fact.at, fact: fact.id })),
     ...status,
     freshness: 'ok',
-    support_mode: hooks && files ? 'full' : hooks ? 'hooks_only' : 'files_only',
+    support_mode: hooks && files ? (isSilent(silence.silences) ? 'files_only' : 'full') : hooks ? 'hooks_only' : 'files_only',
     double_registration: registrations.size > 1 || previous?.double_registration === true,
     unknown_records:
       rebuild?.unknownRecords ??
@@ -267,8 +270,8 @@ export const projectSession = (
     started_at: startedAt,
     last_event_at: lastEventAt,
   }
-  sourceGaps(transaction, draft, lastEventAt)
-  const session = { ...draft, freshness: freshnessOf(draft, lost.has(id), now, quietAfterMs) }
+  sourceGaps(transaction, draft, lastEventAt, silence, previous?.support_mode ?? null)
+  const session = { ...draft, freshness: freshnessOf(draft, lost.has(id), now, limits.quietAfterMs) }
   const projected: string[] = [transaction.observations.save(session).id]
   const spawns: Spawn[] = []
   for (const agentItems of grouped(items, ({ fact }) => canonicalJson(identity.of(fact))).values()) {
@@ -341,5 +344,5 @@ export const projectSession = (
     }
   }
   reconcileRuleAttention(transaction, key, items.at(-1)?.fact.at ?? lastEventAt, questions)
-  return { session, objects: projected }
+  return { session, objects: projected, awaitingHooks: silence.awaiting }
 }

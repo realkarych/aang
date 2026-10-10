@@ -95,7 +95,7 @@ const goalLine = (changes: Record<string, unknown> = {}): string => {
 describe.each<OperatingSystem>(['macos', 'linux', 'windows'])('the reference plan session of codex exec on %s', (os) => {
   const recording = readPlanRecording(os)
   const { thread, turn } = recording
-  const stream = codexAdapter.streamKey(recording.rollout.slice(0, 1))
+  const stream = codexAdapter.streamKey(null, recording.rollout.slice(0, 1))
 
   test('parses every rollout line and publishes the plan, then its completion, from the update_plan calls', () => {
     const results = recording.rollout.map((line) => codexAdapter.parse(record(line, stream)))

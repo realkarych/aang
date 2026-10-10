@@ -7,7 +7,7 @@ import { streamKey } from './stream.js'
 export const codexAdapter: Adapter = {
   runtime: 'codex',
   normalizerVersion: NormalizerVersion.parse(2),
-  streamKey,
+  streamKey: (_path, firstLines) => streamKey(firstLines),
   rawKey,
   parse,
   owner,

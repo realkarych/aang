@@ -407,6 +407,11 @@ export const DefinitionListingPayload = z.strictObject({
 })
 export type DefinitionListingPayload = z.infer<typeof DefinitionListingPayload>
 
+export const AgentPromptPayload = z.strictObject({
+  text,
+})
+export type AgentPromptPayload = z.infer<typeof AgentPromptPayload>
+
 export const QueueOperationPayload = z.strictObject({
   operation: name,
   content: text.nullable(),
@@ -466,6 +471,13 @@ export const SourceLostPayload = z.strictObject({
 })
 export type SourceLostPayload = z.infer<typeof SourceLostPayload>
 
+export const ProcessExitedPayload = z.strictObject({
+  pid: z.int().positive(),
+  path: name,
+  started_at: EpochNs.nullable(),
+})
+export type ProcessExitedPayload = z.infer<typeof ProcessExitedPayload>
+
 export const factPayloads = {
   session_start: SessionStartPayload,
   session_end: SessionEndPayload,
@@ -493,6 +505,7 @@ export const factPayloads = {
   instructions_loaded: InstructionsLoadedPayload,
   hook_run: HookRunPayload,
   definition_listing: DefinitionListingPayload,
+  agent_prompt: AgentPromptPayload,
   queue_operation: QueueOperationPayload,
   runtime_error: RuntimeErrorPayload,
   runtime_event: RuntimeEventPayload,
@@ -500,6 +513,7 @@ export const factPayloads = {
   git_snapshot: GitSnapshotPayload,
   context: ContextPayload,
   source_lost: SourceLostPayload,
+  process_exited: ProcessExitedPayload,
 } as const
 
 export const RuntimeIds = z.strictObject({
@@ -574,6 +588,7 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('instructions_loaded', shape),
     variant('hook_run', shape),
     variant('definition_listing', shape),
+    variant('agent_prompt', shape),
     variant('queue_operation', shape),
     variant('runtime_error', shape),
     variant('runtime_event', shape),
@@ -581,6 +596,7 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('git_snapshot', shape),
     variant('context', shape),
     variant('source_lost', shape),
+    variant('process_exited', shape),
   ] as const
 
 export const FactDraft = z.discriminatedUnion('kind', variantsWith(draftShape))

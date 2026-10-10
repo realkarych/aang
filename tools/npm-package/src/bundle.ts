@@ -11,6 +11,8 @@ const entryPoints = [
 
 const thirdPartyPackage = /^(.*node_modules\/(?:@[^/]+\/)?[^/]+)\//
 
+const nodeRequire = "import { createRequire } from 'node:module';\nconst require = createRequire(import.meta.url);"
+
 const describeWarnings = async (warnings: Message[]): Promise<string> =>
   (await formatMessages(warnings, { kind: 'warning', color: false })).join('')
 
@@ -23,6 +25,7 @@ export const bundleCommands = async (packageDirectory: string): Promise<string[]
     platform: 'node',
     format: 'esm',
     target: 'node26',
+    banner: { js: nodeRequire },
     metafile: true,
     legalComments: 'none',
     logLevel: 'silent',

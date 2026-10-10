@@ -1,9 +1,10 @@
 import { cp, mkdir, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   ActionId,
+  type CheckResult,
   EpochNs,
   type Link,
   LinkId,
@@ -43,17 +44,24 @@ import {
   hookBinary,
   hostOs,
   otherOs,
+  ownerChecklist,
   placeRecording,
+  placementCheck,
   recordSpike,
   type SpikeRecording,
   supportCli,
   temporaryDirectory,
   thirdOs,
   withoutCheckpoints,
+  writeVerification,
 } from './fixtures.js'
 
 interface Snapshot {
-  readonly facts: readonly { readonly kind: string }[]
+  readonly facts: readonly {
+    readonly kind: string
+    readonly format_verified: boolean
+    readonly payload: Readonly<Record<string, unknown>>
+  }[]
   readonly sessions: readonly { readonly id: string }[]
   readonly gaps: readonly { readonly kind: string; readonly closed_at: string | null }[]
   readonly agents: readonly {
@@ -65,7 +73,7 @@ interface Snapshot {
     readonly parent: string | null
   }[]
   readonly actions: readonly { readonly tool: string; readonly session: string; readonly execution: { readonly state: string } }[]
-  readonly records: readonly { readonly channel: string; readonly parse_state: string; readonly count: number }[]
+  readonly records: readonly { readonly channel: string; readonly type: string; readonly parse_state: string; readonly count: number }[]
   readonly questions: readonly { readonly kind: string; readonly key: { readonly question: string } }[]
 }
 
@@ -240,6 +248,60 @@ describe('the contract run over recordings generated from the spike samples', ()
     await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   }, 120_000)
 
+  test('the R.4b workflow recording keeps its journal when the daemon restarts between journal appends, and the restart changes nothing in the snapshot', async () => {
+    const { sessions, support } = await workspace()
+    const reference = resolve('fixtures/sessions/claude/2.1.289/claude_cli/macos/workflow')
+    await placeRecording(reference, sessions)
+    const restartedCopy = await placeRecording(reference, sessions, { scenario: 'reconnect' })
+    const playbackPath = join(restartedCopy, 'playback.json')
+    const playback = JSON.parse(await readFile(playbackPath, 'utf8')) as {
+      readonly steps: readonly { readonly kind: string; readonly target?: { readonly path: string } }[]
+    }
+    const journalAppends = playback.steps.flatMap(({ kind, target }, index) =>
+      kind === 'append' && target?.path.endsWith('/journal.jsonl') === true ? [index] : [],
+    )
+    const restartAt = journalAppends[1]
+    await writeFile(
+      playbackPath,
+      JSON.stringify({ ...playback, steps: playback.steps.map((step, index) => (index === restartAt ? { ...step, label: 'daemon-restart' } : step)) }),
+    )
+    const recordings = await findRecordings(sessions)
+    const run = (scenario: string): Promise<RecordingCheck> => {
+      const recording = recordings.find(({ manifest }) => manifest.scenario === scenario)
+      if (recording === undefined) {
+        throw new Error(`${scenario} is not placed`)
+      }
+      return checkRecording(recording, { sessions, support, hookBinary })
+    }
+
+    const restarted = await run('reconnect')
+    const continuous = await run('workflow')
+
+    expect(journalAppends).toHaveLength(4)
+    expect(restarted).toMatchObject({ restarts: 1, violations: [] })
+    expect(continuous).toMatchObject({ restarts: 0, violations: [] })
+    expect(restarted.snapshot).toBe(continuous.snapshot)
+    const snapshot = JSON.parse(continuous.snapshot) as Snapshot
+    expect(snapshot.records.filter(({ type }) => ['launched', 'started', 'result'].includes(type))).toEqual([
+      { channel: 'transcript', type: 'launched', parse_state: 'parsed', count: 1 },
+      { channel: 'transcript', type: 'result', parse_state: 'parsed', count: 3 },
+      { channel: 'transcript', type: 'started', parse_state: 'parsed', count: 3 },
+    ])
+    expect(
+      snapshot.facts
+        .filter(({ kind, payload }) => (kind === 'agent_start' || kind === 'agent_end') && payload.agent_type === null)
+        .map(({ kind, payload, format_verified }) => [kind, payload.description ?? payload.final_message, format_verified]),
+    ).toEqual([
+      ['agent_start', 'left', true],
+      ['agent_start', 'right', true],
+      ['agent_end', 'left', true],
+      ['agent_end', 'right', true],
+      ['agent_start', 'report', true],
+      ['agent_end', 'report', true],
+    ])
+    expect(snapshot.gaps.filter(({ kind }) => kind === 'unknown_stream_layout')).toEqual([])
+  }, 120_000)
+
   test('a JSONL file under tool-results, which the collector leaves out, does not hold up the run', async () => {
     const { sessions, support } = await workspace()
     const placed = await placeRecording(recorded(claudeSubagents), sessions)
@@ -337,11 +399,10 @@ describe('the contract run over recordings generated from the spike samples', ()
     await expect(readFile(matrixPath(support), 'utf8')).rejects.toMatchObject({ code: 'ENOENT' })
   }, 120_000)
 
-  test('a record that the adapters leave unknown or invalid fails the run unless its type is listed as not covered yet, and update refuses to write', async () => {
+  test('a record that the adapters leave unknown or invalid fails the run, and update refuses to write', async () => {
     const { sessions, support } = await workspace()
     const claude = await placeRecording(recorded(claudeSubagents), sessions)
     const rewrites = new Map([
-      ['"type": "atis-latch"', '"type": "system", "subtype": "stop_hook_summary"'],
       ['"type": "last-prompt"', '"type": "next-prompt"'],
       ['"operation": "dequeue"', '"operation": 7'],
     ])
@@ -402,6 +463,7 @@ const desktopOnWindows: SupportKey = { ...cliKey('windows'), surface: 'claude_de
 
 const contractScenarios = [
   'tools', 'subagents', 'resume', 'compaction', 'fork', 'plan', 'approval', 'question', 'interrupt', 'reconnect', 'source-loss', 'elicitation', 'workflow',
+  'plugin', 'agents-flag', 'user-hooks',
 ]
 
 const runScenarios = (os: OperatingSystem): string[] => (os === 'windows' ? contractScenarios : [...contractScenarios, 'teammates', 'input-dialogs'])
@@ -429,6 +491,7 @@ describe('the support matrix generated from the contract run', () => {
     }
     await mkdir(dirname(matrixPath(support)), { recursive: true })
     await writeFile(matrixPath(support), `${JSON.stringify(previous, null, 2)}\n`)
+    await writeVerification(support, { ownerChecklists: [ownerChecklist(cliKey(hostOs), 'tui', 'passed')] })
 
     expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
     const matrix = await readSupportMatrix(matrixPath(support))
@@ -440,10 +503,14 @@ describe('the support matrix generated from the contract run', () => {
     })
     expect(row(cliKey(otherOs))).toMatchObject({
       status: 'unverified',
-      gaps: [supportGaps.missing(runScenarios(otherOs).filter((name) => name !== 'subagents').sort())],
+      gaps: [supportGaps.missing(runScenarios(otherOs).filter((name) => name !== 'subagents').sort()), supportGaps.tuiChecklist],
       scenarios: { child_sessions: 'passed', resume: 'not_run', during_work: 'passed' },
     })
-    expect(row(cliKey(thirdOs))).toMatchObject({ status: 'unverified', gaps: [supportGaps.noRecordings], scenarios: notRunContract })
+    expect(row(cliKey(thirdOs))).toMatchObject({
+      status: 'unverified',
+      gaps: [supportGaps.noRecordings, supportGaps.tuiChecklist],
+      scenarios: notRunContract,
+    })
     for (const placed of [cliKey('linux', 'docker'), cliKey('macos', 'vm'), cliKey('windows', 'desktop_ssh')]) {
       expect(row(placed)?.status).toBe('unverified')
       expect(row(placed)?.gaps).toContain(supportGaps.placement)
@@ -454,6 +521,59 @@ describe('the support matrix generated from the contract run', () => {
     )
     expect(await readdirNames(join(support, 'contract'))).toEqual(['claude', 'codex'])
   }, 240_000)
+
+  test('a non-local row takes E2E 1 and 4 from the local row of its OS and keeps its claimed status only with a passed placement check of its exact key', async () => {
+    const { sessions, support } = await workspace()
+    for (const scenario of runScenarios('linux')) {
+      await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: 'linux', scenario })
+    }
+    const local = cliKey('linux')
+    const docker = cliKey('linux', 'docker')
+    const vm = cliKey('linux', 'vm')
+    const newerDocker: SupportKey = { ...docker, engine_version: '2.1.290' }
+    const newerVm: SupportKey = { ...vm, engine_version: '2.1.290' }
+    const withUserScenarios = (row: SupportRow, during_work: CheckResult, after_iteration: CheckResult): SupportRow => ({
+      ...row,
+      scenarios: { ...row.scenarios, during_work, after_iteration },
+    })
+    const previous: SupportMatrix = {
+      format: supportMatrixFormat,
+      rows: [
+        claimed(local, 'limited'),
+        withUserScenarios(claimed(docker, 'full'), 'failed', 'not_run'),
+        claimed(vm, 'full'),
+        withUserScenarios(claimed(newerVm, 'full'), 'passed', 'failed'),
+      ],
+    }
+    await mkdir(support, { recursive: true })
+    await writeFile(matrixPath(support), `${JSON.stringify(previous, null, 2)}\n`)
+    await writeVerification(support, {
+      placements: [placementCheck(docker, 'passed'), placementCheck(vm, 'failed'), placementCheck(newerDocker, 'passed')],
+      ownerChecklists: [ownerChecklist(local, 'tui', 'passed'), ownerChecklist(docker, 'tui', 'passed'), ownerChecklist(vm, 'tui', 'passed')],
+    })
+
+    expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
+    const matrix = await readSupportMatrix(matrixPath(support))
+
+    const contractPassed = { resume: 'passed', compaction: 'passed', child_sessions: 'passed', reconnect: 'passed' } as const
+    expect(supportRowOf(matrix, local)).toEqual({ ...claimed(local, 'limited'), scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' } })
+    expect(supportRowOf(matrix, docker)).toEqual({ ...claimed(docker, 'full'), scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' } })
+    expect(supportRowOf(matrix, vm)).toMatchObject({
+      status: 'unverified',
+      gaps: [supportGaps.placementFails],
+      scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' },
+    })
+    expect(supportRowOf(matrix, newerDocker)).toMatchObject({
+      status: 'unverified',
+      gaps: [supportGaps.noRecordings, supportGaps.userScenarios, supportGaps.tuiChecklist],
+      scenarios: { ...notRunContract, during_work: 'not_run', after_iteration: 'not_run' },
+    })
+    expect(supportRowOf(matrix, newerVm)).toMatchObject({
+      status: 'unverified',
+      gaps: [supportGaps.placement, supportGaps.noRecordings, supportGaps.userScenariosFail(['E2E 4']), supportGaps.tuiChecklist],
+      scenarios: { ...notRunContract, during_work: 'passed', after_iteration: 'failed' },
+    })
+  }, 180_000)
 
   test('a claimed full or limited row whose E2E 1 or 4 failed is not verified, even when every scenario of the run passes', async () => {
     const { sessions, support } = await workspace()

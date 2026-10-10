@@ -90,6 +90,50 @@ test('a Codex session without hook events shows inactive hooks and the files-onl
   await expect(row).toContainText('только файлы')
 })
 
+test.describe('a session that loses its hooks mid-session', () => {
+  test.use({ config: { ...watchAll, freshness: { hooksInactiveAfterMs: 1_000 } } })
+
+  test('shows inactive hooks and the files-only mode from a turn without hook events until the next hook event', async ({
+    page,
+    player,
+    profile,
+    hook,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
+    await hook.claude('UserPromptSubmit.json', { ...hookFields(profile, claudeOriginal), prompt_id: 'hooked-turn' })
+    await page.goto(`/?run=${claudeRun}`)
+    await expect(fact(page, 'Режим')).toHaveText('полный')
+    await expect(fact(page, 'Свежесть')).not.toHaveText('hooks не активны')
+    await expect(lamp(page, 'Hooks')).not.toContainText('не активны')
+
+    const prompt = {
+      type: 'user',
+      sessionId: claudeSession,
+      cwd: claudeOriginal.cwd,
+      uuid: 'turn-without-hooks',
+      promptId: 'turn-without-hooks',
+      timestamp: new Date().toISOString(),
+      promptSource: 'typed',
+      message: { role: 'user', content: 'A turn without hook events' },
+    }
+    await appendFile(sessionFile(profile, claudeOriginal), `${JSON.stringify(prompt)}\n`)
+
+    await expect(fact(page, 'Свежесть')).toHaveText('hooks не активны')
+    await expect(fact(page, 'Режим')).toHaveText('только файлы')
+    await expect(lamp(page, 'Hooks')).toHaveText('Hooks не активны в 1 сессии')
+    await lamp(page, 'Режим').getByRole('button').click()
+    await expect(page.getByRole('region', { name: 'Режим: подробности' })).toHaveText(
+      'Сессия 86f93ed5: только файлы — hooks не активны, события берутся из файлов сессии.',
+    )
+
+    await hook.claude('Stop.json', hookFields(profile, claudeOriginal))
+
+    await expect(fact(page, 'Режим')).toHaveText('полный')
+    await expect(fact(page, 'Свежесть')).not.toHaveText('hooks не активны')
+    await expect(lamp(page, 'Hooks')).not.toContainText('не активны')
+  })
+})
+
 const readRunSummary = async (request: (path: string) => Promise<Response>, run: RunId) => {
   const response = await request(endpoints.run.path.replace(':run', run))
   return response.ok ? endpoints.run.response.parse(await response.json()).summary : null

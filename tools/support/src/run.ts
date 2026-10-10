@@ -1,14 +1,16 @@
-import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rm, writeFile } from 'node:fs/promises'
 import { dirname, join, relative } from 'node:path'
 import type { Runtime, SupportMatrix } from '@aang/contract'
 import { readSupportMatrix } from '@aang/contract/support-file'
 import { type RecordingManifest, verifyRecording } from '@aang/record'
 import { loadManifest } from '@aang/testkit'
+import { isMissing, readOptional } from './files.js'
 import { invariantViolations } from './invariants.js'
 import { generateMatrix, type RecordingOutcome, serializeMatrix } from './matrix.js'
 import { playRecording, removeRoots, restartLabel } from './play.js'
 import { findRecordings, type Recording } from './recordings.js'
 import { takeSnapshot } from './snapshot.js'
+import { readVerification, type SupportVerification } from './verification.js'
 
 export interface ContractRunOptions {
   readonly sessions: string
@@ -32,8 +34,8 @@ export interface ContractRun {
 }
 
 export const pendingScenarios: Readonly<Record<Runtime, readonly string[]>> = {
-  claude: ['plugin', 'agents-flag', 'user-hooks'],
-  codex: ['agent-role'],
+  claude: [],
+  codex: [],
 }
 
 export const inContractRun = ({ runtime, scenario }: Pick<RecordingManifest, 'runtime' | 'scenario'>): boolean =>
@@ -50,19 +52,6 @@ export const snapshotFile = (support: string, recording: Recording): string =>
   `${join(support, snapshotsDirectory, ...recording.name.split('/'))}.json`
 
 export const matrixPath = (support: string): string => join(support, matrixFile)
-
-const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
-
-const readOptional = async (path: string): Promise<string | null> => {
-  try {
-    return await readFile(path, 'utf8')
-  } catch (error) {
-    if (isMissing(error)) {
-      return null
-    }
-    throw error
-  }
-}
 
 export const runRecordings = async (sessions: string): Promise<Recording[]> =>
   (await findRecordings(sessions)).filter(({ manifest }) => inContractRun(manifest))
@@ -110,12 +99,13 @@ export const staleSnapshots = async (support: string, recordings: readonly Recor
 export const readMatrix = async (support: string): Promise<SupportMatrix | null> =>
   (await readOptional(matrixPath(support))) === null ? null : readSupportMatrix(matrixPath(support))
 
-export const matrixOf = (checks: readonly RecordingCheck[], previous: SupportMatrix | null): string => {
+export const matrixOf = (checks: readonly RecordingCheck[], previous: SupportMatrix | null, verification: SupportVerification): string => {
   const outcomes: RecordingOutcome[] = checks.map((check) => ({ manifest: check.recording.manifest, passed: passed(check) }))
-  return serializeMatrix(generateMatrix({ outcomes, previous, contractScenarios: inContractRun }))
+  return serializeMatrix(generateMatrix({ outcomes, previous, verification, contractScenarios: inContractRun }))
 }
 
 export const contractRun = async (options: ContractRunOptions): Promise<ContractRun> => {
+  const verification = await readVerification(options.support)
   const recordings = await runRecordings(options.sessions)
   const checks: RecordingCheck[] = []
   for (const recording of recordings) {
@@ -124,7 +114,7 @@ export const contractRun = async (options: ContractRunOptions): Promise<Contract
   return {
     checks,
     staleSnapshots: await staleSnapshots(options.support, recordings),
-    matrix: matrixOf(checks, await readMatrix(options.support)),
+    matrix: matrixOf(checks, await readMatrix(options.support), verification),
     expectedMatrix: await readOptional(matrixPath(options.support)),
   }
 }
@@ -152,5 +142,5 @@ export const updateSupport = async (run: ContractRun, support: string): Promise<
   await Promise.all(run.staleSnapshots.map((path) => rm(path)))
   const accepted = run.checks.map((check) => ({ ...check, expected: check.snapshot }))
   await mkdir(support, { recursive: true })
-  await writeFile(matrixPath(support), matrixOf(accepted, await readMatrix(support)))
+  await writeFile(matrixPath(support), matrixOf(accepted, await readMatrix(support), await readVerification(support)))
 }

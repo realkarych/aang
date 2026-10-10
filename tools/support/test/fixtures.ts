@@ -1,11 +1,19 @@
 import { execFile } from 'node:child_process'
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { OperatingSystem, Runtime, Surface } from '@aang/contract'
+import type { OperatingSystem, Runtime, Surface, SupportKey } from '@aang/contract'
 import { type ControlTarget, RecordingManifest, recordSession } from '@aang/record'
 import type { SampleScenario } from '@aang/testkit'
+import {
+  type OwnerChecklist,
+  type OwnerChecklistName,
+  type PlacementCheck,
+  serializeVerification,
+  verificationFormat,
+  verificationPath,
+} from '../dist/index.js'
 
 export const hookBinary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 
@@ -180,3 +188,30 @@ export const cliOptions = (sessions: string, support: string): string[] => [
   '--hook',
   hookBinary,
 ]
+
+export const placementCheck = (key: SupportKey, result: PlacementCheck['result'], checkedOn = '2026-10-07'): PlacementCheck => ({
+  ...key,
+  result,
+  checked_on: checkedOn,
+})
+
+export const ownerChecklist = (key: SupportKey, checklist: OwnerChecklistName, result: OwnerChecklist['result']): OwnerChecklist => ({
+  ...key,
+  checklist,
+  result,
+  checked_on: '2026-10-08',
+  report: 'docs/research/q1-owner-checklist-results.md',
+})
+
+export interface VerificationEntries {
+  readonly placements?: readonly PlacementCheck[]
+  readonly ownerChecklists?: readonly OwnerChecklist[]
+}
+
+export const writeVerification = async (support: string, { placements = [], ownerChecklists = [] }: VerificationEntries): Promise<void> => {
+  await mkdir(support, { recursive: true })
+  await writeFile(
+    verificationPath(support),
+    serializeVerification({ format: verificationFormat, placements: [...placements], owner_checklists: [...ownerChecklists] }),
+  )
+}

@@ -96,6 +96,7 @@ export const startIngestion = async ({
     adapters,
     watch: watchedRoots(watching, config),
     quietAfterMs: config.freshness.quietAfterMs,
+    hooksInactiveAfterMs: config.freshness.hooksInactiveAfterMs,
     fsWatch: config.collector.fsWatch,
   })
   const collector = createCollector({
@@ -138,7 +139,7 @@ export const startIngestion = async ({
   let refreshing: Promise<unknown> = Promise.resolve()
   const refresh = setInterval(() => {
     refreshing = engine.refreshFreshness().catch(failure.resolve)
-  }, Math.min(config.freshness.quietAfterMs, freshnessRefreshCeilingMs))
+  }, Math.min(config.freshness.quietAfterMs, config.freshness.hooksInactiveAfterMs, freshnessRefreshCeilingMs))
 
   let stopping = false
   let reparsing: Promise<unknown> = Promise.resolve()

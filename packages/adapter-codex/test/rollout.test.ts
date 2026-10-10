@@ -55,7 +55,7 @@ const multiAgentV1Meta = (spawn: Record<string, unknown>, meta: Record<string, u
 
 const readRollout = (path: string) => {
   const lines = rolloutLines(realRollout)
-  const stream = codexAdapter.streamKey(lines.slice(0, 3))
+  const stream = codexAdapter.streamKey(null, lines.slice(0, 3))
   let offset = 0
   return lines.map((payload, index) => {
     const collected = record(payload, stream, { position: { kind: 'line', path, offset, line: index + 1 } })
@@ -193,7 +193,7 @@ test('a multi-agent v1 sub-agent that names itself as the session joins its pare
     sampleLine('event_msg.item_completed.UserMessage.real.json'),
     sampleLine('event_msg.item_completed.AgentMessage.final.real.json'),
   ]
-  const stream = codexAdapter.streamKey(lines.slice(0, 3))
+  const stream = codexAdapter.streamKey(null, lines.slice(0, 3))
   const childAgent = { kind: 'agent', session: spawnRoot, agent: { kind: 'thread', thread_id: spawnChild } }
 
   expect(stream).toBe(`codex:${spawnRoot}:${spawnChild}`)
@@ -232,7 +232,7 @@ test('a sub-agent rollout whose root session cannot be established has no stream
   ]
 
   for (const line of unresolved) {
-    expect(codexAdapter.streamKey([line])).toBeNull()
+    expect(codexAdapter.streamKey(null, [line])).toBeNull()
     expectUnknown(line, null)
   }
 })
@@ -240,10 +240,10 @@ test('a sub-agent rollout whose root session cannot be established has no stream
 test('a file that does not open with session_meta has no stream', () => {
   const lines = rolloutLines(realRollout)
 
-  expect(codexAdapter.streamKey([])).toBeNull()
-  expect(codexAdapter.streamKey(lines.slice(1))).toBeNull()
-  expect(codexAdapter.streamKey(['{"timestamp": "2026-10-01T11:55:58.087Z", "ordinal": 0'])).toBeNull()
-  expect(codexAdapter.streamKey([lines[0]?.replace('"id": "01a0f752', '"id": "01:a0f752') ?? ''])).toBeNull()
+  expect(codexAdapter.streamKey(null, [])).toBeNull()
+  expect(codexAdapter.streamKey(null, lines.slice(1))).toBeNull()
+  expect(codexAdapter.streamKey(null, ['{"timestamp": "2026-10-01T11:55:58.087Z", "ordinal": 0'])).toBeNull()
+  expect(codexAdapter.streamKey(null, [lines[0]?.replace('"id": "01a0f752', '"id": "01:a0f752') ?? ''])).toBeNull()
 })
 
 test('the usage records of the real rollout add up to its last thread total, while token counts stay separate totals', () => {
