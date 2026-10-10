@@ -1,0 +1,58 @@
+{
+  "format": "aang-freshness-fixed-profile/1",
+  "fixed_at": "2026-10-08T18:20:50.476Z",
+  "profile": {
+    "format": "aang-freshness-profile/1",
+    "name": "codex-plan",
+    "time_scale": 1,
+    "window_ms": 120000,
+    "observer": {
+      "codex": {
+        "cli": "/opt/homebrew/Caskroom/codex/0.160.0/bin/codex",
+        "model": null,
+        "effort": null,
+        "target_p95_ms": 40000
+      }
+    },
+    "runs": [
+      {
+        "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+        "start_ms": 0,
+        "chat": []
+      },
+      {
+        "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+        "start_ms": 102922,
+        "chat": []
+      },
+      {
+        "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+        "start_ms": 240157,
+        "chat": []
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-ledger",
+      "start_ms": 0,
+      "runtime": "codex",
+      "digest": "fdb14c0fc705bda4f81910697b5ff8ea567ed84ce82665fa257873d1e7a6bca7",
+      "control_events": 2
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-logstats",
+      "start_ms": 102922,
+      "runtime": "codex",
+      "digest": "7f3064b7fa10e72fbd2ea44d445cfc8038a5a92fa87fb0dfdb133146aeea628c",
+      "control_events": 4
+    },
+    {
+      "recording": "codex/0.160.0/codex_exec/macos/workload-kvstore",
+      "start_ms": 240157,
+      "runtime": "codex",
+      "digest": "9cbc16586a6a7ef7b9fe0a507c0df1663ab02c853c2037380c1423f9b6e18fa0",
+      "control_events": 2
+    }
+  ]
+}

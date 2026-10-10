@@ -1,0 +1,182 @@
+{
+  "workload-ledger:plan-ready": {
+    "candidate": 1,
+    "reason": "v5: этап «Write PLAN.md» done, все этапы плана (Stage 1–7) planned, ни один этап не running, критерий «Reply with a short summary of the plan.» reported_done, бриф: агент написал PLAN.md и ответил сводкой — ход планирования завершён. В v4 PLAN.md уже done, но бриф прямо говорит «the summary reply is still pending», критерий ответа not_checked; базовая v3 не held_before — этап «Write PLAN.md» ещё planned."
+  },
+  "workload-ledger:rounding-answered": {
+    "candidate": 2,
+    "reason": "v22: вопрос «Which rounding mode should converted amounts use when rounding to whole cents?» answered, этап «Stage 4 — Currency conversion» перешёл в running со сводкой «User chose half-up rounding (ties away from zero)», бриф: «The user chose half-up rounding, and Stage 4 (conversion) is now in progress». В v21 вопрос уже answered, но этап конвертации ещё waiting и выбор Half-up в карте не назван."
+  },
+  "workload-ledger:review-reported": {
+    "candidate": 3,
+    "reason": "v46: этап «Subagent review of src/ and fixes» (agents 2, субагент — участник) со сводкой «Subagent finished its review. It reports 2 bugs in convert.js rounding (toPrecision(12)…), 8 edge cases and 4 nits», бриф пересказывает находки. В v45 сводка того же этапа: «it is still reviewing»; базовая v42 не held_before — там только промежуточные «possible issues so far»."
+  },
+  "workload-ledger:review-fixed": {
+    "candidate": 2,
+    "reason": "v61: этап «Subagent review of src/ and fixes» done, критерий «Confirmed review findings are fixed with tests; all tests run.» reported_done, сводка и бриф: исправлены 10 из 14 находок, 33/33 тестов проходят, 11 новых тестов падают на старом коде; 4 оставшиеся находки не решаются SPEC.md и вынесены вопросом. В v60 этап ещё running (агент проверяет новые тесты на восстановленном старом src/); в базовой v58 этап waiting."
+  },
+  "workload-ledger:parallel-reported": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: решатель запустил оба субагента в фоне (Agent с run_in_background: true), событие стоит на PostToolUse запуска (шаг 424), а SubagentStop приходят через 69,0 с (конверсия) и 91,8 с (парсинг) после события. Карта этого замера это подтверждает: v130/v133 «Two background subagents launched», результаты конверсионного агента с v136, в v144 «the parse agent is still running», оба отчёта — только в v146 (+116,3 с)."
+  },
+  "workload-ledger:parallel-done": {
+    "candidate": 1,
+    "reason": "v146: этап «Parallel edge-case tests for parsing and conversion» done (agents 3), критерий «Edge-case tests for parsing and conversion are added, failing code is fixed, and all tests run.» reported_done, сводка: 25 тестов парсинга от субагента, исправлен -0 в convert.js по тестам конверсионного субагента, полный прогон 101/101; бриф: «parallel edge-case tests are done. The full suite runs 101/101». В v145 (как и в базовой v144) этап ещё running, «the parse agent is still running»."
+  },
+  "workload-ledger:committed": {
+    "candidate": 4,
+    "reason": "v165: этап «Commit all work with git» done со сводкой «Committed as 5312202 'Implement ledger library, CLI and tests'», критерий «All work is committed with git add -A and a descriptive message.» reported_done, бриф «All work is committed as 5312202». В v164 этап коммита waiting, бриф «The git commit is waiting for permission»."
+  },
+  "workload-ledger:commit-done": {
+    "candidate": 2,
+    "reason": "v165: этап «Write README.md with usage examples» done (README с примерами CLI и библиотеки), этап «Commit all work with git» done — «Committed as 5312202», оба критерия reported_done. В v164 README уже done, но коммит waiting, критерий коммита not_checked."
+  },
+  "workload-ledger:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон проходит (101 из 101), но в итоговом отчёте решатель сам сообщает о невыполненных этапах PLAN.md — критерий 1.3 (src/index.js не создан) этапа 1 и критерии 7.1, 7.2 этапа 7 не выполнены. Карта этого замера этому соответствует: в v174 «Stage 1 — Project skeleton» и «Stage 7 — Hardening» planned, бриф называет 3 невыполненных критерия."
+  },
+  "workload-ledger:final-done": {
+    "candidate": 0,
+    "reason": "v174: этап «Final test run and PLAN.md criteria check» done, сводка и бриф подводят итог поставленной библиотеки по критериям PLAN.md: 101/101 тестов, 27 из 33 критериев выполнены, 3 частично (5.1, 5.3, 6.3), 3 нет (src/index.js, фикстура 50+ строк, import-scan тест). В базовой v173 этап running, «The agent is matching PLAN.md criteria to tests»."
+  },
+  "workload-logstats:plan-ready": {
+    "candidate": 1,
+    "reason": "v7: этап «Write PLAN.md for remaining SPEC features» done («PLAN.md written with 6 stages, all added to the task list»), все шесть этапов «Stage 1: Finish the parser»…«Stage 6: Documentation and cleanup» planned, бриф: «none started yet». В v6 этап планирования ещё running и этапа 6 нет — PLAN.md ещё раскладывается по задачам."
+  },
+  "workload-logstats:big-log": {
+    "candidate": 4,
+    "reason": "v22: этап «Benchmark aggregation on a 300k-line log» со сводкой «300k-line log generated (15M, 293 malformed); aggregation takes ~70 ms» — лог сгенерирован, шаг проверки производительности уже done: карта опережает «running», а не отстаёт (как «работа продолжается» в регламенте — running или уже done). В v21 этап waiting, генерация 300k строк ещё ждёт разрешения."
+  },
+  "workload-logstats:format-answered": {
+    "candidate": 4,
+    "reason": "v43: вопрос «Should the HTML report be a single self-contained file or use a separate CSS file?» answered, этап «Stage 5: HTML report» running со сводкой «The user chose a self-contained HTML file with inline styles». В v42 вопрос уже закрыт, но этап waiting, сводка: агент ждёт ответа."
+  },
+  "workload-logstats:review-reported": {
+    "candidate": 2,
+    "reason": "v84: этап «Subagent review of the project and fixes» (agents 2, субагент — участник) со сводкой «The subagent finished and reports 9 reproduced problems» с перечнем находок (bad-timestamp lines, падение таблицы на 130k групп, рост памяти от точных перцентилей, --html=). В v83 сводка содержит только промежуточные пробы, о завершении субагента и находках не сказано."
+  },
+  "workload-logstats:review-fixed": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: подтверждённая находка ревью включает переполнение суммы байтов («The byte total can go past Number.MAX_SAFE_INTEGER silently»), решатель признал её и оставил неисправленной («Not fixed: Byte total overflow … so I left it»), поэтому «the confirmed findings are fixed» в этой сессии не наступает. Карта верно показывает исключение: в v111 этап «Subagent review of the project and fixes» done со сводкой «byte-total overflow and two speculative findings left unfixed»; так же до последнего кандидата v114."
+  },
+  "workload-logstats:docs-reported": {
+    "candidate": 2,
+    "reason": "v145: этап «Write README.md and docs/FORMAT.md via parallel subagents» (agents 2) со сводкой о результатах обоих субагентов: «README subagent claims it ran the examples; FORMAT subagent wrote docs/FORMAT.md covering the line format, grouping, metrics and a worked percentile example». В v144 закончил только субагент README, а ссылки FORMAT.md «pending the other agent»."
+  },
+  "workload-logstats:docs-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: README.md и docs/FORMAT.md написаны, но этап документации PLAN.md (этап 6) так и не завершён — в package.json нет записи bin, итоговая проверка решателя: «Stage 6 stays pending until the bin entry exists». Карта верно держит «Stage 6: Documentation and cleanup» planned («package.json with bin entry still missing») до последнего кандидата v170; без этого подэтап «Write README.md and docs/FORMAT.md via parallel subagents» стал done в v156 (+17,1 с)."
+  },
+  "workload-logstats:committed": {
+    "candidate": 2,
+    "reason": "v166: этап «Remove tmp/ and commit all work» done со сводкой «commit 07daa98 adds 16 files (1070 insertions)», бриф: вся работа закоммичена как 07daa98. В v165 этап waiting на разрешение."
+  },
+  "workload-logstats:commit-done": {
+    "candidate": 0,
+    "reason": "v166: этап «Remove tmp/ and commit all work» done со сводкой «tmp/ removed; commit 07daa98 adds 16 files», бриф: tmp/ удалён и работа закоммичена. В базовой v165 этап waiting на разрешение rm -rf tmp."
+  },
+  "workload-logstats:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон проходит (65 из 65), но этап 6 PLAN.md не завершён (нет bin в package.json, решатель: «Stage 6 stays pending»), поэтому «every stage of the plan is done» в этой сессии не наступает. Карта верно держит «Stage 6: Documentation and cleanup» planned до последнего кандидата v171."
+  },
+  "workload-logstats:final-done": {
+    "candidate": 0,
+    "reason": "v171: этап «Final test run and PLAN.md criteria check» done со сводкой «65/65 tests pass; 25 of 27 PLAN.md criteria met, Stage 2 memory criterion partly met, package.json bin entry missing», бриф содержит тот же итог. В базовой v170 этап running, итога по критериям PLAN.md ещё нет."
+  },
+  "workload-kvstore:plan-ready": {
+    "candidate": 1,
+    "reason": "v5: этап «Write PLAN.md» выполнен, все восемь этапов плана (от «Stage 1 — Project skeleton» до «Stage 8 — Real-crash tests») planned, ни один не running, бриф: PLAN.md с 8 этапами написан, «session ended». В v4 на карте только этапы 1–4, а бриф говорит «final summary pending», то есть ход ещё не закончен."
+  },
+  "workload-kvstore:durability-answered": {
+    "candidate": 2,
+    "reason": "v22: вопрос «Should compact() call fsync on the snapshot file and on the data directory before truncating the log?» answered, этап «Stage 6 — compact()» running со сводкой «User chose durable fsync…», бриф: «the user chose durable fsync». В v21 вопрос уже закрыт, но этап compact() ещё waiting, а бриф ждёт выбора пользователя."
+  },
+  "workload-kvstore:review-reported": {
+    "candidate": 2,
+    "reason": "v57: этап «Subagent review of src/ for durability and concurrency bugs» done с двумя агентами (agents 2), сводка и бриф содержат находки субагента: 9 находок (4 high, 3 medium, 2 low), 8 подтверждены скриптами. В v56 этап ещё running, повторная проверка ждёт разрешения, субагент не закончил."
+  },
+  "workload-kvstore:review-fixed": {
+    "candidate": 1,
+    "reason": "v83: этап «Fix confirmed review findings with tests» done, критерий «Confirmed findings are fixed with tests and all tests are run» reported_done, бриф: исправлено 7 багов, 35/35 тестов проходят; этап ревью уже done. В v82 бриф уже говорит о 35 из 35, но этап исправлений ещё running, критерий partial."
+  },
+  "workload-kvstore:parallel-reported": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: событие стоит на завершении первого субагента (рандомизированные тесты), а субагент бенчмарка вернул результат только через 115 с после события, за 5 с до конца окна; в момент события «оба субагента закончили» неверно. Карта это подтверждает: «Property-style randomized tests vs Map» done в v187 (+13 с), «Benchmark script scripts/bench.js» running до последнего кандидата v198, спавн-ссылки появляются в v196 (+115 с)."
+  },
+  "workload-kvstore:parallel-done": {
+    "candidate": null,
+    "held_before": true,
+    "reason": "Уже в базовой v205: этап «Benchmark script scripts/bench.js» done (повторный прогон на 100000 ключей завершился с exit 0), этап «Property-style randomized tests vs Map» done, 68/68, оба критерия («Benchmark is run once…», «All tests are run after both subagents finish») reported_done, бриф сообщает 68/68 и результаты бенчмарка."
+  },
+  "workload-kvstore:committed": {
+    "candidate": 4,
+    "reason": "v217: этап «Commit all work with git» done со сводкой «Commit e4acc69 adds 8 files…», критерий о коммите reported_done, бриф: «All work is committed as e4acc69». В v216 этап коммита ещё running, бриф о коммите молчит."
+  },
+  "workload-kvstore:commit-done": {
+    "candidate": 0,
+    "reason": "v217: «Write README.md» done, «Commit all work with git» done (коммит e4acc69), бриф: README готов, вся работа закоммичена как e4acc69. В базовой v216 README уже done, но этап коммита ещё running."
+  },
+  "workload-kvstore:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон проходит (68/68), но решатель сам сообщает, что этапы PLAN.md выполнены не все: тесты с реальным падением 8.1–8.3 не сделаны, store.js превышает лимит строк (8.5). Карта согласна с этим: в последнем кандидате v230 «Stage 8 — Real-crash tests» planned, бриф: «Stage 8 (real-crash tests 8.1–8.3) is not done»."
+  },
+  "workload-kvstore:final-done": {
+    "candidate": 0,
+    "reason": "v229: этап «Final test run and PLAN.md criteria check» done, в сводке таблица статусов (43 из 54 критериев покрыты тестами, 8 проверены вручную, 8.1–8.3 не выполнены), критерий о таблице статусов reported_done, в брифе тот же итог. В базовой v228 этап running, «The status table has not been written yet»."
+  },
+  "workload-mdlinks:explore-done": {
+    "candidate": 1,
+    "reason": "v4: этапы «Read SPEC.md and docs Markdown files» и «Report broken links in docs/ with reasons» выполнены, сводка и бриф называют две битые ссылки (docs/index.md → faq.md, docs/guide/usage.md → ../setup.md), критерий про список ссылок reported_done. В v3 этап «Report broken links in docs/ with reasons» ещё planned, находок в карте нет."
+  },
+  "workload-mdlinks:plan-ready": {
+    "candidate": 1,
+    "reason": "v9: этап «Write PLAN.md with numbered mdlinks stages» выполнен, ни один этап не running, «Stage 1: Project skeleton» … «Stage 7: --fix» ждут в planned, бриф: PLAN.md написан, кода нет. В v8 этапы уже созданы, но этап написания PLAN.md ещё running, планирующий ход не закончен."
+  },
+  "workload-mdlinks:slugs-answered": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: решатель предложил варианты в порядке «Case-insensitive», «Case-sensitive», хост записи выбрал первый, и ответ — case-insensitive, а не case-sensitive. Карта этого замера показывает выбор верно: с фактическим ответом вопрос закрыт и этап «Decide anchor case sensitivity and apply in src/check.js» выполнен с выбором case-insensitive в v44 (+12,3 с), «Stage 6: CLI and reporting» running в v46."
+  },
+  "workload-mdlinks:review-reported": {
+    "candidate": 2,
+    "reason": "v91: этап «Subagent review of src/extract.js against CommonMark corner cases» (agents 2): «Subagent finished a review-only pass and reports many high-impact extract.js gaps (nested brackets, escapes, paren titles, balanced parens, reference labels)», бриф: обзор сабагента закончен и сообщает о многих пробелах парсера. В v90 сводка лишь о промежуточной пробе («Wider probe shows many extract.js gaps»), завершение сабагента в карте не видно."
+  },
+  "workload-mdlinks:review-fixed": {
+    "candidate": 1,
+    "reason": "v106: этап «Subagent review of src/extract.js against CommonMark corner cases» done, сводка и бриф: extract.js переписан, добавлен блочный проход, 59/59 tests pass, обзор завершён. В v105 этап ещё running, 59/59 уже есть, но обзор не закончен."
+  },
+  "workload-mdlinks:docs-reported": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: Claude Code 2.1.293 запустил оба субагента асинхронно, и событие стоит на их запуске; субагент README результата не сдал (решатель: «The agent stopped when it lost shell access»), предпосылка «оба субагента закончили» ложна. Карта этого замера согласна: оба этапа субагентов running параллельно с v203, этап docs/ done в v217 (+89,8 с), а «Subagent writes README.md with usage examples» — «Subagent stopped without writing README.md», в v224 failed."
+  },
+  "workload-mdlinks:docs-done": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: README.md не написан (решатель: «README.md is still not written»), поэтому «README.md is written» в этой сессии не наступает. Карта верно показывает неудачу: этап «Subagent writes README.md with usage examples» failed, бриф v231: «README.md is still not written»; часть про docs/ (0 broken links) видна в v229 (+79,8 с)."
+  },
+  "workload-mdlinks:committed": {
+    "candidate": 4,
+    "reason": "v231: этап «Remove tmp/ and commit all work» done, сводка и бриф: работа закоммичена как 864980c на ветке mdlinks-implementation. В v230 этап waiting, агент ждёт разрешения удалить tmp/ и сделать коммит."
+  },
+  "workload-mdlinks:commit-done": {
+    "candidate": 2,
+    "reason": "v231: этап «Remove tmp/ and commit all work» done, бриф: «Work committed as 864980c on branch mdlinks-implementation». В v230 этап waiting, коммит ждёт разрешения."
+  },
+  "workload-mdlinks:final-tested": {
+    "candidate": null,
+    "mismatch": true,
+    "reason": "Описание не соответствует записи: итоговый прогон не проходит — 64 из 72, 8 тестов ждут прежние битые ссылки в docs/ (итог решателя), README не написан. Карта верно показывает 64 из 72 уже в базовом v235 и в v240 (72/72 только во временной копии с исходным docs/), этап README failed."
+  },
+  "workload-mdlinks:final-done": {
+    "candidate": 0,
+    "reason": "v240: этап «Re-run all tests and check PLAN.md acceptance criteria» done, сводка и бриф: итог по критериям PLAN.md (27 из 38 pass, 1 met with a failing test, 10 fail), 64/72 tests pass. В базовом v239 этап running, сводки по критериям нет."
+  }
+}

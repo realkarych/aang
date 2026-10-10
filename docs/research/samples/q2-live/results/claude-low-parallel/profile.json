@@ -1,0 +1,122 @@
+{
+  "format": "aang-freshness-fixed-profile/1",
+  "fixed_at": "2026-10-08T18:10:22.380Z",
+  "profile": {
+    "format": "aang-freshness-profile/1",
+    "name": "claude-workload-low-parallel",
+    "time_scale": 1,
+    "window_ms": 120000,
+    "observer": {
+      "claude": {
+        "cli": "/Users/USER/.local/share/claude/versions/2.1.293",
+        "model": null,
+        "effort": "low",
+        "target_p95_ms": 30000
+      }
+    },
+    "runs": [
+      {
+        "recording": "claude/2.1.292/claude_cli/macos/workload-ledger",
+        "start_ms": 0,
+        "chat": [
+          {
+            "after_ms": 395367,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 790733,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1251995,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      },
+      {
+        "recording": "claude/2.1.292/claude_cli/macos/workload-logstats",
+        "start_ms": 300000,
+        "chat": [
+          {
+            "after_ms": 368455,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 736909,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1166773,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      },
+      {
+        "recording": "claude/2.1.292/claude_cli/macos/workload-kvstore",
+        "start_ms": 1407889,
+        "chat": [
+          {
+            "after_ms": 676124,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 1352249,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 2141061,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      },
+      {
+        "recording": "claude/2.1.293/claude_cli/macos/workload-mdlinks",
+        "start_ms": 1618182,
+        "chat": [
+          {
+            "after_ms": 468941,
+            "question": "Что сейчас делает прогон и что осталось сделать по плану?"
+          },
+          {
+            "after_ms": 937881,
+            "question": "Какие тесты падали за прогон и чем это закончилось?"
+          },
+          {
+            "after_ms": 1484978,
+            "question": "Нужно ли сейчас моё вмешательство? Если да, то где."
+          }
+        ]
+      }
+    ]
+  },
+  "recordings": [
+    {
+      "recording": "claude/2.1.292/claude_cli/macos/workload-ledger",
+      "start_ms": 0,
+      "runtime": "claude",
+      "digest": "65d73c029d05cdea8bad934ba5b9fecd8904269d075a297395f44e836551b5c7",
+      "control_events": 22
+    },
+    {
+      "recording": "claude/2.1.292/claude_cli/macos/workload-logstats",
+      "start_ms": 300000,
+      "runtime": "claude",
+      "digest": "9a1eaa88072c98b4b2ed9cd1bb1d8c41ad9edbd373b4c1085920bfda00a594b8",
+      "control_events": 23
+    },
+    {
+      "recording": "claude/2.1.292/claude_cli/macos/workload-kvstore",
+      "start_ms": 1407889,
+      "runtime": "claude",
+      "digest": "1de4c69aad404ba54d42fc199dacd9e553ae2778892e87c4e3c99a1d301ba35d",
+      "control_events": 23
+    },
+    {
+      "recording": "claude/2.1.293/claude_cli/macos/workload-mdlinks",
+      "start_ms": 1618182,
+      "runtime": "claude",
+      "digest": "4c3bcdaad76bb5a2d796fb002ce686d6f2ddbe0844fb16a58516ef2ba91fb8f9",
+      "control_events": 21
+    }
+  ]
+}
