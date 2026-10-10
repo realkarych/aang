@@ -1,0 +1,189 @@
+name: Check
+
+on:
+  workflow_call:
+    inputs:
+      os:
+        type: string
+        required: true
+      vitest-shards:
+        type: string
+        required: true
+      e2e-shards:
+        type: string
+        required: true
+      docker:
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  CODEX_VERSION: 0.160.0
+
+jobs:
+  build:
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - run: pnpm build
+      - run: tar -cf build.tar packages/*/dist tools/*/dist packages/hook/bin packages/testkit/bin tools/check-comments/dockerfile-comments/bin
+        shell: bash
+      - uses: actions/upload-artifact@v7
+        with:
+          name: build-${{ runner.os }}
+          path: build.tar
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+
+  lint:
+    needs: build
+    name: typecheck, lint
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+      - run: pnpm typecheck
+      - run: pnpm lint
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+  vitest:
+    needs: build
+    name: vitest ${{ matrix.shard }}/${{ strategy.job-total }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.vitest-shards) }}
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+      - run: npm install --global "@openai/codex@${CODEX_VERSION}"
+        shell: bash
+      - run: pnpm test --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
+          AANG_ISOLATION_CODEX: codex
+      - run: |
+          node tools/coverage/dist/main.js coverage/tmp coverage/part/v8.json
+          if [ -d coverage/hook ]; then cp -R coverage/hook coverage/part/hook; fi
+        shell: bash
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ runner.os }}-vitest-${{ matrix.shard }}
+          path: coverage/part
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+      - if: failure()
+        run: node tools/support/dist/main.js isolation codex --support "$RUNNER_TEMP/support-isolation"
+        shell: bash
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: support-isolation-${{ inputs.os }}
+          path: ${{ runner.temp }}/support-isolation
+          if-no-files-found: ignore
+          overwrite: true
+
+  e2e:
+    needs: build
+    name: e2e ${{ matrix.shard }}/${{ strategy.job-total }}
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.e2e-shards) }}
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+      - uses: actions/cache@v6
+        with:
+          path: ${{ runner.os == 'Linux' && '~/.cache/ms-playwright' || runner.os == 'macOS' && '~/Library/Caches/ms-playwright' || '~/AppData/Local/ms-playwright' }}
+          key: playwright-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - if: runner.os == 'Linux'
+        run: pnpm exec playwright install --with-deps chromium
+      - if: runner.os != 'Linux'
+        run: pnpm exec playwright install chromium
+      - run: pnpm e2e --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
+      - run: node tools/coverage/dist/main.js coverage/tmp coverage/part/v8.json
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ runner.os }}-e2e-${{ matrix.shard }}
+          path: coverage/part
+          if-no-files-found: error
+          overwrite: true
+          retention-days: 7
+      - if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-results-${{ inputs.os }}-${{ matrix.shard }}
+          path: test-results/
+          if-no-files-found: ignore
+
+  coverage:
+    needs: [vitest, e2e]
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-${{ runner.os }}-*
+          path: coverage/parts
+      - run: |
+          mkdir -p coverage/tmp coverage/hook
+          for part in coverage/parts/*; do
+            cp "$part/v8.json" "coverage/tmp/${part##*/}.json"
+          done
+          shopt -s nullglob
+          hooks=(coverage/parts/*/hook)
+          go tool covdata merge -i="$(IFS=,; echo "${hooks[*]}")" -o=coverage/hook
+        shell: bash
+      - run: pnpm coverage:report
+        env:
+          NODE_OPTIONS: --max-old-space-size=6144
+
+  package:
+    needs: build
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+      - run: pnpm test:package
+
+  docker:
+    if: inputs.docker
+    needs: build
+    runs-on: ${{ inputs.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+        with:
+          build: true
+      - run: pnpm test:docker

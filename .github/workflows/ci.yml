@@ -2,6 +2,7 @@ name: CI
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   push:
     branches:
       - master
@@ -13,108 +14,33 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-env:
-  CODEX_VERSION: 0.160.0
-
 jobs:
-  check:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 120
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/hook/go.mod
-          cache: false
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: npm install --global "@openai/codex@${CODEX_VERSION}"
-        shell: bash
-      - run: pnpm typecheck
-      - run: pnpm lint
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
-      - if: runner.os == 'Linux'
-        run: pnpm exec playwright install --with-deps chromium
-      - if: runner.os != 'Linux'
-        run: pnpm exec playwright install chromium
-      - run: pnpm test
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
-          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
-          AANG_ISOLATION_CODEX: codex
-      - if: ${{ !cancelled() }}
-        run: pnpm e2e
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
-          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
-      - run: pnpm coverage:report
-        env:
-          NODE_OPTIONS: --max-old-space-size=6144
-      - if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: e2e-results-${{ matrix.os }}
-          path: test-results/
-          if-no-files-found: ignore
-      - if: failure()
-        run: node tools/support/dist/main.js isolation codex --support "$RUNNER_TEMP/support-isolation"
-        shell: bash
-      - if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: support-isolation-${{ matrix.os }}
-          path: ${{ runner.temp }}/support-isolation
-          if-no-files-found: ignore
+  ubuntu:
+    name: Ubuntu
+    uses: ./.github/workflows/check.yml
+    with:
+      os: ubuntu-latest
+      vitest-shards: '[1, 2]'
+      e2e-shards: '[1, 2]'
+      docker: true
 
-  docker:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/hook/go.mod
-          cache: false
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test:docker
+  macos:
+    name: macOS
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    uses: ./.github/workflows/check.yml
+    with:
+      os: macos-latest
+      vitest-shards: '[1, 2]'
+      e2e-shards: '[1, 2]'
 
-  package:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
-        with:
-          node-version-file: .node-version
-          cache: pnpm
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: packages/hook/go.mod
-          cache: false
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm build
-      - run: pnpm test:package
+  windows:
+    name: Windows
+    if: github.event_name == 'push' || !github.event.pull_request.draft
+    uses: ./.github/workflows/check.yml
+    with:
+      os: windows-latest
+      vitest-shards: '[1, 2, 3, 4]'
+      e2e-shards: '[1, 2]'
 
   hook-targets:
     strategy:
