@@ -182,6 +182,9 @@ export const startObserver = (options: ObserverOptions): Observer => {
     backend: config.observer.backend,
     crossVendor: config.observer.crossVendor,
     slot,
+    journal: (transaction, call) => {
+      transaction.observerCalls.chat(call)
+    },
     limits: { ...defaultChatLimits, inputTokens: config.observer.inputLimitTokens },
   })
   void chat.failure.then(failure.resolve)

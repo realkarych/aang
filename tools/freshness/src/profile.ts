@@ -18,9 +18,16 @@ export const ObserverSettings = z.strictObject({
 })
 export type ObserverSettings = z.infer<typeof ObserverSettings>
 
+export const ChatQuestion = z.strictObject({
+  after_ms: z.int().nonnegative(),
+  question: z.string().min(1),
+})
+export type ChatQuestion = z.infer<typeof ChatQuestion>
+
 export const ProfileRun = z.strictObject({
   recording: RecordingPath,
   start_ms: z.int().nonnegative().default(0),
+  chat: z.array(ChatQuestion).default([]),
 })
 export type ProfileRun = z.infer<typeof ProfileRun>
 
