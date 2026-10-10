@@ -19,7 +19,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        claudelog: ['1', '0']
+        work: ['default', 'd']
         attempt: [1, 2]
     runs-on: windows-latest
     timeout-minutes: 60
@@ -27,10 +27,10 @@ jobs:
       - uses: actions/checkout@v7
       - shell: pwsh
         run: |
-          Get-MpComputerStatus | Format-List AMServiceEnabled,AntivirusEnabled,RealTimeProtectionEnabled,BehaviorMonitorEnabled,OnAccessProtectionEnabled,IoavProtectionEnabled,AMRunningMode
-          Get-MpPreference | Format-List ExclusionPath,ExclusionProcess,ExclusionExtension,DisableRealtimeMonitoring,DisableBlockAtFirstSeen,MAPSReporting,CloudBlockLevel,CloudExtendedTimeout
-          Get-CimInstance Win32_Processor | Format-List Name,NumberOfCores,NumberOfLogicalProcessors
-          Get-CimInstance Win32_OperatingSystem | Format-List Caption,Version,TotalVisibleMemorySize,FreePhysicalMemory
+          "DEBUG_START=$((Get-Date).ToUniversalTime().ToString('o'))" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+          Get-CimInstance Win32_OperatingSystem | Format-List LastBootUpTime,LocalDateTime
+          Get-Volume | Format-Table DriveLetter,FileSystemLabel,Size,SizeRemaining
+          Get-MpComputerStatus | Format-List RealTimeProtectionEnabled
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7
         with:
@@ -55,7 +55,7 @@ jobs:
       - shell: pwsh
         run: |
           New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\debug-out" | Out-Null
-          Start-Process -FilePath typeperf -ArgumentList '"\Processor(_Total)\% Processor Time"','"\System\Processor Queue Length"','"\PhysicalDisk(_Total)\% Disk Time"','"\PhysicalDisk(_Total)\Avg. Disk Queue Length"','"\Memory\Available MBytes"','-si','1','-o',"$env:RUNNER_TEMP\debug-out\perf.csv",'-y' -WindowStyle Hidden
+          Start-Process -FilePath typeperf -ArgumentList '"\Processor(_Total)\% Processor Time"','"\System\Processor Queue Length"','"\PhysicalDisk(_Total)\% Disk Time"','"\PhysicalDisk(_Total)\Avg. Disk Queue Length"','"\Memory\Available MBytes"','"\LogicalDisk(C:)\Avg. Disk Queue Length"','"\LogicalDisk(D:)\Avg. Disk Queue Length"','"\LogicalDisk(C:)\Disk Write Bytes/sec"','"\LogicalDisk(D:)\Disk Write Bytes/sec"','-si','1','-o',"$env:RUNNER_TEMP\debug-out\perf.csv",'-y' -WindowStyle Hidden
           $sampler = @'
           $out = Join-Path $env:RUNNER_TEMP 'debug-out\processes.log'
           $previous = @{}
@@ -70,9 +70,10 @@ jobs:
               [pscustomobject]@{ Key = $key; Delta = $delta }
             }
             $top = $rows | Sort-Object Delta -Descending | Select-Object -First 8 | ForEach-Object { "$($_.Key)=$([math]::Round($_.Delta))" }
-            Add-Content -Path $out -Value ("{0} {1}" -f $now.ToUniversalTime().ToString('o'), ($top -join ' '))
+            $hooks = $rows | Where-Object { $_.Key -match 'hook' } | ForEach-Object { $_.Key }
+            Add-Content -Path $out -Value ("{0} {1} | {2}" -f $now.ToUniversalTime().ToString('o'), ($top -join ' '), ($hooks -join ' '))
             $previous = $current
-            Start-Sleep -Milliseconds 1000
+            Start-Sleep -Milliseconds 500
           }
           '@
           Set-Content -Path "$env:RUNNER_TEMP\sampler.ps1" -Value $sampler
@@ -80,25 +81,47 @@ jobs:
       - run: >-
           node tools/surface-check/dist/main.js run --placement local
           --surfaces claude_cli,claude_sdk --require claude_cli,claude_sdk
+          ${{ matrix.work == 'd' && '--work "$RUNNER_TEMP/work"' || '' }}
           --out "$RUNNER_TEMP/surface-check"
         shell: bash
         continue-on-error: true
         env:
-          DEBUG_HOOK_CLAUDE_LOG: ${{ matrix.claudelog }}
+          DEBUG_HOOK_CLAUDE_LOG: '0'
           AANG_RECORD_CLAUDE_SDK: ${{ runner.temp }}/sdk/node_modules/@anthropic-ai/claude-agent-sdk
           AANG_RECORD_CODEX_SDK: ${{ runner.temp }}/sdk/node_modules/@openai/codex-sdk
       - if: always()
         shell: bash
         run: |
-          work="$(node -p "require('os').tmpdir()")/aang-surface-check"
-          out="$RUNNER_TEMP/debug-out"
+          out="$(cygpath -u "$RUNNER_TEMP")/debug-out"
           cp "$RUNNER_TEMP/surface-check/report.json" "$RUNNER_TEMP/surface-check/summary.md" "$out/" || true
-          cd "$work"
-          find . \( -name '*.jsonl' -path '*projects*' -o -path '*hook-trace*' -name '*.json' -o -path '*/.claude/debug/*' -name '*.txt' -o -name 'daemon.log' \) -type f > "$out/files.txt"
-          tar -cf - -T "$out/files.txt" | tar -xf - -C "$out"
+          for work in "$(cygpath -u "$(node -p "require('os').tmpdir()")")/aang-surface-check" "$(cygpath -u "$RUNNER_TEMP")/work"; do
+            [ -d "$work" ] || continue
+            cd "$work"
+            find . \( -name '*.jsonl' -path '*projects*' -o -path '*hook-trace*' -name '*.json' -o -path '*/.claude/debug/*' -name '*.txt' -o -name 'daemon.log' \) -type f > "$out/files.txt"
+            tar --force-local -cf - -T "$out/files.txt" | tar --force-local -xf - -C "$out"
+          done
           du -sh "$out"
+      - if: always()
+        shell: pwsh
+        run: |
+          $start = [datetime]::Parse($env:DEBUG_START).ToUniversalTime().ToLocalTime()
+          $out = Join-Path $env:RUNNER_TEMP 'debug-out\events.txt'
+          function Short($text) { $flat = ($text -replace '\s+', ' '); $flat.Substring(0, [math]::Min(400, $flat.Length)) }
+          "== Application" | Out-File $out
+          Get-WinEvent -FilterHashtable @{LogName='Application'; StartTime=$start} -ErrorAction SilentlyContinue | Sort-Object TimeCreated | ForEach-Object { "{0} {1} {2} {3}" -f $_.TimeCreated.ToUniversalTime().ToString('o'), $_.ProviderName, $_.Id, (Short $_.Message) } | Out-File -Append $out
+          "== System" | Out-File -Append $out
+          Get-WinEvent -FilterHashtable @{LogName='System'; StartTime=$start} -ErrorAction SilentlyContinue | Sort-Object TimeCreated | ForEach-Object { "{0} {1} {2} {3}" -f $_.TimeCreated.ToUniversalTime().ToString('o'), $_.ProviderName, $_.Id, (Short $_.Message) } | Out-File -Append $out
+          "== TaskScheduler" | Out-File -Append $out
+          Get-WinEvent -FilterHashtable @{LogName='Microsoft-Windows-TaskScheduler/Operational'; StartTime=$start} -ErrorAction SilentlyContinue | Sort-Object TimeCreated | ForEach-Object { "{0} {1} {2}" -f $_.TimeCreated.ToUniversalTime().ToString('o'), $_.Id, (Short $_.Message) } | Out-File -Append $out
+          "== Tasks run since start" | Out-File -Append $out
+          Get-ScheduledTask | ForEach-Object { $info = $_ | Get-ScheduledTaskInfo -ErrorAction SilentlyContinue; if ($info -and $info.LastRunTime -gt $start) { "{0}{1} last {2} result {3}" -f $_.TaskPath, $_.TaskName, $info.LastRunTime.ToUniversalTime().ToString('o'), $info.LastTaskResult } } | Out-File -Append $out
+          "== Shadows" | Out-File -Append $out
+          vssadmin list shadows 2>&1 | Out-File -Append $out
+          "== Services" | Out-File -Append $out
+          tasklist /svc 2>&1 | Out-File -Append $out
+          Get-Content $out | Select-String -Pattern 'VSS|volsnap|Shadow|Backup|Restore|Defrag|==' | Select-Object -First 200
       - if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: hook-latency-${{ matrix.claudelog }}-${{ matrix.attempt }}
+          name: hook-latency-${{ matrix.work }}-${{ matrix.attempt }}
           path: ${{ runner.temp }}/debug-out
