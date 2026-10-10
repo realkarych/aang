@@ -24,6 +24,9 @@ interface HooksDocument {
 }
 
 const binaries = inject('hookBinaries')
+const windows = process.platform === 'win32'
+const neutral = windows ? 'exit 0' : 'true'
+const posixOnly = test.skipIf(windows)
 const installWaitMs = 200
 const largeFileEntries = 40_000
 const concurrentInstalls = 3
@@ -31,6 +34,8 @@ const concurrentInstalls = 3
 const loggerConfig = await sampleText('codex-cli/hooks/hooks.json.logger-config.json')
 
 const codexEvents = Object.keys((JSON.parse(loggerConfig) as HooksDocument).hooks)
+
+const windowsStaleCommand = "& 'C:\\Users\\O''Brien\\.aang\\bin\\aang-hook.exe' 'codex' 'user' 'C:\\Users\\O''Brien\\.aang\\spool'"
 
 const staleFile: HooksDocument = {
   hooks: {
@@ -51,6 +56,7 @@ const staleFile: HooksDocument = {
         ],
       },
       { hooks: [{ type: 'command', command: 'notify-send "aang hook"' }] },
+      { hooks: [{ type: 'command', command: windowsStaleCommand, timeout: 2 }] },
     ],
     UserPromptSubmit: [{ hooks: [{ type: 'command', command: '"/Users/USER/src/aang/bin/aang" hook' }] }],
     LegacyEvent: [{ hooks: [{ type: 'command', command: 'aang hook' }] }],
@@ -64,18 +70,19 @@ const neutralizedStaleFile: HooksDocument = {
       { hooks: [{ type: 'command', command: 'herdr-agent-state.sh', timeout: 5 }] },
       {
         hooks: [
-          { type: 'command', command: 'true', timeout: 5 },
+          { type: 'command', command: neutral, timeout: 5 },
           { type: 'command', command: 'echo aang-hook', timeout: 1 },
         ],
       },
       { matcher: 'startup', hooks: [{ type: 'command', command: 'cc-status' }] },
     ],
     Stop: [
-      { hooks: [{ type: 'command', command: 'true', timeout: 2 }] },
+      { hooks: [{ type: 'command', command: neutral, timeout: 2 }] },
       { hooks: [{ type: 'command', command: 'notify-send "aang hook"' }] },
+      { hooks: [{ type: 'command', command: neutral, timeout: 2 }] },
     ],
-    UserPromptSubmit: [{ hooks: [{ type: 'command', command: 'true' }] }],
-    LegacyEvent: [{ hooks: [{ type: 'command', command: 'true' }] }],
+    UserPromptSubmit: [{ hooks: [{ type: 'command', command: neutral }] }],
+    LegacyEvent: [{ hooks: [{ type: 'command', command: neutral }] }],
   },
   extra: { kept: true },
 }
@@ -149,7 +156,7 @@ const fileKind = (name: string): string => {
 const backups = async (home: InstallHome): Promise<string[]> =>
   (await readdir(home.codexHome)).filter((name) => name.includes('.aang-backup-')).map((name) => join(home.codexHome, name))
 
-describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', () => {
+describe('Codex hooks.json installation', () => {
   test('install appends one aang entry to the end of every event array and keeps foreign entries in place', async ({
     expect,
     onTestFinished,
@@ -165,6 +172,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
       command: expect.any(String) as unknown,
       hooksFile: home.hooksFile,
       backup: expect.stringMatching(/hooks\.json\.aang-backup-/) as unknown,
+      status: 'untrusted',
     })
     expect(await readJson(home.hooksFile)).toEqual(
       withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
@@ -222,11 +230,11 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
 
     expect(await readJson(home.hooksFile)).toEqual({
       ...installed,
-      hooks: { ...installed.hooks, Stop: [aangGroup(command), aangGroup('true')] },
+      hooks: { ...installed.hooks, Stop: [aangGroup(command), aangGroup(neutral)] },
     })
   })
 
-  test('without hooks.json install creates it with the aang entries and the command line runs the installed hook through the shell', async ({
+  test('without hooks.json install creates it with the aang entries and the command line runs the installed hook through the shell of Codex', async ({
     expect,
     onTestFinished,
   }) => {
@@ -236,8 +244,11 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
 
     expect(installation.backup).toBeNull()
     expect(await readJson(home.hooksFile)).toEqual(withAangAppended({ hooks: {} }, installation.command))
-    expect(((await stat(home.hooksFile)).mode & 0o777).toString(8)).toBe('600')
-    const result = await runProcess('/bin/sh', ['-c', installation.command], { env: {} })
+    if (!windows) {
+      expect(((await stat(home.hooksFile)).mode & 0o777).toString(8)).toBe('600')
+    }
+    const [shell = '', ...shellArgs] = windows ? ['pwsh', '-NoProfile', '-Command'] : ['/bin/sh', '-c']
+    const result = await runProcess(shell, [...shellArgs, installation.command], { env: {} })
     expect(result).toEqual(cleanExit)
     expect(withoutNames(await readSpoolEvents(home.paths.spool))).toEqual([
       { header: { runtime: 'codex', registration: 'user', env: {} }, payload: typicalPayload },
@@ -256,7 +267,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     const first = await uninstall(home)
     const second = await uninstall(home)
 
-    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(JSON.parse(loggerConfig) as HooksDocument, 'true'))
+    expect(await readJson(home.hooksFile)).toEqual(withAangAppended(JSON.parse(loggerConfig) as HooksDocument, neutral))
     expect(first).toEqual({ hooksFile: home.hooksFile, backup: expect.any(String) as unknown })
     expect(await readFile(first.backup ?? '', 'utf8')).toBe(installed)
     expect(second).toEqual({ hooksFile: home.hooksFile, backup: null })
@@ -269,7 +280,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     await expect(stat(home.hooksFile)).rejects.toMatchObject({ code: 'ENOENT' })
   })
 
-  test('a hooks.json managed through a symlink stays a symlink and its target receives the change and the backup', async ({
+  posixOnly('a hooks.json managed through a symlink stays a symlink and its target receives the change and the backup', async ({
     expect,
     onTestFinished,
   }) => {
@@ -289,7 +300,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     expect(installation.backup?.startsWith(join(dotfiles, 'hooks.json.aang-backup-'))).toBe(true)
   })
 
-  test('a hooks.json symlink to a missing file is refused and left a symlink', async ({ expect, onTestFinished }) => {
+  posixOnly('a hooks.json symlink to a missing file is refused and left a symlink', async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
     const missing = join(home.root, 'dotfiles', 'hooks.json')
     await symlink(missing, home.hooksFile)
@@ -368,7 +379,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
 
     const uninstallation = await replaceBeforeVerification(home, replacement, () => uninstall(home))
 
-    expect(await readJson(home.hooksFile)).toEqual(foreignStop({ hooks: { Stop: [aangGroup('true')] } }))
+    expect(await readJson(home.hooksFile)).toEqual(foreignStop({ hooks: { Stop: [aangGroup(neutral)] } }))
     expect(await backups(home)).toEqual([uninstallation.backup])
     expect(await readJson(uninstallation.backup ?? '')).toEqual(replacement)
   })
@@ -387,7 +398,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
       homes.map((home) => installCodexHooks({ aangHome: home.aangHome, hookBinarySource: binaries.plain, codexHome, codex: home.codex })),
     )
 
-    const neutralized = Array.from({ length: concurrentInstalls - 1 }, () => 'true')
+    const neutralized = Array.from({ length: concurrentInstalls - 1 }, () => neutral)
     const sequential = installations.map(({ command }) =>
       [...neutralized, command].reduce(withAangAppended, original),
     )
@@ -424,7 +435,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     expect((await readdir(home.codexHome)).map(fileKind).sort()).toEqual(['backup', 'hooks.json'])
   })
 
-  test('copies of a private hooks.json are never more permissive than the original, even while being written', async ({
+  posixOnly('copies of a private hooks.json are never more permissive than the original, even while being written', async ({
     expect,
     onTestFinished,
   }) => {
@@ -458,7 +469,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     expect(observed).toEqual(new Set(['hooks.json 600', 'lock 600', 'staged 600', 'backup 600']))
   })
 
-  test('an unreadable hooks.json is refused and left unchanged', async ({ expect, onTestFinished }) => {
+  posixOnly('an unreadable hooks.json is refused and left unchanged', async ({ expect, onTestFinished }) => {
     const home = await createInstallHome(onTestFinished)
     await writeFile(home.hooksFile, loggerConfig)
     await chmod(home.hooksFile, 0o200)
@@ -471,7 +482,7 @@ describe.skipIf(process.platform === 'win32')('Codex hooks.json installation', (
     expect(await readFile(home.hooksFile, 'utf8')).toBe(loggerConfig)
   })
 
-  test('a Codex home without write permission fails the install and leaves no files behind', async ({
+  posixOnly('a Codex home without write permission fails the install and leaves no files behind', async ({
     expect,
     onTestFinished,
   }) => {

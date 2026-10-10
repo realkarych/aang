@@ -1,7 +1,8 @@
 {
   "all": true,
   "include": ["packages/*/dist/**/*.js", "tools/*/dist/**/*.js"],
-  "exclude": ["packages/testkit/**", "packages/web/dist/assets/vendor-*.js", "tools/runtime-check/**", "tools/docker-image/**", "tools/record/dist/claude/**", "tools/record/dist/codex/**"],
+  "exclude": ["packages/testkit/**", "packages/web/dist/assets/vendor-*.js", "tools/runtime-check/**", "tools/resilience/**", "tools/docker-image/**", "tools/surface-check/**", "tools/npm-package/**", "tools/record/dist/claude/**", "tools/record/dist/codex/**"],
   "reporter": ["text"],
-  "reportsDirectory": "coverage"
+  "reportsDirectory": "coverage",
+  "mergeAsync": true
 }

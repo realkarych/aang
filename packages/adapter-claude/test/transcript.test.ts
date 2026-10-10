@@ -14,6 +14,7 @@ import {
   transcriptRecords,
 } from './samples.js'
 
+const projects = '/home/user/.claude/projects'
 const mainSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const forkSession = 'cdfb3544-67c1-4590-a4d9-280593b6ed55'
 const subagent = 'aad616394e806288d'
@@ -49,6 +50,15 @@ const typeOf = (record: CollectedRecord): string => {
   return [line.type, line.subtype, (line.attachment as JsonObject | undefined)?.type]
     .filter((part) => typeof part === 'string')
     .join('/')
+}
+
+const recordedLines = async (recording: string): Promise<CollectedRecord[]> => {
+  const data = new URL(`../../../fixtures/sessions/claude/2.1.289/${recording}/data/`, import.meta.url)
+  const chunks = (await readdir(data)).filter((name) => name.endsWith('.jsonl')).sort()
+  return (await Promise.all(chunks.map((name) => readFile(new URL(name, data), 'utf8'))))
+    .flatMap((chunk) => chunk.split('\n'))
+    .filter((line) => line.length > 0)
+    .map((payload) => lineRecord({ payload, line: 1 }))
 }
 
 const epochOf = (iso: string): EpochNs => EpochNs.parse(BigInt(Date.parse(iso)) * 1_000_000n)
@@ -89,7 +99,7 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
     expect([...unknownTypes]).toEqual([])
   })
 
-  test('the main session yields its prompts, actions, messages, usage, cost state, queue operations and compaction', async ({
+  test('the main session yields its prompts, actions, messages, usage, cost state, queue operations, compaction and definition listings', async ({
     expect,
   }) => {
     const records = await transcriptRecords('claude-code-transcripts/session-86f93ed5-main-full.jsonl')
@@ -114,6 +124,7 @@ describe.concurrent('Claude transcript: acceptance on samples', () => {
       message: 4,
       cost_state: 7,
       compaction: 2,
+      definition_listing: 4,
     })
     expect(facts.every((fact) => fact.runtime_ids.session_id === mainSession)).toBe(true)
     const unversioned = new Set(['queue_operation', 'cost_state'])
@@ -368,7 +379,9 @@ describe.concurrent('Claude transcript: records', () => {
     expect(dequeue?.payload).toEqual({ operation: 'dequeue', content: null })
   })
 
-  test('session metadata lines and context attachments are parsed without facts', async ({ expect }) => {
+  test('session metadata lines and context attachments are parsed without facts, the agent and skill listings into definitions', async ({
+    expect,
+  }) => {
     const records = [
       ...(await transcriptRecords('claude-code-transcripts/rec-session-metadata-lines.jsonl')),
       ...(await transcriptRecords('claude-code-transcripts/rec-attachment-one-per-type.jsonl')),
@@ -376,22 +389,29 @@ describe.concurrent('Claude transcript: records', () => {
     const results = records
       .filter((record) => typeOf(record) !== 'cost-state')
       .map((record) => [typeOf(record), claudeAdapter.parse(record)] as const)
+    const listings = new Set(['attachment/agent_listing_delta', 'attachment/skill_listing'])
+    const definitions = results
+      .filter(([type]) => listings.has(type))
+      .flatMap(([, result]) => factsOf(result))
+      .flatMap((fact) =>
+        fact.kind === 'definition_listing'
+          ? [[fact.payload.catalog, fact.payload.definitions.map(({ name }) => name)] as const]
+          : [],
+      )
 
     expect(results.length).toBe(17)
-    for (const [type, result] of results) {
+    for (const [type, result] of results.filter(([type]) => !listings.has(type))) {
       expect(result, type).toMatchObject({ parse_state: 'parsed', facts: [] })
     }
+    expect(definitions.map(([catalog]) => catalog)).toEqual(['agents', 'skills'])
+    expect(definitions[0]?.[1]).toContain('general-purpose')
+    expect(definitions[1]?.[1]).toContain('dataviz')
   })
 
   test('the plan mode reminders of the reference plan session are context without facts', async ({ expect }) => {
-    const recording = new URL('../../../fixtures/sessions/claude/2.1.289/claude_cli/macos/plan/data/', import.meta.url)
-    const chunks = (await readdir(recording)).filter((name) => name.endsWith('.jsonl')).sort()
-    const lines = (await Promise.all(chunks.map((name) => readFile(new URL(name, recording), 'utf8'))))
-      .flatMap((chunk) => chunk.split('\n'))
-      .filter((line) => line.length > 0)
-    const reminders = lines
-      .map((payload) => lineRecord({ payload, line: 1 }))
-      .filter((record) => typeOf(record).startsWith('attachment/plan_mode'))
+    const reminders = (await recordedLines('claude_cli/macos/plan')).filter((record) =>
+      typeOf(record).startsWith('attachment/plan_mode'),
+    )
 
     expect(reminders.map(typeOf)).toEqual(['attachment/plan_mode', 'attachment/plan_mode_exit'])
     for (const record of reminders) {
@@ -399,17 +419,46 @@ describe.concurrent('Claude transcript: records', () => {
     }
   })
 
-  test('the subagent prompt comes from the parent agent and its answer goes back to it', async ({ expect }) => {
+  test('the interactive lines of the reference teammates session are parsed, killed agents are an event', async ({
+    expect,
+  }) => {
+    const interactive = new Set(['permission-mode', 'file-history-snapshot', 'system/turn_duration', 'system/agents_killed'])
+    const results = (await recordedLines('claude_cli/macos/teammates'))
+      .filter((record) => interactive.has(typeOf(record)))
+      .map((record) => [typeOf(record), claudeAdapter.parse(record)] as const)
+
+    expect(new Set(results.map(([type]) => type))).toEqual(interactive)
+    expect(results.filter(([, result]) => result.parse_state !== 'parsed')).toEqual([])
+    expect(results.flatMap(([, result]) => factsOf(result))).toMatchObject([
+      {
+        kind: 'runtime_event',
+        entity_key: { kind: 'session', session: '1ccf19ba-9b77-484f-abb4-26392b1c69d2' },
+        format_verified: true,
+        payload: { event: 'agents_killed', data: {} },
+      },
+    ])
+  })
+
+  test('the subagent prompt comes from the parent agent, its answer goes back to it, and its system prompt is the prompt of its definition', async ({
+    expect,
+  }) => {
     const records = await transcriptRecords('claude-code-transcripts/subagent-agent-aad616394e806288d.jsonl')
     const facts = records.flatMap((record) => factsOf(claudeAdapter.parse(record)))
 
     expect(facts.map((fact) => [fact.kind, fact.speaker, fact.runtime_ids.agent_id])).toEqual([
       ['prompt', 'solver', subagent],
+      ['agent_prompt', 'runtime', subagent],
       ['message', 'solver', subagent],
       ['usage', 'runtime', subagent],
+      ['agent_prompt', 'runtime', subagent],
     ])
     expect(facts[0]?.payload).toEqual({ text: 'ping', origin: 'unknown', origin_raw: null })
-    expect(facts[1]?.payload).toMatchObject({ text: 'pong', final: true, audience: 'agent' })
+    expect(facts[1]).toMatchObject({
+      entity_key: { kind: 'agent', runtime: 'claude', session: mainSession, agent: { kind: 'subagent', agent_id: subagent } },
+      format_verified: true,
+      payload: { text: 'Reply with exactly the word pong. Do not call any tools.' },
+    })
+    expect(facts[2]?.payload).toMatchObject({ text: 'pong', final: true, audience: 'agent' })
   })
 })
 
@@ -545,8 +594,8 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
       expect(parseLine(line)).toEqual({ parse_state: 'unknown', source_ts: epochOf(line.timestamp as string) })
     }
     expect(claudeAdapter.rawKey(record(deepResult))).toBe(claudeAdapter.rawKey(record(result)))
-    expect(claudeAdapter.streamKey([JSON.stringify(deepResult)])).toBe(
-      claudeAdapter.streamKey([JSON.stringify(result)]),
+    expect(claudeAdapter.streamKey(null, [JSON.stringify(deepResult)])).toBe(
+      claudeAdapter.streamKey(null, [JSON.stringify(result)]),
     )
     expect(factsOf(parseLine(withInput(nestedArrays(100))))).toMatchObject([
       { kind: 'action_start', payload: { input: nestedArrays(100) } },
@@ -555,13 +604,30 @@ describe.concurrent('Claude transcript: unknown and invalid lines', () => {
   })
 
   test('unfamiliar system lines and attachments are unknown until their parsers land', ({ expect }) => {
-    expect(parseLine({ type: 'system', subtype: 'turn_duration', sessionId: mainSession, durationMs: 5 }).parse_state).toBe(
-      'unknown',
-    )
+    expect(parseLine({ type: 'system', subtype: 'api_error', sessionId: mainSession, uuid: 'u' }).parse_state).toBe('unknown')
     expect(
       parseLine({ type: 'attachment', sessionId: mainSession, attachment: { type: 'edited_text_file' } }).parse_state,
     ).toBe('unknown')
     expect(parseLine({ type: 'attachment', sessionId: mainSession, attachment: 'flat' }).parse_state).toBe('unknown')
+    expect(
+      parseLine({
+        type: 'attachment',
+        sessionId: mainSession,
+        attachment: { type: 'hook_blocking_error', hookEvent: 'Stop', command: 'notes-guard' },
+      }).parse_state,
+    ).toBe('unknown')
+    expect(
+      parseLine({
+        type: 'system',
+        subtype: 'stop_hook_summary',
+        sessionId: mainSession,
+        agentId: subagent,
+        uuid: 'summary',
+        hookInfos: [{ command: 'notes-guard' }],
+        hookErrors: [],
+        preventedContinuation: false,
+      }).parse_state,
+    ).toBe('unknown')
   })
 
   test('content blocks of an unknown type make the record unknown instead of dropping them', async ({ expect }) => {
@@ -644,9 +710,9 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
   const firstLines = async (path: string) => (await sampleLines(`claude-code-transcripts/${path}`)).slice(0, 10)
 
   test('the main file, the fork and the subagent are three different streams', async ({ expect }) => {
-    const main = claudeAdapter.streamKey(await firstLines('session-86f93ed5-main-full.jsonl'))
-    const fork = claudeAdapter.streamKey(await firstLines('session-cdfb3544-fork-full.jsonl'))
-    const agent = claudeAdapter.streamKey(await firstLines('subagent-agent-aad616394e806288d.jsonl'))
+    const main = claudeAdapter.streamKey(null, await firstLines('session-86f93ed5-main-full.jsonl'))
+    const fork = claudeAdapter.streamKey(null, await firstLines('session-cdfb3544-fork-full.jsonl'))
+    const agent = claudeAdapter.streamKey(null, await firstLines('subagent-agent-aad616394e806288d.jsonl'))
 
     expect(main).toBe(JSON.stringify(['claude', mainSession, 'main']))
     expect(fork).toBe(JSON.stringify(['claude', forkSession, 'main']))
@@ -655,13 +721,16 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
 
   test('a stream is found again from the first lines of a moved file', async ({ expect }) => {
     const lines = await sampleLines('claude-code-transcripts/session-86f93ed5-main-full.jsonl')
+    const moved = `${projects}/-moved/${mainSession}.jsonl`
 
-    expect(claudeAdapter.streamKey(['', 'garbage', ...lines.slice(0, 3)])).toBe(claudeAdapter.streamKey(lines.slice(0, 1)))
+    expect(claudeAdapter.streamKey(moved, ['', 'garbage', ...lines.slice(0, 3)])).toBe(
+      claudeAdapter.streamKey(`${projects}/-work/${mainSession}.jsonl`, lines.slice(0, 1)),
+    )
   })
 
   test('first lines without a session give no stream', ({ expect }) => {
-    expect(claudeAdapter.streamKey([])).toBeNull()
-    expect(claudeAdapter.streamKey(['not json', '{"type":"summary"}', '[]'])).toBeNull()
+    expect(claudeAdapter.streamKey(null, [])).toBeNull()
+    expect(claudeAdapter.streamKey(null, ['not json', '{"type":"summary"}', '[]'])).toBeNull()
   })
 
   test('a hook event names the stream of its transcript: the main one, or the subagent one for an event inside a subagent', async ({
@@ -670,11 +739,11 @@ describe.concurrent('Claude transcript: stream and record keys', () => {
     const prompt = await readJsonSample('claude-code-hooks/UserPromptSubmit.json')
     const inside = await readJsonSample('claude-code-hooks/PreToolUse.Bash.inside-subagent.json')
 
-    expect(claudeAdapter.streamKey([JSON.stringify(prompt)])).toBe(JSON.stringify(['claude', prompt['session_id'], 'main']))
-    expect(claudeAdapter.streamKey([JSON.stringify(inside)])).toBe(
+    expect(claudeAdapter.streamKey(null, [JSON.stringify(prompt)])).toBe(JSON.stringify(['claude', prompt['session_id'], 'main']))
+    expect(claudeAdapter.streamKey(null, [JSON.stringify(inside)])).toBe(
       JSON.stringify(['claude', inside['session_id'], 'agent', inside['agent_id']]),
     )
-    expect(claudeAdapter.streamKey([JSON.stringify({ ...prompt, hook_event_name: null })])).toBeNull()
+    expect(claudeAdapter.streamKey(null, [JSON.stringify({ ...prompt, hook_event_name: null })])).toBeNull()
   })
 
   test('a record with a uuid is keyed by session and uuid, so a fork copy is a record of its own stream', async ({

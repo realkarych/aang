@@ -4433,11 +4433,11 @@
         "root_session": "#89",
         "goal": {
           "text": "[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.",
-          "fact": "#6"
+          "fact": "#7"
         },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -4445,24 +4445,6 @@
           "kind": "link",
           "value": {
             "id": "#107",
-            "run": "#90",
-            "basis": {
-              "kind": "observed"
-            },
-            "evidence": [
-              "#28",
-              "#34"
-            ],
-            "kind": "spawn",
-            "parent": "#91",
-            "child": "#94",
-            "via": "#95"
-          }
-        },
-        {
-          "kind": "link",
-          "value": {
-            "id": "#108",
             "run": "#90",
             "basis": {
               "kind": "observed"
@@ -4478,6 +4460,24 @@
           }
         },
         {
+          "kind": "link",
+          "value": {
+            "id": "#108",
+            "run": "#90",
+            "basis": {
+              "kind": "observed"
+            },
+            "evidence": [
+              "#28",
+              "#34"
+            ],
+            "kind": "spawn",
+            "parent": "#91",
+            "child": "#94",
+            "via": "#95"
+          }
+        },
+        {
           "kind": "run",
           "value": {
             "id": "#90",
@@ -4485,11 +4485,11 @@
             "root_session": "#89",
             "goal": {
               "text": "[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.",
-              "fact": "#6"
+              "fact": "#7"
             },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

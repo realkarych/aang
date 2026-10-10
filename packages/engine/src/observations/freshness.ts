@@ -1,7 +1,36 @@
-import type { EpochNs, Freshness, Session, SessionId } from '@aang/contract'
-import type { Transaction } from '@aang/store'
+import { EpochNs, type Freshness, type Session, SessionId } from '@aang/contract'
+import type { SettingReader, Transaction } from '@aang/store'
+import { silenceDeadline } from './silence.js'
+import { sourceGaps } from './sources.js'
 
-export type QuietWatch = Map<SessionId, EpochNs>
+export interface FreshnessLimits {
+  readonly quietAfterMs: number
+  readonly hooksInactiveAfterMs: number
+}
+
+export interface FreshnessWatch {
+  readonly quiet: Map<SessionId, EpochNs>
+  readonly hooks: Map<SessionId, EpochNs>
+}
+
+export interface WatchedProjection {
+  readonly session: Pick<Session, 'id' | 'state' | 'freshness' | 'last_event_at'>
+  readonly awaitingHooks: EpochNs | null
+}
+
+const awaitingHooksSetting = 'hooks_awaiting'
+
+export const storedAwaitingHooks = (settings: SettingReader): Map<SessionId, EpochNs> => {
+  const stored = settings.get(awaitingHooksSetting)
+  const entries = stored !== null && typeof stored === 'object' && !Array.isArray(stored) ? Object.entries(stored) : []
+  return new Map(entries.map(([id, from]) => [SessionId.parse(id), EpochNs.parse(from)]))
+}
+
+const saveAwaitingHooks = (transaction: Transaction, hooks: ReadonlyMap<SessionId, EpochNs>, now: EpochNs): void => {
+  const stored = storedAwaitingHooks(transaction.settings)
+  if (stored.size === hooks.size && [...hooks].every(([id, from]) => stored.get(id) === from)) { return }
+  transaction.settings.save(awaitingHooksSetting, Object.fromEntries(hooks), now)
+}
 
 const quietAt = (lastEventAt: EpochNs, quietAfterMs: number): bigint => lastEventAt + BigInt(quietAfterMs) * 1_000_000n
 
@@ -19,27 +48,72 @@ export const freshnessOf = (
   return session.state === 'turn_running' && now >= quietAt(session.last_event_at, quietAfterMs) ? 'quiet' : 'ok'
 }
 
-export const watchQuiet = (watch: QuietWatch, session: Pick<Session, 'id' | 'state' | 'freshness' | 'last_event_at'>): void => {
+const watchQuiet = (quiet: Map<SessionId, EpochNs>, session: WatchedProjection['session']): void => {
   if (session.state === 'turn_running' && session.freshness === 'ok') {
-    watch.set(session.id, session.last_event_at)
+    quiet.set(session.id, session.last_event_at)
   } else {
-    watch.delete(session.id)
+    quiet.delete(session.id)
   }
 }
 
-export const quietWatchOf = (sessions: readonly Session[]): QuietWatch => {
-  const watch: QuietWatch = new Map()
-  for (const session of sessions) { watchQuiet(watch, session) }
+export const watchFreshness = (watch: FreshnessWatch, { session, awaitingHooks }: WatchedProjection): void => {
+  watchQuiet(watch.quiet, session)
+  if (awaitingHooks === null) {
+    watch.hooks.delete(session.id)
+  } else {
+    watch.hooks.set(session.id, awaitingHooks)
+  }
+}
+
+export const unwatchFreshness = (watch: FreshnessWatch, session: SessionId): void => {
+  watch.quiet.delete(session)
+  watch.hooks.delete(session)
+}
+
+export const copyWatch = (watch: FreshnessWatch): FreshnessWatch => ({
+  quiet: new Map(watch.quiet),
+  hooks: new Map(watch.hooks),
+})
+
+export const freshnessWatchOf = (sessions: readonly Session[], awaiting: ReadonlyMap<SessionId, EpochNs>): FreshnessWatch => {
+  const watch: FreshnessWatch = { quiet: new Map(), hooks: new Map() }
+  for (const session of sessions) {
+    watchQuiet(watch.quiet, session)
+    const from = awaiting.get(session.id)
+    if (from !== undefined) { watch.hooks.set(session.id, from) }
+  }
   return watch
 }
 
-export const settleQuiet = (transaction: Transaction, watch: QuietWatch, now: EpochNs, quietAfterMs: number): void => {
-  for (const [id, lastEventAt] of watch) {
-    if (now < quietAt(lastEventAt, quietAfterMs)) { continue }
-    watch.delete(id)
+const settleQuiet = (transaction: Transaction, watch: FreshnessWatch, now: EpochNs, limits: FreshnessLimits): void => {
+  for (const [id, lastEventAt] of watch.quiet) {
+    if (now < quietAt(lastEventAt, limits.quietAfterMs)) { continue }
+    watch.quiet.delete(id)
     const session = transaction.observations.getSession(id)
     if (session?.freshness !== 'ok') { continue }
-    const freshness = freshnessOf(session, false, now, quietAfterMs)
+    const freshness = freshnessOf(session, false, now, limits.quietAfterMs)
     if (freshness !== session.freshness) { transaction.observations.save({ ...session, freshness }) }
   }
+}
+
+const settleHooks = (transaction: Transaction, watch: FreshnessWatch, now: EpochNs, limits: FreshnessLimits): void => {
+  let lost: ReadonlySet<SessionId> | null = null
+  for (const [id, from] of watch.hooks) {
+    if (now < silenceDeadline(from, limits.hooksInactiveAfterMs)) { continue }
+    watch.hooks.delete(id)
+    const session = transaction.observations.getSession(id)
+    if (session?.support_mode !== 'full') { continue }
+    lost ??= lostSessions(transaction)
+    const silent = { ...session, support_mode: 'files_only' } as const
+    sourceGaps(transaction, silent, now, { silences: [{ from, until: null }], hooks: [] }, session.support_mode)
+    const saved = { ...silent, freshness: freshnessOf(silent, lost.has(id), now, limits.quietAfterMs) }
+    transaction.observations.save(saved)
+    watchQuiet(watch.quiet, saved)
+  }
+}
+
+export const settleFreshness = (transaction: Transaction, watch: FreshnessWatch, now: EpochNs, limits: FreshnessLimits): void => {
+  settleQuiet(transaction, watch, now, limits)
+  settleHooks(transaction, watch, now, limits)
+  saveAwaitingHooks(transaction, watch.hooks, now)
 }

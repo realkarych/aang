@@ -2,11 +2,12 @@ import { type Stats, unwatchFile, watchFile } from 'node:fs'
 import { join } from 'node:path'
 import { type Config, type HookInstallation, type Runtime, runtimes } from '@aang/contract'
 import {
+  checkCodexHooks,
   claudePluginListArgs,
   type ClaudePluginState,
   claudePluginStateOf,
-  codexHooksState,
-  type CodexHooksState,
+  type CodexHooksCheck,
+  type CodexHooksStatus,
   hookInstallPaths,
 } from '@aang/hook'
 import { createProcessRunner, type ProcessRunner, resolveCli } from '@aang/observer'
@@ -25,12 +26,19 @@ export interface HookChecks {
 
 interface Probe {
   readonly files: readonly string[]
-  readonly read: (signal: AbortSignal) => Promise<HookInstallation>
+  readonly read: (signal: AbortSignal, fresh: boolean) => Promise<HookInstallation>
 }
 
 interface Checker {
-  readonly request: () => Promise<void>
+  readonly request: (fresh: boolean) => Promise<void>
+  readonly noticeChange: () => void
   readonly settled: () => Promise<void>
+  readonly stop: () => void
+}
+
+interface QueuedCheck {
+  readonly done: Promise<void>
+  fresh: boolean
 }
 
 const claudeInstallations: Readonly<Record<ClaudePluginState, HookInstallation>> = {
@@ -39,7 +47,7 @@ const claudeInstallations: Readonly<Record<ClaudePluginState, HookInstallation>>
   enabled: 'active',
 }
 
-const codexInstallations: Readonly<Record<CodexHooksState['status'], HookInstallation>> = {
+const codexInstallations: Readonly<Record<CodexHooksStatus, HookInstallation>> = {
   not_installed: 'not_installed',
   untrusted: 'untrusted',
   inactive: 'disabled',
@@ -47,6 +55,10 @@ const codexInstallations: Readonly<Record<CodexHooksState['status'], HookInstall
 }
 
 const fileCheckIntervalMs = 1_000
+
+const changeQuietMs = 2_000
+
+const changeDelayLimitMs = 10_000
 
 const hookProbeTimeoutMs = 10_000
 
@@ -76,59 +88,106 @@ const claudePlugin = async (
   return claudePluginStateOf({ status: exitCode ?? -1, stdout, stderr })
 }
 
+const codexProbe = ({ aangHome, config, runtimeRoots }: HookChecksOptions): Probe => {
+  let known: CodexHooksCheck | null = null
+  let failed = false
+  return {
+    files: [
+      join(runtimeRoots.codex, 'hooks.json'),
+      join(runtimeRoots.codex, 'config.toml'),
+      hookInstallPaths(aangHome).codexHooksRecord,
+    ],
+    read: async (signal, fresh) => {
+      try {
+        const checked = await checkCodexHooks({
+          aangHome,
+          codexHome: runtimeRoots.codex,
+          codex: () => resolveCli('codex', config.cli.codex ?? 'codex', inheritedEnvironment()),
+          timeoutMs: hookProbeTimeoutMs,
+          signal,
+          known,
+          fresh: fresh || failed,
+        })
+        known = checked
+        failed &&= !checked.listed
+        return codexInstallations[checked.status]
+      } catch (error) {
+        failed = true
+        throw error
+      }
+    },
+  }
+}
+
 const probes = (options: HookChecksOptions, runner: ProcessRunner): Readonly<Record<Runtime, Probe>> => {
-  const { aangHome, config, runtimeRoots } = options
+  const { runtimeRoots } = options
   return {
     claude: {
       files: [join(runtimeRoots.claude, 'settings.json'), join(runtimeRoots.claude, 'plugins', 'installed_plugins.json')],
       read: async (signal) => claudeInstallations[await claudePlugin(options, runner, signal)],
     },
-    codex: {
-      files: [join(runtimeRoots.codex, 'hooks.json'), join(runtimeRoots.codex, 'config.toml')],
-      read: async (signal) => {
-        const codex = { command: config.cli.codex ?? 'codex' }
-        const state = await codexHooksState({
-          aangHome,
-          codexHome: runtimeRoots.codex,
-          codex,
-          timeoutMs: hookProbeTimeoutMs,
-          signal,
-        })
-        return codexInstallations[state.status]
-      },
-    },
+    codex: codexProbe(options),
   }
 }
 
-const createChecker = (check: () => Promise<void>): Checker => {
+const createChecker = (check: (fresh: boolean) => Promise<void>): Checker => {
   let running: Promise<void> | null = null
-  let queued: Promise<void> | null = null
-  const start = (): Promise<void> => {
-    const run = check().finally(() => {
+  let queued: QueuedCheck | null = null
+  let delayed: NodeJS.Timeout | undefined
+  let firstChange: number | null = null
+  const start = (fresh: boolean): Promise<void> => {
+    const run = check(fresh).finally(() => {
       running = null
     })
     running = run
     return run
   }
-  return {
-    request: () => {
-      if (queued !== null) {
-        return queued
-      }
-      if (running === null) {
-        return start()
-      }
-      const next = running.then(() => {
+  const stop = (): void => {
+    clearTimeout(delayed)
+    delayed = undefined
+    firstChange = null
+  }
+  const request = (fresh: boolean): Promise<void> => {
+    if (fresh) {
+      stop()
+    }
+    if (queued !== null) {
+      queued.fresh ||= fresh
+      return queued.done
+    }
+    if (running === null) {
+      return start(fresh)
+    }
+    const next: QueuedCheck = {
+      fresh,
+      done: running.then(() => {
         queued = null
-        return start()
-      })
-      queued = next
-      return next
+        return start(next.fresh)
+      }),
+    }
+    queued = next
+    return next.done
+  }
+  return {
+    request,
+    noticeChange: () => {
+      const now = Date.now()
+      firstChange ??= now
+      clearTimeout(delayed)
+      delayed = setTimeout(
+        () => {
+          stop()
+          void request(false)
+        },
+        Math.max(0, Math.min(changeQuietMs, firstChange + changeDelayLimitMs - now)),
+      )
+      delayed.unref()
     },
     settled: async () => {
-      await queued
+      await queued?.done
       await running
     },
+    stop,
   }
 }
 
@@ -146,15 +205,15 @@ export const startHookChecks = (options: HookChecksOptions): HookChecks => {
   const probed = probes(options, runner)
   const checkerOf = (runtime: Runtime): Checker => {
     const { files, read } = probed[runtime]
-    const checker = createChecker(async () => {
+    const checker = createChecker(async (fresh) => {
       if (!closing.signal.aborted) {
-        installations[runtime] = await read(closing.signal).catch((): HookInstallation => 'unknown')
+        installations[runtime] = await read(closing.signal, fresh).catch((): HookInstallation => 'unknown')
       }
     })
     for (const file of files) {
       const listener = (current: Stats, previous: Stats): void => {
         if (changed(current, previous)) {
-          void checker.request()
+          checker.noticeChange()
         }
       }
       watchFile(file, { interval: fileCheckIntervalMs, persistent: false }, listener)
@@ -164,7 +223,7 @@ export const startHookChecks = (options: HookChecksOptions): HookChecks => {
   }
   const checkers: Readonly<Record<Runtime, Checker>> = { claude: checkerOf('claude'), codex: checkerOf('codex') }
   const check = async (): Promise<void> => {
-    await Promise.all(runtimes.map((runtime) => checkers[runtime].request()))
+    await Promise.all(runtimes.map((runtime) => checkers[runtime].request(true)))
   }
   void check()
   return {
@@ -174,6 +233,9 @@ export const startHookChecks = (options: HookChecksOptions): HookChecks => {
       closing.abort()
       for (const [file, listener] of watched) {
         unwatchFile(file, listener)
+      }
+      for (const runtime of runtimes) {
+        checkers[runtime].stop()
       }
       await Promise.all(runtimes.map((runtime) => checkers[runtime].settled()))
     },

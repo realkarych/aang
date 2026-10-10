@@ -1,17 +1,22 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 	"strconv"
+	"sync"
 )
 
 const (
-	launchMode  = "launch"
-	launchUsage = "usage: aang-hook launch <status-file> <input-bytes> <program> [argument ...]"
+	launchMode    = "launch"
+	streamedInput = "stream"
+	launchUsage   = "usage: aang-hook launch <status-file> <input-bytes|stream> <program> [argument ...]"
 )
+
+const streamChunkSize = 64 * 1024
 
 const (
 	exitStatusWritten = 0
@@ -22,6 +27,7 @@ const (
 type launchRequest struct {
 	statusPath  string
 	inputLength int64
+	streamed    bool
 	command     []string
 }
 
@@ -58,7 +64,11 @@ func launch(args []string) int {
 	resumeErr := tree.resume()
 	if resumeErr == nil {
 		stopRequested := make(chan struct{})
-		go forwardInput(tree.input, request.inputLength, stopRequested)
+		if request.streamed {
+			go streamInput(tree.input, stopRequested)
+		} else {
+			go forwardInput(tree.input, request.inputLength, stopRequested)
+		}
 		tree.awaitRootExitOr(stopRequested)
 	}
 	exitCode, err := tree.stop()
@@ -76,8 +86,13 @@ func parseLaunch(args []string) (launchRequest, bool) {
 	if len(args) < 3 || args[0] == "" || args[2] == "" {
 		return launchRequest{}, false
 	}
+	request := launchRequest{statusPath: args[0], streamed: args[1] == streamedInput, command: args[2:]}
+	if request.streamed {
+		return request, true
+	}
 	length, err := strconv.ParseUint(args[1], 10, 63)
-	return launchRequest{statusPath: args[0], inputLength: int64(length), command: args[2:]}, err == nil
+	request.inputLength = int64(length)
+	return request, err == nil
 }
 
 func forwardInput(cli io.WriteCloser, length int64, stopRequested chan<- struct{}) {
@@ -89,6 +104,74 @@ func forwardInput(cli io.WriteCloser, length int64, stopRequested chan<- struct{
 
 func deliverInput(cli io.WriteCloser, input []byte) {
 	_, _ = cli.Write(input)
+	_ = cli.Close()
+}
+
+func streamInput(cli io.WriteCloser, stopRequested chan<- struct{}) {
+	queue := newInputQueue()
+	go queue.deliver(cli)
+	chunk := make([]byte, streamChunkSize)
+	for {
+		count, err := os.Stdin.Read(chunk)
+		queue.push(chunk[:count])
+		if err != nil {
+			break
+		}
+	}
+	queue.close()
+	close(stopRequested)
+}
+
+type inputQueue struct {
+	mutex   sync.Mutex
+	pending *sync.Cond
+	chunks  [][]byte
+	closed  bool
+}
+
+func newInputQueue() *inputQueue {
+	queue := &inputQueue{}
+	queue.pending = sync.NewCond(&queue.mutex)
+	return queue
+}
+
+func (queue *inputQueue) push(chunk []byte) {
+	if len(chunk) == 0 {
+		return
+	}
+	queue.mutex.Lock()
+	queue.chunks = append(queue.chunks, bytes.Clone(chunk))
+	queue.mutex.Unlock()
+	queue.pending.Signal()
+}
+
+func (queue *inputQueue) close() {
+	queue.mutex.Lock()
+	queue.closed = true
+	queue.mutex.Unlock()
+	queue.pending.Signal()
+}
+
+func (queue *inputQueue) next() ([]byte, bool) {
+	queue.mutex.Lock()
+	defer queue.mutex.Unlock()
+	for len(queue.chunks) == 0 && !queue.closed {
+		queue.pending.Wait()
+	}
+	if len(queue.chunks) == 0 {
+		return nil, false
+	}
+	chunk := queue.chunks[0]
+	queue.chunks = queue.chunks[1:]
+	return chunk, true
+}
+
+func (queue *inputQueue) deliver(cli io.WriteCloser) {
+	for chunk, more := queue.next(); more; chunk, more = queue.next() {
+		if _, err := cli.Write(chunk); err != nil {
+			break
+		}
+	}
 	_ = cli.Close()
 }
 

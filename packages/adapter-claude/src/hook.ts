@@ -8,7 +8,7 @@ import { name, optionalText } from './fields.js'
 import { facts, HookCommon, type HookParser, hookParser } from './hook-parser.js'
 import { isJsonObject, type JsonObject, parseJson, withinNestingLimit } from './json.js'
 import { actionKey, ownerKey, questionKey } from './keys.js'
-import { questionsAnswered } from './questions.js'
+import { isQuestionTool, questionsAnswered } from './questions.js'
 import { sessionHookParsers } from './session-hooks.js'
 import { actionKind, exitCode, outputText, persistedOutputPath } from './tools.js'
 
@@ -74,7 +74,11 @@ const questionNotificationTypes: ReadonlySet<string> = new Set([
   'agent_needs_input',
 ])
 
-const verifiedNotificationTypes: ReadonlySet<string> = new Set(['permission_prompt'])
+const verifiedNotificationTypes: ReadonlySet<string> = new Set([
+  'permission_prompt',
+  'elicitation_response',
+  'elicitation_complete',
+])
 
 const responseText = (response: JsonValue | undefined): string | null =>
   response === undefined ? null : outputText(response)
@@ -173,8 +177,20 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
   ],
   [
     'PermissionRequest',
-    hookParser(PermissionRequest, (event, { origin, spoolFile }) =>
-      spoolFile === null
+    hookParser(PermissionRequest, (event, { origin, spoolFile }) => {
+      const request = { tool: event.tool_name, input: event.tool_input }
+      if (isQuestionTool(event.tool_name)) {
+        return facts(
+          fact(origin, {
+            kind: 'permission_request',
+            entity_key: ownerKey(event.session_id, event.agent_id ?? null),
+            speaker: 'runtime',
+            urgent: true,
+            payload: request,
+          }),
+        )
+      }
+      return spoolFile === null
         ? invalid('PermissionRequest is identified by its spool file, and the record has none')
         : facts(
             fact(origin, {
@@ -182,10 +198,10 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
               entity_key: questionKey(event.session_id, spoolFile),
               speaker: 'runtime',
               urgent: true,
-              payload: { tool: event.tool_name, input: event.tool_input },
+              payload: request,
             }),
-          ),
-    ),
+          )
+    }),
   ],
   [
     'PermissionDenied',
@@ -226,21 +242,17 @@ const toolHookParsers: ReadonlyMap<string, HookParser> = new Map([
       return spoolFile === null
         ? invalid('a question notification is identified by its spool file, and the record has none')
         : facts(
-            fact(
-              origin,
-              {
-                kind: 'question_asked',
-                entity_key: questionKey(event.session_id, spoolFile),
-                speaker: 'runtime',
-                urgent: true,
-                payload: {
-                  source: 'notification',
-                  blocking: true,
-                  questions: [{ header: event.title ?? null, text: event.message ?? '', options: [] }],
-                },
+            fact(origin, {
+              kind: 'question_asked',
+              entity_key: questionKey(event.session_id, spoolFile),
+              speaker: 'runtime',
+              urgent: true,
+              payload: {
+                source: 'notification',
+                blocking: true,
+                questions: [{ header: event.title ?? null, text: event.message ?? '', options: [] }],
               },
-              { verified: false },
-            ),
+            }),
           )
     }),
   ],

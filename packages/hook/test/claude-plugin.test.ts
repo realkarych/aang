@@ -3,6 +3,7 @@ import { join } from 'node:path'
 import {
   claudePluginState,
   HookInstallError,
+  hookBinaryName,
   installClaudePlugin,
   uninstallClaudePlugin,
 } from '@aang/hook'
@@ -48,7 +49,7 @@ const pluginSnapshot = async (home: InstallHome): Promise<Record<string, Buffer>
   )
 }
 
-describe.skipIf(process.platform === 'win32')('Claude plugin installation through the local marketplace', () => {
+describe('Claude plugin installation through the local marketplace', () => {
   test('install copies the binary unchanged into AANG_HOME/bin, generates the plugin and registers it in user scope', async ({
     expect,
     onTestFinished,
@@ -58,7 +59,7 @@ describe.skipIf(process.platform === 'win32')('Claude plugin installation throug
 
     const installation = await install(home, claude.cli)
 
-    expect(installation).toEqual({ binary: join(home.aangHome, 'bin', 'aang-hook'), plugin: home.paths.claudePlugin })
+    expect(installation).toEqual({ binary: join(home.aangHome, 'bin', hookBinaryName), plugin: home.paths.claudePlugin })
     expect(home.paths.claudePlugin).toBe(join(home.aangHome, 'claude-plugin'))
     expect(await readFile(installation.binary)).toEqual(await readFile(binaries.plain))
     expect(claude.argv()).toEqual(installCalls(home))
@@ -83,7 +84,7 @@ describe.skipIf(process.platform === 'win32')('Claude plugin installation throug
           hooks: [
             {
               type: 'command',
-              command: join(home.aangHome, 'bin', 'aang-hook'),
+              command: join(home.aangHome, 'bin', hookBinaryName),
               args: ['claude', 'plugin', join(home.aangHome, 'spool')],
               timeout: 2,
             },

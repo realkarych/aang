@@ -336,6 +336,46 @@
     },
     {
       "id": "#7",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aad616394e806288d"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
+        "agent_id": "aad616394e806288d",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "1ff32531-4770-4d4b-8013-5333e5fe4ffc",
+        "parent_uuid": "ca553476-20be-4830-b573-bae7d0ac1370",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/cc-transcripts/run",
+        "version": "2.1.286",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "Reply with exactly the word pong. Do not call any tools."
+      }
+    },
+    {
+      "id": "#8",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -375,7 +415,7 @@
       }
     },
     {
-      "id": "#8",
+      "id": "#9",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -421,7 +461,47 @@
       }
     },
     {
-      "id": "#9",
+      "id": "#10",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aad616394e806288d"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
+        "agent_id": "aad616394e806288d",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "e2c60226-c2c7-4954-90c0-9fc6cb08d656",
+        "parent_uuid": "53f93a6d-f83f-4463-a7f6-bc2e2b19e11d",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/cc-transcripts/run",
+        "version": "2.1.286",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "Reply with exactly the word pong. Do not call any tools."
+      }
+    },
+    {
+      "id": "#11",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "agent",
@@ -469,7 +549,7 @@
       }
     },
     {
-      "id": "#10",
+      "id": "#12",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -518,7 +598,7 @@
       }
     },
     {
-      "id": "#11",
+      "id": "#13",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
@@ -555,7 +635,7 @@
       }
     },
     {
-      "id": "#12",
+      "id": "#14",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
@@ -592,7 +672,7 @@
       }
     },
     {
-      "id": "#13",
+      "id": "#15",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -631,7 +711,111 @@
       }
     },
     {
-      "id": "#14",
+      "id": "#16",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "4ed5e40c-01b3-4120-88e1-3960e45a4e36",
+        "parent_uuid": "4882d40c-1a7f-4a65-8be9-3feeba0ded33",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/cc-transcripts/run",
+        "version": "2.1.286",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "agents",
+        "definitions": [
+          {
+            "name": "claude",
+            "description": "Catch-all for any task that doesn't fit a more specific agent. FleetView's default when no agent name is typed. (Tools: *)"
+          },
+          {
+            "name": "Explore",
+            "description": "Read-only search agent for broad fan-out searches — when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It rea<truncated 339 chars>"
+          },
+          {
+            "name": "general-purpose",
+            "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)"
+          },
+          {
+            "name": "pinger",
+            "description": "Answers ping with pong. Use when asked to ping. (Tools: Read)"
+          },
+          {
+            "name": "Plan",
+            "description": "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "statusline-setup",
+            "description": "Use this agent to configure the user's Claude Code status line setting. (Tools: Read, Edit)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#17",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "27263335-0ad2-47de-9d47-d3c95c127804",
+        "parent_uuid": "60868ace-0386-4eb5-a702-426da81101ab",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/tmp/aang-spike/cc-transcripts/run",
+        "version": "2.1.286",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any <truncated 6030 chars>"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#18",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -675,7 +859,7 @@
       }
     },
     {
-      "id": "#15",
+      "id": "#19",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -721,7 +905,7 @@
       }
     },
     {
-      "id": "#16",
+      "id": "#20",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -769,7 +953,7 @@
       }
     },
     {
-      "id": "#17",
+      "id": "#21",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -815,7 +999,7 @@
       }
     },
     {
-      "id": "#18",
+      "id": "#22",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -861,7 +1045,7 @@
       }
     },
     {
-      "id": "#19",
+      "id": "#23",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -955,7 +1139,7 @@
       }
     },
     {
-      "id": "#20",
+      "id": "#24",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1006,7 +1190,7 @@
       }
     },
     {
-      "id": "#21",
+      "id": "#25",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1046,7 +1230,7 @@
       }
     },
     {
-      "id": "#22",
+      "id": "#26",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1092,7 +1276,7 @@
       }
     },
     {
-      "id": "#23",
+      "id": "#27",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
@@ -1144,13 +1328,13 @@
   ],
   "sessions": [
     {
-      "id": "#24",
+      "id": "#28",
       "key": {
         "kind": "session",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef"
       },
-      "run": "#25",
+      "run": "#29",
       "surface": {
         "surface": "claude_cli",
         "basis": "observed"
@@ -1198,7 +1382,7 @@
   ],
   "agents": [
     {
-      "id": "#26",
+      "id": "#30",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -1207,8 +1391,8 @@
           "kind": "main"
         }
       },
-      "session": "#24",
-      "run": "#25",
+      "session": "#28",
+      "run": "#29",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -1226,7 +1410,7 @@
       "ended_at": null
     },
     {
-      "id": "#27",
+      "id": "#31",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -1236,16 +1420,16 @@
           "agent_id": "aad616394e806288d"
         }
       },
-      "session": "#24",
-      "run": "#25",
+      "session": "#28",
+      "run": "#29",
       "role": "subagent",
       "service": null,
       "agent_type": "pinger",
       "agent_role": null,
       "name": null,
       "description": "Ping the pinger agent",
-      "parent": "#26",
-      "spawned_by": "#28",
+      "parent": "#30",
+      "spawned_by": "#32",
       "execution": {
         "state": "waiting",
         "reason": "idle"
@@ -1257,16 +1441,16 @@
   ],
   "actions": [
     {
-      "id": "#29",
+      "id": "#33",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "call": "toolu_017B7FeHZ4yDzFdvKQMwDJB8"
       },
-      "session": "#24",
-      "agent": "#26",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#30",
+      "run": "#29",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -1279,27 +1463,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#16"
+          "#20"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#14",
-      "output_fact": "#16",
+      "input_fact": "#18",
+      "output_fact": "#20",
       "inherited": false
     },
     {
-      "id": "#28",
+      "id": "#32",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "call": "toolu_01D254DDPoZEYPvJBjampKox"
       },
-      "session": "#24",
-      "agent": "#26",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#30",
+      "run": "#29",
       "tool": "Agent",
       "action_kind": "agent",
       "container": null,
@@ -1312,29 +1496,29 @@
           "kind": "observed"
         },
         "evidence": [
-          "#19"
+          "#23"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#17",
-      "output_fact": "#19",
+      "input_fact": "#21",
+      "output_fact": "#23",
       "inherited": false
     }
   ],
   "questions": [
     {
-      "id": "#30",
+      "id": "#34",
       "key": {
         "kind": "question",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "question": "spool#2"
       },
-      "session": "#24",
-      "agent": "#26",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#30",
+      "run": "#29",
       "kind": "permission",
       "blocking": true,
       "text": null,
@@ -1360,16 +1544,16 @@
   ],
   "usage": [
     {
-      "id": "#31",
+      "id": "#35",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "usage": "msg_011CfbTzJhEoJe1pZ3Wdd3xK"
       },
-      "session": "#24",
-      "agent": "#26",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#30",
+      "run": "#29",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 2,
@@ -1384,16 +1568,16 @@
       "at": "<time>"
     },
     {
-      "id": "#32",
+      "id": "#36",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "usage": "msg_011CfbTzTVpDLDBw4hapzNeq"
       },
-      "session": "#24",
-      "agent": "#26",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#30",
+      "run": "#29",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 2,
@@ -1408,16 +1592,16 @@
       "at": "<time>"
     },
     {
-      "id": "#33",
+      "id": "#37",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "usage": "msg_011CfbTzahfR5Uv9kD1Z1Zot"
       },
-      "session": "#24",
-      "agent": "#27",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#31",
+      "run": "#29",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 2,
@@ -1432,16 +1616,16 @@
       "at": "<time>"
     },
     {
-      "id": "#34",
+      "id": "#38",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "86f93ed5-1acd-4c6e-8c60-f1c98335c2ef",
         "usage": "msg_011CfbTzh58ynVFVJQXmTEN8"
       },
-      "session": "#24",
-      "agent": "#26",
-      "run": "#25",
+      "session": "#28",
+      "agent": "#30",
+      "run": "#29",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 2,
@@ -1462,12 +1646,12 @@
   "runs": [
     {
       "run": {
-        "id": "#25",
+        "id": "#29",
         "runtime": "claude",
-        "root_session": "#24",
+        "root_session": "#28",
         "goal": {
           "text": "Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type \"pinger\" and prompt \"ping\". Step 3: reply with exactly: OK",
-          "fact": "#13"
+          "fact": "#15"
         },
         "brief": null,
         "start_pruned": false,
@@ -1478,13 +1662,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#35",
-            "run": "#25",
+            "id": "#39",
+            "run": "#29",
             "kind": "permission",
             "author": "rule",
             "text": "Bash: touch probe-perm.txt",
             "stage": null,
-            "question": "#30",
+            "question": "#34",
             "action": null,
             "basis": {
               "kind": "observed"
@@ -1503,30 +1687,30 @@
         {
           "kind": "link",
           "value": {
-            "id": "#36",
-            "run": "#25",
+            "id": "#40",
+            "run": "#29",
             "basis": {
               "kind": "observed"
             },
             "evidence": [
-              "#10",
-              "#20"
+              "#12",
+              "#24"
             ],
             "kind": "spawn",
-            "parent": "#26",
-            "child": "#27",
-            "via": "#28"
+            "parent": "#30",
+            "child": "#31",
+            "via": "#32"
           }
         },
         {
           "kind": "run",
           "value": {
-            "id": "#25",
+            "id": "#29",
             "runtime": "claude",
-            "root_session": "#24",
+            "root_session": "#28",
             "goal": {
               "text": "Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type \"pinger\" and prompt \"ping\". Step 3: reply with exactly: OK",
-              "fact": "#13"
+              "fact": "#15"
             },
             "brief": null,
             "start_pruned": false,
@@ -1537,8 +1721,8 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#24",
-            "run": "#25"
+            "session": "#28",
+            "run": "#29"
           }
         }
       ]

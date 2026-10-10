@@ -6,14 +6,14 @@ import {
   claudePluginState,
   type ClaudePluginState,
   type CodexCli,
-  type CodexHooksState,
-  codexHooksState,
+  type CodexHooksStatus,
   installClaudePlugin,
   installCodexHooks,
   uninstallClaudePlugin,
   uninstallCodexHooks,
 } from '@aang/hook'
 import { describeError, type Output } from './output.js'
+import { codexHookSlowdown, codexHooksOffByDefault, onWindows } from './windows.js'
 
 export type HookBinaryLocator = () => string
 
@@ -32,7 +32,7 @@ const claudePluginNotes: Readonly<Record<ClaudePluginState, string>> = {
   not_installed: 'missing from `claude plugin list` after the installation',
 }
 
-const codexHooksNotes: Readonly<Record<CodexHooksState['status'], string>> = {
+const codexHooksNotes: Readonly<Record<CodexHooksStatus, string>> = {
   active: 'trusted and active',
   untrusted: 'not trusted yet; trust them in Codex with /hooks, until then Codex skips them',
   inactive: 'trusted but disabled; enable them in Codex with /hooks',
@@ -82,12 +82,20 @@ const installClaude =
 const installCodex =
   (hookBinarySource: string): Step =>
   async ({ aangHome, codex, codexHome }, output) => {
-    const { hooksFile, backup } = await installCodexHooks({ aangHome, hookBinarySource, codexHome, codex })
+    const { hooksFile, backup, status } = await installCodexHooks({ aangHome, hookBinarySource, codexHome, codex })
     output.out(`codex: aang hooks registered in ${hooksFile}${backup === null ? '' : `; the previous file is kept in ${backup}`}`)
-    const { status } = await codexHooksState({ aangHome, codexHome, codex })
     output.out(`codex: aang hooks are ${codexHooksNotes[status]}`)
+    if (onWindows) {
+      output.out(`codex: ${codexHookSlowdown}`)
+    }
     return status !== 'not_installed'
   }
+
+const skipCodexOnWindows: Step = (_connection, output) => {
+  output.out(`codex: ${codexHooksOffByDefault}`)
+  output.out(`codex: \`aang install --codex\` installs them anyway; ${codexHookSlowdown}`)
+  return Promise.resolve(true)
+}
 
 const uninstallClaude: Step = async ({ aangHome, claude }, output) => {
   await uninstallClaudePlugin({ aangHome, claude })
@@ -114,7 +122,7 @@ export const install = (
   const everything = !targets.claude && !targets.codex
   const steps: readonly (readonly [Runtime, Step])[] = [
     ['claude', installClaude(hookBinarySource)],
-    ['codex', installCodex(hookBinarySource)],
+    ['codex', everything && onWindows ? skipCodexOnWindows : installCodex(hookBinarySource)],
   ]
   return runSteps('install', steps.filter(([runtime]) => everything || targets[runtime]), output)
 }

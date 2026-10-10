@@ -102,6 +102,15 @@ export type UsageTotalSource = z.infer<typeof UsageTotalSource>
 export const SnapshotTrigger = z.enum(['fs_watch', 'turn_end', 'restart', 'check'])
 export type SnapshotTrigger = z.infer<typeof SnapshotTrigger>
 
+export const HookOutcome = z.enum(['success', 'error', 'unknown'])
+export type HookOutcome = z.infer<typeof HookOutcome>
+
+export const HookOutputKind = z.enum(['stdout', 'stderr', 'additional_context', 'system_message'])
+export type HookOutputKind = z.infer<typeof HookOutputKind>
+
+export const DefinitionCatalog = z.enum(['agents', 'skills'])
+export type DefinitionCatalog = z.infer<typeof DefinitionCatalog>
+
 export const ContextSourceKind = z.enum([
   'task',
   'instructions',
@@ -373,6 +382,36 @@ export const InstructionsLoadedPayload = z.strictObject({
 })
 export type InstructionsLoadedPayload = z.infer<typeof InstructionsLoadedPayload>
 
+export const HookRunPayload = z.strictObject({
+  name: name.nullable(),
+  event: name,
+  trigger: text.nullable(),
+  outcome: HookOutcome,
+  output: z
+    .strictObject({
+      kind: HookOutputKind,
+      text,
+    })
+    .nullable(),
+})
+export type HookRunPayload = z.infer<typeof HookRunPayload>
+
+export const DefinitionListingPayload = z.strictObject({
+  catalog: DefinitionCatalog,
+  definitions: z.array(
+    z.strictObject({
+      name,
+      description: text,
+    }),
+  ),
+})
+export type DefinitionListingPayload = z.infer<typeof DefinitionListingPayload>
+
+export const AgentPromptPayload = z.strictObject({
+  text,
+})
+export type AgentPromptPayload = z.infer<typeof AgentPromptPayload>
+
 export const QueueOperationPayload = z.strictObject({
   operation: name,
   content: text.nullable(),
@@ -432,6 +471,13 @@ export const SourceLostPayload = z.strictObject({
 })
 export type SourceLostPayload = z.infer<typeof SourceLostPayload>
 
+export const ProcessExitedPayload = z.strictObject({
+  pid: z.int().positive(),
+  path: name,
+  started_at: EpochNs.nullable(),
+})
+export type ProcessExitedPayload = z.infer<typeof ProcessExitedPayload>
+
 export const factPayloads = {
   session_start: SessionStartPayload,
   session_end: SessionEndPayload,
@@ -457,6 +503,9 @@ export const factPayloads = {
   usage_total: UsageTotalPayload,
   cost_state: CostStatePayload,
   instructions_loaded: InstructionsLoadedPayload,
+  hook_run: HookRunPayload,
+  definition_listing: DefinitionListingPayload,
+  agent_prompt: AgentPromptPayload,
   queue_operation: QueueOperationPayload,
   runtime_error: RuntimeErrorPayload,
   runtime_event: RuntimeEventPayload,
@@ -464,6 +513,7 @@ export const factPayloads = {
   git_snapshot: GitSnapshotPayload,
   context: ContextPayload,
   source_lost: SourceLostPayload,
+  process_exited: ProcessExitedPayload,
 } as const
 
 export const RuntimeIds = z.strictObject({
@@ -536,6 +586,9 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('usage_total', shape),
     variant('cost_state', shape),
     variant('instructions_loaded', shape),
+    variant('hook_run', shape),
+    variant('definition_listing', shape),
+    variant('agent_prompt', shape),
     variant('queue_operation', shape),
     variant('runtime_error', shape),
     variant('runtime_event', shape),
@@ -543,6 +596,7 @@ const variantsWith = <S extends z.core.$ZodLooseShape>(shape: S) =>
     variant('git_snapshot', shape),
     variant('context', shape),
     variant('source_lost', shape),
+    variant('process_exited', shape),
   ] as const
 
 export const FactDraft = z.discriminatedUnion('kind', variantsWith(draftShape))

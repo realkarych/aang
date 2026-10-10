@@ -28,7 +28,7 @@ export const runAdmissionHook = async (runtime: 'claude' | 'codex', options: Par
       const launch = runtime === 'codex' && process.platform === 'win32'
         ? { command: powershell, args: ['-NoProfile', '-Command', hook.command], shell: false }
         : { command: hook.command, args, shell: !Array.isArray(hook.args) }
-      const child = spawn(launch.command, launch.args, { shell: launch.shell, detached: runtime === 'codex' && process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] })
+      const child = spawn(launch.command, launch.args, { shell: launch.shell, detached: process.platform !== 'win32', windowsHide: true, stdio: ['pipe', 'ignore', 'pipe'] })
       let stderr = ''
       child.stderr.setEncoding('utf8').on('data', (chunk: string) => { stderr += chunk })
       child.stdin.on('error', () => undefined).end('{}')

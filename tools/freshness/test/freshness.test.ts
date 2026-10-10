@@ -10,6 +10,7 @@ import {
   createWorkspace,
   isAlive,
   type Recorded,
+  type RecordedStep,
   readRecorded,
   repositoryFixtures,
   type Workspace,
@@ -56,29 +57,77 @@ const measuredEvent = (measurement: Measurement, label: string): Measurement['ev
   return found
 }
 
-const repeatedBefore =
-  (label: string, gapMs: number) =>
+const reshaped =
+  (label: string, reshape: (step: RecordedStep) => readonly RecordedStep[]) =>
   ({ manifest, steps }: Recorded): Recorded => {
     const position = steps.findIndex((step) => step.label === label)
-    const repeated = steps[position]
-    if (repeated === undefined) {
-      throw new Error(`the recording has no step ${label}`)
+    const original = steps[position]
+    const event = manifest.control_events.find((control) => control.label === label)
+    if (original === undefined || event === undefined) {
+      throw new Error(`the recording has no control event ${label}`)
     }
-    const later = (at: string): string => new Date(Date.parse(at) + gapMs).toISOString()
+    const replacement = reshape(original)
+    const delayMs = (replacement.at(-1)?.at ?? original.at) - original.at
+    const played = [
+      ...steps.slice(0, position),
+      ...replacement,
+      ...steps.slice(position + 1).map((step) => ({ ...step, at: step.at + delayMs })),
+    ]
+    const added = replacement.flatMap((step) =>
+      step.label === undefined || step.label === label ? [] : [{ ...event, label: step.label }],
+    )
     return {
       manifest: {
         ...manifest,
-        control_events: manifest.control_events.map((event) =>
-          event.step < position ? event : { ...event, step: event.step + 1, observed_at: later(event.observed_at) },
-        ),
+        control_events: [...manifest.control_events, ...added].map((control) => {
+          const step = played.findIndex((candidate) => candidate.label === control.label)
+          const at = Date.parse(manifest.recorded_at) + (played[step]?.at ?? 0)
+          return { ...control, step, observed_at: new Date(at).toISOString() }
+        }),
       },
-      steps: [
-        ...steps.slice(0, position),
-        { ...repeated, label: undefined },
-        ...steps.slice(position).map((step) => ({ ...step, at: step.at + gapMs })),
-      ],
+      steps: played,
     }
   }
+
+const repeatedBefore = (label: string, gapMs: number) =>
+  reshaped(label, (step) => [
+    { ...step, label: `${label}-first` },
+    { ...step, label: `${label}-second` },
+    { ...step, at: step.at + gapMs },
+  ])
+
+const lostBetweenRepeats = (label: string, gapMs: number) =>
+  reshaped(label, (step) => [
+    { ...step, label: undefined },
+    { ...step, at: step.at + gapMs, env: { ...(step.env as Readonly<Record<string, string>>), AANG_OBSERVER: '1' } },
+    { ...step, at: step.at + 2 * gapMs, label: `${label}-repeated` },
+  ])
+
+const lostAmongRepeats = (label: string) =>
+  reshaped(label, (step) => [
+    { ...step, label: undefined },
+    { ...step, env: { ...(step.env as Readonly<Record<string, string>>), AANG_OBSERVER: '1' } },
+    { ...step, label: undefined, registration: 'user' },
+    { ...step, label: `${label}-repeated` },
+  ])
+
+const splitInto = (label: string, firstBytes: number, secondBytes: number, gapMs: number) =>
+  reshaped(label, (step) => [
+    { ...step, label: undefined, bytes: firstBytes },
+    { ...step, at: step.at + gapMs, bytes: secondBytes },
+    { ...step, at: step.at + gapMs, label: undefined },
+  ])
+
+const lineAround = async (recording: string, label: string, marker: string): Promise<{ inside: number; end: number }> => {
+  const { steps } = await readRecorded(repositoryFixtures, recording)
+  const source = steps.find((step) => step.label === label)?.source
+  if (typeof source !== 'string') {
+    throw new Error(`the recording has no step ${label} with a source`)
+  }
+  const content = await readFile(join(repositoryFixtures, ...recording.split('/'), ...source.split('/')))
+  const inside = content.indexOf(marker)
+  return { inside, end: content.indexOf('\n', inside) + 1 }
+}
 
 const failingAfter =
   (delayMs: number) =>
@@ -510,29 +559,55 @@ describe('the measurement', () => {
   )
 
   test(
-    'takes the records of a repeated delivery from its own step, and a repeat without a record of its own is unmatched',
+    'takes the records of each delivery from its own step: a lost hook and a deduplicated write leave their steps unmatched, a record that fits several steps goes to none, a line split across appends belongs to the step that ends it',
     { timeout: 120_000 },
     async () => {
       const space = await workspace()
       const tools = claudeRecording('tools')
+      const question = claudeRecording('question')
       const workflow = claudeRecording('workflow')
+      const interrupt = claudeRecording('interrupt')
       const gapMs = 3_000
       await space.mark(tools, { 'edit-finished': mainStageCitingEvent })
-      await space.edit(tools, repeatedBefore('edit-finished', gapMs))
+      await space.edit(tools, lostBetweenRepeats('edit-finished', gapMs))
+      await space.mark(question, {})
+      await space.edit(question, lostAmongRepeats('question-asked'))
       await space.mark(workflow, { 'workflow-completed': { stage: { evidence: 'event' } } })
       await space.edit(workflow, repeatedBefore('workflow-completed', gapMs))
+      const split = await lineAround(interrupt, 'interrupted', '[Request interrupted by user')
+      await space.mark(interrupt, {})
+      await space.edit(interrupt, splitInto('interrupted', split.inside, split.end - split.inside, gapMs))
       const cli = space.fakeClaude({ replies: [{ kind: 'script', script: 'report' }] })
-      await space.writeProfile(loadProfile('repeated', 5_000, cli.path, [{ recording: tools }, { recording: workflow }]))
+      await space.writeProfile(
+        loadProfile('repeated', 5_000, cli.path, [
+          { recording: tools },
+          { recording: question },
+          { recording: workflow },
+          { recording: interrupt },
+        ]),
+      )
       expect(await space.freshness('fix', space.profile, space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0 })
       expect(await space.freshness('run', space.measurement, '--fixtures', space.fixtures)).toMatchObject({ code: 0, stderr: '' })
 
       const measurement = Measurement.parse(await space.read('measurement.json'))
-      const edited = measuredEvent(measurement, 'edit-finished')
-      expect(edited.observed_at).not.toBeNull()
-      expect(edited.played_at - (edited.observed_at ?? 0)).toBeLessThan(gapMs)
-      expect(edited.evaluation.kind).not.toBe('unmatched')
-      expect(measuredEvent(measurement, 'workflow-completed')).toMatchObject({ observed_at: null, runs: [], evaluation: { kind: 'unmatched' } })
-      expect(eventOf(Report.parse(await space.read('report.json')), 'workflow-completed')).toMatchObject({ status: 'unmatched' })
+      const unmatched = { observed_at: null, runs: [], evaluation: { kind: 'unmatched' } }
+      for (const label of ['edit-finished', 'question-asked']) {
+        const lost = measuredEvent(measurement, label)
+        const repeated = measuredEvent(measurement, `${label}-repeated`)
+        expect(lost).toMatchObject(unmatched)
+        expect(repeated.observed_at).toBeGreaterThan(lost.played_at)
+        expect(repeated.evaluation.kind).not.toBe('unmatched')
+      }
+      for (const label of ['workflow-completed-first', 'workflow-completed-second', 'workflow-completed']) {
+        expect(measuredEvent(measurement, label)).toMatchObject(unmatched)
+      }
+      const interrupted = measuredEvent(measurement, 'interrupted')
+      expect(interrupted.observed_at).not.toBeNull()
+      expect(interrupted.runs).not.toEqual([])
+      expect(interrupted.evaluation.kind).toBe('annotation')
+      const report = Report.parse(await space.read('report.json'))
+      expect(eventOf(report, 'edit-finished')).toMatchObject({ status: 'unmatched' })
+      expect(eventOf(report, 'workflow-completed')).toMatchObject({ status: 'unmatched' })
     },
   )
 

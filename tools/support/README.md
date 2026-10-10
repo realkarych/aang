@@ -8,13 +8,13 @@ pnpm support:check
 pnpm support:update
 ```
 
-Both commands accept `--fixtures <directory>` (default `fixtures/sessions`), `--support <directory>` (default `support`) and `--hook <aang-hook>` (default the built binary). `check` exits with 1 and lists the problems; `update` writes the snapshots and the matrix, and refuses to write anything when an invariant is violated.
+Both commands accept `--fixtures <directory>` (default `fixtures/sessions`), `--support <directory>` (default `support`) and `--hook <aang-hook>` (default the built binary). `check` exits with 1 and lists the problems; `update` writes the snapshots and the matrix, and refuses to write anything when an invariant is violated. Both read the placement checks and owner checklists of `verification.json` from the support directory (see [Placement checks and owner checklists](#placement-checks-and-owner-checklists-q1)).
 
 CI runs the same check as contract tests: `tools/support/test/contract.test.ts` has one test per recording and fails when a snapshot differs, a snapshot is missing or stale, an invariant is violated (an unparsed record among them), or `support/matrix.json` is not the matrix of the run. A pull request that adds or re-records reference sessions (R.4) or changes the normalized output runs `pnpm support:update` and commits the regenerated files.
 
 ## Which recordings run
 
-Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<os>/<scenario>/` is verified with the recorder's `verifyRecording` and replayed on every OS, whatever OS recorded it. Every scenario of ADR-0010 is in the run and mandatory (R.5b): the R.5a subset left out `plan` and `question` (plans and answers to questions), C.6 added them for Codex and B.7 for Claude. Teammates, workflows and MCP elicitation have no recorded scenarios yet: R.2b adds the scenarios and leaves them out of the run through `pendingScenarios` in `src/run.ts`, R.4b records them, and B.8 adds them to the run as mandatory. Plugin agents and skills, agents passed with `--agents`, user hooks with output and Codex agent roles (`plugin`, `agents-flag`, `user-hooks`, `agent-role`) follow the same path: R.2c adds the scenarios and leaves them out of the run, R.4b records them, and F.7d adds them to the run as mandatory. The Codex Desktop `question` (R.2d) is mandatory from the start, like the other Codex questions: until R.4b records it, the Codex Desktop row lists it as missing.
+Every recording under `fixtures/sessions/<runtime>/<engine-version>/<surface>/<os>/<scenario>/` is verified with the recorder's `verifyRecording` and replayed on every OS, whatever OS recorded it. Every scenario of ADR-0010 is in the run and mandatory (R.5b): the R.5a subset left out `plan` and `question` (plans and answers to questions), C.6 added them for Codex and B.7 for Claude. Teammates, workflows and MCP elicitation (`teammates`, `input-dialogs`, `workflow`, `elicitation`) are mandatory too: R.2b added the scenarios, R.4b recorded them and B.8 added them to the run. Plugin agents and skills, agents passed with `--agents`, user hooks with output and Codex agent roles (`plugin`, `agents-flag`, `user-hooks`, `agent-role`) followed the same path: R.2c added the scenarios, R.4b recorded them, and F.7d made them mandatory. A scenario that is recorded but not yet parsed stays out of the run through `pendingScenarios` in `src/run.ts`; no scenario is pending now. The Codex Desktop `question` (R.2d) is mandatory from the start, like the other Codex questions: until R.4b records it, the Codex Desktop row lists it as missing.
 
 ## Playback
 
@@ -51,17 +51,71 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 - No two facts have the same kind, entity, time, runtime ids and payload.
 - Every id that an object, gap, run or model entity refers to through a field typed as an id in the `@aang/contract` schemas is stored: facts, observations, artifact versions and their artifacts, Git snapshots, gaps, runs, model entities (including assigned ids such as stage ids) and observer calls. Content and runtime identifiers are never read as references.
 - For every Codex thread with `token_usage_record` facts, their sum equals the last `thread_token_usage`. Forked threads are skipped: their counter inherits the parent.
-- Every raw record is parsed (R.5b, ADR-0010: no `unknown` among the covered types). An `invalid` record always breaks the run. An `unknown` record breaks it unless its runtime, channel and record type are listed in `uncoveredTypes` (`src/record-types.ts`) with the plan item that parses them: today only the Claude transcript record `system:stop_hook_summary`, which F.7d parses. The record type is the one of the snapshot's record counts: the hook event name or the record `type`, followed by its `subtype` or `payload.type`. The covered types are therefore all types of the reference sessions except the listed ones, and a new type in a new recording breaks the run until the adapter parses it or the type is listed with the item that will.
+- Every raw record is parsed (R.5b, ADR-0010: no `unknown` among the covered types). An `invalid` or `unknown` record breaks the run and is reported by its record type, the one of the snapshot's record counts: the hook event name or the record `type`, followed by its `subtype` or `payload.type`. The covered types are all types of the reference sessions: the last type left unparsed, the Claude transcript record `system:stop_hook_summary`, is parsed since F.7d. A new type in a new recording breaks the run until the adapter parses it.
 
 ## Matrix
 
-`support/matrix.json` follows `SupportMatrix` from `@aang/contract`. Rows come from the recordings (local placement), from the previous matrix, and, for every Desktop engine version, an explicit Windows row. For each row:
+`support/matrix.json` follows `SupportMatrix` from `@aang/contract`. Rows come from the recordings (local placement), from the previous matrix, from every key of `support/verification.json`, and, for every Desktop engine version, an explicit Windows row. For each row:
 
-- `resume`, `compaction`, `child_sessions` (`subagents`, `fork`) and `reconnect` are `passed`, `failed` or `not_run` from the recordings of the row's own OS; recordings of another OS never count;
-- `during_work`, `after_iteration` (E2E 1 and 4), `observer`, `verified_on` and a claimed `full` or `limited` status are kept from the previous matrix;
-- the row is `unverified`, with the reasons as gaps, when Desktop runs on Windows (ADR-0013, decision 3), the placement is not local (until Q.1), the OS has no recordings, a recording fails, a scenario that the recorder's catalog has for the surface and OS and that the run includes is not recorded, or E2E 1 or 4 has failed or not run: a claimed status needs both to have passed.
+- `resume`, `compaction`, `child_sessions` (`subagents`, `fork`) and `reconnect` are `passed`, `failed` or `not_run` from the recordings of the row's own OS, whatever its placement; recordings of another OS never count;
+- `during_work` and `after_iteration` (E2E 1 and 4) are kept from the previous matrix. A row with a placement other than local takes them from the local row of the same runtime, surface, OS and engine version in the previous matrix, because E2E 1 and 4 run on the reference recordings of the OS (ADR-0010); without such a row it keeps its own values, and a new row starts with `not_run`. `e2e/support-matrix.test.ts` keeps the local columns in line with the E2E variants (`e2e/README.md`);
+- `observer`, `verified_on` and a claimed `full` or `limited` status are kept from the previous matrix;
+- the row is `unverified`, with the reasons below as gaps, while any reason holds: a claimed status needs none of them.
+
+The reasons, in the order they are listed:
+
+| Reason | Gap |
+| --- | --- |
+| Desktop runs on Windows (ADR-0013, decision 3) | `Desktop on Windows is not verified in the MVP (ADR-0013, decision 3)` |
+| the placement is not local and `verification.json` has no placement check of the exact key | `the placement is not verified until the surface matrix check (Q.1)` |
+| the placement check of the exact key failed | `the placement check fails (Q.1)` |
+| the OS has no recordings | `no reference recordings on this OS` |
+| a recording fails | `the contract run fails on: <scenarios>` |
+| a scenario that the recorder's catalog has for the surface and OS and that the run includes is not recorded | `no reference recordings of: <scenarios>` |
+| E2E 1 or 4 has failed | `user scenarios fail: <E2E 1, E2E 4>` |
+| E2E 1 or 4 has not run | `user scenarios are not verified (E2E 1 and 4)` |
+| Claude or Codex Desktop on macOS or Linux has no passed Desktop checklist of the exact key | `the owner checklist of Desktop (spike, section 11) is not passed` |
+| the Desktop checklist of the exact key failed | `the owner checklist of Desktop (spike, section 11) fails` |
+| Claude CLI, on every OS and placement, has no passed TUI checklist of the exact key | `the owner checklist of the interactive TUI (spike, section 6, a–h) is not passed` |
+| the TUI checklist of the exact key failed | `the owner checklist of the interactive TUI (spike, section 6, a–h) fails` |
+
+Desktop on Windows needs no checklist: it is not verified in the MVP. Recordings of a Desktop engine in emulation never replace the owner's checklist (ADR-0010).
 
 A key outside the matrix reads as `unverified` through `supportStatusOf` from `@aang/contract`.
+
+## Placement checks and owner checklists (Q.1)
+
+`support/verification.json` holds the evidence that the contract run cannot produce: placement checks and the owner's checklists. The file belongs to this tool, not to `@aang/contract`. A missing file reads as empty lists; a file off its schema stops `check`, `update` and `placement import` with its path and the problems.
+
+```json
+{
+  "format": "aang-support-verification/1",
+  "placements": [
+    { "runtime": "claude", "surface": "claude_cli", "os": "linux", "placement": "docker", "engine_version": "2.1.289", "result": "passed", "checked_on": "2026-10-07" }
+  ],
+  "owner_checklists": [
+    { "runtime": "claude", "surface": "claude_desktop", "os": "macos", "placement": "local", "engine_version": "2.1.286", "checklist": "desktop", "result": "passed", "checked_on": "2026-10-08", "report": "docs/research/q1-owner-checklist-results.md" }
+  ]
+}
+```
+
+- Each entry carries the support key of its row. A key appears at most once in each list, and only an entry of the exact key counts: a Docker check says nothing about a VM, and a checklist of one OS, placement or engine version says nothing about another.
+- `placements`: a placement other than local, `result` `passed` or `failed`, and `checked_on`.
+- `owner_checklists`: `checklist` `desktop` for `claude_desktop` and `codex_desktop` or `tui` for `claude_cli`, `result` `passed` or `failed`, `checked_on`, and `report`, the path of the owner's report.
+
+```sh
+node tools/support/dist/main.js placement import <report.json>... [--support <directory>]
+```
+
+`placement import` records placement checks from the reports of `tools/surface-check` (format `aang-surface-check/1`; fields the tool does not read are allowed), which the `Surface matrix` workflow uploads as CI artifacts. Every result whose placement is not local and which is not emulated becomes an entry:
+
+- `passed` only when the result and the report's access check (`access.result`) both passed, otherwise `failed`;
+- `checked_on` is the UTC date of the report's `finished_at`;
+- an entry of the same key is replaced, and reports apply in the order given.
+
+Local and emulated results are skipped, and so are results that did not run (`not_run`: a surface whose engine is not available and which the check did not require) and results without a key: such a surface has no engine version to record. The command prints one line with the counts, writes `verification.json` sorted by key, and leaves `matrix.json` alone: the next `pnpm support:update` turns the entries into rows and gaps.
+
+The owner's checklists are entered by hand from the owner's report: one entry per key the owner checked, `desktop` for each OS where Desktop is checked, `tui` for the interactive Claude CLI. Then `pnpm support:update` regenerates the matrix.
 
 ## Observer isolation (F.10)
 
@@ -88,3 +142,5 @@ Claude rows keep `not_run` in the `observer` column: the local Claude check, the
 `tools/support/test/run.test.ts` records sessions from the spike samples with the real recorder: `spike-runtime.ts` plays the testkit sample scenarios, fires hooks built from the spike hook samples, writes and removes a session registry entry from the spike sample, moves and deletes the transcript, writes a JSONL file under `tool-results`, pauses so that the recorder captures the transcript in parts, and sends the spike OTLP requests. The reconnect recording puts its `daemon-restart` checkpoint on the first part of the transcript, and its snapshot must equal the snapshot of the same recording replayed without the restart. The tests place copies under several OS directories and run the CLI. The OTel decisions of the spike samples belong to no recorded rollout and stay `unknown`, so the recording made from them breaks the run and checks the unparsed record invariant, together with transcript lines rewritten into a listed, an unlisted and an invalid record. `test/portable/` holds three such recordings made on macOS with their snapshots, so every CI runner checks that a recording of another OS replays to the same snapshot; OTLP steps replay on every runner with the reference sessions of `fixtures/sessions`.
 
 `tools/support/test/isolation.test.ts` runs `isolation codex` with the fake `codex` of `@aang/testkit` in place of the CLI: a passed admission, a hook that runs with hooks disabled, and checks without a verdict; it imports matrices written for other OSes, and with `AANG_ISOLATION_CODEX` set it runs the contract test on the installed CLI.
+
+`tools/support/test/verification.test.ts` runs the CLI on a matrix and `verification.json` without recordings: owner checklists of exact keys remove the Desktop and TUI gaps, `placement import` writes passed and failed entries from surface check reports, skips local, emulated, not run and keyless results and replaces an entry of the same key, and an invalid verification file or report is refused. The rules that need recordings (a non-local row with a passed, a failed or no placement check, E2E columns taken from the local row) are in the matrix tests of `run.test.ts`.

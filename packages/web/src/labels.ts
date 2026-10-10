@@ -3,6 +3,7 @@ import type {
   AgentRole,
   AttentionAuthor,
   AttentionKind,
+  AttentionPriority,
   AttentionResolution,
   BasisKind,
   CriterionStatus,
@@ -187,6 +188,28 @@ export const attentionAuthorLabel: Readonly<Record<AttentionAuthor, string>> = {
   observer: 'от наблюдателя',
 }
 
+export const attentionPriorityLabel: Readonly<Record<AttentionPriority, string>> = {
+  high: 'высокий приоритет',
+  medium: 'средний приоритет',
+  low: 'низкий приоритет',
+}
+
+const closedLabel: Readonly<Record<Exclude<AttentionResolution, 'open' | 'answered'>, string>> = {
+  resolved: 'решён',
+  ended_without_answer: 'ожидание прекращено без ответа',
+}
+
+const answeredLabel: Readonly<Record<AttentionKind, string>> = {
+  question: 'отвечен',
+  permission: 'решение принято',
+  review_request: 'отвечен',
+  blocker: 'решён',
+  failed_check: 'проверка прошла',
+}
+
+export const attentionOutcomeLabel = (kind: AttentionKind, resolution: Exclude<AttentionResolution, 'open'>): string =>
+  resolution === 'answered' ? answeredLabel[kind] : closedLabel[resolution]
+
 export const questionKindLabel: Readonly<Record<QuestionKind, string>> = {
   permission: 'Запрос одобрения',
   ask_user_question: 'Вопрос',
@@ -275,6 +298,7 @@ export const stepForms = { one: 'ранний шаг', few: 'ранних шаг
 export const stageForms = { one: 'этап', few: 'этапа', many: 'этапов' } as const
 export const substageForms = { one: 'подэтап', few: 'подэтапа', many: 'подэтапов' } as const
 export const actionForms = { one: 'действие', few: 'действия', many: 'действий' } as const
+export const itemForms = { one: 'пункт', few: 'пункта', many: 'пунктов' } as const
 
 export const sessionsIn = (count: number): string => plural(count, sessionInForms)
 
@@ -303,6 +327,9 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   usage_total: 'итог расхода',
   cost_state: 'состояние стоимости',
   instructions_loaded: 'загрузка инструкций',
+  hook_run: 'hook решателя',
+  definition_listing: 'перечень определений',
+  agent_prompt: 'системный промпт агента',
   queue_operation: 'очередь промптов',
   runtime_error: 'ошибка рантайма',
   runtime_event: 'событие рантайма',
@@ -310,6 +337,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   git_snapshot: 'снимок git',
   context: 'контекст',
   source_lost: 'потеря источника',
+  process_exited: 'процесс завершился',
 }
 
 export const speakerLabel: Readonly<Record<Speaker, string>> = {

@@ -9,3 +9,6 @@ export const staticSource = (node: TSESTree.Expression): string | undefined => {
   }
   return undefined
 }
+
+export const templateHead = (node: TSESTree.Expression): string | undefined =>
+  node.type === AST_NODE_TYPES.TemplateLiteral ? (node.quasis[0]?.value.cooked ?? undefined) : undefined

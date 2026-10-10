@@ -68,6 +68,9 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   usage_total: 'Итог расхода',
   cost_state: 'Итог Claude Code',
   instructions_loaded: 'Загружены инструкции',
+  hook_run: 'Hook решателя',
+  definition_listing: 'Перечень определений',
+  agent_prompt: 'Системный промпт агента',
   queue_operation: 'Очередь промптов',
   runtime_error: 'Ошибка рантайма',
   runtime_event: 'Событие рантайма',
@@ -75,6 +78,7 @@ export const factKindLabel: Readonly<Record<FactKind, string>> = {
   git_snapshot: 'Снимок рабочего дерева',
   context: 'Контекст наблюдателя',
   source_lost: 'Источник потерян',
+  process_exited: 'Процесс завершился',
 }
 
 export const rawChannelLabel: Readonly<Record<RawChannel, string>> = {

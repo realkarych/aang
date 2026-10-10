@@ -1,20 +1,21 @@
 import { listCodexHooks, type CodexAppServerOptions, type CodexHookEntry, type CodexHookListing } from './codex-app-server.js'
 import { codexHookCommand, isAangCommand } from './codex-command.js'
+import type { CodexHooksStatus } from './codex-files.js'
 import { HookInstallError } from './errors.js'
+import { hookInstallPaths } from './layout.js'
 
 export interface CodexHooksStateOptions extends CodexAppServerOptions {
   readonly aangHome: string
 }
 
 export interface CodexHooksState extends CodexHookListing {
-  readonly status: 'not_installed' | 'untrusted' | 'inactive' | 'active'
+  readonly status: CodexHooksStatus
   readonly stale: readonly CodexHookEntry[]
 }
 
 const isAangHook = (hook: CodexHookEntry): boolean => hook.handlerType === 'command' && isAangCommand(hook.command ?? '')
 
-export const codexHooksState = async ({ aangHome, ...options }: CodexHooksStateOptions): Promise<CodexHooksState> => {
-  const listing = await listCodexHooks(options)
+export const codexHooksStateOf = (listing: CodexHookListing, aangHome: string): CodexHooksState => {
   const command = codexHookCommand(aangHome)
   const aang = listing.hooks.filter(isAangHook)
   const hooks = aang.filter((hook) => hook.command === command)
@@ -27,6 +28,9 @@ export const codexHooksState = async ({ aangHome, ...options }: CodexHooksStateO
         : 'active'
   return { ...listing, hooks, stale: aang.filter((hook) => hook.command !== command), status }
 }
+
+export const codexHooksState = async ({ aangHome, ...options }: CodexHooksStateOptions): Promise<CodexHooksState> =>
+  codexHooksStateOf(await listCodexHooks(options, hookInstallPaths(aangHome).binary), aangHome)
 
 export const verifyForeignTrust = (before: CodexHookListing, after: CodexHookListing): void => {
   const updated = new Map(after.hooks.map((hook) => [hook.key, hook]))

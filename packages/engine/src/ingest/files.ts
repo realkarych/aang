@@ -99,13 +99,13 @@ type Probe =
   | { readonly kind: 'unnamed' }
   | { readonly kind: 'nameless'; readonly first: CollectedRecord }
 
-const probeStream = (adapters: Adapters, lines: readonly Owned[]): Probe => {
+const probeStream = (adapters: Adapters, path: string, lines: readonly Owned[]): Probe => {
   const [first] = lines
   if (first === undefined) {
     return { kind: 'unnamed' }
   }
   const probe = lines.slice(0, streamProbeLines).map(({ record }) => record.payload)
-  const stream = adapters[first.record.runtime].streamKey(probe)
+  const stream = adapters[first.record.runtime].streamKey(path, probe)
   if (stream !== null) {
     return { kind: 'named', stream }
   }
@@ -148,7 +148,7 @@ const advanceHeld = (
     return next(file, sightings)
   }
   const lines = [...held.lines, ...added]
-  const probe = probeStream(adapters, lines)
+  const probe = probeStream(adapters, held.path, lines)
   switch (probe.kind) {
     case 'nameless':
       return {

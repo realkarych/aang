@@ -350,7 +350,7 @@ describe.concurrent('Claude teammates', () => {
       kind: 'json_snapshot',
       entity_key: teammateKey,
       runtime_ids: { session_id: session, agent_id: teammateAgent },
-      format_verified: false,
+      format_verified: true,
       payload: {
         file: 'agent_meta',
         removed: false,
@@ -361,7 +361,7 @@ describe.concurrent('Claude teammates', () => {
       kind: 'agent_start',
       entity_key: teammateKey,
       runtime_ids: { agent_id: teammateAgent },
-      format_verified: false,
+      format_verified: true,
       payload: {
         role: 'teammate',
         agent_type: 'reviewer',
@@ -386,7 +386,7 @@ describe.concurrent('Claude teammates', () => {
     expect(fromTranscript).toMatchObject({
       kind: 'agent_start',
       entity_key: teammateKey,
-      format_verified: false,
+      format_verified: true,
       payload: {
         role: 'teammate',
         agent_type: 'reviewer',
@@ -440,7 +440,7 @@ describe.concurrent('Claude teammates', () => {
       runtime_ids: { session_id: session, agent_id: null },
       speaker: 'runtime',
       urgent: false,
-      format_verified: false,
+      format_verified: true,
       payload: {
         file: 'team',
         path,
@@ -503,16 +503,14 @@ describe.concurrent('Claude workflows', () => {
     ])
   })
 
-  test('the workflow snapshot keeps its summary, not its script and result, as an unverified session snapshot', ({
-    expect,
-  }) => {
+  test('the workflow snapshot keeps its summary, not its script and result, as a session snapshot', ({ expect }) => {
     const [snapshot] = factsOf(parseSnapshot(workflowPath, workflowSnapshot))
 
     expect(snapshot).toMatchObject({
       kind: 'json_snapshot',
       entity_key: { kind: 'session', runtime: 'claude', session },
       runtime_ids: { session_id: session, agent_id: null },
-      format_verified: false,
+      format_verified: true,
       payload: {
         file: 'workflow',
         path: workflowPath,
@@ -544,7 +542,7 @@ describe.concurrent('Claude workflows', () => {
     expect(parseSnapshot(workflowPath, '{"runId":')).toMatchObject({ parse_state: 'invalid', reason: /not JSON/ })
   })
 
-  test('a workflow agent meta starts an unverified subagent without a call', ({ expect }) => {
+  test('a workflow agent meta starts a subagent without a call', ({ expect }) => {
     const path = `${projects}/-work/${session}/subagents/workflows/wf_26936a42-d9c/agent-${workflowAgent}.meta.json`
     const meta = {
       agentType: 'general-purpose',
@@ -557,17 +555,17 @@ describe.concurrent('Claude workflows', () => {
     const [snapshot, start] = factsOf(parseSnapshot(path, meta))
     const [removed] = factsOf(parseSnapshot(path))
 
-    expect(snapshot).toMatchObject({ entity_key: subagentKey(session, workflowAgent), format_verified: false })
+    expect(snapshot).toMatchObject({ entity_key: subagentKey(session, workflowAgent), format_verified: true })
     expect(start).toMatchObject({
       kind: 'agent_start',
       entity_key: subagentKey(session, workflowAgent),
-      format_verified: false,
+      format_verified: true,
       payload: { role: 'subagent', description: 'Review track A', spawned_by_call: null, background: true },
     })
-    expect(removed).toMatchObject({ format_verified: false, payload: { removed: true } })
+    expect(removed).toMatchObject({ format_verified: true, payload: { removed: true } })
   })
 
-  test('the workflow journal starts and ends its agents, unverified', ({ expect }) => {
+  test('the workflow journal starts and ends its agents, verified by the R.4b recordings', ({ expect }) => {
     const [started] = factsOf(
       journalLine({ type: 'started', key: 'k1', agentId: workflowAgent, label: 'Review track A', phase: 'Review' }),
     )
@@ -578,7 +576,7 @@ describe.concurrent('Claude workflows', () => {
       entity_key: subagentKey(session, workflowAgent),
       speaker: 'runtime',
       urgent: false,
-      format_verified: false,
+      format_verified: true,
       runtime_ids: { session_id: session, agent_id: workflowAgent },
       payload: { role: 'subagent', description: 'Review track A', spawned_by_call: null },
     })
@@ -586,7 +584,7 @@ describe.concurrent('Claude workflows', () => {
       kind: 'agent_end',
       entity_key: subagentKey(session, workflowAgent),
       urgent: true,
-      format_verified: false,
+      format_verified: true,
       payload: { outcome: 'completed', final_message: '{"verdict":"ok"}', agent_type: null, transcript_path: null },
     })
   })
@@ -617,7 +615,26 @@ describe.concurrent('Claude workflows', () => {
     expect(factsOf(journalLine({ type: 'started', agentId: workflowAgent }, windows))[0]?.entity_key).toEqual(
       subagentKey(session, workflowAgent),
     )
+    expect(claudeAdapter.streamKey(windows, [])).toBe(JSON.stringify(['claude', session, 'workflow', 'wf_1', 'journal']))
     expect(journalLine({ type: 'started', agentId: workflowAgent }, elsewhere).parse_state).toBe('unknown')
+    expect(claudeAdapter.streamKey(elsewhere, ['{"type":"launched"}'])).toBeNull()
+  })
+
+  test('the journal names its stream by its path: one stream per run, the same after the project directory moves', ({
+    expect,
+  }) => {
+    const launched = ['{"type":"launched"}']
+    const moved = `${projects}/-moved/${session}/subagents/workflows/wf_26936a42-d9c/journal.jsonl`
+    const otherRun = `${projects}/-work/${session}/subagents/workflows/wf_0b5c2a51-7f4/journal.jsonl`
+    const stream = claudeAdapter.streamKey(journalPath, launched)
+    const line = (path: string) =>
+      lineRecord({ payload: launched[0] ?? '', line: 1, path, stream: claudeAdapter.streamKey(path, launched) })
+
+    expect(stream).toBe(JSON.stringify(['claude', session, 'workflow', 'wf_26936a42-d9c', 'journal']))
+    expect(claudeAdapter.streamKey(moved, launched)).toBe(stream)
+    expect(claudeAdapter.streamKey(otherRun, launched)).not.toBe(stream)
+    expect(claudeAdapter.rawKey(line(moved))).toBe(claudeAdapter.rawKey(line(journalPath)))
+    expect(claudeAdapter.rawKey(line(otherRun))).not.toBe(claudeAdapter.rawKey(line(journalPath)))
   })
 })
 

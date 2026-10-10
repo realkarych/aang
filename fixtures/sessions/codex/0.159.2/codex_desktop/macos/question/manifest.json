@@ -1,0 +1,185 @@
+{
+  "format": "aang-recording/1",
+  "runtime": "codex",
+  "engine_version": "0.159.2",
+  "app_version": "26.928.21956",
+  "surface": "codex_desktop",
+  "os": "macos",
+  "scenario": "question",
+  "model": "stub",
+  "recorded_at": "2026-10-06T20:21:50.007Z",
+  "expected_facts": [
+    "The Desktop turn asks the user through request_user_input_async; the rollout has item_completed AgentMessage with delivery \"async\" and one question with two options, and the client gets no user input request",
+    "The turn ends with the final answer of the solver: an AgentMessage with phase final_answer after the question",
+    "A reply arrives as a new user message through a second turn/start in the same thread, which also ends with a final answer"
+  ],
+  "control_events": [
+    {
+      "label": "question-asked",
+      "step": 8,
+      "observed_at": "2026-10-06T20:21:50.867Z",
+      "expected_map_change": {
+        "description": "A non-blocking question to the user opens an attention item; it does not block the Desktop turn, nothing waits in the runtime and the stage is not waiting"
+      }
+    },
+    {
+      "label": "final-answer",
+      "step": 11,
+      "observed_at": "2026-10-06T20:21:50.893Z",
+      "expected_map_change": {
+        "description": "The Desktop turn ends with the final answer of the solver; its final text card leads to the original and the question stays open"
+      }
+    },
+    {
+      "label": "question-reply",
+      "step": 15,
+      "observed_at": "2026-10-06T20:21:50.919Z",
+      "expected_map_change": {
+        "description": "A user prompt replies after the Desktop question; the attention item may be marked likely answered as an interpretation, stays open until the user dismisses it, and the stage is not waiting"
+      }
+    }
+  ],
+  "artifacts": [
+    {
+      "source": "output/000001.txt",
+      "observed_at": "2026-10-06T20:21:50.347Z",
+      "mtime_ns": "1791318110347000000"
+    },
+    {
+      "source": "data/000002.jsonl",
+      "observed_at": "2026-10-06T20:21:50.556Z",
+      "mtime_ns": "1791318110555484184"
+    },
+    {
+      "source": "data/000003.jsonl",
+      "observed_at": "2026-10-06T20:21:50.582Z",
+      "mtime_ns": "1791318110556791968"
+    },
+    {
+      "source": "data/000004.json",
+      "observed_at": "2026-10-06T20:21:50.668Z",
+      "mtime_ns": "1791318110668000000"
+    },
+    {
+      "source": "data/000005.jsonl",
+      "observed_at": "2026-10-06T20:21:50.843Z",
+      "mtime_ns": "1791318110843167600"
+    },
+    {
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-06T20:21:50.828Z",
+      "mtime_ns": "1791318110828323105"
+    },
+    {
+      "source": "data/000007.json",
+      "observed_at": "2026-10-06T20:21:50.828Z",
+      "mtime_ns": "1791318110828323105"
+    },
+    {
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-06T20:21:50.841Z",
+      "mtime_ns": "1791318110841344361"
+    },
+    {
+      "source": "data/000009.json",
+      "observed_at": "2026-10-06T20:21:50.841Z",
+      "mtime_ns": "1791318110841344361"
+    },
+    {
+      "source": "data/000010.json",
+      "observed_at": "2026-10-06T20:21:50.865Z",
+      "mtime_ns": "1791318110865000000"
+    },
+    {
+      "source": "data/000011.jsonl",
+      "observed_at": "2026-10-06T20:21:50.867Z",
+      "mtime_ns": "1791318110867493331"
+    },
+    {
+      "source": "spool/000012.spool",
+      "observed_at": "2026-10-06T20:21:50.866Z",
+      "mtime_ns": "1791318110866112923"
+    },
+    {
+      "source": "data/000013.json",
+      "observed_at": "2026-10-06T20:21:50.866Z",
+      "mtime_ns": "1791318110866112923"
+    },
+    {
+      "source": "data/000014.jsonl",
+      "observed_at": "2026-10-06T20:21:50.893Z",
+      "mtime_ns": "1791318110892458016"
+    },
+    {
+      "source": "spool/000015.spool",
+      "observed_at": "2026-10-06T20:21:50.875Z",
+      "mtime_ns": "1791318110875052078"
+    },
+    {
+      "source": "data/000016.json",
+      "observed_at": "2026-10-06T20:21:50.875Z",
+      "mtime_ns": "1791318110875052078"
+    },
+    {
+      "source": "spool/000017.spool",
+      "observed_at": "2026-10-06T20:21:50.888Z",
+      "mtime_ns": "1791318110888971495"
+    },
+    {
+      "source": "data/000018.json",
+      "observed_at": "2026-10-06T20:21:50.888Z",
+      "mtime_ns": "1791318110888971495"
+    },
+    {
+      "source": "data/000019.jsonl",
+      "observed_at": "2026-10-06T20:21:50.919Z",
+      "mtime_ns": "1791318110913160351"
+    },
+    {
+      "source": "spool/000020.spool",
+      "observed_at": "2026-10-06T20:21:50.902Z",
+      "mtime_ns": "1791318110902591331"
+    },
+    {
+      "source": "data/000021.json",
+      "observed_at": "2026-10-06T20:21:50.902Z",
+      "mtime_ns": "1791318110902591331"
+    },
+    {
+      "source": "spool/000022.spool",
+      "observed_at": "2026-10-06T20:21:50.912Z",
+      "mtime_ns": "1791318110912448981"
+    },
+    {
+      "source": "data/000023.json",
+      "observed_at": "2026-10-06T20:21:50.912Z",
+      "mtime_ns": "1791318110912448981"
+    },
+    {
+      "source": "data/000024.json",
+      "observed_at": "2026-10-06T20:21:50.923Z",
+      "mtime_ns": "1791318110923000000"
+    },
+    {
+      "source": "output/000025.txt",
+      "observed_at": "2026-10-06T20:21:50.945Z",
+      "mtime_ns": "1791318110945000000"
+    },
+    {
+      "source": "spool/000026.spool",
+      "observed_at": "2026-10-06T20:21:50.919Z",
+      "mtime_ns": "1791318110919913270"
+    },
+    {
+      "source": "data/000027.json",
+      "observed_at": "2026-10-06T20:21:50.919Z",
+      "mtime_ns": "1791318110919913270"
+    },
+    {
+      "source": "data/000028.jsonl",
+      "observed_at": "2026-10-06T20:21:50.893Z",
+      "mtime_ns": "1791318110892458016"
+    }
+  ],
+  "playback": "playback.json"
+}
