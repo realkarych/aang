@@ -322,14 +322,16 @@ export const listCodexHooks = (
         fail('stdout exceeded the size limit')
         return
       }
-      pending += chunk
+      let start = 0
       for (;;) {
-        const end = pending.indexOf('\n')
+        const end = chunk.indexOf('\n', start)
         if (end === -1) {
+          pending += chunk.slice(start)
           break
         }
-        const line = pending.slice(0, end).trim()
-        pending = pending.slice(end + 1)
+        const line = (pending + chunk.slice(start, end)).trim()
+        pending = ''
+        start = end + 1
         if (line === '') {
           continue
         }
