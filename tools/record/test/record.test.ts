@@ -1,4 +1,4 @@
-import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { appendFile, type FileHandle, mkdir, mkdtemp, open, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,6 +6,7 @@ import { codexAdapter } from '@aang/adapter-codex'
 import { CollectedRecord, type ParseResult } from '@aang/contract'
 import { createPlayer, createProfile, loadManifest, leaseSpool } from '@aang/testkit'
 import { afterEach, expect, test, vi } from 'vitest'
+import { createCapture } from '../dist/capture.js'
 import { recordSession, verifyRecording, type RecordContext, type RecordOptions } from '../dist/index.js'
 
 const temporary: string[] = []
@@ -173,6 +174,54 @@ test('captures removal and truncation, refuses replacement of an existing record
   }
   await expect(recordSession(config, () => Promise.resolve())).rejects.toThrow(/already exists/)
   await verifyRecording(directory)
+})
+
+const deleteOnClose = 0x40
+const exclusive = 0x1000_0000
+
+const pendingDeletion = async (path: string): Promise<FileHandle> => {
+  const held = await open(path, 'r')
+  await (await open(path, deleteOnClose)).close()
+  return held
+}
+
+test.runIf(process.platform === 'win32')('a scan during a command keeps a source that another process is deleting or holds exclusively as captured, reads it in a later scan, a checkpoint rejects it', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'aang-record-test-'))
+  temporary.push(root)
+  const home = join(root, 'home')
+  const roots = { home, claude: join(home, '.claude'), codex: join(home, '.codex') }
+  const pending = join(home, 'project', 'pending.json')
+  const tasks = join(roots.claude, 'tasks', 'task-list')
+  const lock = join(roots.claude, 'tasks', 'lock-list', '.lock.lock')
+  await mkdir(dirname(pending), { recursive: true })
+  await mkdir(tasks, { recursive: true })
+  await mkdir(lock, { recursive: true })
+  await writeFile(pending, '{"state":"pending"}\n')
+  await writeFile(join(tasks, '1.json'), '{"id":"1"}\n')
+  const capture = await createCapture(roots, join(root, 'spool'), Date.now())
+  const kinds = (path: string): string[] => capture.steps.flatMap((step) => 'target' in step && step.target.path === path ? [step.kind] : [])
+  await capture.checkpoint('written', { root: 'home', path: 'project/pending.json' }, 'The source and the task are written')
+  await writeFile(pending, '{"state":"deleting"}\n')
+  const held: FileHandle[] = []
+  try {
+    held.push(await pendingDeletion(pending))
+    held.push(await pendingDeletion(lock))
+    held.push(await open(tasks, exclusive))
+    await expect(readFile(pending)).rejects.toMatchObject({ code: 'EPERM', syscall: 'open' })
+    await expect(readdir(lock)).rejects.toMatchObject({ code: 'EPERM', syscall: 'scandir' })
+    await expect(readdir(tasks)).rejects.toMatchObject({ code: 'EBUSY', syscall: 'scandir' })
+    await capture.scan()
+    expect(kinds('project/pending.json')).toEqual(['write'])
+    expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
+    await expect(capture.checkpoint('held', { root: 'home', path: 'project/pending.json' }, 'The source is still held')).rejects.toThrow(/EPERM|EBUSY/)
+  } finally {
+    await Promise.all(held.map((handle) => handle.close()))
+  }
+  await capture.scan()
+  expect(kinds('project/pending.json')).toEqual(['write', 'remove'])
+  expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
+  await capture.checkpoint('removed', { root: 'home', path: 'project/pending.json' }, 'The deleted source is removed')
+  expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
 })
 
 test('kept TOML definition files of a temporary profile are checked before publication and replayed at their paths', async () => {
