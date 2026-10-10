@@ -111,14 +111,20 @@ const lostAmongRepeats = (label: string) =>
     { ...step, label: `${label}-repeated` },
   ])
 
-const splitInto = (label: string, firstBytes: number, secondBytes: number, gapMs: number) =>
+interface LineSplit {
+  readonly inside: number
+  readonly end: number
+  readonly size: number
+}
+
+const splitInto = (label: string, { inside, end, size }: LineSplit, gapMs: number) =>
   reshaped(label, (step) => [
-    { ...step, label: undefined, bytes: firstBytes },
-    { ...step, at: step.at + gapMs, bytes: secondBytes },
-    { ...step, at: step.at + gapMs, label: undefined },
+    { ...step, label: undefined, bytes: inside },
+    { ...step, at: step.at + gapMs, bytes: end - inside },
+    ...(end < size ? [{ ...step, at: step.at + gapMs, label: undefined }] : []),
   ])
 
-const lineAround = async (recording: string, label: string, marker: string): Promise<{ inside: number; end: number }> => {
+const lineAround = async (recording: string, label: string, marker: string): Promise<LineSplit> => {
   const { steps } = await readRecorded(repositoryFixtures, recording)
   const source = steps.find((step) => step.label === label)?.source
   if (typeof source !== 'string') {
@@ -126,7 +132,7 @@ const lineAround = async (recording: string, label: string, marker: string): Pro
   }
   const content = await readFile(join(repositoryFixtures, ...recording.split('/'), ...source.split('/')))
   const inside = content.indexOf(marker)
-  return { inside, end: content.indexOf('\n', inside) + 1 }
+  return { inside, end: content.indexOf('\n', inside) + 1, size: content.length }
 }
 
 const failingAfter =
@@ -576,7 +582,7 @@ describe('the measurement', () => {
       await space.edit(workflow, repeatedBefore('workflow-completed', gapMs))
       const split = await lineAround(interrupt, 'interrupted', '[Request interrupted by user')
       await space.mark(interrupt, {})
-      await space.edit(interrupt, splitInto('interrupted', split.inside, split.end - split.inside, gapMs))
+      await space.edit(interrupt, splitInto('interrupted', split, gapMs))
       const cli = space.fakeClaude({ replies: [{ kind: 'script', script: 'report' }] })
       await space.writeProfile(
         loadProfile('repeated', 5_000, cli.path, [
