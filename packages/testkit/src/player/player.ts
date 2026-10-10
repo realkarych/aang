@@ -18,11 +18,18 @@ export interface PlayOptions {
   readonly signal?: AbortSignal
 }
 
+export interface AppendedChunk {
+  readonly offset: number
+  readonly bytes: number
+}
+
 export interface PlayedStep {
   readonly index: number
   readonly label: string | null
   readonly at: number
+  readonly startedAt: number
   readonly playedAt: number
+  readonly appended: AppendedChunk | null
 }
 
 export interface Player {
@@ -108,25 +115,28 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     return { chunk: content.subarray(offset, end), end }
   }
 
-  const perform = async (step: PlayerStep, signal: AbortSignal | undefined): Promise<void> => {
+  const perform = async (step: PlayerStep): Promise<AppendedChunk | null> => {
     switch (step.kind) {
       case 'append': {
         const { chunk, end } = nextChunk(step)
-        await appendTo(resolveTarget(roots, step.target), chunk)
+        const offset = await appendTo(resolveTarget(roots, step.target), chunk)
         offsets.set(step.source, end)
-        return
+        return { offset, bytes: chunk.length }
       }
       case 'write':
-        return writeWhole(resolveTarget(roots, step.target), recorded(step.source))
+        await writeWhole(resolveTarget(roots, step.target), recorded(step.source))
+        return null
       case 'remove':
-        return remove(resolveTarget(roots, step.target))
+        await remove(resolveTarget(roots, step.target))
+        return null
       case 'move':
-        return move(resolveTarget(roots, step.target), resolveTarget(roots, step.to))
+        await move(resolveTarget(roots, step.target), resolveTarget(roots, step.to))
+        return null
       case 'archive':
-        return move(resolveTarget(roots, step.target), archivedPath(roots, step.target.path))
+        await move(resolveTarget(roots, step.target), archivedPath(roots, step.target.path))
+        return null
       case 'hook': {
         const target = required(options.hook, () => 'no hook target')
-        await waitUntil(state.lastHookEnd + hookSpacingMs, signal)
         try {
           await invokeHook(target, {
             runtime: step.runtime,
@@ -137,10 +147,11 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
         } finally {
           state.lastHookEnd = performance.now()
         }
-        return
+        return null
       }
       case 'otlp':
-        return sendOtlp(required(options.otlp, () => 'no OTLP endpoint'), recorded(step.source))
+        await sendOtlp(required(options.otlp, () => 'no OTLP endpoint'), recorded(step.source))
+        return null
     }
   }
 
@@ -165,24 +176,26 @@ export const createPlayer = (manifest: LoadedManifest, options: PlayerOptions): 
     const end = endIndex(until)
     state.playing = true
     try {
-      const startedAt = performance.now()
+      const start = performance.now()
       const origin = steps[state.next]?.at ?? 0
       const played: PlayedStep[] = []
       for (; state.next < end; state.next += 1) {
         const index = state.next
         const step = required(steps[index], () => `${file} has no step ${String(index)}`)
-        await waitUntil(startedAt + (step.at - origin) * timeScale, signal)
-        try {
-          await perform(step, signal)
-        } catch (error) {
+        await waitUntil(start + (step.at - origin) * timeScale, signal)
+        if (step.kind === 'hook') {
+          await waitUntil(state.lastHookEnd + hookSpacingMs, signal)
+        }
+        const startedAt = Date.now()
+        const appended = await perform(step).catch((error: unknown) => {
           throw new PlaybackError(
             `${file}: ${stepName(index, step)} failed: ${error instanceof Error ? error.message : String(error)}`,
             {
               cause: error,
             },
           )
-        }
-        played.push({ index, label: step.label ?? null, at: step.at, playedAt: Date.now() })
+        })
+        played.push({ index, label: step.label ?? null, at: step.at, startedAt, playedAt: Date.now(), appended })
       }
       return played
     } finally {

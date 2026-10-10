@@ -164,6 +164,7 @@ const serve = async ({
     config,
     aangHome: paths.home,
     claudeConfigDir: runtimeRoots.claude,
+    codexHome: runtimeRoots.codex,
     environment: options.environment.env,
     onAccepted: (run) => {
       accepted.retain([run])

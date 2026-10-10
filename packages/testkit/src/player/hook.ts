@@ -111,7 +111,7 @@ const byReceipt = (left: SpoolEvent, right: SpoolEvent): number =>
     ? Number(left.name > right.name) - Number(left.name < right.name)
     : Number(left.receivedAt > right.receivedAt) - Number(left.receivedAt < right.receivedAt)
 
-export const readSpool = async (spool: string): Promise<SpoolEvent[]> => {
+export const readSpool = async (spool: string, known: ReadonlySet<string> = new Set()): Promise<SpoolEvent[]> => {
   const ready = join(spool, spoolLayout.readyDirectory)
   const names = await readdir(ready).catch((error: unknown): string[] => {
     if (isMissing(error)) {
@@ -120,7 +120,7 @@ export const readSpool = async (spool: string): Promise<SpoolEvent[]> => {
     throw error
   })
   const events = await Promise.all(
-    names.map(async (name): Promise<SpoolEvent[]> => {
+    names.filter((name) => !known.has(name)).map(async (name): Promise<SpoolEvent[]> => {
       const path = join(ready, name)
       try {
         const [stats, bytes] = await Promise.all([stat(path, { bigint: true }), readFile(path)])
