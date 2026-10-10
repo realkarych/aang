@@ -286,6 +286,7 @@ test.describe('with a fast spool scan and the LLM unavailable', () => {
 
     await page.route('**/api/stream?**', (route) => route.abort('connectionfailed'))
     await page.route('**/api/status', (route) => route.abort('connectionfailed'))
+    await page.route('**/api/runs', (route) => route.abort('connectionfailed'))
     await page.goto(`/?run=${run}`)
     const question = zoneItem(page, choice)
     await expect(question).toContainText('ждёт ответа')

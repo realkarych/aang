@@ -42,8 +42,14 @@ export {
   observerScenarios,
 } from './observer-scenarios/presets.js'
 export { runScenarioScript, ScenarioScript } from './observer-scenarios/scripts.js'
-export { DaemonLaunchError, type DaemonExit, type DaemonLaunch, type RunningDaemon } from './profile/daemon.js'
-export type { Environment, InheritedEnvironment } from './profile/environment.js'
+export {
+  DaemonLaunchError,
+  launchDaemon,
+  type DaemonExit,
+  type DaemonLaunch,
+  type RunningDaemon,
+} from './profile/daemon.js'
+export { profileEnvironment, type Environment, type InheritedEnvironment } from './profile/environment.js'
 export {
   createProfile,
   type ConfigInput,
@@ -71,7 +77,7 @@ export {
   type Target,
 } from './player/manifest.js'
 export { OtlpDeliveryError } from './player/otlp.js'
-export type { RecordTime } from './player/record-time.js'
+export { playbackShift, shifted, type RecordShift, type RecordTime } from './player/record-time.js'
 export { type SampleScenario, sampleScenarioManifest, sampleScenarios } from './player/sample-scenarios.js'
 export {
   createPlayer,

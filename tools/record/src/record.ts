@@ -149,12 +149,16 @@ export const recordSession = async (options: RecordOptions, scenario: (context: 
           execution.running = true
           const runtimeArgs = metadata.runtime === 'claude' ? beforeOperands(args, ['--plugin-dir', plugin, ...regularClaude ? regularClaudeArgs : []]) : [...args]
           const request = runner.run({ command, args: runtimeArgs, cwd: project, env: { ...env, ...runOptions.env }, input: '', timeoutMs: runOptions.timeoutMs ?? 300_000, signal: controller.signal })
-          const scanState: { error?: Error } = {}
+          const scanState: { error?: Error; running: boolean } = { running: false }
           let scan = Promise.resolve()
           const poll = setInterval(() => {
-            scan = scan.then(() => capture.scan()).catch((error: unknown) => {
+            if (scanState.running) return
+            scanState.running = true
+            scan = capture.scan().catch((error: unknown) => {
               scanState.error = error instanceof Error ? error : new Error('Recording scan failed', { cause: error })
               controller.abort()
+            }).finally(() => {
+              scanState.running = false
             })
           }, 25)
           try {

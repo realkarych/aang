@@ -49,7 +49,7 @@ Commands use the existing process runner from `@aang/observer`, including proces
 
 ## Capture and control events
 
-The recorder scans during commands every 25 ms and at command boundaries and explicit checkpoints. It captures:
+The recorder scans during commands every 25 ms and at command boundaries and explicit checkpoints. A scan during a command reads only what changed, so hour-long live sessions keep their timing: a file with the same identity, size and modification time is skipped, a JSONL file that grew since the previous scan is read from its last complete line after its tail is compared, a JSONL file that changed without growing or was replaced is read whole and compared with the captured prefix by its digest, so its rewrite becomes a snapshot at once, and only new spool deliveries are read; a tick that comes while a scan runs is skipped instead of queued. A scan at a command boundary or checkpoint reads every JSONL file whole, so a rewrite that grew the file and kept its tail becomes a snapshot there. It captures:
 
 - Claude `projects`, `teams`, `tasks`, and session-registry JSON/JSONL files;
 - Codex `sessions` and `archived_sessions` JSON/JSONL files;
@@ -79,7 +79,7 @@ await session.checkpoint(
 
 `session.keep({ root, path })` adds one synthetic definition file that the scenario wrote, such as an agent role in the temporary `CODEX_HOME`, to the capture: a `.toml` file under `home`, `claude` or `codex`, given by the player's relative path. The file is captured at once as a `write` step and again whenever it changes, so the player restores it at the same path. Only files of the temporary profiles can be kept: with a regular home, `keep` of a `claude` or `codex` file throws, so the owner's configuration never enters a recording. It is awaited outside commands, like a checkpoint.
 
-Hook selectors also accept `sessionId` and, for `Notification` hooks, `notificationType`. Labels must be unique and each selected step may have one label. Checkpoints are added after awaiting the command. Expected map changes are descriptions for an annotator, as permitted by ADR-0007. Hook control events use the spool file's receipt time; file events use the time the recorder first observed the content.
+Hook selectors also accept `sessionId` and, for `Notification` hooks, `notificationType`. Labels must be unique and each selected step may have one label. Checkpoints are added after awaiting the command. The recorder writes expected map changes as descriptions for an annotator, as permitted by ADR-0007. The manifest also accepts a `predicate` over the model next to the description; `tools/freshness` evaluates it, and its grammar is described there. Predicates are added to a manifest when its recording is prepared for a freshness profile. Hook control events use the spool file's receipt time; file events use the time the recorder first observed the content.
 
 `manifest.json` stores versions, OS, recording time, expected facts, control events, and artifacts with `observed_at` and original nanosecond `mtime_ns`. `playback.json` uses the existing strict `PlayerManifest`, so it can be passed directly to `loadManifest` and `createPlayer`. The metadata wrapper does not change the shared contract or player format.
 

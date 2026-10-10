@@ -1,4 +1,4 @@
-import { appendFile, mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
 import { codexArchiveDirectory, type PlayerRoot, type Target } from './manifest.js'
@@ -33,9 +33,22 @@ const ensureParent = async (path: string): Promise<void> => {
   await mkdir(dirname(path), { recursive: true })
 }
 
-export const appendTo = async (path: string, chunk: Uint8Array): Promise<void> => {
+const sizeOf = async (path: string): Promise<number> => {
+  try {
+    return (await stat(path)).size
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      return 0
+    }
+    throw error
+  }
+}
+
+export const appendTo = async (path: string, chunk: Uint8Array): Promise<number> => {
   await ensureParent(path)
+  const offset = await sizeOf(path)
   await retryWhileBusy(() => appendFile(path, chunk))
+  return offset
 }
 
 export const writeWhole = async (path: string, content: Uint8Array): Promise<void> => {
