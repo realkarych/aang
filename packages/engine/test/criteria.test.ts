@@ -131,10 +131,10 @@ const callFacts = (store: Store, ...calls: readonly string[]): FactId[] =>
 
 const snapshotsOf = (store: Store, source: Source): GitSnapshot[] => store.artifacts.snapshots(runOf(source))
 
-const snapshotFact = (store: Store, source: Source, trigger: SnapshotTrigger): FactId => {
-  const snapshot = snapshotsOf(store, source).findLast((candidate) => candidate.trigger === trigger)
+const departureFact = (store: Store, source: Source, trigger: SnapshotTrigger): FactId => {
+  const snapshot = snapshotsOf(store, source).find((candidate) => candidate.trigger === trigger && !candidate.clean)
   if (snapshot === undefined) {
-    throw new Error(`no ${trigger} snapshot`)
+    throw new Error(`no unclean ${trigger} snapshot`)
   }
   return snapshot.fact
 }
@@ -316,7 +316,7 @@ test('after confirmation an edit that fs watch does not report is caught as stal
     status: {
       value: 'stale',
       basis: observed,
-      evidence: [...callFacts(store, 'call-verify'), snapshotFact(store, source, 'turn_end')].sort(),
+      evidence: [...callFacts(store, 'call-verify'), departureFact(store, source, 'turn_end')].sort(),
     },
     checked_commit: commit,
     clean_tree_commit: null,
@@ -349,13 +349,21 @@ test('fs watch reports an edit under a mask and the confirmed criteria of runs i
     expect([first, second].map((source) => criterionOf(store, source).status.value)).toEqual(['stale', 'stale'])
   })
   expect(criterionOf(store, first)).toMatchObject({
-    status: { evidence: [...callFacts(store, 'call-verify'), snapshotFact(store, first, 'fs_watch')].sort() },
+    status: { evidence: [...callFacts(store, 'call-verify'), departureFact(store, first, 'fs_watch')].sort() },
     checked_commit: commit,
   })
   expect(criterionOf(store, second)).toMatchObject({
-    status: { evidence: [...callFacts(store, 'call-other'), snapshotFact(store, second, 'fs_watch')].sort() },
+    status: { evidence: [...callFacts(store, 'call-other'), departureFact(store, second, 'fs_watch')].sort() },
     checked_commit: commit,
   })
+  const stale = [first, second].map((source) => criterionOf(store, source))
+
+  const watched = (): number => snapshotsOf(store, first).filter(({ trigger }) => trigger === 'fs_watch').length
+  const seen = watched()
+  await writeUntil(repository.path, { 'src/app.ts': 'export const app = 10\n' }, () => {
+    expect(watched()).toBeGreaterThan(seen)
+  })
+  expect([first, second].map((source) => criterionOf(store, source))).toEqual(stale)
 })
 
 test('fs watch follows a file mask through its directory and stops watching a criterion that is no longer confirmed', async ({
@@ -494,7 +502,7 @@ test('a check run from a subdirectory turns stale when that directory is deleted
   expect(snapshotsOf(store, source).at(-1)).toMatchObject({ trigger: 'turn_end', worktree: inside.cwd, clean: false })
   const stale = criterionOf(store, source)
   expect(stale).toMatchObject({
-    status: { value: 'stale', evidence: [...callFacts(store, 'call-verify'), snapshotFact(store, source, 'turn_end')].sort() },
+    status: { value: 'stale', evidence: [...callFacts(store, 'call-verify'), departureFact(store, source, 'turn_end')].sort() },
     checked_commit: commit,
   })
 
@@ -669,7 +677,7 @@ test('a check that a session runs after attach confirms in the run it joined, an
   await writeFiles(repository.path, { 'src/app.ts': 'export const app = 16\n' })
   await engine.ingest(hookBatch(stopped(moved, 1, 30)))
   expect(criterionOf(store, root)).toMatchObject({
-    status: { value: 'stale', evidence: [...callFacts(store, 'joined-verify'), snapshotFact(store, root, 'turn_end')].sort() },
+    status: { value: 'stale', evidence: [...callFacts(store, 'joined-verify'), departureFact(store, root, 'turn_end')].sort() },
     checked_commit: commit,
   })
 
