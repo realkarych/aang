@@ -5548,7 +5548,10 @@
         "id": "#102",
         "runtime": "claude",
         "root_session": "#101",
-        "goal": null,
+        "goal": {
+          "text": "[aang:team] Create the task Echo mate with TaskCreate, then spawn the teammate helper with the Agent tool to run it.",
+          "fact": "#22"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 3,
@@ -5579,7 +5582,10 @@
             "id": "#102",
             "runtime": "claude",
             "root_session": "#101",
-            "goal": null,
+            "goal": {
+              "text": "[aang:team] Create the task Echo mate with TaskCreate, then spawn the teammate helper with the Agent tool to run it.",
+              "fact": "#22"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 3,

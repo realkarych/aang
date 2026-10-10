@@ -2432,13 +2432,56 @@
   "runs": [
     {
       "run": {
+        "id": "#50",
+        "runtime": "codex",
+        "root_session": "#49",
+        "goal": {
+          "text": "[aang:fork-source] Run `echo source`, then reply done.",
+          "fact": "#7"
+        },
+        "brief": null,
+        "start_pruned": false,
+        "version": 3,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#50",
+            "runtime": "codex",
+            "root_session": "#49",
+            "goal": {
+              "text": "[aang:fork-source] Run `echo source`, then reply done.",
+              "fact": "#7"
+            },
+            "brief": null,
+            "start_pruned": false,
+            "version": 3,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#49",
+            "run": "#50"
+          }
+        }
+      ]
+    },
+    {
+      "run": {
         "id": "#52",
         "runtime": "codex",
         "root_session": "#51",
-        "goal": null,
+        "goal": {
+          "text": "[aang:fork] Run `echo fork` in the fork, then reply done.",
+          "fact": "#31"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 4,
         "created_at": "<time>"
       },
       "entities": [
@@ -2463,10 +2506,13 @@
             "id": "#52",
             "runtime": "codex",
             "root_session": "#51",
-            "goal": null,
+            "goal": {
+              "text": "[aang:fork] Run `echo fork` in the fork, then reply done.",
+              "fact": "#31"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 4,
             "created_at": "<time>"
           }
         },
@@ -2475,40 +2521,6 @@
           "value": {
             "session": "#51",
             "run": "#52"
-          }
-        }
-      ]
-    },
-    {
-      "run": {
-        "id": "#50",
-        "runtime": "codex",
-        "root_session": "#49",
-        "goal": null,
-        "brief": null,
-        "start_pruned": false,
-        "version": 1,
-        "created_at": "<time>"
-      },
-      "entities": [
-        {
-          "kind": "run",
-          "value": {
-            "id": "#50",
-            "runtime": "codex",
-            "root_session": "#49",
-            "goal": null,
-            "brief": null,
-            "start_pruned": false,
-            "version": 1,
-            "created_at": "<time>"
-          }
-        },
-        {
-          "kind": "session_membership",
-          "value": {
-            "session": "#49",
-            "run": "#50"
           }
         }
       ]

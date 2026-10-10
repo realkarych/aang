@@ -17,6 +17,7 @@ import {
 } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
 import { expect, test } from './fixtures.js'
+import { claudeGoal } from './samples.js'
 
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' })
 
@@ -165,7 +166,7 @@ test('a run without stages explains that the observer builds the map', async ({ 
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto(`/?run=${claudeRun}`)
 
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Claude Code, начат/)
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText(claudeGoal)
   await expect(map(page)).toContainText(
     'Этапы строит наблюдатель. Карта появится после его первого ответа по этому прогону.',
   )

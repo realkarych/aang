@@ -1624,10 +1624,13 @@
         "id": "#33",
         "runtime": "codex",
         "root_session": "#32",
-        "goal": null,
+        "goal": {
+          "text": "[aang:live] Run the shell command `echo hi` exactly once, then reply with just: OK",
+          "fact": "#4"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -1637,10 +1640,13 @@
             "id": "#33",
             "runtime": "codex",
             "root_session": "#32",
-            "goal": null,
+            "goal": {
+              "text": "[aang:live] Run the shell command `echo hi` exactly once, then reply with just: OK",
+              "fact": "#4"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },

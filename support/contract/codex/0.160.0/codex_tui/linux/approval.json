@@ -1360,10 +1360,13 @@
         "id": "#27",
         "runtime": "codex",
         "root_session": "#26",
-        "goal": null,
+        "goal": {
+          "text": "[aang:tui-approval] Create approved.txt with `touch approved.txt` and ask for approval.",
+          "fact": "#7"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -1398,10 +1401,13 @@
             "id": "#27",
             "runtime": "codex",
             "root_session": "#26",
-            "goal": null,
+            "goal": {
+              "text": "[aang:tui-approval] Create approved.txt with `touch approved.txt` and ask for approval.",
+              "fact": "#7"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },
