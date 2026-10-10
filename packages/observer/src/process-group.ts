@@ -21,6 +21,8 @@ export interface ProcessGroupWatch {
 const vanished = (error: unknown): boolean =>
   error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ESRCH')
 
+const released = (pgid: number): boolean => pgid < 0
+
 const procEntry = async (pid: string): Promise<ProcessEntry[]> => {
   let stat: string
   try { stat = await readFile(`/proc/${pid}/stat`, 'utf8') }
@@ -30,7 +32,9 @@ const procEntry = async (pid: string): Promise<ProcessEntry[]> => {
   }
   const close = stat.lastIndexOf(')')
   const fields = stat.slice(close + 2).split(' ')
-  return [{ pid: Number(pid), ppid: Number(fields[1]), pgid: Number(fields[2]), start: fields[19] ?? '', name: stat.slice(stat.indexOf('(') + 1, close) }]
+  const pgid = Number(fields[2])
+  if (released(pgid)) return []
+  return [{ pid: Number(pid), ppid: Number(fields[1]), pgid, start: fields[19] ?? '', name: stat.slice(stat.indexOf('(') + 1, close) }]
 }
 
 const linuxTable = async (): Promise<ProcessEntry[]> => {
