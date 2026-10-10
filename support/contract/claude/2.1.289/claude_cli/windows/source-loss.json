@@ -2485,10 +2485,13 @@
         "id": "#46",
         "runtime": "claude",
         "root_session": "#45",
-        "goal": null,
+        "goal": {
+          "text": "[aang:loss-moved] Run `echo moved` with the Bash tool and reply with its output.",
+          "fact": "#31"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2498,10 +2501,13 @@
             "id": "#46",
             "runtime": "claude",
             "root_session": "#45",
-            "goal": null,
+            "goal": {
+              "text": "[aang:loss-moved] Run `echo moved` with the Bash tool and reply with its output.",
+              "fact": "#31"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },
@@ -2519,10 +2525,13 @@
         "id": "#48",
         "runtime": "claude",
         "root_session": "#47",
-        "goal": null,
+        "goal": {
+          "text": "[aang:loss-removed] Run `echo removed` with the Bash tool and reply with its output.",
+          "fact": "#9"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2532,10 +2541,13 @@
             "id": "#48",
             "runtime": "claude",
             "root_session": "#47",
-            "goal": null,
+            "goal": {
+              "text": "[aang:loss-removed] Run `echo removed` with the Bash tool and reply with its output.",
+              "fact": "#9"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },

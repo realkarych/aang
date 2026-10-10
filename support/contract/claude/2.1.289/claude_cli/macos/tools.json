@@ -2595,10 +2595,13 @@
         "id": "#45",
         "runtime": "claude",
         "root_session": "#44",
-        "goal": null,
+        "goal": {
+          "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+          "fact": "#14"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2658,10 +2661,13 @@
             "id": "#45",
             "runtime": "claude",
             "root_session": "#44",
-            "goal": null,
+            "goal": {
+              "text": "[aang:tools] Read notes.txt with the Read tool, run `ls` with the Bash tool, create result.txt containing the single word draft with the Write tool, then replace draft with final in result.txt using the Edit tool. Reply with one short sentence.",
+              "fact": "#14"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },

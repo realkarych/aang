@@ -1490,10 +1490,13 @@
         "id": "#29",
         "runtime": "claude",
         "root_session": "#28",
-        "goal": null,
+        "goal": {
+          "text": "[aang:user-hooks] Run `echo hooked` with the Bash tool and reply with its output.",
+          "fact": "#10"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -1519,10 +1522,13 @@
             "id": "#29",
             "runtime": "claude",
             "root_session": "#28",
-            "goal": null,
+            "goal": {
+              "text": "[aang:user-hooks] Run `echo hooked` with the Bash tool and reply with its output.",
+              "fact": "#10"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

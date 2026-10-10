@@ -2488,10 +2488,13 @@
         "id": "#50",
         "runtime": "claude",
         "root_session": "#49",
-        "goal": null,
+        "goal": {
+          "text": "[aang:compact-work] Run `echo history` with the Bash tool and reply with its output.",
+          "fact": "#8"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2501,10 +2504,13 @@
             "id": "#50",
             "runtime": "claude",
             "root_session": "#49",
-            "goal": null,
+            "goal": {
+              "text": "[aang:compact-work] Run `echo history` with the Bash tool and reply with its output.",
+              "fact": "#8"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

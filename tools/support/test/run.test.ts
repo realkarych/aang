@@ -446,7 +446,7 @@ const notRunContract = { resume: 'not_run', compaction: 'not_run', child_session
 
 const readdirNames = async (directory: string): Promise<string[]> => (await readdir(directory)).sort()
 
-const claimed = (key: SupportKey, status: SupportRow['status']): SupportRow => ({
+const previousRow = (key: SupportKey, status: SupportRow['status']): SupportRow => ({
   ...key,
   app_version: null,
   status,
@@ -455,6 +455,18 @@ const claimed = (key: SupportKey, status: SupportRow['status']): SupportRow => (
   observer: { admission: 'passed', cross_session_inbound: 'passed', builtins: { mcp_servers: [], plugins: [], skills: [] } },
   verified_on: '2026-10-04',
 })
+
+const recordedOn = async (...recordings: readonly SpikeRecording[]): Promise<string> => {
+  const dates = await Promise.all(
+    recordings.map(async (recording) => {
+      const manifest = JSON.parse(await readFile(join(recorded(recording), 'manifest.json'), 'utf8')) as { readonly recorded_at: string }
+      return new Date(manifest.recorded_at).toISOString().slice(0, 10)
+    }),
+  )
+  return dates.sort().at(-1) ?? ''
+}
+
+const tuiChecklistOn = (os: OperatingSystem): string[] => (os === 'linux' ? [] : [supportGaps.tuiChecklist])
 
 const cliKey = (os: SupportKey['os'], placement: SupportKey['placement'] = 'local'): SupportKey => ({
   runtime: 'claude',
@@ -474,7 +486,7 @@ const contractScenarios = [
 const runScenarios = (os: OperatingSystem): string[] => (os === 'windows' ? contractScenarios : [...contractScenarios, 'teammates', 'input-dialogs'])
 
 describe('the support matrix generated from the contract run', () => {
-  test('a row keeps its claimed status only while recordings of its own OS pass every scenario of the run', async () => {
+  test('a row is full when recordings of its own OS pass every scenario of the run and nothing is missing, limited with its gaps, and unverified without its own recordings or owner checklist', async () => {
     const { sessions, support } = await workspace()
     for (const scenario of runScenarios(hostOs)) {
       await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: hostOs, scenario })
@@ -486,12 +498,12 @@ describe('the support matrix generated from the contract run', () => {
     const previous: SupportMatrix = {
       format: supportMatrixFormat,
       rows: [
-        claimed(cliKey(hostOs), 'limited'),
-        claimed(cliKey(otherOs), 'full'),
-        claimed(cliKey(thirdOs), 'full'),
-        claimed(cliKey('linux', 'docker'), 'full'),
-        claimed(cliKey('macos', 'vm'), 'full'),
-        claimed(cliKey('windows', 'desktop_ssh'), 'full'),
+        previousRow(cliKey(hostOs), 'limited'),
+        previousRow(cliKey(otherOs), 'full'),
+        previousRow(cliKey(thirdOs), 'full'),
+        previousRow(cliKey('linux', 'docker'), 'full'),
+        previousRow(cliKey('macos', 'vm'), 'full'),
+        previousRow(cliKey('windows', 'desktop_ssh'), 'full'),
       ],
     }
     await mkdir(dirname(matrixPath(support)), { recursive: true })
@@ -503,23 +515,31 @@ describe('the support matrix generated from the contract run', () => {
     const row = (key: SupportKey): SupportRow | null => supportRowOf(matrix, key)
 
     expect(row(cliKey(hostOs))).toEqual({
-      ...claimed(cliKey(hostOs), 'limited'),
+      ...previousRow(cliKey(hostOs), 'full'),
       scenarios: { during_work: 'passed', after_iteration: 'passed', resume: 'passed', compaction: 'passed', child_sessions: 'passed', reconnect: 'passed' },
+      verified_on: [await recordedOn(claudeSubagents, claudeReconnect), ...(hostOs === 'linux' ? [] : ['2026-10-08'])].sort().at(-1),
     })
     expect(row(cliKey(otherOs))).toMatchObject({
-      status: 'unverified',
-      gaps: [supportGaps.missing(runScenarios(otherOs).filter((name) => name !== 'subagents').sort()), supportGaps.tuiChecklist],
+      status: otherOs === 'linux' ? 'limited' : 'unverified',
+      gaps: [supportGaps.missing(runScenarios(otherOs).filter((name) => name !== 'subagents').sort()), ...tuiChecklistOn(otherOs)],
       scenarios: { child_sessions: 'passed', resume: 'not_run', during_work: 'passed' },
+      verified_on: otherOs === 'linux' ? await recordedOn(claudeSubagents) : null,
     })
     expect(row(cliKey(thirdOs))).toMatchObject({
       status: 'unverified',
-      gaps: [supportGaps.noRecordings, supportGaps.tuiChecklist],
+      gaps: [supportGaps.noRecordings, ...tuiChecklistOn(thirdOs)],
       scenarios: notRunContract,
+      verified_on: null,
     })
     for (const placed of [cliKey('linux', 'docker'), cliKey('macos', 'vm'), cliKey('windows', 'desktop_ssh')]) {
       expect(row(placed)?.status).toBe('unverified')
       expect(row(placed)?.gaps).toContain(supportGaps.placement)
     }
+    expect(row({ runtime: 'codex', surface: 'codex_exec', os: hostOs, placement: 'local', engine_version: '0.159.2' })).toMatchObject({
+      status: 'limited',
+      gaps: [expect.stringMatching(/^no reference recordings of: /), supportGaps.userScenarios],
+      verified_on: await recordedOn(codexResumeCompaction),
+    })
     expect(supportStatusOf(matrix, { ...cliKey(hostOs), engine_version: '2.1.287' })).toBe('unverified')
     expect(await readdirNames(join(support, 'contract/claude/2.1.286/claude_cli', hostOs))).toEqual(
       runScenarios(hostOs).map((name) => `${name}.json`).sort(),
@@ -527,7 +547,7 @@ describe('the support matrix generated from the contract run', () => {
     expect(await readdirNames(join(support, 'contract'))).toEqual(['claude', 'codex'])
   }, 240_000)
 
-  test('a non-local row takes E2E 1 and 4 from the local row of its OS and keeps its claimed status only with a passed placement check of its exact key', async () => {
+  test('a non-local row takes E2E 1 and 4 from the local row of its OS and is verified only with a passed placement check of its exact key', async () => {
     const { sessions, support } = await workspace()
     for (const scenario of runScenarios('linux')) {
       await placeRecording(recorded(scenario === 'reconnect' ? claudeReconnect : claudeSubagents), sessions, { os: 'linux', scenario })
@@ -544,50 +564,56 @@ describe('the support matrix generated from the contract run', () => {
     const previous: SupportMatrix = {
       format: supportMatrixFormat,
       rows: [
-        claimed(local, 'limited'),
-        withUserScenarios(claimed(docker, 'full'), 'failed', 'not_run'),
-        claimed(vm, 'full'),
-        withUserScenarios(claimed(newerVm, 'full'), 'passed', 'failed'),
+        previousRow(local, 'limited'),
+        withUserScenarios(previousRow(docker, 'unverified'), 'failed', 'not_run'),
+        previousRow(vm, 'full'),
+        withUserScenarios(previousRow(newerVm, 'full'), 'passed', 'failed'),
       ],
     }
     await mkdir(support, { recursive: true })
     await writeFile(matrixPath(support), `${JSON.stringify(previous, null, 2)}\n`)
     await writeVerification(support, {
       placements: [placementCheck(docker, 'passed'), placementCheck(vm, 'failed'), placementCheck(newerDocker, 'passed')],
-      ownerChecklists: [ownerChecklist(local, 'tui', 'passed'), ownerChecklist(docker, 'tui', 'passed'), ownerChecklist(vm, 'tui', 'passed')],
     })
 
     expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
     const matrix = await readSupportMatrix(matrixPath(support))
 
     const contractPassed = { resume: 'passed', compaction: 'passed', child_sessions: 'passed', reconnect: 'passed' } as const
-    expect(supportRowOf(matrix, local)).toEqual({ ...claimed(local, 'limited'), scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' } })
-    expect(supportRowOf(matrix, docker)).toEqual({ ...claimed(docker, 'full'), scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' } })
+    const recordedDate = await recordedOn(claudeSubagents, claudeReconnect)
+    const full = (key: SupportKey): SupportRow => ({
+      ...previousRow(key, 'full'),
+      scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' },
+      verified_on: [recordedDate, ...(key.placement === 'local' ? [] : ['2026-10-07'])].sort().at(-1) ?? null,
+    })
+    expect(supportRowOf(matrix, local)).toEqual(full(local))
+    expect(supportRowOf(matrix, docker)).toEqual(full(docker))
     expect(supportRowOf(matrix, vm)).toMatchObject({
       status: 'unverified',
       gaps: [supportGaps.placementFails],
       scenarios: { ...contractPassed, during_work: 'passed', after_iteration: 'passed' },
+      verified_on: null,
     })
     expect(supportRowOf(matrix, newerDocker)).toMatchObject({
       status: 'unverified',
-      gaps: [supportGaps.noRecordings, supportGaps.userScenarios, supportGaps.tuiChecklist],
+      gaps: [supportGaps.noRecordings, supportGaps.userScenarios],
       scenarios: { ...notRunContract, during_work: 'not_run', after_iteration: 'not_run' },
     })
     expect(supportRowOf(matrix, newerVm)).toMatchObject({
       status: 'unverified',
-      gaps: [supportGaps.placement, supportGaps.noRecordings, supportGaps.userScenariosFail(['E2E 4']), supportGaps.tuiChecklist],
+      gaps: [supportGaps.placement, supportGaps.noRecordings, supportGaps.userScenariosFail(['E2E 4'])],
       scenarios: { ...notRunContract, during_work: 'passed', after_iteration: 'failed' },
     })
   }, 180_000)
 
-  test('a claimed full or limited row whose E2E 1 or 4 failed is not verified, even when every scenario of the run passes', async () => {
+  test('the status follows the results, not the previous matrix: a failed or missing E2E 1 or 4 makes the row limited, passed ones make it full', async () => {
     const { sessions, support } = await workspace()
     const tuiKey = (engine_version: string): SupportKey => ({ runtime: 'codex', surface: 'codex_tui', os: hostOs, placement: 'local', engine_version })
     const variants = [
-      { key: tuiKey('0.200.1'), status: 'full', failed: 'during_work', gap: 'E2E 1' },
-      { key: tuiKey('0.200.2'), status: 'full', failed: 'after_iteration', gap: 'E2E 4' },
-      { key: tuiKey('0.200.3'), status: 'limited', failed: 'during_work', gap: 'E2E 1' },
-      { key: tuiKey('0.200.4'), status: 'limited', failed: 'after_iteration', gap: 'E2E 4' },
+      { key: tuiKey('0.200.1'), previous: 'full', user: { during_work: 'failed' }, status: 'limited', gaps: [supportGaps.userScenariosFail(['E2E 1'])] },
+      { key: tuiKey('0.200.2'), previous: 'unverified', user: { after_iteration: 'failed' }, status: 'limited', gaps: [supportGaps.userScenariosFail(['E2E 4'])] },
+      { key: tuiKey('0.200.3'), previous: 'full', user: { after_iteration: 'not_run' }, status: 'limited', gaps: [supportGaps.userScenarios] },
+      { key: tuiKey('0.200.4'), previous: 'unverified', user: {}, status: 'full', gaps: [] },
     ] as const
     for (const { key } of variants) {
       for (const scenario of ['tools', 'approval', 'interrupt']) {
@@ -596,9 +622,9 @@ describe('the support matrix generated from the contract run', () => {
     }
     const previous: SupportMatrix = {
       format: supportMatrixFormat,
-      rows: variants.map(({ key, status, failed }) => {
-        const row = claimed(key, status)
-        return { ...row, scenarios: { ...row.scenarios, [failed]: 'failed' } }
+      rows: variants.map(({ key, previous: status, user }) => {
+        const row = previousRow(key, status)
+        return { ...row, scenarios: { ...row.scenarios, ...user } }
       }),
     }
     await mkdir(support, { recursive: true })
@@ -607,11 +633,12 @@ describe('the support matrix generated from the contract run', () => {
     expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
     const matrix = await readSupportMatrix(matrixPath(support))
 
-    for (const { key, failed, gap } of variants) {
-      expect(supportRowOf(matrix, key)).toMatchObject({
-        status: 'unverified',
-        gaps: [supportGaps.userScenariosFail([gap])],
-        scenarios: { [failed]: 'failed' },
+    for (const { key, user, status, gaps } of variants) {
+      expect(supportRowOf(matrix, key), key.engine_version).toMatchObject({
+        status,
+        gaps,
+        scenarios: user,
+        verified_on: await recordedOn(codexResumeCompaction),
       })
     }
   }, 180_000)
@@ -621,7 +648,7 @@ describe('the support matrix generated from the contract run', () => {
     await placeRecording(recorded(claudeSubagents), sessions, { os: 'macos' })
     await placeRecording(recorded(claudeSubagents), sessions, { os: 'macos', surface: 'claude_desktop', appVersion: '1.3.9' })
     await mkdir(support, { recursive: true })
-    await writeFile(matrixPath(support), `${JSON.stringify({ format: supportMatrixFormat, rows: [claimed(desktopOnWindows, 'full')] }, null, 2)}\n`)
+    await writeFile(matrixPath(support), `${JSON.stringify({ format: supportMatrixFormat, rows: [previousRow(desktopOnWindows, 'full')] }, null, 2)}\n`)
 
     expect((await supportCli(['update', ...cliOptions(sessions, support)])).code).toBe(0)
     const matrix = await readSupportMatrix(matrixPath(support))
@@ -629,6 +656,7 @@ describe('the support matrix generated from the contract run', () => {
     expect(supportRowOf(matrix, desktopOnWindows)).toMatchObject({
       status: 'unverified',
       gaps: [supportGaps.desktopOnWindows, supportGaps.noRecordings],
+      verified_on: null,
     })
     expect(supportRowOf(matrix, { ...desktopOnWindows, os: 'macos' })).toMatchObject({
       status: 'unverified',

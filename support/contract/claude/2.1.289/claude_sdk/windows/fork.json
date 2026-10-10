@@ -2669,13 +2669,56 @@
   "runs": [
     {
       "run": {
+        "id": "#51",
+        "runtime": "claude",
+        "root_session": "#50",
+        "goal": {
+          "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+          "fact": "#8"
+        },
+        "brief": null,
+        "start_pruned": false,
+        "version": 2,
+        "created_at": "<time>"
+      },
+      "entities": [
+        {
+          "kind": "run",
+          "value": {
+            "id": "#51",
+            "runtime": "claude",
+            "root_session": "#50",
+            "goal": {
+              "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+              "fact": "#8"
+            },
+            "brief": null,
+            "start_pruned": false,
+            "version": 2,
+            "created_at": "<time>"
+          }
+        },
+        {
+          "kind": "session_membership",
+          "value": {
+            "session": "#50",
+            "run": "#51"
+          }
+        }
+      ]
+    },
+    {
+      "run": {
         "id": "#49",
         "runtime": "claude",
         "root_session": "#48",
-        "goal": null,
+        "goal": {
+          "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+          "fact": "#37"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2705,10 +2748,13 @@
             "id": "#49",
             "runtime": "claude",
             "root_session": "#48",
-            "goal": null,
+            "goal": {
+              "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+              "fact": "#37"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },
@@ -2717,40 +2763,6 @@
           "value": {
             "session": "#48",
             "run": "#49"
-          }
-        }
-      ]
-    },
-    {
-      "run": {
-        "id": "#51",
-        "runtime": "claude",
-        "root_session": "#50",
-        "goal": null,
-        "brief": null,
-        "start_pruned": false,
-        "version": 1,
-        "created_at": "<time>"
-      },
-      "entities": [
-        {
-          "kind": "run",
-          "value": {
-            "id": "#51",
-            "runtime": "claude",
-            "root_session": "#50",
-            "goal": null,
-            "brief": null,
-            "start_pruned": false,
-            "version": 1,
-            "created_at": "<time>"
-          }
-        },
-        {
-          "kind": "session_membership",
-          "value": {
-            "session": "#50",
-            "run": "#51"
           }
         }
       ]

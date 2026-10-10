@@ -2374,10 +2374,13 @@
         "id": "#44",
         "runtime": "claude",
         "root_session": "#43",
-        "goal": null,
+        "goal": {
+          "text": "[aang:elicitation] Call the choose_greeting tool of the aang-elicitation MCP server, then call its confirm_link tool. Reply with one sentence.",
+          "fact": "#10"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2487,10 +2490,13 @@
             "id": "#44",
             "runtime": "claude",
             "root_session": "#43",
-            "goal": null,
+            "goal": {
+              "text": "[aang:elicitation] Call the choose_greeting tool of the aang-elicitation MCP server, then call its confirm_link tool. Reply with one sentence.",
+              "fact": "#10"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },

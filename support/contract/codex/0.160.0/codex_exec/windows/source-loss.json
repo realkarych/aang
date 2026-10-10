@@ -2441,10 +2441,13 @@
         "id": "#50",
         "runtime": "codex",
         "root_session": "#49",
-        "goal": null,
+        "goal": {
+          "text": "[aang:archive] Run `echo archive`, then reply done.",
+          "fact": "#6"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2454,10 +2457,13 @@
             "id": "#50",
             "runtime": "codex",
             "root_session": "#49",
-            "goal": null,
+            "goal": {
+              "text": "[aang:archive] Run `echo archive`, then reply done.",
+              "fact": "#6"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },
@@ -2475,10 +2481,13 @@
         "id": "#52",
         "runtime": "codex",
         "root_session": "#51",
-        "goal": null,
+        "goal": {
+          "text": "[aang:delete] Run `echo delete`, then reply done.",
+          "fact": "#30"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2488,10 +2497,13 @@
             "id": "#52",
             "runtime": "codex",
             "root_session": "#51",
-            "goal": null,
+            "goal": {
+              "text": "[aang:delete] Run `echo delete`, then reply done.",
+              "fact": "#30"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },

@@ -2546,10 +2546,13 @@
         "id": "#46",
         "runtime": "claude",
         "root_session": "#45",
-        "goal": null,
+        "goal": {
+          "text": "[aang:plugin] Use the aang-kit:greeting skill with the Skill tool to choose the greeting of the project notes, then ask the aang-kit:reviewer subagent with the Agent tool to run `echo reviewed`. Reply with one sentence.",
+          "fact": "#10"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2578,10 +2581,13 @@
             "id": "#46",
             "runtime": "claude",
             "root_session": "#45",
-            "goal": null,
+            "goal": {
+              "text": "[aang:plugin] Use the aang-kit:greeting skill with the Skill tool to choose the greeting of the project notes, then ask the aang-kit:reviewer subagent with the Agent tool to run `echo reviewed`. Reply with one sentence.",
+              "fact": "#10"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

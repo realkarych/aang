@@ -47,19 +47,20 @@ const writeMatrix = async (support: string, keys: readonly SupportKey[]): Promis
 const notChecked = [supportGaps.noRecordings, supportGaps.userScenarios]
 
 describe('owner checklists in the support matrix', () => {
-  test('a passed owner checklist removes the Desktop or TUI gap of its exact key only, a failed one names the failure, and Desktop on Windows needs none', async () => {
+  test('a passed owner checklist removes the Desktop or TUI gap of its exact key only, a failed one names the failure, and neither Desktop on Windows nor Claude CLI on Linux needs one', async () => {
     const { sessions, support } = await workspace()
-    const cliDocker: SupportKey = { ...claudeCli, placement: 'docker' }
-    const cliNewer: SupportKey = { ...claudeCli, engine_version: '2.1.290' }
+    const cliMacos: SupportKey = { ...claudeCli, os: 'macos' }
+    const cliNewer: SupportKey = { ...cliMacos, engine_version: '2.1.290' }
     const cliWindows: SupportKey = { ...claudeCli, os: 'windows' }
+    const cliDocker: SupportKey = { ...claudeCli, placement: 'docker' }
     const desktopLinux: SupportKey = { ...claudeDesktop, os: 'linux' }
     const desktopWindows: SupportKey = { ...claudeDesktop, os: 'windows' }
-    await writeMatrix(support, [cliDocker, cliNewer, desktopLinux, desktopWindows, codexExec])
+    await writeMatrix(support, [claudeCli, cliDocker, cliNewer, desktopLinux, desktopWindows, codexExec])
     await writeVerification(support, {
       ownerChecklists: [
         ownerChecklist(claudeDesktop, 'desktop', 'passed'),
         ownerChecklist(codexDesktop, 'desktop', 'failed'),
-        ownerChecklist(claudeCli, 'tui', 'passed'),
+        ownerChecklist(cliMacos, 'tui', 'passed'),
         ownerChecklist(cliWindows, 'tui', 'failed'),
       ],
     })
@@ -73,15 +74,16 @@ describe('owner checklists in the support matrix', () => {
       [desktopLinux, [...notChecked, supportGaps.desktopChecklist]],
       [desktopWindows, [supportGaps.desktopOnWindows, ...notChecked]],
       [codexDesktop, [...notChecked, supportGaps.desktopChecklistFails]],
-      [claudeCli, notChecked],
-      [cliDocker, [supportGaps.placement, ...notChecked, supportGaps.tuiChecklist]],
+      [cliMacos, notChecked],
       [cliNewer, [...notChecked, supportGaps.tuiChecklist]],
       [cliWindows, [...notChecked, supportGaps.tuiChecklistFails]],
+      [claudeCli, notChecked],
+      [cliDocker, [supportGaps.placement, ...notChecked]],
       [codexExec, notChecked],
     ]
     expect(matrix.rows.map(supportKeyText).sort()).toEqual(expected.map(([key]) => supportKeyText(key)).sort())
     for (const [key, gaps] of expected) {
-      expect(supportRowOf(matrix, key), supportKeyText(key)).toMatchObject({ status: 'unverified', gaps })
+      expect(supportRowOf(matrix, key), supportKeyText(key)).toMatchObject({ status: 'unverified', gaps, verified_on: null })
     }
     expect(await supportCli(['check', ...cliOptions(sessions, support)])).toEqual({ code: 0, stdout: '0 recordings, 0 problems\n', stderr: '' })
   }, 60_000)
@@ -111,7 +113,7 @@ describe('placement checks imported from surface check reports', () => {
     const claudeSdkVm: SupportKey = { ...claudeCli, surface: 'claude_sdk', os: 'macos', placement: 'vm' }
     await writeVerification(support, {
       placements: [placementCheck(cliDocker, 'failed', '2026-10-01'), placementCheck(claudeSdkVm, 'passed', '2026-10-02')],
-      ownerChecklists: [ownerChecklist(claudeCli, 'tui', 'passed')],
+      ownerChecklists: [ownerChecklist(claudeDesktop, 'desktop', 'passed')],
     })
     const linux = join(root, 'surface-check-linux.json')
     const offset = join(root, 'surface-check-offset.json')
@@ -147,7 +149,7 @@ describe('placement checks imported from surface check reports', () => {
             placementCheck(execVm, 'failed', '2026-10-07'),
             placementCheck(sdkDocker, 'failed', '2026-10-07'),
           ],
-          owner_checklists: [ownerChecklist(claudeCli, 'tui', 'passed')],
+          owner_checklists: [ownerChecklist(claudeDesktop, 'desktop', 'passed')],
         },
         null,
         2,
@@ -157,7 +159,7 @@ describe('placement checks imported from surface check reports', () => {
 
     expect(await supportCli(['update', ...cliOptions(sessions, support)])).toMatchObject({ code: 0, stderr: '' })
     const matrix = await readSupportMatrix(matrixPath(support))
-    expect(supportRowOf(matrix, cliDocker)?.gaps).toEqual([...notChecked, supportGaps.tuiChecklist])
+    expect(supportRowOf(matrix, cliDocker)?.gaps).toEqual(notChecked)
     expect(supportRowOf(matrix, execVm)?.gaps).toEqual([supportGaps.placementFails, ...notChecked])
     expect(supportRowOf(matrix, sdkDocker)?.gaps).toEqual([supportGaps.placementFails, ...notChecked])
   }, 60_000)

@@ -2231,10 +2231,13 @@
         "id": "#40",
         "runtime": "claude",
         "root_session": "#39",
-        "goal": null,
+        "goal": {
+          "text": "[aang:agents-flag] Ask the notes-checker subagent with the Agent tool to run `echo checked`. Reply with one sentence.",
+          "fact": "#12"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2263,10 +2266,13 @@
             "id": "#40",
             "runtime": "claude",
             "root_session": "#39",
-            "goal": null,
+            "goal": {
+              "text": "[aang:agents-flag] Ask the notes-checker subagent with the Agent tool to run `echo checked`. Reply with one sentence.",
+              "fact": "#12"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },

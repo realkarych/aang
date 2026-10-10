@@ -2058,10 +2058,13 @@
         "id": "#40",
         "runtime": "claude",
         "root_session": "#39",
-        "goal": null,
+        "goal": {
+          "text": "[aang:resume-first] Run `echo first` with the Bash tool and reply with its output.",
+          "fact": "#12"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2071,10 +2074,13 @@
             "id": "#40",
             "runtime": "claude",
             "root_session": "#39",
-            "goal": null,
+            "goal": {
+              "text": "[aang:resume-first] Run `echo first` with the Bash tool and reply with its output.",
+              "fact": "#12"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

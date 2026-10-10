@@ -1806,10 +1806,13 @@
         "id": "#38",
         "runtime": "codex",
         "root_session": "#37",
-        "goal": null,
+        "goal": {
+          "text": "[aang:question] Ask me which greeting notes.txt should use, then stop.",
+          "fact": "#3"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -1844,10 +1847,13 @@
             "id": "#38",
             "runtime": "codex",
             "root_session": "#37",
-            "goal": null,
+            "goal": {
+              "text": "[aang:question] Ask me which greeting notes.txt should use, then stop.",
+              "fact": "#3"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

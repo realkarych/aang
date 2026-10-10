@@ -1,13 +1,11 @@
 import { randomUUID } from 'node:crypto'
 import {
-  type CallUsage,
   type ChatInput,
   type ChatMessage,
   type ChatOutput,
   type ChatQuestionRequest,
   EpochNs,
   type JsonValue,
-  type ModelVersion,
   ObserverCallId,
   type RunId,
   type Runtime,
@@ -22,32 +20,13 @@ import {
   followUpChat,
   startChat,
 } from '@aang/engine'
-import type { ObserverCallError, Store, Transaction } from '@aang/store'
+import type { ObserverCallVerdict, Store, Transaction } from '@aang/store'
 import type { ChatResult, LaunchFailure, ObserverRequest } from './backend.js'
 import { storedError } from './recovery.js'
 
 export interface ChatExecutor {
   readonly chat: (request: ObserverRequest) => Promise<ChatResult>
 }
-
-export type ChatCallVerdict = 'accepted' | 'rejected' | 'needs_requested' | 'failed'
-
-export interface ChatCallRecord {
-  readonly id: ObserverCallId
-  readonly run: RunId
-  readonly backend: Runtime
-  readonly base_version: ModelVersion
-  readonly previous: ObserverCallId | null
-  readonly input: ChatInput
-  readonly output: JsonValue | null
-  readonly verdict: ChatCallVerdict
-  readonly error: ObserverCallError | null
-  readonly usage: CallUsage | null
-  readonly started_at: EpochNs
-  readonly finished_at: EpochNs
-}
-
-export type ChatJournal = (transaction: Transaction, call: ChatCallRecord) => void
 
 export type ChatSlot = <T extends { readonly stopped: Promise<void> }>(
   work: (signal: AbortSignal) => Promise<T>,
@@ -59,7 +38,6 @@ export interface ChatOptions {
   readonly backend?: Runtime | null
   readonly crossVendor?: boolean
   readonly slot: ChatSlot
-  readonly journal?: ChatJournal
   readonly now?: () => number
   readonly limits?: ChatLimits
 }
@@ -103,7 +81,7 @@ const requested = (output: ChatOutput): boolean => output.answer === null && out
 const outputOf = (output: ChatOutput): JsonValue => JSON.parse(JSON.stringify(output)) as JsonValue
 
 export const createChat = (options: ChatOptions): Chat => {
-  const { store, backends, backend: override = null, crossVendor = false, slot, journal } = options
+  const { store, backends, backend: override = null, crossVendor = false, slot } = options
   const now = options.now ?? Date.now
   const limits = options.limits ?? defaultChatLimits
   const failure = Promise.withResolvers<unknown>()
@@ -130,14 +108,14 @@ export const createChat = (options: ChatOptions): Chat => {
     previous: ObserverCallId | null,
     at: EpochNs,
   ): void => {
-    const verdict: ChatCallVerdict = result.ok
+    const verdict: ObserverCallVerdict = result.ok
       ? previous === null && requested(result.output)
         ? 'needs_requested'
         : 'accepted'
       : result.error.class === 'invalid_output'
         ? 'rejected'
         : 'failed'
-    journal?.(transaction, {
+    transaction.observerCalls.chat({
       id,
       run,
       backend,
@@ -152,6 +130,9 @@ export const createChat = (options: ChatOptions): Chat => {
       finished_at: at,
     })
   }
+
+  const awaited = (transaction: Transaction, { run, started }: Conversation): boolean =>
+    transaction.chat.message(run, started.message.id)?.status === 'pending'
 
   const conclude = (transaction: Transaction, { run, started }: Conversation, { input, result }: Exchange, at: EpochNs): void => {
     const message = started.message.id
@@ -173,6 +154,9 @@ export const createChat = (options: ChatOptions): Chat => {
     }
     const first = await exchange(executor, started.input)
     const followUp = store.transaction((transaction): ChatInput | null => {
+      if (!awaited(transaction, conversation)) {
+        return null
+      }
       const at = epoch(now())
       record(transaction, conversation, first, null, at)
       if (!first.result.ok || !requested(first.result.output)) {
@@ -201,6 +185,9 @@ export const createChat = (options: ChatOptions): Chat => {
     }
     const second = await exchange(executor, followUp)
     store.transaction((transaction) => {
+      if (!awaited(transaction, conversation)) {
+        return
+      }
       const at = epoch(now())
       record(transaction, conversation, second, first.id, at)
       conclude(transaction, conversation, second, at)

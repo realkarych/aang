@@ -2623,10 +2623,13 @@
         "id": "#48",
         "runtime": "claude",
         "root_session": "#47",
-        "goal": null,
+        "goal": {
+          "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+          "fact": "#11"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -2636,10 +2639,13 @@
             "id": "#48",
             "runtime": "claude",
             "root_session": "#47",
-            "goal": null,
+            "goal": {
+              "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+              "fact": "#11"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },
@@ -2657,10 +2663,13 @@
         "id": "#50",
         "runtime": "claude",
         "root_session": "#49",
-        "goal": null,
+        "goal": {
+          "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+          "fact": "#38"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 3,
+        "version": 4,
         "created_at": "<time>"
       },
       "entities": [
@@ -2690,10 +2699,13 @@
             "id": "#50",
             "runtime": "claude",
             "root_session": "#49",
-            "goal": null,
+            "goal": {
+              "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+              "fact": "#38"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 3,
+            "version": 4,
             "created_at": "<time>"
           }
         },

@@ -4171,10 +4171,13 @@
         "id": "#84",
         "runtime": "codex",
         "root_session": "#83",
-        "goal": null,
+        "goal": {
+          "text": "[aang:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
+          "fact": "#6"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -4220,10 +4223,13 @@
             "id": "#84",
             "runtime": "codex",
             "root_session": "#83",
-            "goal": null,
+            "goal": {
+              "text": "[aang:agent-role] Spawn the reviewer agent notes_review and the default agent notes_scan, wait for them, then reply done.",
+              "fact": "#6"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },

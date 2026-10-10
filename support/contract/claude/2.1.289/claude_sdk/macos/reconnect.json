@@ -1918,10 +1918,13 @@
         "id": "#37",
         "runtime": "claude",
         "root_session": "#36",
-        "goal": null,
+        "goal": {
+          "text": "[aang:reconnect-before] Run `echo before` with the Bash tool and reply with its output.",
+          "fact": "#11"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -1931,10 +1934,13 @@
             "id": "#37",
             "runtime": "claude",
             "root_session": "#36",
-            "goal": null,
+            "goal": {
+              "text": "[aang:reconnect-before] Run `echo before` with the Bash tool and reply with its output.",
+              "fact": "#11"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },

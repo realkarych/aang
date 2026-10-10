@@ -1014,10 +1014,13 @@
         "id": "#19",
         "runtime": "claude",
         "root_session": "#18",
-        "goal": null,
+        "goal": {
+          "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+          "fact": "#8"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -1027,10 +1030,13 @@
             "id": "#19",
             "runtime": "claude",
             "root_session": "#18",
-            "goal": null,
+            "goal": {
+              "text": "[aang:interrupt] Run `sleep 30` with the Bash tool.",
+              "fact": "#8"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

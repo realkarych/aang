@@ -6945,10 +6945,13 @@
         "id": "#124",
         "runtime": "claude",
         "root_session": "#123",
-        "goal": null,
+        "goal": {
+          "text": "[aang:subagents] Use the Agent tool with the general-purpose subagent type for each step. First start one foreground subagent (run_in_background false) with the prompt \"[aang:sub-solo] Run `echo solo` with the Bash tool and report its output.\" and wait for it. Then, in a single message, start two foreground subagents in parallel with the prompts \"[aang:sub-left] Run `echo left` with the Bash tool and report its output.\" and \"[aang:sub-right] Run `echo right` with the Bash tool and report its output.\". Finally start one background subagent (run_in_background true) with the prompt \"[aang:sub-back] Run `sleep 2 && echo back` with the Bash tool and report its output.\" and reply with one sentence without waiting for it.",
+          "fact": "#9"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 2,
         "created_at": "<time>"
       },
       "entities": [
@@ -7034,10 +7037,13 @@
             "id": "#124",
             "runtime": "claude",
             "root_session": "#123",
-            "goal": null,
+            "goal": {
+              "text": "[aang:subagents] Use the Agent tool with the general-purpose subagent type for each step. First start one foreground subagent (run_in_background false) with the prompt \"[aang:sub-solo] Run `echo solo` with the Bash tool and report its output.\" and wait for it. Then, in a single message, start two foreground subagents in parallel with the prompts \"[aang:sub-left] Run `echo left` with the Bash tool and report its output.\" and \"[aang:sub-right] Run `echo right` with the Bash tool and report its output.\". Finally start one background subagent (run_in_background true) with the prompt \"[aang:sub-back] Run `sleep 2 && echo back` with the Bash tool and report its output.\" and reply with one sentence without waiting for it.",
+              "fact": "#9"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 2,
             "created_at": "<time>"
           }
         },
