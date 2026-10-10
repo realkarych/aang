@@ -902,10 +902,9 @@
       "id": "#17",
       "kind": "permission_request",
       "entity_key": {
-        "kind": "question",
+        "kind": "session",
         "runtime": "claude",
-        "session": "a157fe5a-bb6a-4aa3-91e4-ef757f0ea938",
-        "question": "spool#4"
+        "session": "a157fe5a-bb6a-4aa3-91e4-ef757f0ea938"
       },
       "speaker": "runtime",
       "urgent": true,
@@ -2088,49 +2087,6 @@
         "kind": "question",
         "runtime": "claude",
         "session": "a157fe5a-bb6a-4aa3-91e4-ef757f0ea938",
-        "question": "spool#4"
-      },
-      "session": "#39",
-      "agent": "#41",
-      "run": "#40",
-      "kind": "permission",
-      "blocking": true,
-      "text": null,
-      "asked_at": "<time>",
-      "answered_at": "<time>",
-      "action": {
-        "action": "#42",
-        "ambiguous": false,
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-link"
-          }
-        }
-      },
-      "decision": {
-        "value": "approved",
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-decision"
-          }
-        },
-        "evidence": [
-          "#17",
-          "#19"
-        ]
-      },
-      "redelivery_group": null
-    },
-    {
-      "id": "#45",
-      "key": {
-        "kind": "question",
-        "runtime": "claude",
-        "session": "a157fe5a-bb6a-4aa3-91e4-ef757f0ea938",
         "question": "spool#8"
       },
       "session": "#39",
@@ -2169,7 +2125,7 @@
       "redelivery_group": null
     },
     {
-      "id": "#46",
+      "id": "#45",
       "key": {
         "kind": "question",
         "runtime": "claude",
@@ -2205,7 +2161,7 @@
   ],
   "usage": [
     {
-      "id": "#47",
+      "id": "#46",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2229,7 +2185,7 @@
       "at": "<time>"
     },
     {
-      "id": "#48",
+      "id": "#47",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2253,7 +2209,7 @@
       "at": "<time>"
     },
     {
-      "id": "#49",
+      "id": "#48",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2279,7 +2235,7 @@
   ],
   "artifacts": [
     {
-      "id": "#50",
+      "id": "#49",
       "key": {
         "kind": "artifact_version",
         "run": "#40",
@@ -2293,7 +2249,7 @@
         }
       },
       "run": "#40",
-      "artifact": "#51",
+      "artifact": "#50",
       "ref": {
         "kind": "file",
         "path": "C:\\fixture\\project\\greeting.txt"
@@ -2323,38 +2279,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#52",
-            "run": "#40",
-            "kind": "permission",
-            "author": "rule",
-            "text": "AskUserQuestion",
-            "stage": null,
-            "question": "#44",
-            "action": "#42",
-            "basis": {
-              "kind": "observed"
-            },
-            "evidence": [
-              "#17"
-            ],
-            "runtime_wait": "ended",
-            "resolution": "answered",
-            "likely_resolved": null,
-            "priority": null,
-            "opened_at": "<time>",
-            "closed_at": "<time>"
-          }
-        },
-        {
-          "kind": "attention_item",
-          "value": {
-            "id": "#53",
+            "id": "#51",
             "run": "#40",
             "kind": "permission",
             "author": "rule",
             "text": "Write: C:\\fixture\\project\\greeting.txt",
             "stage": null,
-            "question": "#45",
+            "question": "#44",
             "action": "#43",
             "basis": {
               "kind": "observed"
@@ -2373,13 +2304,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#54",
+            "id": "#52",
             "run": "#40",
             "kind": "question",
             "author": "rule",
             "text": "Which greeting should I use?",
             "stage": null,
-            "question": "#46",
+            "question": "#45",
             "action": "#42",
             "basis": {
               "kind": "observed"

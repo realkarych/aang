@@ -49,6 +49,8 @@ const questionReaders: ReadonlyMap<string, QuestionReader> = new Map<string, Que
   ['ExitPlanMode', ['exit_plan_mode', planApproval]],
 ])
 
+export const isQuestionTool = (tool: string): boolean => questionReaders.has(tool)
+
 export const questionsAsked = (call: ToolCall): FactDraft[] => {
   const reader = questionReaders.get(call.tool)
   if (reader === undefined) {

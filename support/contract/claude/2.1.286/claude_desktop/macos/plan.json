@@ -1220,10 +1220,9 @@
       "id": "#25",
       "kind": "permission_request",
       "entity_key": {
-        "kind": "question",
+        "kind": "session",
         "runtime": "claude",
-        "session": "d0b095ed-96f1-4457-aa17-335b29aa297c",
-        "question": "spool#15"
+        "session": "d0b095ed-96f1-4457-aa17-335b29aa297c"
       },
       "speaker": "runtime",
       "urgent": true,
@@ -3943,49 +3942,6 @@
         "kind": "question",
         "runtime": "claude",
         "session": "d0b095ed-96f1-4457-aa17-335b29aa297c",
-        "question": "spool#15"
-      },
-      "session": "#78",
-      "agent": "#80",
-      "run": "#79",
-      "kind": "permission",
-      "blocking": true,
-      "text": null,
-      "asked_at": "<time>",
-      "answered_at": "<time>",
-      "action": {
-        "action": "#84",
-        "ambiguous": false,
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-link"
-          }
-        }
-      },
-      "decision": {
-        "value": "approved",
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-decision"
-          }
-        },
-        "evidence": [
-          "#25",
-          "#42"
-        ]
-      },
-      "redelivery_group": null
-    },
-    {
-      "id": "#89",
-      "key": {
-        "kind": "question",
-        "runtime": "claude",
-        "session": "d0b095ed-96f1-4457-aa17-335b29aa297c",
         "question": "spool#19"
       },
       "session": "#78",
@@ -4024,7 +3980,7 @@
       "redelivery_group": null
     },
     {
-      "id": "#90",
+      "id": "#89",
       "key": {
         "kind": "question",
         "runtime": "claude",
@@ -4065,7 +4021,7 @@
   ],
   "usage": [
     {
-      "id": "#91",
+      "id": "#90",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4089,7 +4045,7 @@
       "at": "<time>"
     },
     {
-      "id": "#92",
+      "id": "#91",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4113,7 +4069,7 @@
       "at": "<time>"
     },
     {
-      "id": "#93",
+      "id": "#92",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4137,7 +4093,7 @@
       "at": "<time>"
     },
     {
-      "id": "#94",
+      "id": "#93",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4161,7 +4117,7 @@
       "at": "<time>"
     },
     {
-      "id": "#95",
+      "id": "#94",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4185,7 +4141,7 @@
       "at": "<time>"
     },
     {
-      "id": "#96",
+      "id": "#95",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4209,7 +4165,7 @@
       "at": "<time>"
     },
     {
-      "id": "#97",
+      "id": "#96",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4233,7 +4189,7 @@
       "at": "<time>"
     },
     {
-      "id": "#98",
+      "id": "#97",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4259,7 +4215,7 @@
   ],
   "artifacts": [
     {
-      "id": "#99",
+      "id": "#98",
       "key": {
         "kind": "artifact_version",
         "run": "#79",
@@ -4273,7 +4229,7 @@
         }
       },
       "run": "#79",
-      "artifact": "#100",
+      "artifact": "#99",
       "ref": {
         "kind": "file",
         "path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-glimmering-cocke.md"
@@ -4285,7 +4241,7 @@
       "observed_at": "<time>"
     },
     {
-      "id": "#101",
+      "id": "#100",
       "key": {
         "kind": "artifact_version",
         "run": "#79",
@@ -4299,7 +4255,7 @@
         }
       },
       "run": "#79",
-      "artifact": "#102",
+      "artifact": "#101",
       "ref": {
         "kind": "file",
         "path": "/fixture/project/checklist.txt"
@@ -4329,38 +4285,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#103",
-            "run": "#79",
-            "kind": "permission",
-            "author": "rule",
-            "text": "ExitPlanMode",
-            "stage": null,
-            "question": "#88",
-            "action": "#84",
-            "basis": {
-              "kind": "observed"
-            },
-            "evidence": [
-              "#25"
-            ],
-            "runtime_wait": "ended",
-            "resolution": "answered",
-            "likely_resolved": null,
-            "priority": null,
-            "opened_at": "<time>",
-            "closed_at": "<time>"
-          }
-        },
-        {
-          "kind": "attention_item",
-          "value": {
-            "id": "#104",
+            "id": "#102",
             "run": "#79",
             "kind": "permission",
             "author": "rule",
             "text": "Write: /fixture/project/checklist.txt",
             "stage": null,
-            "question": "#89",
+            "question": "#88",
             "action": "#85",
             "basis": {
               "kind": "observed"
@@ -4379,13 +4310,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#105",
+            "id": "#103",
             "run": "#79",
             "kind": "question",
             "author": "rule",
             "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.",
             "stage": null,
-            "question": "#90",
+            "question": "#89",
             "action": "#84",
             "basis": {
               "kind": "observed"
