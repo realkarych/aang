@@ -1,6 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { RecordingManifest } from '@aang/record'
+import { isMissing } from './files.js'
 
 export interface Recording {
   readonly directory: string
@@ -9,8 +10,6 @@ export interface Recording {
 }
 
 const depth = 5
-
-const isMissing = (error: unknown): boolean => error instanceof Error && 'code' in error && error.code === 'ENOENT'
 
 const directoriesIn = async (directory: string): Promise<string[]> => {
   try {

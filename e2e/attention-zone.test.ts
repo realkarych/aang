@@ -3,6 +3,7 @@ import { endpoints, type RunId, type Runtime, type Stage } from '@aang/contract'
 import {
   checksBlockerText,
   checksStageTitle,
+  loadManifest,
   mainStageTitle,
   observerScenarios,
   reviewRequestText,
@@ -10,6 +11,7 @@ import {
 } from '@aang/testkit'
 import type { Page } from '@playwright/test'
 import { expect, type HookFields, test } from './fixtures.js'
+import { hooksOnly, recording } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
 import { fact, history, historyToggle, openItems, sessionOf, step, zone, zoneItem } from './screens.js'
 
@@ -93,6 +95,33 @@ const hideBash = async (page: Page, run: RunId): Promise<string> => {
 
 test.describe('with a fast spool scan', () => {
   test.use({ config: fastSpool })
+
+  test('one AskUserQuestion of a recorded Claude run is one question in the zone and in the trace, not a question and an approval request', async ({
+    page,
+    player,
+  }) => {
+    const manifest = await loadManifest(recording('claude', '2.1.289', 'claude_cli', 'question'))
+    const played = await player(hooksOnly(manifest), { timeScale: 0 })
+    await played.play({ until: 'question-answered' })
+    await page.goto('/')
+    await page.getByRole('row').nth(1).getByRole('link').click()
+
+    const greeting = 'Which greeting should I use?'
+    await expect(openItems(page)).toHaveCount(1)
+    await expect(openItems(page).nth(0)).toContainText('Вопрос')
+    await expect(openItems(page).nth(0)).toContainText(greeting)
+    await expect(openItems(page).nth(0)).toContainText('ждёт ответа')
+    await expect(zoneItem(page, 'Запрос одобрения')).toHaveCount(0)
+    await expect(fact(page, 'Внимание')).toHaveText('ждут ответа: 1')
+    await expect(step(page, 'Основной агент', greeting)).toContainText('ждёт решения')
+    await expect(step(page, 'Основной агент', 'Запрос одобрения')).toHaveCount(0)
+
+    await played.play()
+    await expect(openItems(page)).toHaveCount(0)
+    await historyToggle(page).click()
+    await expect(history(page).filter({ hasText: greeting })).toHaveCount(1)
+    await expect(history(page).filter({ hasText: 'AskUserQuestion' })).toHaveCount(0)
+  })
 
   test('a Claude question unanswered at the end of the session stays in the zone, a new prompt does not close it, a viewed item goes down and a dismissed one moves to the history (E2E 15)', async ({
     page,

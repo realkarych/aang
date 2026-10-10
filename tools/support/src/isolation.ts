@@ -13,6 +13,7 @@ import { readSupportMatrix } from '@aang/contract/support-file'
 import { createCodexBackend } from '@aang/observer'
 import { importObservers, serializeMatrix, withObserver } from './matrix.js'
 import { matrixPath, readMatrix } from './run.js'
+import { readVerification, type SupportVerification } from './verification.js'
 
 export interface IsolationCheck {
   readonly key: SupportKey
@@ -59,18 +60,21 @@ export const checkCodexIsolation = async (options: CodexIsolationOptions): Promi
   }
 }
 
-const rewriteMatrix = async (support: string, change: (matrix: SupportMatrix | null) => SupportMatrix): Promise<void> => {
-  const matrix = change(await readMatrix(support))
+const rewriteMatrix = async (
+  support: string,
+  change: (matrix: SupportMatrix | null, verification: SupportVerification) => SupportMatrix,
+): Promise<void> => {
+  const matrix = change(await readMatrix(support), await readVerification(support))
   await mkdir(support, { recursive: true })
   await writeFile(matrixPath(support), serializeMatrix(matrix))
 }
 
 export const recordIsolation = (support: string, check: IsolationCheck): Promise<void> =>
-  rewriteMatrix(support, (matrix) => withObserver(matrix, check.key, check.observer))
+  rewriteMatrix(support, (matrix, verification) => withObserver(matrix, check.key, check.observer, verification))
 
 export const importIsolation = async (support: string, files: readonly string[]): Promise<void> => {
   const sources = await Promise.all(files.map((file) => readSupportMatrix(file)))
-  await rewriteMatrix(support, (matrix) => importObservers(matrix, sources))
+  await rewriteMatrix(support, (matrix, verification) => importObservers(matrix, sources, verification))
 }
 
 export const isolationSummary = ({ key, observer, reason }: IsolationCheck): string =>

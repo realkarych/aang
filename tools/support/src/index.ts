@@ -37,3 +37,18 @@ export {
   updateSupport,
 } from './run.js'
 export { type ContractSnapshot, takeSnapshot } from './snapshot.js'
+export {
+  emptyVerification,
+  importPlacementChecks,
+  type OwnerChecklist,
+  type OwnerChecklistName,
+  type PlacementCheck,
+  type PlacementImport,
+  readVerification,
+  serializeVerification,
+  SupportVerification,
+  surfaceCheckFormat,
+  verificationFormat,
+  verificationPath,
+  withPlacementChecks,
+} from './verification.js'

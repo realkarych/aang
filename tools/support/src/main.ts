@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url'
 import { parseArgs } from 'node:util'
 import { checkCodexIsolation, importIsolation, isolationSummary, recordIsolation } from './isolation.js'
 import { contractRun, runProblems, updateSupport } from './run.js'
+import { importPlacementChecks, placementImportSummary } from './verification.js'
 
 const usage = [
   'Usage:',
@@ -10,6 +11,7 @@ const usage = [
   '  node tools/support/dist/main.js update [--fixtures <directory>] [--support <directory>] [--hook <aang-hook>]',
   '  node tools/support/dist/main.js isolation codex [--support <directory>] [--hook <aang-hook>] [--cli <codex>]',
   '  node tools/support/dist/main.js isolation import <matrix.json>... [--support <directory>]',
+  '  node tools/support/dist/main.js placement import <report.json>... [--support <directory>]',
 ].join('\n')
 
 const repository = fileURLToPath(new URL('../../../', import.meta.url))
@@ -40,6 +42,15 @@ const isolation = async ([target, ...files]: readonly string[], options: Isolati
   return check.observer.admission === 'passed' ? 0 : 1
 }
 
+const placement = async ([target, ...files]: readonly string[], support: string): Promise<number> => {
+  if (target !== 'import' || files.length === 0) {
+    return rejected()
+  }
+  const imported = await importPlacementChecks(support, files.map((file) => resolve(file)))
+  process.stdout.write(`${placementImportSummary(files.length, support, imported)}\n`)
+  return 0
+}
+
 const main = async (args: readonly string[]): Promise<number> => {
   const { values, positionals } = parseArgs({
     args: [...args],
@@ -56,6 +67,9 @@ const main = async (args: readonly string[]): Promise<number> => {
   const hookBinary = resolve(values.hook ?? resolve(repository, 'packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook'))
   if (command === 'isolation') {
     return isolation(rest, { support, hookBinary, cli: values.cli })
+  }
+  if (command === 'placement') {
+    return placement(rest, support)
   }
   if ((command !== 'check' && command !== 'update') || rest.length > 0) {
     return rejected()
