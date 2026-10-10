@@ -365,6 +365,12 @@ const recordCalls = (aangHome: string): void => {
   }
 }
 
+const codexResponses = async (): Promise<number> =>
+  (await readFile(codexSample, 'utf8'))
+    .trimEnd()
+    .split('\n')
+    .filter((line) => (JSON.parse(line) as { readonly type: string }).type === 'token_usage_record').length
+
 const threadWithoutRecords = async (): Promise<string> =>
   (await readFile(codexSample, 'utf8'))
     .trimEnd()
@@ -620,9 +626,10 @@ test('a Codex run reports tokens only and a thread without usage records its thr
   )
 
   await (await player(sampleScenarioManifest('codex-resume-compaction'), { timeScale: 0 })).play()
+  const responses = await codexResponses()
   await expect
     .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
-    .toBeGreaterThan(0)
+    .toBe(responses)
   const [usage] = (await reportOf(page.request, codexRun)).runs
   const output = new Intl.NumberFormat('ru').format(usage?.solver.totals.tokens.output_tokens ?? -1)
 
