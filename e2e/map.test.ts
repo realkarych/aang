@@ -36,6 +36,23 @@ const edge = (page: Page, name: RegExp): Locator => map(page).getByRole('img', {
 
 const edges = (page: Page): Locator => edge(page, /использует результат|начат после завершения/)
 
+const laidOut = async (page: Page): Promise<void> => {
+  await expect(map(page).getByRole('application')).toHaveAttribute('aria-busy', 'false')
+}
+
+const busyMarks = async (page: Page): Promise<() => Promise<Array<string | null>>> => {
+  const marks = await map(page)
+    .getByRole('application')
+    .evaluateHandle((canvas) => {
+      const seen: Array<string | null> = []
+      new MutationObserver(() => {
+        seen.push(canvas.getAttribute('aria-busy'))
+      }).observe(canvas, { attributeFilter: ['aria-busy'] })
+      return seen
+    })
+  return async () => marks.jsonValue()
+}
+
 const box = async (locator: Locator): Promise<{ x: number; y: number; right: number; bottom: number }> => {
   const found = await locator.boundingBox()
   if (found === null) {
@@ -213,6 +230,7 @@ test.describe('with the observer building the map', () => {
     await expect(map(page).getByText('3 этапа', { exact: true })).toHaveCount(0)
     await expect(map(page).getByText('4 этапа', { exact: true })).toBeVisible()
 
+    await laidOut(page)
     const outer = await box(main)
     for (const inner of [preparation, pinger, report]) {
       const nested = await box(inner)
@@ -336,6 +354,7 @@ test.describe('with the observer building two branches', () => {
     await expect(across).toHaveCount(1)
     await expect(upward).toHaveCount(1)
     await expect(edges(page)).toHaveCount(2)
+    await laidOut(page)
     expect((await box(stage(page, compile))).right).toBeLessThan((await box(stage(page, check))).x)
     await expect.poll(async () => crossings(page)).toEqual([])
 
@@ -387,12 +406,16 @@ test.describe('with the observer building three levels', () => {
     await expect(toBundle).toHaveCount(1)
     await expect(edges(page)).toHaveCount(1)
 
+    await laidOut(page)
+    const busy = await busyMarks(page)
     await stage(page, bundle).getByRole('button', { name: `Развернуть «${bundle}»` }).click()
     await expect(stage(page, sign)).toBeVisible()
     await expect(map(page).getByText('Карту не удалось разложить', { exact: false })).toHaveCount(0)
     await expect(toBundle).toHaveCount(1)
     await expect(toSign).toHaveCount(1)
     await expect(edges(page)).toHaveCount(2)
+    await laidOut(page)
+    expect(await busy()).toContain('true')
     await expect.poll(async () => crossings(page)).toEqual([])
     const ownCard = async (title: string): Promise<{ x: number; y: number; right: number; bottom: number }> =>
       box(stage(page, title).locator('.stage-card'))
