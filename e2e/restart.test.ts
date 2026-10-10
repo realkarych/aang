@@ -12,12 +12,15 @@ import { aangHomePaths } from '@aang/contract/home'
 import { loadManifest, type Profile, type RunningDaemon, sampleScenarioManifest } from '@aang/testkit'
 import type { APIRequestContext } from '@playwright/test'
 import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
+import { tornAt } from './recordings.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
 import { change, fact, lamp, mark, markButton, runRowOf, since, sinceTab, stepsOf, zone, zoneItem } from './screens.js'
 
 const run = runOf(claudeOriginal)
 
 const scenario = sampleScenarioManifest('claude-fork')
+
+const tornBytes = 64
 
 const lookbackDays = 1
 
@@ -158,6 +161,16 @@ const hookRecords = (records: readonly RawRecord[]): string[] =>
     })
     .toSorted()
 
+interface Intake {
+  readonly lines: ReadLine[][]
+  readonly hooks: string[]
+}
+
+const intake = async (request: APIRequestContext, paths: readonly string[]): Promise<Intake> => {
+  const records = await rawRecords(request)
+  return { lines: paths.map((path) => readLines(records, path)), hooks: hookRecords(records) }
+}
+
 const queued = async (profile: Profile): Promise<string[]> =>
   readdir(aangHomePaths(profile.aangHome).spoolReady).catch(() => [])
 
@@ -190,8 +203,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   daemon,
   config,
 }) => {
-  const continued = (await loadManifest(scenario)).steps.findIndex(({ label }) => label === 'continue')
-  const replay = await player(scenario, { timeScale: 0.02 })
+  const replay = await player(tornAt(await loadManifest(scenario), 'continue', 'torn', tornBytes), { timeScale: 0.02 })
   await replay.play({ until: 'resume' })
   await page.goto(`/?run=${run}`)
   await expect(fact(page, 'Агенты')).toHaveText('2')
@@ -237,8 +249,7 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   expect(kept.view.rules.map(({ rule }) => rule.id).toSorted()).toEqual([collapsed.rule.id, grouped.rule.id].toSorted())
 
   const transcripts = transcriptsOf(profile)
-  const playing = replay.play()
-  await expect.poll(() => replay.position(), { intervals: [5] }).toBe(continued)
+  await replay.play({ until: 'torn' })
   await Promise.all(
     checks.map(({ id, command }) =>
       hooks.send('PreToolUse.Bash.json', {
@@ -248,10 +259,14 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
       }),
     ),
   )
+  const takenBeforeKill = await fileLines(transcripts.main)
+  await replay.play({ until: 'continue' })
+  await expect
+    .poll(() => intake(page.request, [transcripts.main]))
+    .toEqual({ lines: [takenBeforeKill], hooks: hooks.sent() })
   await daemon.kill()
   const queuedAtKill = await queued(profile)
-  const writtenAtKill = (await fileLines(transcripts.main)).length
-  expect(replay.position()).toBe(continued)
+  expect((await readFile(transcripts.main)).at(-1)).not.toBe(0x0a)
   await expect(lamp(page, 'Связь')).toHaveText('Связь нет связи с демоном')
 
   const [first] = checks
@@ -261,9 +276,8 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
     tool_input: { command: first.command, description: 'Run the check' },
   })
   await ask(downtimeQuestion, 'toolu_h10_downtime')
-  await playing
+  await replay.play()
   expect(replay.finished()).toBe(true)
-  expect((await fileLines(transcripts.main)).length).toBeGreaterThan(writtenAtKill)
   const queuedAtRestart = await queued(profile)
   expect(queuedAtRestart).toEqual(expect.arrayContaining(queuedAtKill))
   expect(queuedAtRestart).toHaveLength(queuedAtKill.length + 2)
@@ -294,26 +308,14 @@ test('a daemon killed in the middle of playback restarts without duplicates, fro
   const files = [transcripts.main, transcripts.subagent, transcripts.fork]
   const written = await Promise.all(files.map(fileLines))
   expect(written.map((lines) => lines.length)).not.toContain(0)
-  await expect
-    .poll(async () => {
-      const records = await rawRecords(page.request)
-      return { lines: files.map((path) => readLines(records, path)), hooks: hookRecords(records) }
-    }, reconnected)
-    .toEqual({ lines: written, hooks: hooks.sent() })
+  await expect.poll(() => intake(page.request, files), reconnected).toEqual({ lines: written, hooks: hooks.sent() })
   const [mainLines = []] = written
   const takenAfterRestart = linesObservedBefore(
     await rawRecords(page.request),
     transcripts.main,
     Date.now() - lookbackDays * day,
   )
-  const takenBeforeKill = mainLines.length - takenAfterRestart.length
-  expect(takenAfterRestart).toEqual(mainLines.slice(takenBeforeKill).map(({ line }) => line))
-  expect(takenBeforeKill).toBeGreaterThan(0)
-  expect(takenBeforeKill).toBeLessThanOrEqual(writtenAtKill)
-  expect({ hookEvents: queuedAtKill.length, transcriptLines: writtenAtKill - takenBeforeKill }).not.toEqual({
-    hookEvents: 0,
-    transcriptLines: 0,
-  })
+  expect(takenAfterRestart).toEqual(mainLines.slice(takenBeforeKill.length).map(({ line }) => line))
 
   const after = await snapshotOf(page.request)
   expect(after.view.mark).toEqual(kept.view.mark)
