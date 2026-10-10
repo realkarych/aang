@@ -17,6 +17,7 @@ type traceRecord struct {
 	Pid       int              `json:"pid"`
 	Ppid      int              `json:"ppid"`
 	Created   int64            `json:"created"`
+	Parent    int64            `json:"parentCreated"`
 	Main      int64            `json:"main"`
 	Marks     map[string]int64 `json:"marks"`
 	Bytes     int64            `json:"bytes"`
@@ -69,6 +70,13 @@ func startTrace(args []string) {
 	currentTrace.Ppid = os.Getppid()
 	currentTrace.Exe, _ = os.Executable()
 	currentTrace.Created = processCreated()
+	currentTrace.Parent = parentCreated(currentTrace.Ppid)
+	if len(args) == 3 {
+		directory := filepath.Join(filepath.Dir(args[2]), "hook-trace")
+		_ = os.MkdirAll(directory, 0o700)
+		content, _ := json.Marshal(currentTrace)
+		_ = os.WriteFile(filepath.Join(directory, fmt.Sprintf("%d-%d.start", currentTrace.Main, currentTrace.Pid)), content, 0o600)
+	}
 }
 
 func finishTrace(args []string) {
