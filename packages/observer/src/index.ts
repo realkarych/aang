@@ -17,11 +17,8 @@ export {
 export { chatSystemPrompt, observerSystemPrompt } from './prompt.js'
 export {
   type Chat,
-  type ChatCallRecord,
-  type ChatCallVerdict,
   ChatClosedError,
   type ChatExecutor,
-  type ChatJournal,
   type ChatOptions,
   type ChatSlot,
   createChat,
