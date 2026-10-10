@@ -2312,10 +2312,13 @@
         "id": "#49",
         "runtime": "codex",
         "root_session": "#48",
-        "goal": null,
+        "goal": {
+          "text": "[aang:sdk-first] Run `echo first`, then reply done.",
+          "fact": "#8"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 1,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -2325,10 +2328,13 @@
             "id": "#49",
             "runtime": "codex",
             "root_session": "#48",
-            "goal": null,
+            "goal": {
+              "text": "[aang:sdk-first] Run `echo first`, then reply done.",
+              "fact": "#8"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 1,
+            "version": 3,
             "created_at": "<time>"
           }
         },

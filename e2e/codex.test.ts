@@ -153,7 +153,14 @@ test.describe('with the Codex observer drawing the map', () => {
     await (await player(subagents, played)).play()
     await page.goto(`/?run=${codexRun(root)}`)
     await expect(fact(page, 'Агенты')).toHaveText('3')
-    await expect(page.getByRole('heading', { level: 1 })).toHaveText(/^Working towards: \[aang:subagent\]/, observed)
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText(
+      '[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.',
+    )
+    await expect(page.getByText('цель из первого запроса')).toBeVisible()
+    await expect(page.getByRole('paragraph').filter({ hasText: /^Working towards: \[aang:subagent\]/ })).toContainText(
+      'интерпретация aang',
+      observed,
+    )
     const spawned = trace(page).getByRole('list', { name: 'Агенты, запущенные: Основной агент', exact: true })
     for (const task of ['builder', 'scout']) {
       const child = spawned.getByRole('listitem').filter({ hasText: `/root/${task}` })
@@ -180,7 +187,7 @@ test.describe('with the Codex observer drawing the map', () => {
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(fork)}$`))
     await expect(sessionOf(page, fork)).toContainText('ответвление')
     const origin = fact(page, 'Ответвление от').getByRole('link')
-    await expect(origin).toHaveText(/^Working towards: \[aang:fork-source\]/, observed)
+    await expect(origin).toHaveText('[aang:fork-source] Run `echo source`, then reply done.')
     const sourceTitle = await origin.innerText()
     await origin.click()
     await expect(page).toHaveURL(new RegExp(`\\?run=${codexRun(source)}$`))

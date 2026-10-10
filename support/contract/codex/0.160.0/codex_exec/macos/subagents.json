@@ -4415,10 +4415,13 @@
         "id": "#90",
         "runtime": "codex",
         "root_session": "#89",
-        "goal": null,
+        "goal": {
+          "text": "[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.",
+          "fact": "#7"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 2,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
@@ -4464,10 +4467,13 @@
             "id": "#90",
             "runtime": "codex",
             "root_session": "#89",
-            "goal": null,
+            "goal": {
+              "text": "[aang:subagent] Spawn subagents scout and builder, wait for them, then reply done.",
+              "fact": "#7"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 2,
+            "version": 3,
             "created_at": "<time>"
           }
         },

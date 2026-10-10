@@ -2672,7 +2672,10 @@
         "id": "#51",
         "runtime": "claude",
         "root_session": "#50",
-        "goal": null,
+        "goal": {
+          "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+          "fact": "#8"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -2685,7 +2688,10 @@
             "id": "#51",
             "runtime": "claude",
             "root_session": "#50",
-            "goal": null,
+            "goal": {
+              "text": "[aang:fork-base] Run `echo base` with the Bash tool and reply with its output.",
+              "fact": "#8"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,
@@ -2706,7 +2712,10 @@
         "id": "#49",
         "runtime": "claude",
         "root_session": "#48",
-        "goal": null,
+        "goal": {
+          "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+          "fact": "#37"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 3,
@@ -2739,7 +2748,10 @@
             "id": "#49",
             "runtime": "claude",
             "root_session": "#48",
-            "goal": null,
+            "goal": {
+              "text": "[aang:fork-branch] Run `echo branch` with the Bash tool and reply with its output.",
+              "fact": "#37"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 3,

@@ -341,10 +341,9 @@
       "id": "#6",
       "kind": "permission_request",
       "entity_key": {
-        "kind": "question",
+        "kind": "session",
         "runtime": "claude",
-        "session": "0605622d-19db-4ca9-ae64-4498a0a87bc3",
-        "question": "spool#4"
+        "session": "0605622d-19db-4ca9-ae64-4498a0a87bc3"
       },
       "speaker": "runtime",
       "urgent": true,
@@ -1941,39 +1940,6 @@
         "kind": "question",
         "runtime": "claude",
         "session": "0605622d-19db-4ca9-ae64-4498a0a87bc3",
-        "question": "spool#4"
-      },
-      "session": "#36",
-      "agent": "#38",
-      "run": "#37",
-      "kind": "permission",
-      "blocking": true,
-      "text": null,
-      "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
-      "decision": {
-        "value": "unknown",
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-decision"
-          }
-        },
-        "evidence": [
-          "#6",
-          "#30"
-        ]
-      },
-      "redelivery_group": null
-    },
-    {
-      "id": "#42",
-      "key": {
-        "kind": "question",
-        "runtime": "claude",
-        "session": "0605622d-19db-4ca9-ae64-4498a0a87bc3",
         "question": "spool#8"
       },
       "session": "#36",
@@ -2002,7 +1968,7 @@
       "redelivery_group": null
     },
     {
-      "id": "#43",
+      "id": "#42",
       "key": {
         "kind": "question",
         "runtime": "claude",
@@ -2038,7 +2004,7 @@
   ],
   "usage": [
     {
-      "id": "#44",
+      "id": "#43",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2062,7 +2028,7 @@
       "at": "<time>"
     },
     {
-      "id": "#45",
+      "id": "#44",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2086,7 +2052,7 @@
       "at": "<time>"
     },
     {
-      "id": "#46",
+      "id": "#45",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -2112,7 +2078,7 @@
   ],
   "artifacts": [
     {
-      "id": "#47",
+      "id": "#46",
       "key": {
         "kind": "artifact_version",
         "run": "#37",
@@ -2126,7 +2092,7 @@
         }
       },
       "run": "#37",
-      "artifact": "#48",
+      "artifact": "#47",
       "ref": {
         "kind": "file",
         "path": "/fixture/project/greeting.txt"
@@ -2146,48 +2112,26 @@
         "id": "#37",
         "runtime": "claude",
         "root_session": "#36",
-        "goal": null,
+        "goal": {
+          "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+          "fact": "#10"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 4,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
         {
           "kind": "attention_item",
           "value": {
-            "id": "#49",
-            "run": "#37",
-            "kind": "permission",
-            "author": "rule",
-            "text": "AskUserQuestion",
-            "stage": null,
-            "question": "#41",
-            "action": null,
-            "basis": {
-              "kind": "observed"
-            },
-            "evidence": [
-              "#6"
-            ],
-            "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
-            "likely_resolved": null,
-            "priority": null,
-            "opened_at": "<time>",
-            "closed_at": "<time>"
-          }
-        },
-        {
-          "kind": "attention_item",
-          "value": {
-            "id": "#50",
+            "id": "#48",
             "run": "#37",
             "kind": "permission",
             "author": "rule",
             "text": "Write: /fixture/project/greeting.txt",
             "stage": null,
-            "question": "#42",
+            "question": "#41",
             "action": null,
             "basis": {
               "kind": "observed"
@@ -2206,13 +2150,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#51",
+            "id": "#49",
             "run": "#37",
             "kind": "question",
             "author": "rule",
             "text": "Which greeting should I use?",
             "stage": null,
-            "question": "#43",
+            "question": "#42",
             "action": "#39",
             "basis": {
               "kind": "observed"
@@ -2234,10 +2178,13 @@
             "id": "#37",
             "runtime": "claude",
             "root_session": "#36",
-            "goal": null,
+            "goal": {
+              "text": "[aang:question] Use the AskUserQuestion tool to ask me which greeting to use, with exactly two options: Hello and Hi. Then write the chosen greeting into greeting.txt with the Write tool.",
+              "fact": "#10"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 4,
+            "version": 3,
             "created_at": "<time>"
           }
         },

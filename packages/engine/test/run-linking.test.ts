@@ -37,6 +37,10 @@ const cwd = '/work/project'
 const projects = '/home/.claude/projects/-work-project'
 const codexSessions = '/home/.codex/sessions'
 
+const claudeGoal = 'Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type "pinger" and prompt "ping". Step 3: reply with exactly: OK'
+
+const codexGoal = 'Run the shell command `echo hi` exactly once, then reply with just: OK'
+
 const sessionOf = (runtime: Runtime, session: string) => objectId(sessionKey(runtime, session))
 const runOf = (runtime: Runtime, session: string) => runId(sessionKey(runtime, session))
 const agentOf = (runtime: Runtime, session: string, agent: AgentRef) =>
@@ -156,7 +160,7 @@ test('keeps every launch of a root session in its own run regardless of delivery
       id: run,
       runtime: 'claude',
       root_session: id,
-      goal: null,
+      goal: { text: claudeGoal },
       brief: null,
       start_pruned: false,
       created_at: earliest,
@@ -204,6 +208,95 @@ test('keeps a resumed Codex thread in the run of its root thread', async () => {
   ])
   expect(runRows(home.database())).toEqual([run])
   expect(membersOf(store, run)).toEqual([sessionOf('codex', thread)])
+  expect(store.model.entity(run, { kind: 'run', id: run })?.value).toMatchObject({ goal: { text: codexGoal } })
+})
+
+test('takes the goal of a run from the first human prompt of its root session as an observed change', async () => {
+  const session = 'goal'
+  const source = { session, cwd }
+  const run = runOf('claude', session)
+  const home = await createHome(onTestFinished)
+  const store = home.open()
+  const goalOf = () => {
+    const entity = store.model.entity(run, { kind: 'run', id: run })
+    return entity?.kind === 'run' ? entity.value.goal : undefined
+  }
+  await ingestEach(store, [hookBatch({ file: 'startup.evt', payload: claudeHook('SessionStart.startup.json', source) })])
+  expect(goalOf()).toBeNull()
+
+  const lines = claudeTranscript(source)
+  const transcript = jsonlFile({ runtime: 'claude', path: `${projects}/${session}.jsonl`, lines, ino: 1n })
+  await ingestEach(store, [transcript.batch(1, lines.length)])
+  const goal = goalOf()
+  if (goal === null || goal === undefined) {
+    throw new Error('the run has no goal')
+  }
+  expect(goal.text).toBe(claudeGoal)
+  expect(store.facts.get(goal.fact)).toMatchObject({ kind: 'prompt', speaker: 'human' })
+  expect(store.model.changes(run, ModelVersion.parse(0)).filter(({ op }) => op === 'run.goal')).toMatchObject([
+    { author: 'rule', basis: { kind: 'observed' }, evidence: [goal.fact] },
+  ])
+
+  const head = store.model.head(run)
+  await ingestEach(store, [transcript.batch(1, lines.length)])
+  expect(store.model.head(run)).toBe(head)
+  expect(goalOf()).toEqual(goal)
+})
+
+test('takes the goal from the earliest of two prompts with the same text regardless of delivery order', async () => {
+  const thread = 'codex-goal'
+  const run = runOf('codex', thread)
+  const lines = codexRollout({ thread, cwd })
+  const rollout = jsonlFile({ runtime: 'codex', path: `${codexSessions}/${thread}.jsonl`, lines, ino: 1n }).batch(
+    1,
+    lines.length,
+  )
+  const submit = hookBatch(
+    { runtime: 'codex', file: 'start.evt', payload: codexHook('SessionStart.startup.json', { session: thread, cwd }) },
+    {
+      runtime: 'codex',
+      file: 'prompt.evt',
+      arrival: 1,
+      payload: codexHook('UserPromptSubmit.json', { session: thread, cwd }, { prompt: codexGoal }),
+    },
+  )
+  const firsts = []
+  const models = []
+  for (const [early, late] of [
+    [submit, rollout],
+    [rollout, submit],
+  ] as const) {
+    const home = await createHome(onTestFinished)
+    const store = home.open()
+    const goalOf = () => {
+      const entity = store.model.entity(run, { kind: 'run', id: run })
+      return entity?.kind === 'run' ? entity.value.goal : null
+    }
+    const engine = startEngine(store, { all: true })
+    await engine.ingest(early)
+    const first = goalOf()
+    await engine.ingest(late)
+    const [earliest, ...later] = factsOf(store)
+      .flatMap((fact) => (fact.kind === 'prompt' && fact.payload.text === codexGoal ? [fact] : []))
+      .toSorted((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : left.id < right.id ? -1 : 1))
+    if (first === null || earliest === undefined) {
+      throw new Error('the run has no goal')
+    }
+    expect(later.length).toBeGreaterThan(0)
+    expect(goalOf()).toEqual({ text: codexGoal, fact: earliest.id })
+    expect(
+      store.model
+        .changes(run, ModelVersion.parse(0))
+        .filter(({ op }) => op === 'run.goal')
+        .map(({ author, basis, evidence }) => ({ author, basis, evidence })),
+    ).toEqual(
+      [...new Set([first.fact, earliest.id])].map((fact) => ({ author: 'rule', basis: { kind: 'observed' }, evidence: [fact] })),
+    )
+    firsts.push(first.fact)
+    models.push(store.model.entities(run).map(({ kind, value }) => [kind, withoutCounters(value)]))
+  }
+  expect(new Set(firsts).size).toBe(2)
+  expect(models[1]).toEqual(models[0])
 })
 
 test('never links sessions that share a directory without runtime identifiers', async () => {

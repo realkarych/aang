@@ -7,6 +7,7 @@ import {
   matrixOf,
   matrixPath,
   readMatrix,
+  readVerification,
   type RecordingCheck,
   runRecordings,
   snapshotFile,
@@ -44,6 +45,7 @@ describe('the support matrix', () => {
     const generated = matrixOf(
       recordings.flatMap((recording) => checks.get(recording.name) ?? []),
       await readMatrix(options.support),
+      await readVerification(options.support),
     )
 
     expect(generated).toBe(await readFile(matrixPath(options.support), 'utf8'))

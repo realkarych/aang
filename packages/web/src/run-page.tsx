@@ -5,6 +5,7 @@ import { AttentionBadge, ExecutionBadge, FreshnessBadge } from './badges.js'
 import { ChatPanel } from './chat-panel.js'
 import { absoluteTime } from './format.js'
 import { basisLabel, runtimeLabel, supportModeLabel } from './labels.js'
+import { useLongText } from './long-text.js'
 import { MapSection, useStageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { PlanFacts } from './plan-facts.js'
@@ -145,6 +146,18 @@ export const Missing = (): ReactElement => {
   )
 }
 
+const RunTitle = ({ title }: { readonly title: string }): ReactElement => {
+  const { id, box, expanded, toggle } = useLongText<HTMLHeadingElement>(title)
+  return (
+    <>
+      <h1 id={id} ref={box} className="run-title long-title" data-expanded={expanded}>
+        {title}
+      </h1>
+      {toggle}
+    </>
+  )
+}
+
 interface RunContentProps {
   readonly snapshot: RunSnapshot
   readonly feed: RunFeed
@@ -162,8 +175,15 @@ const RunContent = ({ snapshot, feed, runs, now, onSignedOut }: RunContentProps)
       <header className="run-head">
         <p className="run-origin">
           {title === null ? <span>цель не определена</span> : <span>{runtimeLabel[summary.runtime]}</span>}
+          {summary.goal === null ? null : <span>цель из первого запроса</span>}
         </p>
-        <h1 className="run-title">{title ?? <span className="untitled">{untitledRun(summary)}</span>}</h1>
+        {title === null ? (
+          <h1 className="run-title">
+            <span className="untitled">{untitledRun(summary)}</span>
+          </h1>
+        ) : (
+          <RunTitle title={title} />
+        )}
         {run.brief === null || run.brief.text === title ? null : (
           <p className="brief">
             {run.brief.text}

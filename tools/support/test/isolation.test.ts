@@ -12,7 +12,7 @@ import {
 import { readSupportMatrix } from '@aang/contract/support-file'
 import { type CodexScenario, installFakeCodex } from '@aang/testkit'
 import { describe, expect, onTestFinished, test } from 'vitest'
-import { matrixOf, matrixPath, readMatrix, serializeMatrix, supportGaps } from '../dist/index.js'
+import { matrixOf, matrixPath, readMatrix, readVerification, serializeMatrix, supportGaps } from '../dist/index.js'
 import { hookBinary, hostOs, otherOs, supportCli, temporaryDirectory, thirdOs } from './fixtures.js'
 
 const version = '0.160.0'
@@ -46,14 +46,17 @@ const rowWithoutRecordings = (key: SupportKey, observer: ObserverIsolationResult
   verified_on: null,
 })
 
-const claudeRow = rowWithoutRecordings(
-  { runtime: 'claude', surface: 'claude_cli', os: hostOs, placement: 'local', engine_version: '2.1.289' },
-  {
-    admission: 'passed',
-    cross_session_inbound: 'passed',
-    builtins: { mcp_servers: [], plugins: [{ name: 'cc-plugin-agents-md', source: 'cc-plugin-agents-md@builtin', path: 'builtin' }], skills: [] },
-  },
-)
+const claudeRow: SupportRow = {
+  ...rowWithoutRecordings(
+    { runtime: 'claude', surface: 'claude_cli', os: hostOs, placement: 'local', engine_version: '2.1.289' },
+    {
+      admission: 'passed',
+      cross_session_inbound: 'passed',
+      builtins: { mcp_servers: [], plugins: [{ name: 'cc-plugin-agents-md', source: 'cc-plugin-agents-md@builtin', path: 'builtin' }], skills: [] },
+    },
+  ),
+  gaps: [supportGaps.noRecordings, supportGaps.userScenarios, ...(hostOs === 'linux' ? [] : [supportGaps.tuiChecklist])],
+}
 
 const matrixOfRows = (rows: readonly SupportRow[]): SupportMatrix => ({ format: supportMatrixFormat, rows: [...rows] })
 
@@ -100,7 +103,7 @@ describe('observer isolation of the installed Codex CLI in the support matrix', 
     expect(result).toMatchObject({ code: 0, stdout: `${keyText(codexKey(hostOs))}: admission passed\n` })
     const written = await readFile(matrixPath(support), 'utf8')
     expect(JSON.parse(written)).toEqual(matrixOfRows([claudeRow, rowWithoutRecordings(codexKey(hostOs), admission('passed'))]))
-    expect(matrixOf([], await readMatrix(support))).toBe(written)
+    expect(matrixOf([], await readMatrix(support), await readVerification(support))).toBe(written)
     const probes = fake.calls().filter((call) => call.command === 'exec')
     expect(probes).toHaveLength(2)
     expect(probes.every((call) => call.argv.includes('--dangerously-bypass-hook-trust'))).toBe(true)
@@ -154,7 +157,7 @@ describe('observer isolation of the installed Codex CLI in the support matrix', 
     expect(imported === null ? null : supportRowOf(imported, codexKey(thirdOs))?.observer).toEqual(admission('failed'))
     expect(imported === null ? null : supportRowOf(imported, codexKey(hostOs))?.observer).toEqual(admission('passed'))
     expect(imported?.rows).toHaveLength(4)
-    expect(matrixOf([], imported)).toBe(await readFile(matrixPath(support), 'utf8'))
+    expect(matrixOf([], imported, await readVerification(support))).toBe(await readFile(matrixPath(support), 'utf8'))
   })
 
   test('isolation needs a runtime or matrices to import', async () => {

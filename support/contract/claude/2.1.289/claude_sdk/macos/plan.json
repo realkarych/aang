@@ -1004,10 +1004,9 @@
       "id": "#21",
       "kind": "permission_request",
       "entity_key": {
-        "kind": "question",
+        "kind": "session",
         "runtime": "claude",
-        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
-        "question": "spool#15"
+        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b"
       },
       "speaker": "runtime",
       "urgent": true,
@@ -3988,39 +3987,6 @@
         "kind": "question",
         "runtime": "claude",
         "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
-        "question": "spool#15"
-      },
-      "session": "#79",
-      "agent": "#81",
-      "run": "#80",
-      "kind": "permission",
-      "blocking": true,
-      "text": null,
-      "asked_at": "<time>",
-      "answered_at": null,
-      "action": null,
-      "decision": {
-        "value": "unknown",
-        "basis": {
-          "kind": "interpreted",
-          "interpreter": {
-            "kind": "rule",
-            "rule": "permission-decision"
-          }
-        },
-        "evidence": [
-          "#21",
-          "#65"
-        ]
-      },
-      "redelivery_group": null
-    },
-    {
-      "id": "#90",
-      "key": {
-        "kind": "question",
-        "runtime": "claude",
-        "session": "4742d82d-ece8-4a58-af7a-db179dddad4b",
         "question": "spool#19"
       },
       "session": "#79",
@@ -4049,7 +4015,7 @@
       "redelivery_group": null
     },
     {
-      "id": "#91",
+      "id": "#90",
       "key": {
         "kind": "question",
         "runtime": "claude",
@@ -4090,7 +4056,7 @@
   ],
   "usage": [
     {
-      "id": "#92",
+      "id": "#91",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4114,7 +4080,7 @@
       "at": "<time>"
     },
     {
-      "id": "#93",
+      "id": "#92",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4138,7 +4104,7 @@
       "at": "<time>"
     },
     {
-      "id": "#94",
+      "id": "#93",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4162,7 +4128,7 @@
       "at": "<time>"
     },
     {
-      "id": "#95",
+      "id": "#94",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4186,7 +4152,7 @@
       "at": "<time>"
     },
     {
-      "id": "#96",
+      "id": "#95",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4210,7 +4176,7 @@
       "at": "<time>"
     },
     {
-      "id": "#97",
+      "id": "#96",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4234,7 +4200,7 @@
       "at": "<time>"
     },
     {
-      "id": "#98",
+      "id": "#97",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4258,7 +4224,7 @@
       "at": "<time>"
     },
     {
-      "id": "#99",
+      "id": "#98",
       "key": {
         "kind": "usage",
         "runtime": "claude",
@@ -4284,7 +4250,7 @@
   ],
   "artifacts": [
     {
-      "id": "#100",
+      "id": "#99",
       "key": {
         "kind": "artifact_version",
         "run": "#80",
@@ -4298,7 +4264,7 @@
         }
       },
       "run": "#80",
-      "artifact": "#101",
+      "artifact": "#100",
       "ref": {
         "kind": "file",
         "path": "/Users/USER/.claude/plans/aang-plan-plan-the-creation-reflective-candy.md"
@@ -4310,7 +4276,7 @@
       "observed_at": "<time>"
     },
     {
-      "id": "#102",
+      "id": "#101",
       "key": {
         "kind": "artifact_version",
         "run": "#80",
@@ -4324,7 +4290,7 @@
         }
       },
       "run": "#80",
-      "artifact": "#103",
+      "artifact": "#102",
       "ref": {
         "kind": "file",
         "path": "/fixture/project/checklist.txt"
@@ -4344,48 +4310,26 @@
         "id": "#80",
         "runtime": "claude",
         "root_session": "#79",
-        "goal": null,
+        "goal": {
+          "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+          "fact": "#24"
+        },
         "brief": null,
         "start_pruned": false,
-        "version": 4,
+        "version": 3,
         "created_at": "<time>"
       },
       "entities": [
         {
           "kind": "attention_item",
           "value": {
-            "id": "#104",
-            "run": "#80",
-            "kind": "permission",
-            "author": "rule",
-            "text": "ExitPlanMode",
-            "stage": null,
-            "question": "#89",
-            "action": null,
-            "basis": {
-              "kind": "observed"
-            },
-            "evidence": [
-              "#21"
-            ],
-            "runtime_wait": "ended",
-            "resolution": "ended_without_answer",
-            "likely_resolved": null,
-            "priority": null,
-            "opened_at": "<time>",
-            "closed_at": "<time>"
-          }
-        },
-        {
-          "kind": "attention_item",
-          "value": {
-            "id": "#105",
+            "id": "#103",
             "run": "#80",
             "kind": "permission",
             "author": "rule",
             "text": "Write: /fixture/project/checklist.txt",
             "stage": null,
-            "question": "#90",
+            "question": "#89",
             "action": null,
             "basis": {
               "kind": "observed"
@@ -4404,13 +4348,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#106",
+            "id": "#104",
             "run": "#80",
             "kind": "question",
             "author": "rule",
             "text": "# Checklist plan\n\n1. Write checklist.txt with both steps.\n2. Review checklist.txt.",
             "stage": null,
-            "question": "#91",
+            "question": "#90",
             "action": "#85",
             "basis": {
               "kind": "observed"
@@ -4432,10 +4376,13 @@
             "id": "#80",
             "runtime": "claude",
             "root_session": "#79",
-            "goal": null,
+            "goal": {
+              "text": "[aang:plan] Plan the creation of checklist.txt. While planning, record two tasks with the TaskCreate tool, one call each: \"Write checklist\" and \"Review checklist\". Write the plan to the plan file and present it with ExitPlanMode. After approval, create checklist.txt listing both steps with the Write tool, then mark both tasks completed with TaskUpdate.",
+              "fact": "#24"
+            },
             "brief": null,
             "start_pruned": false,
-            "version": 4,
+            "version": 3,
             "created_at": "<time>"
           }
         },

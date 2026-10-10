@@ -2107,7 +2107,10 @@
         "id": "#41",
         "runtime": "claude",
         "root_session": "#40",
-        "goal": null,
+        "goal": {
+          "text": "[aang:resume-first] Run `echo first` with the Bash tool and reply with its output.",
+          "fact": "#7"
+        },
         "brief": null,
         "start_pruned": false,
         "version": 2,
@@ -2120,7 +2123,10 @@
             "id": "#41",
             "runtime": "claude",
             "root_session": "#40",
-            "goal": null,
+            "goal": {
+              "text": "[aang:resume-first] Run `echo first` with the Bash tool and reply with its output.",
+              "fact": "#7"
+            },
             "brief": null,
             "start_pruned": false,
             "version": 2,

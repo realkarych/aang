@@ -39,8 +39,9 @@ const options = async () => ({
   hookBinary: binary,
 })
 
-test('captures OTLP logs as anonymized playback steps and returns command output with extra environment', async () => {
+test('captures OTLP logs as anonymized playback steps and returns command output with extra environment and without the Agent SDK version of the recorder', async () => {
   const config = await options()
+  vi.stubEnv('CLAUDE_AGENT_SDK_VERSION', '0.3.289')
   let output = ''
   const recording = await recordSession({ ...config, model: 'stub' }, async (session) => {
     expect(session.otlp).toMatch(/^http:\/\/127\.0\.0\.1:\d+\/v1\/logs$/)
@@ -48,7 +49,7 @@ test('captures OTLP logs as anonymized playback steps and returns command output
     expect(session.hook).toBe(binary)
     output = (await session.run(process.execPath, [script, 'otlp', session.otlp], { env: { AANG_SCENARIO_MARK: 'marked' } })).stdout
   })
-  expect(output).toBe('posted marked')
+  expect(output).toBe('posted marked without the Agent SDK version')
   const manifest = JSON.parse(await readFile(join(recording, 'manifest.json'), 'utf8')) as { model: string }
   expect(manifest.model).toBe('stub')
   const playback = await loadManifest(join(recording, 'playback.json'))
