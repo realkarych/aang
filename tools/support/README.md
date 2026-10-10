@@ -40,7 +40,7 @@ Which files count as collected mirrors the collector's roots and tail filter (`p
 
 The run replays the recorded timeline, moved as a whole to the time of the replay, so that hooks, files and the engine see one clock, as the daemon sees them in a live session, and the snapshot does not depend on how fast the runner replays:
 
-- the player shifts the times inside transcripts, rollouts, JSON snapshots and OTLP requests by whole seconds (`recordTime` of `@aang/testkit`, from the start of the replay);
+- the player shifts the times inside transcripts, rollouts, JSON snapshots and OTLP requests by whole seconds (`recordTime` of `@aang/testkit`, from the start of the replay), at any JSON nesting depth: a quoted time inside JSON text held in a string value (a Claude tool result, the arguments of a Codex call) moves too, so the shift does not depend on whether an adapter parses such text into a structure or serializes a structure into text;
 - every step plays while the collector is paused (`paused` of the collector), and before it resumes the step's files get the recorded modification time with the same shift: the spool file the hook wrote gets the receipt time of the recorded hook, a written or appended file the modification time of its recorded artifact. The collector reads hooks, JSON snapshots and lines without their own time by these modification times;
 - the engine's clock is the recorded time of the step being played, with the same shift, so freshness (quiet sessions, hooks that stop arriving) is judged on the recorded timeline, not on the wall clock of a replay that runs faster or slower than the session did.
 
@@ -53,7 +53,7 @@ Without one clock, transcript and rollout lines kept the times of the recording 
 The snapshot holds the normalized facts (ordered by raw record), sessions, agents, actions, questions, usage records, artifact versions and Git snapshots, gaps, removals, runs and the model entities of each run, plus a count of raw records by channel, record type and parse state. It is canonical:
 
 - times are `<time>`; `change_seq` is left out;
-- times inside content that the replay shifted (see [Record time](#record-time)) are shifted back, so the snapshot shows the recorded content whenever it is taken;
+- times inside content that the replay shifted (see [Record time](#record-time)) are shifted back at any JSON nesting depth, so the snapshot shows the recorded content whenever it is taken, also where an adapter serialized a structure into text (a workflow result in `final_message`) or parsed text into a structure (the arguments of a Codex call);
 - hook spool file names, which carry the receipt time, become `spool#<n>` in the order the hooks were collected;
 - values of fields typed as ids in the `@aang/contract` schemas (derived and assigned) become `#<n>` in order of first appearance, and lists of ids are ordered by these labels; any other text, including text shaped like a hash, stays as it is;
 - object lists are ordered by their keys with ids and times masked;

@@ -10,11 +10,13 @@ export const unshifted: RecordShift = { ms: 0, from: 0, to: 0 }
 
 const timestamp = /"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})((?:\.\d+)?Z)"/g
 
+const timestampAtAnyDepth = /"(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})((?:\.\d+)?Z)(\\*")/g
+
 const secondMs = 1_000
 
 const bytewise = 'latin1'
 
-const epochValue = /(:\s*)("?)(\d{10}|\d{13}|\d{16}|\d{19})\2(?=\s*[,}\]])/g
+const epochValue = /(:\s*)((?:\\*")?)(\d{10}|\d{13}|\d{16}|\d{19})\2(?=\s*[,}\]])/g
 
 const dayMs = 24 * 60 * 60 * 1_000
 
@@ -52,11 +54,11 @@ export const shifted = (content: Buffer, shift: RecordShift): Buffer => {
   }
   const text = content
     .toString(bytewise)
-    .replaceAll(timestamp, (match, seconds: string, fraction: string) => {
+    .replaceAll(timestampAtAnyDepth, (match, seconds: string, fraction: string, close: string) => {
       const instant = Date.parse(`${seconds}Z`)
       return Number.isNaN(instant)
         ? match
-        : `"${new Date(instant + shift.ms).toISOString().slice(0, seconds.length)}${fraction}"`
+        : `"${new Date(instant + shift.ms).toISOString().slice(0, seconds.length)}${fraction}${close}`
     })
     .replaceAll(epochValue, (match, separator: string, quote: string, digits: string) => {
       const moved = shiftedEpoch(digits, shift)
