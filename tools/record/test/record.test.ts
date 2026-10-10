@@ -1,4 +1,4 @@
-import { appendFile, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import { appendFile, type FileHandle, mkdir, mkdtemp, open, readFile, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -12,6 +12,7 @@ const temporary: string[] = []
 const runtimeScript = fileURLToPath(new URL('./runtime.ts', import.meta.url))
 const hookScript = fileURLToPath(new URL('./hook-event.ts', import.meta.url))
 const longSession = fileURLToPath(new URL('./long-session.ts', import.meta.url))
+const awaitRemoval = fileURLToPath(new URL('./await-removal.ts', import.meta.url))
 const samples = new URL('../../../docs/research/samples/', import.meta.url)
 const binary = resolve('packages/hook/bin', process.platform === 'win32' ? 'aang-hook.exe' : 'aang-hook')
 const os = process.platform === 'darwin' ? 'macos' : process.platform === 'win32' ? 'windows' : 'linux'
@@ -173,6 +174,52 @@ test('captures removal and truncation, refuses replacement of an existing record
   }
   await expect(recordSession(config, () => Promise.resolve())).rejects.toThrow(/already exists/)
   await verifyRecording(directory)
+})
+
+const deleteOnClose = 0x40
+const exclusive = 0x1000_0000
+
+const pendingDeletion = async (path: string): Promise<FileHandle> => {
+  const held = await open(path, 'r')
+  await (await open(path, deleteOnClose)).close()
+  return held
+}
+
+test.runIf(process.platform === 'win32')('a source that another process is deleting or holds exclusively is read by a later scan of the command and rejected by a checkpoint', async () => {
+  const config = await options()
+  const directory = await recordSession(config, async (session) => {
+    const pending = join(session.project, 'pending.json')
+    const tasks = join(session.claude, 'tasks', 'task-list')
+    const lock = join(session.claude, 'tasks', 'lock-list', '.lock.lock')
+    await mkdir(tasks, { recursive: true })
+    await mkdir(lock, { recursive: true })
+    await writeFile(pending, '{"state":"pending"}\n')
+    await writeFile(join(tasks, '1.json'), '{"id":"1"}\n')
+    await session.checkpoint('written', { root: 'home', path: 'project/pending.json' }, 'The source and the task are written')
+    const held: FileHandle[] = []
+    try {
+      held.push(await pendingDeletion(pending))
+      held.push(await pendingDeletion(lock))
+      held.push(await open(tasks, exclusive))
+      await expect(stat(pending)).rejects.toMatchObject({ code: 'EPERM', syscall: 'stat' })
+      await expect(readdir(lock)).rejects.toMatchObject({ code: 'EPERM', syscall: 'scandir' })
+      await expect(readdir(tasks)).rejects.toMatchObject({ code: 'EBUSY', syscall: 'scandir' })
+      await expect(session.checkpoint('held', { root: 'home', path: 'project/pending.json' }, 'The source is still held')).rejects.toThrow(/EPERM|EBUSY/)
+      const started = join(session.work, 'started')
+      const command = session.run(process.execPath, [awaitRemoval, started, pending, lock])
+      const settled = command.then(() => true, () => true)
+      while (!await Promise.race([settled, stat(started).then(() => true, () => false)])) await new Promise((done) => setTimeout(done, 25))
+      await Promise.all(held.splice(0).map((handle) => handle.close()))
+      await command
+    } finally {
+      await Promise.all(held.map((handle) => handle.close()))
+    }
+    await session.checkpoint('removed', { root: 'home', path: 'project/pending.json' }, 'The deleted source is removed')
+  })
+  const playback = await loadManifest(join(directory, 'playback.json'))
+  const kinds = (path: string): string[] => playback.steps.flatMap((step) => 'target' in step && step.target.path === path ? [step.kind] : [])
+  expect(kinds('project/pending.json')).toEqual(['write', 'remove'])
+  expect(kinds('tasks/task-list/1.json')).toEqual(['write'])
 })
 
 test('kept TOML definition files of a temporary profile are checked before publication and replayed at their paths', async () => {
