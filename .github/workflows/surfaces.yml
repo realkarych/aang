@@ -59,6 +59,7 @@ jobs:
       - run: >-
           node tools/surface-check/dist/main.js run --placement local
           --require "${{ runner.os == 'Windows' && 'claude_cli,claude_sdk,codex_exec,codex_sdk' || 'claude_cli,claude_sdk,codex_exec,codex_sdk,codex_tui' }}"
+          --work "$RUNNER_TEMP/surface-check-work"
           --out "$RUNNER_TEMP/surface-check"
         shell: bash
         env:
