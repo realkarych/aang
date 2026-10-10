@@ -43,7 +43,7 @@ import { mapHeading, type StageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { factPlace, placeOf } from './objects.js'
 import { isPlainClick, runHref } from './route.js'
-import { fullHint, ShortIds, shortIds, StageName } from './short-ids.js'
+import { fullHint, ShortIds, shortIds, StageName, useKnownAgents } from './short-ids.js'
 import type { ChatHistory } from './use-run-feed.js'
 import { ruleText } from './view-labels.js'
 import './chat.css'
@@ -331,6 +331,7 @@ const RuleNote = ({
   readonly message: ChatMessage
   readonly snapshot: RunSnapshot
 }): ReactElement | null => {
+  const agents = useKnownAgents()
   if (message.view_rule_error !== null) {
     return <p className="chat-rule" data-applied="false">{`Правило вида не применено: ${message.view_rule_error}`}</p>
   }
@@ -347,8 +348,8 @@ const RuleNote = ({
   }
   const text = ruleText(applied.rule, snapshot.model.stages)
   return (
-    <p className="chat-rule" data-applied="true" title={fullHint(text)}>
-      {`Правило вида применено: ${shortIds(text)}. Отменить его можно в списке правил.`}
+    <p className="chat-rule" data-applied="true" title={fullHint(text, agents)}>
+      {`Правило вида применено: ${shortIds(text, agents)}. Отменить его можно в списке правил.`}
     </p>
   )
 }

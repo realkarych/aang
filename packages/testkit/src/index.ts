@@ -41,6 +41,7 @@ export {
   type ObserverScenarioReply,
   observerScenarios,
 } from './observer-scenarios/presets.js'
+export { chatAnswerReport } from './observer-scenarios/chat.js'
 export { runScenarioScript, ScenarioScript } from './observer-scenarios/scripts.js'
 export {
   DaemonLaunchError,

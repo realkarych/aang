@@ -20,7 +20,7 @@ import { BasisLine, Grounds, Groundwork, shortId } from './grounds.js'
 import { agentRoleLabel, attentionAuthorLabel, attentionKindLabel, executionLabel } from './labels.js'
 import { agentTitle } from './objects.js'
 import { stageHref, useRoutedMode, useSelect } from './route.js'
-import { fullHint, shortIds } from './short-ids.js'
+import { fullHint, shortIds, useKnownAgents } from './short-ids.js'
 import { StageArtifacts } from './stage-artifacts.js'
 import { StageCriteria } from './stage-criteria.js'
 import { RejectedCalls, StageHistory } from './stage-history.js'
@@ -80,10 +80,11 @@ const StageLink = ({
 }): ReactElement => {
   const select = useSelect()
   const mode = useRoutedMode()
+  const agents = useKnownAgents()
   const title = titles.get(stage) ?? `этап ${shortId(stage)}`
   return (
-    <a className="stage-link" href={stageHref(run, stage, mode)} onClick={select} title={fullHint(title)}>
-      {shortIds(title)}
+    <a className="stage-link" href={stageHref(run, stage, mode)} onClick={select} title={fullHint(title, agents)}>
+      {shortIds(title, agents)}
     </a>
   )
 }
@@ -575,6 +576,7 @@ export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: Stage
   const titleId = useId()
   const known = snapshot?.model.stages.find(({ id }) => id === stage) ?? null
   const title = known?.title ?? `Этап ${shortId(stage)}`
+  const agents = useKnownAgents()
 
   useEffect(() => {
     heading.current?.focus()
@@ -597,8 +599,8 @@ export const StageInspector = ({ run, stage, feed, onSignedOut, onClose }: Stage
             {known === null ? null : <span>{stageOriginLabel[known.origin]}</span>}
             {known === null || lifecycleNote(known) === null ? null : <span className="inspector-lifecycle">{lifecycleNote(known)}</span>}
           </p>
-          <h2 id={titleId} ref={heading} tabIndex={-1} className="inspector-title" title={fullHint(title)}>
-            {shortIds(title)}
+          <h2 id={titleId} ref={heading} tabIndex={-1} className="inspector-title" title={fullHint(title, agents)}>
+            {shortIds(title, agents)}
           </h2>
         </div>
         <button type="button" className="inspector-close" onClick={onClose}>

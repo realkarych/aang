@@ -1,5 +1,14 @@
 import type { RunId, RunSnapshot, RunSummary, StatusResponse, UsageReport } from '@aang/contract'
-import { type ReactElement, type RefObject, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import {
+  type ReactElement,
+  type RefObject,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { readRuns, readStatus, readUsage } from './api.js'
 import { nowNs } from './format.js'
 import { GenerationContext } from './generation.js'
@@ -7,6 +16,7 @@ import { type FocusedRun, lampsOf } from './lamps.js'
 import { listHref, runHref, selectStage, type UsagePeriod, usageHref, useNavigate, useRoute, useRoutedStage } from './route.js'
 import { RunList, runTitle, untitledRun } from './run-list.js'
 import { Missing, RunPage } from './run-page.js'
+import { agentIds, KnownAgents } from './short-ids.js'
 import { StageInspector } from './stage-inspector.js'
 import { StatusStrip } from './status-strip.js'
 import { RunUsagePage, UsageOverview, usageQuery } from './usage-page.js'
@@ -167,6 +177,7 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
   const close = useCallback(() => {
     selectStage(run, null)
   }, [run])
+  const agents = useMemo(() => agentIds(feed.snapshot?.objects.agents ?? []), [feed.snapshot])
   const title = snapshotTitle(feed.snapshot)
   useTitle(`${title ?? 'Прогон'} — aang`)
   const lamps = lampsOf({
@@ -183,21 +194,23 @@ const RunScreen = ({ run, status, now, onSignedOut }: ScreenProps & { readonly r
       <StatusStrip lamps={lamps} />
       <div className="run-screen" data-inspecting={stage !== null}>
         <GenerationContext value={feed.generation}>
-          <main ref={pane} className="page run-pane">
-            <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} onSignedOut={onSignedOut} />
-          </main>
-          {stage === null ? null : (
-            <SignedOutContext value={onSignedOut}>
-              <StageInspector
-                key={stage}
-                run={run}
-                stage={stage}
-                feed={feed}
-                onSignedOut={onSignedOut}
-                onClose={close}
-              />
-            </SignedOutContext>
-          )}
+          <KnownAgents value={agents}>
+            <main ref={pane} className="page run-pane">
+              <RunPage feed={feed} runs={runs.value?.runs ?? null} now={now} onSignedOut={onSignedOut} />
+            </main>
+            {stage === null ? null : (
+              <SignedOutContext value={onSignedOut}>
+                <StageInspector
+                  key={stage}
+                  run={run}
+                  stage={stage}
+                  feed={feed}
+                  onSignedOut={onSignedOut}
+                  onClose={close}
+                />
+              </SignedOutContext>
+            )}
+          </KnownAgents>
         </GenerationContext>
       </div>
     </>

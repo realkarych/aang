@@ -16,6 +16,7 @@ import {
 } from '@aang/contract'
 import { runId } from '@aang/contract/ids'
 import {
+  chatAnswerReport,
   type ClaudeReply,
   type FakeCall,
   type LoadedManifest,
@@ -213,6 +214,7 @@ const collapsesTheReviewers = async ({
   await expect(toReviewer.getByTitle(new RegExp(`^.+ \\(${reviewing.id}\\)$`))).toHaveText(new RegExp(`^«.+ \\(${short}\\)»$`))
   await expect(answer).not.toContainText(reviewing.id)
   await expect(answer.getByTitle(reviewing.id, { exact: true })).toHaveText(short)
+  await expect(answer).toContainText(chatAnswerReport)
   const toRequest = links.getByRole('link', { name: `Запрос одобрения ${approval}` })
   await expect(toRequest).toBeVisible()
   const ground = links.getByRole('button', { name: /^Факт / }).first()

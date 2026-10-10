@@ -22,7 +22,7 @@ import { LevelGlyph } from './glyphs.js'
 import { runtimeLabel } from './labels.js'
 import { type UsagePeriod, usageHref, usagePeriods, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
-import { fullHint, shortIds } from './short-ids.js'
+import { agentIds, fullHint, shortIds } from './short-ids.js'
 import './usage.css'
 
 type Amounts = UsageTotals | UsageRate
@@ -492,6 +492,7 @@ const StageRow = ({ name, totals }: { readonly name: ReactNode; readonly totals:
 const StageUsage = ({ usage, snapshot }: { readonly usage: RunUsage; readonly snapshot: RunSnapshot }): ReactElement => {
   const heading = useId()
   const titles = new Map(snapshot.model.stages.map(({ id, title }) => [id, title]))
+  const agents = agentIds(snapshot.objects.agents)
   const { stages, unassigned } = usage.solver
   return (
     <section className="usage-section" aria-labelledby={heading}>
@@ -521,7 +522,13 @@ const StageUsage = ({ usage, snapshot }: { readonly usage: RunUsage; readonly sn
           <tbody>
             {stages.map(({ stage, totals }) => {
               const title = titles.get(stage) ?? 'Этап снят с карты'
-              return <StageRow key={stage} name={<span title={fullHint(title)}>{shortIds(title)}</span>} totals={totals} />
+              return (
+                <StageRow
+                  key={stage}
+                  name={<span title={fullHint(title, agents)}>{shortIds(title, agents)}</span>}
+                  totals={totals}
+                />
+              )
             })}
             <StageRow name={<span className="quiet">Не привязано к этапам</span>} totals={unassigned} />
           </tbody>
