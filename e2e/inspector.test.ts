@@ -204,7 +204,7 @@ test.describe('the run screen on a wide window', () => {
   })
 })
 
-test('the open inspector follows the model live and lists the observer answer the daemon rejected', async ({
+test('the open inspector follows the model live, names a new substage of a delegated agent by its type and short id with the full title in the tooltip, and lists the observer answer the daemon rejected', async ({
   page,
   player,
   fakeClaude,
@@ -219,7 +219,11 @@ test('the open inspector follows the model live and lists the observer answer th
   await expect(section(page, 'Связи')).toContainText('Связей с другими этапами нет.')
 
   await playback.play()
-  await expect(section(page, 'Связи').getByRole('link', { name: /^pinger/ })).toBeVisible({ timeout: 45_000 })
+  const substage = section(page, 'Связи').getByRole('link', { name: /^pinger/ })
+  await expect(substage).toBeVisible({ timeout: 45_000 })
+  await expect(substage).toHaveAttribute('title', /^pinger \([0-9a-f]{32}\)$/)
+  const full = (await substage.getAttribute('title')) ?? ''
+  await expect(substage).toHaveText(full.replace(/[0-9a-f]{32}/, (id) => id.slice(0, 8)))
   const rejected = section(page, 'Отклонённые ответы наблюдателя')
   await expect(rejected).toContainText('Ответ отклонён целиком')
   await expect(rejected).toContainText('нарушает правила модели')

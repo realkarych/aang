@@ -16,7 +16,6 @@ import { basisLabel } from './labels.js'
 import {
   type MapEdge,
   type MapStage,
-  mapTitle,
   type StageGraph,
   stageGraph,
   type VisibleGroup,
@@ -42,6 +41,7 @@ import {
   type StageFlowNode,
   type StageView,
 } from './map-node.js'
+import { type AgentIds, shortIds, useKnownAgents } from './short-ids.js'
 import type { StageSelection } from './stage-lineage.js'
 import { type PlacementOf, placementsOf } from './view-placement.js'
 
@@ -225,6 +225,7 @@ const flowNodes = (
   layout: MapLayout,
   selected: StageId | null,
   views: ReadonlyMap<StageId, StageView>,
+  agents: AgentIds,
   { onToggle, onSelect }: NodeActions,
 ): Array<StageFlowNode | GroupFlowNode> => {
   const groups = new Map(layout.source.groups.map((group) => [group.id, group]))
@@ -259,14 +260,14 @@ const flowNodes = (
       selectable: false,
       connectable: false,
       ariaRole: 'group',
-      ariaLabel: `Этап «${mapTitle(node.stage.title)}»`,
+      ariaLabel: `Этап «${shortIds(node.stage.title, agents)}»`,
     }
     return group === undefined ? [stage] : [groupNode(layout, group), stage]
   })
 }
 
-const flowEdges = ({ source, routes }: MapLayout): RouteFlowEdge[] => {
-  const titles = new Map(source.stages.map(({ node }) => [node.stage.id, mapTitle(node.stage.title)]))
+const flowEdges = ({ source, routes }: MapLayout, agents: AgentIds): RouteFlowEdge[] => {
+  const titles = new Map(source.stages.map(({ node }) => [node.stage.id, shortIds(node.stage.title, agents)]))
   return source.edges.map((edge) => {
     const label = edgeLabel(edge, titles)
     return {
@@ -360,12 +361,18 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
   const onToggle = useCallback((stage: StageId, open: boolean) => {
     setToggled((current) => new Map(current).set(stage, open))
   }, [])
+  const agents = useKnownAgents()
   const nodes = useMemo(
     () =>
-      layout instanceof Error || layout === null ? [] : flowNodes(layout, selected, views, { onToggle, onSelect }),
-    [layout, selected, views, onToggle, onSelect],
+      layout instanceof Error || layout === null
+        ? []
+        : flowNodes(layout, selected, views, agents, { onToggle, onSelect }),
+    [layout, selected, views, agents, onToggle, onSelect],
   )
-  const edges = useMemo(() => (layout instanceof Error || layout === null ? [] : flowEdges(layout)), [layout])
+  const edges = useMemo(
+    () => (layout instanceof Error || layout === null ? [] : flowEdges(layout, agents)),
+    [layout, agents],
+  )
   if (layout === null) {
     return <p className="map-note">Раскладка карты…</p>
   }

@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { absoluteTime } from './format.js'
 import { BasisLine, Grounds } from './grounds.js'
 import { executionLabel, runtimeLabel } from './labels.js'
+import { fullHint, shortIds, useKnownAgents } from './short-ids.js'
 import {
   changeAuthorLabel,
   criterionStatusLabel,
@@ -70,6 +71,7 @@ const sameBasis = (left: Basis | null, right: Basis | null): boolean => JSON.str
 const ChangeItem = ({ change, shared }: { readonly change: ModelChange; readonly shared: Basis | null }): ReactElement => {
   const details = detailOf(change)
   const operation = operationLabel[change.op]
+  const agents = useKnownAgents()
   return (
     <li className="change">
       <p className="change-head">
@@ -77,8 +79,8 @@ const ChangeItem = ({ change, shared }: { readonly change: ModelChange; readonly
         <span className="change-target">{entityKindLabel[change.target.kind]}</span>
       </p>
       {details.map((detail) => (
-        <p key={detail} className="change-detail">
-          {detail}
+        <p key={detail} className="change-detail" title={fullHint(detail, agents)}>
+          {shortIds(detail, agents)}
         </p>
       ))}
       <Grounds

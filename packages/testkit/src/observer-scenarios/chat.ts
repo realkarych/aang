@@ -13,6 +13,10 @@ import { ScenarioError } from '../fake-cli/scenario-error.js'
 
 const citedPerKind = 3
 
+const reportChecksum = 'd41d8cd98f00b204e9800998ecf8427e'
+
+export const chatAnswerReport = `report /tmp/${reportChecksum}.json, checksum ${reportChecksum}`
+
 export const readChatInput = (input: JsonValue | undefined): ChatInput => {
   const parsed = ChatInput.safeParse(input)
   if (!parsed.success) {
@@ -52,9 +56,10 @@ export const chatAnswerScript = (input: ChatInput): ChatOutput => {
     return unanswerable('The map has no stages, questions or facts to answer from yet.')
   }
   const stages = input.model.stages.map(({ title, execution }) => `${title}: ${execution.state}`)
+  const overview = stages.length === 0 ? 'no stages yet' : stages.join('; ')
   return {
     needs: [],
-    answer: `By map version ${String(input.model.version)}: ${stages.length === 0 ? 'no stages yet' : stages.join('; ')}.`,
+    answer: `By map version ${String(input.model.version)}: ${overview}. The ${chatAnswerReport}.`,
     citations,
     insufficient_data: false,
     view_rule: null,

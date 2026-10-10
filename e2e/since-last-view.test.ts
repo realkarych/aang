@@ -1,8 +1,9 @@
 import { execFileSync } from 'node:child_process'
 import { mkdir, writeFile as writeText } from 'node:fs/promises'
 import { join } from 'node:path'
-import { endpoints, type FactId, type RunSnapshot, type StageId } from '@aang/contract'
+import { type Agent, endpoints, type FactId, type RunSnapshot, type StageId } from '@aang/contract'
 import {
+  agentStageTitle,
   checkedCriterionText,
   type ClaudeScenario,
   continuationQuestionText,
@@ -591,6 +592,37 @@ test.describe('with the observer', () => {
       await expect(original).toContainText('решатель')
       await card.getByRole('button', { name: 'Скрыть оригинал' }).click()
       await expect(original).toHaveCount(0)
+    })
+  })
+
+  test.describe('delegating after the mark', () => {
+    test.use({ claudeScenario: observerScenarios['live-map'].live })
+
+    test('the since-last-view mode names the new stage of a delegated agent by its type and short id, with the full title in the tooltip (E2E 4)', async ({
+      page,
+      player,
+    }) => {
+      const replay = await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0, recordTime: 'playback' })
+      await replay.play({ until: 'subagent' })
+      await page.goto(`/?run=${run}&mode=changes`)
+      await expect.poll(() => mapped(page.request), observed).toBe(true)
+      await markButton(page).click()
+      await expect(since(page)).toContainText(nothingChanged)
+
+      await replay.play()
+      const delegatedAgent = async (): Promise<Agent | undefined> =>
+        (await snapshotOf(page.request))?.objects.agents.find(({ agent_type: type }) => type === 'pinger')
+      await expect.poll(async () => (await delegatedAgent()) !== undefined, observed).toBe(true)
+      const agent = await delegatedAgent()
+      if (agent === undefined) {
+        throw new Error('the run has no pinger agent')
+      }
+      const title = agentStageTitle(agent)
+      const shown = title.replace(agent.id, agent.id.slice(0, 8))
+      const delegated = change(page, 'Этапы', `«${shown}»`)
+      await expect(delegated).toContainText('новый', observed)
+      await expect(delegated).not.toContainText(agent.id)
+      await expect(delegated.getByTitle(title, { exact: true })).toHaveText(`«${shown}»`)
     })
   })
 

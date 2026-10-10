@@ -7,10 +7,6 @@ export interface Span {
   readonly end: bigint | null
 }
 
-const derivedIds = /\b[0-9a-f]{32}\b/g
-
-export const mapTitle = (title: string): string => title.replace(derivedIds, (id) => id.slice(0, 8))
-
 export interface MapStage {
   readonly stage: Stage
   readonly parent: StageId | null

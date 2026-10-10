@@ -4,6 +4,7 @@ import { failureText, revokeViewRule, SignedOut } from './api.js'
 import { plural } from './format.js'
 import { agentForms } from './labels.js'
 import { Moment } from './moment.js'
+import { fullHint, shortIds, useKnownAgents } from './short-ids.js'
 import { elementForms, ruleSourceLabel, ruleText } from './view-labels.js'
 import './view.css'
 
@@ -23,10 +24,14 @@ const RuleItem = ({
   readonly now: bigint
 }): ReactElement => {
   const { rule, affected } = applied
-  const text = capitalized(ruleText(rule, snapshot.model.stages))
+  const agents = useKnownAgents()
+  const full = capitalized(ruleText(rule, snapshot.model.stages))
+  const text = shortIds(full, agents)
   return (
     <li className="rule">
-      <p className="rule-text">{text}</p>
+      <p className="rule-text" title={fullHint(full, agents)}>
+        {text}
+      </p>
       <p className="rule-meta">
         <span>{ruleSourceLabel[rule.source]}</span>
         <span>{`затронуто: ${plural(affected.length, elementForms)}`}</span>
