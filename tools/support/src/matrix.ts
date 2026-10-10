@@ -8,6 +8,7 @@ import {
   supportMatrixFormat,
   type SupportRow,
   type SupportScenarios,
+  type SupportStatus,
   supportKeyText,
   supportRowOf,
 } from '@aang/contract'
@@ -116,10 +117,13 @@ const placementGaps = (key: SupportKey, { placements }: SupportVerification): st
   return check === undefined ? [supportGaps.placement] : check.result === 'passed' ? [] : [supportGaps.placementFails]
 }
 
+const checklistOs: Readonly<Record<OwnerChecklistName, readonly OperatingSystem[]>> = {
+  desktop: ['macos', 'linux'],
+  tui: ['macos', 'windows'],
+}
+
 const requiredChecklist = ({ surface, os }: SupportKey): OwnerChecklistName | null =>
-  desktopSurfaces.includes(surface) && os === 'windows'
-    ? null
-    : (OwnerChecklistName.options.find((checklist) => checklistSurfaces[checklist].includes(surface)) ?? null)
+  OwnerChecklistName.options.find((checklist) => checklistSurfaces[checklist].includes(surface) && checklistOs[checklist].includes(os)) ?? null
 
 const ownerChecklistGaps = (key: SupportKey, { owner_checklists: checklists }: SupportVerification): string[] => {
   const checklist = requiredChecklist(key)
@@ -132,6 +136,19 @@ const ownerChecklistGaps = (key: SupportKey, { owner_checklists: checklists }: S
 
 const userScenarioSource = (key: SupportKey, previous: SupportRow | null, options: MatrixOptions): SupportRow | null =>
   key.placement === 'local' || options.previous === null ? previous : (supportRowOf(options.previous, { ...key, placement: 'local' }) ?? previous)
+
+const dateOf = (instant: string): string => new Date(instant).toISOString().slice(0, 10)
+
+const verifiedOn = (own: readonly RecordingOutcome[], key: SupportKey, { placements, owner_checklists: checklists }: SupportVerification): string | null =>
+  [
+    ...own.map(({ manifest }) => dateOf(manifest.recorded_at)),
+    ...placements.filter((entry) => sameKey(entry, key)).map(({ checked_on: checkedOn }) => checkedOn),
+    ...checklists
+      .filter((entry) => entry.checklist === requiredChecklist(key) && sameKey(entry, key))
+      .map(({ checked_on: checkedOn }) => checkedOn),
+  ]
+    .sort()
+    .at(-1) ?? null
 
 const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOptions): SupportRow => {
   const own = options.outcomes.filter(({ manifest }) => sameEngine(manifest, key))
@@ -148,25 +165,30 @@ const rowFor = (key: SupportKey, previous: SupportRow | null, options: MatrixOpt
   const recorded = new Set(own.map(({ manifest }) => manifest.scenario))
   const failed = [...new Set(own.filter(({ passed }) => !passed).map(({ manifest }) => manifest.scenario))].sort()
   const missing = requiredScenarios(key.surface, key.os, options.contractScenarios).filter((name) => !recorded.has(name)).sort()
-  const reasons = [
+  const unverifiedRow = [
     ...(desktopSurfaces.includes(key.surface) && key.os === 'windows' ? [supportGaps.desktopOnWindows] : []),
     ...placementGaps(key, options.verification),
     ...(own.length === 0 ? [supportGaps.noRecordings] : []),
+  ]
+  const unverifiedChecklist = ownerChecklistGaps(key, options.verification)
+  const gaps = [
+    ...unverifiedRow,
     ...(failed.length === 0 ? [] : [supportGaps.failed(failed)]),
     ...(own.length === 0 || missing.length === 0 ? [] : [supportGaps.missing(missing)]),
     ...(failedUser.length === 0 ? [] : [supportGaps.userScenariosFail(failedUser)]),
     ...(userScenarios.some(([field]) => scenarios[field] === 'not_run') ? [supportGaps.userScenarios] : []),
-    ...ownerChecklistGaps(key, options.verification),
+    ...unverifiedChecklist,
   ]
-  const claimed = previous !== null && previous.status !== 'unverified' && reasons.length === 0 ? previous : null
+  const status: SupportStatus =
+    unverifiedRow.length > 0 || unverifiedChecklist.length > 0 ? 'unverified' : gaps.length === 0 ? 'full' : 'limited'
   return {
     ...key,
     app_version: latestAppVersion(own) ?? previous?.app_version ?? null,
-    status: claimed?.status ?? 'unverified',
-    gaps: claimed?.gaps ?? reasons,
+    status,
+    gaps,
     scenarios,
     observer: previous?.observer ?? notVerifiedObserver,
-    verified_on: previous?.verified_on ?? null,
+    verified_on: status === 'unverified' ? null : verifiedOn(own, key, options.verification),
   }
 }
 
