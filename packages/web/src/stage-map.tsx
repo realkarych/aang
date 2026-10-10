@@ -16,7 +16,6 @@ import { basisLabel } from './labels.js'
 import {
   type MapEdge,
   type MapStage,
-  mapTitle,
   type StageGraph,
   stageGraph,
   type VisibleGroup,
@@ -42,6 +41,7 @@ import {
   type StageFlowNode,
   type StageView,
 } from './map-node.js'
+import { shortIds } from './short-ids.js'
 import type { StageSelection } from './stage-lineage.js'
 import { type PlacementOf, placementsOf } from './view-placement.js'
 
@@ -259,14 +259,14 @@ const flowNodes = (
       selectable: false,
       connectable: false,
       ariaRole: 'group',
-      ariaLabel: `Этап «${mapTitle(node.stage.title)}»`,
+      ariaLabel: `Этап «${shortIds(node.stage.title)}»`,
     }
     return group === undefined ? [stage] : [groupNode(layout, group), stage]
   })
 }
 
 const flowEdges = ({ source, routes }: MapLayout): RouteFlowEdge[] => {
-  const titles = new Map(source.stages.map(({ node }) => [node.stage.id, mapTitle(node.stage.title)]))
+  const titles = new Map(source.stages.map(({ node }) => [node.stage.id, shortIds(node.stage.title)]))
   return source.edges.map((edge) => {
     const label = edgeLabel(edge, titles)
     return {

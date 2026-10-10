@@ -171,7 +171,7 @@ interface ReviewerChat {
   readonly run: RunId
   readonly session: string
   readonly approval: string
-  readonly reviewerStage: RegExp
+  readonly reviewing: Agent
   readonly reviewer: Locator
   readonly collapsed: string
   readonly untouched?: Locator
@@ -186,7 +186,7 @@ const collapsesTheReviewers = async ({
   run,
   session,
   approval,
-  reviewerStage,
+  reviewing,
   reviewer,
   collapsed,
   untouched,
@@ -207,7 +207,12 @@ const collapsesTheReviewers = async ({
   const links = citations(overview)
   const toMain = links.getByRole('link', { name: `Этап «${mainStageTitle}»` })
   await expect(toMain).toBeVisible()
-  await expect(links.getByRole('link', { name: reviewerStage })).toBeVisible()
+  const short = reviewing.id.slice(0, 8)
+  const toReviewer = links.getByRole('link', { name: new RegExp(`^Этап «.+ \\(${short}\\)»$`) })
+  await expect(toReviewer).toBeVisible()
+  await expect(toReviewer.getByTitle(new RegExp(`^.+ \\(${reviewing.id}\\)$`))).toHaveText(new RegExp(`^«.+ \\(${short}\\)»$`))
+  await expect(answer).not.toContainText(reviewing.id)
+  await expect(answer.getByTitle(reviewing.id, { exact: true })).toHaveText(short)
   const toRequest = links.getByRole('link', { name: `Запрос одобрения ${approval}` })
   await expect(toRequest).toBeVisible()
   const ground = links.getByRole('button', { name: /^Факт / }).first()
@@ -316,7 +321,7 @@ test.describe('with the Claude observer answering the chat', () => {
       run: claudeRun,
       session: claudeOriginal.session,
       approval: approvalText,
-      reviewerStage,
+      reviewing: await agentOf(page, claudeRun, 'Ping the code-reviewer agent'),
       reviewer: agentsOf(page, claudeOriginal.session).getByRole('listitem', { name: 'code-reviewer', exact: true }),
       collapsed: 'агентов типа «code-reviewer»',
       advance: () => hook.claude('UserPromptSubmit.json', fields),
@@ -411,9 +416,7 @@ test.describe('with the Codex observer answering the chat', () => {
     await played.play({ until: 'child-finished' })
     await opensQuietly(page, run)
     const reviewing = await agentOf(page, run, '/root/reviewer')
-    const stageOf = (id: string): RegExp => new RegExp(`^Этап «.+ \\(${id}\\)»$`)
-    const reviewerStage = stageOf(reviewing.id)
-    await expect(stage(page, stageOf(reviewing.id.slice(0, 8)))).toBeVisible(observed)
+    await expect(stage(page, new RegExp(`^Этап «.+ \\(${reviewing.id.slice(0, 8)}\\)»$`))).toBeVisible(observed)
     await hook.codex('PermissionRequest.json', reviewerRequest(recording))
     const spawned = trace(page).getByRole('list', { name: 'Агенты, запущенные: Основной агент', exact: true })
     const subagent = (path: string): Locator =>
@@ -424,7 +427,7 @@ test.describe('with the Codex observer answering the chat', () => {
       run,
       session: root,
       approval: `Bash: ${codexApproval.command}`,
-      reviewerStage,
+      reviewing,
       reviewer: subagent('/root/reviewer'),
       collapsed: `агентов с именем «${reviewing.name ?? ''}»`,
       untouched: subagent('/root/builder'),

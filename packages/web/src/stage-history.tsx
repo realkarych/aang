@@ -3,6 +3,7 @@ import type { ReactElement } from 'react'
 import { absoluteTime } from './format.js'
 import { BasisLine, Grounds } from './grounds.js'
 import { executionLabel, runtimeLabel } from './labels.js'
+import { fullHint, shortIds } from './short-ids.js'
 import {
   changeAuthorLabel,
   criterionStatusLabel,
@@ -77,8 +78,8 @@ const ChangeItem = ({ change, shared }: { readonly change: ModelChange; readonly
         <span className="change-target">{entityKindLabel[change.target.kind]}</span>
       </p>
       {details.map((detail) => (
-        <p key={detail} className="change-detail">
-          {detail}
+        <p key={detail} className="change-detail" title={fullHint(detail)}>
+          {shortIds(detail)}
         </p>
       ))}
       <Grounds

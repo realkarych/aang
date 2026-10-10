@@ -242,9 +242,11 @@ for (const variant of variants) {
 
       const agent = agentOf(staged, chosen)
       const title = agentStageTitle(agent)
-      await stage(page, titleOnMap(agent)).getByRole('button', { name: titleOnMap(agent), exact: true }).click()
+      const shown = titleOnMap(agent)
+      await stage(page, shown).getByRole('button', { name: shown, exact: true }).click()
       const heading = inspector(page).getByRole('heading', { level: 2 })
-      await expect(heading).toHaveText(title)
+      await expect(heading).toHaveText(shown)
+      await expect(heading).toHaveAttribute('title', title)
       await expect(
         inspector(page)
           .locator('dl > div')
@@ -259,8 +261,10 @@ for (const variant of variants) {
       await expect(heading).toHaveText(mainStageTitle)
       const substages = section(page, 'Связи').getByRole('link', { name: new RegExp(`^${variant.agentType} \\(`) })
       await expect(substages).toHaveCount(variant.delegates.length)
-      await section(page, 'Связи').getByRole('link', { name: title, exact: true }).click()
-      await expect(heading).toHaveText(title)
+      const substage = section(page, 'Связи').getByRole('link', { name: shown, exact: true })
+      await expect(substage).toHaveAttribute('title', title)
+      await substage.click()
+      await expect(heading).toHaveText(shown)
 
       const history = section(page, 'История')
       const assignments = history.getByRole('button', { name: /^Версия \d+, привязка действий: \d+ факт/ })

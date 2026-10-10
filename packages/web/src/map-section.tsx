@@ -4,6 +4,7 @@ import { plural } from './format.js'
 import { HandoverGlyph } from './glyphs.js'
 import { stageForms } from './labels.js'
 import { replaceStage, selectStage, useRoutedStage } from './route.js'
+import { fullHint, shortIds } from './short-ids.js'
 import { type Handover, handoverText, type StageSelection, selectionOf } from './stage-lineage.js'
 import './map.css'
 
@@ -55,17 +56,22 @@ const HandoverNote = ({
 }: {
   readonly handover: Handover | null
   readonly onDismiss: () => void
-}): ReactElement => (
-  <div className="map-handover" data-shown={handover !== null}>
-    {handover === null ? null : <HandoverGlyph />}
-    <p role="status">{handover === null ? null : handoverText(handover)}</p>
-    {handover === null ? null : (
-      <button type="button" className="map-dismiss" onClick={onDismiss}>
-        Скрыть
-      </button>
-    )}
-  </div>
-)
+}): ReactElement => {
+  const text = handover === null ? null : handoverText(handover)
+  return (
+    <div className="map-handover" data-shown={handover !== null}>
+      {handover === null ? null : <HandoverGlyph />}
+      <p role="status" title={text === null ? undefined : fullHint(text)}>
+        {text === null ? null : shortIds(text)}
+      </p>
+      {handover === null ? null : (
+        <button type="button" className="map-dismiss" onClick={onDismiss}>
+          Скрыть
+        </button>
+      )}
+    </div>
+  )
+}
 
 export const MapSection = ({
   snapshot,

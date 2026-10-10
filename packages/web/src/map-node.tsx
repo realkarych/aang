@@ -13,7 +13,8 @@ import {
   stageOriginLabel,
   substageForms,
 } from './labels.js'
-import { type EdgeKind, type MapStage, mapTitle } from './map-graph.js'
+import type { EdgeKind, MapStage } from './map-graph.js'
+import { shortIds } from './short-ids.js'
 import { detailLevelLabel, totalsText } from './view-labels.js'
 
 export type Selection = 'self' | 'inside' | 'none'
@@ -61,7 +62,7 @@ const StageCard = ({ node, view, open, card, selection, onToggle, onSelect }: St
   const { stage, children, actions, agents } = node
   const team = agents.map(agentLabel).join(', ')
   const selected = selection === 'self'
-  const title = mapTitle(stage.title)
+  const title = shortIds(stage.title)
   return (
     <article
       className="stage-card"

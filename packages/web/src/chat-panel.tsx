@@ -43,6 +43,7 @@ import { mapHeading, type StageChoice } from './map-section.js'
 import { Moment } from './moment.js'
 import { factPlace, placeOf } from './objects.js'
 import { isPlainClick, runHref } from './route.js'
+import { fullHint, ShortIds, shortIds, StageName } from './short-ids.js'
 import type { ChatHistory } from './use-run-feed.js'
 import { ruleText } from './view-labels.js'
 import './chat.css'
@@ -64,7 +65,7 @@ interface CiteContext {
 }
 
 const stageTitle = (stages: readonly Stage[], id: Stage['id']): string =>
-  `«${stages.find((stage) => stage.id === id)?.title ?? id}»`
+  stages.find((stage) => stage.id === id)?.title ?? id
 
 const Disclosure = ({
   label,
@@ -121,7 +122,9 @@ const StageCite = ({ id, context }: { readonly id: Stage['id']; readonly context
       }}
     >
       <CiteKind label={citationKindLabel.stage} />
-      <span className="cite-text">{stageTitle(snapshot.model.stages, id)}</span>
+      <span className="cite-text">
+        <StageName title={stageTitle(snapshot.model.stages, id)} />
+      </span>
       {revision === null ? null : <span className="cite-note">{` ${stageRevisionLabel[revision]}`}</span>}
     </a>
   )
@@ -335,13 +338,17 @@ const RuleNote = ({
     return null
   }
   const applied = snapshot.view.rules.find(({ rule }) => rule.id === message.view_rule)
-  return applied === undefined ? (
-    <p className="chat-rule" data-applied="false">
-      Правило вида из этого ответа отменено.
-    </p>
-  ) : (
-    <p className="chat-rule" data-applied="true">
-      {`Правило вида применено: ${ruleText(applied.rule, snapshot.model.stages)}. Отменить его можно в списке правил.`}
+  if (applied === undefined) {
+    return (
+      <p className="chat-rule" data-applied="false">
+        Правило вида из этого ответа отменено.
+      </p>
+    )
+  }
+  const text = ruleText(applied.rule, snapshot.model.stages)
+  return (
+    <p className="chat-rule" data-applied="true" title={fullHint(text)}>
+      {`Правило вида применено: ${shortIds(text)}. Отменить его можно в списке правил.`}
     </p>
   )
 }
@@ -368,7 +375,9 @@ const Reply = ({ message, context }: { readonly message: ChatMessage; readonly c
     case 'answered':
       return (
         <div className="chat-reply">
-          <p className="chat-answer">{message.answer ?? 'Наблюдатель не нашёл ответа в данных прогона.'}</p>
+          <p className="chat-answer">
+            {message.answer === null ? 'Наблюдатель не нашёл ответа в данных прогона.' : <ShortIds text={message.answer} />}
+          </p>
           {message.insufficient_data || message.unconfirmed_citations ? (
             <ul className="chat-flags">
               {message.insufficient_data ? <Flag>недостаточно данных</Flag> : null}
@@ -389,9 +398,14 @@ const Entry = ({ message, context }: { readonly message: ChatMessage; readonly c
       <p className="chat-question">{message.question}</p>
       <p className="chat-meta">
         <span>
-          {message.stage === null
-            ? 'по всему прогону'
-            : `по этапу ${stageTitle(context.snapshot.model.stages, message.stage)}`}
+          {message.stage === null ? (
+            'по всему прогону'
+          ) : (
+            <>
+              {'по этапу '}
+              <StageName title={stageTitle(context.snapshot.model.stages, message.stage)} />
+            </>
+          )}
         </span>
         <Moment at={message.asked_at} now={context.now} />
       </p>
@@ -469,7 +483,9 @@ const AskForm = ({
             'Вопрос по всему прогону. Выберите этап на карте, чтобы сузить вопрос до него.'
           ) : (
             <>
-              {`Вопрос по этапу «${stage.title}». `}
+              {'Вопрос по этапу '}
+              <StageName title={stage.title} />
+              {'. '}
               <button
                 type="button"
                 className="text-button"

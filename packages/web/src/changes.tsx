@@ -18,7 +18,7 @@ import type {
   StageTransition,
   ViewMark,
 } from '@aang/contract'
-import { type ReactElement, type ReactNode, useId } from 'react'
+import { Fragment, type ReactElement, type ReactNode, useId } from 'react'
 import { DecisionBadge, ExecutionBadge } from './badges.js'
 import { plural } from './format.js'
 import { AttentionGlyph, type ChangeKind, ChangeGlyph, CriterionGlyph } from './glyphs.js'
@@ -35,6 +35,7 @@ import { LongText } from './long-text.js'
 import { Moment } from './moment.js'
 import { agentTitle, attentionPlace, placeOf } from './objects.js'
 import { isPlan, newestFirst, PlanUpdate } from './plan-facts.js'
+import { StageName } from './short-ids.js'
 
 interface Context {
   readonly run: RunId
@@ -86,10 +87,19 @@ const Section = ({ title, children }: { readonly title: string; readonly childre
   )
 }
 
-const stageName = (context: Context, id: StageId): string => {
-  const stage = context.stages.get(id)
-  return stage === undefined ? 'этап без названия' : `«${stage.title}»`
-}
+const StageNames = ({ ids, context }: { readonly ids: readonly StageId[]; readonly context: Context }): ReactElement => (
+  <>
+    {ids.map((id, index) => {
+      const stage = context.stages.get(id)
+      return (
+        <Fragment key={id}>
+          {index === 0 ? null : ', '}
+          {stage === undefined ? 'этап без названия' : <StageName title={stage.title} />}
+        </Fragment>
+      )
+    })}
+  </>
+)
 
 const AttentionChange = ({
   item,
@@ -186,9 +196,11 @@ const RevisedStage = ({
     <li className="change-item" data-change={change}>
       <Mark change={change} label={label} />
       <div className="change-body">
-        <p className="change-title">Этап «{after.title}»</p>
+        <p className="change-title">
+          Этап <StageName title={after.title} />
+        </p>
         <p className="change-line">
-          {by} {successors(lifecycle).map((id) => stageName(context, id)).join(', ')}
+          {by} <StageNames ids={successors(lifecycle)} context={context} />
         </p>
         <JournalGrounds
           key={journalKey(transition.changes)}
@@ -330,9 +342,9 @@ const StageChange = ({
       <div className="change-body">
         <p className="change-title">
           {renamed ? (
-            <Transition before={<span>«{before.title}»</span>} after={<span>«{after.title}»</span>} />
+            <Transition before={<StageName title={before.title} />} after={<StageName title={after.title} />} />
           ) : (
-            <span>«{after.title}»</span>
+            <StageName title={after.title} />
           )}
         </p>
         <p className="change-line">
@@ -359,7 +371,7 @@ const CardChange = ({ card, context }: { readonly card: Card; readonly context: 
       {card.stages.length === 0 ? null : (
         <p className="change-meta">
           <span>
-            {card.stages.length === 1 ? 'этап' : 'этапы'} {card.stages.map((id) => stageName(context, id)).join(', ')}
+            {card.stages.length === 1 ? 'этап' : 'этапы'} <StageNames ids={card.stages} context={context} />
           </span>
         </p>
       )}

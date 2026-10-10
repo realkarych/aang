@@ -22,6 +22,7 @@ import { LevelGlyph } from './glyphs.js'
 import { runtimeLabel } from './labels.js'
 import { type UsagePeriod, usageHref, usagePeriods, useNavigate } from './route.js'
 import { runTitle, untitledRun } from './run-list.js'
+import { fullHint, shortIds } from './short-ids.js'
 import './usage.css'
 
 type Amounts = UsageTotals | UsageRate
@@ -518,9 +519,10 @@ const StageUsage = ({ usage, snapshot }: { readonly usage: RunUsage; readonly sn
             </tr>
           </thead>
           <tbody>
-            {stages.map(({ stage, totals }) => (
-              <StageRow key={stage} name={titles.get(stage) ?? 'Этап снят с карты'} totals={totals} />
-            ))}
+            {stages.map(({ stage, totals }) => {
+              const title = titles.get(stage) ?? 'Этап снят с карты'
+              return <StageRow key={stage} name={<span title={fullHint(title)}>{shortIds(title)}</span>} totals={totals} />
+            })}
             <StageRow name={<span className="quiet">Не привязано к этапам</span>} totals={unassigned} />
           </tbody>
         </table>
