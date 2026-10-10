@@ -22,7 +22,7 @@ import { applyChangeSet, createEngine } from '@aang/engine'
 import { openStore } from '@aang/store'
 import { type Profile, type RunningDaemon, sampleScenarioManifest } from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { aangEntry, expect, test } from './fixtures.js'
+import { aangEntry, expect, getWithoutKeepAlive, test } from './fixtures.js'
 
 const originalSession = '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef'
 const forkSession = 'cdfb3544-67c1-4590-a4d9-280593b6ed55'
@@ -67,13 +67,16 @@ const unsettledSource =
 test.use({ config: watchAll })
 
 const reportOf = async (request: APIRequestContext, run?: RunId): Promise<UsageReport> => {
-  const response = await request.get(`${endpoints.usage.path}${run === undefined ? '' : `?run=${run}`}`)
+  const response = await getWithoutKeepAlive(
+    request,
+    `${endpoints.usage.path}${run === undefined ? '' : `?run=${run}`}`,
+  )
   expect(response.status(), await response.text()).toBe(200)
   return endpoints.usage.response.parse(await response.json())
 }
 
 const surfacesOf = async (request: APIRequestContext, run: RunId): Promise<(SurfaceClaim | null)[] | null> => {
-  const response = await request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(request, endpoints.run.path.replace(':run', run))
   return response.ok()
     ? endpoints.run.response.parse(await response.json()).objects.sessions.map(({ surface }) => surface)
     : null

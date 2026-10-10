@@ -11,7 +11,7 @@ import {
   type PlayerStep,
 } from '@aang/testkit'
 import type { APIRequestContext, Page } from '@playwright/test'
-import { type AangFixtures, expect, type PlayerSettings, test } from './fixtures.js'
+import { type AangFixtures, expect, getWithoutKeepAlive, type PlayerSettings, test } from './fixtures.js'
 import { variantRecording } from './recordings.js'
 import { change, mark, markButton, since, sinceTab } from './screens.js'
 import { afterIterationVariants, skippedHere, type SurfaceVariant } from './variants.js'
@@ -87,7 +87,7 @@ const markedBefore = (manifest: LoadedManifest, tool: string): LoadedManifest =>
 }
 
 const snapshotOf = async (request: APIRequestContext, run: RunId): Promise<RunSnapshot | null> => {
-  const response = await request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(request, endpoints.run.path.replace(':run', run))
   return response.status() === 200 ? endpoints.run.response.parse(await response.json()) : null
 }
 

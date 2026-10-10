@@ -15,7 +15,7 @@ import {
   sampleScenarioManifest,
 } from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { aangEntry, expect, test } from './fixtures.js'
+import { aangEntry, expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { freshManifest } from './fresh.js'
 import { claudeOriginal, hookFields } from './samples.js'
 import { step, strip, trace } from './screens.js'
@@ -26,7 +26,7 @@ const claudeRun = runId({ kind: 'session', runtime: 'claude', session: claudeSes
 test.use({ config: { watch: { all: true } } })
 
 const snapshotOf = async (request: APIRequestContext, run: RunId): Promise<RunSnapshot | null> => {
-  const response = await request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(request, endpoints.run.path.replace(':run', run))
   return response.ok() ? endpoints.run.response.parse(await response.json()) : null
 }
 
@@ -374,7 +374,7 @@ const transcriptOf = (profile: Profile, project: string, session: string): Trans
 }
 
 const snapshotRecords = async (request: APIRequestContext, seq = 1): Promise<number> => {
-  const response = await request.get(endpoints.raw.path.replace(':seq', String(seq)))
+  const response = await getWithoutKeepAlive(request, endpoints.raw.path.replace(':seq', String(seq)))
   if (!response.ok()) {
     return 0
   }
@@ -609,7 +609,10 @@ const reportTranscript = async (profile: Profile, session: string, marker: strin
 }
 
 const inspectedStage = async (request: APIRequestContext, run: RunId, stage: StageId): Promise<StageInspector> => {
-  const response = await request.get(endpoints.stage.path.replace(':run', run).replace(':stage', stage))
+  const response = await getWithoutKeepAlive(
+    request,
+    endpoints.stage.path.replace(':run', run).replace(':stage', stage),
+  )
   expect(response.ok()).toBe(true)
   return endpoints.stage.response.parse(await response.json())
 }
@@ -705,7 +708,7 @@ test.describe('a database replaced under the open inspector', () => {
       expect(after?.model.stages).toEqual([])
       expect(after?.change_seq).toBeLessThan(before.change_seq)
       const stagePath = endpoints.stage.path.replace(':run', transcript.run).replace(':stage', main)
-      expect((await page.request.get(stagePath)).status()).toBe(404)
+      expect((await getWithoutKeepAlive(page.request, stagePath)).status()).toBe(404)
       const offline = reads.length
 
       await context.setOffline(false)

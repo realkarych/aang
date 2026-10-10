@@ -11,7 +11,7 @@ import {
 import { aangHomePaths } from '@aang/contract/home'
 import { loadManifest, type Profile, type RunningDaemon, sampleScenarioManifest } from '@aang/testkit'
 import type { APIRequestContext } from '@playwright/test'
-import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
+import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { claudeFork, claudeOriginal, hookFields, runOf, sessionFile } from './samples.js'
 import { change, fact, lamp, mark, markButton, runRowOf, since, sinceTab, stepsOf, zone, zoneItem } from './screens.js'
 
@@ -63,7 +63,7 @@ const trackedHooks = (hook: HookSamples): SentHooks => {
 }
 
 const snapshotOf = async (request: APIRequestContext): Promise<RunSnapshot> => {
-  const response = await request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(request, endpoints.run.path.replace(':run', run))
   expect(response.status(), await response.text()).toBe(200)
   return endpoints.run.response.parse(await response.json())
 }
@@ -102,7 +102,7 @@ const createRule = async (daemon: RunningDaemon, spec: ViewRuleSpec): Promise<Ap
 const rawRecords = async (request: APIRequestContext): Promise<RawRecord[]> => {
   const records: RawRecord[] = []
   for (let seq = 1; ; seq += 1) {
-    const response = await request.get(endpoints.raw.path.replace(':seq', String(seq)))
+    const response = await getWithoutKeepAlive(request, endpoints.raw.path.replace(':seq', String(seq)))
     if (response.status() === 404) {
       return records
     }

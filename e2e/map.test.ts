@@ -16,7 +16,7 @@ import {
   splitStageTitles,
 } from '@aang/testkit'
 import type { Locator, Page } from '@playwright/test'
-import { expect, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 import { claudeGoal } from './samples.js'
 
 const claudeRun = runId({ kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' })
@@ -149,7 +149,7 @@ const withInstantCall = async (directory: string, call: string): Promise<string>
 }
 
 const snapshotOf = async (page: Page, run: RunId): Promise<RunSnapshot> => {
-  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
   expect(response.status()).toBe(200)
   return endpoints.run.response.parse(await response.json())
 }

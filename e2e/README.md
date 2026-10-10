@@ -5,14 +5,17 @@ E2E идут в Playwright поверх собранного демона (`pack
 ```ts
 import { endpoints } from '@aang/contract'
 import { sampleScenarioManifest } from '@aang/testkit'
-import { expect, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 
 test.use({ config: { watch: { all: true } } })
 
 test('прогон из образца виден в API', async ({ player, page }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await expect
-    .poll(async () => endpoints.runs.response.parse(await (await page.request.get('/api/runs')).json()).runs.length)
+    .poll(async () => {
+      const response = await getWithoutKeepAlive(page.request, '/api/runs')
+      return endpoints.runs.response.parse(await response.json()).runs.length
+    })
     .toBe(1)
 })
 ```
@@ -43,6 +46,7 @@ test('прогон из образца виден в API', async ({ player, page
 | `claudeScenario`, `codexScenario` | `{}` | сценарии поддельных CLI |
 | `signedIn` | `true` | `false` оставляет `context` и `page` анонимными |
 
+- Запросы через `APIRequestContext` (`page.request`, `context.request`, анонимный `request`) тесты отправляют функцией `getWithoutKeepAlive(request, url, options)` из `fixtures.ts`, и вход фикстуры `context` идёт через неё же. Она шлёт GET с `Connection: close`: у каждого запроса своё соединение, и демон закрывает его после ответа. Playwright держит простаивающие соединения `APIRequestContext` в пуле без срока и не учитывает подсказку демона `Keep-Alive: timeout=5`, а демон, как любой `http.Server` Node, закрывает простаивающее соединение через 6 с (`keepAliveTimeout` 5 с и запас 1 с). Запрос, отправленный в такое соединение около этого момента, демон не прочитает и сбросит, и тест упадёт с `read ECONNRESET`; если цикл событий демона в это время занят приёмом записей, окно шире. Один прямой вызов кладёт соединение в пул контекста, и следующий запрос может его взять, поэтому ESLint запрещает в `e2e` вызывать `get`, `post` и другие методы запроса у `request` напрямую.
 - Перезапуск демона: `daemon.stop()` штатно или `daemon.kill()` — SIGKILL (`TerminateProcess` на Windows); тогда фикстура после теста его не останавливает. Новый демон запускает `profile.startDaemon({ entry: aangEntry })` после `profile.configure` с тем же конфигом и `api.port` прежнего демона: открытая страница переподключается к тому же адресу. Перезапущенный демон тест останавливает сам.
 - `recordTime: 'playback'` сдвигает время в файлах сессии на целое число секунд: первая отметка записи ложится в последнюю секунду до создания проигрывателя. Hook-события получают настоящее время приёма. Если hook-процессы раннера медленнее эталонных (так бывает на Windows), строка файла, записанная в эталоне через секунду после hook-события, может получить время раньше него. Так E2E 8 терял связь запроса одобрения с вызовом: вывод команды в rollout оказывался раньше запроса из hook, вызов считался завершённым до запроса, и решение из OTel ни к чему не привязывалось. Когда проверка требует, чтобы файлы второй части записи шли после hook-событий первой, вторую часть играет отдельный проигрыватель `startingAt(manifest, label)` с `recordTime: { startsAt: Date.now() + 1000 }`: его первая отметка ложится в ближайшую секунду после текущего момента.
 - Обход корней рантаймов ускорен: `collector.rootsScanIntervalMs` — 250 мс, если тест не задал свой. Корней в свежем профиле ещё нет, и появившийся корень демон замечает по watch ближайшего существующего родителя (ADR-0004, решение 15). Watch — только сигнал, и ускоренный обход не даёт пропущенному уведомлению задержать тест на минуту.
