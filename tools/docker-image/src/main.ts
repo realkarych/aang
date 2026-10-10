@@ -25,7 +25,11 @@ const play = async (manifest: string): Promise<void> => {
     timeScale: 0,
     hook: { binary: 'aang-hook', spool: aangHomePaths(aangHome).spool },
   })
-  await player.play()
+  try {
+    await player.play()
+  } finally {
+    await player.close()
+  }
 }
 
 const [command, first, second, ...extra] = parseArgs({ allowPositionals: true, strict: true }).positionals

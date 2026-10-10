@@ -916,8 +916,9 @@ Each question yields three independent values:
     `requested`.
 - The attention item keeps `runtime_wait` and `resolution` apart:
   - `permission` waits until it is decided (`answered`) or until the turn of its
-    agent ends, a new turn or human prompt starts, the agent ends or the session
-    ends (`ended_without_answer`);
+    agent ends, a new turn or human prompt starts, the agent ends, the session
+    ends or its Claude process exits (`ended_without_answer`, see
+    [Exited session processes](#exited-session-processes));
   - a rule `question` is closed only by a correlated answer. A new prompt, the
     end of the turn or of the session only end the runtime wait, so the item
     stays open after the session. Asynchronous Codex questions never wait;
@@ -928,6 +929,38 @@ Rule fields never touch `likely_resolved` and `priority`, which belong to the
 observer. Dismissal by the user is view state (`AttentionView.dismissed_at`) and
 is not part of the item. Notifications other than requests for input
 (`idle_prompt`, `permission_prompt`) open no item.
+
+## Exited session processes
+
+A Claude adapter `process_exited` fact says that the process of a registry file
+`<claude>/sessions/<pid>.json` was found gone while the file was still there
+(ADR-0004, decision 13). Its time is the moment the collector found it; its
+payload carries the pid, the path and `started_at` from the entry's `startedAt`.
+
+The session projection derives each exit's boundary from the session's own
+evidence. A sign of a process is a registry entry, a hook with a `CLAUDE_PID` in
+its spool header, or the `started_at` of an exit of that pid; the time an exit
+was found is not a sign of any process. A process starts at its earliest sign.
+The next process is the earliest start of another pid after the exited process
+started, so the late signs of an older process, such as its own exit found
+after a resume, never count as a newer one. The boundary is the exit time, or
+the next process if it came earlier.
+
+- When no other process appeared before the exit was found, the exit is current:
+  the session becomes `unknown` with `unknown` execution at the exit time,
+  unless it had already ended. Later facts, such as a new launch, apply as usual.
+  An exit found after a newer process appeared does not change the session.
+- An action that started before the boundary and has no end, denial or batch
+  end gets the outcome `unknown` with the observed basis of the exit fact and
+  ends at the exit time; it is never shown as failed. A finished action keeps
+  its outcome.
+- A subagent that started before the boundary and has no end gets `unknown`
+  execution.
+- A blocking wait opened before the boundary ends at the exit, as at the end of
+  the session.
+
+Codex has no registry and no such facts. The functional cases are in
+`test/session-process.test.ts`.
 
 ## Reparse
 

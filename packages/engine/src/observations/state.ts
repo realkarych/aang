@@ -23,7 +23,8 @@ const priority = ({ fact }: Evidence): number => {
     case 'question_asked': return 4
     case 'question_answered': return 5
     case 'turn_end': return 7
-    case 'session_end': return 8
+    case 'session_end':
+    case 'process_exited': return 8
     default: return 6
   }
 }
@@ -161,6 +162,13 @@ export const turnState = (items: readonly Evidence[], all: readonly Evidence[] =
       case 'session_end':
         status = { state: 'ended', execution: { state: 'done' } }
         waits.clear()
+        background.clear()
+        break
+      case 'process_exited':
+        if (status.state === 'ended') { break }
+        status = { state: 'unknown', execution: { state: 'unknown' } }
+        waits.clear()
+        calls.clear()
         background.clear()
         break
     }

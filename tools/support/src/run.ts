@@ -61,11 +61,11 @@ export const passed = (check: RecordingCheck): boolean => check.violations.lengt
 export const checkRecording = async (recording: Recording, options: ContractRunOptions): Promise<RecordingCheck> => {
   await verifyRecording(recording.directory)
   const manifest = await loadManifest(join(recording.directory, 'playback.json'))
-  const { store, roots, restarts, shift } = await playRecording(manifest, { hookBinary: options.hookBinary, recorded: recordedTimes(recording.manifest) })
+  const { store, roots, restarts, shift, recordedPids } = await playRecording(manifest, { hookBinary: options.hookBinary, recorded: recordedTimes(recording.manifest) })
   try {
     return {
       recording,
-      snapshot: `${JSON.stringify(takeSnapshot(store, roots.base, shift), null, 2)}\n`,
+      snapshot: `${JSON.stringify(takeSnapshot(store, roots.base, { recordedPids, shift }), null, 2)}\n`,
       expected: await readOptional(snapshotFile(options.support, recording)),
       violations: [...(recording.manifest.scenario === reconnectScenario && restarts === 0 ? [notRestarted] : []), ...invariantViolations(store)],
       restarts,

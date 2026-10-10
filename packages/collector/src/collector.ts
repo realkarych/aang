@@ -67,7 +67,10 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
     wakeup,
   )
   const otel = createOtelReceiver(options.spool, wakeup)
-  const snapshots = createSnapshotSource({ roots: roots.snapshots, retrier }, wakeup)
+  const snapshots = createSnapshotSource(
+    { roots: roots.snapshots, retrier, processCheckIntervalMs: collector.processCheckIntervalMs },
+    wakeup,
+  )
   const tail = createTailSource({
     roots: roots.tail,
     retrier,
@@ -120,6 +123,7 @@ export const createCollector = (options: CollectorOptions): CollectorService => 
       await spool.open()
       await otel.open()
       tail.open(cursors, options.openGaps ?? [])
+      snapshots.open()
       tree.open()
       while (running()) {
         if (pause !== null) {

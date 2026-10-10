@@ -86,7 +86,13 @@ interface Canonicalizer {
 
 const escapeRegExp = (text: string): string => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
-const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canonicalizer => {
+const registryEntry = /(sessions[\\/]+)(\d+)(\.json)/g
+
+const createCanonicalizer = (
+  base: string,
+  spoolNames: readonly string[],
+  recordedPids: ReadonlyMap<number, number>,
+): Canonicalizer => {
   const labels = new Map<string, string>()
   const spoolLabels = new Map(spoolNames.map((name, index) => [name, `spool#${String(index + 1)}`]))
   const spoolPattern = spoolNames.length === 0 ? null : new RegExp(spoolNames.map(escapeRegExp).join('|'), 'g')
@@ -96,6 +102,10 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
 
   const stable = (value: string): string => {
     let result = spoolPattern === null ? value : value.replace(spoolPattern, (name) => spoolLabels.get(name) ?? name)
+    result = result.replace(registryEntry, (entry, directory: string, pid: string, extension: string) => {
+      const recorded = recordedPids.get(Number(pid))
+      return recorded === undefined ? entry : `${directory}${String(recorded)}${extension}`
+    })
     for (const pattern of basePatterns) {
       result = result.replace(pattern, (_, rest: string) => `<base>${rest.replace(/[\\/]+/g, '/')}`)
     }
@@ -165,6 +175,14 @@ const createCanonicalizer = (base: string, spoolNames: readonly string[]): Canon
 const spoolNamesOf = (records: readonly RawRecord[]): string[] =>
   records.flatMap((record) => (record.position.kind === 'spool' ? [record.position.file] : []))
 
+const withRecordedPid = (fact: Fact, recordedPids: ReadonlyMap<number, number>): Fact => {
+  if (fact.kind === 'json_snapshot' && fact.payload.file === 'registry' && fact.payload.content !== null) {
+    const { content } = fact.payload
+    return { ...fact, payload: { ...fact.payload, content: { ...content, pid: recordedPids.get(content.pid) ?? content.pid } } }
+  }
+  return fact
+}
+
 const factView = ({ id, kind, entity_key, speaker, urgent, at, runtime_ids, runtime_env, format_verified, redelivery_key, payload }: Fact) => ({
   id,
   kind,
@@ -181,11 +199,11 @@ const factView = ({ id, kind, entity_key, speaker, urgent, at, runtime_ids, runt
 
 const byKey = (item: unknown): unknown => (isObject(item) ? item.key : undefined)
 
-const snapshotOf = (store: Store, base: string): ContractSnapshot => {
+const snapshotOf = (store: Store, base: string, recordedPids: ReadonlyMap<number, number>): ContractSnapshot => {
   const changes = store.changes.after(ChangeSeq.parse(0), everything)
   const records = changes.flatMap((change) => (change.layer === 'raw_record' ? [change.record] : []))
-  const facts = changes.flatMap((change) => (change.layer === 'fact' ? [change.fact] : []))
-  const { value, sorted } = createCanonicalizer(base, spoolNamesOf(records))
+  const facts = changes.flatMap((change) => (change.layer === 'fact' ? [withRecordedPid(change.fact, recordedPids)] : []))
+  const { value, sorted } = createCanonicalizer(base, spoolNamesOf(records), recordedPids)
   const sessions = store.observations.sessions()
   const ofSessions = <T>(read: (session: (typeof sessions)[number]['id']) => T[]): T[] =>
     sessions.flatMap(({ id }) => read(id))
@@ -217,5 +235,10 @@ const recordedContent = (snapshot: ContractSnapshot, { ms, from, to, kept }: Rec
     ? snapshot
     : (JSON.parse(shifted(Buffer.from(JSON.stringify(snapshot)), { ms: -ms, from: from + ms, to: to + ms, kept }).toString()) as ContractSnapshot)
 
-export const takeSnapshot = (store: Store, base: string, shift: RecordShift = unshifted): ContractSnapshot =>
-  recordedContent(snapshotOf(store, base), shift)
+export interface SnapshotPlayback {
+  readonly recordedPids?: ReadonlyMap<number, number>
+  readonly shift?: RecordShift
+}
+
+export const takeSnapshot = (store: Store, base: string, { recordedPids = new Map(), shift = unshifted }: SnapshotPlayback = {}): ContractSnapshot =>
+  recordedContent(snapshotOf(store, base, recordedPids), shift)

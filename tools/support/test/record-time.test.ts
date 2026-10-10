@@ -54,7 +54,7 @@ const play = async ({ manifest, recorded }: Reference, edit: (text: string) => s
   return played
 }
 
-const recordedSnapshot = ({ store, roots, shift }: Played): unknown => takeSnapshot(store, roots.base, shift)
+const recordedSnapshot = (played: Played): unknown => takeSnapshot(played.store, played.roots.base, played)
 
 const payloadsOf = (snapshot: unknown, kind: string): Readonly<Record<string, unknown>>[] =>
   (snapshot as Snapshot).facts.filter((fact) => fact.kind === kind).map(({ payload }) => payload)
