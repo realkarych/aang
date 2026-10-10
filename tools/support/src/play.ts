@@ -35,6 +35,7 @@ export interface RecordedTimes {
 export interface PlayOptions {
   readonly hookBinary: string
   readonly recorded: RecordedTimes
+  readonly startsAt?: number
   readonly stepTimeoutMs?: number
 }
 
@@ -263,7 +264,7 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
   await leaseSpool(spool)
   const observed: Observed = { otel: 0, reads: new Map(), offsets: new Map(), streams: new Map(), files: new Map(), lost: new Set() }
   const state = { failure: null as Error | null }
-  const startsAt = Date.now()
+  const startsAt = options.startsAt ?? Date.now()
   const shift = playbackShift(manifest.sources.values(), startsAt)
   const shiftNs = BigInt(shift.to === 0 ? wholeSeconds(startsAt - options.recorded.startedAt) : shift.ms) * nanosecondsPerMs
   const stepTime = (step: PlayerStep): bigint => BigInt(options.recorded.startedAt + step.at) * nanosecondsPerMs + shiftNs
