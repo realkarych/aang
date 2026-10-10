@@ -34,6 +34,7 @@ export interface Settings {
   readonly fsWatch?: boolean
   readonly spoolScanIntervalMs?: number
   readonly rootsScanIntervalMs?: number
+  readonly processCheckIntervalMs?: number
   readonly maxAgeDays?: number
   readonly readRetry?: ReadRetry
   readonly cursors?: readonly FileCursor[]
@@ -93,6 +94,7 @@ export const prepareCollector = (sandbox: Sandbox, settings: Settings = {}): Col
       fsWatch: settings.fsWatch ?? true,
       spoolScanIntervalMs: settings.spoolScanIntervalMs ?? 5_000,
       rootsScanIntervalMs: settings.rootsScanIntervalMs ?? 60_000,
+      processCheckIntervalMs: settings.processCheckIntervalMs ?? 60_000,
     },
     spool: { maxAgeDays: settings.maxAgeDays ?? 7 },
   })

@@ -78,17 +78,22 @@ export const writeLines = async (path: string, lines: readonly string[]): Promis
 export const appendLines = (path: string, lines: readonly string[]): Promise<void> =>
   appendFile(path, `${lines.join('\n')}\n`)
 
+export interface LiveSettings {
+  readonly readRetry?: ReadRetry
+  readonly processCheckIntervalMs?: number
+}
+
 export const runLive = (
   register: Register,
   roots: LiveRoots,
   store: Store,
   engine: Engine,
-  readRetry?: ReadRetry,
+  { readRetry, processCheckIntervalMs }: LiveSettings = {},
 ): Live => {
   const collector = createCollector({
     spool: roots.spool,
     runtimeRoots: { claude: roots.claude, codex: roots.codex },
-    config: Config.parse({ collector: { spoolScanIntervalMs: 50, rootsScanIntervalMs: 50 } }),
+    config: Config.parse({ collector: { spoolScanIntervalMs: 50, rootsScanIntervalMs: 50, processCheckIntervalMs } }),
     adapters,
     openGaps: gapsOf(store).filter((gap) => gap.closed_at === null),
     ...(readRetry === undefined ? {} : { readRetry }),

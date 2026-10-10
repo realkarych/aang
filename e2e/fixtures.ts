@@ -197,13 +197,17 @@ export const test = base.extend<AangOptions & AangFixtures>({
   },
 
   player: async ({ profile }, use) => {
-    await use(async (manifest, settings = {}) =>
-      createPlayer(typeof manifest === 'string' ? await loadManifest(manifest) : manifest, {
+    const players: Player[] = []
+    await use(async (manifest, settings = {}) => {
+      const player = createPlayer(typeof manifest === 'string' ? await loadManifest(manifest) : manifest, {
         ...settings,
         roots: { home: profile.home, claude: profile.claude, codex: profile.codex },
         hook: { binary: hookBinary, spool: profile.spool, env: profile.env },
-      }),
-    )
+      })
+      players.push(player)
+      return player
+    })
+    await Promise.all(players.map((player) => player.close()))
   },
 
   otelEndpoint: async ({ daemon }, use) => {

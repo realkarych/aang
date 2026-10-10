@@ -71,7 +71,7 @@ export const owner = (record: CollectedRecord): RecordOwner | null => {
   if (record.channel === 'hook') {
     return hookOwner(record)
   }
-  if (record.channel === 'registry' && record.position.kind === 'file') {
+  if (record.channel === 'registry' && (record.position.kind === 'file' || record.position.kind === 'process_exited')) {
     const payload = parseJson(record.payload)
     const session = stringField(payload, 'sessionId')
     return session === null ? null : {

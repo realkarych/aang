@@ -111,7 +111,7 @@ test.for(['available', 'still missing'] as const)('a persisted attachment read f
   await writeLines(join(roots.claude, 'projects', '-work', 'session-1.jsonl'), [bashResult(path, home.path)])
   const readRetry = { pauseMs: 10, gapAfterMs: 30 }
   const store = home.open()
-  const first = runLive(onTestFinished, roots, store, startEngine(store, { all: true }), readRetry)
+  const first = runLive(onTestFinished, roots, store, startEngine(store, { all: true }), { readRetry })
   await vi.waitFor(() => { expect(factsOf(store).some(({ kind }) => kind === 'action_end')).toBe(true) })
   first.requestAttachment(persistedOutputPath(store), stream)
   await vi.waitFor(() => { expect(readFailuresOf(store)).toHaveLength(1) })
@@ -127,7 +127,7 @@ test.for(['available', 'still missing'] as const)('a persisted attachment read f
     await writeFile(path, 'recovered output')
   }
   const reopened = home.open()
-  const second = runLive(onTestFinished, roots, reopened, startEngine(reopened, { all: true }), readRetry)
+  const second = runLive(onTestFinished, roots, reopened, startEngine(reopened, { all: true }), { readRetry })
   await sleep(200)
   expect(attachmentsOf(reopened)).toEqual([])
   expect(reopened.gaps.get(opened.id)).toEqual(opened)

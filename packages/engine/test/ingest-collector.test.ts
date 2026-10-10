@@ -111,8 +111,7 @@ describe('a read failure reported by the real collector after the scope is decid
     const path = claudeFile(roots, 's-locked.jsonl')
     await writeLines(path, lines.slice(0, 50))
     const live = runLive(onTestFinished, roots, store, startEngine(store, { roots: [workspace.repository] }), {
-      pauseMs: 20,
-      gapAfterMs: 200,
+      readRetry: { pauseMs: 20, gapAfterMs: 200 },
     })
     await vi.waitFor(() => {
       expect(store.cursors.list()[0]?.line).toBe(50)

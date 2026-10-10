@@ -18,7 +18,7 @@ import {
 import { contentHash } from '@aang/contract/ids'
 import { createEngine } from '@aang/engine'
 import { openStore, type Store } from '@aang/store'
-import { createPlayer, leaseSpool, type LoadedManifest, type PlayerStep, type Target } from '@aang/testkit'
+import { createPlayer, leaseSpool, type LoadedManifest, type Player, type PlayerStep, type Target } from '@aang/testkit'
 
 export const adapters: AdapterRegistry = new Map<Runtime, Adapter>([
   ['claude', claudeAdapter],
@@ -41,6 +41,7 @@ export interface Played {
   readonly store: Store
   readonly roots: PlaybackRoots
   readonly restarts: number
+  readonly recordedPids: ReadonlyMap<number, number>
 }
 
 interface Ingestion {
@@ -220,7 +221,7 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
   const spool = join(roots.base, 'spool')
   await leaseSpool(spool)
   const observed: Observed = { otel: 0, reads: new Map(), offsets: new Map(), streams: new Map(), files: new Map(), lost: new Set() }
-  const state = { failure: null as Error | null }
+  const state = { failure: null as Error | null, player: null as Player | null }
 
   const startIngestion = (): Ingestion => {
     const store = openStore({ home: join(roots.base, 'aang') })
@@ -259,7 +260,8 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     return { store, collector, stop, close }
   }
 
-  const pathOf = (target: Target): string => join(roots[target.root], ...target.path.split('/'))
+  const pathOf = (target: Target): string =>
+    state.player?.pathOf(target) ?? join(roots[target.root], ...target.path.split('/'))
 
   const emptyDirectory = async (directory: string, matches: (name: string) => boolean): Promise<boolean> =>
     (await namesIn(directory)).every((name) => !matches(name))
@@ -334,6 +336,7 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
       otlp: `http://${listener.host}:${String(listener.port)}/otel/${otelToken}/v1/logs`,
       timeScale: 0,
     })
+    state.player = player
     for (const [index, step] of manifest.steps.entries()) {
       const next = index + 1
       const before: Before = { otel: observed.otel, reads: new Map(observed.reads) }
@@ -350,11 +353,12 @@ export const playRecording = async (manifest: LoadedManifest, options: PlayOptio
     failure = error instanceof Error ? error : new Error(String(error))
   }
   await ingestion.stop()
+  await state.player?.close()
   failure ??= state.failure
   if (failure !== null) {
     await ingestion.close()
     await removeRoots(roots)
     throw failure
   }
-  return { store: ingestion.store, roots, restarts }
+  return { store: ingestion.store, roots, restarts, recordedPids: state.player?.recordedPids() ?? new Map() }
 }

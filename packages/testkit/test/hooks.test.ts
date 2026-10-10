@@ -1,5 +1,5 @@
-import { readdirSync, readFileSync, statSync } from 'node:fs'
-import { readdir } from 'node:fs/promises'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { readdir, readFile } from 'node:fs/promises'
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { join } from 'node:path'
@@ -15,7 +15,7 @@ import {
 } from '@aang/testkit'
 import { describe, type TestContext, test } from 'vitest'
 import { hookBinary } from './artifacts.js'
-import { createFixture, sampleBytes } from './manifests.js'
+import { createFixture, isAlive, sampleBytes } from './manifests.js'
 
 const claudeHooks = [
   'SessionStart.startup',
@@ -120,7 +120,7 @@ const hookTarget = (profile: Profile): { binary: string; spool: string; env: Pro
 describe.concurrent(
   'the player delivers hook events through the real aang-hook and OTLP requests to a receiver',
   () => {
-    test('hook events of both runtimes reach a leased spool without a daemon, in their original order and with their headers', async ({
+    test('hook events of both runtimes reach a leased spool without a daemon, in their original order and with their headers, the Claude pid naming the stand-in of the recorded process', async ({
       expect,
       onTestFinished,
     }) => {
@@ -145,14 +145,20 @@ describe.concurrent(
       })
       await leaseSpool(profile.spool)
 
-      await createPlayer(await loadManifest(file), { roots: profile, hook: hookTarget(profile), timeScale: 0 }).play()
+      const player = createPlayer(await loadManifest(file), { roots: profile, hook: hookTarget(profile), timeScale: 0 })
+      onTestFinished(player.close)
+      await player.play()
 
+      const standIns = [...player.recordedPids()]
+      expect(standIns.map(([, recorded]) => String(recorded))).toEqual([claudeEnv.CLAUDE_PID])
+      const standIn = String(standIns[0]?.[0])
+      expect(standIn).not.toBe(claudeEnv.CLAUDE_PID)
       const spooled = await readSpool(profile.spool)
       expect(spooled.map(({ header, payload }) => ({ ...header, payload: payload.toString('utf8') }))).toEqual(
         events.map(({ runtime, registration, env, payload }) => ({
           runtime,
           registration,
-          env,
+          env: runtime === 'claude' ? { ...env, CLAUDE_PID: standIn } : env,
           payload: payload.toString('utf8'),
         })),
       )
@@ -185,6 +191,55 @@ describe.concurrent(
         sampleBytes('claude-code-hooks/PermissionRequest.Bash.json'),
         sampleBytes('claude-code-hooks/PermissionRequest.Bash.json'),
       ])
+    })
+
+    test('a recorded process that removes and writes its registry entry again keeps one live stand-in until the last removal', async ({
+      expect,
+      onTestFinished,
+    }) => {
+      const { profile, manifest } = await createFixture(onTestFinished)
+      const entry = { root: 'claude' as const, path: 'sessions/4444.json' }
+      const file = await manifest('rewritten registry entry', {
+        sources: {
+          'busy.json': '{"pid":4444,"sessionId":"s3","status":"busy"}',
+          'idle.json': '{"pid":4444,"sessionId":"s3","status":"idle"}',
+          'stop.json': sampleBytes('claude-code-hooks/Stop.json'),
+        },
+        steps: [
+          { at: 0, kind: 'write', target: entry, source: 'busy.json' },
+          { at: 1, kind: 'remove', target: entry },
+          { at: 2, kind: 'write', target: entry, source: 'idle.json' },
+          {
+            at: 3,
+            kind: 'hook',
+            runtime: 'claude',
+            registration: 'plugin',
+            env: { ...claudeEnv, CLAUDE_PID: '4444' },
+            source: 'stop.json',
+            label: 'hook',
+          },
+          { at: 4, kind: 'remove', target: entry, label: 'removed' },
+        ],
+      })
+      await leaseSpool(profile.spool)
+      const player = createPlayer(await loadManifest(file), { roots: profile, hook: hookTarget(profile), timeScale: 0 })
+      onTestFinished(player.close)
+
+      await player.play({ until: 'hook' })
+
+      const [[standIn, recorded] = [0, 0]] = [...player.recordedPids()]
+      expect(recorded).toBe(4444)
+      expect(isAlive(standIn)).toBe(true)
+      expect(JSON.parse(await readFile(player.pathOf(entry), 'utf8'))).toEqual({ pid: standIn, sessionId: 's3', status: 'idle' })
+      await player.play({ until: 'removed' })
+      expect((await readSpool(profile.spool)).map(({ header }) => header.env.CLAUDE_PID)).toEqual([String(standIn)])
+      expect(isAlive(standIn)).toBe(true)
+
+      await player.play()
+
+      expect(existsSync(player.pathOf(entry))).toBe(false)
+      expect(isAlive(standIn)).toBe(false)
+      expect([...player.recordedPids()]).toEqual([[standIn, 4444]])
     })
 
     test(

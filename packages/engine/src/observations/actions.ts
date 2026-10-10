@@ -3,6 +3,7 @@ import { canonicalJson, objectId } from '@aang/contract/ids'
 import type { ObservationDraft, Transaction } from '@aang/store'
 import type { AgentIdentity } from './agents.js'
 import { byContent, byTime, type Evidence, ofKind } from './evidence.js'
+import { exitAfter, type ProcessExit } from './exits.js'
 
 interface ActionEvidence {
   readonly key: ActionKey
@@ -13,6 +14,7 @@ interface ActionContext {
   readonly run: RunId
   readonly identity: AgentIdentity
   readonly inherited: ReadonlySet<RawSeq>
+  readonly exits: readonly ProcessExit[]
 }
 
 const actionExecution = (outcome: ActionOutcome): Execution => {
@@ -32,7 +34,7 @@ const actionExecution = (outcome: ActionOutcome): Execution => {
 const projectAction = (
   transaction: Transaction,
   { key, items }: ActionEvidence,
-  { run, identity, inherited }: ActionContext,
+  { run, identity, inherited, exits }: ActionContext,
 ): string | null => {
   const first = items[0]?.fact
   if (first === undefined) {
@@ -47,9 +49,12 @@ const projectAction = (
   const batch = batches.toSorted(byContent)[0]?.fact
   const denied = denials.toSorted(byTime)[0]?.fact
   const id = objectId(key)
-  const evidence = end ?? denied ?? batch
+  const closing = end ?? denied ?? batch
+  const exited =
+    closing === undefined ? exitAfter(exits, starts.toSorted(byTime)[0]?.fact.at ?? first.at)?.evidence.fact : undefined
+  const evidence = closing ?? exited
   const outcome =
-    end?.payload.outcome ?? (denied !== undefined ? 'denied' : batch === undefined ? null : 'unknown')
+    end?.payload.outcome ?? (denied !== undefined ? 'denied' : evidence === undefined ? null : 'unknown')
   const tool =
     start?.payload.tool ??
     denied?.payload.tool ??
@@ -68,7 +73,7 @@ const projectAction = (
       start?.payload.container_call == null ? null : objectId({ ...key, call: start.payload.container_call }),
     is_container: start?.payload.action_kind === 'code_cell',
     started_at: starts.toSorted(byTime)[0]?.fact.at ?? null,
-    ended_at: [...ends, ...denials, ...batches].sort(byTime)[0]?.fact.at ?? null,
+    ended_at: [...ends, ...denials, ...batches].sort(byTime)[0]?.fact.at ?? exited?.at ?? null,
     outcome:
       outcome === null || evidence === undefined
         ? null

@@ -1,4 +1,4 @@
-import type { CollectedRecord, ParseResult } from '@aang/contract'
+import type { CollectedRecord, EpochNs, ParseResult } from '@aang/contract'
 import { z } from 'zod'
 import { fact, type FactOrigin, invalid, noRuntimeIds, parsed, schemaViolation, unknown } from './facts.js'
 import { name, optionalText } from './fields.js'
@@ -17,12 +17,19 @@ const RegistryFile = z.looseObject({
   waitingFor: optionalText,
   cwd: optionalText,
   version: optionalText,
+  startedAt: z.int().nonnegative().nullish().catch(null),
   statusUpdatedAt: z.int().nonnegative().nullish(),
 })
 
+const timeOf = (milliseconds: number | null | undefined): EpochNs | null =>
+  milliseconds === undefined || milliseconds === null ? null : epochFromMilliseconds(milliseconds)
+
 export const parseRegistry = (record: CollectedRecord): ParseResult => {
   const { position } = record
-  if ((position.kind !== 'file' && position.kind !== 'file_removed') || !registryPath.test(position.path)) {
+  if (
+    (position.kind !== 'file' && position.kind !== 'file_removed' && position.kind !== 'process_exited') ||
+    !registryPath.test(position.path)
+  ) {
     return unknown(null)
   }
   if (position.kind === 'file_removed') {
@@ -52,7 +59,17 @@ export const parseRegistry = (record: CollectedRecord): ParseResult => {
     },
     redeliveryKey: null,
   }
-  const statusUpdatedAt = entry.statusUpdatedAt ?? null
+  if (position.kind === 'process_exited') {
+    return parsed(null, [
+      fact(origin, {
+        kind: 'process_exited',
+        entity_key: sessionKey(entry.sessionId),
+        speaker: 'runtime',
+        urgent: false,
+        payload: { pid: position.pid, path: position.path, started_at: timeOf(entry.startedAt) },
+      }),
+    ])
+  }
   return parsed(null, [
     fact(origin, {
       kind: 'json_snapshot',
@@ -72,7 +89,7 @@ export const parseRegistry = (record: CollectedRecord): ParseResult => {
           waiting_for: entry.waitingFor ?? null,
           cwd: entry.cwd ?? null,
           version: entry.version ?? null,
-          status_updated_at: statusUpdatedAt === null ? null : epochFromMilliseconds(statusUpdatedAt),
+          status_updated_at: timeOf(entry.statusUpdatedAt),
         },
       },
     }),
