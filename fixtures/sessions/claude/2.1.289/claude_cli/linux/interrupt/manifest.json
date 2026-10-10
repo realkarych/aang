@@ -7,7 +7,7 @@
   "os": "linux",
   "scenario": "interrupt",
   "model": "stub",
-  "recorded_at": "2026-10-04T01:20:49.961Z",
+  "recorded_at": "2026-10-10T09:08:40.485Z",
   "expected_facts": [
     "A Bash action running sleep 30 is interrupted by the host about 2 s after it starts",
     "The interrupted turn ends with an error result and the transcript records the interruption",
@@ -16,16 +16,16 @@
   "control_events": [
     {
       "label": "command-running",
-      "step": 4,
-      "observed_at": "2026-10-04T01:20:50.321Z",
+      "step": 5,
+      "observed_at": "2026-10-10T09:08:40.940Z",
       "expected_map_change": {
         "description": "A long Bash action is running in the root session"
       }
     },
     {
       "label": "interrupted",
-      "step": 6,
-      "observed_at": "2026-10-04T01:20:52.347Z",
+      "step": 7,
+      "observed_at": "2026-10-10T09:08:42.945Z",
       "expected_map_change": {
         "description": "The user interrupted the turn: the Bash action is cancelled, the turn ends as interrupted and the session is no longer running"
       }
@@ -34,58 +34,68 @@
   "artifacts": [
     {
       "source": "data/000001.json",
-      "observed_at": "2026-10-04T01:20:50.242Z",
-      "mtime_ns": "1791076850240887394"
+      "observed_at": "2026-10-10T09:08:40.815Z",
+      "mtime_ns": "1791623320806289176"
     },
     {
       "source": "spool/000002.spool",
-      "observed_at": "2026-10-04T01:20:50.227Z",
-      "mtime_ns": "1791076850227887130"
+      "observed_at": "2026-10-10T09:08:40.809Z",
+      "mtime_ns": "1791623320809289176"
     },
     {
       "source": "data/000003.json",
-      "observed_at": "2026-10-04T01:20:50.227Z",
-      "mtime_ns": "1791076850227887130"
+      "observed_at": "2026-10-10T09:08:40.809Z",
+      "mtime_ns": "1791623320809289176"
     },
     {
       "source": "data/000004.json",
-      "observed_at": "2026-10-04T01:20:50.268Z",
-      "mtime_ns": "1791076850251887617"
+      "observed_at": "2026-10-10T09:08:40.840Z",
+      "mtime_ns": "1791623320827289177"
     },
     {
-      "source": "spool/000005.spool",
-      "observed_at": "2026-10-04T01:20:50.268Z",
-      "mtime_ns": "1791076850268887962"
+      "source": "data/000005.json",
+      "observed_at": "2026-10-10T09:08:40.866Z",
+      "mtime_ns": "1791623320840289178"
     },
     {
-      "source": "data/000006.json",
-      "observed_at": "2026-10-04T01:20:50.268Z",
-      "mtime_ns": "1791076850268887962"
+      "source": "spool/000006.spool",
+      "observed_at": "2026-10-10T09:08:40.859Z",
+      "mtime_ns": "1791623320859289178"
     },
     {
-      "source": "spool/000007.spool",
-      "observed_at": "2026-10-04T01:20:50.321Z",
-      "mtime_ns": "1791076850321889038"
+      "source": "data/000007.json",
+      "observed_at": "2026-10-10T09:08:40.859Z",
+      "mtime_ns": "1791623320859289178"
     },
     {
-      "source": "data/000008.json",
-      "observed_at": "2026-10-04T01:20:50.321Z",
-      "mtime_ns": "1791076850321889038"
+      "source": "spool/000008.spool",
+      "observed_at": "2026-10-10T09:08:40.940Z",
+      "mtime_ns": "1791623320940289182"
     },
     {
-      "source": "data/000009.jsonl",
-      "observed_at": "2026-10-04T01:20:50.394Z",
-      "mtime_ns": "1791076850371890053"
+      "source": "data/000009.json",
+      "observed_at": "2026-10-10T09:08:40.940Z",
+      "mtime_ns": "1791623320940289182"
     },
     {
       "source": "data/000010.jsonl",
-      "observed_at": "2026-10-04T01:20:52.347Z",
-      "mtime_ns": "1791076852339929473"
+      "observed_at": "2026-10-10T09:08:40.969Z",
+      "mtime_ns": "1791623320965289183"
     },
     {
-      "source": "output/000011.txt",
-      "observed_at": "2026-10-04T01:20:52.423Z",
-      "mtime_ns": "1791076852423000000"
+      "source": "data/000011.jsonl",
+      "observed_at": "2026-10-10T09:08:42.945Z",
+      "mtime_ns": "1791623322942289282"
+    },
+    {
+      "source": "output/000012.txt",
+      "observed_at": "2026-10-10T09:08:42.968Z",
+      "mtime_ns": "1791623322968000000"
+    },
+    {
+      "source": "data/000013.jsonl",
+      "observed_at": "2026-10-10T09:08:42.945Z",
+      "mtime_ns": "1791623322942289282"
     }
   ],
   "playback": "playback.json"
