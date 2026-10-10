@@ -60,7 +60,7 @@ The snapshot holds the normalized facts (ordered by raw record), sessions, agent
 - `resume`, `compaction`, `child_sessions` (`subagents`, `fork`) and `reconnect` are `passed`, `failed` or `not_run` from the recordings of the row's own OS, whatever its placement; recordings of another OS never count;
 - `during_work` and `after_iteration` (E2E 1 and 4) are kept from the previous matrix. A row with a placement other than local takes them from the local row of the same runtime, surface, OS and engine version in the previous matrix, because E2E 1 and 4 run on the reference recordings of the OS (ADR-0010); without such a row it keeps its own values, and a new row starts with `not_run`. `e2e/support-matrix.test.ts` keeps the local columns in line with the E2E variants (`e2e/README.md`);
 - `observer` is kept from the previous matrix;
-- the gaps are the reasons below that hold, in the order they are listed, and the status follows from them, whatever the previous matrix claimed (owner decision of 2026-10-08): the row is `unverified` while a reason of the row itself or of the owner checklist holds, otherwise `full` without gaps and `limited` with them;
+- the gaps are the reasons below that hold, in the order they are listed, and the status follows from them, whatever the previous matrix claimed (ADR-0010, owner decision 5): the row is `unverified` while a reason of the row itself or of the owner checklist holds, otherwise `full` without gaps and `limited` with them;
 - `verified_on` of a `full` or `limited` row is the latest date of the evidence it rests on: the UTC day of its latest recording, its placement check and the owner checklist it needs; an `unverified` row has none.
 
 The reasons, in the order they are listed:
