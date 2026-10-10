@@ -178,7 +178,7 @@ describe('Codex hooks.json installation', () => {
       withAangAppended(JSON.parse(loggerConfig) as HooksDocument, installation.command),
     )
     expect(await readFile(installation.backup ?? '', 'utf8')).toBe(loggerConfig)
-    expect(await readFile(installation.binary)).toEqual(await readFile(binaries.plain))
+    expect((await readFile(installation.binary)).equals(await readFile(binaries.plain))).toBe(true)
   })
 
   test('stale aang entries are neutralized in place without moving foreign entries', async ({
@@ -210,7 +210,7 @@ describe('Codex hooks.json installation', () => {
     expect(second).toEqual({ ...first, backup: null })
     expect(await readFile(home.hooksFile)).toEqual(installed)
     expect((await stat(home.hooksFile)).mtimeMs).toBe(modified)
-    expect(await readFile(home.paths.binary)).toEqual(await readFile(binaries.stripped))
+    expect((await readFile(home.paths.binary)).equals(await readFile(binaries.stripped))).toBe(true)
   })
 
   test('a duplicate of the current aang entry is neutralized and the first one stays', async ({
