@@ -19,8 +19,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        work: ['default', 'd']
-        attempt: [1, 2]
+        work: ['default']
+        attempt: [1, 2, 3, 4]
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -125,3 +125,4 @@ jobs:
         with:
           name: hook-latency-${{ matrix.work }}-${{ matrix.attempt }}
           path: ${{ runner.temp }}/debug-out
+          include-hidden-files: true
