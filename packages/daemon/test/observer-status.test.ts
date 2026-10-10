@@ -64,7 +64,7 @@ const absentClaude: ObserverBackendStatus = {
   cli_path: null,
   cli_version: null,
   model: 'claude-opus-5-5',
-  effort: null,
+  effort: 'low',
   admission: null,
 }
 

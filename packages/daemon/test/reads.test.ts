@@ -605,7 +605,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
         cli_path: missingCli(home.root)[vendor],
         cli_version: null,
         model: vendor === 'claude' ? 'claude-opus-5-5' : 'gpt-6.1-sol',
-        effort: null,
+        effort: vendor === 'claude' ? 'low' : null,
         admission: null,
       })),
     )

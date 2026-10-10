@@ -79,10 +79,9 @@ const observationsOf = (store: Store, observed: SessionKey) => {
 }
 
 const referenceFacts = (store: Store, owner: RunId, evidence: readonly FactId[]): void => {
-  const [goal] = evidence
   const current = store.model.entity(owner, { kind: 'run', id: owner })
-  assert(goal !== undefined && current?.kind === 'run')
-  const { runtime, root_session: root, brief, start_pruned: pruned, created_at: at } = current.value
+  assert(current?.kind === 'run')
+  const { runtime, root_session: root, goal, brief, start_pruned: pruned, created_at: at } = current.value
   store.transaction((transaction) =>
     applyChangeSet(transaction, {
       run: owner,
@@ -97,7 +96,7 @@ const referenceFacts = (store: Store, owner: RunId, evidence: readonly FactId[])
               id: owner,
               runtime,
               root_session: root,
-              goal: { text: 'Reparse the transcript', fact: goal },
+              goal,
               brief,
               start_pruned: pruned,
               created_at: at,

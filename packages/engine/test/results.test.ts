@@ -317,7 +317,7 @@ test('the run brief retells the observed goal as an interpretation and rejects a
   ).toBe('accepted')
   expect(run()).toMatchObject({
     value: {
-      goal: drafts.runA.goal,
+      goal: { text: 'Step 1: run `echo hi` with the Bash tool. Step 2: use the Agent tool with subagent_type "pinger" and prompt "ping". Step 3: reply with exactly: OK' },
       brief: { text: 'Ship a parser with passing tests', basis: byObserver(retry), evidence: [human.id] },
     },
   })

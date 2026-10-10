@@ -84,7 +84,7 @@ test('the daemon admits the Codex CLI from the config and sends a Codex run to i
 })
 
 test(
-  'each run goes to the observer of its root session vendor, and Claude runs with the unverified isolation mark',
+  'each run goes to the observer of its root session vendor with its default effort, and Claude runs with the unverified isolation mark',
   async ({ expect, onTestFinished }) => {
     const { home, workspace } = await watchedHome(onTestFinished)
     const claude = installFakeClaude(join(home.root, 'fake-cli'), { replies: [briefed], admissionMs })
@@ -107,7 +107,9 @@ test(
     expect([observerInputs(claude, claudeRun), observerInputs(claude, codexRun)].map((inputs) => inputs.length)).toEqual([1, 0])
     expect([observerInputs(codex, codexRun), observerInputs(codex, claudeRun)].map((inputs) => inputs.length)).toEqual([1, 0])
     const [work] = claude.calls().filter(({ prompt }) => prompt?.includes(claudeRun) === true)
-    expect(work?.argv).toEqual(expect.arrayContaining(['--model', 'claude-opus-5-5']))
+    expect(work?.argv).toEqual(expect.arrayContaining(['--model', 'claude-opus-5-5', '--effort', 'low']))
+    const [codexWork] = codex.calls().filter(({ command, prompt }) => command === 'exec' && prompt?.includes(codexRun) === true)
+    expect(codexWork?.argv.filter((argument) => argument.startsWith('model_reasoning_effort'))).toEqual([])
     expect(await admissionOf(home, 'claude')).toMatchObject({
       admitted: true,
       version: '2.1.286',

@@ -1,5 +1,6 @@
 import { readdir, readFile, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { tasks } from './tasks.mjs'
 
 const passed = ['confirmed', 'passed_unversioned', 'reported_done']
 const titled = (pattern) => `(?i:${pattern})`
@@ -70,6 +71,10 @@ export const markup = {
   },
 }
 
+const descriptions = Object.fromEntries(
+  Object.entries(tasks).map(([task, { turns }]) => [task, Object.fromEntries(turns.flatMap(({ events }) => events.map(({ label, description }) => [label, description])))]),
+)
+
 const [fixtures, only] = process.argv.slice(2)
 if (fixtures !== undefined) {
   for (const runtime of (await readdir(fixtures)).filter((name) => only === undefined || name === only)) {
@@ -83,6 +88,7 @@ if (fixtures !== undefined) {
             const path = join(fixtures, runtime, version, surface, os, scenario, 'manifest.json')
             const manifest = JSON.parse(await readFile(path, 'utf8'))
             for (const event of manifest.control_events) {
+              event.expected_map_change.description = descriptions[task][event.label] ?? event.expected_map_change.description
               const predicate = predicates[event.label]
               if (predicate === undefined) delete event.expected_map_change.predicate
               else event.expected_map_change.predicate = predicate
