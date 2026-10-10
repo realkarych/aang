@@ -23,7 +23,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 75
+    timeout-minutes: 120
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -47,14 +47,16 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - if: runner.os != 'Linux'
         run: pnpm exec playwright install chromium
-      - run: pnpm coverage:test
+      - run: pnpm test
         env:
           NODE_OPTIONS: --max-old-space-size=6144
+          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
           AANG_ISOLATION_CODEX: codex
       - if: ${{ !cancelled() }}
-        run: pnpm coverage:e2e
+        run: pnpm e2e
         env:
           NODE_OPTIONS: --max-old-space-size=6144
+          NODE_V8_COVERAGE: ${{ github.workspace }}/coverage/tmp
       - run: pnpm coverage:report
         env:
           NODE_OPTIONS: --max-old-space-size=6144

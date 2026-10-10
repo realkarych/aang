@@ -3,9 +3,19 @@ import type { BigIntStats } from 'node:fs'
 import { lstat, mkdir, open, realpath, rename, rm, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
 import { deployHookBinary } from './binary.js'
-import { type CodexAppServerOptions, type CodexHookListing, listCodexHooks } from './codex-app-server.js'
-import { codexHookCommand, isAangCommand } from './codex-command.js'
-import { verifyForeignTrust } from './codex-state.js'
+import { type CodexAppServerOptions, listCodexHooks } from './codex-app-server.js'
+import { codexHookCommand } from './codex-command.js'
+import {
+  aangHandlers,
+  codexHooksFileName,
+  type CodexHooksStatus,
+  isObject,
+  type JsonObject,
+  readCodexHooksFiles,
+  unchangedFingerprint,
+  writeCodexHooksRecord,
+} from './codex-files.js'
+import { codexHooksStateOf, verifyForeignTrust } from './codex-state.js'
 import { HookInstallError } from './errors.js'
 import {
   createFileExclusively,
@@ -16,7 +26,7 @@ import {
   writeNewFile,
 } from './files.js'
 import { hookInstallPaths } from './layout.js'
-import { acquireLock } from './lock.js'
+import { acquireLock, type Unlock } from './lock.js'
 
 const codexHookEvents: readonly string[] = [
   'SessionStart',
@@ -35,12 +45,9 @@ const codexHookEvents: readonly string[] = [
 
 const hookTimeoutSeconds = 2
 const neutralCommand = process.platform === 'win32' ? 'exit 0' : 'true'
-const hooksFileName = 'hooks.json'
 const lockSuffix = '.aang-lock'
 const newHooksFileMode = 0o600
 const hooksFileAttempts = 5
-
-type JsonObject = Record<string, unknown>
 
 export interface CodexHooksOptions {
   readonly codexHome: string
@@ -59,6 +66,7 @@ export interface CodexHooksChange {
 export interface CodexHooksInstallation extends CodexHooksChange {
   readonly binary: string
   readonly command: string
+  readonly status: CodexHooksStatus
 }
 
 interface ExistingHooksFile {
@@ -85,19 +93,7 @@ interface LoadedHooks {
 
 type SaveOutcome = { readonly saved: true; readonly backup: string | null } | { readonly saved: false }
 
-const isObject = (value: unknown): value is JsonObject =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
-
-const aangHandlers = (groups: unknown): JsonObject[] =>
-  (Array.isArray(groups) ? groups : [])
-    .flatMap((group: unknown) => (isObject(group) && Array.isArray(group.hooks) ? (group.hooks as unknown[]) : []))
-    .filter(
-      (handler): handler is JsonObject =>
-        isObject(handler) &&
-        handler.type === 'command' &&
-        typeof handler.command === 'string' &&
-        isAangCommand(handler.command),
-    )
+type Attempt<R> = (loaded: LoadedHooks) => Promise<{ readonly done: R } | null>
 
 const invalid = (path: string, problem: string): HookInstallError =>
   new HookInstallError('invalid_hooks_file', `${path}: ${problem}; the file is left unchanged`)
@@ -135,7 +131,7 @@ const isCurrentVersion = async (path: string, version: BigIntStats): Promise<boo
 }
 
 const readHooksFile = async (codexHome: string): Promise<HooksFile> => {
-  const path = join(resolve(codexHome), hooksFileName)
+  const path = join(resolve(codexHome), codexHooksFileName)
   try {
     const target = await realpath(path)
     return { path, target, existing: await readExisting(target) }
@@ -205,11 +201,6 @@ const saveHooksDocument = async ({ file, document }: LoadedHooks): Promise<SaveO
   return { saved: true, backup }
 }
 
-interface TrustVerification {
-  readonly list: () => Promise<CodexHookListing>
-  readonly prepare: () => Promise<unknown>
-}
-
 const rollbackHooks = async (loaded: LoadedHooks, backup: string | null): Promise<void> => {
   const { file, document } = loaded
   const saved = Buffer.from(jsonText(document.root))
@@ -234,40 +225,17 @@ const rollbackHooks = async (loaded: LoadedHooks, backup: string | null): Promis
   }
 }
 
-const changeHooksFile = async (
-  codexHome: string,
-  initial: LoadedHooks,
-  change: (document: HooksDocument) => boolean,
-  verification?: TrustVerification,
-): Promise<string | null> => {
-  if (verification === undefined && !change(initial.document)) {
-    return null
-  }
-  const { path, target } = initial.file
-  await mkdir(dirname(target), { recursive: true })
-  const unlock = await acquireLock(`${target}${lockSuffix}`, `another change of ${path}`)
+const hooksLock = (file: HooksFile, signal?: AbortSignal): Promise<Unlock> =>
+  acquireLock(`${file.target}${lockSuffix}`, `another change or check of ${file.path}`, signal)
+
+const changeHooksFile = async <R>(codexHome: string, file: HooksFile, attempt: Attempt<R>): Promise<R> => {
+  await mkdir(dirname(file.target), { recursive: true })
+  const unlock = await hooksLock(file)
   try {
-    for (let attempt = 1; attempt <= hooksFileAttempts; attempt += 1) {
-      const loaded = await readHooks(codexHome)
-      const before = await verification?.list()
-      await verification?.prepare()
-      const changed = change(loaded.document)
-      if (!changed && verification === undefined) {
-        return null
-      }
-      const outcome = changed ? await saveHooksDocument(loaded) : { saved: true, backup: null } as const
-      if (outcome.saved) {
-        if (before !== undefined && verification !== undefined) {
-          try {
-            verifyForeignTrust(before, await verification.list())
-          } catch (error) {
-            if (changed) {
-              await rollbackHooks(loaded, outcome.backup)
-            }
-            throw error
-          }
-        }
-        return outcome.backup
+    for (let attempted = 1; attempted <= hooksFileAttempts; attempted += 1) {
+      const outcome = await attempt(await readHooks(codexHome))
+      if (outcome !== null) {
+        return outcome.done
       }
     }
   } finally {
@@ -275,8 +243,17 @@ const changeHooksFile = async (
   }
   throw new HookInstallError(
     'hooks_file_changed',
-    `${path}: another program kept changing the file; it is left as that program wrote it`,
+    `${file.path}: another program kept changing the file; it is left as that program wrote it`,
   )
+}
+
+export const withCodexHooksLock = async <T>(codexHome: string, signal: AbortSignal | undefined, use: () => Promise<T>): Promise<T> => {
+  const unlock = await hooksLock(await readHooksFile(codexHome), signal)
+  try {
+    return await use()
+  } finally {
+    await unlock()
+  }
 }
 
 const aangGroup = (command: string): JsonObject => ({
@@ -320,15 +297,45 @@ export const installCodexHooks = async (options: CodexHooksInstallOptions): Prom
   const initial = await readHooks(codexHome)
   const binary = hookInstallPaths(aangHome).binary
   const command = codexHookCommand(aangHome)
-  const backup = await changeHooksFile(codexHome, initial, (document) => registerAang(document, command), {
-    list: () => listCodexHooks(options, options.hookBinarySource),
-    prepare: () => deployHookBinary(options),
+  const list = () => listCodexHooks(options, options.hookBinarySource)
+  const { backup, status } = await changeHooksFile(codexHome, initial.file, async (loaded) => {
+    const before = await list()
+    await deployHookBinary(options)
+    const changed = registerAang(loaded.document, command)
+    const outcome: SaveOutcome = changed ? await saveHooksDocument(loaded) : { saved: true, backup: null }
+    if (!outcome.saved) {
+      return null
+    }
+    try {
+      const files = await readCodexHooksFiles(aangHome, codexHome)
+      const after = await list()
+      verifyForeignTrust(before, after)
+      const check = {
+        status: codexHooksStateOf(after, aangHome).status,
+        fingerprint: await unchangedFingerprint(aangHome, codexHome, files),
+      }
+      await writeCodexHooksRecord(aangHome, codexHome, check)
+      return { done: { backup: outcome.backup, status: check.status } }
+    } catch (error) {
+      if (changed) {
+        await rollbackHooks(loaded, outcome.backup)
+      }
+      throw error
+    }
   })
-  return { binary, command, hooksFile: initial.file.path, backup }
+  return { binary, command, hooksFile: initial.file.path, backup, status }
 }
 
 export const uninstallCodexHooks = async ({ codexHome }: CodexHooksOptions): Promise<CodexHooksChange> => {
   const initial = await readHooks(codexHome)
-  const backup = await changeHooksFile(codexHome, initial, neutralizeAang)
+  const backup = neutralizeAang(initial.document)
+    ? await changeHooksFile(codexHome, initial.file, async (loaded) => {
+        if (!neutralizeAang(loaded.document)) {
+          return { done: null }
+        }
+        const outcome = await saveHooksDocument(loaded)
+        return outcome.saved ? { done: outcome.backup } : null
+      })
+    : null
   return { hooksFile: initial.file.path, backup }
 }

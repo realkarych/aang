@@ -104,14 +104,32 @@
     },
     {
       "channel": "transcript",
+      "type": "launched",
+      "parse_state": "parsed",
+      "count": 1
+    },
+    {
+      "channel": "transcript",
       "type": "queue-operation",
       "parse_state": "parsed",
       "count": 4
     },
     {
       "channel": "transcript",
+      "type": "result",
+      "parse_state": "parsed",
+      "count": 3
+    },
+    {
+      "channel": "transcript",
+      "type": "started",
+      "parse_state": "parsed",
+      "count": 3
+    },
+    {
+      "channel": "transcript",
       "type": "system:stop_hook_summary",
-      "parse_state": "unknown",
+      "parse_state": "parsed",
       "count": 2
     },
     {
@@ -593,6 +611,154 @@
     },
     {
       "id": "#12",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "fceff479-9063-402a-abc3-7df485c23bc1",
+        "parent_uuid": "845ae256-3f0a-4a57-b741-1f8cb0c0a476",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "agents",
+        "definitions": [
+          {
+            "name": "claude",
+            "description": "Catch-all for any task that doesn't fit a more specific agent. FleetView's default when no agent name is typed. (Tools: *)"
+          },
+          {
+            "name": "Explore",
+            "description": "Read-only search agent for broad fan-out searches — when answering means sweeping many files, directories, or naming conventions and you only need the conclusion, not the file dumps. It reads excerpts rather than whole files, so it locates code; it doesn't review or audit it. Specify search breadth: \"medium\" for moderate exploration, \"very thorough\" for multiple locations and naming conventions. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "general-purpose",
+            "description": "General-purpose agent for researching complex questions, searching for code, and executing multi-step tasks. When you are searching for a keyword or file and are not confident that you will find the right match in the first few tries use this agent to perform the search for you. (Tools: *)"
+          },
+          {
+            "name": "Plan",
+            "description": "Software architect agent for designing implementation plans. Use this when you need to plan the implementation strategy for a task. Returns step-by-step plans, identifies critical files, and considers architectural trade-offs. (Tools: All tools except Agent, Artifact, ArtifactComments, ArtifactData, ArtifactCheck, ExitPlanMode, Edit, Write, NotebookEdit)"
+          },
+          {
+            "name": "statusline-setup",
+            "description": "Use this agent to configure the user's Claude Code status line setting. (Tools: Read, Edit)"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#13",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "session",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af"
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": null,
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "2fbd037f-1b5e-4971-a430-fdfdf25b1dbf",
+        "parent_uuid": "fceff479-9063-402a-abc3-7df485c23bc1",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\"."
+          },
+          {
+            "name": "update-config",
+            "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command."
+          },
+          {
+            "name": "keybindings-help",
+            "description": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\"."
+          },
+          {
+            "name": "code-review",
+            "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's review recipe covers them) at the given effort level (low/medium: fewer, high-confidence findings; high→max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default."
+          },
+          {
+            "name": "simplify",
+            "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that."
+          },
+          {
+            "name": "fewer-permission-prompts",
+            "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+          },
+          {
+            "name": "loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace. - When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval (e.g. \"check the deploy every 5 minutes\", \"keep running /babysit-prs\"). Do NOT invoke for one-off tasks."
+          },
+          {
+            "name": "claude-api",
+            "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER — read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file)."
+          },
+          {
+            "name": "workflow-authoring",
+            "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one."
+          },
+          {
+            "name": "run",
+            "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library)."
+          },
+          {
+            "name": "plugin-authoring",
+            "description": "Make a mod: a live pane, band, status line, toast or hook inside Claude Code (terminal or desktop Code tab), written as a plugin of function hooks that hot-reloads in this session. Load before writing or debugging a hooks module."
+          },
+          {
+            "name": "init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation"
+          },
+          {
+            "name": "security-review",
+            "description": "Complete a security review of the pending changes on the current branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#14",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -635,7 +801,7 @@
       }
     },
     {
-      "id": "#13",
+      "id": "#15",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -681,7 +847,7 @@
       }
     },
     {
-      "id": "#14",
+      "id": "#16",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -732,7 +898,7 @@
       }
     },
     {
-      "id": "#15",
+      "id": "#17",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "session",
@@ -781,7 +947,7 @@
       }
     },
     {
-      "id": "#16",
+      "id": "#18",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "session",
@@ -823,7 +989,7 @@
       }
     },
     {
-      "id": "#17",
+      "id": "#19",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -872,7 +1038,56 @@
       }
     },
     {
-      "id": "#18",
+      "id": "#20",
+      "kind": "agent_start",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "af38411d3384c6eb8"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "af38411d3384c6eb8",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "role": "subagent",
+        "service": null,
+        "agent_type": null,
+        "agent_role": null,
+        "description": "left",
+        "nickname": null,
+        "parent": null,
+        "spawned_by_call": null,
+        "background": null,
+        "depth": null
+      }
+    },
+    {
+      "id": "#21",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -921,7 +1136,7 @@
       }
     },
     {
-      "id": "#19",
+      "id": "#22",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -965,7 +1180,7 @@
       }
     },
     {
-      "id": "#20",
+      "id": "#23",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "agent",
@@ -1013,7 +1228,7 @@
       }
     },
     {
-      "id": "#21",
+      "id": "#24",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1062,7 +1277,56 @@
       }
     },
     {
-      "id": "#22",
+      "id": "#25",
+      "kind": "agent_start",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "ab6c25943eb42fd68"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "ab6c25943eb42fd68",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "role": "subagent",
+        "service": null,
+        "agent_type": null,
+        "agent_role": null,
+        "description": "right",
+        "nickname": null,
+        "parent": null,
+        "spawned_by_call": null,
+        "background": null,
+        "depth": null
+      }
+    },
+    {
+      "id": "#26",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
@@ -1109,7 +1373,7 @@
       }
     },
     {
-      "id": "#23",
+      "id": "#27",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1153,7 +1417,7 @@
       }
     },
     {
-      "id": "#24",
+      "id": "#28",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "agent",
@@ -1201,7 +1465,7 @@
       }
     },
     {
-      "id": "#25",
+      "id": "#29",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1250,7 +1514,7 @@
       }
     },
     {
-      "id": "#26",
+      "id": "#30",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1301,7 +1565,7 @@
       }
     },
     {
-      "id": "#27",
+      "id": "#31",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -1341,7 +1605,7 @@
       }
     },
     {
-      "id": "#28",
+      "id": "#32",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1387,7 +1651,7 @@
       }
     },
     {
-      "id": "#29",
+      "id": "#33",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1435,7 +1699,7 @@
       }
     },
     {
-      "id": "#30",
+      "id": "#34",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -1483,7 +1747,7 @@
       }
     },
     {
-      "id": "#31",
+      "id": "#35",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -1522,7 +1786,141 @@
       }
     },
     {
-      "id": "#32",
+      "id": "#36",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "ab6c25943eb42fd68"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "ab6c25943eb42fd68",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "ca2dd2c1-55b4-4931-86e9-92a145ed8ee2",
+        "parent_uuid": "7eb566c0-6bc1-4724-91b9-113d438f45fb",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\"."
+          },
+          {
+            "name": "update-config",
+            "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command."
+          },
+          {
+            "name": "keybindings-help",
+            "description": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\"."
+          },
+          {
+            "name": "code-review",
+            "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's review recipe covers them) at the given effort level (low/medium: fewer, high-confidence findings; high→max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default."
+          },
+          {
+            "name": "simplify",
+            "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that."
+          },
+          {
+            "name": "fewer-permission-prompts",
+            "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+          },
+          {
+            "name": "loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace. - When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval (e.g. \"check the deploy every 5 minutes\", \"keep running /babysit-prs\"). Do NOT invoke for one-off tasks."
+          },
+          {
+            "name": "claude-api",
+            "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER — read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file)."
+          },
+          {
+            "name": "workflow-authoring",
+            "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one."
+          },
+          {
+            "name": "run",
+            "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library)."
+          },
+          {
+            "name": "plugin-authoring",
+            "description": "Make a mod: a live pane, band, status line, toast or hook inside Claude Code (terminal or desktop Code tab), written as a plugin of function hooks that hot-reloads in this session. Load before writing or debugging a hooks module."
+          },
+          {
+            "name": "init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation"
+          },
+          {
+            "name": "security-review",
+            "description": "Complete a security review of the pending changes on the current branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#37",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "ab6c25943eb42fd68"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "ab6c25943eb42fd68",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "988831d6-c071-491e-879c-e15f02f2f228",
+        "parent_uuid": "c651d10f-61f4-46b8-a868-6fd111d791a5",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You are a subagent spawned by a workflow orchestration script. Use the tools available to complete the task.\n\nCRITICAL: Your final text response is returned **verbatim** as a string to the calling script — it is your return value, not a message to a human.\n- Output the literal result (data, JSON, text). Do NOT output confirmations like \"Done.\" or \"Sent.\"\n- If asked for JSON, return ONLY the raw JSON — no code fences, no prose, no markdown.\n- Do NOT use SendUserMessage to deliver your answer. Put your answer in your final text response.\n- Be concise. The script will parse your output."
+      }
+    },
+    {
+      "id": "#38",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1566,7 +1964,7 @@
       }
     },
     {
-      "id": "#33",
+      "id": "#39",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1612,7 +2010,7 @@
       }
     },
     {
-      "id": "#34",
+      "id": "#40",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -1651,7 +2049,141 @@
       }
     },
     {
-      "id": "#35",
+      "id": "#41",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "af38411d3384c6eb8"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "af38411d3384c6eb8",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "727bf7c3-6ff1-40c4-82f1-8553edf2f72f",
+        "parent_uuid": "b066207b-ead5-4da7-9772-5cdff9002042",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\"."
+          },
+          {
+            "name": "update-config",
+            "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command."
+          },
+          {
+            "name": "keybindings-help",
+            "description": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\"."
+          },
+          {
+            "name": "code-review",
+            "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's review recipe covers them) at the given effort level (low/medium: fewer, high-confidence findings; high→max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default."
+          },
+          {
+            "name": "simplify",
+            "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that."
+          },
+          {
+            "name": "fewer-permission-prompts",
+            "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+          },
+          {
+            "name": "loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace. - When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval (e.g. \"check the deploy every 5 minutes\", \"keep running /babysit-prs\"). Do NOT invoke for one-off tasks."
+          },
+          {
+            "name": "claude-api",
+            "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER — read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file)."
+          },
+          {
+            "name": "workflow-authoring",
+            "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one."
+          },
+          {
+            "name": "run",
+            "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library)."
+          },
+          {
+            "name": "plugin-authoring",
+            "description": "Make a mod: a live pane, band, status line, toast or hook inside Claude Code (terminal or desktop Code tab), written as a plugin of function hooks that hot-reloads in this session. Load before writing or debugging a hooks module."
+          },
+          {
+            "name": "init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation"
+          },
+          {
+            "name": "security-review",
+            "description": "Complete a security review of the pending changes on the current branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#42",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "af38411d3384c6eb8"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "af38411d3384c6eb8",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "abd9f297-f6dc-4488-a98d-551c5d370ac6",
+        "parent_uuid": "6c926b0f-dc90-4d98-93a6-7dd0410de4cd",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You are a subagent spawned by a workflow orchestration script. Use the tools available to complete the task.\n\nCRITICAL: Your final text response is returned **verbatim** as a string to the calling script — it is your return value, not a message to a human.\n- Output the literal result (data, JSON, text). Do NOT output confirmations like \"Done.\" or \"Sent.\"\n- If asked for JSON, return ONLY the raw JSON — no code fences, no prose, no markdown.\n- Do NOT use SendUserMessage to deliver your answer. Put your answer in your final text response.\n- Be concise. The script will parse your output."
+      }
+    },
+    {
+      "id": "#43",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -1695,7 +2227,7 @@
       }
     },
     {
-      "id": "#36",
+      "id": "#44",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -1741,7 +2273,7 @@
       }
     },
     {
-      "id": "#37",
+      "id": "#45",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "agent",
@@ -1787,7 +2319,7 @@
       }
     },
     {
-      "id": "#38",
+      "id": "#46",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "agent",
@@ -1833,7 +2365,7 @@
       }
     },
     {
-      "id": "#39",
+      "id": "#47",
       "kind": "agent_end",
       "entity_key": {
         "kind": "agent",
@@ -1876,7 +2408,7 @@
       }
     },
     {
-      "id": "#40",
+      "id": "#48",
       "kind": "agent_end",
       "entity_key": {
         "kind": "agent",
@@ -1919,7 +2451,50 @@
       }
     },
     {
-      "id": "#41",
+      "id": "#49",
+      "kind": "agent_end",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "ab6c25943eb42fd68"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "ab6c25943eb42fd68",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "completed",
+        "final_message": "right",
+        "agent_type": null,
+        "transcript_path": null
+      }
+    },
+    {
+      "id": "#50",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -1968,7 +2543,7 @@
       }
     },
     {
-      "id": "#42",
+      "id": "#51",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -2010,7 +2585,47 @@
       }
     },
     {
-      "id": "#43",
+      "id": "#52",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "ab6c25943eb42fd68"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "ab6c25943eb42fd68",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "2869f8d7-dfa1-4f11-b548-7e50c7552a47",
+        "parent_uuid": "5e69597e-c4e8-45ff-bd4b-425b6dadcc9e",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You are a subagent spawned by a workflow orchestration script. Use the tools available to complete the task.\n\nCRITICAL: Your final text response is returned **verbatim** as a string to the calling script — it is your return value, not a message to a human.\n- Output the literal result (data, JSON, text). Do NOT output confirmations like \"Done.\" or \"Sent.\"\n- If asked for JSON, return ONLY the raw JSON — no code fences, no prose, no markdown.\n- Do NOT use SendUserMessage to deliver your answer. Put your answer in your final text response.\n- Be concise. The script will parse your output."
+      }
+    },
+    {
+      "id": "#53",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -2050,7 +2665,7 @@
       }
     },
     {
-      "id": "#44",
+      "id": "#54",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -2096,7 +2711,7 @@
       }
     },
     {
-      "id": "#45",
+      "id": "#55",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -2138,7 +2753,47 @@
       }
     },
     {
-      "id": "#46",
+      "id": "#56",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "af38411d3384c6eb8"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "af38411d3384c6eb8",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "293e3499-c2bb-4d20-a3c2-09890997b760",
+        "parent_uuid": "d8cbbab0-c30c-4733-909a-cff5d1c82fea",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You are a subagent spawned by a workflow orchestration script. Use the tools available to complete the task.\n\nCRITICAL: Your final text response is returned **verbatim** as a string to the calling script — it is your return value, not a message to a human.\n- Output the literal result (data, JSON, text). Do NOT output confirmations like \"Done.\" or \"Sent.\"\n- If asked for JSON, return ONLY the raw JSON — no code fences, no prose, no markdown.\n- Do NOT use SendUserMessage to deliver your answer. Put your answer in your final text response.\n- Be concise. The script will parse your output."
+      }
+    },
+    {
+      "id": "#57",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -2178,7 +2833,7 @@
       }
     },
     {
-      "id": "#47",
+      "id": "#58",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -2224,7 +2879,99 @@
       }
     },
     {
-      "id": "#48",
+      "id": "#59",
+      "kind": "agent_end",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "af38411d3384c6eb8"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "af38411d3384c6eb8",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "completed",
+        "final_message": "left",
+        "agent_type": null,
+        "transcript_path": null
+      }
+    },
+    {
+      "id": "#60",
+      "kind": "agent_start",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aa80abbf432625d84"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "aa80abbf432625d84",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "role": "subagent",
+        "service": null,
+        "agent_type": null,
+        "agent_role": null,
+        "description": "report",
+        "nickname": null,
+        "parent": null,
+        "spawned_by_call": null,
+        "background": null,
+        "depth": null
+      }
+    },
+    {
+      "id": "#61",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -2268,7 +3015,7 @@
       }
     },
     {
-      "id": "#49",
+      "id": "#62",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -2316,7 +3063,7 @@
       }
     },
     {
-      "id": "#50",
+      "id": "#63",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "agent",
@@ -2364,7 +3111,7 @@
       }
     },
     {
-      "id": "#51",
+      "id": "#64",
       "kind": "agent_start",
       "entity_key": {
         "kind": "agent",
@@ -2413,7 +3160,7 @@
       }
     },
     {
-      "id": "#52",
+      "id": "#65",
       "kind": "tool_batch_end",
       "entity_key": {
         "kind": "agent",
@@ -2459,7 +3206,7 @@
       }
     },
     {
-      "id": "#53",
+      "id": "#66",
       "kind": "agent_end",
       "entity_key": {
         "kind": "agent",
@@ -2502,7 +3249,50 @@
       }
     },
     {
-      "id": "#54",
+      "id": "#67",
+      "kind": "agent_end",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aa80abbf432625d84"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": true,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "aa80abbf432625d84",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": null,
+        "parent_uuid": null,
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": null,
+        "version": null,
+        "entrypoint": null,
+        "originator": null,
+        "git_branch": null
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "outcome": "completed",
+        "final_message": "report",
+        "agent_type": null,
+        "transcript_path": null
+      }
+    },
+    {
+      "id": "#68",
       "kind": "json_snapshot",
       "entity_key": {
         "kind": "session",
@@ -2560,7 +3350,7 @@
       }
     },
     {
-      "id": "#55",
+      "id": "#69",
       "kind": "turn_start",
       "entity_key": {
         "kind": "session",
@@ -2594,7 +3384,7 @@
       "payload": {}
     },
     {
-      "id": "#56",
+      "id": "#70",
       "kind": "turn_end",
       "entity_key": {
         "kind": "session",
@@ -2633,7 +3423,7 @@
       }
     },
     {
-      "id": "#57",
+      "id": "#71",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -2672,7 +3462,141 @@
       }
     },
     {
-      "id": "#58",
+      "id": "#72",
+      "kind": "definition_listing",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aa80abbf432625d84"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "aa80abbf432625d84",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "71ea337b-72fd-4be8-a674-4ebe2f5007f9",
+        "parent_uuid": "c551d371-2eed-4e31-9014-d735ac004797",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "catalog": "skills",
+        "definitions": [
+          {
+            "name": "dataviz",
+            "description": "Use this skill whenever you are about to create ANY chart, graph, plot, dashboard, or data visualization, in ANY output medium — an HTML or React artifact, inline SVG, plotting code in any library (matplotlib, plotly, d3, Recharts, …), an image/PNG you will render and upload, or a chart shared into Slack. Read it BEFORE writing the first line of chart code, choosing chart colors, building a stat tile / meter / KPI row, or laying out a dashboard. When the destination is a first-party document connector (host-designated, never self-described) that renders live charts, hand it the rows (inline, or as an uploaded data file the chart cites) rather than a rendered PNG/SVG — a picture of a chart loses hover, data inspection and per-value comments. Produces visualizations that read as one system — elegant, accessible, consistent in light and dark — using a brand-neutral placeholder palette you swap for your own. Teaches a design-system-agnostic method: a form heuristic, a color formula with a runnable validator, mark specs, and interaction rules. A validated default palette is documented in `references/palette.md` — swap that file's values for your brand's. Triggers on: \"chart\", \"graph\", \"plot\", \"data viz\", \"visualization\", \"dashboard\", \"analytics\", \"visualize data\", \"categorical colors\", \"sequential / diverging palette\", \"stat tile\", \"sparkline\", \"heatmap\", \"legend\", \"axis\", \"tooltip\", \"chart colors\", \"color by series\"."
+          },
+          {
+            "name": "update-config",
+            "description": "Use this skill to configure the Claude Code harness via settings.json. Automated behaviors (\"from now on when X\", \"each time X\", \"whenever X\", \"before/after X\") require hooks configured in settings.json - the harness executes these, not Claude, so memory/preferences cannot fulfill them. Also use for: permissions (\"allow X\", \"add permission\", \"move permission to\"), env vars (\"set X=Y\"), hook troubleshooting, or any changes to settings.json/settings.local.json files. Examples: \"allow npm commands\", \"add bq permission to global settings\", \"move permission to user settings\", \"set DEBUG=true\", \"when claude stops show X\". For simple settings like theme/model, suggest the /config command."
+          },
+          {
+            "name": "keybindings-help",
+            "description": "Use when the user wants to customize keyboard shortcuts, rebind keys, add chord bindings, or modify ~/.claude/keybindings.json. Examples: \"rebind ctrl+s\", \"add a chord shortcut\", \"change the submit key\", \"customize keybindings\"."
+          },
+          {
+            "name": "code-review",
+            "description": "Review the current diff, or a PR number/branch/path target, for correctness bugs (plus reuse/simplification/efficiency cleanups where the model's review recipe covers them) at the given effort level (low/medium: fewer, high-confidence findings; high→max: broader coverage, may include uncertain findings); with no level given, it reuses the level you typed last. Pass --comment to post findings as inline PR comments, or --fix to apply the findings to the working tree after the review. Pass --max-findings <n> to report up to n findings, or --max-findings all for every finding. The choice stays until you pass --max-findings default."
+          },
+          {
+            "name": "simplify",
+            "description": "Review the changed code for reuse, simplification, efficiency, and altitude cleanups, then apply the fixes. Quality only — it does not hunt for bugs; use /code-review for that."
+          },
+          {
+            "name": "fewer-permission-prompts",
+            "description": "Scan your transcripts for common read-only Bash and MCP tool calls, then add a prioritized allowlist to project .claude/settings.json to reduce permission prompts."
+          },
+          {
+            "name": "loop",
+            "description": "Run a prompt or slash command on a recurring interval (e.g. /loop 5m /foo). Omit the interval to let the model self-pace. - When the user wants to set up a recurring task, poll for status, or run something repeatedly on an interval (e.g. \"check the deploy every 5 minutes\", \"keep running /babysit-prs\"). Do NOT invoke for one-off tasks."
+          },
+          {
+            "name": "claude-api",
+            "description": "Reference for the Claude API / Anthropic SDK — model ids, pricing, params, streaming, tool use, MCP, agents, caching, token counting, model migration.\nTRIGGER — read BEFORE opening the target file; don't skip because it \"looks like a one-liner\" — whenever: the prompt names Claude/Anthropic in any form (Claude, Anthropic, Fable, Opus, Sonnet, Haiku, `anthropic`, `@anthropic-ai`, `claude-*`, `us.anthropic.*`, `[1m]`); the user asks about an LLM (pricing/model choice/limits/caching) — never answer from memory; OR the task is LLM-shaped with provider unstated (agent/MCP/tool-definition/multi-agent/RAG/LLM-judge/computer-use; generate/summarize/extract/classify/rewrite/converse over NL; debugging refusals/cutoffs/streaming/tool-calls/tokens).\nSKIP only when another provider is being worked on (overrides all triggers): OpenAI/GPT/Gemini/Llama/Mistral/Cohere/Ollama named in the query; OR `grep -rE 'openai|langchain_openai|google.generativeai|genai|mistralai|cohere|ollama'` over the project hits (run this grep FIRST if no provider named — don't Read the file)."
+          },
+          {
+            "name": "workflow-authoring",
+            "description": "Reference for writing a Workflow tool script (script API and gotchas, resume, quality patterns, worked examples). Load before authoring a script for a workflow the user already opted into; it does not itself authorize running one."
+          },
+          {
+            "name": "run",
+            "description": "Launch and drive this project's app to see a change working. Use when asked to run, start, or screenshot the app, or to confirm a change works in the real app (not just tests). First looks for a project skill that already covers launching the app; otherwise falls back to built-in patterns per project type (CLI, server, TUI, Electron, browser-driven, library)."
+          },
+          {
+            "name": "plugin-authoring",
+            "description": "Make a mod: a live pane, band, status line, toast or hook inside Claude Code (terminal or desktop Code tab), written as a plugin of function hooks that hot-reloads in this session. Load before writing or debugging a hooks module."
+          },
+          {
+            "name": "init",
+            "description": "Initialize a new CLAUDE.md file with codebase documentation"
+          },
+          {
+            "name": "security-review",
+            "description": "Complete a security review of the pending changes on the current branch"
+          }
+        ]
+      }
+    },
+    {
+      "id": "#73",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aa80abbf432625d84"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "aa80abbf432625d84",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "4efcf334-1e45-4fe3-98ed-aedaf7ed0adb",
+        "parent_uuid": "27c2a436-27c8-48b6-ae7f-c8cac61bf561",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You are a subagent spawned by a workflow orchestration script. Use the tools available to complete the task.\n\nCRITICAL: Your final text response is returned **verbatim** as a string to the calling script — it is your return value, not a message to a human.\n- Output the literal result (data, JSON, text). Do NOT output confirmations like \"Done.\" or \"Sent.\"\n- If asked for JSON, return ONLY the raw JSON — no code fences, no prose, no markdown.\n- Do NOT use SendUserMessage to deliver your answer. Put your answer in your final text response.\n- Be concise. The script will parse your output."
+      }
+    },
+    {
+      "id": "#74",
       "kind": "action_start",
       "entity_key": {
         "kind": "action",
@@ -2716,7 +3640,7 @@
       }
     },
     {
-      "id": "#59",
+      "id": "#75",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -2762,7 +3686,7 @@
       }
     },
     {
-      "id": "#60",
+      "id": "#76",
       "kind": "action_end",
       "entity_key": {
         "kind": "action",
@@ -2804,7 +3728,47 @@
       }
     },
     {
-      "id": "#61",
+      "id": "#77",
+      "kind": "agent_prompt",
+      "entity_key": {
+        "kind": "agent",
+        "runtime": "claude",
+        "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent": {
+          "kind": "subagent",
+          "agent_id": "aa80abbf432625d84"
+        }
+      },
+      "speaker": "runtime",
+      "urgent": false,
+      "at": "<time>",
+      "runtime_ids": {
+        "session_id": "e58098d9-dbc0-4274-8e8b-71750198e3af",
+        "agent_id": "aa80abbf432625d84",
+        "thread_id": null,
+        "turn_id": null,
+        "prompt_id": null,
+        "record_uuid": "d6b16f6e-75e2-4bc7-a87a-cbc8170ca8fb",
+        "parent_uuid": "37fc47d9-2f64-49de-a1ea-52d5852cae5c",
+        "message_id": null,
+        "call_id": null,
+        "ordinal": null
+      },
+      "runtime_env": {
+        "cwd": "/fixture/project",
+        "version": "2.1.289",
+        "entrypoint": "sdk-cli",
+        "originator": null,
+        "git_branch": "HEAD"
+      },
+      "format_verified": true,
+      "redelivery_key": null,
+      "payload": {
+        "text": "You are a subagent spawned by a workflow orchestration script. Use the tools available to complete the task.\n\nCRITICAL: Your final text response is returned **verbatim** as a string to the calling script — it is your return value, not a message to a human.\n- Output the literal result (data, JSON, text). Do NOT output confirmations like \"Done.\" or \"Sent.\"\n- If asked for JSON, return ONLY the raw JSON — no code fences, no prose, no markdown.\n- Do NOT use SendUserMessage to deliver your answer. Put your answer in your final text response.\n- Be concise. The script will parse your output."
+      }
+    },
+    {
+      "id": "#78",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -2844,7 +3808,7 @@
       }
     },
     {
-      "id": "#62",
+      "id": "#79",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -2890,7 +3854,7 @@
       }
     },
     {
-      "id": "#63",
+      "id": "#80",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
@@ -2927,7 +3891,7 @@
       }
     },
     {
-      "id": "#64",
+      "id": "#81",
       "kind": "queue_operation",
       "entity_key": {
         "kind": "session",
@@ -2964,7 +3928,7 @@
       }
     },
     {
-      "id": "#65",
+      "id": "#82",
       "kind": "prompt",
       "entity_key": {
         "kind": "message",
@@ -3003,7 +3967,7 @@
       }
     },
     {
-      "id": "#66",
+      "id": "#83",
       "kind": "message",
       "entity_key": {
         "kind": "message",
@@ -3043,7 +4007,7 @@
       }
     },
     {
-      "id": "#67",
+      "id": "#84",
       "kind": "usage",
       "entity_key": {
         "kind": "usage",
@@ -3089,7 +4053,7 @@
       }
     },
     {
-      "id": "#68",
+      "id": "#85",
       "kind": "session_end",
       "entity_key": {
         "kind": "session",
@@ -3125,7 +4089,7 @@
       }
     },
     {
-      "id": "#69",
+      "id": "#86",
       "kind": "cost_state",
       "entity_key": {
         "kind": "session",
@@ -3177,13 +4141,13 @@
   ],
   "sessions": [
     {
-      "id": "#70",
+      "id": "#87",
       "key": {
         "kind": "session",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af"
       },
-      "run": "#71",
+      "run": "#88",
       "surface": {
         "surface": "claude_sdk",
         "basis": "observed"
@@ -3206,7 +4170,7 @@
       "freshness": "ok",
       "support_mode": "full",
       "double_registration": false,
-      "unknown_records": 2,
+      "unknown_records": 0,
       "cost_state": {
         "total_cost_usd": 0.0012564,
         "total_duration_ms": 1232,
@@ -3230,7 +4194,7 @@
   ],
   "agents": [
     {
-      "id": "#72",
+      "id": "#89",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -3239,8 +4203,8 @@
           "kind": "main"
         }
       },
-      "session": "#70",
-      "run": "#71",
+      "session": "#87",
+      "run": "#88",
       "role": "main",
       "service": null,
       "agent_type": null,
@@ -3257,7 +4221,7 @@
       "ended_at": null
     },
     {
-      "id": "#73",
+      "id": "#90",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -3267,8 +4231,8 @@
           "agent_id": "aa80abbf432625d84"
         }
       },
-      "session": "#70",
-      "run": "#71",
+      "session": "#87",
+      "run": "#88",
       "role": "subagent",
       "service": null,
       "agent_type": "workflow-subagent",
@@ -3285,7 +4249,7 @@
       "ended_at": "<time>"
     },
     {
-      "id": "#74",
+      "id": "#91",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -3295,8 +4259,8 @@
           "agent_id": "ab6c25943eb42fd68"
         }
       },
-      "session": "#70",
-      "run": "#71",
+      "session": "#87",
+      "run": "#88",
       "role": "subagent",
       "service": null,
       "agent_type": "workflow-subagent",
@@ -3313,7 +4277,7 @@
       "ended_at": "<time>"
     },
     {
-      "id": "#75",
+      "id": "#92",
       "key": {
         "kind": "agent",
         "runtime": "claude",
@@ -3323,8 +4287,8 @@
           "agent_id": "af38411d3384c6eb8"
         }
       },
-      "session": "#70",
-      "run": "#71",
+      "session": "#87",
+      "run": "#88",
       "role": "subagent",
       "service": null,
       "agent_type": "workflow-subagent",
@@ -3343,16 +4307,16 @@
   ],
   "actions": [
     {
-      "id": "#76",
+      "id": "#93",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "call": "toolu_aang_wf-left_0_0"
       },
-      "session": "#70",
-      "agent": "#75",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#92",
+      "run": "#88",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -3365,27 +4329,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#45"
+          "#55"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#35",
-      "output_fact": "#45",
+      "input_fact": "#43",
+      "output_fact": "#55",
       "inherited": false
     },
     {
-      "id": "#77",
+      "id": "#94",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "call": "toolu_aang_wf-report_0_0"
       },
-      "session": "#70",
-      "agent": "#73",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#90",
+      "run": "#88",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -3398,27 +4362,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#60"
+          "#76"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#58",
-      "output_fact": "#60",
+      "input_fact": "#74",
+      "output_fact": "#76",
       "inherited": false
     },
     {
-      "id": "#78",
+      "id": "#95",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "call": "toolu_aang_wf-right_0_0"
       },
-      "session": "#70",
-      "agent": "#74",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#91",
+      "run": "#88",
       "tool": "Bash",
       "action_kind": "command",
       "container": null,
@@ -3431,27 +4395,27 @@
           "kind": "observed"
         },
         "evidence": [
-          "#42"
+          "#51"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#32",
-      "output_fact": "#42",
+      "input_fact": "#38",
+      "output_fact": "#51",
       "inherited": false
     },
     {
-      "id": "#79",
+      "id": "#96",
       "key": {
         "kind": "action",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "call": "toolu_aang_workflow_0_0"
       },
-      "session": "#70",
-      "agent": "#72",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#89",
+      "run": "#88",
       "tool": "Workflow",
       "action_kind": "other",
       "container": null,
@@ -3464,29 +4428,29 @@
           "kind": "observed"
         },
         "evidence": [
-          "#26"
+          "#30"
         ]
       },
       "execution": {
         "state": "done"
       },
-      "input_fact": "#12",
-      "output_fact": "#26",
+      "input_fact": "#14",
+      "output_fact": "#30",
       "inherited": false
     }
   ],
   "questions": [
     {
-      "id": "#80",
+      "id": "#97",
       "key": {
         "kind": "question",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "question": "spool#4"
       },
-      "session": "#70",
-      "agent": "#72",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#89",
+      "run": "#88",
       "kind": "permission",
       "blocking": true,
       "text": null,
@@ -3504,7 +4468,7 @@
         },
         "evidence": [
           "#7",
-          "#22"
+          "#26"
         ]
       },
       "redelivery_group": null
@@ -3512,16 +4476,16 @@
   ],
   "usage": [
     {
-      "id": "#81",
+      "id": "#98",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_1"
       },
-      "session": "#70",
-      "agent": "#72",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#89",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3536,16 +4500,16 @@
       "at": "<time>"
     },
     {
-      "id": "#82",
+      "id": "#99",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_2"
       },
-      "session": "#70",
-      "agent": "#75",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#92",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3560,16 +4524,16 @@
       "at": "<time>"
     },
     {
-      "id": "#83",
+      "id": "#100",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_3"
       },
-      "session": "#70",
-      "agent": "#72",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#89",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3584,16 +4548,16 @@
       "at": "<time>"
     },
     {
-      "id": "#84",
+      "id": "#101",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_4"
       },
-      "session": "#70",
-      "agent": "#74",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#91",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3608,16 +4572,16 @@
       "at": "<time>"
     },
     {
-      "id": "#85",
+      "id": "#102",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_5"
       },
-      "session": "#70",
-      "agent": "#74",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#91",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3632,16 +4596,16 @@
       "at": "<time>"
     },
     {
-      "id": "#86",
+      "id": "#103",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_6"
       },
-      "session": "#70",
-      "agent": "#75",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#92",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3656,16 +4620,16 @@
       "at": "<time>"
     },
     {
-      "id": "#87",
+      "id": "#104",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_7"
       },
-      "session": "#70",
-      "agent": "#73",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#90",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3680,16 +4644,16 @@
       "at": "<time>"
     },
     {
-      "id": "#88",
+      "id": "#105",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_8"
       },
-      "session": "#70",
-      "agent": "#73",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#90",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3704,16 +4668,16 @@
       "at": "<time>"
     },
     {
-      "id": "#89",
+      "id": "#106",
       "key": {
         "kind": "usage",
         "runtime": "claude",
         "session": "e58098d9-dbc0-4274-8e8b-71750198e3af",
         "usage": "msg_aang_9"
       },
-      "session": "#70",
-      "agent": "#72",
-      "run": "#71",
+      "session": "#87",
+      "agent": "#89",
+      "run": "#88",
       "model": "claude-opus-5-5",
       "tokens": {
         "uncached_input_tokens": 12,
@@ -3729,30 +4693,14 @@
     }
   ],
   "artifacts": [],
-  "gaps": [
-    {
-      "id": "#90",
-      "key": {
-        "kind": "gap",
-        "gap": "unknown_records",
-        "subject": "bc6de6a4433edcb631ce3d7d8a2383ad"
-      },
-      "kind": "unknown_records",
-      "run": "#71",
-      "session": "#70",
-      "stream": null,
-      "details": "2 unrecognised session records",
-      "detected_at": "<time>",
-      "closed_at": null
-    }
-  ],
+  "gaps": [],
   "removals": [],
   "runs": [
     {
       "run": {
-        "id": "#71",
+        "id": "#88",
         "runtime": "claude",
-        "root_session": "#70",
+        "root_session": "#87",
         "goal": {
           "text": "[aang:workflow] Run this workflow with the Workflow tool, passing the script verbatim, and reply with one sentence:\nexport const meta = { name: 'aang-echo', description: 'Echo words through workflow agents', phases: [{ title: 'Echo' }, { title: 'Report' }] }\nconst words = await parallel([\n  () => agent('[aang:wf-left] Run `echo left` with the Bash tool and report its output.', { label: 'left', phase: 'Echo' }),\n  () => agent('[aang:wf-right] Run `echo right` with the Bash tool and report its output.', { label: 'right', phase: 'Echo' }),\n])\nconst report = await agent('[aang:wf-report] Run `echo report` with the Bash tool and report its output.', { label: 'report', phase: 'Report' })\nreturn { words, report }",
           "fact": "#11"
@@ -3766,13 +4714,13 @@
         {
           "kind": "attention_item",
           "value": {
-            "id": "#91",
-            "run": "#71",
+            "id": "#107",
+            "run": "#88",
             "kind": "permission",
             "author": "rule",
             "text": "Workflow",
             "stage": null,
-            "question": "#80",
+            "question": "#97",
             "action": null,
             "basis": {
               "kind": "observed"
@@ -3791,9 +4739,9 @@
         {
           "kind": "run",
           "value": {
-            "id": "#71",
+            "id": "#88",
             "runtime": "claude",
-            "root_session": "#70",
+            "root_session": "#87",
             "goal": {
               "text": "[aang:workflow] Run this workflow with the Workflow tool, passing the script verbatim, and reply with one sentence:\nexport const meta = { name: 'aang-echo', description: 'Echo words through workflow agents', phases: [{ title: 'Echo' }, { title: 'Report' }] }\nconst words = await parallel([\n  () => agent('[aang:wf-left] Run `echo left` with the Bash tool and report its output.', { label: 'left', phase: 'Echo' }),\n  () => agent('[aang:wf-right] Run `echo right` with the Bash tool and report its output.', { label: 'right', phase: 'Echo' }),\n])\nconst report = await agent('[aang:wf-report] Run `echo report` with the Bash tool and report its output.', { label: 'report', phase: 'Report' })\nreturn { words, report }",
               "fact": "#11"
@@ -3807,8 +4755,8 @@
         {
           "kind": "session_membership",
           "value": {
-            "session": "#70",
-            "run": "#71"
+            "session": "#87",
+            "run": "#88"
           }
         }
       ]

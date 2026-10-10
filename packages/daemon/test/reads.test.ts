@@ -1,4 +1,4 @@
-import { mkdir, unlink, writeFile } from 'node:fs/promises'
+import { appendFile, mkdir, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
 import {
@@ -8,6 +8,7 @@ import {
   EpochNs,
   type Fact,
   FactId,
+  type Gap,
   JsonValue,
   ObserverCallId,
   type ObserverInput,
@@ -542,7 +543,9 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     const daemon = await startDaemon(home, onTestFinished)
     const api = apiOf(daemon.base, home)
 
-    const initial = await api.get('/api/status', endpoints.status.response)
+    const initial = await api.until('/api/status', endpoints.status.response, ({ runtimes }) =>
+      runtimes.some(({ runtime, hooks }) => runtime === 'codex' && hooks === 'not_installed'),
+    )
     expect(initial.daemon).toMatchObject({
       version: testVersion,
       pid: process.pid,
@@ -569,7 +572,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
         runtime: 'codex',
         root: join(home.root, '.codex'),
         root_exists: false,
-        hooks: 'unknown',
+        hooks: 'not_installed',
         hooks_inactive_sessions: [],
         double_registration_sessions: [],
       },
@@ -645,6 +648,54 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
     )
     const hooked = await api.get('/api/status', endpoints.status.response)
     expect(hooked.runtimes[0]?.hooks_inactive_sessions).toEqual([])
+  })
+
+  test('a turn in the session files without hook events shows the session files-only in the run and the status until the next hook event', async ({
+    expect,
+    onTestFinished,
+  }) => {
+    const { home, workspace } = await watchedHome(onTestFinished, { freshness: { hooksInactiveAfterMs: 500 } })
+    const daemon = await startDaemon(home, onTestFinished)
+    const api = apiOf(daemon.base, home)
+    const session = 'q44-hooks-lost'
+    const id = objectId(claudeSession(session))
+    const run = runId(claudeSession(session))
+    const prompt = (turn: string): string =>
+      JSON.stringify({
+        type: 'user', sessionId: session, cwd: workspace, uuid: `${turn}-prompt`, promptId: turn,
+        timestamp: new Date().toISOString(), promptSource: 'typed', message: { role: 'user', content: `Turn ${turn}` },
+      })
+    const silenceGaps = (gaps: readonly Gap[]): Gap[] =>
+      gaps.filter(({ kind, key }) => kind === 'hooks_inactive' && key.subject.startsWith(`${id}/`))
+
+    await hookEvent(home, claudeHook('SessionStart.startup', session, workspace))
+    await hookEvent(home, claudeHook('UserPromptSubmit', session, workspace, { prompt_id: 'first' }))
+    const transcript = await claudeTranscript(home, '-work', session, [prompt('first')])
+    const hooked = await api.until(runPath(run), endpoints.run.response, ({ objects }) =>
+      objects.sessions.some(({ support_mode: mode }) => mode === 'full'),
+    )
+    expect(silenceGaps(hooked.objects.gaps)).toEqual([])
+
+    await appendFile(transcript, `${prompt('second')}\n`)
+    const silent = await api.until(runPath(run), endpoints.run.response, ({ objects }) =>
+      objects.sessions.some(({ support_mode: mode }) => mode === 'files_only'),
+    )
+    expect(silent.objects.sessions).toMatchObject([{ id, support_mode: 'files_only', freshness: 'hooks_inactive' }])
+    expect(silenceGaps(silent.objects.gaps)).toMatchObject([{ closed_at: null }])
+    expect(silent.summary).toMatchObject({ freshness: 'hooks_inactive', support_modes: ['files_only'] })
+    const inactive = await api.get('/api/status', endpoints.status.response)
+    expect(inactive.runtimes[0]?.hooks_inactive_sessions).toEqual([id])
+
+    await hookEvent(home, claudeHook('UserPromptSubmit', session, workspace, { prompt_id: 'third' }))
+    const restored = await api.until(runPath(run), endpoints.run.response, ({ objects }) =>
+      objects.sessions.some(({ support_mode: mode }) => mode === 'full'),
+    )
+    expect(restored.objects.sessions).toMatchObject([{ id, support_mode: 'full', freshness: 'ok' }])
+    const [closed] = silenceGaps(restored.objects.gaps)
+    expect(closed).toMatchObject({ detected_at: silenceGaps(silent.objects.gaps)[0]?.detected_at })
+    expect(closed?.closed_at).not.toBeNull()
+    const active = await api.get('/api/status', endpoints.status.response)
+    expect(active.runtimes[0]?.hooks_inactive_sessions).toEqual([])
   })
 
   test('the status shows the spool over its threshold with the growth since and the gap of the queue', async ({

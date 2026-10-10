@@ -123,6 +123,9 @@ const firstPrompt = [
   'Step 3: reply with exactly: OK',
 ].join(' ')
 
+const timestampAt = (second: number, millisecond = 0): string =>
+  new Date(Date.UTC(2026, 9, 1, 12, 0, second, millisecond)).toISOString()
+
 const transcriptLine = (
   source: Source,
   uuid: string,
@@ -135,10 +138,20 @@ const transcriptLine = (
     type,
     sessionId: source.session,
     uuid,
-    timestamp: new Date(Date.UTC(2026, 9, 1, 12, 0, second)).toISOString(),
+    timestamp: timestampAt(second),
     cwd: source.cwd,
     message,
     ...extra,
+  })
+
+const attachmentLine = (source: Source, uuid: string, second: number, attachment: JsonValue): string =>
+  JSON.stringify({
+    type: 'attachment',
+    sessionId: source.session,
+    uuid,
+    timestamp: timestampAt(second),
+    cwd: source.cwd,
+    attachment,
   })
 
 const toolCall = (source: Source, call: string, second: number, name: string, input: JsonValue): string =>
@@ -158,6 +171,12 @@ const skillCall = (source: Source, call: string, second: number, skill: string, 
   toolCall(source, call, second, 'Skill', { skill }),
   toolResult(source, call, second + 1, failed ? `Unknown skill: ${skill}` : `Launching skill: ${skill}`, failed),
 ]
+
+const listedRef = (name: string, ...sources: readonly Source[]): string =>
+  `${name} (sessions: ${sources
+    .map(({ session }) => objectId(sessionKey('claude', session)))
+    .sort()
+    .join(', ')})`
 
 const claudeFile = (workspace: Workspace, name: string, lines: readonly string[], ino: bigint) =>
   jsonlFile({ runtime: 'claude', path: join(workspace.project, `${name}.jsonl`), lines, ino })
@@ -287,7 +306,7 @@ test('a skill enters the run context only when the session invokes it', async ({
     entry('skill', userSkill('plain'), 'Spans two lines'),
     entry('skill', userSkill('release'), 'Cut a release and tag it'),
     entry('skill', join(cwd, '.claude', 'skills', 'review', 'SKILL.md'), 'Nearest review of the package'),
-    entry('skill', 'tools:formatter', ''),
+    entry('skill', listedRef('tools:formatter', source), ''),
   ])
   expect(invoked.seq).not.toBe(listed.seq)
 })
@@ -665,8 +684,10 @@ const observerCalls = (store: Store, run: RunId): ObserverCalls => ({
 const materialsOf = ({ materials }: ObserverInput): string[] =>
   materials.map((material) => (material.kind === 'unavailable' ? material.reason : material.kind))
 
+const runContextKinds: ReadonlySet<Fact['kind']> = new Set(['context', 'definition_listing'])
+
 const sessionFacts = (store: Store, session: string): Fact[] =>
-  factsOf(store).filter(({ kind, entity_key }) => kind !== 'context' && entity_key.session === session)
+  factsOf(store).filter(({ kind, entity_key }) => !runContextKinds.has(kind) && entity_key.session === session)
 
 test('a context assembled across vendors reaches only an observer with crossVendor', async ({ onTestFinished }) => {
   const workspace = await setup(onTestFinished)
@@ -922,11 +943,326 @@ test('skills and subagent definitions of the same name stay apart across project
     entry('skill', skillFile(other, 'lint'), 'Lint project B'),
     entry('skill', skillFile(other, 'review'), 'Review project B'),
     entry('skill', skillFile(cwd, 'review'), 'Review project A'),
-    entry('skill', 'lint', ''),
+    entry('skill', listedRef('lint', first), ''),
   ])
   expect(ofKind(context, 'agent_definition')).toEqual([
     entry('agent_definition', reviewerFile, 'Reviewer of project B\n'),
   ])
+})
+
+type Listed = Readonly<Record<string, string | null>>
+
+interface DefinedSession {
+  readonly source: Source
+  readonly agents: Listed
+  readonly skills: Listed
+  readonly prompts?: Readonly<Record<string, readonly string[]>>
+}
+
+interface DefinedAgent {
+  readonly id: string
+  readonly type: string
+  readonly prompt: string | null
+  readonly order: number
+}
+
+const definedAgents = ({ source, agents, prompts = {} }: DefinedSession): DefinedAgent[] =>
+  Object.keys(agents).flatMap((type) => {
+    const given = prompts[type] ?? []
+    return (given.length === 0 ? [null] : given).map((prompt, index) => ({
+      id: `${source.session}-${type}-${String(index)}`,
+      type,
+      prompt,
+      order: index,
+    }))
+  })
+
+const listedLines = (listed: Listed): string[] =>
+  Object.entries(listed).flatMap(([name, description]) => (description === null ? [] : [`- ${name}: ${description}`]))
+
+const listedNames = (listed: Listed): string[] =>
+  Object.entries(listed).flatMap(([name, description]) => (description === null ? [] : [name]))
+
+const listings = ({ source, agents, skills }: DefinedSession, second: number): string[] => [
+  ...(listedNames(agents).length === 0
+    ? []
+    : [
+        attachmentLine(source, `${source.session}-agents`, second, {
+          type: 'agent_listing_delta',
+          addedTypes: listedNames(agents),
+          addedLines: listedLines(agents),
+        }),
+      ]),
+  ...(listedNames(skills).length === 0
+    ? []
+    : [
+        attachmentLine(source, `${source.session}-skills`, second + 1, {
+          type: 'skill_listing',
+          content: listedLines(skills).join('\n'),
+          names: listedNames(skills),
+        }),
+      ]),
+]
+
+const promptSnapshots = (defined: DefinedSession, second: number): string[] =>
+  definedAgents(defined).flatMap(({ id, prompt, order }) =>
+    prompt === null
+      ? []
+      : [
+          JSON.stringify({
+            type: 'attachment',
+            sessionId: defined.source.session,
+            agentId: id,
+            isSidechain: true,
+            uuid: `${id}-prompt`,
+            timestamp: timestampAt(second, order),
+            cwd: defined.source.cwd,
+            attachment: { type: 'prompt_snapshot', systemPrompt: [prompt, 'Notes for every agent.'] },
+          }),
+        ],
+  )
+
+const definedRun = async (workspace: Workspace, sessions: readonly DefinedSession[]): Promise<RunContext> => {
+  const { store, engine } = workspace
+  const [root, ...attached] = sessions.map(({ source }) => sessionKey('claude', source.session))
+  if (root === undefined) {
+    throw new Error('a run needs a root session')
+  }
+  const run = runId(root)
+  attach(store, run, root, ...attached)
+  await engine.ingest(
+    hookBatch(
+      ...sessions.flatMap((defined, index) => [
+        hook(defined.source, 'SessionStart.startup.json', 'start', index * 10, {}),
+        ...definedAgents(defined).map(({ id, type }, offset) =>
+          hook(defined.source, 'SubagentStart.json', `subagent-${id}`, index * 10 + offset + 1, {
+            agent_id: id,
+            agent_type: type,
+          }),
+        ),
+      ]),
+    ),
+  )
+  for (const [index, defined] of sessions.entries()) {
+    const { source, skills } = defined
+    const second = (index + 1) * 10
+    const lines = [
+      transcriptLine(
+        source,
+        `${source.session}-prompt`,
+        second,
+        'user',
+        { role: 'user', content: `Check the notes in ${source.cwd}` },
+        { promptSource: 'typed' },
+      ),
+      ...listings(defined, second + 1),
+      ...promptSnapshots(defined, second + 2),
+      ...Object.keys(skills).flatMap((skill, offset) =>
+        skillCall(source, `${source.session}-skill-${String(offset)}`, second + 3 + offset * 2, skill),
+      ),
+    ]
+    await engine.ingest(claudeFile(workspace, source.session, lines, BigInt(31 + index)).batch(1, lines.length))
+  }
+  for (const { source } of sessions) {
+    expect(store.observations.getSession(objectId(sessionKey('claude', source.session)))?.run).toBe(run)
+  }
+  return recorded(store, optionsOf(workspace, run))
+}
+
+const checker = 'notes-checker'
+
+const greeting = 'kit:greeting'
+
+const checksNotes = 'Checks the notes. (Tools: Bash)'
+
+const checksFlag = 'Checks the notes given for the run. (Tools: Read)'
+
+test.for([
+  ['one working directory', false],
+  ['different working directories', true],
+] as const)(
+  'a subagent and a skill that sessions of one run list differently keep a definition per text with its sessions, in %s',
+  async ([, apart], { onTestFinished }) => {
+    const workspace = await setup(onTestFinished)
+    const { root, cwd } = workspace
+    const other = join(root, 'other-project')
+    await mkdir(other, { recursive: true })
+    const first = { session: 'listing-first-session', cwd }
+    const second = { session: 'listing-second-session', cwd: apart ? other : cwd }
+    const third = { session: 'listing-third-session', cwd }
+
+    const context = await definedRun(workspace, [
+      { source: first, agents: { [checker]: checksNotes }, skills: { [greeting]: 'Greets the reader.' } },
+      { source: second, agents: { [checker]: checksFlag }, skills: { [greeting]: 'Greets the run.' } },
+      { source: third, agents: { [checker]: checksNotes }, skills: { [greeting]: 'Greets the reader.' } },
+    ])
+
+    expect(ofKind(context, 'agent_definition')).toEqual(
+      [
+        entry('agent_definition', listedRef(checker, first, third), checksNotes),
+        entry('agent_definition', listedRef(checker, second), checksFlag),
+      ].sort(byRef),
+    )
+    expect(ofKind(context, 'skill')).toEqual(
+      [
+        entry('skill', listedRef(greeting, first, third), 'Greets the reader.'),
+        entry('skill', listedRef(greeting, second), 'Greets the run.'),
+      ].sort(byRef),
+    )
+  },
+)
+
+test('a session that does not list the subagent or the skill takes nothing from the listing of another session', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const listed = { session: 'listed-session', cwd: workspace.cwd }
+  const unlisted = { session: 'unlisted-session', cwd: workspace.cwd }
+
+  const context = await definedRun(workspace, [
+    { source: listed, agents: { [checker]: checksNotes }, skills: { [greeting]: 'Greets the reader.' } },
+    { source: unlisted, agents: { [checker]: null }, skills: { [greeting]: null } },
+  ])
+
+  expect(ofKind(context, 'agent_definition')).toEqual([
+    entry('agent_definition', listedRef(checker, listed), checksNotes),
+  ])
+  expect(ofKind(context, 'skill')).toEqual(
+    [
+      entry('skill', listedRef(greeting, listed), 'Greets the reader.'),
+      entry('skill', listedRef(greeting, unlisted), ''),
+    ].sort(byRef),
+  )
+})
+
+test('a file of the subagent type is its definition only when it gives the name, the listed line and the prompt the subagent ran with', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { project, cwd, claudeHome } = workspace
+  const reviewerFile = join(project, '.claude', 'agents', 'reviewer.md')
+  const reviewer = '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\n\nReview the notes.\n'
+  const checkFlag = 'Check the notes given for the run.'
+  const scribe = 'Write the notes.'
+  await write(
+    join(cwd, '.claude', 'agents', 'reviewer.md'),
+    '---\nname: reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\nReview the package.\n',
+  )
+  await write(
+    join(cwd, '..', '.claude', 'agents', 'reviewer.md'),
+    '---\nname: package-reviewer\ndescription: Reviews the notes.\ntools: Bash, Read\n---\nReview the notes.\n',
+  )
+  await write(reviewerFile, reviewer)
+  await write(
+    join(project, '.claude', 'agents', `${checker}.md`),
+    `---\nname: ${checker}\ndescription: Checks the notes given for the run.\n---\n${checkFlag}\n`,
+  )
+  await write(
+    join(claudeHome, 'agents', `${checker}.md`),
+    `---\nname: ${checker}\ndescription: Checks the notes given for the run.\ntools:\n  - Read\n\n  - Bash\n---\n${checkFlag}\n`,
+  )
+  await write(
+    join(project, '.claude', 'agents', 'linter.md'),
+    '---\nname: linter\ndescription: Lints the notes.\ntools: Read\n---\nLint the notes.\n',
+  )
+  await write(join(project, '.claude', 'agents', 'scribe.md'), '---\nname: scribe\ndescription: Writes.\n---\nWrite.\n')
+  const source = { session: 'file-session', cwd }
+
+  const context = await definedRun(workspace, [
+    {
+      source,
+      agents: {
+        reviewer: 'Reviews the notes. (Tools: Bash, Read)',
+        [checker]: checksFlag,
+        linter: 'Lints the notes. (Tools: Read)',
+        scribe: null,
+      },
+      skills: {},
+      prompts: { reviewer: ['Review the notes.'], [checker]: [checkFlag], scribe: [scribe] },
+    },
+  ])
+
+  expect(ofKind(context, 'agent_definition')).toEqual(
+    [
+      entry('agent_definition', reviewerFile, reviewer),
+      entry('agent_definition', listedRef(checker, source), `${checksFlag}\n\n${checkFlag}`),
+      entry('agent_definition', listedRef('linter', source), 'Lints the notes. (Tools: Read)'),
+      entry('agent_definition', listedRef('scribe', source), scribe),
+    ].sort(byRef),
+  )
+})
+
+test.for([
+  ['a file that gives one of them', true],
+  ['no file', false],
+] as const)(
+  'subagents of one type that ran with different prompts in a session keep each prompt, with %s',
+  async ([, filed], { onTestFinished }) => {
+    const workspace = await setup(onTestFinished)
+    const { project, cwd } = workspace
+    const reviewerFile = join(project, '.claude', 'agents', 'reviewer.md')
+    const reviewer = '---\nname: reviewer\ndescription: Reviews the code.\ntools: Bash, Read\n---\nReview the UI.\n'
+    const listed = 'Reviews the code. (Tools: Bash, Read)'
+    if (filed) {
+      await write(reviewerFile, reviewer)
+    }
+    const source = { session: 'prompts-session', cwd }
+
+    const context = await definedRun(workspace, [
+      {
+        source,
+        agents: { reviewer: listed },
+        skills: {},
+        prompts: { reviewer: ['Review the API.', 'Review the UI.'] },
+      },
+    ])
+
+    expect(ofKind(context, 'agent_definition')).toEqual(
+      filed
+        ? [
+            entry('agent_definition', reviewerFile, reviewer),
+            entry('agent_definition', listedRef('reviewer', source), `${listed}\n\nReview the API.`),
+          ].sort(byRef)
+        : [entry('agent_definition', listedRef('reviewer', source), `${listed}\n\nReview the API.\n\nReview the UI.`)],
+    )
+  },
+)
+
+test('a file stands for a listed subagent in each form of its tools and disallowed tools', async ({
+  onTestFinished,
+}) => {
+  const workspace = await setup(onTestFinished)
+  const { project, cwd } = workspace
+  const forms = {
+    'every-tool': ['', 'All tools'],
+    'any-tool': ['tools: "*"\n', 'All tools'],
+    'flow-tools': ['tools: [Read, "Grep", ]\n', 'Read, Grep'],
+    'block-tools': ["tools:\n  - Read\n  - 'Bash(git log:*)'\n", 'Read, Bash(git log:*)'],
+    'spaced-tools': ['tools:\n  - Read\n\n  - Grep\n', 'Read, Grep'],
+    'tabbed-tools': ['tools:\n\t- Read\n\t- Grep\n', 'Read, Grep'],
+    'denied-tools': ['disallowedTools: Write, Edit\n', 'All tools except Write, Edit'],
+    'kept-tools': ['tools: Read Grep Write\ndisallowedTools: [Write]\n', 'Read, Grep'],
+    'no-tool': ['tools: Write\ndisallowedTools:\n- Write\n', 'None'],
+  } as const
+  const files = Object.entries(forms).map(([type, [fields]]) => ({
+    path: join(project, '.claude', 'agents', `${type}.md`),
+    text: `---\nname: ${type}\ndescription: Works with ${type}.\n${fields}---\nWork.\n`,
+  }))
+  for (const { path, text } of files) {
+    await write(path, text)
+  }
+  const listed = Object.fromEntries(
+    Object.entries(forms).map(([type, [, tools]]) => [type, `Works with ${type}. (Tools: ${tools})`]),
+  )
+  const prompts = Object.fromEntries(Object.keys(forms).map((type) => [type, ['Work.']]))
+
+  const context = await definedRun(workspace, [
+    { source: { session: 'forms-session', cwd }, agents: listed, skills: {}, prompts },
+  ])
+
+  expect(ofKind(context, 'agent_definition')).toEqual(
+    files.map(({ path, text }) => entry('agent_definition', path, text)).sort(byRef),
+  )
 })
 
 test('git snapshots give the latest state of each worktree under each set of masks', async ({ onTestFinished }) => {

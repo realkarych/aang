@@ -1,5 +1,6 @@
 import { open, stat } from 'node:fs/promises'
 import { dirname, join, resolve } from 'node:path'
+import { parse as parseYaml } from 'yaml'
 
 export interface FileText {
   readonly path: string
@@ -42,10 +43,13 @@ export const readText = async (path: string): Promise<FileText | null> => {
   }
 }
 
-export const firstText = async (paths: readonly string[]): Promise<FileText | null> => {
+export const firstText = async (
+  paths: readonly string[],
+  accepted: (file: FileText) => boolean = () => true,
+): Promise<FileText | null> => {
   for (const path of paths) {
     const found = await readText(path)
-    if (found !== null) {
+    if (found !== null && accepted(found)) {
       return found
     }
   }
@@ -61,31 +65,145 @@ export const definitionPaths = (
   ...(home === null ? [] : [join(home, ...relativePath)]),
 ]
 
-const frontmatter = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/
+const byteOrderMark = '\uFEFF'
 
-const field = /^description\s*:(.*)$/
+const frontmatterBlock = /^---\s*\n([\s\S]*?)---\s*\n?/
 
-const blockIndicator = /^([|>])[+-]?\d*$/
+const plainEntry = /^([a-zA-Z_-]+):\s+(\S.*)$/
 
-const indented = (line: string): boolean => line.trim() === '' || /^\s/.test(line)
+const flowIndicators = /[{}[\]*&#!|>%@`]|: /
 
-const quoted = /^(["'])(.*)\1$/
+const leadingTabs = /^\t+/gm
 
-const unquoted = (value: string): string => quoted.exec(value)?.[2] ?? value
+type Fields = Readonly<Record<string, unknown>>
 
-export const frontmatterDescription = (text: string): string | null => {
-  const lines = frontmatter.exec(text)?.[1]?.split(/\r?\n/) ?? []
-  const index = lines.findIndex((line) => field.test(line))
-  const value = field.exec(lines[index] ?? '')?.[1]?.trim()
-  if (value === undefined) {
-    return null
+export interface Frontmatter {
+  readonly fields: Fields
+  readonly body: string
+}
+
+const isFields = (value: unknown): value is Fields =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+const parsedYaml = (source: string): unknown => parseYaml(source, { logLevel: 'error' })
+
+const quotedValue = (value: string): string => `"${value.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`
+
+const isFlowList = (value: string): boolean => {
+  try {
+    return Array.isArray(parsedYaml(value))
+  } catch {
+    return false
   }
-  const following = lines.slice(index + 1)
-  const end = following.findIndex((line) => !indented(line))
-  const continuation = (end < 0 ? following : following.slice(0, end)).map((line) => line.trim())
-  const style = blockIndicator.exec(value)?.[1]
-  if (style !== undefined) {
-    return continuation.join(style === '|' ? '\n' : ' ').trim()
+}
+
+const requotedLine = (line: string): string => {
+  const [, key, value] = plainEntry.exec(line) ?? []
+  if (key === undefined || value === undefined) {
+    return line
   }
-  return unquoted([value, ...continuation.filter((line) => line !== '')].join(' '))
+  const quoted = (value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))
+  const listed = value.startsWith('[') && value.endsWith(']') && isFlowList(value)
+  return quoted || listed || !flowIndicators.test(value) ? line : `${key}: ${quotedValue(value)}`
+}
+
+const requoted = (source: string): string =>
+  source
+    .split('\n')
+    .map(requotedLine)
+    .join('\n')
+    .replace(leadingTabs, (tabs) => '  '.repeat(tabs.length))
+
+const yamlFields = (source: string): Fields => {
+  for (const attempt of [source, requoted(source)]) {
+    try {
+      const value = parsedYaml(attempt)
+      return isFields(value) ? value : {}
+    } catch {
+      continue
+    }
+  }
+  return {}
+}
+
+export const frontmatterOf = (text: string): Frontmatter => {
+  const content = text.startsWith(byteOrderMark) ? text.slice(byteOrderMark.length) : text
+  const block = content.indexOf('---', 3) < 0 ? null : frontmatterBlock.exec(content)
+  return block === null
+    ? { fields: {}, body: text }
+    : { fields: yamlFields(block[1] ?? ''), body: content.slice(block[0].length) }
+}
+
+const textField = (fields: Fields, key: string): string | null => {
+  const value = fields[key]
+  return typeof value === 'string' ? value : null
+}
+
+export const frontmatterDescription = (text: string): string | null =>
+  textField(frontmatterOf(text).fields, 'description')?.trim() ?? null
+
+const allTools = '*'
+
+const toolNames = (values: readonly string[]): string[] => {
+  const names: string[] = []
+  for (const value of values) {
+    let name = ''
+    let grouped = false
+    for (const char of value) {
+      if (char === '(' || char === ')') {
+        grouped = char === '('
+        name += char
+      } else if ((char === ',' || char === ' ') && !grouped) {
+        if (name.trim() !== '') {
+          names.push(name.trim())
+          name = ''
+        } else if (char === ',') {
+          name = ''
+        }
+      } else if (name !== '' || char.trim() !== '') {
+        name += char
+      }
+    }
+    if (name.trim() !== '') {
+      names.push(name.trim())
+    }
+  }
+  return names
+}
+
+const toolsOf = (value: unknown): readonly string[] => {
+  const values =
+    typeof value === 'string'
+      ? [value]
+      : Array.isArray(value)
+        ? value.filter((item): item is string => typeof item === 'string')
+        : []
+  const names = toolNames(values)
+  return names.includes(allTools) ? [] : names
+}
+
+const listedTools = (fields: Fields): string => {
+  const allowed = toolsOf(fields['tools'])
+  const disallowed = toolsOf(fields['disallowedTools'])
+  if (allowed.length === 0) {
+    return disallowed.length === 0 ? 'All tools' : `All tools except ${disallowed.join(', ')}`
+  }
+  const kept = allowed.filter((tool) => !disallowed.includes(tool))
+  return kept.length === 0 ? 'None' : kept.join(', ')
+}
+
+export interface AgentFile {
+  readonly type: string | null
+  readonly listedLine: string | null
+  readonly prompt: string
+}
+
+export const agentFileOf = (text: string): AgentFile => {
+  const { fields, body } = frontmatterOf(text)
+  const description = textField(fields, 'description')?.replaceAll('\\n', '\n') ?? ''
+  return {
+    type: textField(fields, 'name'),
+    listedLine: description === '' ? null : `${description} (Tools: ${listedTools(fields)})`,
+    prompt: body.trim(),
+  }
 }
