@@ -1,139 +1,139 @@
-# RFC: aang — наблюдаемость агентной задачи для человека
+# RFC: aang — human observability of an agentic task
 
-## 1. Предложение
+## 1. Proposal
 
-aang — демон с веб-интерфейсом рядом с агентным рантаймом. Он преобразует события длинного прогона в обновляемый семантический граф: карту смысловых этапов задачи и их связей. Она показывает, что выполняется, кем, что получилось, на каком основании и что требует внимания человека. MVP поддерживает Claude Code и Codex; затем планируется OpenCode.
+aang is a daemon with a web interface that runs next to an agent runtime. It turns the events of a long run into an updating semantic graph: a map of the task's meaningful stages and their relations. It shows what is being done, by whom, what came out of it, on what basis, and what needs human attention. The MVP supports Claude Code and Codex; OpenCode is planned next.
 
-Длинные сценарии включают исследование, код, тестирование, несколько окружений, ревью и повторные попытки. Поведение задают иерархические CLAUDE.md/AGENTS.md, скиллы, hooks, субагенты и MCP. В собственных облачных харнессах те же инструменты становятся средой выполнения автономных задач. Пользователь видит сообщения об отдельных действиях, но теряет связь между ними и своей целью.
+Long scenarios include research, code, testing, several environments, review and retries. Behavior is defined by hierarchical CLAUDE.md/AGENTS.md, skills, hooks, subagents and MCP. In in-house cloud harnesses the same tools become the execution environment for autonomous tasks. The user sees messages about individual actions but loses the link between them and their goal.
 
-Проблема возникает дважды. Во время работы непонятно, какой этап идёт, кто его выполняет и требуется ли вмешательство. После длинной итерации приходится заново собирать контекст из отчёта, результатов и открытых вопросов. Граф всех вызовов сохраняет эту нагрузку. Человек тратит внимание на реконструкцию процесса, прежде чем перейти к решениям.
+The problem arises twice. During work it is unclear which stage is under way, who is doing it and whether intervention is needed. After a long iteration the context has to be reassembled from the report, the results and the open questions. A graph of all calls keeps this burden. A person spends attention on reconstructing the process before getting to decisions.
 
-**Продуктовая гипотеза:** aang может в разы сократить человеческие трудозатраты на понимание и сопровождение длинного прогона и позволить одному инженеру вести больше задач без потери контроля. Механизм — постоянно поддерживать компактную модель задачи, показывать изменения и направлять внимание к вопросам, требующим решения. Вместо повторного чтения истории человек изучает изменившиеся этапы и при необходимости раскрывает основания.
+**Product hypothesis:** aang can cut the human effort of understanding and supervising a long run several-fold and let one engineer handle more tasks without losing control. The mechanism is to continuously maintain a compact model of the task, show changes and direct attention to questions that need a decision. Instead of rereading the history, a person studies the stages that changed and expands the evidence when needed.
 
-Гипотеза относится прежде всего к времени восстановления контекста, наблюдения и разбора результатов. Общий выигрыш зависит от доли этой работы: экспертиза, решения и ревью не исчезают. Рост числа сопровождаемых задач возможен, если ограничением было внимание человека. Размер эффекта и влияние ошибок наблюдателя необходимо измерить.
+The hypothesis concerns primarily the time spent on restoring context, observing and reviewing results. The overall gain depends on the share of this work: expertise, decisions and review do not go away. Growth in the number of supervised tasks is possible if human attention was the constraint. The size of the effect and the impact of observer errors must be measured.
 
-## 2. Два сценария и пример
+## 2. Two scenarios and an example
 
-**Во время работы.** Инженер видит активные этапы и агентов, известные ожидания, последние изменения и свежесть данных. Из этапа он открывает краткое объяснение, входы и выходы, время, доступный расход токенов и исходные события.
+**During work.** The engineer sees the active stages and agents, known waits, recent changes and data freshness. From a stage they open a short explanation, inputs and outputs, timing, available token usage and the source events.
 
-**После долгой итерации.** Режим «С последнего просмотра» показывает новые результаты, пересмотренные решения, вопросы и запросы ревью. Финальный текст агента разбирается на связанные с этапами карточки; оригинал остаётся доступен. Порядок внимания объясняется зависимостями, а предложенный LLM приоритет помечается как рекомендация.
+**After a long iteration.** The «С последнего просмотра» ("Since last view") mode shows new results, revised decisions, questions and review requests. The agent's final text is broken down into cards linked to stages; the original remains available. The order of attention is explained by dependencies, and a priority suggested by the LLM is marked as a recommendation.
 
-Например, после часа работы над дата-пайплайном карта показывает: «Источники изучены», «Пайплайн реализован», «Проверки выполняются», «Публикация ожидает решения». Внутри проверки видны два субагента и результат конкретного запуска. Сообщение «всё готово» не скрывает упавший датачек. Запрос «сверни ревьюеров» убирает подробные действия, сохраняя их существенные замечания в зоне внимания. Это иллюстрация интерфейса, а не фиксированный workflow.
+For example, after an hour of work on a data pipeline the map shows: "Sources studied", "Pipeline implemented", "Checks running", "Publication awaiting decision". Inside the check, two subagents and the result of a specific run are visible. The message "all done" does not hide a failed data check. The request "collapse the reviewers" removes detailed actions while keeping their substantive remarks in the attention zone. This is an illustration of the interface, not a fixed workflow.
 
-## 3. Что уже существует
+## 3. What already exists
 
-Граф и чат сами по себе не отличают aang от существующих продуктов. Langfuse строит граф по наблюдениям и умеет объединять повторяющиеся вызовы по имени; LangSmith Chat отвечает на вопросы по трейсам и диалогам. Это кандидаты для сравнения и возможного переиспользования, а не доказательство свободной ниши. [Langfuse Agent Graphs](https://langfuse.com/docs/observability/features/agent-graphs), [LangSmith Chat](https://docs.langchain.com/langsmith/chat).
+A graph and a chat by themselves do not distinguish aang from existing products. Langfuse builds a graph from observations and can merge repeated calls by name; LangSmith Chat answers questions about traces and conversations. These are candidates for comparison and possible reuse, not proof of a free niche. [Langfuse Agent Graphs](https://langfuse.com/docs/observability/features/agent-graphs), [LangSmith Chat](https://docs.langchain.com/langsmith/chat).
 
-Graphectory исследует семантические и временные связи, включая построение графа во время работы. Его результаты вмешательства в агента нельзя переносить на наблюдающий aang. TRAIL показывает сложность диагностики длинных траекторий для исследованных моделей; он не доказывает качество нашего анализатора. Практический вывод: отдельно проверять пользу интерфейса и достоверность его выводов. [Graphectory](https://arxiv.org/abs/2512.02393), [TRAIL](https://arxiv.org/abs/2505.08638).
+Graphectory studies semantic and temporal relations, including building the graph during work. Its results on intervening in the agent cannot be carried over to an observing aang. TRAIL shows how hard it is to diagnose long trajectories for the models studied; it does not prove the quality of our analyzer. Practical conclusion: test the usefulness of the interface and the reliability of its conclusions separately. [Graphectory](https://arxiv.org/abs/2512.02393), [TRAIL](https://arxiv.org/abs/2505.08638).
 
-Предлагаемое отличие aang — устойчивая модель пользовательской задачи поверх разных рантаймов: этапы, результаты, основания и внимание человека. Проверяем, даёт ли она преимущество перед обычной краткой LLM-сводкой по тем же данным. До этого собственный продукт остаётся гипотезой.
+The proposed differentiator of aang is a stable model of the user's task on top of different runtimes: stages, results, evidence and human attention. We test whether it gives an advantage over an ordinary short LLM summary of the same data. Until then, a dedicated product remains a hypothesis.
 
-## 4. Границы MVP
+## 4. MVP scope
 
-| Область | Граница MVP |
+| Area | MVP boundary |
 | --- | --- |
-| Сценарии | Оба: наблюдение и возвращение к результатам |
-| Рантаймы | Claude Code и Codex; OpenCode после MVP |
-| Поверхности | Desktop, CLI и агентные SDK обоих рантаймов: Claude Agent SDK и Codex SDK |
-| Среда | Локально и на своих VM/Docker, включая соответствующие режимы Desktop; вендорские облака исключены |
-| Подключение | Предварительная настройка hooks, плагинов и сбора событий допустима |
-| Интерфейс | Карта этапов, зона внимания, инспектор, чат и режим изменений |
-| Чат | Объяснения со ссылками; скрытие, сворачивание, группировка и изменение детализации |
-| Полномочия | Только наблюдение и чат с aang; ответы и команды решателю остаются в исходной сессии |
-| Наблюдатель | Основной путь — уже авторизованный Claude Code или Codex CLI |
+| Scenarios | Both: observation and returning to results |
+| Runtimes | Claude Code and Codex; OpenCode after the MVP |
+| Surfaces | Desktop, CLI and the agent SDKs of both runtimes: Claude Agent SDK and Codex SDK |
+| Environment | Locally and on one's own VMs/Docker, including the corresponding Desktop modes; vendor clouds excluded |
+| Connection | Prior setup of hooks, plugins and event collection is acceptable |
+| Interface | Stage map, attention zone, inspector, chat and changes mode |
+| Chat | Explanations with links; hiding, collapsing, grouping and changing the level of detail |
+| Permissions | Observation and chat with aang only; replies and commands to the solver stay in the original session |
+| Observer | The primary path is an already authorized Claude Code or Codex CLI |
 
-Управление решателем и произвольная смена модели графа не входят в согласованный MVP. Запуск workflow, уведомления, центральный обзор организации и совместная работа — возможные расширения, которые этот RFC не предлагает включать. Предметная логика приходит из окружения задачи; aang не привязан к фреймворку дата-пайплайнов.
+Controlling the solver and arbitrarily changing the graph model are not part of the agreed MVP. Launching workflows, notifications, a central organization overview and collaboration are possible extensions that this RFC does not propose to include. Domain logic comes from the task environment; aang is not tied to a data pipeline framework.
 
-Desktop — обязательство MVP. Если для выбранного режима данных недостаточно, это ограничение требуется вынести на решение, а не молча исключить поверхность. Поддержка SDK не означает поддержку произвольного приложения на низкоуровневом API модели.
+Desktop is an MVP commitment. If the data is insufficient for a chosen mode, this limitation must be brought up for a decision rather than silently excluding the surface. SDK support does not mean support for an arbitrary application on the low-level model API.
 
-## 5. Карта и чат
+## 5. Map and chat
 
-Основное представление — компактная интерактивная карта этапов с раскрытием подзадач и зависимостей. Конкретная раскладка проверяется на прототипе. Одновременная поставка отдельного таймлайна и нескольких видов графа не требуется для проверки основной гипотезы.
+The main view is a compact interactive map of stages that expands into subtasks and dependencies. The specific layout is tested on a prototype. Shipping a separate timeline and several graph views at the same time is not required to test the main hypothesis.
 
-У этапа есть название, ожидаемый результат, краткая сводка, состояние, участники и основания. Выбор открывает инспектор с деталями и локальным чатом. Цвет дополняется подписью или значком. Обновления сохраняют выбранный этап и положение чтения; история объясняет объединение, разделение и пересмотр этапов.
+A stage has a name, an expected result, a short summary, a state, participants and evidence. Selecting it opens an inspector with details and a local chat. Color is complemented by a label or an icon. Updates preserve the selected stage and the reading position; the history explains merging, splitting and revising stages.
 
-Отметка последнего просмотра сохраняется явно: поступление новых событий не означает, что пользователь их прочитал. В зоне внимания находятся явные вопросы, запросы ревью и существенные препятствия. Отсутствие проверки само по себе не создаёт поручение человеку.
+The last-view mark is stored explicitly: the arrival of new events does not mean the user has read them. The attention zone holds explicit questions, review requests and substantial blockers. The absence of a check does not by itself create a task for a human.
 
-Чат отвечает по всему прогону; выбор этапа уточняет контекст. Например: «Почему публикация ожидает решения?» Ответ относится к определённой версии карты, содержит ссылки на основания или сообщает о нехватке данных. Изменение вида сохраняется как отменяемое правило, действует на новые события и не переписывает историю. Скрытые агенты сохраняют вклад в результаты и расход; важные вопросы остаются видимыми. «Просмотрено» не означает «одобрено» и ничего не отправляет решателю.
+The chat answers about the whole run; selecting a stage narrows the context. For example: "Why is the publication awaiting a decision?" The answer refers to a specific version of the map, contains links to evidence or reports a lack of data. A change of view is stored as a reversible rule, applies to new events and does not rewrite history. Hidden agents keep their contribution to results and usage; important questions remain visible. "Viewed" does not mean "approved" and sends nothing to the solver.
 
-## 6. Модель и достоверность
+## 6. Model and reliability
 
-Единица наблюдения — **прогон**, работа над одной пользовательской целью. Он может включать продолжения сессии и субагентов. Связи устанавливаются по идентификаторам рантайма либо явной привязке; совпадение каталога проекта недостаточно.
+The unit of observation is a **run**: work on one user goal. It may include session continuations and subagents. Links are established by runtime identifiers or by explicit binding; a matching project directory is not enough.
 
-Модель связывает этапы, агентов, действия, версии артефактов и вопросы с исходными событиями. Несколько агентов могут участвовать в одном этапе; один агент — в нескольких. Вложенность, зависимость результата и временная последовательность различаются. Порядок по времени не доказывает причинную связь.
+The model links stages, agents, actions, artifact versions and questions to source events. Several agents can take part in one stage; one agent can take part in several. Nesting, result dependency and temporal sequence are distinguished. Order in time does not prove a causal link.
 
-Три вещи показываются независимо:
+Three things are shown independently:
 
-- **Выполнение:** запланировано, выполняется, ожидает, завершено, ошибка, отменено или неизвестно.
-- **Основание вывода:** наблюдаемое событие, заявление решателя или интерпретация aang.
-- **Решение человека:** запрошено, принято или отклонено, если это видно в исходной сессии.
+- **Execution:** planned, running, waiting, completed, error, cancelled or unknown.
+- **Basis of a conclusion:** an observed event, a solver's claim or aang's interpretation.
+- **Human decision:** requested, accepted or rejected, if this is visible in the original session.
 
-«Прошли 14 тестов» подтверждает конкретную проверку, а не всю цель. Для отметки «критерий подтверждён» нужны сам критерий, подходящее наблюдаемое свидетельство и версия результата. Критерий берётся из задания, явного плана или настроенного контракта проверки. Автоматическое подтверждение возможно по такому контракту; если достаточность свидетельства оценила только LLM, это остаётся её интерпретацией. Частичное подтверждение показывается частично. При отсутствии оснований сохраняется «агент сообщил о завершении».
+"14 tests passed" confirms a specific check, not the whole goal. Marking a "criterion confirmed" requires the criterion itself, suitable observed evidence and the version of the result. The criterion is taken from the assignment, an explicit plan or a configured verification contract. Automatic confirmation is possible under such a contract; if only the LLM judged the sufficiency of the evidence, it remains its interpretation. Partial confirmation is shown as partial. In the absence of evidence, «агент сообщил о завершении» ("agent reported completion") is kept.
 
-Тест на старом коде не подтверждает текущие изменения автоматически. Если известен только изменяемый путь или URL, это обозначается; ссылка не подменяет сохранённую версию. Аналогично успешный SQL-запрос не доказывает корректность бизнес-вывода.
+A test on old code does not automatically confirm the current changes. If only a mutable path or URL is known, this is indicated; a link does not substitute for a stored version. Likewise, a successful SQL query does not prove that a business conclusion is correct.
 
-Молчание не означает зависание. Интерфейс различает известное ожидание, отсутствие новых событий и потерю источника. План может отсутствовать или меняться; восстановленные LLM этапы помечаются. Процент готовности и прогноз окончания не предлагаются для MVP. Скрытый ход рассуждений не восстанавливается: используются доступные сообщения, события и собственная сводка наблюдателя.
+Silence does not mean a hang. The interface distinguishes a known wait, the absence of new events and the loss of a source. A plan may be missing or change; stages reconstructed by the LLM are marked. A completion percentage and an end-time forecast are not proposed for the MVP. Hidden reasoning is not reconstructed: the available messages, events and the observer's own summary are used.
 
-## 7. Архитектура и интеграции
+## 7. Architecture and integrations
 
 ```mermaid
 flowchart LR
-    A[События рантайма] --> B[Адаптер и журнал]
-    B --> C[Наблюдаемые факты]
-    B --> D[LLM-наблюдатель]
-    E[Контекст и артефакты] --> D
-    C --> F[Проверка и версии модели]
+    A[Runtime events] --> B[Adapter and journal]
+    B --> C[Observed facts]
+    B --> D[LLM observer]
+    E[Context and artifacts] --> D
+    C --> F[Validation and model versions]
     D --> F
-    F --> G[Карта и чат]
+    F --> G[Map and chat]
 ```
 
-Программный демон собирает и нормализует события, хранит курсоры и модель, обслуживает веб-интерфейс. LLM-наблюдатель получает новые события, релевантный контекст и текущие этапы, затем предлагает структурированные изменения со ссылками на источники. Демон проверяет схему, идентификаторы и версию модели, применяет изменения и сохраняет историю. Такая проверка ограничивает ошибки структуры, но не доказывает правильность смысла.
+The software daemon collects and normalizes events, stores cursors and the model, and serves the web interface. The LLM observer receives new events, relevant context and the current stages, then proposes structured changes with links to sources. The daemon validates the schema, identifiers and model version, applies the changes and keeps the history. Such validation limits structural errors but does not prove that the meaning is correct.
 
-Для анализа используются небольшие порции событий с таймером, чтобы редкие события не ждали заполнения окна. Наблюдатель может обратиться к исходным записям и версиям артефактов; цепочка предыдущих сводок не становится единственным источником. При перепланировании старый подход сохраняется как заменённый. Восстановление повторяет сохранённые изменения модели, а не требует одинаковых ответов LLM при повторном запуске.
+Analysis uses small batches of events with a timer, so that rare events do not wait for the window to fill. The observer can consult the source records and artifact versions; the chain of previous summaries does not become the only source. On replanning, the old approach is kept as superseded. Recovery replays the stored model changes rather than requiring identical LLM answers on a rerun.
 
-Контекст включает разрешённые инструкции проекта, скиллы, определения субагентов, настройки hooks/MCP, Git и отчёты. Структурированные записи прогресса и Git используются и в описанном Anthropic подходе к длинным задачам. Для aang это основание рассматривать несколько источников. Наличие скилла в каталоге при этом не доказывает его чтение или выполнение. [Anthropic: long-running harnesses](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
+The context includes the permitted project instructions, skills, subagent definitions, hooks/MCP settings, Git and reports. Structured progress records and Git are also used in the approach to long tasks described by Anthropic. For aang this is a reason to consider several sources. The presence of a skill in a directory does not prove that it was read or executed. [Anthropic: long-running harnesses](https://www.anthropic.com/engineering/effective-harnesses-for-long-running-agents).
 
-| Рантайм | Документированный путь; что ещё проверить |
+| Runtime | Documented path; what else to verify |
 | --- | --- |
-| Claude Code | Hooks и транскрипты, включая события субагентов; проверить выбранные режимы и полноту данных. [Hooks](https://code.claude.com/docs/en/hooks), [сессии](https://code.claude.com/docs/en/sessions) |
-| Codex | События управляемого App Server и JSONL-поток headless-запуска; файловый сбор — кандидат для существующих сессий. Проверить подключение без изменения их работы. [App Server](https://learn.chatgpt.com/docs/app-server), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode) |
-| Desktop и SDK обоих рантаймов | Отдельная проверка событий и дочерних сессий. Claude документирует общие hooks для Desktop и CLI, но это не заменяет проверку адаптера. [Claude Desktop](https://code.claude.com/docs/en/desktop#shared-configuration) |
+| Claude Code | Hooks and transcripts, including subagent events; verify the chosen modes and data completeness. [Hooks](https://code.claude.com/docs/en/hooks), [sessions](https://code.claude.com/docs/en/sessions) |
+| Codex | Events of a managed App Server and the JSONL stream of a headless run; file collection is a candidate for existing sessions. Verify connecting without changing how they work. [App Server](https://learn.chatgpt.com/docs/app-server), [non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode) |
+| Desktop and SDKs of both runtimes | Separate verification of events and child sessions. Claude documents shared hooks for Desktop and CLI, but this does not replace verifying the adapter. [Claude Desktop](https://code.claude.com/docs/en/desktop#shared-configuration) |
 
-Документация подтверждает наличие интерфейсов, но не готовность адаптеров aang. Поддержка объявляется для конкретной версии и способа запуска после проверки: события инструментов, дочерние агенты, usage, продолжение, сжатие контекста и переподключение. Каждая обязательная поверхность должна проходить оба пользовательских сценария, включая работу с субагентами и результатами. Недоступность отдельных метрик допустима с явной отметкой; невозможность выполнить основной сценарий блокирует заявление о поддержке. Неизвестные записи сохраняются, пробелы видны в UI.
+Documentation confirms that interfaces exist, but not that aang's adapters are ready. Support is declared for a specific version and launch method after verification: tool events, child agents, usage, continuation, context compaction and reconnection. Every required surface must pass both user scenarios, including work with subagents and results. Unavailability of individual metrics is acceptable with an explicit mark; inability to perform the main scenario blocks a claim of support. Unknown records are stored, gaps are visible in the UI.
 
-Локальное хранилище, например SQLite, и поток обновлений, например SSE, — обратимые технические кандидаты. Основной backend наблюдателя запускает уже авторизованный Claude Code или Codex CLI в изолированном контексте со структурированным выходом. Проверка интеграций должна подтвердить изоляцию, авторизацию, задержку и расход именно этого пути. Если требования не выполняются, альтернативный backend выносится на согласование.
+Local storage, for example SQLite, and an update stream, for example SSE, are reversible technical candidates. The primary observer backend runs an already authorized Claude Code or Codex CLI in an isolated context with structured output. Integration verification must confirm the isolation, authorization, latency and usage of exactly this path. If the requirements are not met, an alternative backend is brought up for approval.
 
-## 8. Свежесть, доступ и расходы
+## 8. Freshness, access and costs
 
-Предлагаемый ориентир — смысловое обновление в пределах 30 секунд для 95% размеченных контрольных событий, которые должны менять карту, на выбранном профиле нагрузки. Пропущенное обновление считается нарушением. Начало измерения — доступность события для сборщика. При известном времени самого события отдельно измеряется полная задержка. Явный запрос ввода отображается без ожидания LLM. Это кандидат на критерий приёмки, а не подтверждённая характеристика.
+The proposed target is a semantic update within 30 seconds for 95% of labeled control events that should change the map, on a chosen load profile. A missed update counts as a violation. Measurement starts when the event becomes available to the collector. When the time of the event itself is known, the full latency is measured separately. An explicit input request is displayed without waiting for the LLM. This is a candidate acceptance criterion, not a confirmed characteristic.
 
-При отказе LLM демон продолжает сбор, показывает наблюдаемые факты и возраст семантической модели. После перезапуска восстанавливает курсоры, этапы и состояние просмотра. Повторная доставка не создаёт дублей; невосстановимые пропуски не заполняются догадками. Очереди и повторы ограничены. Сборщик событий не должен блокировать работу решателя при сбое aang.
+On an LLM failure, the daemon keeps collecting, shows the observed facts and the age of the semantic model. After a restart it restores cursors, stages and view state. Redelivery does not create duplicates; unrecoverable gaps are not filled with guesses. Queues and retries are bounded. The event collector must not block the solver's work when aang fails.
 
-Наблюдатель читает только выбранные источники; инструкции внутри транскрипта обрабатываются как данные. Он изолирован от полномочий решателя и исключает собственные сессии из наблюдения. Запись разрешена в собственное хранилище. Для удалённого UI нужен защищённый доступ. Разрешённые модели, передаваемые данные, маскирование и срок хранения согласуются до подключения рабочих сессий.
+The observer reads only the selected sources; instructions inside a transcript are treated as data. It is isolated from the solver's permissions and excludes its own sessions from observation. Writing is allowed to its own storage. A remote UI requires secure access. Permitted models, transmitted data, masking and retention period are agreed before connecting working sessions.
 
-Расход решателя, наблюдателя и чата учитывается раздельно. При отсутствии точной привязки токенов к этапу показывается расход сессии или обозначенная оценка. Одно действие не суммируется повторно; длительность прогона отличается от суммы времени параллельных агентов. Денежная стоимость при подписке может быть неизвестна. Экономика оценивается по замерам на активный час, без заранее обещанной дешевизны.
+Usage of the solver, the observer and the chat is accounted for separately. In the absence of an exact attribution of tokens to a stage, the session usage or a marked estimate is shown. One action is not summed twice; the duration of a run differs from the sum of the times of parallel agents. The monetary cost under a subscription may be unknown. Economics are assessed by measurements per active hour, without promising cheapness in advance.
 
-## 9. Как проверить гипотезу
+## 9. How to test the hypothesis
 
-Нужны две независимые проверки. **Техническая:** каждый обязательный режим поставляет достаточные события; карта и чат работают при параллельности, перепланировании, сжатии контекста, разрывах и перезапуске. **Продуктовая:** авторы длинных прогонов быстрее и правильнее понимают работу и могут сопровождать больше задач с тем же бюджетом внимания.
+Two independent tests are needed. **Technical:** each required mode delivers sufficient events; the map and chat work under parallelism, replanning, context compaction, disconnects and restart. **Product:** authors of long runs understand the work faster and more correctly and can supervise more tasks with the same attention budget.
 
-Для продуктовой проверки сравниваются исходный интерфейс, краткая LLM-сводка и aang на одинаковых данных. На выбранных моментах записей, без будущих событий, человек определяет текущую работу, результат и его основание, нерешённый вопрос и необходимость вмешательства. Ответ «сейчас вмешательство не требуется» тоже допустим. Порядок интерфейсов меняется, чтобы снизить эффект запоминания. Спорные случаи разбирают люди, знакомые с задачей.
+For the product test, the original interface, a short LLM summary and aang are compared on the same data. At chosen points in the recordings, without future events, a person determines the current work, the result and its basis, an unresolved question and the need for intervention. The answer "no intervention is needed now" is also valid. The order of the interfaces is varied to reduce the memorization effect. Disputed cases are reviewed by people familiar with the task.
 
-| Гипотеза | Что измерять |
+| Hypothesis | What to measure |
 | --- | --- |
-| Контекст восстанавливается в разы быстрее | Время до правильных ответов и суммарное время сопровождения прогона; отношение к исходному интерфейсу и простой сводке |
-| Можно вести больше задач | Число сопоставимых задач при одинаковом времени внимания, с учётом пропущенных вопросов, задержек реакции и ошибок решений |
-| Наблюдение остаётся достоверным | Ложные подтверждения, потерянные вопросы, лишний шум и ошибки ответов чата |
-| Состояние видно во время работы | Задержка обновлений, доля времени с отставанием и полнота событий в живых запусках |
+| Context is restored several times faster | Time to correct answers and total time spent supervising a run; ratio to the original interface and to a simple summary |
+| More tasks can be handled | Number of comparable tasks with the same attention time, accounting for missed questions, reaction delays and decision errors |
+| Observation stays reliable | False confirmations, lost questions, excess noise and chat answer errors |
+| State is visible during work | Update latency, share of time with lag and event completeness in live runs |
 
-Ускорение отдельных ответов ещё не доказывает рост производительности: последнее проверяется на живой работе с несколькими задачами. В трудозатраты включаются настройка подключения и представлений, проверка сомнительных выводов и исправление ошибок aang; разовые и регулярные затраты считаются отдельно. Синтетические записи проверяют инварианты, но не подтверждают продуктовый эффект. На контрольных сценариях недопустимы ложный подтверждённый успех и потеря явного блокирующего вопроса.
+Faster individual answers do not yet prove higher productivity: the latter is tested on live work with several tasks. Effort includes setting up the connection and views, checking doubtful conclusions and fixing aang's errors; one-off and recurring costs are counted separately. Synthetic recordings test invariants but do not confirm the product effect. In control scenarios, a false confirmed success and the loss of an explicit blocking question are unacceptable.
 
-Конкретные данные, участники и пороги ещё не выбраны; их фиксируют до оценки. Продолжение оправданно, если понимание ускоряется без потери правильности. Если выигрыш есть только в части сценариев, концепт можно сузить. Если простая сводка даёт сопоставимый результат, необходимость отдельного интерактивного продукта следует пересмотреть.
+The specific data, participants and thresholds have not been chosen yet; they are fixed before the evaluation. Continuing is justified if understanding becomes faster without loss of correctness. If there is a gain only in some scenarios, the concept can be narrowed. If a simple summary gives a comparable result, the need for a separate interactive product should be reconsidered.
 
-## 10. Что остаётся проверить
+## 10. What remains to be verified
 
-Основные риски: правдоподобная, но неверная карта; повторная перегрузка пользователя; неполные события; отставание и расход наблюдателя. Им соответствуют проверяемые основания, постепенное раскрытие деталей, испытания каждого адаптера и отдельные замеры свежести и затрат. Наличие нового интерфейса само по себе не уменьшает человеческую работу.
+Main risks: a plausible but wrong map; overloading the user again; incomplete events; observer lag and usage. They are matched by verifiable evidence, gradual disclosure of details, trials of each adapter and separate measurements of freshness and costs. The existence of a new interface by itself does not reduce human work.
 
-До рабочих запусков нужно определить разрешённые данные, правила передачи и хранения, условия авторизации CLI и допустимый расход. Эти условия в исходных материалах расходятся и пока не согласованы; RFC не утверждает ни отсутствие ограничений, ни готовность корпоративного развёртывания.
+Before working runs, the permitted data, transfer and retention rules, CLI authorization conditions and acceptable usage must be defined. These conditions diverge in the source materials and are not yet agreed; the RFC claims neither the absence of restrictions nor readiness for enterprise deployment.
 
-На ревью выносится концепт: поддерживать живую семантическую модель задачи и использовать её как интерфейс понимания, проверки и распределения внимания. Скоуп MVP зафиксирован в разделе 4. Реализуемость каждой интеграции и гипотеза кратного выигрыша проверяются отдельно; изменение согласованного охвата требует отдельного решения.
+What is put up for review is the concept: maintain a live semantic model of the task and use it as an interface for understanding, verification and distributing attention. The MVP scope is fixed in section 4. The feasibility of each integration and the hypothesis of a multiple-fold gain are tested separately; changing the agreed scope requires a separate decision.

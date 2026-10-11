@@ -1,90 +1,90 @@
-# ADR-0012: Стратегия тестирования
+# ADR-0012: Testing strategy
 
-Статус: принято владельцем 2026-10-01.
+Status: accepted by the owner 2026-10-01.
 
-## Контекст
+## Context
 
-AGENTS.md задаёт правила тестирования: юнит-тесты — только по исключению, 100% бизнес-логики и сценариев через E2E, функциональные и интеграционные тесты, моки — только на внешних границах. ADR-0001 выбрал Playwright и Vitest с реальным SQLite и реальными процессами. Внешние границы aang — рантаймы Claude Code и Codex (их файлы, hooks, OTel) и CLI, через которые работают наблюдатель и чат.
+AGENTS.md sets the testing rules: unit tests only by exception, 100% of business logic and scenarios through E2E, functional and integration tests, mocks only at external boundaries. ADR-0001 chose Playwright and Vitest with real SQLite and real processes. The external boundaries of aang are the Claude Code and Codex runtimes (their files, hooks, OTel) and the CLIs through which the observer and the chat work.
 
-## Решение
+## Decision
 
-### Внешние границы и их замены
+### External boundaries and their replacements
 
-- **Рантаймы.** Вместо живых CLI тесты используют проигрыватель `testkit/player`. Он воспроизводит эталонные сессии (ADR-0010) и образцы `docs/research/samples` во временном HOME так, как это делает рантайм:
-  - дописывает строки транскриптов и rollout с исходными интервалами (масштабируемыми);
-  - пишет и обновляет JSON-файлы (meta, реестр, teams);
-  - вызывает настоящий `aang-hook` с payload события в stdin;
-  - отправляет записанные OTLP-логи в приёмник;
-  - удаляет, переносит и архивирует файлы.
-- **LLM.** Поддельные исполняемые `claude` и `codex` (`testkit/fake-cli`) подставляются через пути к CLI в конфиге демона. Они:
-  - проверяют наличие флагов изоляции и падают, если флага нет;
-  - выдают `init`, результат и `--json`-события в формате настоящего CLI; поддельный `codex` отправляет настоящий запрос Responses API на заглушку самопроверки;
-  - отвечают по сценарию: ответ строится из входа и ссылается на id фактов и `model_version` из него;
-  - умеют внедрять отказы: ошибку авторизации, лимит, таймаут, невалидный JSON, строку `unsupported`;
-  - записывают входы для проверок.
-- **Сторонние процессы при установке** (`claude plugin …`, `codex app-server` для `hooks/list`) заменяются поддельными исполняемыми файлами.
-- **Собственные модули не мокаются.** Модуль тестируется через публичный API с реальным `store` на временном файле SQLite. Функциональные тесты `engine` подают на вход сырые записи из образцов и эталонных сессий через настоящие адаптеры: тестам разрешено импортировать пакеты адаптеров, продуктовому коду `engine` — нет. Ответы наблюдателя в этих тестах — данные внешней границы (LLM), поэтому задаются фикстурами.
-- **Сбои моделируются извне.** Процесс завершается через SIGKILL и перезапускается, файлы портятся и удаляются. Тестовых точек отказа в продуктовом коде нет.
+- **Runtimes.** Instead of live CLIs, tests use the `testkit/player` player. It replays reference sessions (ADR-0010) and the `docs/research/samples` samples in a temporary HOME the way the runtime does:
+  - appends transcript and rollout lines with the original (scalable) intervals;
+  - writes and updates JSON files (meta, registry, teams);
+  - calls the real `aang-hook` with the event payload in stdin;
+  - sends recorded OTLP logs to the receiver;
+  - deletes, moves and archives files.
+- **LLM.** Fake `claude` and `codex` executables (`testkit/fake-cli`) are substituted via the CLI paths in the daemon config. They:
+  - check for the presence of isolation flags and fail if a flag is missing;
+  - emit `init`, the result and `--json` events in the format of the real CLI; the fake `codex` sends a real Responses API request to the self-check stub;
+  - respond according to a scenario: the response is built from the input and references fact ids and the `model_version` from it;
+  - can inject failures: an authorization error, a limit, a timeout, invalid JSON, the `unsupported` string;
+  - record inputs for assertions.
+- **Third-party processes during installation** (`claude plugin …`, `codex app-server` for `hooks/list`) are replaced with fake executables.
+- **Own modules are not mocked.** A module is tested through its public API with a real `store` on a temporary SQLite file. Functional `engine` tests feed raw records from samples and reference sessions through the real adapters: tests are allowed to import adapter packages, `engine` product code is not. Observer responses in these tests are external-boundary (LLM) data, so they are set by fixtures.
+- **Failures are simulated externally.** A process is terminated with SIGKILL and restarted, files are corrupted and deleted. There are no test failure points in the product code.
 
-### Уровни
+### Levels
 
-| Уровень | Инструмент | Что покрывает |
+| Level | Tool | What it covers |
 | --- | --- | --- |
-| E2E | Playwright поверх собранного демона, проигрывателя и поддельного CLI | пользовательские сценарии RFC §2, §5, §8 через UI и API |
-| Интеграционные | Vitest | `aang-hook` (настоящий бинарь на каждой ОС, аренда spool); сборщик на реальных файлах (дописывание, неполные строки, смена inode, перенос, archive, потеря); двойная регистрация hooks и повторные одинаковые запросы; `prune` с последующим переносом файла и перезапуском; адаптеры на образцах; API и SSE по реальному HTTP; установка во временный HOME; запуск наблюдателя и допуск версии с поддельным CLI |
-| Функциональные | Vitest | `engine` через публичный API: связывание прогонов, правила, три оси, проверка операций наблюдателя, правила вида, разница «с последнего просмотра», учёт расхода |
-| Контрактные | Vitest | строгий режим схем наблюдателя и чата; эталонные сессии по версиям — в CI; изоляция наблюдателя: Codex на заглушке — в CI, Claude — локально (ADR-0010) |
+| E2E | Playwright on top of the built daemon, the player and the fake CLI | user scenarios of RFC §2, §5, §8 through the UI and API |
+| Integration | Vitest | `aang-hook` (the real binary on each OS, spool lease); the collector on real files (appending, incomplete lines, inode change, move, archive, loss); double hook registration and repeated identical requests; `prune` followed by a file move and a restart; adapters on samples; API and SSE over real HTTP; installation into a temporary HOME; observer launch and version admission with the fake CLI |
+| Functional | Vitest | `engine` through the public API: run linking, rules, three axes, validation of observer operations, view rules, the "since last view" diff, usage accounting |
+| Contract | Vitest | strict mode of the observer and chat schemas; reference sessions by version — in CI; observer isolation: Codex on the stub — in CI, Claude — locally (ADR-0010) |
 
-### Обязательные E2E-сценарии
+### Mandatory E2E scenarios
 
-| № | Сценарий | Рантайм | Источник требования |
+| # | Scenario | Runtime | Requirement source |
 | --- | --- | --- | --- |
-| 1 | Живое наблюдение с субагентом и параллельными агентами: карта, инспектор, основания до исходного события | оба; варианты CLI, Desktop, SDK | RFC §2, §5, §9 |
-| 2 | Запрос одобрения появляется в зоне внимания за ≤ 1 с при недоступном LLM | оба | RFC §8 |
-| 3 | «Всё готово» при упавшей проверке: конфликт на этапе, пункт внимания остаётся. Успешный повтор по контракту, где проверка сообщает проверенный коммит, даёт `confirmed`, последующая правка под маской — `stale`. Повтор по контракту без сообщённого коммита — `passed_unversioned`, в том числе при чистом дереве до и после проверки и при изменении и возврате входа между снимками | Claude | RFC §2, §6 |
-| 4 | Отметка просмотра, продолжение прогона, режим «С последнего просмотра» с заменённым этапом, новым результатом и вопросом; карточки финального текста ведут к оригиналу | оба; варианты CLI, Desktop, SDK | RFC §2, §5 |
-| 5 | Чат: ответ со ссылками и версией карты; «сверни ревьюеров»; отмена правила; вопросы видимы | оба | RFC §5 |
-| 6 | SIGKILL демона посреди проигрывания и перезапуск: нет дублей, курсоры, отметка и правила восстановлены, hook-события из spool не потеряны | Claude | RFC §8 |
-| 7 | Отказ LLM: факты идут, возраст модели растёт, состояние видно; восстановление и догоняющий режим | Codex | RFC §8 |
-| 8 | Hooks с `PermissionRequest`, решение через OTel (`source: User`), субагент, fork как новый прогон со связью | Codex | RFC §4, §6 |
-| 9 | Сессия без hook-событий: «hooks не активны», режим «только файлы» | оба | ADR-0004 |
-| 10 | Различие «ждёт человека», «нет новых событий», «источник потерян» | Claude | RFC §6, §8 |
-| 11 | Fork Claude: общее происхождение, нет двойного расхода; панель расхода с тремя журналами | Claude | RFC §8 |
-| 12 | Сжатие Claude: ложный `SubagentStop` не превращается в агента | Claude | ADR-0006 |
-| 13 | Доступ без токена отклоняется; одноразовая ссылка работает | — | ADR-0003 |
-| 14 | Новая версия модели не сбрасывает выбранный этап; при замене этапа выбор переходит к преемнику | Claude | RFC §5 |
-| 15 | Сессия завершилась с неотвеченным вопросом и запросом ревью: при возвращении оба в зоне внимания, этап не в `waiting`; новый промпт не по теме их не закрывает; ответ на асинхронный вопрос Codex даёт пометку «вероятно отвечен», а пункт остаётся открытым; снятие пользователем убирает пункт с записью в истории | оба | RFC §2, §5 |
-| 16 | Отметка просмотра → отказ LLM → новая версия артефакта и вопрос по правилу → возвращение: оба видны в режиме изменений; после перезапуска и восстановления наблюдателя повторно не объявляются | Claude | RFC §5, §8 |
-| 17 | Отчёт, созданный через Bash, становится основанием; исходный файл изменён и удалён, демон перезапущен; инспектор открывает сохранённую версию | Claude | RFC §6, §7 |
-| 18 | Вопрос в чате о старом основании, которого нет в первом входе: ответ через `needs` со ссылкой на это основание и той же версией карты | оба | RFC §5 |
+| 1 | Live observation with a subagent and parallel agents: map, inspector, evidence down to the source event | both; CLI, Desktop, SDK variants | RFC §2, §5, §9 |
+| 2 | An approval request appears in the attention zone within ≤ 1 s while the LLM is unavailable | both | RFC §8 |
+| 3 | "All done" with a failed check: a conflict on the stage, the attention item remains. A successful contract rerun where the check reports the verified commit gives `confirmed`; a subsequent edit under the mask gives `stale`. A contract rerun without a reported commit gives `passed_unversioned`, including with a clean tree before and after the check and when the input changes and is reverted between snapshots | Claude | RFC §2, §6 |
+| 4 | Marking as viewed, the run continues, the «С последнего просмотра» ("Since last view") mode with a replaced stage, a new result and a question; final text cards lead to the original | both; CLI, Desktop, SDK variants | RFC §2, §5 |
+| 5 | Chat: an answer with references and the map version; «сверни ревьюеров» ("collapse the reviewers"); undoing the rule; questions are visible | both | RFC §5 |
+| 6 | SIGKILL of the daemon in the middle of playback and a restart: no duplicates, cursors, the mark and the rules are restored, hook events from the spool are not lost | Claude | RFC §8 |
+| 7 | LLM failure: facts keep flowing, the model age grows, the state is visible; recovery and catch-up mode | Codex | RFC §8 |
+| 8 | Hooks with `PermissionRequest`, a decision via OTel (`source: User`), a subagent, a fork as a new run with a link | Codex | RFC §4, §6 |
+| 9 | A session without hook events: «hooks не активны» ("hooks inactive"), «только файлы» ("files only") mode | both | ADR-0004 |
+| 10 | Distinguishing «ждёт человека» ("waiting for a human"), «нет новых событий» ("no new events"), «источник потерян» ("source lost") | Claude | RFC §6, §8 |
+| 11 | Claude fork: shared origin, no double usage; a usage panel with three journals | Claude | RFC §8 |
+| 12 | Claude compaction: a false `SubagentStop` does not turn into an agent | Claude | ADR-0006 |
+| 13 | Access without a token is rejected; a one-time link works | — | ADR-0003 |
+| 14 | A new model version does not reset the selected stage; when a stage is replaced, the selection moves to its successor | Claude | RFC §5 |
+| 15 | A session ended with an unanswered question and a review request: on return both are in the attention zone, the stage is not in `waiting`; a new off-topic prompt does not close them; an answer to an asynchronous Codex question gives the «вероятно отвечен» ("probably answered") mark, while the item stays open; dismissal by the user removes the item with a history entry | both | RFC §2, §5 |
+| 16 | Marking as viewed → LLM failure → a new artifact version and a question by a rule → return: both are visible in the changes mode; after a restart and observer recovery they are not announced again | Claude | RFC §5, §8 |
+| 17 | A report created via Bash becomes evidence; the source file is changed and deleted, the daemon is restarted; the inspector opens the saved version | Claude | RFC §6, §7 |
+| 18 | A chat question about an old piece of evidence that is not in the first input: an answer via `needs` with a reference to that evidence and the same map version | both | RFC §5 |
 
-### Юнит-тесты
+### Unit tests
 
-Юнит-тест допустим только для фрагментов, которые нельзя адекватно проверить на более высоком уровне. Каждый юнит-тест обосновывается в описании PR: что именно не покрывает интеграционный или функциональный сценарий. Заранее разрешённых юнит-тестов нет. Разрыв многобайтового символа проверяет интеграционный тест сборщика на реальном файле, стабильность id после `reparse` — функциональный тест `engine`.
+A unit test is allowed only for fragments that cannot be adequately checked at a higher level. Every unit test is justified in the PR description: what exactly the integration or functional scenario does not cover. There are no pre-approved unit tests. A split multibyte character is checked by the collector's integration test on a real file, and id stability after `reparse` by a functional `engine` test.
 
-### Покрытие и CI
+### Coverage and CI
 
-- **Покрытие.**
-  - V8-покрытие демона и CLI собирается при интеграционных и E2E-прогонах и сводится через `c8`.
-  - Покрытие `web` — через JS-покрытие Chromium в Playwright.
-  - Цель — 100% строк всех TS-пакетов, кроме `testkit`; исключения перечислены явно в конфиге покрытия.
-  - покрытие `aang-hook` собирается при интеграционных тестах через `go build -cover`.
-- **Матрица сценариев.** Связь «сценарий RFC → E2E-тест» ведётся в `docs/plan/mvp.md`.
-- **CI на каждый PR** — GitHub Actions по матрице macOS, Linux и Windows (ADR-0013):
-  - запрет комментариев во всех языках репозитория (TS, Go, SQL, YAML, CSS); исключения — shebang и синтаксически значимые директивы;
-  - линтер и проверка типов;
-  - интеграционные, функциональные и контрактные тесты на фикстурах;
-  - E2E в Chromium.
-- Тесты изоляции Claude на настоящем CLI запускаются локально перед объявлением поддержки версии.
+- **Coverage.**
+  - V8 coverage of the daemon and the CLI is collected during integration and E2E runs and merged via `c8`.
+  - `web` coverage — via Chromium JS coverage in Playwright.
+  - The goal is 100% of lines of all TS packages except `testkit`; exclusions are listed explicitly in the coverage config.
+  - `aang-hook` coverage is collected during integration tests via `go build -cover`.
+- **Scenario matrix.** The "RFC scenario → E2E test" mapping is maintained in `docs/plan/mvp.md`.
+- **CI on every PR** — GitHub Actions on a macOS, Linux and Windows matrix (ADR-0013):
+  - a ban on comments in all repository languages (TS, Go, SQL, YAML, CSS); exceptions are the shebang and syntactically significant directives;
+  - linter and type checking;
+  - integration, functional and contract tests on fixtures;
+  - E2E in Chromium.
+- Claude isolation tests on the real CLI run locally before declaring support for a version.
 
-## Последствия
+## Consequences
 
-- Тесты проверяют поведение на тех же данных, что пишут настоящие рантаймы.
-- Эталонные сессии, проигрыватель и поддельный CLI — общая инфраструктура. Её нужно построить до массовых E2E (план, этап 1).
-- Ошибка смысловой интерпретации реальной LLM тестами не ловится; это предмет продуктовой проверки (RFC §9).
+- Tests check behavior on the same data that the real runtimes write.
+- Reference sessions, the player and the fake CLI are shared infrastructure. It must be built before mass E2E (plan, stage 1).
+- An error in the semantic interpretation by a real LLM is not caught by tests; it is a matter of product validation (RFC §9).
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Цель — 100% строк всех TS-пакетов, включая `web`, и обработчика `aang-hook` через E2E, интеграционные и функциональные тесты; исключения перечисляются явно в конфиге покрытия и обосновываются в PR.
+1. The goal is 100% of lines of all TS packages, including `web`, and of the `aang-hook` handler through E2E, integration and functional tests; exclusions are listed explicitly in the coverage config and justified in the PR.

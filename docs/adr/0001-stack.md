@@ -1,20 +1,20 @@
-# ADR-0001: Стек MVP
+# ADR-0001: MVP stack
 
-Статус: принято владельцем 2026-10-01
+Status: accepted by the owner 2026-10-01
 
-## Контекст
+## Context
 
-RFC §7 требует демон со сборщиком событий, журналом, LLM-наблюдателем, локальным хранилищем, потоком обновлений и веб-интерфейсом. MVP поддерживает Claude Code и Codex, включая Claude Agent SDK и Codex SDK, которые поставляются на TypeScript.
+RFC §7 requires a daemon with an event collector, a journal, an LLM observer, local storage, an update stream and a web interface. The MVP supports Claude Code and Codex, including the Claude Agent SDK and the Codex SDK, which ship in TypeScript.
 
-## Решение
+## Decision
 
-- Язык — TypeScript (strict) на Node 26 для демона, CLI и UI; pnpm-монорепозиторий.
-  - Исключение — обработчик hook `aang-hook`: нативный бинарь на Go для всех ОС (ADR-0013, принято владельцем 2026-10-01). Исключение ограничено этим компонентом.
-- Хранилище — SQLite через встроенный `node:sqlite`.
-- Поток обновлений в UI — SSE; команды UI — HTTP JSON.
-- UI — React, Vite, React Flow (xyflow), авто-раскладка ELK.
-- Тесты — Playwright для E2E UI и сценариев, интеграционные и функциональные тесты демона на Vitest с реальным SQLite и реальными процессами; юнит-тесты только по правилу AGENTS.md.
+- Language — TypeScript (strict) on Node 26 for the daemon, CLI and UI; a pnpm monorepo.
+  - Exception — the hook handler `aang-hook`: a native Go binary for all OSes (ADR-0013, accepted by the owner 2026-10-01). The exception is limited to this component.
+- Storage — SQLite via the built-in `node:sqlite`.
+- Update stream to the UI — SSE; UI commands — HTTP JSON.
+- UI — React, Vite, React Flow (xyflow), ELK auto-layout.
+- Tests — Playwright for UI E2E and scenarios, integration and functional tests of the daemon on Vitest with real SQLite and real processes; unit tests only per the AGENTS.md rule.
 
-## Последствия
+## Consequences
 
-Один язык на всех слоях и прямое использование SDK. На VM/Docker нужен рантайм Node 26. SQLite и SSE остаются обратимыми решениями за собственными границами модулей.
+One language across all layers and direct use of the SDKs. VM/Docker needs the Node 26 runtime. SQLite and SSE remain reversible decisions behind their own module boundaries.

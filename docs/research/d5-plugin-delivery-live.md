@@ -1,189 +1,189 @@
-# Доставка плагина на живых CLI (D.5)
+# Plugin delivery on live CLIs (D.5)
 
-Статус: отчёт по пункту D.5 плана (`docs/plan/mvp.md`). Это не ADR: фактические уточнения внесены в ADR-0004 и ADR-0013, вопросы владельцу собраны в разделе 2.
-Дата: 2026-10-03. Ветка: `feat/d5-d7-live-plugin-checklist`.
+Status: report on plan item D.5 (`docs/plan/mvp.md`). This is not an ADR: factual clarifications have been made in ADR-0004 and ADR-0013; questions for the owner are collected in section 2.
+Date: 2026-10-03. Branch: `feat/d5-d7-live-plugin-checklist`.
 
-## 0. Область, версии, метод
+## 0. Scope, versions, method
 
-Проверка локальная: macOS на машине владельца и Linux в контейнере Docker на той же машине. Пользовательские `~/.claude`, `~/.claude.json` и `~/.codex` не менялись: все прогоны идут во временном профиле, неизменность проверяет отдельный раздел инструмента (раздел 8). Настоящая модель не вызывалась: оба CLI направлены на локальные заглушки, как в D.8.
+The check is local: macOS on the owner's machine and Linux in a Docker container on the same machine. The user's `~/.claude`, `~/.claude.json` and `~/.codex` were not changed: all runs go in a temporary profile, and a separate section of the tool verifies they are unchanged (section 8). No real model was called: both CLIs are pointed at local stubs, as in D.8.
 
-**Версии и среда:**
+**Versions and environment:**
 
-- macOS 27.0.1 (26A434), Apple M4 Pro, arm64; Claude Code 2.1.288 из нативного установщика (`~/.local/bin/claude`); codex-cli 0.160.0 из Homebrew; shell учётной записи — `/bin/zsh`;
-- Linux: контейнер `node:26` (Debian 13 trixie, ядро 7.0.14-linuxkit, aarch64) в Docker Desktop 29.8.1 на той же машине; Claude Code 2.1.288 и `@openai/codex@0.160.0` из npm; прогон от пользователя `node` с shell учётной записи `/bin/bash`;
-- `@anthropic-ai/claude-agent-sdk` 0.3.288 со встроенным движком 2.1.288 — ставится инструментом во временный каталог прогона;
-- Node 26.10.0, `aang-hook` из этой ветки (для Linux — `GOOS=linux GOARCH=arm64`).
+- macOS 27.0.1 (26A434), Apple M4 Pro, arm64; Claude Code 2.1.288 from the native installer (`~/.local/bin/claude`); codex-cli 0.160.0 from Homebrew; account shell — `/bin/zsh`;
+- Linux: container `node:26` (Debian 13 trixie, kernel 7.0.14-linuxkit, aarch64) in Docker Desktop 29.8.1 on the same machine; Claude Code 2.1.288 and `@openai/codex@0.160.0` from npm; run as user `node` with account shell `/bin/bash`;
+- `@anthropic-ai/claude-agent-sdk` 0.3.288 with the bundled engine 2.1.288 — the tool installs it into the run's temporary directory;
+- Node 26.10.0, `aang-hook` from this branch (for Linux — `GOOS=linux GOARCH=arm64`).
 
-**Метод.** Инструмент `tools/runtime-check`, набор `delivery` (`node tools/runtime-check/dist/main.js --suite delivery`). Отчёты прогонов — [`samples/plugin-delivery/macos/report.json`](samples/plugin-delivery/macos/report.json) и [`samples/plugin-delivery/linux/report.json`](samples/plugin-delivery/linux/report.json); временные пути заменены на `<work>`, домашний каталог — на `~`.
+**Method.** The `tools/runtime-check` tool, `delivery` suite (`node tools/runtime-check/dist/main.js --suite delivery`). Run reports — [`samples/plugin-delivery/macos/report.json`](samples/plugin-delivery/macos/report.json) and [`samples/plugin-delivery/linux/report.json`](samples/plugin-delivery/linux/report.json); temporary paths are replaced with `<work>`, the home directory with `~`.
 
-- Профиль — каталог `<work>/Users/Имя Фамилия` с пробелом и кириллицей: внутри `.claude`, `.codex`, `.aang` (бинарь и spool с арендой) и проект `проект с пробелами`. `HOME`, `CLAUDE_CONFIG_DIR` и `CODEX_HOME` заданы явно; переменные `ANTHROPIC_*`, `CLAUDE*`, `CODEX_*`, `OPENAI_*` и `AANG_*` родительского окружения сняты.
-- Установка — продуктовым кодом `@aang/hook` (D.2–D.4), а не копией конфигурации: `installClaudePlugin`, `claudePluginState`, `uninstallClaudePlugin`, `installCodexHooks`, `codexHooksState`. Запасной каталог собирается тем же `writeClaudePlugin`, что генерирует плагин маркетплейса.
-- Модель: Claude — заглушка Messages API (`ANTHROPIC_BASE_URL`, ключ-заглушка), Codex — заглушка Responses API (провайдер без авторизации). Сценарий — N вызовов `Read` у Claude и `apply_patch` у Codex, затем текст.
-- Доверие hooks Codex не подтверждалось: установщик aang `hooks.state` не пишет, поэтому сессии Codex идут с тестовым `--dangerously-bypass-hook-trust`, как в D.8.
-- Задержка: бенчмарк запуска `aang-hook` тем же launcher, что у рантайма (500 запусков после 20 прогревочных, stdin — `PreToolUse.Bash.json`), и прирост серии в настоящем CLI — 15 пар сессий с hooks aang и без них, 20 вызовов инструмента в сессии.
+- Profile — the directory `<work>/Users/Имя Фамилия` with a space and Cyrillic: inside are `.claude`, `.codex`, `.aang` (binary and spool with a lease) and the project `проект с пробелами`. `HOME`, `CLAUDE_CONFIG_DIR` and `CODEX_HOME` are set explicitly; the parent environment's `ANTHROPIC_*`, `CLAUDE*`, `CODEX_*`, `OPENAI_*` and `AANG_*` variables are removed.
+- Installation — by the product code of `@aang/hook` (D.2–D.4), not by a copy of the configuration: `installClaudePlugin`, `claudePluginState`, `uninstallClaudePlugin`, `installCodexHooks`, `codexHooksState`. The fallback directory is built by the same `writeClaudePlugin` that generates the marketplace plugin.
+- Model: Claude — a Messages API stub (`ANTHROPIC_BASE_URL`, stub key), Codex — a Responses API stub (provider without authorization). The scenario is N `Read` calls for Claude and `apply_patch` for Codex, then text.
+- Codex hook trust was not confirmed: the aang installer does not write `hooks.state`, so Codex sessions run with the test flag `--dangerously-bypass-hook-trust`, as in D.8.
+- Latency: a benchmark of launching `aang-hook` with the same launcher as the runtime (500 launches after 20 warm-up ones, stdin — `PreToolUse.Bash.json`), and the series increment in the real CLI — 15 pairs of sessions with and without aang hooks, 20 tool calls per session.
 
-**Обозначения:** **Э** — наблюдали в прогоне; «обе ОС» — на macOS и в Linux-контейнере.
+**Notation:** **Obs** — observed in a run; "both OSes" — on macOS and in the Linux container.
 
-**Ограничения:**
+**Limitations:**
 
-- модель поддельная: проверяются доставка, исполнение hooks и процессы, а не поведение модели;
-- Linux — контейнер в виртуальной машине Docker Desktop на той же машине, а не отдельный хост; абсолютные задержки на нативном Linux будут другими (D.8 даёт замеры на `ubuntu-latest`);
-- Desktop и интерактивный TUI не запускались — это чек-лист владельца D.7;
-- trust Codex через `/hooks` не проверялся (см. выше).
+- the model is fake: delivery, hook execution and processes are checked, not model behavior;
+- Linux is a container in the Docker Desktop virtual machine on the same machine, not a separate host; absolute latencies on native Linux will differ (D.8 gives measurements on `ubuntu-latest`);
+- Desktop and the interactive TUI were not launched — that is the owner's D.7 checklist;
+- Codex trust via `/hooks` was not checked (see above).
 
-## 1. Главное
+## 1. Key findings
 
-1. **Решение 1 ADR-0004 подтверждено.** Плагин, поставленный продуктовым `installClaudePlugin` через локальный маркетплейс, загружается и в CLI 2.1.288, и в Agent SDK 0.3.288 с `settingSources` по умолчанию; события доходят до spool. Удаление и повторные установка и удаление на настоящем CLI работают. Переводить доставку на запасной способ не нужно.
-2. **Запасной каталог `<claude>/skills/aang/` тоже работает** в CLI и SDK: плагин загружается без установки как `aang@skills-dir`.
-3. **Exec form работает на установленной версии 2.1.288:** путь к бинарю и spool с пробелом и кириллицей доходят без искажений, `claude` запускает `aang-hook` сам, без shell.
-4. **Задержка в бюджете 10 мс на обеих ОС:**
-   - macOS — p95 2,5–3,6 мс у Claude (exec form) и 5,2–6,2 мс у Codex (через shell учётной записи); прирост серии — 3,7–5,6 мс на событие у Claude и 4–6,4 мс у Codex;
-   - Linux-контейнер — p95 1,4 и 1,7 мс; прирост серии — 2,1 мс на событие у Claude, у Codex около 1 мс, на уровне шума.
-5. **Codex исполняет hook через shell учётной записи** (`/bin/zsh -c` на macOS, `/bin/bash -c` в Linux), а не через `sh`. Таймаут hook не блокирует Codex дольше 2 с, процесс hook завершается; `exit 1` не блокирует; `exit 2` в `PreToolUse` блокирует вызов — у `aang-hook` такого кода нет.
-6. **Установка hooks Codex продуктовым кодом** на настоящем `codex app-server` во временном `CODEX_HOME`: строка команды стабильна при повторной установке, состояние до доверия — `untrusted`.
-7. Пользовательские `~/.claude` и `~/.codex` не изменились.
+1. **ADR-0004 decision 1 is confirmed.** The plugin installed by the product's `installClaudePlugin` via a local marketplace loads both in CLI 2.1.288 and in Agent SDK 0.3.288 with default `settingSources`; events reach the spool. Uninstalling and repeated installation and uninstallation work on the real CLI. There is no need to switch delivery to the fallback method.
+2. **The fallback directory `<claude>/skills/aang/` also works** in the CLI and the SDK: the plugin loads without installation as `aang@skills-dir`.
+3. **Exec form works on the installed version 2.1.288:** the binary and spool paths with a space and Cyrillic arrive undistorted, `claude` launches `aang-hook` itself, without a shell.
+4. **Latency is within the 10 ms budget on both OSes:**
+   - macOS — p95 2.5–3.6 ms for Claude (exec form) and 5.2–6.2 ms for Codex (via the account shell); series increment — 3.7–5.6 ms per event for Claude and 4–6.4 ms for Codex;
+   - Linux container — p95 1.4 and 1.7 ms; series increment — 2.1 ms per event for Claude, about 1 ms for Codex, at noise level.
+5. **Codex executes the hook via the account shell** (`/bin/zsh -c` on macOS, `/bin/bash -c` on Linux), not via `sh`. A hook timeout does not block Codex for longer than 2 s, and the hook process is terminated; `exit 1` does not block; `exit 2` in `PreToolUse` blocks the call — `aang-hook` has no such code.
+6. **Installing Codex hooks with the product code** on a real `codex app-server` in a temporary `CODEX_HOME`: the command line is stable across reinstallation, the state before trust is `untrusted`.
+7. The user's `~/.claude` and `~/.codex` did not change.
 
-## 2. Вынесено владельцу
+## 2. Raised to the owner
 
-Превышения бюджета и блокирующего поведения рантаймов D.5 не нашла, поэтому решений по задержке не требуется. Для сведения:
+D.5 found no budget overruns and no blocking runtime behavior, so no latency decisions are required. For information:
 
-1. **`~/.zshenv` пользователя входит в задержку каждого hook Codex** на macOS: Codex запускает команду через shell учётной записи, а zsh читает этот файл при каждом запуске. На машине владельца файла нет, и p95 — 5–6 мс. У пользователя с тяжёлым `~/.zshenv` значение будет выше, и aang на это не влияет: формы запуска без shell у hooks Codex нет (D.8). Это не меняет ни установку, ни бюджет; предлагается показывать фактическую задержку в динамической диагностике hooks, если она понадобится.
-2. **Проверка включённости `claudePluginState` знает только `aang@aang`.** Пока доставка идёт маркетплейсом (решение 1), это верно. При переходе на запасной каталог проверку нужно расширить на `aang@skills-dir`.
+1. **The user's `~/.zshenv` is part of the latency of every Codex hook** on macOS: Codex runs the command via the account shell, and zsh reads this file on every launch. The owner's machine has no such file, and p95 is 5–6 ms. For a user with a heavy `~/.zshenv` the value will be higher, and aang has no influence on this: Codex hooks have no shell-less launch form (D.8). This changes neither installation nor the budget; the proposal is to show the actual latency in dynamic hook diagnostics, if it is ever needed.
+2. **The `claudePluginState` enablement check knows only `aang@aang`.** As long as delivery goes through the marketplace (decision 1), this is correct. If delivery switches to the fallback directory, the check must be extended to `aang@skills-dir`.
 
-## 3. Доставка плагина Claude
+## 3. Claude plugin delivery
 
-**Маркетплейс (решение 1 ADR-0004)** (Э, обе ОС). `installClaudePlugin` генерирует плагин в `<AANG_HOME>/claude-plugin` и выполняет `claude plugin marketplace add … --scope user --json` и `claude plugin install aang@aang --scope user --json` на настоящем CLI 2.1.288:
+**Marketplace (ADR-0004 decision 1)** (Obs, both OSes). `installClaudePlugin` generates the plugin in `<AANG_HOME>/claude-plugin` and runs `claude plugin marketplace add … --scope user --json` and `claude plugin install aang@aang --scope user --json` on the real CLI 2.1.288:
 
-- обе команды завершаются с `outcome: ok`; повторная установка проходит без ошибки;
-- `claudePluginState` возвращает `enabled`; в `claude plugin list --json` — `aang@aang`, `scope: user`, `enabled: true`;
-- `installPath` в списке указывает на копию в `plugins/cache/aang/aang/1.0.0`, но в `init.plugins` и в `CLAUDE_PLUGIN_ROOT` hook — исходный каталог маркетплейса `<AANG_HOME>/claude-plugin`: CLI исполняет hooks из него, как и на Windows в D.8;
-- `uninstallClaudePlugin` удаляет плагин и маркетплейс, повторное удаление тоже проходит без ошибки; после этого `claudePluginState` — `not_installed`, каталог плагина удалён, сессия CLI не даёт ни одного события.
+- both commands finish with `outcome: ok`; reinstallation passes without error;
+- `claudePluginState` returns `enabled`; `claude plugin list --json` shows `aang@aang`, `scope: user`, `enabled: true`;
+- `installPath` in the list points to the copy in `plugins/cache/aang/aang/1.0.0`, but in `init.plugins` and in the hook's `CLAUDE_PLUGIN_ROOT` it is the original marketplace directory `<AANG_HOME>/claude-plugin`: the CLI executes hooks from it, as on Windows in D.8;
+- `uninstallClaudePlugin` removes the plugin and the marketplace, a repeated removal also passes without error; afterwards `claudePluginState` is `not_installed`, the plugin directory is removed, and a CLI session produces no events.
 
-**Запасной каталог** `<claude>/skills/aang/.claude-plugin/` (Э, обе ОС). Тот же плагин, записанный `writeClaudePlugin` в `<CLAUDE_CONFIG_DIR>/skills/aang`, загружается без установки как `aang@skills-dir`; `claude plugin list --json` показывает его как `enabled`, `scope: user`. Каталог ищется относительно `CLAUDE_CONFIG_DIR`: в прогоне это отдельный каталог, а не `$HOME/.claude`.
+**Fallback directory** `<claude>/skills/aang/.claude-plugin/` (Obs, both OSes). The same plugin, written by `writeClaudePlugin` into `<CLAUDE_CONFIG_DIR>/skills/aang`, loads without installation as `aang@skills-dir`; `claude plugin list --json` shows it as `enabled`, `scope: user`. The directory is looked up relative to `CLAUDE_CONFIG_DIR`: in the run this is a separate directory, not `$HOME/.claude`.
 
-**События.** Сессия с двумя вызовами `Read` в каждом из четырёх вариантов даёт 10 файлов spool: `SessionStart`, `UserPromptSubmit`, по два `PreToolUse`, `PostToolUse`, `PostToolBatch`, затем `Stop` и `SessionEnd` — как в D.8. Все файлы с тегом `plugin`, `CLAUDE_PLUGIN_ROOT` — каталог соответствующего плагина.
+**Events.** A session with two `Read` calls in each of the four variants produces 10 spool files: `SessionStart`, `UserPromptSubmit`, two each of `PreToolUse`, `PostToolUse`, `PostToolBatch`, then `Stop` and `SessionEnd` — as in D.8. All files carry the `plugin` tag; `CLAUDE_PLUGIN_ROOT` is the directory of the corresponding plugin.
 
-| Способ | CLI 2.1.288 (`-p`) | Agent SDK 0.3.288, `settingSources` по умолчанию |
+| Method | CLI 2.1.288 (`-p`) | Agent SDK 0.3.288, default `settingSources` |
 | --- | --- | --- |
-| маркетплейс, `aang@aang` | 10 событий, `CLAUDE_CODE_ENTRYPOINT=sdk-cli` | 10 событий, `CLAUDE_CODE_ENTRYPOINT=sdk-ts`, `CLAUDE_AGENT_SDK_VERSION=0.3.288` |
-| запасной каталог, `aang@skills-dir` | 10 событий | 10 событий |
+| marketplace, `aang@aang` | 10 events, `CLAUDE_CODE_ENTRYPOINT=sdk-cli` | 10 events, `CLAUDE_CODE_ENTRYPOINT=sdk-ts`, `CLAUDE_AGENT_SDK_VERSION=0.3.288` |
+| fallback directory, `aang@skills-dir` | 10 events | 10 events |
 
-SDK вызывался через `query()` без `settingSources`, `plugins` и `pathToClaudeCodeExecutable`: со встроенным движком 2.1.288 и `CLAUDE_CONFIG_DIR` временного профиля в `env`. В сообщении `system/init` у SDK в обоих случаях есть плагин `aang` с тем же источником, что у CLI. Так закрыт вопрос ADR-0004 о загрузке `enabledPlugins` в SDK.
+The SDK was called via `query()` without `settingSources`, `plugins` and `pathToClaudeCodeExecutable`: with the bundled engine 2.1.288 and the temporary profile's `CLAUDE_CONFIG_DIR` in `env`. In the SDK's `system/init` message, in both cases, there is the `aang` plugin with the same source as in the CLI. This closes the ADR-0004 question about loading `enabledPlugins` in the SDK.
 
-Вывод: решение 1 ADR-0004 подтверждается, переводить доставку на запасной способ не нужно. Запасной каталог тоже рабочий, но `claudePluginState` из D.2 ищет только `aang@aang`; если доставку когда-нибудь переведут на запасной способ, проверку включённости придётся расширить на `aang@skills-dir`.
+Conclusion: ADR-0004 decision 1 is confirmed, there is no need to switch delivery to the fallback method. The fallback directory also works, but `claudePluginState` from D.2 looks only for `aang@aang`; if delivery is ever switched to the fallback method, the enablement check will have to be extended to `aang@skills-dir`.
 
 ## 4. Exec form
 
-Плагин aang записывает hook как `command` — абсолютный путь `aang-hook` — и `args`: `["claude", "plugin", "<spool>"]`, `timeout: 2`. Путь к бинарю и spool лежит в профиле `Имя Фамилия`, то есть содержит пробел и кириллицу.
+The aang plugin writes the hook as `command` — the absolute path of `aang-hook` — and `args`: `["claude", "plugin", "<spool>"]`, `timeout: 2`. The binary and spool paths lie in the `Имя Фамилия` profile, i.e. they contain a space and Cyrillic.
 
-- Без exec form такая команда не дала бы событий: `command` ушёл бы в `sh -c` и распался по пробелу, а без `args` `aang-hook` выходит без записи. Все сессии из раздела 3 доставили события с верными тегом и spool (Э, обе ОС).
-- Зонд в exec form (`command` — `node`, путь к журналу с пробелом — в `args`) получает аргументы без разбиения по словам, его родитель — сам процесс `claude` (`~/.local/bin/claude` на macOS, `claude.exe` из пакета npm в Linux).
-- Для сравнения та же команда строкой без `args` запускается через `/bin/sh -c`. В Linux родитель зонда — `sh`; в macOS `sh` заменяет себя командой через `exec`, поэтому родителем снова видна `claude`. По родителю exec form на macOS не отличить, отличает доставка с путями, содержащими пробел.
+- Without exec form such a command would produce no events: `command` would go to `sh -c` and split at the space, and without `args` `aang-hook` exits without writing. All sessions from section 3 delivered events with the correct tag and spool (Obs, both OSes).
+- A probe in exec form (`command` — `node`, the log path with a space in `args`) receives its arguments without word splitting; its parent is the `claude` process itself (`~/.local/bin/claude` on macOS, `claude.exe` from the npm package on Linux).
+- For comparison, the same command as a string without `args` is launched via `/bin/sh -c`. On Linux the probe's parent is `sh`; on macOS `sh` replaces itself with the command via `exec`, so the parent again appears as `claude`. On macOS exec form cannot be told apart by the parent; delivery with paths containing a space does tell it apart.
 
-Exec form на установленной версии 2.1.288 работает на обеих ОС.
+Exec form works on the installed version 2.1.288 on both OSes.
 
-## 5. Hooks Codex, установленные aang
+## 5. Codex hooks installed by aang
 
-`installCodexHooks` во временном `CODEX_HOME` с настоящим `codex app-server` (`initialize`, `hooks/list` до и после записи) дописывает записи aang во все 12 событий (Э, обе ОС):
+`installCodexHooks` in a temporary `CODEX_HOME` with a real `codex app-server` (`initialize`, `hooks/list` before and after writing) appends aang entries to all 12 events (Obs, both OSes):
 
-- строка команды — `'<AANG_HOME>/bin/aang-hook' codex user '<AANG_HOME>/spool'`, пути в одинарных кавычках POSIX. Ровно эта строка измерялась в бенчмарке задержки; серия и проверка таймаутов использовали ту же форму кавычек;
-- повторная установка не меняет ни строку команды, ни байты `hooks.json`;
-- `codexHooksState` возвращает `untrusted`: все 12 записей `trustStatus: untrusted`, `enabled: true`, предупреждений нет. Это ожидаемо: доверие подтверждает пользователь через `/hooks`, aang `hooks.state` не пишет;
-- сессия `codex exec` с `--dangerously-bypass-hook-trust` применяет patch и доставляет 6 событий с тегом `user`: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`.
+- the command line is `'<AANG_HOME>/bin/aang-hook' codex user '<AANG_HOME>/spool'`, paths in POSIX single quotes. Exactly this line was measured in the latency benchmark; the series and the timeout check used the same quoting form;
+- reinstallation changes neither the command line nor the bytes of `hooks.json`;
+- `codexHooksState` returns `untrusted`: all 12 entries are `trustStatus: untrusted`, `enabled: true`, no warnings. This is expected: the user confirms trust via `/hooks`; aang does not write `hooks.state`;
+- a `codex exec` session with `--dangerously-bypass-hook-trust` applies the patch and delivers 6 events with the `user` tag: `SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`, `Stop`, `SessionEnd`.
 
-**Чем Codex исполняет команду hook** (Э). Зонд с составной командой (`<зонд>; true`), которую shell не может заменить через `exec`, показывает родителя:
+**What Codex executes the hook command with** (Obs). A probe with a compound command (`<probe>; true`), which the shell cannot replace via `exec`, shows the parent:
 
-- macOS — `/bin/zsh -c '<команда>'`;
-- Linux — `/bin/bash -c '<команда>'`.
+- macOS — `/bin/zsh -c '<command>'`;
+- Linux — `/bin/bash -c '<command>'`.
 
-Это shell учётной записи из базы пользователей, а не `sh` и не `$SHELL`: на macOS при `SHELL=/bin/sh`, `SHELL=/bin/bash` и без `SHELL` Codex всё равно запускал `/bin/zsh` (отдельный опыт тем же зондом). Флага `-l` нет, поэтому login- и интерактивные файлы не читаются. Но zsh при каждом запуске читает `$ZDOTDIR/.zshenv` (по умолчанию `~/.zshenv`): если он есть у пользователя, его время входит в задержку каждого события Codex. На машине владельца `~/.zshenv` и `/etc/zshenv` нет. Простую команду aang и zsh, и bash выполняют через `exec`, поэтому в дереве процессов родителем `aang-hook` остаётся `codex`.
+This is the account shell from the user database, not `sh` and not `$SHELL`: on macOS with `SHELL=/bin/sh`, `SHELL=/bin/bash` and without `SHELL`, Codex still launched `/bin/zsh` (a separate experiment with the same probe). There is no `-l` flag, so login and interactive files are not read. But zsh reads `$ZDOTDIR/.zshenv` (by default `~/.zshenv`) on every launch: if the user has one, its time is part of the latency of every Codex event. The owner's machine has neither `~/.zshenv` nor `/etc/zshenv`. Both zsh and bash run the simple aang command via `exec`, so in the process tree the parent of `aang-hook` remains `codex`.
 
-ADR-0013 говорил о `sh` на macOS и Linux; формулировка уточнена. Кавычки POSIX одинаково работают в `sh`, `bash` и `zsh`; другие shell учётной записи (например, `fish`) не проверялись.
+ADR-0013 spoke of `sh` on macOS and Linux; the wording has been clarified. POSIX quoting works the same in `sh`, `bash` and `zsh`; other account shells (for example, `fish`) were not checked.
 
-## 6. Задержка
+## 6. Latency
 
-Бюджет ADR-0013 — p95 ≤ 10 мс на событие со стороны рантайма. Бенчмарк — 500 запусков после 20 прогревочных, stdin — `PreToolUse.Bash.json`, окружение — из конверта плагина спайка, как в D.1 и D.8. Launcher воспроизведён по наблюдённым процессам:
+The ADR-0013 budget is p95 ≤ 10 ms per event on the runtime side. The benchmark is 500 launches after 20 warm-up ones, stdin — `PreToolUse.Bash.json`, environment — from the spike plugin's envelope, as in D.1 and D.8. The launcher is reproduced from the observed processes:
 
-- Claude — прямой запуск `aang-hook` (exec form, раздел 4);
-- Codex — `<shell учётной записи> -c '<строка команды aang>'` (раздел 5): `/bin/zsh -c` на macOS, `/bin/bash -c` в Linux. В macOS бенчмарк идёт с настоящим `HOME` владельца, то есть с его окружением zsh.
+- Claude — direct launch of `aang-hook` (exec form, section 4);
+- Codex — `<account shell> -c '<aang command string>'` (section 5): `/bin/zsh -c` on macOS, `/bin/bash -c` on Linux. On macOS the benchmark runs with the owner's real `HOME`, i.e. with their zsh environment.
 
-На macOS машина не была выделенной: параллельно работали другие сессии разработки. Поэтому приведены два полных прогона со средней загрузкой (`loadavg`) на начало и конец; в образце — прогон 2. Linux-контейнер получает свою долю тех же ядер.
+On macOS the machine was not dedicated: other development sessions were running in parallel. So two full runs are given, with the load average (`loadavg`) at start and end; the sample contains run 2. The Linux container gets its share of the same cores.
 
-**Запуск `aang-hook`** (мс, p50 / p95 / max):
+**Launching `aang-hook`** (ms, p50 / p95 / max):
 
-| Способ запуска | macOS, прогон 1 (load 3,8 → 37) | macOS, прогон 2 (load 7,8 → 5,8) | Linux-контейнер |
+| Launch method | macOS, run 1 (load 3.8 → 37) | macOS, run 2 (load 7.8 → 5.8) | Linux container |
 | --- | --- | --- | --- |
-| Claude: прямой запуск (exec form) | 2,63 / 3,60 / 6,67 | 2,16 / 2,48 / 2,82 | 0,89 / 1,44 / 2,01 |
-| Claude: без аренды (без записи в spool) | 2,25 / 2,66 / 5,96 | 1,73 / 1,98 / 2,66 | 0,81 / 1,27 / 1,67 |
-| Codex: команда aang через shell учётной записи | 5,25 / 6,16 / 7,77 | 4,14 / 5,17 / 6,68 | 1,10 / 1,66 / 2,50 |
-| Codex: только `aang-hook` с аргументами Codex | 2,62 / 3,59 / 6,82 | 1,98 / 2,35 / 3,60 | 0,86 / 1,42 / 2,61 |
+| Claude: direct launch (exec form) | 2.63 / 3.60 / 6.67 | 2.16 / 2.48 / 2.82 | 0.89 / 1.44 / 2.01 |
+| Claude: without a lease (no spool write) | 2.25 / 2.66 / 5.96 | 1.73 / 1.98 / 2.66 | 0.81 / 1.27 / 1.67 |
+| Codex: aang command via the account shell | 5.25 / 6.16 / 7.77 | 4.14 / 5.17 / 6.68 | 1.10 / 1.66 / 2.50 |
+| Codex: `aang-hook` alone with Codex arguments | 2.62 / 3.59 / 6.82 | 1.98 / 2.35 / 3.60 | 0.86 / 1.42 / 2.61 |
 
-Все запуски завершились с `exit 0` без вывода; при аренде каждый записал ровно один файл, без аренды — ни одного. Запуск zsh добавляет на macOS 2–3 мс к самому бинарю, bash в Linux — 0,2–0,3 мс.
+All launches finished with `exit 0` and no output; with a lease each wrote exactly one file, without a lease none. Launching zsh adds 2–3 ms on macOS on top of the binary itself, bash on Linux 0.2–0.3 ms.
 
-**Прирост серии в настоящем CLI.** Сессия с 20 вызовами инструмента: у Claude 64 события, у Codex 44. 15 пар запусков с hooks aang и без них, порядок внутри пары чередуется. Приведены разность медиан и медиана разностей внутри пар, обе делятся на число событий (мс):
+**Series increment in the real CLI.** A session with 20 tool calls: 64 events for Claude, 44 for Codex. 15 pairs of launches with and without aang hooks, the order within a pair alternates. Given are the difference of medians and the median of within-pair differences, both divided by the number of events (ms):
 
-| CLI | Среда | медиана с hooks | медиана без hooks | на событие, по медианам | на событие, по парам |
+| CLI | Environment | median with hooks | median without hooks | per event, by medians | per event, by pairs |
 | --- | --- | --- | --- | --- | --- |
-| Claude | macOS, прогон 1 | 824 | 463 | 5,64 | 4,42 |
-| Claude | macOS, прогон 2 | 612 | 375 | 3,69 | 3,75 |
-| Claude | Linux-контейнер | 491 | 358 | 2,09 | 2,04 |
-| Codex | macOS, прогон 1 | 1552 | 1377 | 3,99 | 6,36 |
-| Codex | macOS, прогон 2 | 1181 | 970 | 4,81 | 5,04 |
-| Codex | Linux-контейнер | 1147 | 1112 | 0,81 | 1,11 |
+| Claude | macOS, run 1 | 824 | 463 | 5.64 | 4.42 |
+| Claude | macOS, run 2 | 612 | 375 | 3.69 | 3.75 |
+| Claude | Linux container | 491 | 358 | 2.09 | 2.04 |
+| Codex | macOS, run 1 | 1552 | 1377 | 3.99 | 6.36 |
+| Codex | macOS, run 2 | 1181 | 970 | 4.81 | 5.04 |
+| Codex | Linux container | 1147 | 1112 | 0.81 | 1.11 |
 
-Выводы:
+Conclusions:
 
-- На обеих ОС задержка установленной конфигурации в бюджете: p95 запуска не больше 3,6 мс у Claude и 6,2 мс у Codex на macOS, около 1,5 мс в Linux-контейнере.
-- Прирост серии у Claude (3,7–5,6 мс на событие на macOS) больше p95 запуска бинаря: в него входят создание процесса, передача stdin и ожидание выхода на стороне CLI. Он тоже в бюджете.
-- У Codex разброс длительности сессий (сотни миллисекунд) сравним с суммарным приростом (44 события по нескольку миллисекунд), поэтому оценки по серии грубые: 4–6,4 мс на macOS и около 1 мс в Linux. Основной ориентир для Codex — бенчмарк с тем же launcher.
-- Ни одного таймаута и ни одной ошибки hook в сериях.
+- On both OSes the latency of the installed configuration is within budget: launch p95 is at most 3.6 ms for Claude and 6.2 ms for Codex on macOS, about 1.5 ms in the Linux container.
+- The series increment for Claude (3.7–5.6 ms per event on macOS) is larger than the binary's launch p95: it includes process creation, passing stdin and waiting for exit on the CLI side. It is also within budget.
+- For Codex the spread of session durations (hundreds of milliseconds) is comparable to the total increment (44 events of a few milliseconds each), so the series estimates are rough: 4–6.4 ms on macOS and about 1 ms on Linux. The main reference for Codex is the benchmark with the same launcher.
+- Not a single timeout and not a single hook error in the series.
 
-## 7. Codex: таймаут и ненулевой код выхода hook
+## 7. Codex: hook timeout and non-zero exit code
 
-Зонд в той же форме, что команда aang, на одном событии: выход с кодом или сон 20 с при `timeout: 2` (Э, обе ОС, одинаково):
+A probe in the same form as the aang command, on one event: exit with a code or a 20 s sleep with `timeout: 2` (Obs, both OSes, identical):
 
-| Случай | Результат |
+| Case | Result |
 | --- | --- |
-| `PreToolUse`, `exit 1` | patch применён, сессия завершилась нормально |
-| `PreToolUse`, `exit 2` | **patch не применён**: Codex блокирует вызов, ход завершается без ошибки сессии |
-| `PreToolUse`, таймаут 2 с | процесс hook завершён, patch применён, сессия длиннее примерно на 2 с |
-| `UserPromptSubmit`, таймаут 2 с | процесс hook завершён, ход продолжился |
-| `Stop`, таймаут 2 с | процесс hook завершён, сессия завершилась нормально |
+| `PreToolUse`, `exit 1` | patch applied, session finished normally |
+| `PreToolUse`, `exit 2` | **patch not applied**: Codex blocks the call, the turn finishes without a session error |
+| `PreToolUse`, 2 s timeout | hook process terminated, patch applied, session about 2 s longer |
+| `UserPromptSubmit`, 2 s timeout | hook process terminated, the turn continued |
+| `Stop`, 2 s timeout | hook process terminated, session finished normally |
 
-Выводы те же, что в D.8 для Linux: зависание или сбой hook не блокируют Codex дольше `timeout`, процесс hook после таймаута не остаётся жить; `exit 2` в `PreToolUse` блокирует действие. `aang-hook` всегда выходит с кодом 0 (ADR-0013), поэтому блокирующей ветки у него нет. Цена зависания — до 2 с на событие; это предел гарантии ADR-0004, а не новое поведение.
+The conclusions are the same as in D.8 for Linux: a hanging or failing hook does not block Codex for longer than `timeout`, and the hook process does not stay alive after the timeout; `exit 2` in `PreToolUse` blocks the action. `aang-hook` always exits with code 0 (ADR-0013), so it has no blocking branch. The cost of a hang is up to 2 s per event; this is the limit of the ADR-0004 guarantee, not new behavior.
 
-## 8. Неизменность пользовательского профиля
+## 8. User profile left unchanged
 
-Раздел `user profile untouched` сравнивает SHA-256 файлов до и после прогона и ищет следы рабочего каталога (Э, обе ОС):
+The `user profile untouched` section compares SHA-256 of files before and after the run and looks for traces of the working directory (Obs, both OSes):
 
-- `~/.claude/settings.json`, `settings.local.json`, `plugins/known_marketplaces.json`, `plugins/installed_plugins.json`, `~/.codex/hooks.json`, `config.toml`, `auth.json` не изменились; содержимое не читалось, сравнивались только хеши;
-- в `~/.claude/skills` не появилось каталогов;
-- в `~/.claude/projects` нет каталога проекта для рабочего каталога прогона, `~/.claude.json` его не упоминает;
-- среди rollout в `~/.codex/sessions`, изменённых за время прогона, нет упоминаний рабочего каталога.
+- `~/.claude/settings.json`, `settings.local.json`, `plugins/known_marketplaces.json`, `plugins/installed_plugins.json`, `~/.codex/hooks.json`, `config.toml`, `auth.json` did not change; the content was not read, only hashes were compared;
+- no directories appeared in `~/.claude/skills`;
+- `~/.claude/projects` has no project directory for the run's working directory, and `~/.claude.json` does not mention it;
+- among the rollouts in `~/.codex/sessions` modified during the run, there are no mentions of the working directory.
 
-На время вызовов продуктовых функций, которые запускают `claude plugin` и `codex app-server` с окружением процесса, инструмент подменяет окружение процесса окружением временного профиля.
+For the duration of calls to product functions that launch `claude plugin` and `codex app-server` with the process environment, the tool replaces the process environment with the temporary profile's environment.
 
-## 9. Не проверено
+## 9. Not checked
 
-- Claude Desktop (Local и worktree) и интерактивный TUI — чек-лист владельца D.7 (`docs/research/d7-owner-checklist.md`): там плагин ставится тем же маркетплейсом в настоящий профиль владельца.
-- Доверие hooks Codex через `/hooks` и сохранение trust при обновлении бинаря на месте — контрактный тест (ADR-0004) и D.7.
-- Задержка с настоящей моделью и с `~/.zshenv` пользователя; shell учётной записи кроме `zsh` и `bash`.
-- Нативный Linux вне контейнера: здесь — контейнер на macOS, контрольные значения нативного Linux есть в D.8 (`ubuntu-latest`).
-- Исключения SDK из ADR-0004 (resume из `sessionStore`, `persistSession: false`, `settingSources: []` с `plugins`) — вне D.5.
+- Claude Desktop (Local and worktree) and the interactive TUI — the owner's D.7 checklist (`docs/research/d7-owner-checklist.md`): there the plugin is installed by the same marketplace into the owner's real profile.
+- Codex hook trust via `/hooks` and preservation of trust when the binary is updated in place — a contract test (ADR-0004) and D.7.
+- Latency with a real model and with the user's `~/.zshenv`; account shells other than `zsh` and `bash`.
+- Native Linux outside a container: here it is a container on macOS; reference values for native Linux are in D.8 (`ubuntu-latest`).
+- The SDK exceptions from ADR-0004 (resume from `sessionStore`, `persistSession: false`, `settingSources: []` with `plugins`) — outside D.5.
 
-## 10. Как воспроизвести
+## 10. How to reproduce
 
-На macOS из корня репозитория с `claude` и `codex` в PATH (или `--claude <путь> --codex <путь>`):
+On macOS from the repository root with `claude` and `codex` on PATH (or `--claude <path> --codex <path>`):
 
 ```sh
 pnpm install --frozen-lockfile
 pnpm build
-node tools/runtime-check/dist/main.js --suite delivery --agent-sdk 0.3.288 --out <каталог отчёта>
+node tools/runtime-check/dist/main.js --suite delivery --agent-sdk 0.3.288 --out <report dir>
 ```
 
-`--agent-sdk` — версия `@anthropic-ai/claude-agent-sdk`, которую инструмент ставит через `npm` во временный каталог прогона (по умолчанию `latest`). Итог — `report.json` и `summary.md`; при непройденной обязательной проверке инструмент завершается с кодом 1. Временный профиль создаётся в `os.tmpdir()`, пользовательские конфиги не меняются.
+`--agent-sdk` is the version of `@anthropic-ai/claude-agent-sdk` that the tool installs via `npm` into the run's temporary directory (default `latest`). The output is `report.json` and `summary.md`; if a mandatory check fails, the tool exits with code 1. The temporary profile is created in `os.tmpdir()`; user configs are not changed.
 
-Linux — тот же набор в контейнере после сборки на хосте и кросс-компиляции бинаря:
+Linux — the same suite in a container after building on the host and cross-compiling the binary:
 
 ```sh
 OUT=$(mktemp -d) && chmod 777 "$OUT"
@@ -193,4 +193,4 @@ docker run --rm -v "$PWD:/repo:ro" -v "$OUT:/out" node:26 bash -c '
   su node -s /bin/bash -c "cd /home/node && node /repo/tools/runtime-check/dist/main.js --suite delivery --agent-sdk 0.3.288 --hook /out/aang-hook --out /out/report"'
 ```
 
-Отчёт появится в `$OUT/report`.
+The report will appear in `$OUT/report`.

@@ -1,67 +1,67 @@
-# A.5: путь OTel с токеном на настоящем Codex
+# A.5: the OTel path with a token on real Codex
 
-Проверено 2026-10-02: `codex-cli 0.160.0`, macOS arm64 (Darwin 27.0.0), Node 26.10.0. Сборщик — из коммита `a5484d804f06d269b885285c79f0163e055d54cc`.
+Verified 2026-10-02: `codex-cli 0.160.0`, macOS arm64 (Darwin 27.0.0), Node 26.10.0. The collector is from commit `a5484d804f06d269b885285c79f0163e055d54cc`.
 
-**Приёмка A.5 выполнена.** Настоящий `codex exec` отправил OTLP/HTTP JSON непосредственно в приёмник `@aang/collector` по пути `/otel/<токен>/v1/logs`. Через публичный `collector.start()` получена одна запись `codex.tool_decision` с `source: Config` и `decision: approved`. Пробелов нет. Реальная модель не вызывалась: Responses API заменён локальной заглушкой.
+**A.5 acceptance is met.** Real `codex exec` sent OTLP/HTTP JSON directly to the `@aang/collector` receiver at the path `/otel/<token>/v1/logs`. Through the public `collector.start()`, one `codex.tool_decision` record with `source: Config` and `decision: approved` was received. There are no gaps. No real model was called: the Responses API was replaced with a local stub.
 
-Основание: [план, A.5](../plan/mvp.md), [ADR-0004: OpenTelemetry Codex](../adr/0004-event-collection.md#opentelemetry-codex-opt-in), [ADR-0012](../adr/0012-testing.md). Проверяется оставшийся после [спайка](integrations.md) вопрос о сохранении токена в пути экспортёра. Продуктовый код и архитектурные решения не меняются.
+Basis: [plan, A.5](../plan/mvp.md), [ADR-0004: Codex OpenTelemetry](../adr/0004-event-collection.md#codex-opentelemetry-opt-in), [ADR-0012](../adr/0012-testing.md). This checks the question left open after the [spike](integrations.md): whether the token is preserved in the exporter path. Product code and architectural decisions do not change.
 
-## Сценарий
+## Scenario
 
-1. Создать временный каталог вне репозитория с отдельными `CODEX_HOME`, рабочим каталогом и spool. Скопировать только `~/.codex/auth.json`, без симлинка; права профиля — `0700`, копии auth — `0600`.
-2. Запустить настоящий сборщик через `createCollector()`, открыть `listenOtel({ port: 0, token })` на `127.0.0.1`. Токен — случайные 32 байта в hex. Корни файловых источников пусты, поэтому полученные записи могут прийти только через OTel.
-3. Запустить локальную заглушку `/v1/responses`. Первый SSE-ответ содержит вызов code mode `functions.exec`, который выполняет `tools.exec_command({cmd:"printf aang-a5-otel-token",login:false})`. Второй запрос должен содержать результат инструмента с этим маркером; второй ответ завершает ход текстом `A5_OK`.
-4. Запустить установленный `codex exec --json` с `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, `--skip-git-repo-check`, `-s read-only` и `approval_policy="never"`. Провайдер `a5_stub` указывает только на loopback, `requires_openai_auth=false`. Строка модели `gpt-6-astra` передаётся заглушке, которая возвращает заранее заданные ответы.
-5. Передать настройки OTel через `-c`, дождаться выхода CLI и записи сборщика. Сверить `conversation.id` с `thread.started.thread_id`, проверить имя события, `source`, `decision`, инструмент и непустой `call_id`.
-6. Повторно отправить полученный конверт обычным HTTP-запросом с изменённым токеном: ожидать 404 и отсутствие дополнительной записи. Это отдельная отрицательная проверка приёмника; новый процесс Codex не запускается.
-7. Закрыть серверы и сборщик, удалить временный каталог вместе с копией auth. Сравнить SHA-256 пользовательских `auth.json`, `config.toml`, `hooks.json` до и после; в отчёте сохранить только результат сравнения.
+1. Create a temporary directory outside the repository with a separate `CODEX_HOME`, working directory and spool. Copy only `~/.codex/auth.json`, without a symlink; profile permissions — `0700`, auth copy — `0600`.
+2. Start the real collector via `createCollector()`, open `listenOtel({ port: 0, token })` on `127.0.0.1`. The token is 32 random bytes in hex. The file source roots are empty, so received records can only arrive via OTel.
+3. Start a local `/v1/responses` stub. The first SSE response contains a code mode call `functions.exec`, which runs `tools.exec_command({cmd:"printf aang-a5-otel-token",login:false})`. The second request must contain the tool result with this marker; the second response finishes the turn with the text `A5_OK`.
+4. Run the installed `codex exec --json` with `--ephemeral`, `--ignore-user-config`, `--ignore-rules`, `--skip-git-repo-check`, `-s read-only` and `approval_policy="never"`. The `a5_stub` provider points only to loopback, `requires_openai_auth=false`. The model string `gpt-6-astra` is passed to the stub, which returns predefined responses.
+5. Pass the OTel settings via `-c`, wait for the CLI to exit and for the collector record. Match `conversation.id` against `thread.started.thread_id`, check the event name, `source`, `decision`, the tool and a non-empty `call_id`.
+6. Resend the received envelope as a plain HTTP request with an altered token: expect 404 and no additional record. This is a separate negative check of the receiver; no new Codex process is started.
+7. Close the servers and the collector, delete the temporary directory together with the auth copy. Compare the SHA-256 of the user's `auth.json`, `config.toml`, `hooks.json` before and after; keep only the comparison result in the report.
 
-Ключевые переопределения:
+Key overrides:
 
 ```text
 -c otel.environment="aang-a5-token-live"
 -c otel.log_user_prompt=false
--c otel.exporter.otlp-http.endpoint="http://127.0.0.1:<порт>/otel/<токен>/v1/logs"
+-c otel.exporter.otlp-http.endpoint="http://127.0.0.1:<port>/otel/<token>/v1/logs"
 -c otel.exporter.otlp-http.protocol="json"
 -c otel.trace_exporter="none"
 -c otel.metrics_exporter="none"
 ```
 
-Окружение дочернего CLI задаётся явно: `PATH`, исходный `HOME`, `TMPDIR`, временный `CODEX_HOME`, `OTEL_BLRP_SCHEDULE_DELAY=100`. Его stdin закрывается сразу после запуска. Настройки endpoint и JSON-протокола описаны в [официальном справочнике OpenAI](https://learn.chatgpt.com/docs/config-file/config-reference); сохранение всего пути подтверждает этот эксперимент.
+The child CLI environment is set explicitly: `PATH`, the original `HOME`, `TMPDIR`, a temporary `CODEX_HOME`, `OTEL_BLRP_SCHEDULE_DELAY=100`. Its stdin is closed right after launch. The endpoint and JSON protocol settings are described in the [official OpenAI reference](https://learn.chatgpt.com/docs/config-file/config-reference); this experiment confirms that the full path is preserved.
 
-## Наблюдения
+## Observations
 
-Успешный запуск: `2026-10-02T18:57:17.758Z` — `2026-10-02T18:57:19.861Z` (2,103 с). Это время всего процесса, не задержка доставки OTel.
+Successful run: `2026-10-02T18:57:17.758Z` — `2026-10-02T18:57:19.861Z` (2.103 s). This is the time of the whole process, not the OTel delivery latency.
 
-| Проверка | Результат |
+| Check | Result |
 | --- | --- |
-| Выход CLI | 0; команда `printf` завершилась с 0; финальный текст `A5_OK`; есть `turn.completed` |
-| Responses API | Два локальных POST; второй содержит результат первого вызова инструмента |
-| Путь экспортёра | Все три OTLP POST пришли на `/otel/<токен>/v1/logs` без изменения префикса или повторного `/v1/logs` |
-| HTTP | `Content-Type: application/json`, все три ответа — 200 |
-| Порции сборщика | Одна запись `channel: otel`, `runtime: codex`; ноль пробелов |
-| Событие | `codex.tool_decision`, `source: Config`, `decision: approved`, `tool_name: exec_command` |
-| Корреляция | `conversation.id` совпал с `thread.started.thread_id`; `call_id` вложенной команды — `exec-aa9dd2cc-147a-4ebe-be20-790ad69998d9` |
-| Ресурс экспортёра | `service.name: codex_exec`, `service.version: 0.160.0` |
-| Неверный токен | 404; количество записей осталось равным одному |
-| Изоляция | Копия auth не изменилась; пользовательские auth/config/hooks не изменились; временный каталог удалён |
+| CLI exit | 0; the `printf` command exited with 0; final text `A5_OK`; `turn.completed` is present |
+| Responses API | Two local POSTs; the second contains the result of the first tool call |
+| Exporter path | All three OTLP POSTs arrived at `/otel/<token>/v1/logs` without a changed prefix or a repeated `/v1/logs` |
+| HTTP | `Content-Type: application/json`, all three responses — 200 |
+| Collector batches | One record `channel: otel`, `runtime: codex`; zero gaps |
+| Event | `codex.tool_decision`, `source: Config`, `decision: approved`, `tool_name: exec_command` |
+| Correlation | `conversation.id` matched `thread.started.thread_id`; the nested command's `call_id` — `exec-aa9dd2cc-147a-4ebe-be20-790ad69998d9` |
+| Exporter resource | `service.name: codex_exec`, `service.version: 0.160.0` |
+| Wrong token | 404; the record count stayed at one |
+| Isolation | The auth copy did not change; the user's auth/config/hooks did not change; the temporary directory was deleted |
 
-Метод, путь, Content-Type и статус снимаются пассивно через Node `diagnostics_channel` (`http.server.request.start`) на порту настоящего приёмника. Прокси и подмены модулей aang нет. Содержимое записи берётся из порции сборщика; эксперимент вызывает `ack()` после получения.
+Method, path, Content-Type and status are captured passively via Node `diagnostics_channel` (`http.server.request.start`) on the real receiver's port. There is no proxy and no substitution of aang modules. The record content is taken from the collector batch; the experiment calls `ack()` after receiving it.
 
-CLI также дважды запросил локальный `/v1/models?client_version=0.160.0` и один раз отправил POST на локальный `/v1/analytics/codex/turn-costs`, несмотря на `analytics.enabled=false`. Заглушка отвечает `{"models":[]}` и `{}` соответственно. Тела этих служебных запросов не сохраняются. Счётчики usage в stdout синтетические, заданы заглушкой и не отражают расход модели.
+The CLI also requested the local `/v1/models?client_version=0.160.0` twice and sent one POST to the local `/v1/analytics/codex/turn-costs`, despite `analytics.enabled=false`. The stub responds with `{"models":[]}` and `{}` respectively. The bodies of these service requests are not saved. The usage counters in stdout are synthetic, set by the stub, and do not reflect model consumption.
 
-В полученном событии `timeUnixNano` равен строке `"0"`; отдельно сохранено время приёма `observed_at`. Замер задержки по этой временной метке не выполнялся. `call_id` относится к вложенному `exec_command`, а не к внешнему вызову code mode с id `aang_a5_exec`.
+In the received event, `timeUnixNano` equals the string `"0"`; the receive time `observed_at` is saved separately. No latency measurement was made from this timestamp. The `call_id` belongs to the nested `exec_command`, not to the outer code mode call with id `aang_a5_exec`.
 
-При подготовке сценария один запуск остановлен по таймауту до запросов к модели: stdin оставался открытым. Следующие прогоны выявили служебные обращения `/models` и `/analytics/codex/turn-costs`, которые первоначальная заглушка считала неожиданными. После закрытия stdin и обработки этих двух маршрутов сценарий завершился со всеми проверками. Во всех прогонах провайдер был локальным; Claude CLI не запускался.
+While preparing the scenario, one run was stopped by a timeout before any model requests: stdin had remained open. Subsequent runs revealed the service calls `/models` and `/analytics/codex/turn-costs`, which the initial stub treated as unexpected. After closing stdin and handling these two routes, the scenario completed with all checks passing. In all runs the provider was local; Claude CLI was not launched.
 
-## Артефакты и повторение
+## Artifacts and reproduction
 
-- [run.mjs](samples/codex-otel-token/run.mjs) — самостоятельный локальный сценарий с проверками через `assert`, настоящим CLI и настоящим сборщиком.
-- [result.json](samples/codex-otel-token/result.json) — результат успешного запуска: команда, версии, HTTP-наблюдения, stdout CLI, выбранные поля полученного OTLP-конверта и проверка изоляции.
+- [run.mjs](samples/codex-otel-token/run.mjs) — a self-contained local scenario with `assert` checks, the real CLI and the real collector.
+- [result.json](samples/codex-otel-token/result.json) — the result of the successful run: command, versions, HTTP observations, CLI stdout, selected fields of the received OTLP envelope and the isolation check.
 
-Из сохранённого конверта исключены остальные поля ресурса и атрибуты события, в том числе идентификаторы пользователя и хоста. Токен, порты и временные пути заменены маркерами. Файлы auth, заголовки авторизации и тела запросов к провайдеру в репозиторий не копируются. Это сокращённое свидетельство эксперимента, а не полный эталонный пакет R.4.
+The remaining resource fields and event attributes, including user and host identifiers, are excluded from the saved envelope. The token, ports and temporary paths are replaced with markers. Auth files, authorization headers and provider request bodies are not copied into the repository. This is abbreviated evidence of the experiment, not a full R.4 reference package.
 
-Повторить из корня репозитория на macOS с Node 26 и установленным Codex:
+To reproduce from the repository root on macOS with Node 26 and Codex installed:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -69,12 +69,12 @@ pnpm build
 node docs/research/samples/codex-otel-token/run.mjs > /tmp/aang-a5-result.json
 ```
 
-Первым аргументом сценария можно передать абсолютный путь к бинарю Codex. Требуется читаемый `~/.codex/auth.json`; он копируется в новый временный профиль и не используется для авторизации локального провайдера. Сценарий не входит в автоматический CI и не запускает Claude CLI или субагентов.
+The absolute path to the Codex binary can be passed as the scenario's first argument. A readable `~/.codex/auth.json` is required; it is copied into a new temporary profile and is not used to authorize the local provider. The scenario is not part of automated CI and does not launch Claude CLI or subagents.
 
-## Проверки и границы вывода
+## Checks and limits of the conclusion
 
-Локально прошли `pnpm build`, `pnpm typecheck`, `pnpm lint` (включая проверку комментариев), `pnpm test`: 70 файлов и 1275 тестов успешно, 2 файла и 24 теста пропущены штатно. `pnpm e2e` завершился с 0; E2E-тестов в текущем дереве ещё нет, команда использует `--pass-with-no-tests`. `node --check` проверил синтаксис сценария; его запуск завершился с 0 и проверил приёмку A.5.
+Locally, `pnpm build`, `pnpm typecheck`, `pnpm lint` (including the comment check), `pnpm test` passed: 70 files and 1275 tests succeeded, 2 files and 24 tests skipped as expected. `pnpm e2e` exited with 0; there are no E2E tests in the current tree yet, the command uses `--pass-with-no-tests`. `node --check` verified the scenario's syntax; its run exited with 0 and verified A.5 acceptance.
 
-Первый общий прогон тестов был ошибочно запущен до окончания сборки: 25 тестов в `packages/aang/test/{access,commands,lifecycle}.test.ts` упали из-за отсутствующего `dist/main.js` и связанных таймаутов. После завершения сборки полный повторный прогон зелёный; правок продуктового кода не потребовалось.
+The first full test run was mistakenly started before the build finished: 25 tests in `packages/aang/test/{access,commands,lifecycle}.test.ts` failed due to the missing `dist/main.js` and related timeouts. After the build finished, a full rerun was green; no product code changes were needed.
 
-Вывод ограничен путём OTel у `codex exec` версии 0.160.0 на macOS arm64 с `source: Config`. Он не подтверждает интерактивное решение человека (`source: User`), TUI/managed daemon, Desktop, SDK, Linux или Windows и не расширяет матрицу поддержки. Проверки остальных поверхностей и ОС остаются в своих пунктах плана. Нового архитектурного решения для A.5 не потребовалось.
+The conclusion is limited to the OTel path of `codex exec` version 0.160.0 on macOS arm64 with `source: Config`. It does not confirm an interactive human decision (`source: User`), TUI/managed daemon, Desktop, SDK, Linux or Windows, and does not extend the support matrix. Checks of the other surfaces and OSes remain in their own plan items. No new architectural decision was needed for A.5.

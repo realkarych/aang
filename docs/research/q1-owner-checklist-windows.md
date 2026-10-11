@@ -1,21 +1,21 @@
-# Чек-лист владельца Q.1: Windows
+# Owner checklist Q.1: Windows
 
-Статус: инструкция по пункту Q.1 плана (`docs/plan/mvp.md`) для нативного Windows. Выполняет владелец. Итог входит в общий отчёт `docs/research/q1-owner-checklist-results.md` отдельным разделом.
-Дата: 2026-10-07. Инструкция для macOS, SSH-режима Desktop и OAuth на Linux — `docs/research/q1-owner-checklist.md`.
+Status: instructions for plan item Q.1 (`docs/plan/mvp.md`) for native Windows. Performed by the owner. The outcome goes into the combined report `docs/research/q1-owner-checklist-results.md` as a separate section.
+Date: 2026-10-07. The instructions for macOS, the Desktop SSH mode and OAuth on Linux are in `docs/research/q1-owner-checklist.md`.
 
-## 0. Что проверяется
+## 0. What is verified
 
-- Интерактивный TUI Claude: пункты (a)–(h) раздела 6 спайка на выпускаемой версии. Это D.7 повторно: строка `claude_cli` Windows `local` требует этого чек-листа (ADR-0010).
-- Сквозная проверка с самим aang: сессии TUI Claude видны в UI в обоих пользовательских сценариях.
-- Claude Desktop и Codex Desktop на Windows в MVP не проверяются (ADR-0013, решение 3). Интерактивный TUI Codex на Windows тоже не входит: эталонных записей TUI Codex для Windows нет (план, R.3), строка `codex_tui` Windows остаётся без записей.
+- The interactive Claude TUI: items (a)–(h) of section 6 of the spike on the release version. This is D.7 again: the `claude_cli` Windows `local` row requires this checklist (ADR-0010).
+- An end-to-end check with aang itself: Claude TUI sessions are visible in the UI in both user scenarios.
+- Claude Desktop and Codex Desktop on Windows are not verified in the MVP (ADR-0013, decision 3). The interactive Codex TUI on Windows is not included either: there are no reference Codex TUI recordings for Windows (plan, R.3), and the `codex_tui` Windows row stays without recordings.
 
-CLI и SDK обоих рантаймов на Windows проверены без владельца на раннере `windows-latest` (`docs/research/q1-surface-matrix.md`, раздел 2). Здесь только интерактивный терминал и ваша учётная запись.
+The CLIs and SDKs of both runtimes on Windows were verified without the owner on the `windows-latest` runner (`docs/research/q1-surface-matrix.md`, section 2). This covers only the interactive terminal and your account.
 
-Все команды — PowerShell в нативной консоли (Windows Terminal или окно PowerShell). Прогон в WSL — это среда Linux (ADR-0013) и пункт не закрывает.
+All commands are PowerShell in a native console (Windows Terminal or a PowerShell window). A run in WSL is a Linux environment (ADR-0013) and does not close this item.
 
-## 1. Подготовка
+## 1. Preparation
 
-Нужны Node 26, pnpm, Go, Git for Windows и Claude Code. Запишите `claude --version` и способ установки (нативный установщик или npm). Если версия отличается от 2.1.289 из `support/matrix.json`, отметьте это: для новой версии нужны эталонные записи.
+You need Node 26, pnpm, Go, Git for Windows and Claude Code. Write down `claude --version` and the installation method (native installer or npm). If the version differs from 2.1.289 in `support/matrix.json`, note it: a new version needs reference recordings.
 
 ```powershell
 Set-Location $HOME\src\aang
@@ -25,31 +25,31 @@ pnpm build
 function aang { node "$HOME\src\aang\packages\aang\dist\main.js" @args }
 ```
 
-Функцию `aang` объявите в каждом окне, где она нужна.
+Declare the `aang` function in every window where you need it.
 
-## 2. Часть 1 — D.7 на выпускаемой версии
+## 2. Part 1: D.7 on the release version
 
-Выполните `docs/research/d7-owner-checklist-windows.md` целиком (разделы 2–5) с рабочим каталогом `$env:TEMP\aang-q1-d7`:
+Perform `docs/research/d7-owner-checklist-windows.md` in full (sections 2–5) with the working directory `$env:TEMP\aang-q1-d7`:
 
 ```powershell
 node tools\owner-checklist\dist\main.js prepare --dir "$env:TEMP\aang-q1-d7"
 ```
 
-Результаты переносятся в `docs\research\samples\owner-checklist\q1-windows\`. Откат части 1 выполните до начала части 2.
+The results are moved to `docs\research\samples\owner-checklist\q1-windows\`. Perform the rollback of part 1 before starting part 2.
 
-## 3. Часть 2 — сквозная проверка с aang
+## 3. Part 2: end-to-end check with aang
 
-### 3.1. Что меняется
+### 3.1. What changes
 
-| Что | Как откатывается |
+| What | How it is rolled back |
 | --- | --- |
-| Маркетплейс `aang` и плагин `aang@aang` в пользовательском scope Claude | `aang uninstall` |
-| Каталог `AANG_HOME` — `$env:TEMP\aang-q1\aang` | удалить каталог |
-| Сессии в `%USERPROFILE%\.claude\projects` | удаляет владелец |
+| The `aang` marketplace and the `aang@aang` plugin in Claude's user scope | `aang uninstall` |
+| The `AANG_HOME` directory: `$env:TEMP\aang-q1\aang` | delete the directory |
+| Sessions in `%USERPROFILE%\.claude\projects` | deleted by the owner |
 
-`aang install` без флагов на Windows ставит только плагин Claude; hooks Codex ставятся отдельно с `--codex` (README, раздел «Windows»), и здесь они не нужны. Пока плагин установлен, aang получает события всех сессий Claude, но в охват попадает только пробный репозиторий.
+`aang install` without flags on Windows installs only the Claude plugin; Codex hooks are installed separately with `--codex` (README, section "Windows"), and they are not needed here. While the plugin is installed, aang receives events from all Claude sessions, but only the probe repository is in scope.
 
-### 3.2. Установка и запуск
+### 3.2. Installation and startup
 
 ```powershell
 $env:AANG_HOME = "$env:TEMP\aang-q1\aang"
@@ -63,25 +63,25 @@ aang watch $repo
 aang open
 ```
 
-Откройте ссылку в браузере. `aang status` должен показать hooks Claude как активные. Наблюдатель aang вызывает ваш авторизованный `claude` и тратит токены подписки; полоса состояния UI показывает исход его допуска — запишите его: хранение OAuth-авторизации на Windows проверяется здесь впервые (ADR-0013, решение 4).
+Open the link in a browser. `aang status` should show Claude hooks as active. The aang observer calls your authorized `claude` and spends subscription tokens; the UI status bar shows the outcome of its admission. Write it down: storage of OAuth authorization on Windows is verified here for the first time (ADR-0013, decision 4).
 
-### 3.3. Сценарии
+### 3.3. Scenarios
 
-В отдельном окне:
+In a separate window:
 
 ```powershell
 Set-Location "$env:TEMP\aang-q1\probe-repo"
 claude
 ```
 
-1. **Во время работы (E2E 1).** Промпт: «Create notes.txt containing one line about this repository with your shell tool, then use a subagent to list the files, then ask me one question with AskUserQuestion». Когда появится запрос разрешения, подождите 10 с и посмотрите UI: прогон появился сам, запрос разрешения открыт в зоне внимания и закрывается после ответа, субагент и действия видны, вопрос виден до ответа.
-2. **Переподключение.** Пока Claude ждёт ответа на вопрос, в окне подготовки `aang stop`, затем `aang start`. Ответьте. Дублей действий и вопросов нет, вопрос закрыт.
-3. **После итерации (E2E 4).** «Отметить просмотренным» в UI. Выйдите из сессии (`/exit`) и продолжите её: `claude --resume`, та же сессия, промпт «Append a second line to notes.txt». Во вкладке «С последнего просмотра» есть новая версия `notes.txt` и новое действие, карточки ведут к транскрипту.
-4. **Сжатие.** `/compact`. Сессия в UI продолжается без пробела.
+1. **During work (E2E 1).** Prompt: "Create notes.txt containing one line about this repository with your shell tool, then use a subagent to list the files, then ask me one question with AskUserQuestion". When a permission request appears, wait 10 s and look at the UI: the run appeared on its own, the permission request is open in the attention zone and closes after you answer, the subagent and actions are visible, the question is visible until answered.
+2. **Reconnection.** While Claude is waiting for an answer to the question, run `aang stop` in the preparation window, then `aang start`. Answer. There are no duplicate actions or questions, the question is closed.
+3. **After the iteration (E2E 4).** «Отметить просмотренным» ("Mark as viewed") in the UI. Exit the session (`/exit`) and continue it: `claude --resume`, the same session, prompt "Append a second line to notes.txt". The «С последнего просмотра» ("Since last view") tab has a new version of `notes.txt` and a new action, and the cards lead to the transcript.
+4. **Compaction.** `/compact`. The session continues in the UI without a gap.
 
-Запишите по каждому пункту исход, подпись поверхности (`Claude Code CLI`), режим поддержки сессии, статус версии в полосе состояния, скриншоты.
+For each item, write down the outcome, the surface label (`Claude Code CLI`), the session support mode, the version status in the status bar, and screenshots.
 
-### 3.4. Откат
+### 3.4. Rollback
 
 ```powershell
 aang uninstall
@@ -89,14 +89,14 @@ aang stop
 Remove-Item -Recurse -Force "$env:TEMP\aang-q1"
 ```
 
-Сессии пробного репозитория в `%USERPROFILE%\.claude\projects` и запись проекта в `%USERPROFILE%\.claude.json` удаляет владелец.
+The probe repository's sessions in `%USERPROFILE%\.claude\projects` and the project entry in `%USERPROFILE%\.claude.json` are deleted by the owner.
 
-## 4. Отчёт
+## 4. Report
 
-Раздел Windows в `docs/research/q1-owner-checklist-results.md`:
+The Windows section in `docs/research/q1-owner-checklist-results.md`:
 
-- версия Windows, терминал, версия `claude` и способ установки, shell-инструмент Claude (`Bash` или `PowerShell`);
-- часть 1 — пункты (a)–(h): ожидание, наблюдение, отличие от D.7;
-- часть 2 — пункты 1–4 с исходом и заметками, исход допуска наблюдателя.
+- Windows version, terminal, `claude` version and installation method, Claude's shell tool (`Bash` or `PowerShell`);
+- part 1: items (a)–(h): expectation, observation, difference from D.7;
+- part 2: items 1–4 with the outcome and notes, the outcome of the observer's admission.
 
-Исполнитель вносит запись `checklist: "tui"` для строки `claude_cli` Windows `local` в `support/verification.json` и пересчитывает матрицу (`docs/research/q1-owner-checklist.md`, раздел 7).
+The executor adds a `checklist: "tui"` entry for the `claude_cli` Windows `local` row in `support/verification.json` and recomputes the matrix (`docs/research/q1-owner-checklist.md`, section 7).

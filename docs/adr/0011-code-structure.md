@@ -1,136 +1,136 @@
-# ADR-0011: Структура кода, API и упаковка
+# ADR-0011: Code structure, API and packaging
 
-Статус: принято владельцем 2026-10-01; корень композиции `aang` и дополнение интерфейса адаптера (ADR-0014) приняты 2026-10-02; путь в `streamKey` одобрен владельцем 2026-10-07.
+Status: accepted by the owner 2026-10-01; the `aang` composition root and the adapter interface addition (ADR-0014) accepted 2026-10-02; the path in `streamKey` approved by the owner 2026-10-07.
 
-## Контекст
+## Context
 
-ADR-0001 задал TypeScript на Node 26, pnpm-монорепозиторий, SQLite, SSE и React. AGENTS.md требует логически цельных ревьюабельных PR и стеков PR для крупных задач. Значит, нужны модули с узкими границами и общим контрактом, чтобы стеки по разным модулям шли одновременно. RFC §4 включает локальный режим и свои VM/Docker.
+ADR-0001 set TypeScript on Node 26, a pnpm monorepo, SQLite, SSE and React. AGENTS.md requires logically cohesive reviewable PRs and PR stacks for large tasks. So modules with narrow boundaries and a shared contract are needed, so that stacks across different modules can proceed concurrently. RFC §4 includes local mode and one's own VM/Docker.
 
-## Решение
+## Decision
 
-### Пакеты `packages/*`
+### Packages `packages/*`
 
-| Пакет | Ответственность | Зависит от |
+| Package | Responsibility | Depends on |
 | --- | --- | --- |
-| `contract` | типы и схемы `zod`: сырые записи, формат spool, виды фактов, объекты наблюдения, сущности модели, операции наблюдателя, вход и выход наблюдателя и чата с генерацией JSON Schema, DTO API, события SSE, конфиг, формат матрицы поддержки; интерфейсы адаптера и сборщика | — |
-| `store` | `node:sqlite`: миграции, репозитории всех слоёв, транзакции, журнал, `change_seq` | `contract` |
-| `collector` | spool, хвост JSONL-файлов, снимки целых JSON-файлов (meta, teams, workflows, реестр), приёмник OTel; курсоры получает на старте, выдаёт порции | `contract` |
-| `adapter-claude` | Claude: ключ потока и ключ дедупликации строки, сырые записи → факты; чистые функции без I/O | `contract` |
-| `adapter-codex` | то же для Codex | `contract` |
-| `engine` | приём порции в транзакции; охват; объекты наблюдения; связывание прогонов; правила демона; учёт расхода; проверка и применение изменений модели; запросы чтения (снимок, инспектор, разница); проекция вида, правила вида, порядок внимания; `reparse` и пересборка проекций | `contract`, `store` |
-| `observer` | запуск CLI, профили изоляции, самопроверки, сборка порций, планировщик, вызовы наблюдателя и чата, системные промпты | `contract`, `store`, `engine` |
-| `hook` | `aang-hook` (Go, ADR-0013), шаблоны плагина Claude и `hooks.json` Codex; установка, удаление и проверка состояния установки и trust (TypeScript) | `contract` |
-| `daemon` | композиция модулей, конфиг, жизненный цикл, HTTP API и SSE, авторизация (ADR-0003), раздача статики `web` | все, кроме `aang`, `cli`, `web`, `testkit` |
-| `cli` | команды `aang`; вызывает API демона, установку выполняет через `hook`; запускает демон через точку входа, которую передаёт `aang` | `contract`, `hook` |
+| `contract` | types and `zod` schemas: raw records, spool format, fact kinds, observation objects, model entities, observer operations, observer and chat input and output with JSON Schema generation, API DTOs, SSE events, config, support matrix format; adapter and collector interfaces | — |
+| `store` | `node:sqlite`: migrations, repositories for all layers, transactions, journal, `change_seq` | `contract` |
+| `collector` | spool, tailing JSONL files, snapshots of whole JSON files (meta, teams, workflows, registry), OTel receiver; receives cursors at start, emits batches | `contract` |
+| `adapter-claude` | Claude: stream key and line deduplication key, raw records → facts; pure functions without I/O | `contract` |
+| `adapter-codex` | the same for Codex | `contract` |
+| `engine` | batch intake in a transaction; scope; observation objects; run linking; daemon rules; usage accounting; validation and application of model changes; read queries (snapshot, inspector, diff); view projection, view rules, attention order; `reparse` and projection rebuild | `contract`, `store` |
+| `observer` | CLI launch, isolation profiles, self-checks, batch assembly, scheduler, observer and chat calls, system prompts | `contract`, `store`, `engine` |
+| `hook` | `aang-hook` (Go, ADR-0013), Claude plugin templates and Codex `hooks.json`; installation, removal and checking of installation and trust state (TypeScript) | `contract` |
+| `daemon` | module composition, config, lifecycle, HTTP API and SSE, authorization (ADR-0003), serving `web` static files | all except `aang`, `cli`, `web`, `testkit` |
+| `cli` | `aang` commands; calls the daemon API, performs installation via `hook`; starts the daemon via the entry point that `aang` passes to it | `contract`, `hook` |
 | `web` | React, Vite, React Flow, ELK | `contract` |
-| `testkit` | проигрыватель эталонных сессий, поддельные CLI `claude` и `codex`, сценарии ответов наблюдателя, временный HOME, запуск демона для тестов | `contract` |
-| `aang` | точка входа публичного пакета `aang` и корень композиции команды: передаёт `cli` запуск демона из `daemon` и каталог статики `web` | `cli`, `daemon`, `web` |
+| `testkit` | reference session player, fake `claude` and `codex` CLIs, observer response scenarios, temporary HOME, daemon launch for tests | `contract` |
+| `aang` | entry point of the public `aang` package and the command's composition root: passes `cli` the daemon launch from `daemon` and the `web` static directory | `cli`, `daemon`, `web` |
 
-### Интерфейсы между пакетами
+### Interfaces between packages
 
-- **Адаптер** (в `contract`):
-  - `streamKey(путь, первые строки файла)` — поток для курсора и поиска при переносе. Путь нужен файлам, строки которых не называют поток; для записи hook вне файла путь — `null`;
-  - `rawKey(запись, поток)` — ключ дедупликации (ADR-0004);
-  - `parse(запись, поток)` — факты с `entity_key`, `speaker`, `urgent`;
-  - `owner(запись)` — корневая сессия и независимые свидетельства о потоке, каталоге, начале сессии и наблюдателе, в том числе для неизвестных и неразобранных записей ([ADR-0014](0014-record-owner.md)).
+- **Adapter** (in `contract`):
+  - `streamKey(path, first lines of the file)` — the stream for the cursor and for relocation search. The path is needed for files whose lines do not name the stream; for a hook record outside a file the path is `null`;
+  - `rawKey(record, stream)` — deduplication key (ADR-0004);
+  - `parse(record, stream)` — facts with `entity_key`, `speaker`, `urgent`;
+  - `owner(record)` — the root session and independent evidence about the stream, directory, session start and observer, including for unknown and unparsed records ([ADR-0014](0014-record-owner.md)).
 
-  `engine` получает адаптеры через реестр и не зависит от конкретных рантаймов.
-- **Сборщик:** `start(курсоры) → поток порций {записи, обновления курсоров}` и `ack(порция)` после коммита. Удаление файла spool выполняется в `ack`.
-- Парные связи между записями (например, `PermissionRequest` ↔ `PreToolUse`) и решение об охвате строит `engine`, а не адаптер. Решение об охвате хранится по потоку рядом с курсором.
-- `web` обращается к демону только через API.
-- Направление зависимостей и запрет комментариев (AGENTS.md) проверяются в CI. Тестам `engine` разрешено импортировать адаптеры (ADR-0012), продуктовому коду — нет.
+  `engine` receives adapters through a registry and does not depend on specific runtimes.
+- **Collector:** `start(cursors) → stream of batches {records, cursor updates}` and `ack(batch)` after commit. Spool file deletion is performed in `ack`.
+- Pairwise links between records (for example, `PermissionRequest` ↔ `PreToolUse`) and the scope decision are built by `engine`, not by the adapter. The scope decision is stored per stream next to the cursor.
+- `web` talks to the daemon only through the API.
+- Dependency direction and the comment ban (AGENTS.md) are checked in CI. `engine` tests are allowed to import adapters (ADR-0012), product code is not.
 
-### Процесс демона
+### Daemon process
 
-Один процесс Node. В нём работают цикл приёма, планировщик наблюдателя и HTTP-сервер. Вызовы наблюдателя и чата — дочерние процессы. Lock-файл в `AANG_HOME` (из `store`) не даёт запустить второй демон.
+A single Node process. It runs the intake loop, the observer scheduler and the HTTP server. Observer and chat calls are child processes. A lock file in `AANG_HOME` (from `store`) prevents starting a second daemon.
 
-Команда `aang` и процесс демона исполняют одну точку входа — пакет `aang`:
+The `aang` command and the daemon process execute the same entry point — the `aang` package:
 
-- `cli` и `daemon` не зависят друг от друга. `aang` передаёт `cli` функцию запуска демона в текущем процессе и команду, которой эта же точка входа запускается в режиме демона;
-- `aang start --foreground` исполняет демон в процессе CLI;
-- `aang start` порождает ту же точку входа отсоединённым процессом в режиме демона и ждёт его готовности;
-- `aang` указывает демону каталог статики `web`; код `web` он не импортирует.
+- `cli` and `daemon` do not depend on each other. `aang` passes `cli` a function that runs the daemon in the current process and the command with which this same entry point is started in daemon mode;
+- `aang start --foreground` runs the daemon in the CLI process;
+- `aang start` spawns the same entry point as a detached process in daemon mode and waits for it to become ready;
+- `aang` tells the daemon the `web` static directory; it does not import `web` code.
 
-`cli` и `daemon` делят файлы в `AANG_HOME`: spool с арендой и маркером остановки, файл состояния демона, токен UI и одноразовые коды. Их раскладка и схема файла состояния заданы в `contract`.
+`cli` and `daemon` share files in `AANG_HOME`: the spool with a lease and a stop marker, the daemon state file, the UI token and one-time codes. Their layout and the state file schema are defined in `contract`.
 
 ### API
 
-HTTP JSON и SSE с префиксом `/api`. Доступ — по bearer-токену или cookie (ADR-0003). Статика `web` раздаётся демоном с того же origin.
+HTTP JSON and SSE with the `/api` prefix. Access is by bearer token or cookie (ADR-0003). `web` static files are served by the daemon from the same origin.
 
-| Метод | Назначение |
+| Method | Purpose |
 | --- | --- |
-| `GET /api/status` | источники, режимы поддержки, hooks, наблюдатель, версии и их статус, spool, уведомление «не наблюдаемо» |
-| `GET /api/runs` | прогоны: состояние, внимание, свежесть |
-| `GET /api/runs/:run` | снимок: модель текущей версии, объекты, внимание, применённые правила вида, отметка просмотра, свежесть, `change_seq` снимка |
-| `GET /api/runs/:run/stages/:stage` | инспектор: сводка, входы и выходы, время, расход, основания, история |
-| `GET /api/runs/:run/changes?version=<версия>&seq=<change_seq>` | разница от отметки просмотра: по журналу модели и по объектам наблюдения (ADR-0008) |
-| `GET /api/runs/:run/observer-calls` | вызовы наблюдателя: принятые и отклонённые операции, задержки |
-| `GET /api/facts/:id`, `GET /api/raw/:seq` | исходные события |
-| `POST /api/runs/:run/viewed` | отметка просмотра на версии |
-| `POST /api/runs/:run/attention/:item/viewed`, `POST /api/runs/:run/attention/:item/dismiss` | отметка и снятие пункта внимания |
-| `GET /api/artifact-versions/:id` | сохранённая версия артефакта или пометка о недоступности |
-| `GET`, `POST /api/runs/:run/chat` | история чата; вопрос, ответ приходит через SSE |
-| `POST`, `DELETE /api/runs/:run/view-rules[/:id]` | правила вида |
-| `POST`, `DELETE /api/bindings[/:id]` | явные привязки сессий |
-| `/api/admin/*` | `watch`, `unwatch`, `prune`, `reparse`, `usage`, `doctor` для CLI |
+| `GET /api/status` | sources, support modes, hooks, observer, versions and their status, spool, the «не наблюдаемо» ("not observable") notice |
+| `GET /api/runs` | runs: state, attention, freshness |
+| `GET /api/runs/:run` | snapshot: model of the current version, objects, attention, applied view rules, view mark, freshness, the snapshot's `change_seq` |
+| `GET /api/runs/:run/stages/:stage` | inspector: summary, inputs and outputs, time, usage, grounds, history |
+| `GET /api/runs/:run/changes?version=<version>&seq=<change_seq>` | diff since the view mark: by the model journal and by observation objects (ADR-0008) |
+| `GET /api/runs/:run/observer-calls` | observer calls: accepted and rejected operations, latencies |
+| `GET /api/facts/:id`, `GET /api/raw/:seq` | source events |
+| `POST /api/runs/:run/viewed` | view mark on a version |
+| `POST /api/runs/:run/attention/:item/viewed`, `POST /api/runs/:run/attention/:item/dismiss` | marking and dismissing an attention item |
+| `GET /api/artifact-versions/:id` | a saved artifact version or an unavailability note |
+| `GET`, `POST /api/runs/:run/chat` | chat history; a question, the answer arrives via SSE |
+| `POST`, `DELETE /api/runs/:run/view-rules[/:id]` | view rules |
+| `POST`, `DELETE /api/bindings[/:id]` | explicit session bindings |
+| `/api/admin/*` | `watch`, `unwatch`, `prune`, `reparse`, `usage`, `doctor` for the CLI |
 | `GET /api/stream?run=<id>` | SSE |
-| `GET /auth/<одноразовый код>` | установка cookie (ADR-0003) |
-| `POST /otel/<токен приёма>/v1/logs` | приём OTel на отдельном loopback-listener (ADR-0004) |
+| `GET /auth/<one-time code>` | sets the cookie (ADR-0003) |
+| `POST /otel/<intake token>/v1/logs` | OTel intake on a separate loopback listener (ADR-0004) |
 
 **SSE:**
 
-- события — дельты `run`, `facts`, `model`, `attention`, `chat`, `status`;
-- `id` события — `change_seq`;
-- клиент берёт снимок, затем подписывается с `Last-Event-ID` равным `change_seq` снимка;
-- если позиция устарела, сервер шлёт `reset`, и клиент перечитывает снимок.
+- events are deltas `run`, `facts`, `model`, `attention`, `chat`, `status`;
+- the event `id` is `change_seq`;
+- the client takes a snapshot, then subscribes with `Last-Event-ID` equal to the snapshot's `change_seq`;
+- if the position is stale, the server sends `reset`, and the client re-reads the snapshot.
 
 ### CLI
 
-- Жизненный цикл: `aang start [--foreground] [--bind <адрес>]`, `stop`, `status`, `open` (одноразовая ссылка, ADR-0003), `token rotate`.
-- Подключение: `install [--claude] [--codex]`, `uninstall`, `otel-config [--rotate]`, `doctor`.
-- Охват: `watch <каталог> [--lookback <срок>] | --all`, `unwatch`.
-- Прогоны: `bind` (явные привязки), `usage`, `prune`, `reparse`.
+- Lifecycle: `aang start [--foreground] [--bind <address>]`, `stop`, `status`, `open` (one-time link, ADR-0003), `token rotate`.
+- Connection: `install [--claude] [--codex]`, `uninstall`, `otel-config [--rotate]`, `doctor`.
+- Scope: `watch <dir> [--lookback <period>] | --all`, `unwatch`.
+- Runs: `bind` (explicit bindings), `usage`, `prune`, `reparse`.
 
-Конфиг — `~/.aang/config.json`, схема в `contract`. В нём:
+The config is `~/.aang/config.json`, schema in `contract`. It contains:
 
-- корни рантаймов (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), отслеживаемые корни и `lookback`;
-- backend, модели, effort, межвендорная передача и бюджет наблюдателя;
-- пути к CLI;
-- адрес прослушивания;
-- контракты проверки по отслеживаемым корням.
+- runtime roots (`CLAUDE_CONFIG_DIR`, `CODEX_HOME`), watched roots and `lookback`;
+- backend, models, effort, cross-vendor transfer and observer budget;
+- CLI paths;
+- listen address;
+- validation contracts per watched root.
 
-### Упаковка
+### Packaging
 
-- **npm.** Один публичный пакет `aang` с командами `aang` и `aang-hook`.
-  - Внутренние пакеты собираются `esbuild` в `dist/` из точки входа пакета `aang`.
-  - Бинари `aang-hook` по платформам (macOS, Linux, Windows; amd64 и arm64) поставляются необязательными пакетами `aang-hook-<os>-<arch>` (ADR-0013).
+- **npm.** One public package `aang` with the commands `aang` and `aang-hook`.
+  - Internal packages are bundled by `esbuild` into `dist/` from the entry point of the `aang` package.
+  - Per-platform `aang-hook` binaries (macOS, Linux, Windows; amd64 and arm64) ship as optional packages `aang-hook-<os>-<arch>` (ADR-0013).
   - `engines.node` — `>=26`.
-- **Docker.** Образ `aang` на `node:26-slim` с пакетом aang. Это базовый слой для образа решателя: пользователь ставит в производном образе `claude` и/или `codex` и авторизует их внутри контейнера. Демон aang и решатель работают в одном контейнере. Доступ к UI — SSH-туннель или явный bind с токеном (ADR-0003).
-  - Путь OAuth через CLI на Linux спайк не проверял, и это пункт проверки (план, Q).
-  - Sidecar с общими томами в MVP не поддерживается: в нём нет авторизованного CLI для наблюдателя, а проверка живости по pid из реестра неверна между pid-namespace.
-- **Фоновый режим.** `aang start` порождает отсоединённый процесс с pid-файлом. `aang stop` останавливает демон авторизованным `POST /api/admin/shutdown` на всех ОС (ADR-0013). Юнитов launchd, systemd и служб Windows в MVP нет.
+- **Docker.** An `aang` image on `node:26-slim` with the aang package. It is the base layer for the solver image: in a derived image the user installs `claude` and/or `codex` and authorizes them inside the container. The aang daemon and the solver run in the same container. UI access is via an SSH tunnel or an explicit bind with a token (ADR-0003).
+  - The spike did not check the OAuth path via the CLI on Linux, and this is a verification item (plan, Q).
+  - A sidecar with shared volumes is not supported in the MVP: it has no authorized CLI for the observer, and a liveness check by pid from the registry is wrong across pid namespaces.
+- **Background mode.** `aang start` spawns a detached process with a pid file. `aang stop` stops the daemon with an authorized `POST /api/admin/shutdown` on all OSes (ADR-0013). There are no launchd, systemd or Windows service units in the MVP.
 
-## Последствия
+## Consequences
 
-- Аспекты разрабатываются одновременно против общего контракта: адаптеры, сбор, движок, наблюдатель, API и UI.
-- Изменение `contract` затрагивает все аспекты, поэтому его PR ревьюируются первыми и малыми порциями.
-- Один публичный пакет упрощает установку; внутренние пакеты не версионируются отдельно.
+- Aspects are developed concurrently against the shared contract: adapters, collection, engine, observer, API and UI.
+- A change to `contract` affects all aspects, so its PRs are reviewed first and in small portions.
+- One public package simplifies installation; internal packages are not versioned separately.
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Один публичный npm-пакет со сборкой; бинари обработчика hook — необязательными пакетами по платформам.
-2. Docker-топология MVP — aang в контейнере решателя; sidecar — после MVP.
-3. Автозапуска через launchd, systemd и службы Windows в MVP нет.
+1. One public npm package with a bundle; hook handler binaries as optional per-platform packages.
+2. The MVP Docker topology is aang in the solver container; sidecar after the MVP.
+3. No autostart via launchd, systemd or Windows services in the MVP.
 
-Принято владельцем 2026-10-02:
+Accepted by the owner 2026-10-02:
 
-4. Корень композиции команды `aang` — пакет `aang`: он импортирует `cli` и `daemon`, а `cli` получает запуск демона инъекцией и от `daemon` не зависит.
+4. The composition root of the `aang` command is the `aang` package: it imports `cli` and `daemon`, and `cli` receives the daemon launch by injection and does not depend on `daemon`.
 
-Одобрено владельцем 2026-10-07:
+Approved by the owner 2026-10-07:
 
-5. `streamKey` получает путь файла вместе с первыми строками. Основание: [PR #151](https://github.com/realkarych/aang/pull/151), замечание кросс-ревью о журнале workflow Claude. Строки журнала `<сессия>/subagents/workflows/<запуск>/journal.jsonl` не называют ни сессию, ни запуск, а первая строка `{"type":"launched"}` одинакова у всех запусков. Поэтому по одним строкам `engine` не именовал поток, держал файл и с 16-й строки отбрасывал его с пробелом `unknown_stream_layout`.
-   - Адаптер Claude строит ключ журнала по пути: `[сессия, 'workflow', запуск, 'journal']`. Ключ не меняется при переносе каталога проекта, поэтому поиск при переносе находит журнал на новом месте.
-   - Владелец строки журнала уже определяется по пути (ADR-0014), поэтому путь как вход чистой функции адаптера не добавляет I/O и не переносит разбор формата в `engine`.
-   - Отклонены: ключ потока строит `engine` — тогда он знает раскладку файлов конкретного рантайма; журнал не принимается — пропадает источник из ADR-0004, а workflow с несколькими агентами по-прежнему даёт `unknown_stream_layout`.
+5. `streamKey` receives the file path together with the first lines. Basis: [PR #151](https://github.com/realkarych/aang/pull/151), a cross-review remark about the Claude workflow journal. The lines of the journal `<session>/subagents/workflows/<launch>/journal.jsonl` name neither the session nor the launch, and the first line `{"type":"launched"}` is the same for all launches. So from the lines alone `engine` could not name the stream, held the file and from the 16th line discarded it with the gap `unknown_stream_layout`.
+   - The Claude adapter builds the journal key from the path: `[session, 'workflow', launch, 'journal']`. The key does not change when the project directory is relocated, so relocation search finds the journal at its new location.
+   - The owner of a journal line is already determined from the path (ADR-0014), so the path as an input of the adapter's pure function adds no I/O and does not move format parsing into `engine`.
+   - Rejected: `engine` builds the stream key — then it knows the file layout of a specific runtime; the journal is not ingested — the source from ADR-0004 is lost, and a workflow with several agents still yields `unknown_stream_layout`.

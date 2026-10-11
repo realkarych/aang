@@ -1,87 +1,87 @@
-# ADR-0009: Учёт расхода
+# ADR-0009: Usage accounting
 
-Статус: принято владельцем 2026-10-01.
+Status: accepted by the owner 2026-10-01.
 
-## Контекст
+## Context
 
-RFC §8 требует:
+RFC §8 requires:
 
-- раздельно учитывать расход решателя, наблюдателя и чата;
-- не суммировать одно действие повторно;
-- отличать длительность прогона от суммы времени параллельных агентов;
-- при отсутствии точной привязки к этапу показывать расход сессии или обозначенную оценку;
-- допускать неизвестную денежную стоимость при подписке.
+- accounting the usage of the solver, the observer and the chat separately;
+- not counting the same action twice;
+- distinguishing run duration from the summed time of parallel agents;
+- when there is no exact attribution to a stage, showing session usage or a labeled estimate;
+- allowing the monetary cost to be unknown under a subscription.
 
-Спайк (разделы 3.3, 7–10) показал источники двойного счёта:
+The spike (sections 3.3, 7–10) showed the sources of double counting:
 
-- Claude: одно сообщение пишется N записями, форк копирует историю и `cost-state`, итоги SDK кумулятивны;
-- Codex: `turn.completed`, `thread_token_usage` и `token_count` накопительны и наследуются форком.
+- Claude: one message is written as N records, a fork copies the history and `cost-state`, SDK totals are cumulative;
+- Codex: `turn.completed`, `thread_token_usage` and `token_count` are cumulative and inherited by a fork.
 
-## Решение
+## Decision
 
-### Три раздельных журнала
+### Three separate ledgers
 
-Расход ведётся в трёх журналах: решатель, наблюдатель, чат. Журналы не смешиваются.
+Usage is kept in three ledgers: solver, observer, chat. The ledgers are not mixed.
 
-### Решатель: записи usage
+### Solver: usage records
 
-Запись usage — объект наблюдения с уникальным ключом (ADR-0006). Одна запись учитывается один раз.
+A usage record is an observation object with a unique key (ADR-0006). One record is counted once.
 
 - **Claude**
-  - Ключ — глобальный `message.id`.
-  - Input- и cache-токены берутся из любой записи группы, output — максимальный.
-  - Если в группе нет записи с `stop_reason`, output помечается «нижняя оценка». Так проявляется занижение у субагентов 2.1.286.
-  - Записи модели `<synthetic>` исключаются.
-  - Сообщения, которые форк унаследовал (правило ADR-0006, не зависящее от порядка приёма), повторно не учитываются.
-  - Агент определяется по файлу: основной поток или субагент.
-- **Claude `cost-state`** — отдельный показатель «итог по данным Claude Code» на сессию: последняя строка, накопительная через resume.
-  - У форка он включает унаследованное, что подписывается.
-  - Это единственный источник расхода на сжатие и денежной оценки Claude. С записями usage он не суммируется.
-  - В `-p` строка пишется в конце каждого запуска, а в интерактивных сессиях — только при выходе. Пока интерактивная сессия идёт, денег и расхода на сжатие нет, и UI это подписывает.
-- **Вспомогательная модель сводок Desktop** видна только в stream-json движка Desktop, который aang не читает. Её расход помечается как недоступный; есть ли он в `cost-state`, спайк не проверил.
+  - The key is the global `message.id`.
+  - Input and cache tokens are taken from any record of the group, output is the maximum.
+  - If the group has no record with `stop_reason`, output is marked "lower bound". This is how the undercount for subagents in 2.1.286 shows up.
+  - Records of the `<synthetic>` model are excluded.
+  - Messages that a fork inherited (the ADR-0006 rule, independent of intake order) are not counted again.
+  - The agent is determined by the file: main thread or subagent.
+- **Claude `cost-state`** is a separate per-session figure, "total according to Claude Code": the last line, cumulative across resume.
+  - For a fork it includes the inherited part, which is labeled.
+  - It is the only source of compaction usage and of Claude's monetary estimate. It is not summed with usage records.
+  - In `-p` the line is written at the end of every launch, and in interactive sessions only on exit. While an interactive session is running there is no money and no compaction usage, and the UI labels this.
+- **The Desktop summary helper model** is visible only in the stream-json of the Desktop engine, which aang does not read. Its usage is marked as unavailable; whether it is included in `cost-state` the spike did not check.
 - **Codex**
-  - Ключ — `(thread_id, response_id)` записи `token_usage_record`. `thread_id` берётся из `session_meta.id` файла: поле `session_id` записи — id корня.
-  - Записи покрывают вызовы сжатия (в файле своего треда), субагентов и guardian (в своих файлах).
-  - `turn.completed`, `thread_token_usage` и `token_count` не суммируются.
-  - Если в треде нет ни одной `token_usage_record` (старые версии; граница между 0.144 и 0.153 спайком не установлена), берётся последний `total_token_usage` треда с пометкой «итог треда». У форка этот итог, вероятно, включает родителя (не проверено), поэтому для форков такой итог не показывается.
+  - The key is `(thread_id, response_id)` of a `token_usage_record` record. `thread_id` is taken from the file's `session_meta.id`: the record's `session_id` field is the root id.
+  - The records cover compaction calls (in the file of their own thread), subagents and guardian (in their own files).
+  - `turn.completed`, `thread_token_usage` and `token_count` are not summed.
+  - If a thread has no `token_usage_record` at all (old versions; the boundary between 0.144 and 0.153 was not established by the spike), the thread's last `total_token_usage` is taken, marked "thread total". For a fork this total probably includes the parent (not verified), so for forks such a total is not shown.
 
-### Агрегирование
+### Aggregation
 
-- **Прогон** — сумма уникальных записей его сессий и агентов без унаследованных.
-- **Сессия и агент** — сумма их записей.
-- **Этап** — точная сумма записей, у которых все действия ответа привязаны к этому этапу. Остальное показывается как «не привязано к этапам» рядом с расходом сессии. Пропорциональной оценки в MVP нет.
-- **Время:**
-  - длительность прогона — от первой до последней активности, с видимыми паузами;
-  - активное время агента — сумма длительностей его ходов.
+- **Run** — the sum of the unique records of its sessions and agents, without inherited ones.
+- **Session and agent** — the sum of their records.
+- **Stage** — the exact sum of records all of whose response actions are attributed to that stage. The rest is shown as "not attributed to stages" next to the session usage. There is no proportional estimate in the MVP.
+- **Time:**
+  - run duration — from the first to the last activity, with visible pauses;
+  - an agent's active time — the sum of the durations of its turns.
 
-  Сумма времени параллельных агентов не выдаётся за длительность прогона.
+  The summed time of parallel agents is not presented as the run duration.
 
-### Деньги
+### Money
 
-- Деньги показываются только там, где их сообщает рантайм: `cost-state` Claude и `total_cost_usd` в результате `claude -p` у наблюдателя и чата. Подпись: «по прейскуранту; при подписке это не списание».
-- Для Codex показываются только токены. Собственной таблицы цен нет.
+- Money is shown only where the runtime reports it: Claude's `cost-state` and `total_cost_usd` in the result of `claude -p` for the observer and the chat. Label: «по прейскуранту; при подписке это не списание» ("at list price; under a subscription this is not a charge").
+- For Codex only tokens are shown. There is no own price table.
 
-### Наблюдатель и чат
+### Observer and chat
 
-- Расход вызова берётся из результата CLI: `usage`, `modelUsage` и `total_cost_usd` у Claude; `turn.completed.usage` у Codex. Вызов эфемерный и однократный, поэтому накопительности нет.
-- Задержка вызова хранится в `observer_calls`.
+- A call's usage is taken from the CLI result: `usage`, `modelUsage` and `total_cost_usd` for Claude; `turn.completed.usage` for Codex. The call is ephemeral and one-shot, so there is no cumulativeness.
+- Call latency is stored in `observer_calls`.
 
-### Отчёт
+### Report
 
-`aang usage` и панель расхода показывают по прогону и периоду:
+`aang usage` and the usage panel show, per run and per period:
 
-- три журнала;
-- расход на активный час — час, в котором была активность решателя;
-- отставание и задержки наблюдателя.
+- the three ledgers;
+- usage per active hour — an hour in which there was solver activity;
+- observer lag and latencies.
 
-## Последствия
+## Consequences
 
-- Числа aang могут не совпадать с `cost-state`; оба показываются рядом.
-- Расход этапа часто будет неполным. Честное «не привязано» предпочтено догадке.
+- aang's numbers may not match `cost-state`; both are shown side by side.
+- Stage usage will often be incomplete. An honest "not attributed" is preferred to a guess.
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Пропорциональной оценки расхода этапа в MVP нет.
-2. Деньги показываются только из данных рантайма, без собственной таблицы цен.
+1. There is no proportional estimate of stage usage in the MVP.
+2. Money is shown only from runtime data, without an own price table.

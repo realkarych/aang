@@ -1,14 +1,14 @@
-# Чек-лист владельца по устойчивости (Q.4)
+# Owner resilience checklist (Q.4)
 
-Статус: чек-лист к пункту Q.4 плана (`docs/plan/mvp.md`). Автоматическую часть выполняет `tools/resilience`, отчёт — [`q4-live-resilience.md`](q4-live-resilience.md). Здесь собрано то, что инструмент проверить не может: Desktop, интерактивные TUI на macOS и Windows, `/hooks` в настоящем интерфейсе и настоящая модель. Автоматические сценарии на нативном Windows идут в CI.
+Status: checklist for plan item Q.4 (`docs/plan/mvp.md`). The automated part is done by `tools/resilience`, the report is [`q4-live-resilience.md`](q4-live-resilience.md). This collects what the tool cannot check: Desktop, interactive TUIs on macOS and Windows, `/hooks` in the real interface, and the real model. Automated scenarios on native Windows run in CI.
 
-## Общие условия
+## General conditions
 
-Штатные профили владельца — `~/.claude`, `~/.codex`, `~/.aang` и вход в Desktop — чек-лист не меняет. На машине параллельно идут рабочие сессии Claude и Codex. Hooks aang в штатном профиле писали бы в spool полные payload всех этих сессий, а запись перед aang в `~/.codex/hooks.json` сдвинула бы позиционные ключи доверия у записей после неё.
+The checklist does not change the owner's regular profiles — `~/.claude`, `~/.codex`, `~/.aang` and the Desktop login. Working Claude and Codex sessions run on the machine in parallel. aang hooks in the regular profile would write the full payloads of all those sessions to the spool, and an entry before aang in `~/.codex/hooks.json` would shift the positional trust keys of the entries after it.
 
-**TUI и CLI (разделы B и C) — в отдельном профиле.** Все команды `aang`, `claude` и `codex` из этих разделов выполняются в одном терминале, в котором профиль переназначен.
+**TUI and CLI (sections B and C) — in a separate profile.** All `aang`, `claude` and `codex` commands from these sections run in a single terminal in which the profile has been redirected.
 
-macOS и Linux:
+macOS and Linux:
 
 ```sh
 export AANG_Q4="$(mktemp -d)/Имя Фамилия"
@@ -25,14 +25,14 @@ $env:HOME = $env:AANG_Q4; $env:USERPROFILE = $env:AANG_Q4
 $env:CLAUDE_CONFIG_DIR = "$env:AANG_Q4\.claude"; $env:CODEX_HOME = "$env:AANG_Q4\.codex"; $env:AANG_HOME = "$env:AANG_Q4\.aang"
 ```
 
-Затем в том же терминале:
+Then in the same terminal:
 
-1. Вход в тестовом профиле: `claude`, затем `/login`; `codex login`. Штатные логины в этот профиль не копируются.
-2. Если в штатном профиле уже работает aang, тестовому демону нужны другие порты: `{"api":{"port":4290},"otel":{"port":4291}}` в `config.json` тестового `AANG_HOME` — `$AANG_HOME/config.json`, в PowerShell `$env:AANG_HOME\config.json`.
-3. aang из этой ветки или выпуска: `aang install`, `aang start`, `aang watch` для каталога `проект q4`. Сессии B и C запускаются из этого каталога.
-4. После раздела: `aang stop`, закрыть сессии и удалить временный каталог профиля вместе с тестовыми логинами.
+1. Log in within the test profile: `claude`, then `/login`; `codex login`. The regular logins are not copied into this profile.
+2. If aang is already running in the regular profile, the test daemon needs other ports: `{"api":{"port":4290},"otel":{"port":4291}}` in `config.json` of the test `AANG_HOME` — `$AANG_HOME/config.json`, in PowerShell `$env:AANG_HOME\config.json`.
+3. aang from this branch or release: `aang install`, `aang start`, `aang watch` for the `проект q4` directory. Sessions B and C are started from this directory.
+4. After the section: `aang stop`, close the sessions and delete the temporary profile directory together with the test logins.
 
-Шаг 3 в macOS и Linux:
+Step 3 on macOS and Linux:
 
 ```sh
 aang install && aang start
@@ -40,7 +40,7 @@ aang watch "$AANG_Q4/проект q4"
 cd "$AANG_Q4/проект q4"
 ```
 
-Шаг 3 в PowerShell:
+Step 3 in PowerShell:
 
 ```powershell
 aang install; aang start
@@ -48,14 +48,14 @@ aang watch (Join-Path $env:AANG_Q4 'проект q4')
 Set-Location (Join-Path $env:AANG_Q4 'проект q4')
 ```
 
-Шаг 4 в macOS и Linux:
+Step 4 on macOS and Linux:
 
 ```sh
 aang stop
 rm -rf "$(dirname "${AANG_Q4:?}")"
 ```
 
-Шаг 4 в PowerShell:
+Step 4 in PowerShell:
 
 ```powershell
 aang stop
@@ -63,47 +63,47 @@ Set-Location ([IO.Path]::GetTempPath())
 Remove-Item -Recurse -Force (Split-Path $env:AANG_Q4)
 ```
 
-**Desktop (раздел A) — в отдельной учётной записи macOS.** Claude Desktop и ChatGPT читают только штатный профиль пользователя, переназначить его нельзя. Поэтому раздел A выполняется в тестовой учётной записи macOS: в ней ставится aang (`aang install`, `aang start`), выполняется вход в Claude Desktop и ChatGPT, создаётся тестовый проект для `aang watch`. В основной учётной записи aang для раздела A не устанавливается.
+**Desktop (section A) — in a separate macOS user account.** Claude Desktop and ChatGPT read only the user's regular profile; it cannot be redirected. So section A is done in a test macOS account: aang is installed there (`aang install`, `aang start`), you log in to Claude Desktop and ChatGPT, and a test project is created for `aang watch`. aang is not installed in the main account for section A.
 
-Для всех разделов:
+For all sections:
 
-- Сессии короткие: одна-две команды вида `echo`, расход — несколько тысяч токенов.
-- Запросы разрешений рантаймов владелец решает сам. Инструмент и агенты их не одобряют.
-- После каждого пункта: `aang status` (spool, аренда, состояние hooks, пробелы) и страница прогона в UI.
-- Результат записывается в таблицу в конце: «как ожидалось» или наблюдение со снимком экрана.
+- Sessions are short: one or two commands like `echo`, usage — a few thousand tokens.
+- The owner decides runtime permission prompts personally. The tool and the agents do not approve them.
+- After each item: `aang status` (spool, lease, hooks state, gaps) and the run page in the UI.
+- The result is recorded in the table at the end: "as expected", or an observation with a screenshot.
 
-## A. Desktop на macOS (Claude Desktop и Codex Desktop)
+## A. Desktop on macOS (Claude Desktop and Codex Desktop)
 
-| № | Шаги | Ожидается |
+| # | Steps | Expected |
 | --- | --- | --- |
-| A1 | Попросить сессию выполнить `sleep 20 && echo done`. Пока команда идёт, найти pid демона в `aang status` и выполнить `kill -9 <pid>`. Дождаться конца хода, затем `aang start`. | Действия хода видны по одному разу, ход и сессия в актуальном состоянии, `aang status` показывает пустой spool. События, пришедшие при упавшем демоне, не потеряны. |
-| A2 | Выполнить `aang stop` между двумя ходами, сделать ход, затем `aang start`. | Ход при остановленном aang виден по файлам. Ожидания этого хода не видны: это известное ограничение, hooks при остановке не пишут. Следующий ход снова виден с hooks. |
-| A3 | Codex Desktop: архивировать тред в интерфейсе, затем разархивировать и продолжить. | Тред не помечается «источник потерян», действия не дублируются (ср. `sources/codex-archive-unarchive-delete`). |
-| A4 | Codex Desktop: удалить тред в интерфейсе. | Сессия остаётся видимой с пометкой «источник потерян». |
-| A5 | Claude Desktop, режим worktree: начать сессию в worktree отслеживаемого репозитория. | Сессия попадает в охват по общему git-каталогу и образует свой прогон. Совпадение каталога с другой сессией её ни с чем не связывает. |
-| A6 | Claude Desktop: если в версии есть ответвление разговора, сделать его. | Новый прогон со связью «общее происхождение», родитель не назначен (ср. `lineage/claude-forks`). |
-| A7 | Закрыть Desktop посреди команды и не открывать его. | Сессия переходит в «нет новых событий» (`quiet`) через 5 минут. Действие остаётся идущим: это находка Q4-5 отчёта. |
+| A1 | Ask the session to run `sleep 20 && echo done`. While the command runs, find the daemon pid in `aang status` and run `kill -9 <pid>`. Wait for the end of the turn, then `aang start`. | The turn's actions are visible once each, the turn and the session are up to date, `aang status` shows an empty spool. Events that arrived while the daemon was down are not lost. |
+| A2 | Run `aang stop` between two turns, make a turn, then `aang start`. | The turn made while aang was stopped is visible from files. The waits of this turn are not visible: this is a known limitation, hooks do not write while stopped. The next turn is again visible with hooks. |
+| A3 | Codex Desktop: archive a thread in the interface, then unarchive it and continue. | The thread is not marked «источник потерян» ("source lost"), actions are not duplicated (cf. `sources/codex-archive-unarchive-delete`). |
+| A4 | Codex Desktop: delete a thread in the interface. | The session stays visible marked «источник потерян». |
+| A5 | Claude Desktop, worktree mode: start a session in a worktree of a tracked repository. | The session comes into scope via the shared git directory and forms its own run. A directory match with another session does not link it to anything. |
+| A6 | Claude Desktop: if the version has conversation branching, branch the conversation. | A new run with an «общее происхождение» ("common origin") link, no parent assigned (cf. `lineage/claude-forks`). |
+| A7 | Close Desktop in the middle of a command and do not reopen it. | The session moves to «нет новых событий» ("no new events", `quiet`) after 5 minutes. The action remains running: this is finding Q4-5 of the report. |
 
-## B. Интерактивные TUI: macOS и Windows
+## B. Interactive TUIs: macOS and Windows
 
-| № | Шаги | Ожидается |
+| # | Steps | Expected |
 | --- | --- | --- |
-| B1 | Codex TUI после `aang install --codex`: открыть `/hooks`. | Записи aang перечислены как недоверенные. `aang status` показывает Codex hooks `untrusted`. Сессия до доверия идёт в режиме «только файлы». |
-| B2 | Подтвердить доверие записям aang в `/hooks`. | Без перезапуска демона `aang status` показывает `active`, новая сессия получает полный режим. Инструмент проверяет это записью `hooks.state`, здесь проверяется настоящий диалог. |
-| B3 | Повторить `aang install --codex`. Затем вставить в `hooks.json` тестового профиля (`$CODEX_HOME/hooks.json`, в PowerShell `$env:CODEX_HOME\hooks.json`) собственную запись `PreToolUse` перед записью aang. | После повторной установки доверие сохраняется. После вставки `/hooks` показывает запись aang недоверенной, `aang status` — `untrusted`. |
-| B4 | Claude TUI: `/clear` посреди сессии, затем `/resume` прежней сессии. | После `/clear` — новый прогон без связи. После `/resume` прежний прогон получает запуск `resume`. |
-| B5 | Claude TUI и Codex TUI: закрыть окно терминала во время команды. | Как в A7. |
-| B6 | Только Windows, PowerShell: A1 и A2 для Claude CLI и Codex CLI, в профиле с пробелом и кириллицей в пути. Демон в A1 снимается командой `Stop-Process -Id <pid> -Force` вместо `kill -9 <pid>`. | Как в A1 и A2. Spool и аренда работают через `aang stop` и `aang start`. Codex hooks на Windows подключаются по решениям владельца от 2026-10-06 (PR #150). |
+| B1 | Codex TUI after `aang install --codex`: open `/hooks`. | aang's entries are listed as untrusted. `aang status` shows Codex hooks `untrusted`. Until trusted, the session runs in «только файлы» ("files only") mode. |
+| B2 | Confirm trust for aang's entries in `/hooks`. | Without restarting the daemon, `aang status` shows `active`, a new session gets full mode. The tool checks this with a `hooks.state` record; here the real dialog is checked. |
+| B3 | Repeat `aang install --codex`. Then insert into `hooks.json` of the test profile (`$CODEX_HOME/hooks.json`, in PowerShell `$env:CODEX_HOME\hooks.json`) your own `PreToolUse` entry before the aang entry. | After the repeated install, trust is preserved. After the insertion, `/hooks` shows the aang entry as untrusted, `aang status` — `untrusted`. |
+| B4 | Claude TUI: `/clear` in the middle of a session, then `/resume` of the previous session. | After `/clear` — a new run with no link. After `/resume` the previous run gets a `resume` launch. |
+| B5 | Claude TUI and Codex TUI: close the terminal window during a command. | As in A7. |
+| B6 | Windows only, PowerShell: A1 and A2 for Claude CLI and Codex CLI, in a profile with a space and Cyrillic in the path. The daemon in A1 is killed with `Stop-Process -Id <pid> -Force` instead of `kill -9 <pid>`. | As in A1 and A2. Spool and lease work through `aang stop` and `aang start`. Codex hooks on Windows are connected per the owner decisions of 2026-10-06 (PR #150). |
 
-## C. Настоящая модель (по желанию)
+## C. Real model (optional)
 
-| № | Шаги | Ожидается |
+| # | Steps | Expected |
 | --- | --- | --- |
-| C1 | Один ход Claude CLI с настоящей моделью в тестовом профиле (вход через `/login` этого профиля): команда `sleep 15`, во время неё `kill -9` демона, затем `aang start`. | То же, что `restart/claude-sigkill-mid-turn` на заглушке. Расход — один короткий ход. |
+| C1 | One Claude CLI turn with the real model in the test profile (login via this profile's `/login`): command `sleep 15`, during it `kill -9` of the daemon, then `aang start`. | The same as `restart/claude-sigkill-mid-turn` on the stub. Usage — one short turn. |
 
-## Результаты
+## Results
 
-| № | macOS | Windows | Замечания |
+| # | macOS | Windows | Notes |
 | --- | --- | --- | --- |
 | A1–A7 | | — | |
 | B1–B5 | | | |

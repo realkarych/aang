@@ -1,273 +1,273 @@
-# ADR-0007: LLM-наблюдатель
+# ADR-0007: LLM observer
 
-Статус: принято владельцем 2026-10-01; допуск встроенных плагинов Claude (решение 9) принят владельцем 2026-10-03; решения по отчёту F.3 (решения 10–13) приняты владельцем 2026-10-04; решения по отчёту Q.2 и Q.3 (решения 14–16) и по повторному замеру Q.2 (решения 17 и 18) одобрены владельцем 2026-10-08.
+Status: accepted by the owner 2026-10-01; admission of built-in Claude plugins (decision 9) accepted by the owner 2026-10-03; decisions on the F.3 report (decisions 10–13) accepted by the owner 2026-10-04; decisions on the Q.2 and Q.3 report (decisions 14–16) and on the Q.2 re-measurement (decisions 17 and 18) approved by the owner 2026-10-08.
 
-## Контекст
+## Context
 
-RFC §4, §7 и §8 требуют:
+RFC §4, §7 and §8 require:
 
-- основной путь наблюдателя — уже авторизованный CLI;
-- изоляция от полномочий решателя;
-- структурированные изменения, которые проверяет демон;
-- порции событий с таймером;
-- ориентир свежести p95 30 с;
-- явный запрос ввода без LLM;
-- продолжение работы при отказе LLM и исключение собственных сессий из наблюдения.
+- the observer's main path is an already authorized CLI;
+- isolation from the solver's permissions;
+- structured changes that the daemon verifies;
+- event batches with a timer;
+- a p95 freshness target of 30 s;
+- explicit input requests without an LLM;
+- continued operation when the LLM fails, and exclusion of its own sessions from observation.
 
-ADR-0002: наблюдатель по умолчанию использует вендора наблюдаемого решателя, переопределение — в конфиге; инструментов записи у наблюдателя нет. Спайк (разделы 3.4, 12, 5.4) дал командные строки изоляции и единичные замеры: Claude — 8,6–9,0 с, Codex без инструментов — 42 с.
+ADR-0002: by default the observer uses the vendor of the observed solver, with an override in the config; the observer has no write tools. The spike (sections 3.4, 12, 5.4) provided isolation command lines and single measurements: Claude — 8.6–9.0 s, Codex without tools — 42 s.
 
-## Решение
+## Decision
 
-### Backend и запуск
+### Backend and launch
 
-- Два backend:
-  - `claude -p` с профилем изоляции из спайка (раздел 12) и дополнительно `--settings '{"crossSessionInbound":"hold"}'`: на время работы наблюдатель виден другим сессиям как пир и не должен принимать их сообщения;
-  - `codex exec` с профилем без инструментов: подменённый каталог модели и `tools.experimental_request_user_input` выключен. Снимок оболочки тоже выключен (`--disable shell_snapshot`, решение 10): иначе Codex запускает login shell учётной записи через `setsid()` вне группы процессов вызова (ADR-0013).
-- Наблюдателя и чат запускает демон, никогда не hook. Чат использует тот же механизм запуска, изоляции и выбора backend (ADR-0008).
-- Запуск через `spawn` без shell; абсолютный путь к CLI вычисляется заранее. На Windows демон находит настоящий исполняемый файл вместо шима `.cmd` (ADR-0013).
-- Окружение очищено. На macOS и Linux остаются `HOME`, `USER`, `LOGNAME`, `PATH=/usr/bin:/bin`, `LANG`, перечень для Windows задаёт ADR-0013. Добавляются маркеры и изолирующие переменные профиля из спайка (раздел 12: `CLAUDE_CODE_DISABLE_CLAUDE_MDS`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `ENABLE_CLAUDEAI_MCP_SERVERS=false`, `DISABLE_TELEMETRY` и другие).
-- Рабочий каталог — пустой `os.tmpdir()/aang-observer/empty`. При старте демон проверяет, что у каталога нет предков с `CLAUDE.md` или `AGENTS.md`.
-- Жёсткий таймаут: Claude 90 с, Codex 150 с (настраиваются). По выходу корня, таймауту или отмене всё дерево процессов вызова завершается одной операцией backend: группа процессов на macOS и Linux, Job Object через лаунчер на Windows (ADR-0013). Слот вызова освобождается только при подтверждённой остановке всего дерева; закрытие каналов подтверждением не считается. Без подтверждения backend получает `unavailable: process_stuck`.
-- **Выбор backend.** Для прогона — вендор его корневой сессии (ADR-0002); `observer.backend` в конфиге переопределяет. Автоматического переключения на другого вендора при отказе нет.
-  - Прогон может содержать сессии обоих вендоров через явную привязку. Факты и записи сессий, вендор которых отличается от вендора backend, получающего вход, отправляются наблюдателю только при `observer.crossVendor: true` в конфиге. Иначе они не интерпретируются, и пробел виден.
-- **Авторизация — подписка через уже авторизованный CLI (OAuth), без `--bare` (одобрено владельцем).**
-  - Перед первым вызовом и после ошибок авторизации выполняется `claude auth status` / `codex login status`.
-  - Если путь подписки сломается (например, `--bare` станет умолчанием `-p` и вернётся «Not logged in»), backend переходит в `unavailable: auth_path_broken`, а альтернатива выносится владельцу на согласование (одобрено владельцем).
-- **Модель** закрепляется явно из конфига (`--model`/`-m`). Для Codex `-m` обязан совпадать со `slug` записи подменённого каталога.
-- **Effort** задаётся конфигом `observer.effort` для каждого backend. По умолчанию у Claude — `low` (решение 14), у Codex effort не задан и действует умолчание CLI (решение 15). Флаг `--effort`/`model_reasoning_effort` передаётся, только если effort задан; `null` в конфиге оставляет умолчание CLI.
-- **Недокументированные рычаги допустимы при контрактных тестах изоляции на каждой поддерживаемой версии (одобрено владельцем, ADR-0010).** Это `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, собственное значение `CLAUDE_CODE_ENTRYPOINT`, имена feature flags Codex, поля каталога моделей, `tools.experimental_request_user_input` и `crossSessionInbound`.
+- Two backends:
+  - `claude -p` with the isolation profile from the spike (section 12) plus `--settings '{"crossSessionInbound":"hold"}'`: while it runs, the observer is visible to other sessions as a peer and must not accept their messages;
+  - `codex exec` with a profile without tools: a substituted model catalog and `tools.experimental_request_user_input` disabled. The shell snapshot is also disabled (`--disable shell_snapshot`, decision 10): otherwise Codex launches the account's login shell via `setsid()` outside the call's process group (ADR-0013).
+- The observer and the chat are launched by the daemon, never by a hook. The chat uses the same launch, isolation and backend selection mechanism (ADR-0008).
+- Launch via `spawn` without a shell; the absolute path to the CLI is resolved in advance. On Windows the daemon finds the real executable instead of the `.cmd` shim (ADR-0013).
+- The environment is cleared. On macOS and Linux `HOME`, `USER`, `LOGNAME`, `PATH=/usr/bin:/bin`, `LANG` remain; the list for Windows is set by ADR-0013. Markers and the profile's isolating variables from the spike are added (section 12: `CLAUDE_CODE_DISABLE_CLAUDE_MDS`, `CLAUDE_CODE_DISABLE_AUTO_MEMORY`, `ENABLE_CLAUDEAI_MCP_SERVERS=false`, `DISABLE_TELEMETRY` and others).
+- The working directory is an empty `os.tmpdir()/aang-observer/empty`. At startup the daemon checks that the directory has no ancestors with `CLAUDE.md` or `AGENTS.md`.
+- Hard timeout: Claude 90 s, Codex 150 s (configurable). On root exit, timeout or cancellation, the whole process tree of the call is terminated by one backend operation: a process group on macOS and Linux, a Job Object via the launcher on Windows (ADR-0013). The call slot is released only on a confirmed stop of the whole tree; closing the pipes does not count as confirmation. Without confirmation the backend gets `unavailable: process_stuck`.
+- **Backend selection.** For a run — the vendor of its root session (ADR-0002); `observer.backend` in the config overrides it. There is no automatic switch to another vendor on failure.
+  - A run may contain sessions of both vendors via explicit binding. Facts and records of sessions whose vendor differs from the vendor of the backend receiving the input are sent to the observer only with `observer.crossVendor: true` in the config. Otherwise they are not interpreted, and the gap is visible.
+- **Authorization — a subscription through an already authorized CLI (OAuth), without `--bare` (approved by the owner).**
+  - Before the first call and after authorization errors, `claude auth status` / `codex login status` is run.
+  - If the subscription path breaks (for example, `--bare` becomes the default for `-p` and returns "Not logged in"), the backend goes to `unavailable: auth_path_broken`, and an alternative is brought to the owner for approval (approved by the owner).
+- **The model** is pinned explicitly from the config (`--model`/`-m`). For Codex, `-m` must match the `slug` of the substituted catalog entry.
+- **Effort** is set by the `observer.effort` config for each backend. By default Claude has `low` (decision 14); Codex has no effort set and the CLI default applies (decision 15). The `--effort`/`model_reasoning_effort` flag is passed only if effort is set; `null` in the config keeps the CLI default.
+- **Undocumented levers are allowed with isolation contract tests on every supported version (approved by the owner, ADR-0010).** These are `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`, `ENABLE_CLAUDEAI_MCP_SERVERS`, a custom value of `CLAUDE_CODE_ENTRYPOINT`, Codex feature flag names, model catalog fields, `tools.experimental_request_user_input` and `crossSessionInbound`.
 
-### Проверка изоляции во время работы
+### Runtime isolation check
 
-- **Claude.** Каждый вызов идёт в `stream-json` с `--include-hook-events`. Результат принимается, только если:
-  - `system/init` содержит `tools == ["StructuredOutput"]`;
-  - в `init` нет MCP-серверов и скиллов, кроме встроенных из матрицы поддержки;
-  - в `init` нет плагинов, кроме встроенных (`path: builtin`, источник `<имя>@builtin`), список которых зафиксирован при допуске этой версии (решение 9) или указан в матрице поддержки;
-  - в потоке нет событий hooks (`system/hook_*`).
+- **Claude.** Every call runs in `stream-json` with `--include-hook-events`. The result is accepted only if:
+  - `system/init` contains `tools == ["StructuredOutput"]`;
+  - `init` has no MCP servers or skills other than the built-in ones from the support matrix;
+  - `init` has no plugins other than built-in ones (`path: builtin`, source `<name>@builtin`) whose list was recorded at this version's admission (decision 9) or is given in the support matrix;
+  - the stream has no hook events (`system/hook_*`).
 - **Codex.**
-  - Каталог модели перегенерируется из `codex debug models --bundled` при смене версии CLI.
-  - Самопроверка на локальной заглушке Responses API (временный `CODEX_HOME`, около 80 мс) выполняется при старте демона и смене версии. Условия:
-    - пустой `body.tools`;
-    - пустой `input[additional_tools].tools`: у `gpt-6.1-sol` инструменты передаются именно там;
-    - пробные вызовы `exec`, `spawn_agent` и `request_user_input*` от заглушки получают `unsupported`.
+  - The model catalog is regenerated from `codex debug models --bundled` when the CLI version changes.
+  - A self-check against a local Responses API stub (temporary `CODEX_HOME`, about 80 ms) runs at daemon start and on version change. Conditions:
+    - empty `body.tools`;
+    - empty `input[additional_tools].tools`: for `gpt-6.1-sol` tools are passed exactly there;
+    - probe calls `exec`, `spawn_agent` and `request_user_input*` from the stub get `unsupported`.
 
-    Если условие нарушено, Codex-backend отключается с видимой причиной.
-  - Строка `codex_core::tools::router: error=unsupported` в stderr означает попытку вызвать инструмент. Результат такого вызова отклоняется целиком и записывается в журнал.
-- **Допуск версии CLI.** Перед первым рабочим вызовом на новой версии CLI или после смены профиля демон выполняет автоматический допуск на синтетическом входе без пользовательских данных. Пока допуск не пройден, backend выключен; первый рабочий вызов допуском не считается.
+    If a condition is violated, the Codex backend is disabled with a visible reason.
+  - The line `codex_core::tools::router: error=unsupported` in stderr means an attempt to call a tool. The result of such a call is rejected entirely and logged.
+- **CLI version admission.** Before the first working call on a new CLI version or after a profile change, the daemon performs automatic admission on a synthetic input without user data. Until admission passes, the backend is disabled; the first working call does not count as admission.
   - Claude:
-    - `init` — инструменты, MCP, плагины, скиллы;
-    - встроенный плагин допускается, если в профиле наблюдателя он не даёт модели ни инструментов, ни MCP-серверов, ни исполняемых hooks (решение 9). Плагин с любым инструментом, MCP-сервером или hook — отказ допуска. Список допущенных встроенных плагинов фиксируется в результате допуска версии;
-    - транскрипт не записан, запись реестра несёт маркер;
-    - синтетический вход с инструкцией вызвать инструмент не приводит к исполнению;
-    - hooks не исполняются — это проверяет независимый контрольный hook, а не `aang-hook`, который сам себя отключает по маркеру.
-      - Допуск запускается во временном каталоге с проектным `.claude/settings.json`, где контрольный hook создаёт файл-метку.
-      - Обе ветки отличаются только выключателем: положительная — с `--setting-sources project`, метка должна появиться; отрицательная — профиль наблюдателя с `--setting-sources ""`, метки нет.
-      - Если убрать выключатель из отрицательной ветки, метка появляется и допуск не проходит.
-      - Допуск Claude стоит 2–3 малых вызова модели.
+    - `init` — tools, MCP, plugins, skills;
+    - a built-in plugin is admitted if in the observer profile it gives the model no tools, no MCP servers and no executable hooks (decision 9). A plugin with any tool, MCP server or hook means admission is refused. The list of admitted built-in plugins is recorded in the version admission result;
+    - no transcript is written, the registry entry carries the marker;
+    - a synthetic input instructing to call a tool does not lead to execution;
+    - hooks are not executed — this is checked by an independent control hook, not by `aang-hook`, which disables itself by the marker.
+      - Admission runs in a temporary directory with a project `.claude/settings.json` in which the control hook creates a marker file.
+      - Both branches differ only by the switch: the positive one — with `--setting-sources project`, the marker must appear; the negative one — the observer profile with `--setting-sources ""`, no marker.
+      - If the switch is removed from the negative branch, the marker appears and admission fails.
+      - Claude admission costs 2–3 small model calls.
   - Codex:
-    - самопроверка на заглушке (выше);
-    - после `--ephemeral` нет ни rollout, ни строк sqlite;
-    - контрольный hook во временном изолированном `CODEX_HOME`. Обе ветки идут с одинаковым тестовым `--dangerously-bypass-hook-trust`, чтобы на результат не влияло отсутствие доверия, и отличаются только `--disable hooks`:
-      - без `--disable hooks` метка появляется;
-      - с ним метки нет;
-      - если убрать `--disable hooks` из отрицательной ветки, допуск не проходит.
+    - the self-check against the stub (above);
+    - after `--ephemeral` there is neither a rollout nor sqlite rows;
+    - a control hook in a temporary isolated `CODEX_HOME`. Both branches run with the same test `--dangerously-bypass-hook-trust`, so that the lack of trust does not affect the result, and differ only by `--disable hooks`:
+      - without `--disable hooks` the marker appears;
+      - with it there is no marker;
+      - if `--disable hooks` is removed from the negative branch, admission fails.
 
-      Bypass нужен только тестовому стенду; рабочий профиль наблюдателя его не получает.
-  - Оба CLI на macOS и Linux: ни один потомок вызова допуска не покидает группу процессов (ADR-0013; решение 10).
-    - Проверяется каждый вызов допуска, включая служебные команды. От запуска до подтверждённой остановки группы и ещё раз после неё демон снимает таблицу процессов: `/proc` в Linux, `ps` на macOS.
-    - Потомок — процесс, связанный с корнем цепочкой `ppid`, или процесс из группы корня; замеченный потомок отслеживается и после смены родителя. Потомок с другой группой — нарушение: допуск не пройден, backend — `disabled: isolation` с именами процессов в причине.
-    - Исключение — группа контрольного hook обоих CLI. Оба CLI запускают каждый command-hook вне группы вызова, поэтому без исключения положительная ветка не проходит никогда: Codex 0.160.0 — через `/bin/sh -lc` в новой сессии (`setsid`), Claude Code (проверено на 2.1.289 и 2.1.292, macOS) — в собственной группе процессов. Процесс hook остаётся лидером своей группы и записывает в метку свой `pid`: у Codex команда hook начинается с `exec`, у Claude hook задан без оболочки (`command` и `args`), и Node-процесс hook сам становится лидером группы. В обоих вызовах `claude -p` и обоих вызовах `codex exec` с контрольным hook процессы группы с этим `pid` нарушением не считаются, любой другой процесс вне группы вызова — нарушение. В отрицательной ветке hook не должен запуститься, и его метка сама отклоняет допуск.
-    - Ошибка снимка в любой момент вызова — тоже провал допуска, даже если последний снимок удался: отсутствие данных не считается отсутствием нарушений.
-    - Проверка — защитная сетка допуска, а не учёт процессов (ADR-0013, решение 3 по техническим вопросам). Процесс, который вышел из группы и завершился или потерял связь с корнем между снимками (например, после двойного `fork` с выходом промежуточного родителя), может остаться незамеченным. Поэтому проверка дополняет `--disable shell_snapshot`, а не заменяет его.
-    - На Windows проверка не нужна: задание лаунчера не позволяет выйти из него (ADR-0013).
-  - Действие `crossSessionInbound` автоматически не проверяется: для этого нужна сессия-пир, которая отправляет сообщения. Его проверяет локальный контрактный прогон сопровождающего (ADR-0010).
-  - Версия, которая прошла автоматический допуск, но ещё не прошла локальный контрактный прогон, включается с пометкой «изоляция от сообщений других сессий на этой версии не проверена» (решение 7). Пометка снимается после контрактного прогона.
-  - Профиль Codex и замеры спайка относятся к 0.159.2. Установленная сейчас 0.159.3 используется только после допуска (ADR-0010).
-  - Результат допуска записывается в локальный статус поддержки.
-- **Признак успеха.**
-  - Claude: exit 0, `is_error == false` и непустой `structured_output`; `subtype: "success"` сам по себе успехом не считается.
-  - Codex: exit 0, есть `turn.completed`, нет `turn.failed`, `last.json` проходит схему.
+      The bypass is needed only by the test bench; the observer's working profile does not get it.
+  - Both CLIs on macOS and Linux: no descendant of an admission call leaves the process group (ADR-0013; decision 10).
+    - Every admission call is checked, including service commands. From launch until the confirmed stop of the group, and once more after it, the daemon takes the process table: `/proc` on Linux, `ps` on macOS.
+    - A descendant is a process linked to the root by a `ppid` chain, or a process from the root's group; a noticed descendant is tracked even after its parent changes. A descendant with a different group is a violation: admission fails, the backend is `disabled: isolation` with the process names in the reason.
+    - The exception is the group of the control hook of both CLIs. Both CLIs launch every command hook outside the call's group, so without the exception the positive branch never passes: Codex 0.160.0 — via `/bin/sh -lc` in a new session (`setsid`), Claude Code (checked on 2.1.289 and 2.1.292, macOS) — in its own process group. The hook process stays the leader of its group and writes its `pid` into the marker: in Codex the hook command starts with `exec`, in Claude the hook is defined without a shell (`command` and `args`), and the hook's Node process itself becomes the group leader. In both `claude -p` calls and both `codex exec` calls with the control hook, processes of the group with this `pid` are not considered a violation; any other process outside the call's group is a violation. In the negative branch the hook must not start, and its marker by itself rejects admission.
+    - A snapshot error at any point of the call is also an admission failure, even if the last snapshot succeeded: absence of data does not count as absence of violations.
+    - The check is an admission safety net, not process accounting (ADR-0013, decision 3 on technical questions). A process that left the group and exited or lost its link to the root between snapshots (for example, after a double `fork` with the intermediate parent exiting) may go unnoticed. So the check complements `--disable shell_snapshot` rather than replacing it.
+    - On Windows the check is not needed: the launcher's job does not allow leaving it (ADR-0013).
+  - The effect of `crossSessionInbound` is not checked automatically: that requires a peer session that sends messages. It is checked by the maintainer's local contract run (ADR-0010).
+  - A version that passed automatic admission but has not yet passed the local contract run is enabled with the note «изоляция от сообщений других сессий на этой версии не проверена» ("isolation from other sessions' messages is not verified on this version") (decision 7). The note is removed after the contract run.
+  - The Codex profile and the spike measurements refer to 0.159.2. The currently installed 0.159.3 is used only after admission (ADR-0010).
+  - The admission result is written to the local support status.
+- **Success criterion.**
+  - Claude: exit 0, `is_error == false` and a non-empty `structured_output`; `subtype: "success"` by itself does not count as success.
+  - Codex: exit 0, `turn.completed` is present, `turn.failed` is absent, `last.json` passes the schema.
 
-### Самоисключение
+### Self-exclusion
 
-- Наблюдатель не пишет транскрипт и rollout: `--no-session-persistence` у Claude, `--ephemeral` у Codex. У Claude на время вызова остаются запись реестра `sessions/<pid>.json` и UDS-сокет. Запись реестра отсекается по `entrypoint`, входящие сообщения других сессий — настройкой `crossSessionInbound: "hold"`.
-- Hooks в нём выключены: `--setting-sources ""` у Claude, `--disable hooks` у Codex.
-- Маркеры: `CLAUDE_CODE_ENTRYPOINT=aang-observer`, `--thread-source aang-observer`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer`, `AANG_OBSERVER=1`.
-- Обработчик hooks и адаптеры отбрасывают помеченные события и сессии (ADR-0004). Записи реестра Claude с `entrypoint: aang-observer` игнорируются.
+- The observer writes no transcript and no rollout: `--no-session-persistence` for Claude, `--ephemeral` for Codex. For Claude, the registry entry `sessions/<pid>.json` and a UDS socket remain for the duration of the call. The registry entry is filtered out by `entrypoint`, incoming messages from other sessions by the `crossSessionInbound: "hold"` setting.
+- Hooks are disabled in it: `--setting-sources ""` for Claude, `--disable hooks` for Codex.
+- Markers: `CLAUDE_CODE_ENTRYPOINT=aang-observer`, `--thread-source aang-observer`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE=aang_observer`, `AANG_OBSERVER=1`.
+- The hook handler and the adapters discard marked events and sessions (ADR-0004). Claude registry entries with `entrypoint: aang-observer` are ignored.
 
-### Вход
+### Input
 
-Вход — один JSON-документ. Содержимое событий передаётся как данные, системный промпт запрещает исполнять инструкции из них.
+The input is a single JSON document. Event contents are passed as data; the system prompt forbids executing instructions from them.
 
-- **Контекст прогона** — только из перечня разрешённых источников:
-  - текст задания (первый промпт);
-  - файлы инструкций проекта из `InstructionsLoaded` или `CLAUDE.md`/`AGENTS.md` по иерархии `cwd`, усечённые;
-  - определения встреченных субагентов;
-  - скиллы — только вызванные (по факту вызова инструмента скилла), с описанием; наличие скилла в каталоге не используется;
-  - имена MCP-серверов и hooks из фактов сессии;
-  - ветка, коммит и git-снимки (ADR-0006).
+- **Run context** — only from the list of allowed sources:
+  - the task text (the first prompt);
+  - project instruction files from `InstructionsLoaded` or `CLAUDE.md`/`AGENTS.md` along the `cwd` hierarchy, truncated;
+  - definitions of the encountered subagents;
+  - skills — only invoked ones (by the fact of a skill tool call), with a description; the presence of a skill in the catalog is not used;
+  - names of MCP servers and hooks from the session's facts;
+  - branch, commit and git snapshots (ADR-0006).
 
-  Собранный контекст сохраняется как сырая запись канала `context` с хешем. Повторно он пишется только при изменении, его можно цитировать и воспроизвести.
-- **Снимок модели** версии `model_version`: этапы (`id`, название, состояние, сводка, происхождение), открытые вопросы, критерии.
-- **Порция новых фактов:** `id`, вид, `speaker`, время, агент, сжатый payload, усечённые выводы с указанием длины. Мышление модели не передаётся (ADR-0006).
-- **Материалы, запрошенные в прошлом ответе** (`needs`).
+  The collected context is stored as a raw record of the `context` channel with a hash. It is written again only on change; it can be cited and reproduced.
+- **Model snapshot** of version `model_version`: stages (`id`, title, state, summary, provenance), open questions, criteria.
+- **Batch of new facts:** `id`, kind, `speaker`, time, agent, compressed payload, truncated outputs with their length. Model thinking is not passed (ADR-0006).
+- **Materials requested in the previous reply** (`needs`).
 
-Размер входа ограничен конфигом, по умолчанию около 24k токенов. Каждая строка порции и контекста усекается до 4000 символов, строка материала `needs` — до 16 000 символов (решение 18).
+The input size is limited by the config, by default about 24k tokens. Each line of the batch and the context is truncated to 4000 characters, a `needs` material line to 16 000 characters (decision 18).
 
-### Протокол структурированных изменений
+### Structured change protocol
 
-- Ответ: `{base_version, ops[], needs[]}`.
-- Операции `ops`:
-  - этапы: `stage.create` (временный id), `stage.update` (название, ожидаемый результат, сводка), `stage.state`, `stage.replace`, `stage.merge`, `stage.split`, `stage.nest`, `stage.depends`;
-  - привязки: `actions.assign`, `agents.participate`, `artifact.link` (вход или выход);
-  - критерии: `criterion.add`, `criterion.assess`;
-  - результаты: `card.add`, `brief.update`;
-  - внимание:
-    - `question.add` — неявный вопрос из текста;
-    - `attention.add` — `review_request` или `blocker`;
-    - `attention.resolve` — только для пунктов, созданных наблюдателем, со свидетельствами;
-    - `attention.likely_resolved` — для пунктов правил: рекомендация «вероятно отвечен» со свидетельствами (`interpreted`). Пункт не закрывает;
-    - `attention.priority` — рекомендация.
-- У каждой операции есть свидетельства — id фактов — и краткое обоснование.
-- `needs` запрашивает сырые записи, действия с их входом и выходом (включая диффы правок из payload), сохранённые версии артефактов (ADR-0006) и записи контекста. Ответ с непустым `needs` к модели не применяется: вызов получает статус `needs_requested`, демон разрешает запрос и сразу делает один дозапрос с той же порцией, тем же снимком и материалами. Дозапрос не тратит попытку порции и не ждёт интервала между вызовами прогона, а `needs` в его ответе игнорируется. Так наблюдатель получает доступ к источникам, не имея инструментов.
-- **Область входа.** Один и тот же фильтр применяется ко всему входу наблюдателя и чата: порции, снимку, контексту и ответам на `needs`.
-  - В вход попадают только объекты и записи этого прогона.
-  - Факты сессий вендора, отличного от backend, попадают только при `observer.crossVendor`.
-  - Из сырых записей вырезаются блоки мышления (`thinking`, `reasoning`).
-  - Запрос объекта вне области не выполняется, а в ответе указывается, что объект недоступен.
-- Схема генерируется из пакета `contract` и совместима со строгими подмножествами обоих CLI:
-  - в корне объект;
-  - у каждого объекта `additionalProperties: false`, все поля в `required`, `null` вместо необязательности;
-  - нет свободных словарей, `oneOf`, `allOf`, `not`, `if`;
-  - разнородные операции — `anyOf` закрытых вариантов.
+- Reply: `{base_version, ops[], needs[]}`.
+- `ops` operations:
+  - stages: `stage.create` (temporary id), `stage.update` (title, expected result, summary), `stage.state`, `stage.replace`, `stage.merge`, `stage.split`, `stage.nest`, `stage.depends`;
+  - bindings: `actions.assign`, `agents.participate`, `artifact.link` (input or output);
+  - criteria: `criterion.add`, `criterion.assess`;
+  - results: `card.add`, `brief.update`;
+  - attention:
+    - `question.add` — an implicit question from text;
+    - `attention.add` — `review_request` or `blocker`;
+    - `attention.resolve` — only for items created by the observer, with evidence;
+    - `attention.likely_resolved` — for rule items: a recommendation «вероятно отвечен» ("likely resolved") with evidence (`interpreted`). Does not close the item;
+    - `attention.priority` — a recommendation.
+- Every operation has evidence — fact ids — and a brief justification.
+- `needs` requests raw records, actions with their input and output (including edit diffs from the payload), stored artifact versions (ADR-0006) and context records. A reply with a non-empty `needs` is not applied to the model: the call gets status `needs_requested`, the daemon resolves the request and immediately makes one follow-up request with the same batch, the same snapshot and the materials. The follow-up does not spend a batch attempt and does not wait for the interval between the run's calls, and `needs` in its reply is ignored. This way the observer gets access to sources without having tools.
+- **Input scope.** The same filter applies to the whole input of the observer and the chat: the batch, the snapshot, the context and the replies to `needs`.
+  - Only objects and records of this run get into the input.
+  - Facts of sessions of a vendor other than the backend's get in only with `observer.crossVendor`.
+  - Thinking blocks (`thinking`, `reasoning`) are cut from raw records.
+  - A request for an object outside the scope is not fulfilled, and the reply states that the object is unavailable.
+- The schema is generated from the `contract` package and is compatible with the strict subsets of both CLIs:
+  - an object at the root;
+  - every object has `additionalProperties: false`, all fields in `required`, `null` instead of optionality;
+  - no free-form dictionaries, `oneOf`, `allOf`, `not`, `if`;
+  - heterogeneous operations — `anyOf` of closed variants.
 
-  Совместимость проверяет контрактный тест на обоих CLI.
+  Compatibility is checked by a contract test on both CLIs.
 
-### Проверка демоном
+### Daemon verification
 
-Проверка выполняется в одной транзакции:
+Verification runs in a single transaction:
 
-1. **Схема.**
-2. **Версия.** `base_version` должна совпадать с версией, записанной в `observer_calls` при отправке вызова; иначе ответ отклоняется. Ответ сверяется с текущим состоянием, а не требует, чтобы модель не менялась. Конфликт возникает, только если после базовой версии:
-   - целевая сущность операции была заменена, объединена, разделена или перенесена;
-   - или то же поле изменил пользователь.
+1. **Schema.**
+2. **Version.** `base_version` must match the version recorded in `observer_calls` when the call was sent; otherwise the reply is rejected. The reply is reconciled with the current state rather than requiring that the model has not changed. A conflict arises only if, after the base version:
+   - the operation's target entity was replaced, merged, split or moved;
+   - or the user changed the same field.
 
-   Изменения правил демона в других полях конфликтом не считаются.
-3. **Ссылки и область.**
-   - Id этапов, действий, версий артефактов и пунктов внимания существуют и принадлежат этому прогону.
-   - Свидетельства — только факты, переданные наблюдателю для этого прогона.
-   - Временные id разрешаются внутри ответа, включая ссылки новых этапов друг на друга.
-   - Вложенность этапов и история преемников остаются ациклическими: `stage.nest`, `stage.replace`, `stage.merge`, `stage.split`, создающие цикл, отклоняются.
-4. **Основание** вычисляет демон (ADR-0006): операции LLM дают `interpreted` или `claimed`, никогда `observed`. `origin=plan` принимается только при факте плана в свидетельствах.
-5. **Инварианты.**
-   - Удаления нет: замена, объединение и разделение сохраняют историю.
-   - Пункты внимания от правил демона LLM не закрывает и не скрывает.
-   - `criterion.assess` не превращается в подтверждение по контракту.
-   - Утверждение LLM не заменяет наблюдаемое правилом состояние выполнения (ADR-0006).
-   - Действуют лимиты на число операций и длину текстов.
-6. **Применение.** Ответ применяется целиком или отклоняется целиком.
-   - Успех: новая версия модели, записи журнала с `observer_call_id`, все факты порции — `interpreted` в той же транзакции.
-   - Любая отклонённая операция (конфликт, ссылка, инвариант, лимит) отклоняет весь ответ. Все факты порции возвращаются в `pending`, причины сохраняются в `observer_calls` и видны в инспекторе.
-   - Частичного принятия нет: у одного факта может быть несколько операций, и частичное применение потребовало бы правил остатка работы и идемпотентного повтора. Конфликты редки — структуру этапов меняет только наблюдатель, по одному вызову на прогон, — поэтому повтор целого ответа дешевле.
+   Daemon rule changes in other fields are not considered a conflict.
+3. **References and scope.**
+   - Ids of stages, actions, artifact versions and attention items exist and belong to this run.
+   - Evidence is only facts passed to the observer for this run.
+   - Temporary ids are resolved within the reply, including references of new stages to each other.
+   - Stage nesting and successor history stay acyclic: `stage.nest`, `stage.replace`, `stage.merge`, `stage.split` that create a cycle are rejected.
+4. **The basis** is computed by the daemon (ADR-0006): LLM operations yield `interpreted` or `claimed`, never `observed`. `origin=plan` is accepted only with a plan fact in the evidence.
+5. **Invariants.**
+   - There is no deletion: replacement, merge and split preserve history.
+   - The LLM does not close or hide attention items from daemon rules.
+   - `criterion.assess` does not turn into a confirmation by contract.
+   - An LLM claim does not replace the execution state observed by a rule (ADR-0006).
+   - Limits on the number of operations and text length apply.
+6. **Application.** The reply is applied entirely or rejected entirely.
+   - Success: a new model version, log entries with `observer_call_id`, all facts of the batch become `interpreted` in the same transaction.
+   - Any rejected operation (conflict, reference, invariant, limit) rejects the whole reply. All facts of the batch return to `pending`; the reasons are stored in `observer_calls` and visible in the inspector.
+   - There is no partial acceptance: one fact may have several operations, and partial application would require rules for the remaining work and an idempotent retry. Conflicts are rare — only the observer changes the stage structure, one call per run at a time — so retrying the whole reply is cheaper.
 
-### Порции и таймер
+### Batches and timer
 
-- Очередь прогона — факты со статусом `pending` (ADR-0005). При отправке они переходят в `in_call`.
-- Вызов запускается при любом из условий:
-  - набралось 30 фактов или предел размера;
-  - прошло 5 с с момента самого старого необработанного факта;
-  - пришёл факт с `urgent` (ADR-0006).
-- Параллелизм:
-  - на прогон одновременно идёт один вызов наблюдателя;
-  - общий параллелизм наблюдателя — 2;
-  - у чата отдельный слот, чат не ждёт наблюдателя.
+- The run's queue is facts with status `pending` (ADR-0005). On sending they move to `in_call`.
+- A call is started on any of the conditions:
+  - 30 facts or the size limit have accumulated;
+  - 5 s have passed since the oldest unprocessed fact;
+  - a fact with `urgent` has arrived (ADR-0006).
+- Concurrency:
+  - one observer call runs per run at a time;
+  - the overall observer concurrency is 2;
+  - the chat has a separate slot; the chat does not wait for the observer.
 
-  Пока вызов идёт, новые факты копятся в следующую порцию.
-- Однородные малозначимые факты (серии чтений и поисков) перед отправкой сворачиваются правилами в счётчики со ссылками на id.
-- **Догоняющий режим** после простоя: порции идут по времени. Если отставание больше порога, ранние факты отправляются сжатой сводкой (счётчики по агентам и инструментам), а модель помечается как восстановленная с пониженной детализацией.
-- **Предел очереди.** Активная очередь прогона ограничена: по умолчанию 2000 фактов или 24 часа.
-  - Факты сверх предела, начиная с самых старых, получают статус `deferred`. Они не теряются, но к наблюдателю попадают только сжатой сводкой догоняющего режима; пробел «смысл восстановлен по сводке» виден в UI.
-  - Архив фактов остаётся бессрочным (ADR-0002); ограничена только рабочая очередь.
-- **Расход.** Между вызовами одного прогона проходит не меньше 10 с. Бюджет токенов наблюдателя в час задаётся конфигом `budgetTokensPerHour`, по умолчанию не ограничен (`null`, решение 16). При превышении бюджета наблюдение не останавливается: таймер порции растёт до 60 с, а состояние становится `lagging` с причиной.
+  While a call is running, new facts accumulate into the next batch.
+- Homogeneous low-value facts (series of reads and searches) are collapsed by rules into counters with id references before sending.
+- **Catch-up mode** after idleness: batches go by time. If the lag exceeds a threshold, early facts are sent as a compressed summary (counters by agent and tool), and the model is marked as recovered with reduced detail.
+- **Queue limit.** The run's active queue is limited: by default 2000 facts or 24 hours.
+  - Facts over the limit, starting from the oldest, get status `deferred`. They are not lost, but reach the observer only as the compressed catch-up summary; the gap "meaning recovered from a summary" is visible in the UI.
+  - The fact archive remains indefinite (ADR-0002); only the work queue is limited.
+- **Spending.** At least 10 s pass between calls of one run. The observer's token budget per hour is set by the `budgetTokensPerHour` config, unlimited by default (`null`, decision 16). When the budget is exceeded, observation does not stop: the batch timer grows to 60 s, and the state becomes `lagging` with a reason.
 
-### Бюджет свежести
+### Freshness budget
 
-- **Факты и объекты наблюдения** видны сразу после коммита приёма: SSE, миллисекунды.
-- **Явный запрос ввода** (вопросы и одобрения, ADR-0006) создаётся правилами демона при приёме, без LLM.
-- **Смысловые изменения:** ориентир p95 на выбранном профиле нагрузки — около 35 с для прогонов Claude (решение 17) и около 40 с для прогонов Codex с Codex-наблюдателем (решения 11 и 15). Кандидат RFC §8 — 30 с; оба ориентира одобрены владельцем по замерам Q.2.
-  - Контрольное событие размечается в манифесте эталонной сессии ожидаемым изменением карты (ADR-0010). Это предикат над моделью, например «есть этап с выходом X», «критерий Y в `failed`», «открыт пункт вида Z со свидетельством F». Если изменение предикатом не выразить, разметчик заранее описывает его и затем оценивает результат.
-  - Задержка — от `observed_at` контрольного события до первой версии модели, в которой ожидание выполнено. Ссылка на факт в свидетельствах без ожидаемого изменения не засчитывается.
-  - Невыполненное ожидание в окне замера — нарушение.
-  - Время дозапросов `needs` входит в задержку и показывается отдельно.
-  - Профиль нагрузки фиксируется до приёмочного замера.
-  - Полная задержка от `source_ts` измеряется отдельно.
-  - Демон пишет задержку каждой порции. Приёмочный замер с настоящим наблюдателем выполняет локальный инструмент `tools/freshness`.
-- UI показывает возраст модели: время самого старого необработанного факта, время последнего успешного вызова и число необработанных фактов.
+- **Facts and observation objects** are visible immediately after the intake commit: SSE, milliseconds.
+- **An explicit input request** (questions and approvals, ADR-0006) is created by daemon rules at intake, without the LLM.
+- **Semantic changes:** the p95 target on the chosen load profile is about 35 s for Claude runs (decision 17) and about 40 s for Codex runs with a Codex observer (decisions 11 and 15). The RFC §8 candidate is 30 s; both targets are approved by the owner based on the Q.2 measurements.
+  - A control event is annotated in the reference session manifest with the expected map change (ADR-0010). This is a predicate over the model, for example "there is a stage with output X", "criterion Y is `failed`", "an item of kind Z with evidence F is open". If a change cannot be expressed as a predicate, the annotator describes it in advance and then assesses the result.
+  - The latency is from the control event's `observed_at` to the first model version in which the expectation is met. A reference to the fact in the evidence without the expected change does not count.
+  - An expectation not met within the measurement window is a violation.
+  - The time of `needs` follow-ups is included in the latency and shown separately.
+  - The load profile is fixed before the acceptance measurement.
+  - The full latency from `source_ts` is measured separately.
+  - The daemon records the latency of each batch. The acceptance measurement with the real observer is performed by the local tool `tools/freshness`.
+- The UI shows the model's age: the time of the oldest unprocessed fact, the time of the last successful call and the number of unprocessed facts.
 
-### Отказ LLM
+### LLM failure
 
-- Классы ошибок:
-  - авторизация;
-  - лимит подписки;
-  - таймаут;
-  - невалидный выход;
-  - нарушение изоляции;
-  - отсутствие CLI или неподдерживаемая версия.
-- Повторы ограничены отдельными счётчиками по классам ошибок. Ошибки backend бюджет порции не тратят.
+- Error classes:
+  - authorization;
+  - subscription limit;
+  - timeout;
+  - invalid output;
+  - isolation violation;
+  - missing CLI or unsupported version.
+- Retries are limited by separate counters per error class. Backend errors do not spend the batch budget.
 
-| Класс | Действие | Счётчик | Возобновление |
+| Class | Action | Counter | Resumption |
 | --- | --- | --- | --- |
-| невалидный выход, отказ проверки ответа, конфликт | ответ отклонён целиком, факты порции → `pending` | попытки порции, не больше 3; затем `not_interpreted` | следующая попытка — со свежим снимком и описанием ошибки |
-| нарушение изоляции (`init`, `unsupported`) | ответ отклонён, backend `disabled: isolation`, факты остаются `pending` | — | только новый допуск версии: по команде `aang doctor --admit` или при смене версии CLI |
-| авторизация | backend `unavailable: auth`, факты в очереди | бюджет порции не тратится | `auth status` раз в 10 мин без вызова модели |
-| лимит подписки | backend `unavailable: limit`, факты в очереди | бюджет порции не тратится | после времени сброса, если CLI его сообщает, иначе через 30 мин; одна проба на синтетическом входе, затем интервал удваивается до 4 ч |
-| таймаут, сеть | пауза от 10 с до 5 мин, не больше 6 раз подряд; затем `unavailable: transient` | бюджет порции не тратится | пробы на синтетическом входе, как у лимита |
-| CLI отсутствует, версия не допущена | backend `disabled` | — | смена версии CLI и допуск |
+| invalid output, reply verification failure, conflict | reply rejected entirely, batch facts → `pending` | batch attempts, at most 3; then `not_interpreted` | the next attempt — with a fresh snapshot and an error description |
+| isolation violation (`init`, `unsupported`) | reply rejected, backend `disabled: isolation`, facts stay `pending` | — | only a new version admission: via `aang doctor --admit` or on a CLI version change |
+| authorization | backend `unavailable: auth`, facts in the queue | batch budget not spent | `auth status` every 10 min without a model call |
+| subscription limit | backend `unavailable: limit`, facts in the queue | batch budget not spent | after the reset time if the CLI reports it, otherwise after 30 min; one probe on a synthetic input, then the interval doubles up to 4 h |
+| timeout, network | pause from 10 s to 5 min, at most 6 times in a row; then `unavailable: transient` | batch budget not spent | probes on a synthetic input, as for the limit |
+| CLI missing, version not admitted | backend `disabled` | — | CLI version change and admission |
 
-- Пробы видны в UI и учитываются в расходе наблюдателя. Успешный `auth status` возобновляет только после ошибки авторизации.
-- Состояние наблюдателя прогона — `ok`, `lagging`, `backoff`, `unavailable(причина)` или `disabled`, оно видно в UI. Сбор и показ фактов продолжаются.
+- Probes are visible in the UI and counted in the observer's spending. A successful `auth status` resumes only after an authorization error.
+- The run's observer state is `ok`, `lagging`, `backoff`, `unavailable(reason)` or `disabled`; it is visible in the UI. Fact collection and display continue.
 
-## Последствия
+## Consequences
 
-- Смысловая модель отстаёт от фактов на десятки секунд; срочное попадает в UI через правила.
-- Наблюдатель расходует лимиты подписки пользователя; расход учитывается отдельно (ADR-0009).
-- Codex-наблюдатель медленнее Claude. По замеру F.3 на малой порции вызов Codex занимает p50 около 15 с и p95 около 19 с, а при непрерывной активности p95 смыслового обновления — около 33 с, худший случай — около 38 с. Поэтому для прогонов Codex ориентир свежести мягче: около 40 с вместо 30 с (решение 11).
-- Codex в профиле наблюдателя не запускает login shell учётной записи с её стартовыми файлами. Новая версия CLI, потомок которой снова покинет группу процессов, не пройдёт допуск, если проверка заметит этот процесс.
-- Каждая новая версия CLI требует прогона контрактных тестов изоляции.
-- Claude-наблюдатель с effort `low` по замеру Q.2 отвечает вдвое быстрее, чем с умолчанием CLI, но чаще ошибается в цитате карточки. Такой ответ демон отклоняет целиком, и порция повторяется со следующей попыткой (решение 14).
-- На двух параллельных прогонах Claude хвост выше 30 с дают очередь после всплесков и крупные ответы с раскладкой всего плана, а их effort не сокращает. Поэтому для прогонов Claude ориентир — около 35 с (решение 17).
+- The semantic model lags behind the facts by tens of seconds; urgent things reach the UI through rules.
+- The observer spends the user's subscription limits; the spending is accounted separately (ADR-0009).
+- The Codex observer is slower than Claude. Per the F.3 measurement on a small batch, a Codex call takes p50 about 15 s and p95 about 19 s, and under continuous activity the p95 of a semantic update is about 33 s, the worst case about 38 s. So the freshness target for Codex runs is softer: about 40 s instead of 30 s (decision 11).
+- Codex in the observer profile does not launch the account's login shell with its startup files. A new CLI version whose descendant leaves the process group again will fail admission if the check notices that process.
+- Every new CLI version requires a run of the isolation contract tests.
+- The Claude observer with effort `low`, per the Q.2 measurement, replies twice as fast as with the CLI default, but makes more mistakes in the card citation. The daemon rejects such a reply entirely, and the batch is retried with the next attempt (decision 14).
+- On two parallel Claude runs, the tail above 30 s comes from the queue after bursts and from large replies laying out the whole plan, and effort does not reduce them. So the target for Claude runs is about 35 s (decision 17).
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Backend для прогонов Codex — Codex (ADR-0002). Задержка измеряется в F.3; если p95 не выдерживается, владелец решает, переводить ли прогоны Codex на Claude-наблюдателя. По итогам F.3 Codex остаётся backend прогонов Codex (решение 11).
-2. Модели наблюдателя — `claude-opus-5-5` и `gpt-6.1-sol` с effort по умолчанию CLI; пересмотр по замерам свежести и расхода. По итогам F.3 effort не закрепляется до Q.2 (решение 12). По итогам Q.2 effort Claude-наблюдателя по умолчанию — `low` (решение 14), Codex — умолчание CLI (решение 15).
-3. Ориентир p95 ≤ 30 с остаётся кандидатом до замера на профиле нагрузки, затем утверждается или пересматривается. Для прогонов Codex с Codex-наблюдателем — около 40 с (решение 11). По итогам Q.2 ориентир Codex подтверждён (решение 15), а для прогонов Claude — около 35 с (решения 14 и 17).
-4. Минимальный интервал 10 с на прогон; бюджет токенов без ограничения до замеров (план, F.3). По итогам F.3 — без ограничения до Q.3 (решение 13). По итогам Q.3 бюджет по умолчанию не ограничен (решение 16).
-5. `crossSessionInbound: "hold"` включён у Claude-наблюдателя и проверяется контрактным тестом изоляции.
-6. Межвендорная передача фактов запрещена по умолчанию и включается `observer.crossVendor`.
-7. Наблюдатель на версии Claude после автоматического допуска включается с пометкой «изоляция от сообщений других сессий на этой версии не проверена» до локального контрактного прогона.
-8. Рабочая очередь наблюдателя — 2000 фактов или 24 часа на прогон; сверх них — `deferred` со сжатой сводкой.
+1. The backend for Codex runs is Codex (ADR-0002). Latency is measured in F.3; if p95 is not met, the owner decides whether to move Codex runs to the Claude observer. Following F.3, Codex remains the backend for Codex runs (decision 11).
+2. Observer models are `claude-opus-5-5` and `gpt-6.1-sol` with the CLI default effort; revisited based on freshness and spending measurements. Following F.3, effort is not pinned until Q.2 (decision 12). Following Q.2, the Claude observer's default effort is `low` (decision 14), Codex's is the CLI default (decision 15).
+3. The p95 ≤ 30 s target remains a candidate until measured on the load profile, then it is confirmed or revised. For Codex runs with a Codex observer — about 40 s (decision 11). Following Q.2, the Codex target is confirmed (decision 15), and for Claude runs it is about 35 s (decisions 14 and 17).
+4. A minimum interval of 10 s per run; the token budget unlimited until measurements (plan, F.3). Following F.3 — unlimited until Q.3 (decision 13). Following Q.3, the budget is unlimited by default (decision 16).
+5. `crossSessionInbound: "hold"` is enabled for the Claude observer and checked by an isolation contract test.
+6. Cross-vendor fact transfer is forbidden by default and enabled by `observer.crossVendor`.
+7. The observer on a Claude version after automatic admission is enabled with the note «изоляция от сообщений других сессий на этой версии не проверена» ("isolation from other sessions' messages is not verified on this version") until the local contract run.
+8. The observer's work queue is 2000 facts or 24 hours per run; beyond that — `deferred` with a compressed summary.
 
-Принято владельцем 2026-10-03:
+Accepted by the owner 2026-10-03:
 
-9. Встроенный плагин Claude (`cc-plugin-*` и подобные) допускается, если на проверке изоляции он не даёт модели ни инструментов, ни MCP-серверов, ни исполняемых hooks. Список таких плагинов фиксируется в профиле допуска версии. Плагин с любым инструментом, MCP-сервером или hook — отказ допуска.
+9. A built-in Claude plugin (`cc-plugin-*` and similar) is admitted if, in the isolation check, it gives the model no tools, no MCP servers and no executable hooks. The list of such plugins is recorded in the version admission profile. A plugin with any tool, MCP server or hook means admission is refused.
 
-Принято владельцем 2026-10-04 по отчёту F.3 ([`docs/research/f3-observer-measurement.md`](../research/f3-observer-measurement.md), раздел 2; PR #96):
+Accepted by the owner 2026-10-04 based on the F.3 report ([`docs/research/f3-observer-measurement.md`](../research/f3-observer-measurement.md), section 2; PR #96):
 
-10. Codex 0.160.0 в каждом вызове выходит из группы процессов: функция `shell_snapshot` включена по умолчанию и запускает login shell учётной записи через `setsid()` (ADR-0013). В профиль Codex-наблюдателя добавлен `--disable shell_snapshot`. Допуск версии на macOS и Linux проверяет, что за вызов ни один потомок не покинул группу процессов; иначе допуск не пройден. Так новая версия CLI с другим источником `setsid` не пройдёт незамеченной.
-11. Codex остаётся backend прогонов Codex (решение 1). Для них ориентир свежести p95 — около 40 с, для прогонов Claude остаётся 30 с (решение 3). По F.3 при непрерывной активности p95 у Codex около 33 с, худший случай около 38 с. Окончательная проверка — Q.2 на профиле нагрузки.
-12. Effort наблюдателя не закрепляется: до Q.2 действует умолчание CLI (решение 2). У `gpt-6.1-sol` умолчание — уже нижний уровень `low`; у Claude умолчание укладывается в ориентир 30 с с запасом около 10 с.
-13. Бюджет токенов наблюдателя остаётся без ограничения до Q.3 (решение 4): там расход меряется на активный час с рабочими порциями.
+10. Codex 0.160.0 leaves the process group on every call: the `shell_snapshot` feature is enabled by default and launches the account's login shell via `setsid()` (ADR-0013). `--disable shell_snapshot` is added to the Codex observer profile. Version admission on macOS and Linux checks that no descendant left the process group during the call; otherwise admission fails. This way a new CLI version with a different source of `setsid` will not go unnoticed.
+11. Codex remains the backend for Codex runs (decision 1). For them the p95 freshness target is about 40 s; for Claude runs it remains 30 s (decision 3). Per F.3, under continuous activity Codex's p95 is about 33 s, the worst case about 38 s. The final check is Q.2 on the load profile.
+12. The observer's effort is not pinned: until Q.2 the CLI default applies (decision 2). For `gpt-6.1-sol` the default is already the lowest level `low`; for Claude the default fits the 30 s target with a margin of about 10 s.
+13. The observer's token budget stays unlimited until Q.3 (decision 4): there the spending is measured per active hour with working batches.
 
-Одобрено владельцем 2026-10-08 по отчёту Q.2 и Q.3 ([`docs/research/q2-q3-live-measurement.md`](../research/q2-q3-live-measurement.md), раздел 2; PR #163):
+Approved by the owner 2026-10-08 based on the Q.2 and Q.3 report ([`docs/research/q2-q3-live-measurement.md`](../research/q2-q3-live-measurement.md), section 2; PR #163):
 
-14. Effort Claude-наблюдателя по умолчанию — `low` (`observer.effort.claude: "low"`), ориентир свежести p95 для прогонов Claude — 30 с (решения 3 и 12). На двух записях, `logstats` и `mdlinks`, p95 по 30 ожиданиям, выполненным в обоих замерах, при `low` — 29,7 с, при умолчании CLI — 92,3 с; при умолчании эти записи шли параллельно с двумя другими, при `low` — по одной. По всей выборке Claude с умолчанием CLI p95 выполненных ожиданий — 51 с, без ожиданий плана — 57 с. Вызов при `low` — p50 8,0 с и p95 15,2 с, расход на прогон на 6 % ниже. Отклонённых ответов больше: 5 из 175 против 3 из 316, в основном неточная цитата карточки. Effort `low` проверяется повторным замером с двумя параллельными прогонами; его результат — в том же отчёте. По итогам повторного замера effort `low` остаётся, а ориентир для прогонов Claude — около 35 с (решение 17).
-15. Ориентир около 40 с для прогонов Codex с Codex-наблюдателем подтверждён (решение 11): p95 выполненных ожиданий — 26,4 с, ни одно не превысило 31,5 с. Сужать ориентир до 30 с по замеру на трёх записях не стали. Effort Codex-наблюдателя не задаётся, действует умолчание CLI; у `gpt-6.1-sol` это `low`.
-16. Бюджет токенов наблюдателя по умолчанию не ограничен (`budgetTokensPerHour: null`, решение 13). Бюджет считает все токены вызовов и проб за скользящий час по всем backend вместе. Пик замера — 7,9 млн токенов за час на двух параллельных прогонах Claude, и любой бюджет ниже пика ломает свежесть: порции идут раз в 60 с, состояние — `lagging`. Сверху расход и так ограничен двумя одновременными вызовами наблюдателя на демон.
+14. The Claude observer's default effort is `low` (`observer.effort.claude: "low"`), the p95 freshness target for Claude runs is 30 s (decisions 3 and 12). On two recordings, `logstats` and `mdlinks`, the p95 over 30 expectations met in both measurements is 29.7 s with `low` and 92.3 s with the CLI default; with the default these recordings ran in parallel with two others, with `low` one at a time. Over the whole Claude sample with the CLI default, the p95 of met expectations is 51 s, without plan expectations 57 s. A call with `low` is p50 8.0 s and p95 15.2 s; spending per run is 6 % lower. There are more rejected replies: 5 of 175 versus 3 of 316, mostly an inaccurate card citation. Effort `low` is checked by a re-measurement with two parallel runs; its result is in the same report. Following the re-measurement, effort `low` stays, and the target for Claude runs is about 35 s (decision 17).
+15. The target of about 40 s for Codex runs with a Codex observer is confirmed (decision 11): the p95 of met expectations is 26.4 s, none exceeded 31.5 s. Narrowing the target to 30 s based on a measurement on three recordings was not done. The Codex observer's effort is not set; the CLI default applies; for `gpt-6.1-sol` it is `low`.
+16. The observer's token budget is unlimited by default (`budgetTokensPerHour: null`, decision 13). The budget counts all tokens of calls and probes over a sliding hour across all backends together. The measurement peak is 7.9 million tokens per hour on two parallel Claude runs, and any budget below the peak breaks freshness: batches go once every 60 s, the state is `lagging`. From above, spending is already bounded by two concurrent observer calls per daemon.
 
-Одобрено владельцем 2026-10-08 по повторному замеру Q.2 ([`docs/research/q2-q3-live-measurement.md`](../research/q2-q3-live-measurement.md), раздел 9; PR #174):
+Approved by the owner 2026-10-08 based on the Q.2 re-measurement ([`docs/research/q2-q3-live-measurement.md`](../research/q2-q3-live-measurement.md), section 9; PR #174):
 
-17. Ориентир свежести p95 для прогонов Claude — около 35 с вместо 30 с (решение 14), effort Claude-наблюдателя остаётся `low`. На двух параллельных прогонах с `low` выполнены все 67 оценённых ожиданий, нарушений нет, p95 — 34,9 с, без ожиданий плана — 32,1 с. При умолчании CLI на том же профиле p95 выполненных ожиданий было 51,0 с при пяти нарушениях. Вызов под параллельной нагрузкой не замедлился: p50 8,0 с, p95 15,7 с.
-18. Строка материала `needs` усекается до 16 000 символов, строки порции и контекста — по-прежнему до 4000. Все PLAN.md замера длиннее 4000 символов (4283–9411): наблюдатель Codex в двух записях запросил запись плана по `needs`, получил тот же обрезанный текст и этапов плана не создал. Сырая запись с планом длиннее самого плана на экранирование JSON и оболочку записи, и 16 000 символов оставляют на них больше 6500 символов сверх самого длинного плана замера. Предел входа дозапроса прежний: материал, который в него не помещается, демон укорачивает, как раньше, а строки порции в дозапросе не длиннее, чем в первом вызове. Расход растёт только у дозапросов, а их в замере с двумя параллельными прогонами Claude 4 на 369 вызовов. Каждый материал удлиняется не больше чем на 12 000 символов — около 3000 токенов по оценке демона, у Claude это около $0,02 записи в кэш на материал. С одним таким материалом на дозапрос это меньше 12 тыс. токенов и $0,1 на активный час, около 0,2 % расхода наблюдателя (8,07 млн токенов, $40,83). План Codex из вызова `update_plan` в коде ячейки `exec` адаптер не разбирает: полный PLAN.md наблюдатель получает по `needs`.
+17. The p95 freshness target for Claude runs is about 35 s instead of 30 s (decision 14); the Claude observer's effort stays `low`. On two parallel runs with `low`, all 67 assessed expectations were met, no violations, p95 is 34.9 s, without plan expectations 32.1 s. With the CLI default on the same profile, the p95 of met expectations was 51.0 s with five violations. A call under parallel load did not slow down: p50 8.0 s, p95 15.7 s.
+18. A `needs` material line is truncated to 16 000 characters; batch and context lines are still truncated to 4000. All PLAN.md files of the measurement are longer than 4000 characters (4283–9411): the Codex observer in two recordings requested the plan record via `needs`, got the same truncated text and created no plan stages. A raw record with a plan is longer than the plan itself by the JSON escaping and the record envelope, and 16 000 characters leave more than 6500 characters for them beyond the longest plan of the measurement. The follow-up input limit is unchanged: material that does not fit, the daemon shortens as before, and batch lines in a follow-up are no longer than in the first call. Spending grows only for follow-ups, and in the measurement with two parallel Claude runs there were 4 of them per 369 calls. Each material grows by at most 12 000 characters — about 3000 tokens by the daemon's estimate; for Claude that is about $0.02 of cache write per material. With one such material per follow-up this is less than 12 thousand tokens and $0.1 per active hour, about 0.2 % of the observer's spending (8.07 million tokens, $40.83). The adapter does not parse a Codex plan from an `update_plan` call in the code of an `exec` cell: the observer gets the full PLAN.md via `needs`.

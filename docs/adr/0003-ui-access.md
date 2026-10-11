@@ -1,32 +1,32 @@
-# ADR-0003: Доступ к интерфейсу
+# ADR-0003: Interface access
 
-Статус: принято владельцем 2026-10-01
+Status: accepted by the owner 2026-10-01
 
-## Контекст
+## Context
 
-RFC §8 требует защищённый доступ для удалённого UI на собственных VM/Docker.
+RFC §8 requires secure access for a remote UI on one's own VMs/Docker.
 
-## Решение
+## Decision
 
-- По умолчанию демон слушает только 127.0.0.1.
-- Любой доступ к HTTP API и UI требует bearer-токен, который генерирует и выводит CLI; UI получает его через одноразовую ссылку и хранит в cookie `HttpOnly; SameSite=Strict`.
-- Удалённый доступ — SSH-туннель либо явный bind на интерфейс с тем же обязательным токеном. Собственного TLS в демоне нет.
-- Эндпоинт приёма hook-событий слушает только loopback или Unix-сокет и использует отдельный токен приёма.
+- By default the daemon listens only on 127.0.0.1.
+- Any access to the HTTP API and the UI requires a bearer token that the CLI generates and prints; the UI receives it via a one-time link and stores it in an `HttpOnly; SameSite=Strict` cookie.
+- Remote access is an SSH tunnel or an explicit bind to an interface with the same mandatory token. The daemon has no TLS of its own.
+- The hook event intake endpoint listens only on loopback or a Unix socket and uses a separate intake token.
 
-## Последствия
+## Consequences
 
-Безопасный по умолчанию локальный режим без инфраструктуры сертификатов. Шифрование канала при удалённом доступе обеспечивает туннель или внешний прокси.
+A secure-by-default local mode without certificate infrastructure. Channel encryption for remote access is provided by the tunnel or an external proxy.
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-04:
+Accepted by the owner 2026-10-04:
 
-1. Защита от CSRF для запросов с cookie. `SameSite=Strict` не отделяет страницы на других портах 127.0.0.1: порт не входит в site, и браузер отправляет cookie демона вместе с их запросами. Простой `POST` с `text/plain` (форма или `fetch` в режиме `no-cors`) идёт без preflight, а демон разбирает тело как JSON независимо от типа. Без защиты такая страница останавливает демон через `POST /api/admin/shutdown`. Поэтому:
-   - проверка выполняется в маршрутизаторе демона до выбора маршрута и покрывает все маршруты записи, в том числе будущие, и статику;
-   - она касается запросов, авторизованных cookie, с небезопасными методами — всеми, кроме `GET`, `HEAD`, `OPTIONS` и `TRACE`, то есть `POST`, `PUT`, `PATCH` и `DELETE`;
-   - `Origin` должен совпадать с origin демона, а при отсутствии `Origin` нужен `Sec-Fetch-Site: same-origin`; иначе — 403 `forbidden`. `Origin: null` отклоняется;
-   - тело должно иметь `Content-Type: application/json`, параметры вроде `charset` допустимы; требование действует и для `DELETE` без тела; иначе — 415 `unsupported_media_type`. Источник проверяется раньше типа;
-   - запросы с действительным bearer-токеном (CLI) не проверяются: браузер не отправит заголовок `Authorization` на другой origin без preflight, а CORS демон не разрешает. Запрос с недействительным bearer и действительной cookie проверяется как запрос по cookie;
-   - чтение (`GET`, `HEAD`, SSE) не затрагивается. Веб-клиент отправляет изменяющие запросы со своей страницы с `Content-Type: application/json`.
+1. CSRF protection for requests with a cookie. `SameSite=Strict` does not separate pages on other ports of 127.0.0.1: the port is not part of the site, and the browser sends the daemon's cookie along with their requests. A simple `POST` with `text/plain` (a form or `fetch` in `no-cors` mode) goes without a preflight, and the daemon parses the body as JSON regardless of the type. Without protection, such a page stops the daemon via `POST /api/admin/shutdown`. Therefore:
+   - the check runs in the daemon's router before route selection and covers all write routes, including future ones, and static files;
+   - it applies to cookie-authorized requests with unsafe methods — all except `GET`, `HEAD`, `OPTIONS` and `TRACE`, i.e. `POST`, `PUT`, `PATCH` and `DELETE`;
+   - `Origin` must match the daemon's origin, and if `Origin` is absent, `Sec-Fetch-Site: same-origin` is required; otherwise — 403 `forbidden`. `Origin: null` is rejected;
+   - the body must have `Content-Type: application/json`, parameters such as `charset` are allowed; the requirement applies to `DELETE` without a body too; otherwise — 415 `unsupported_media_type`. The origin is checked before the type;
+   - requests with a valid bearer token (CLI) are not checked: the browser will not send an `Authorization` header to another origin without a preflight, and the daemon does not allow CORS. A request with an invalid bearer and a valid cookie is checked as a cookie request;
+   - reads (`GET`, `HEAD`, SSE) are not affected. The web client sends mutating requests from its own page with `Content-Type: application/json`.
 
-   Origin демона — ровно `http://127.0.0.1:P` и `http://localhost:P`, где P — порт, который слушает демон. `Origin` сравнивается с ними целиком: схема, хост и порт. Некорректный `Origin` отклоняется так же, как `Origin: null`. Без `Origin` запрос принимается только при `Sec-Fetch-Site: same-origin` и `Host` из того же списка (`127.0.0.1:P` или `localhost:P`). При наличии `Origin` заголовок `Host` не учитывается. SSH-туннель пробрасывает тот же порт: `ssh -L P:127.0.0.1:P`.
+   The daemon's origin is exactly `http://127.0.0.1:P` and `http://localhost:P`, where P is the port the daemon listens on. `Origin` is compared against them in full: scheme, host and port. A malformed `Origin` is rejected the same way as `Origin: null`. Without `Origin`, a request is accepted only with `Sec-Fetch-Site: same-origin` and a `Host` from the same list (`127.0.0.1:P` or `localhost:P`). When `Origin` is present, the `Host` header is not considered. An SSH tunnel forwards the same port: `ssh -L P:127.0.0.1:P`.

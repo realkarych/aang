@@ -1,6 +1,6 @@
 # Freshness measurement (Q.2)
 
-`tools/freshness` measures how fast the semantic map catches up with the run, as ADR-0007 («Бюджет свежести») and RFC §8 define it. It replays reference recordings (ADR-0010) into a real daemon with a real or a fake observer CLI, times every control event of their manifests until the expected map change, and writes a report.
+`tools/freshness` measures how fast the semantic map catches up with the run, as ADR-0007 ("Freshness budget") and RFC §8 define it. It replays reference recordings (ADR-0010) into a real daemon with a real or a fake observer CLI, times every control event of their manifests until the expected map change, and writes a report.
 
 Build with `pnpm build`. A measurement is three steps in one directory:
 

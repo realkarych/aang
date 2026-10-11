@@ -1,31 +1,31 @@
-# Docker-образ
+# Docker image
 
-`Dockerfile` в корне репозитория собирает образ `aang` на `node:26-slim` (ADR-0011, «Упаковка»). Это базовый слой для образа решателя: в производном образе пользователь ставит `claude` и/или `codex` и авторизует их внутри контейнера, а демон aang и решатель работают в одном контейнере. Образ собирается из исходников монорепозитория и от публикации в npm не зависит:
+The `Dockerfile` at the repository root builds the `aang` image on `node:26-slim` (ADR-0011, "Packaging"). It is the base layer for a solver image: in a derived image the user installs `claude` and/or `codex` and authorizes them inside the container, and the aang daemon and the solver run in the same container. The image is built from the monorepo sources and does not depend on npm publishing:
 
 ```sh
 docker build --tag aang .
 ```
 
-## Стадии
+## Stages
 
-| Стадия | Что делает |
+| Stage | What it does |
 | --- | --- |
-| `hook` | собирает `aang-hook` для платформы образа (`TARGETOS`, `TARGETARCH`) кросс-компиляцией на платформе сборки: `go build -trimpath -ldflags="-s -w"` с `CGO_ENABLED=0`, как бинари платформенных пакетов npm (P.1) |
-| `build` | ставит pnpm версии из `packageManager`, выполняет `pnpm install --frozen-lockfile` и `tsc -b packages/aang`, затем `pnpm deploy --prod` пакета `aang` в `/opt/aang/packages/aang`: собранные внутренние пакеты, миграции `store`, статика `web`, `zod` и `smol-toml`. Матрицу поддержки `support/matrix.json` кладёт в `/opt/aang/support/matrix.json`: команда `aang` читает её по пути `../../../support/matrix.json` от своего `dist/main.js`, поэтому `/opt/aang` повторяет раскладку репозитория |
-| `aang` (итоговая) | `node:26-slim` с `/opt/aang`, командами `aang` и `aang-hook` в `/usr/local/bin`, `git` и `tini`. Ссылка `bin/aang-hook` пакета `@aang/hook` внутри `/opt/aang` ведёт на `/usr/local/bin/aang-hook`: там `aang install` ищет бинарь, который копирует в `<AANG_HOME>/bin` |
+| `hook` | builds `aang-hook` for the image platform (`TARGETOS`, `TARGETARCH`) by cross-compiling on the build platform: `go build -trimpath -ldflags="-s -w"` with `CGO_ENABLED=0`, like the binaries of the platform npm packages (P.1) |
+| `build` | installs pnpm of the version from `packageManager`, runs `pnpm install --frozen-lockfile` and `tsc -b packages/aang`, then `pnpm deploy --prod` of the `aang` package into `/opt/aang/packages/aang`: the built internal packages, `store` migrations, `web` static assets, `zod` and `smol-toml`. It puts the support matrix `support/matrix.json` into `/opt/aang/support/matrix.json`: the `aang` command reads it at the path `../../../support/matrix.json` relative to its `dist/main.js`, so `/opt/aang` mirrors the repository layout |
+| `aang` (final) | `node:26-slim` with `/opt/aang`, the `aang` and `aang-hook` commands in `/usr/local/bin`, `git` and `tini`. The `bin/aang-hook` link of the `@aang/hook` package inside `/opt/aang` points to `/usr/local/bin/aang-hook`: that is where `aang install` looks for the binary it copies into `<AANG_HOME>/bin` |
 
-В итоговом образе:
+In the final image:
 
-- пользователь `node`, рабочий каталог `/home/node`, `AANG_HOME` по умолчанию — `/home/node/.aang`;
-- точка входа — `tini -s -- docker-entrypoint.sh`, команда по умолчанию — `node`, как у `node:26-slim`.
+- the user is `node`, the working directory is `/home/node`, `AANG_HOME` defaults to `/home/node/.aang`;
+- the entry point is `tini -s -- docker-entrypoint.sh`, the default command is `node`, as in `node:26-slim`.
 
-`git` нужен самому aang: по общему каталогу Git связанный worktree отслеживаемого репозитория вне его каталога считается отслеживаемым, снимки проверок записывают HEAD и `git status`, а контекст наблюдателя получает корень worktree. В `node:26-slim` его нет, и CLI решателя его не приносят.
+`git` is needed by aang itself: through the Git common directory, a linked worktree of a watched repository located outside its directory is considered watched, check snapshots record HEAD and `git status`, and the observer context gets the worktree root. `node:26-slim` does not include it, and the solver CLIs do not bring it.
 
-`tini` нужен потому, что `aang start` порождает демон отсоединённым процессом и тот переходит к PID 1 контейнера. Если PID 1 не забирает завершившиеся процессы (`sleep`, процесс Node и т. п.), остановленный демон остаётся зомби, и `aang stop` не может подтвердить остановку. `tini` забирает их при любой команде контейнера, поэтому `docker run --init` не нужен. С `--init` он работает как subreaper (`-s`) под init Docker и не выдаёт предупреждений.
+`tini` is needed because `aang start` spawns the daemon as a detached process, and it gets reparented to the container's PID 1. If PID 1 does not reap exited processes (`sleep`, a Node process, etc.), a stopped daemon remains a zombie, and `aang stop` cannot confirm the stop. `tini` reaps them with any container command, so `docker run --init` is not needed. With `--init` it works as a subreaper (`-s`) under Docker's init and emits no warnings.
 
-## Образ решателя
+## Solver image
 
-Производный образ переключается на `root` для установки CLI и возвращается к `node`:
+The derived image switches to `root` to install the CLIs and switches back to `node`:
 
 ```dockerfile
 FROM aang
@@ -34,17 +34,17 @@ RUN npm install --global --allow-scripts=@anthropic-ai/claude-code @anthropic-ai
 USER node
 ```
 
-Демон по умолчанию слушает `127.0.0.1` внутри контейнера. Доступ к UI — SSH-туннель или явный bind с тем же токеном (ADR-0003), например `aang start --bind 0.0.0.0` в контейнере, запущенном с `--publish 127.0.0.1:4280:4280`; ссылку входа выдаёт `aang open`.
+By default the daemon listens on `127.0.0.1` inside the container. Access to the UI is via an SSH tunnel or an explicit bind with the same token (ADR-0003), for example `aang start --bind 0.0.0.0` in a container started with `--publish 127.0.0.1:4280:4280`; the login link is provided by `aang open`.
 
-## Проверка
+## Verification
 
-`pnpm test:docker` (тег `docker`, задание `docker` в CI на Linux) после `pnpm build`:
+`pnpm test:docker` (tag `docker`, job `docker` in CI on Linux) after `pnpm build`:
 
-1. собирает образ `aang`, стадию `build` и производный образ решателя `tools/docker-image/solver.Dockerfile`. Производный образ добавляет к `aang` поддельные CLI `claude` и `codex` из `testkit` в `/usr/local/bin`, проигрыватель и образцы сценариев;
-2. проверяет образ `aang`: пользователь `node` с `--init` и без него, Node 26, `aang status` и запуск `aang-hook`;
-3. в контейнере производного образа запускает `aang start --bind 0.0.0.0` и публикует порт API на loopback хоста. Поддельные CLI отвечают на `--version`. API без токена отвечает 401, ссылка `aang open` через опубликованный порт даёт cookie. Проигрыватель пишет образец `claude-subagent`, и `GET /api/runs` отдаёт его прогон: два агента, режим `files_only`. Затем `aang stop` останавливает демон;
-4. в отдельном контейнере `aang install` ставит плагин поддельного `claude` и hooks поддельного `codex`: в `<AANG_HOME>/bin` лежит тот же `aang-hook`, что в образе, в `hooks.json` — строка команды aang, а событие, переданное установленным бинарём, даёт прогон в API;
-5. в отдельном контейнере `aang-hook` образа пишет в spool событие `SessionStart`, и демон показывает прогон этой сессии в режиме `hooks_only`;
-6. в отдельном контейнере до запуска демона создаёт Git-репозиторий, его linked worktree вне каталога репозитория и неотслеживаемый каталог; конфиг отслеживает только каталог репозитория (`watch.all: false`). `aang-hook` передаёт начала сессий в worktree и в неотслеживаемом каталоге, и API отдаёт прогон только сессии worktree: её признаёт отслеживаемой общий каталог Git.
+1. builds the `aang` image, the `build` stage and the derived solver image `tools/docker-image/solver.Dockerfile`. The derived image adds to `aang` the fake `claude` and `codex` CLIs from `testkit` in `/usr/local/bin`, the player and sample scenarios;
+2. checks the `aang` image: user `node` with and without `--init`, Node 26, `aang status` and running `aang-hook`;
+3. in a container of the derived image, runs `aang start --bind 0.0.0.0` and publishes the API port on the host loopback. The fake CLIs answer `--version`. The API without a token answers 401, the `aang open` link via the published port yields a cookie. The player records the `claude-subagent` sample, and `GET /api/runs` returns its run: two agents, mode `files_only`. Then `aang stop` stops the daemon;
+4. in a separate container, `aang install` installs the plugin of the fake `claude` and the hooks of the fake `codex`: `<AANG_HOME>/bin` contains the same `aang-hook` as in the image, `hooks.json` contains the aang command string, and an event passed by the installed binary produces a run in the API;
+5. in a separate container, the image's `aang-hook` writes a `SessionStart` event to the spool, and the daemon shows the run of this session in `hooks_only` mode;
+6. in a separate container, before starting the daemon, creates a Git repository, its linked worktree outside the repository directory and an unwatched directory; the config watches only the repository directory (`watch.all: false`). `aang-hook` passes session starts in the worktree and in the unwatched directory, and the API returns a run only for the worktree session: the Git common directory makes it count as watched.
 
-Внутри контейнера проигрыватель и установку поддельных CLI выполняет `dist/main.js` этого пакета (`install-clis`, `play`). Он не входит в образ `aang`. Покрытие `c8` пакет не собирает (`.c8rc.json`): его код работает только внутри контейнера.
+Inside the container, the player and the installation of the fake CLIs are run by this package's `dist/main.js` (`install-clis`, `play`). It is not part of the `aang` image. The package does not collect `c8` coverage (`.c8rc.json`): its code runs only inside the container.

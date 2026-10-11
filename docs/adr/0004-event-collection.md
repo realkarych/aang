@@ -1,265 +1,265 @@
-# ADR-0004: Сбор событий
+# ADR-0004: Event collection
 
-Статус: принято владельцем 2026-10-01; проверка активных файлов по `stat` (решение 14) и живость процесса сессии Claude (решение 13) одобрены владельцем 2026-10-07. Дополнение о проверке hooks Codex после находки Q.1 (раздел «Каналы») одобрено владельцем 2026-10-08.
+Status: accepted by the owner 2026-10-01; the `stat` check of active files (decision 14) and Claude session process liveness (decision 13) approved by the owner 2026-10-07. The addendum on the Codex hooks check after the Q.1 finding (section "Channels") approved by the owner 2026-10-08.
 
-## Контекст
+## Context
 
-RFC §4, §7 и §8 требуют наблюдать Claude Code и Codex во всех локальных поверхностях, показывать явный запрос ввода без LLM, не блокировать решателя при сбое aang, ограничивать очереди и восстанавливаться без дублей. Спайк (`docs/research/integrations.md`, разделы 1–3, 5.1, 5.3) показал:
+RFC §4, §7 and §8 require observing Claude Code and Codex on all local surfaces, showing an explicit input request without an LLM, not blocking the solver when aang fails, bounding queues and recovering without duplicates. The spike (`docs/research/integrations.md`, sections 1–3, 5.1, 5.3) showed:
 
-- живые события и ожидание одобрения дают только hooks; явные вопросы видны и в файлах;
-- содержимое, связи, usage и восстановление дают транскрипты Claude и rollout Codex;
-- решение человека по одобрению в Codex видно только в OpenTelemetry;
-- app-server Codex вмешивается в чужие сессии.
+- live events and approval waits come only from hooks; explicit questions are also visible in files;
+- content, links, usage and recovery come from Claude transcripts and Codex rollouts;
+- the human's approval decision in Codex is visible only in OpenTelemetry;
+- the Codex app-server interferes with other sessions.
 
-## Решение
+## Decision
 
-### Каналы
+### Channels
 
-| Канал | Рантайм | Роль |
+| Channel | Runtime | Role |
 | --- | --- | --- |
-| hooks → spool → демон | оба | живые события: старт инструментов, ожидание одобрения и ввода, субагенты, Stop, Interrupt |
-| хвост `<claude>/projects/**`: `*.jsonl`, `subagents/**`, `*.meta.json`, `workflows/*.json`, `journal.jsonl`; файлы `tool-results/*`, на которые ссылается `persistedOutputPath` | Claude | содержимое, связи, usage, бэкфилл; источник истины для содержимого |
-| `<claude>/teams/*/config.json` | Claude | связь teammates |
-| хвост `<codex>/sessions/**` и `archived_sessions/` | Codex | содержимое, связи, usage, бэкфилл |
-| OTLP/HTTP JSON, только `/v1/logs` | Codex | `codex.tool_decision`, по желанию пользователя |
-| `<claude>/sessions/<pid>.json` | Claude | подсказка: `status`, `waitingFor`, живость процесса (решения 3 и 13) |
+| hooks → spool → daemon | both | live events: tool start, approval and input waits, subagents, Stop, Interrupt |
+| tail of `<claude>/projects/**`: `*.jsonl`, `subagents/**`, `*.meta.json`, `workflows/*.json`, `journal.jsonl`; the `tool-results/*` files referenced by `persistedOutputPath` | Claude | content, links, usage, backfill; source of truth for content |
+| `<claude>/teams/*/config.json` | Claude | teammate links |
+| tail of `<codex>/sessions/**` and `archived_sessions/` | Codex | content, links, usage, backfill |
+| OTLP/HTTP JSON, `/v1/logs` only | Codex | `codex.tool_decision`, at the user's option |
+| `<claude>/sessions/<pid>.json` | Claude | hint: `status`, `waitingFor`, process liveness (decisions 3 and 13) |
 
-- `<claude>` — `$CLAUDE_CONFIG_DIR` или `~/.claude`, `<codex>` — `$CODEX_HOME` или `~/.codex`; на Windows `~` — это `%USERPROFILE%` (ADR-0013). Список корней задаётся в конфиге aang.
-- Записи hooks и файлов об одном объекте объединяются по ключам объектов (ADR-0006). При расхождении содержимое берётся из файлов, время — самое раннее наблюдённое, ожидание человека — из hooks и реестра.
-- App-server Codex не используется для сессий, запущенных не aang:
-  - aang не подключается к общему демону пользователя;
-  - не вызывает `thread/resume` чужих тредов;
-  - не отвечает на server requests;
-  - не использует app-server как парсер rollout.
+- `<claude>` is `$CLAUDE_CONFIG_DIR` or `~/.claude`, `<codex>` is `$CODEX_HOME` or `~/.codex`; on Windows `~` is `%USERPROFILE%` (ADR-0013). The list of roots is set in the aang config.
+- Hook and file records about the same object are merged by object keys (ADR-0006). On disagreement, content comes from files, time is the earliest observed, and human waits come from hooks and the registry.
+- The Codex app-server is not used for sessions not launched by aang:
+  - aang does not connect to the user's shared daemon;
+  - does not call `thread/resume` on other threads;
+  - does not answer server requests;
+  - does not use the app-server as a rollout parser.
 
-  Собственный stdio-процесс `codex app-server` допустим только для `hooks/list` при проверке trust, без операций с тредами. D.6 проверил его в штатном `~/.codex` (`docs/research/d6-app-server-live.md`):
-  - `initialize` и `hooks/list` не создают тредов, не меняют конфиги и trust, не запускают MCP и не затрагивают демон пользователя;
-  - при старте, ещё до `initialize`, процесс сам обращается к сервисам OpenAI от имени пользователя: remote control, список моделей, каталог и синхронизация плагинов. Он пишет логи и кэши в `CODEX_HOME`, а без удалённых плагинов оставляет `.tmp/git-*` после каждого короткого запуска.
+  A dedicated stdio `codex app-server` process is allowed only for `hooks/list` during the trust check, with no thread operations. D.6 checked it in the standard `~/.codex` (`docs/research/d6-app-server-live.md`):
+  - `initialize` and `hooks/list` create no threads, change no configs or trust, start no MCP and do not touch the user's daemon;
+  - at startup, even before `initialize`, the process itself contacts OpenAI services on the user's behalf: remote control, model list, plugin catalog and sync. It writes logs and caches to `CODEX_HOME`, and without remote plugins it leaves `.tmp/git-*` after each short run.
 
-  Поэтому процесс завершается сразу после ответа `hooks/list`, и проверка запускается только по событию: установка и удаление, `aang status`, `doctor`, старт демона, изменение `hooks.json` или `config.toml`. Демон хранит последнее состояние и не запускает app-server на каждый запрос состояния или по таймеру.
+  Therefore the process exits right after the `hooks/list` response, and the check runs only on an event: install and uninstall, `aang status`, `doctor`, daemon start, a change to `hooks.json` or `config.toml`. The daemon keeps the last state and does not start the app-server on every state request or on a timer.
 
-  Дополнение после находки Q.1 (PR #160, «Требует внимания», п. 4: на Windows app-server демона и установки мешали друг другу) одобрено владельцем 2026-10-08 и уточняет правила выше:
-  - без строки команды текущей установки aang в `hooks.json` app-server не запускается ни по одному событию, состояние — «не установлено». Так идёт Codex на Windows по умолчанию (ADR-0013, решение 7);
-  - проверка демона и установка держат одну блокировку `.aang-lock` у `hooks.json` и не идут одновременно;
-  - изменения файлов демон проверяет после 2 с без новых изменений, но не позже 10 с от первого, и одна проверка покрывает их все;
-  - установка записывает итог своей контрольной сверки `hooks/list` с отпечатком `hooks.json` и `config.toml` в `<AANG_HOME>/codex-hooks.json`. По изменению файлов демон берёт состояние оттуда или из своей прошлой проверки, если отпечаток совпал, и app-server не запускает. Старт демона и `aang status` проверяют заново;
-  - после неудачной проверки демон не берёт состояние ни из своей памяти, ни из записи установки, пока снова не пройдёт проверка через `hooks/list`. «Не установлено» по отсутствию записей aang в `hooks.json` её не заменяет: когда записи вернутся, даже прежними байтами, проверка снова полная. Каждое событие ведёт к полной проверке, а пока остановка дерева прошлого app-server не подтверждена, проверка завершается ошибкой без запуска CLI, и состояние остаётся `unknown` (ADR-0013).
-- Не используются в MVP:
-  - внутренние sqlite Codex (`state_5`, `thread_history_1`) и `thread-writer-locks`;
-  - `claude agents --json` — для статуса ожидания пришлось бы запускать процесс CLI на каждый опрос (решение 3);
-  - OTel Claude Agent SDK;
-  - обёртка над SDK.
+  The addendum after the Q.1 finding (PR #160, "Needs attention", item 4: on Windows the daemon's and the installer's app-servers interfered with each other) was approved by the owner 2026-10-08 and refines the rules above:
+  - without the command line of the current aang installation in `hooks.json`, the app-server is not started on any event, and the state is "not installed". This is the default for Codex on Windows (ADR-0013, decision 7);
+  - the daemon's check and the installer hold the same `.aang-lock` lock next to `hooks.json` and do not run concurrently;
+  - the daemon checks file changes after 2 s without new changes, but no later than 10 s after the first one, and one check covers them all;
+  - the installer writes the result of its control `hooks/list` reconciliation, with a fingerprint of `hooks.json` and `config.toml`, to `<AANG_HOME>/codex-hooks.json`. On a file change the daemon takes the state from there or from its own previous check if the fingerprint matches, and does not start the app-server. Daemon start and `aang status` check afresh;
+  - after a failed check the daemon takes the state neither from its memory nor from the installer's record until a check via `hooks/list` passes again. "Not installed" due to the absence of aang entries in `hooks.json` does not replace it: when the entries come back, even with the same bytes, the check is full again. Every event leads to a full check, and while the stop of the previous app-server's tree is not confirmed, the check fails without starting the CLI, and the state stays `unknown` (ADR-0013).
+- Not used in the MVP:
+  - Codex internal sqlite (`state_5`, `thread_history_1`) and `thread-writer-locks`;
+  - `claude agents --json` — the wait status would require starting a CLI process on every poll (decision 3);
+  - Claude Agent SDK OTel;
+  - a wrapper around the SDK.
 
-  Поддержка без внутренних индексов обязательна.
+  Support without internal indexes is mandatory.
 
-### Контракт hook-обработчика
+### Hook handler contract
 
-- **Обработчик** один: нативный исполняемый файл `aang-hook <runtime> <тег регистрации> <spool>` на Go для macOS, Linux и Windows (ADR-0013). Тег различает места регистрации: `plugin` для плагина Claude, `user` для `hooks.json` Codex.
-  - `aang install` копирует его без изменений в `<AANG_HOME>/bin/` и передаёт абсолютный путь spool аргументом команды: окружение решателя не содержит `AANG_HOME`.
-  - Конфиги hooks вызывают бинарь по абсолютному пути; Claude — в exec form, без shell (ADR-0013). Команда не меняется между версиями aang, бинарь обновляется на месте; так доверие Codex к hook сохраняется.
-- **Режим:** синхронный hook, `timeout: 2` с, без `async`, без сети и без ожидания демона.
-- **Запись:** одно событие — один файл. Обработчик создаёт временный файл в `spool/tmp/` и переименовывает его в `spool/new/`.
-  - Имя файла — ключ дедупликации сырой записи: повторный приём того же файла ничего не добавляет.
-  - Hook может быть зарегистрирован дважды: плагин и `plugins` в SDK-приложении или `CLAUDE_CODE_PLUGIN_DIRS`. Спайк видел одинаковые payload от двух регистраций. Правило консервативное:
-    - События с идентификатором вхождения (`tool_use_id`) сливаются по нему и имени события.
-    - События без такого идентификатора (`PermissionRequest`, `Notification`, `Stop` и другие) не сливаются никогда: каждый файл — отдельный эпизод, его идентификатор — имя файла.
-    - Одинаковые события от разных регистраций (тег и `CLAUDE_PLUGIN_ROOT` из заголовка) с разницей не больше 2 с связываются как «возможная повторная доставка». UI показывает их группой со счётчиком и пометкой неоднозначности; ни одно не скрывается.
-    - Если в сессии видны события от двух регистраций, `aang status` и `doctor` сообщают о двойной регистрации как о проблеме конфигурации: причину нужно устранить, а не угадывать копии.
-  - Время приёма — `mtime` файла с наносекундами.
-- **Формат файла** — граница между `hook` и `collector`:
-  - первая строка — `aang-spool/1 <runtime> <тег регистрации>`;
-  - затем записи `KEY=value`, каждая завершена байтом NUL; значения передаются как есть в UTF-8;
-  - пустая запись (лишний NUL) завершает заголовок;
-  - далее идёт stdin без изменений.
+- **Handler:** a single one, the native executable `aang-hook <runtime> <registration tag> <spool>` in Go for macOS, Linux and Windows (ADR-0013). The tag distinguishes registration places: `plugin` for the Claude plugin, `user` for the Codex `hooks.json`.
+  - `aang install` copies it unchanged to `<AANG_HOME>/bin/` and passes the absolute spool path as a command argument: the solver's environment does not contain `AANG_HOME`.
+  - Hook configs call the binary by absolute path; Claude in exec form, without a shell (ADR-0013). The command does not change between aang versions, the binary is updated in place; this way Codex's trust in the hook is preserved.
+- **Mode:** synchronous hook, `timeout: 2` s, no `async`, no network and no waiting for the daemon.
+- **Write:** one event — one file. The handler creates a temporary file in `spool/tmp/` and renames it into `spool/new/`.
+  - The file name is the deduplication key of the raw record: receiving the same file again adds nothing.
+  - A hook may be registered twice: the plugin and `plugins` in an SDK application, or `CLAUDE_CODE_PLUGIN_DIRS`. The spike saw identical payloads from two registrations. The rule is conservative:
+    - Events with an occurrence identifier (`tool_use_id`) are merged by it and the event name.
+    - Events without such an identifier (`PermissionRequest`, `Notification`, `Stop` and others) are never merged: each file is a separate episode, and its identifier is the file name.
+    - Identical events from different registrations (the tag and `CLAUDE_PLUGIN_ROOT` from the header) no more than 2 s apart are linked as a "possible redelivery". The UI shows them as a group with a counter and an ambiguity mark; none is hidden.
+    - If events from two registrations are seen in a session, `aang status` and `doctor` report the double registration as a configuration problem: the cause has to be removed, not the copies guessed.
+  - The receive time is the file `mtime` with nanoseconds.
+- **File format** — the boundary between `hook` and `collector`:
+  - the first line is `aang-spool/1 <runtime> <registration tag>`;
+  - then `KEY=value` records, each terminated by a NUL byte; values are passed as is in UTF-8;
+  - an empty record (an extra NUL) terminates the header;
+  - then stdin follows unchanged.
 
-  Переменные: `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_AGENT_SDK_VERSION`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_HOST_SESSION_ID`, `CLAUDE_PID`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT`, `AI_AGENT`, `CODEX_HOME`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`.
-- **Выход:** обработчик всегда завершается с `exit 0`, никогда не выдаёт `exit 2` и JSON `decision`, ничего не пишет в stdout и stderr: stdout некоторых событий оба рантайма добавляют в контекст.
-  - Как это обеспечивается на Go (ошибки аргументов, паника, память) и чего бинарь гарантировать не может (внешнее завершение, фатальная ошибка среды), описывает ADR-0013.
-- **Выход без записи:**
-  - при `AANG_OBSERVER=1` или `CLAUDE_CODE_ENTRYPOINT=aang-observer`;
-  - при маркере намеренной остановки `spool/stopped` — даже с действующей арендой;
-  - если нет действующей аренды spool. Аренда — файл `spool/lease-<срок в секундах Unix>`.
-    - `aang start` снимает маркер и создаёт аренду на 24 часа, работающий демон продлевает её каждый час. `aang stop` записывает маркер и удаляет аренду — в том числе при упавшем или зависшем демоне. Пока маркер есть, демон аренду не создаёт и не продлевает (ADR-0013).
-    - Обработчик находит маркер и файл аренды одним перечислением каталога spool и сравнивает срок с системным временем.
-    - При намеренной остановке aang spool сразу перестаёт расти. После падения демона события ещё 24 часа сохраняются для восстановления, затем запись прекращается.
+  Variables: `CLAUDE_CODE_ENTRYPOINT`, `CLAUDE_AGENT_SDK_VERSION`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_CODE_HOST_SESSION_ID`, `CLAUDE_PID`, `CLAUDE_PROJECT_DIR`, `CLAUDE_PLUGIN_ROOT`, `AI_AGENT`, `CODEX_HOME`, `CODEX_INTERNAL_ORIGINATOR_OVERRIDE`.
+- **Exit:** the handler always exits with `exit 0`, never produces `exit 2` or a `decision` JSON, and writes nothing to stdout or stderr: both runtimes add the stdout of some events to the context.
+  - How this is ensured in Go (argument errors, panic, memory) and what the binary cannot guarantee (external termination, a fatal environment error) is described in ADR-0013.
+- **Exit without writing:**
+  - with `AANG_OBSERVER=1` or `CLAUDE_CODE_ENTRYPOINT=aang-observer`;
+  - with the intentional stop marker `spool/stopped` — even with a valid lease;
+  - if there is no valid spool lease. The lease is the file `spool/lease-<expiry in Unix seconds>`.
+    - `aang start` removes the marker and creates a 24-hour lease; the running daemon renews it every hour. `aang stop` writes the marker and deletes the lease — including when the daemon has crashed or hung. While the marker exists, the daemon neither creates nor renews the lease (ADR-0013).
+    - The handler finds the marker and the lease file with a single listing of the spool directory and compares the expiry with the system time.
+    - On an intentional aang stop the spool stops growing immediately. After a daemon crash, events are still kept for 24 hours for recovery, after which writing stops.
 
-  Stdin при этом всё равно вычитывается до конца, чтобы решатель не получил ошибку записи в канал.
-- **Недоступный spool:** событие теряется, обработчик всё равно завершается с `exit 0`. Содержимое затем восстанавливается из файлов, а потерянное ожидание отмечается пробелом.
-- **Файл с нераспознанным заголовком** (не та сигнатура, неизвестный рантайм или тег, нет пустой записи в конце заголовка, запись без `=`) сырой записью не становится и после `ack` не удаляется (решение 11):
-  - сборщик пишет пробел `unknown_records` с субъектом `spool:<имя файла>`; после перезапуска пробел приходит снова с тем же ключом;
-  - файл остаётся в spool и виден в его статистике;
-  - он отбрасывается вместе с остальными файлами по сроку `spool.maxAgeDays`.
-- **Бюджет:** p95 на событие со стороны рантайма — включая launcher и передачу stdin (ADR-0013): на macOS и Linux — ≤ 10 мс, у Claude на Windows — ≤ 25 мс (ADR-0013, решение 6). Для hooks Codex на Windows бюджета нет: PowerShell стоит 0,25–0,4 с на событие, поэтому они ставятся только явно (ADR-0013, решение 7). Бенчмарк бинаря идёт локально на каждой ОС, интеграционный тест в CI держит пороги с запасом по ОС; итоговое значение дают замеры установленной конфигурации на настоящих CLI.
-- **Каталог** spool лежит в `AANG_HOME`: права 0700 на macOS и Linux, ACL профиля пользователя на Windows (ADR-0013). Файл удаляется после коммита в хранилище (ADR-0005).
-- **Ограничение очереди:**
-  - аренда ограничивает запись при мёртвом демоне сутками активности решателя без сканирования каталога в hook;
-  - при старте демон отбрасывает файлы spool старше 7 дней (настраивается) с записью пробела и удаляет остатки в `spool/tmp` от процессов, убитых по таймауту;
-  - работающий демон раз в минуту проверяет объём spool. Если он больше порога (по умолчанию 1 ГБ), демон сразу удаляет аренду, пишет пробел и восстанавливает аренду после разбора очереди. Это порог реакции, а не жёсткий предел: за минуту между проверками и во время незавершённых записей очередь может вырасти сверх порога;
-  - `aang status` показывает число и объём файлов spool, срок аренды и маркер остановки.
-- **Регистрируемые события:**
-  - Claude — все, кроме `WorktreeCreate`/`WorktreeRemove` (hook подменяет создание worktree), `MessageDisplay` (частые дельты, содержимое есть в транскрипте и `Stop`) и `PreModelSwitch` (отменённый по таймауту hook блокирует смену модели; смену показывают `PostModelSwitch` и транскрипт);
-  - Codex — все 12.
-- **HTTP-приём hooks отсутствует.**
-  - HTTP-hooks не используются: на `SessionStart` они не вызываются, а при недоступном демоне теряют события.
-  - Демон следит за `spool/new` через fs watch, задержка — миллисекунды. Watch — только сигнал: каталог перечисляется раз в 5 с и сразу после ошибки или переполнения watcher, поэтому потерянное уведомление задерживает событие не больше чем на интервал обхода (ADR-0013).
-  - Токен приёма из ADR-0003 используется только приёмником OTel.
+  Stdin is still read to the end in this case, so that the solver does not get a pipe write error.
+- **Unavailable spool:** the event is lost, the handler still exits with `exit 0`. Content is then recovered from files, and the lost wait is marked as a gap.
+- **A file with an unrecognized header** (wrong signature, unknown runtime or tag, no empty record at the end of the header, a record without `=`) does not become a raw record and is not deleted after `ack` (decision 11):
+  - the collector writes an `unknown_records` gap with the subject `spool:<file name>`; after a restart the gap comes again with the same key;
+  - the file stays in the spool and is visible in its statistics;
+  - it is discarded together with the other files by the `spool.maxAgeDays` age.
+- **Budget:** p95 per event on the runtime side — including the launcher and stdin transfer (ADR-0013): on macOS and Linux ≤ 10 ms, for Claude on Windows ≤ 25 ms (ADR-0013, decision 6). There is no budget for Codex hooks on Windows: PowerShell costs 0.25–0.4 s per event, so they are installed only explicitly (ADR-0013, decision 7). The binary benchmark runs locally on each OS, the integration test in CI holds thresholds with a per-OS margin; the final value comes from measurements of the installed configuration on the real CLIs.
+- **Directory:** the spool lives in `AANG_HOME`: permissions 0700 on macOS and Linux, the user profile ACL on Windows (ADR-0013). A file is deleted after commit to the store (ADR-0005).
+- **Queue bounding:**
+  - with a dead daemon the lease bounds writing to one day of solver activity without scanning the directory in the hook;
+  - at startup the daemon discards spool files older than 7 days (configurable), recording a gap, and removes leftovers in `spool/tmp` from processes killed by timeout;
+  - the running daemon checks the spool size once a minute. If it exceeds the threshold (1 GB by default), the daemon immediately deletes the lease, writes a gap and restores the lease after the queue is drained. This is a reaction threshold, not a hard limit: during the minute between checks and during unfinished writes the queue can grow beyond the threshold;
+  - `aang status` shows the number and size of spool files, the lease expiry and the stop marker.
+- **Registered events:**
+  - Claude — all except `WorktreeCreate`/`WorktreeRemove` (the hook replaces worktree creation), `MessageDisplay` (frequent deltas; the content is in the transcript and `Stop`) and `PreModelSwitch` (a hook cancelled by timeout blocks the model switch; the switch is shown by `PostModelSwitch` and the transcript);
+  - Codex — all 12.
+- **There is no HTTP intake of hooks.**
+  - HTTP hooks are not used: they are not called on `SessionStart`, and they lose events when the daemon is unavailable.
+  - The daemon watches `spool/new` via fs watch, with a latency of milliseconds. The watch is only a signal: the directory is listed every 5 s and right after a watcher error or overflow, so a lost notification delays an event by no more than the scan interval (ADR-0013).
+  - The intake token from ADR-0003 is used only by the OTel receiver.
 
-### Установка
+### Installation
 
-- **Claude — плагином aang (одобрено владельцем).**
-- **Codex — `aang install` пишет `~/.codex/hooks.json`, trust подтверждает пользователь через `/hooks` (одобрено владельцем).** Способ записи:
-  - записи aang только дописываются в конец массивов, потому что ключ trust позиционный (`hooks.state."<path>:<event>:i:j"`);
-  - устаревшие записи aang (например, `aang hook` прежних установок) не удаляются, а нейтрализуются на месте: изменённая запись теряет trust и молча пропускается, а позиции чужих записей не сдвигаются;
-  - до и после установки сверяется `hooks/list`: `trustStatus` чужих записей не должен измениться;
-  - делается резервная копия;
-  - свои изменения сериализуются через `.aang-lock`; защита от внешних писателей без этой блокировки — best effort: изменения до контрольной сверки сохраняются при повторной попытке, но запись между последней сверкой и `rename` может быть потеряна (известное ограничение);
-  - aang не пишет `hooks.state` в `config.toml`.
+- **Claude — via the aang plugin (approved by the owner).**
+- **Codex — `aang install` writes `~/.codex/hooks.json`, the user confirms trust via `/hooks` (approved by the owner).** Write method:
+  - aang entries are only appended to the end of arrays, because the trust key is positional (`hooks.state."<path>:<event>:i:j"`);
+  - stale aang entries (for example, `aang hook` from earlier installations) are not removed but neutralized in place: a modified entry loses trust and is silently skipped, and the positions of other entries do not shift;
+  - `hooks/list` is reconciled before and after installation: the `trustStatus` of other entries must not change;
+  - a backup is made;
+  - its own changes are serialized via `.aang-lock`; protection against external writers without this lock is best effort: changes made before the control reconciliation are preserved on retry, but a write between the last reconciliation and `rename` may be lost (known limitation);
+  - aang does not write `hooks.state` to `config.toml`.
 
-  Сохранение trust при обновлении бинаря на месте известно только из документации и проверяется контрактным тестом.
-- **«hooks не активны» (одобрено владельцем).** UI и `aang status` показывают это по рантайму и по сессии:
-  - статически — плагин не включён или у записи Codex `trustStatus` не `trusted` по `hooks/list`;
-  - динамически — строки сессии появляются в файлах, а hook-событий от неё нет;
-  - посреди сессии (одобрено владельцем 2026-10-07) — у сессии уже были hook-события, промпт человека виден в файлах, а hook-событий этого хода нет дольше `freshness.hooksInactiveAfterMs` (по умолчанию 30 с). Подробности:
-    - промпт — факт `prompt` основного агента из транскрипта или rollout от человека; промпты-команды (`/model` и подобные) и служебные промпты рантайма ход не открывают;
-    - hook-событие этого хода — hook-факт сессии с тем же идентификатором хода (`prompt_id` у Claude, `turn_id` у Codex) или не раньше промпта;
-    - пока нет hook-событий, режим сессии — «только файлы», свежесть — `hooks_inactive`, и `aang status` перечисляет её среди `hooks_inactive_sessions`;
-    - каждый такой период — отдельный пробел `hooks_inactive` сессии. Начало пробела — время промпта; несколько ходов подряд без hooks дают один пробел;
-    - следующее hook-событие сессии закрывает пробел своим временем, режим снова полный. Закрытые пробелы остаются в истории сессии;
-    - период короче порога пробела не оставляет;
-    - промпты до первого hook-события сессии покрывает правило предыдущего пункта.
-- **Доставка и удаление:**
-  - `aang install` генерирует плагин в `~/.aang/claude-plugin/` и ставит его в пользовательский scope через локальный маркетплейс и команды `claude plugin` (решение 1);
-  - ожидаемый охват плагина — CLI, Desktop Local/worktree и Agent SDK с `settingSources` по умолчанию. Загрузку плагина маркетплейса и запасного каталога в CLI 2.1.288 и Agent SDK 0.3.288 подтвердила D.5 (`docs/research/d5-plugin-delivery-live.md`); Desktop проверяет чек-лист владельца (D.7). Исключения:
-    - resume из `sessionStore`: SDK вырезает `enabledPlugins` и работает во временном `CLAUDE_CONFIG_DIR`;
-    - `persistSession: false`: транскрипта нет, остаётся режим «только hooks»;
-  - изолированные SDK-приложения (`settingSources: []`) подключаются строкой `plugins: [{type: 'local', path}]` (спайк 5.3-L);
-  - `--plugin-dir` используется только dev-инструментом записи эталонных сессий (ADR-0010);
-  - `aang uninstall` удаляет плагин и нейтрализует записи aang в `hooks.json`.
+  Trust preservation when the binary is updated in place is known only from documentation and is checked by a contract test.
+- **«hooks не активны» ("hooks inactive") (approved by the owner).** The UI and `aang status` show it per runtime and per session:
+  - statically — the plugin is not enabled, or the Codex entry's `trustStatus` is not `trusted` according to `hooks/list`;
+  - dynamically — session lines appear in files, but there are no hook events from it;
+  - mid-session (approved by the owner 2026-10-07) — the session already had hook events, a human prompt is visible in files, and there are no hook events for this turn for longer than `freshness.hooksInactiveAfterMs` (30 s by default). Details:
+    - a prompt is a `prompt` fact of the main agent from the transcript or rollout, from the human; command prompts (`/model` and the like) and runtime service prompts do not open a turn;
+    - a hook event of this turn is a session hook fact with the same turn identifier (`prompt_id` for Claude, `turn_id` for Codex) or not earlier than the prompt;
+    - while there are no hook events, the session mode is «только файлы» ("files only"), freshness is `hooks_inactive`, and `aang status` lists it among `hooks_inactive_sessions`;
+    - each such period is a separate `hooks_inactive` gap of the session. The gap starts at the prompt time; several consecutive turns without hooks give one gap;
+    - the next hook event of the session closes the gap at its time, and the mode is full again. Closed gaps remain in the session history;
+    - a period shorter than the threshold leaves no gap;
+    - prompts before the first hook event of the session are covered by the rule of the previous item.
+- **Delivery and removal:**
+  - `aang install` generates the plugin in `~/.aang/claude-plugin/` and installs it in the user scope via a local marketplace and `claude plugin` commands (decision 1);
+  - the expected plugin coverage is CLI, Desktop Local/worktree and Agent SDK with default `settingSources`. Loading of the marketplace plugin and of the fallback directory in CLI 2.1.288 and Agent SDK 0.3.288 was confirmed by D.5 (`docs/research/d5-plugin-delivery-live.md`); Desktop is checked by the owner's checklist (D.7). Exceptions:
+    - resume from `sessionStore`: the SDK strips `enabledPlugins` and runs in a temporary `CLAUDE_CONFIG_DIR`;
+    - `persistSession: false`: there is no transcript, the «только hooks» ("hooks only") mode remains;
+  - isolated SDK applications (`settingSources: []`) are connected with the line `plugins: [{type: 'local', path}]` (spike 5.3-L);
+  - `--plugin-dir` is used only by the dev tool for recording reference sessions (ADR-0010);
+  - `aang uninstall` removes the plugin and neutralizes aang entries in `hooks.json`.
 
-### Режимы поддержки сессии
+### Session support modes
 
-| Режим | Когда | Что видно | Пометка в UI |
+| Mode | When | What is visible | UI mark |
 | --- | --- | --- | --- |
-| Полный | активные hooks и файлы | всё | — |
-| Только файлы | hooks не активны | содержимое, связи, usage | «ожидания одобрений не видны» (спайк 5.2-I) |
-| Только hooks | транскрипт не пишется: SDK с `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | живые события, ожидания, финальный текст из `Stop` | «нет содержимого, usage и восстановления» |
+| Full | active hooks and files | everything | — |
+| Files only | hooks inactive | content, links, usage | "approval waits are not visible" (spike 5.2-I) |
+| Hooks only | no transcript is written: SDK with `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | live events, waits, final text from `Stop` | "no content, usage or recovery" |
 
-- Для профилей с интерактивными одобрениями (Claude CLI/Desktop, Codex TUI/Desktop с `on-request`) режим «только файлы» — не полная поддержка.
-- Для Codex `exec` и SDK с `approval_policy=never` hooks только ускоряют сбор. `exec --approve-for-me` включает `on-request` с guardian и `PermissionRequest`, поэтому для него hooks нужны.
+- For profiles with interactive approvals (Claude CLI/Desktop, Codex TUI/Desktop with `on-request`), the «только файлы» mode is not full support.
+- For Codex `exec` and the SDK with `approval_policy=never`, hooks only speed up collection. `exec --approve-for-me` enables `on-request` with the guardian and `PermissionRequest`, so hooks are needed for it.
 
-### OpenTelemetry Codex (opt-in)
+### Codex OpenTelemetry (opt-in)
 
-- `aang otel-config` печатает секцию `[otel]` с адресом `http://127.0.0.1:<порт>/otel/<токен приёма>/v1/logs` и напоминает перезапустить демон TUI (`codex app-server daemon restart`) и Desktop.
-  - Конфиг пользователя aang не меняет.
-  - Токен приёма отделён от токена UI: `aang token rotate` его не меняет, `aang otel-config --rotate` меняет и печатает новую секцию.
-  - Спайк проверял адрес `…/v1/logs` без токена в пути; путь с токеном проверяется до использования (план, A.5).
-  - `aang doctor` только читает `config.toml` и предупреждает, если `exporter` уже занят собственным коллектором пользователя.
-- Приёмник — отдельный listener только на loopback. Он отвечает `200` до обработки и не держит соединение.
-- Хранится только `codex.tool_decision`. Остальные записи, включая `codex.tool_result`, отбрасываются до записи на диск.
-- Без OTel решение по одобрению в Codex показывается как «неизвестно».
+- `aang otel-config` prints an `[otel]` section with the address `http://127.0.0.1:<port>/otel/<intake token>/v1/logs` and reminds to restart the TUI daemon (`codex app-server daemon restart`) and Desktop.
+  - aang does not change the user's config.
+  - The intake token is separate from the UI token: `aang token rotate` does not change it, `aang otel-config --rotate` changes it and prints a new section.
+  - The spike checked the address `…/v1/logs` without a token in the path; the path with the token is checked before use (plan, A.5).
+  - `aang doctor` only reads `config.toml` and warns if `exporter` is already taken by the user's own collector.
+- The receiver is a separate loopback-only listener. It responds `200` before processing and does not hold the connection.
+- Only `codex.tool_decision` is stored. Other records, including `codex.tool_result`, are discarded before being written to disk.
+- Without OTel, the approval decision in Codex is shown as «неизвестно» ("unknown").
 
-### Файлы: курсоры, дедупликация, бэкфилл
+### Files: cursors, deduplication, backfill
 
-- **Обнаружение:** рекурсивный fs watch по корням и полный обход по `stat` при старте, раз в 60 с и сразу после ошибки или переполнения watcher.
-- **Корень, которого ещё нет (одобрено владельцем 2026-10-08, решение 15).** В свежем профиле, контейнере или VM корней рантаймов (`<claude>/projects`, `<codex>/sessions` и других) нет до первой сессии. Пока корня нет, сборщик ставит нерекурсивный fs watch на ближайший существующий родительский каталог корня. Причина — находка Q4-6: файлы первой сессии ждали обхода раз в 60 с, хотя hooks приходили сразу.
-  - Событие в родителе, после которого следующий по пути к корню каталог существует, переносит watch на него. Появившийся корень получает свой рекурсивный watch и немедленный обход, watch родителя снимается.
-  - Наличие корня проверяется и при каждом обходе. Корень, пропавший к обходу, снова ждут через родителя.
-  - Watch родителя — тоже только сигнал: появление корня гарантированно находит обход раз в 60 с. С `collector.fsWatch: false` родитель не отслеживается.
-- **Проверка активных файлов (одобрено владельцем 2026-10-07, решение 14).** Кроме того, раз в 1 с сборщик проверяет по `stat` файлы хвоста — транскрипты Claude и rollout Codex, — изменённые за последние 10 минут. Причина — находка Q4-1: FSEvents на macOS не сообщает о дописывании в файл, который писатель держит открытым, а Codex пишет rollout именно так. Без проверки строки rollout ждали следующего события или обхода раз в 60 с.
-  - Изменённым считается файл, у которого `mtime` моложе 10 минут или у которого сборщик за последние 10 минут заметил новый размер или новую идентичность `(dev, inode)`. Время записи открытого файла может отставать: Windows гарантирует его актуальность только после закрытия дескриптора. Поэтому рост, замеченный проверкой или чтением, продлевает окно и при старом `mtime`; обход и неизменившийся `stat` окно не продлевают.
-  - Каталоги проверка не перечисляет. Список активных файлов пополняют обход и чтение файла по событию watch, поэтому новый файл по-прежнему находят watch или обход.
-  - Изменённый или пропавший активный файл обрабатывается так же, как после события watch: читаются новые строки, смена inode, уменьшение и исчезновение запускают поиск потока.
-  - Задержка чтения строк, дописанных без события watch, — до 1 с плюс время чтения. Файл, который не менялся дольше 10 минут, выпадает из проверки: первое дописывание после такого простоя находит обход или любое событие watch в корнях, следующие — снова проверка.
-  - Снимки JSON-файлов в проверку не входят: их перезаписывают целиком, и watch их видит.
-- **Поток** — логический источник: `(рантайм, sessionId, agentId или main)` у Claude, id треда у Codex. Путь файла потоком не является.
-- **Курсор файла:** `(путь, dev, inode, поток, смещение после последнего '\n', номер строки, размер)`, для Codex дополнительно последний `ordinal`. Разбираются только завершённые строки.
-- **Целые JSON-файлы** (`*.meta.json`, `teams/*/config.json`, `workflows/*.json`, реестр) читаются целиком при изменении как снимки. Ключ дедупликации снимка — `(путь, хеш содержимого)`.
-- **Смена inode, уменьшение или исчезновение файла** запускают поиск потока: Claude — по `sessionId` во всём `projects/` (relocate, superseded, orphaned), Codex — по id треда в `archived_sessions/`. Ключ потока по первым строкам файла даёт адаптер.
-  - Файл найден — он перечитывается с начала с дедупликацией.
-  - Не найден — факт `source_lost` (ADR-0006).
-- **Ключи дедупликации сырых записей:**
-  - Claude с `uuid` — `(sessionId, uuid)`;
-  - Claude без `uuid` — `(поток, номер строки, хеш строки)`;
+- **Discovery:** recursive fs watch over the roots and a full `stat` scan at startup, every 60 s and right after a watcher error or overflow.
+- **A root that does not exist yet (approved by the owner 2026-10-08, decision 15).** In a fresh profile, container or VM, the runtime roots (`<claude>/projects`, `<codex>/sessions` and others) do not exist until the first session. While a root is missing, the collector puts a non-recursive fs watch on the nearest existing parent directory of the root. The reason is finding Q4-6: the files of the first session waited for the 60 s scan, even though hooks arrived immediately.
+  - An event in the parent after which the next directory on the path to the root exists moves the watch to it. A root that has appeared gets its own recursive watch and an immediate scan, and the parent watch is removed.
+  - The existence of the root is also checked on every scan. A root that has disappeared by the scan is awaited via the parent again.
+  - The parent watch is also only a signal: the appearance of the root is guaranteed to be found by the 60 s scan. With `collector.fsWatch: false` the parent is not watched.
+- **Active file check (approved by the owner 2026-10-07, decision 14).** In addition, once per 1 s the collector checks by `stat` the tail files — Claude transcripts and Codex rollouts — modified in the last 10 minutes. The reason is finding Q4-1: FSEvents on macOS does not report appends to a file that the writer keeps open, and Codex writes rollouts exactly this way. Without the check, rollout lines waited for the next event or the 60 s scan.
+  - A file counts as modified if its `mtime` is younger than 10 minutes or if the collector noticed a new size or a new `(dev, inode)` identity in the last 10 minutes. The write time of an open file may lag: Windows guarantees it is current only after the handle is closed. Therefore growth noticed by the check or by a read extends the window even with an old `mtime`; a scan and an unchanged `stat` do not extend the window.
+  - The check does not list directories. The list of active files is filled by the scan and by reading a file on a watch event, so a new file is still found by the watch or the scan.
+  - A modified or vanished active file is handled the same way as after a watch event: new lines are read; an inode change, shrinking and disappearance trigger a stream search.
+  - The read latency of lines appended without a watch event is up to 1 s plus the read time. A file that has not changed for more than 10 minutes drops out of the check: the first append after such idleness is found by the scan or by any watch event in the roots, the following ones by the check again.
+  - JSON file snapshots are not part of the check: they are rewritten whole, and the watch sees them.
+- **Stream** is a logical source: `(runtime, sessionId, agentId or main)` for Claude, the thread id for Codex. A file path is not a stream.
+- **File cursor:** `(path, dev, inode, stream, offset after the last '\n', line number, size)`, for Codex additionally the last `ordinal`. Only complete lines are parsed.
+- **Whole JSON files** (`*.meta.json`, `teams/*/config.json`, `workflows/*.json`, the registry) are read whole on change as snapshots. The snapshot deduplication key is `(path, content hash)`.
+- **An inode change, shrinking or disappearance of a file** triggers a stream search: Claude — by `sessionId` across all of `projects/` (relocate, superseded, orphaned), Codex — by thread id in `archived_sessions/`. The stream key from the first lines of the file is provided by the adapter.
+  - File found — it is re-read from the beginning with deduplication.
+  - Not found — a `source_lost` fact (ADR-0006).
+- **Raw record deduplication keys:**
+  - Claude with `uuid` — `(sessionId, uuid)`;
+  - Claude without `uuid` — `(stream, line number, line hash)`;
   - Codex — `(thread_id, ordinal)`;
-  - hooks — имя файла spool;
+  - hooks — the spool file name;
   - OTel — `(conversation.id, call_id, decision, timeUnixNano)`.
 
-  Записи, скопированные форком Claude, сохраняются как строки нового потока. Унаследованными их помечает `engine` на уровне объектов (ADR-0006, ADR-0009).
-- **Бэкфилл.** Файлы без курсора, изменённые за `lookback` (по умолчанию 7 дней), читаются с начала; файлы с курсором — с курсора. Это относится к первому старту, к `aang watch` и к новым файлам. Hook-события, пришедшие при остановленном демоне, ждут в spool.
-- **Охват.** Собираются только корневые сессии, у которых первый `cwd` лежит внутри отслеживаемого корня или в git worktree отслеживаемого репозитория (по общему git-каталогу). Продолжения и агенты наследуют решение корня (ADR-0006). Записи остальных сессий отбрасываются при приёме без сохранения.
-  - Решение об охвате хранится по потоку рядом с курсором, поэтому после перезапуска дописанные строки потока не требуют повторного определения.
-  - После `aang watch` потоки, ранее отброшенные как внешние, перечитываются с начала в пределах `lookback`.
-- **Самоисключение.** Сессии с `entrypoint: aang-observer`, `thread_source: aang-observer` или `originator: aang_observer` отбрасываются.
+  Records copied by a Claude fork are kept as lines of the new stream. They are marked as inherited by `engine` at the object level (ADR-0006, ADR-0009).
+- **Backfill.** Files without a cursor modified within `lookback` (7 days by default) are read from the beginning; files with a cursor, from the cursor. This applies to the first start, to `aang watch` and to new files. Hook events that arrive while the daemon is stopped wait in the spool.
+- **Scope.** Only root sessions whose first `cwd` lies inside a tracked root or in a git worktree of a tracked repository (by the common git directory) are collected. Continuations and agents inherit the root's decision (ADR-0006). Records of other sessions are discarded at intake without being stored.
+  - The scope decision is stored per stream next to the cursor, so after a restart lines appended to the stream do not require determining it again.
+  - After `aang watch`, streams previously discarded as external are re-read from the beginning within `lookback`.
+- **Self-exclusion.** Sessions with `entrypoint: aang-observer`, `thread_source: aang-observer` or `originator: aang_observer` are discarded.
 
-### Живость процесса сессии Claude (одобрено владельцем 2026-10-07)
+### Claude session process liveness (approved by the owner 2026-10-07)
 
-Q.4 показал (`docs/research/q4-live-resilience.md`, находка Q4-5): сессия Claude, процесс которой убит посреди инструмента, остаётся в состоянии «ход идёт», а действие — «идёт». `SessionEnd` при SIGKILL не приходит, а файл реестра `<claude>/sessions/<pid>.json`, который Claude удаляет при штатном выходе, остаётся.
+Q.4 showed (`docs/research/q4-live-resilience.md`, finding Q4-5): a Claude session whose process is killed in the middle of a tool stays in the "turn in progress" state, and the action stays "in progress". `SessionEnd` does not arrive on SIGKILL, and the registry file `<claude>/sessions/<pid>.json`, which Claude deletes on a normal exit, remains.
 
-- **Проверка.** Сборщик раз в `collector.processCheckIntervalMs` (по умолчанию 5 с) проверяет процессы файлов реестра, уже выданных как снимок:
-  - pid берётся из имени файла, проверка — сигнал 0 (`process.kill(pid, 0)`, на Windows Node проверяет процесс через `OpenProcess`);
-  - нет процесса (`ESRCH`) — процесс завершился; любой другой ответ, в том числе `EPERM`, считается живым процессом;
-  - сначала проверяется процесс, затем перечитывается файл. Файл, удалённый к этому моменту, — штатный выход Claude: записи нет.
-- **Запись.** Если процесс завершился, а файл на месте, сборщик выдаёт запись канала `registry` с позицией `process_exited` (путь, pid, хеш содержимого) и содержимым файла. Время приёма — момент обнаружения. Ключ дедупликации включает хеш содержимого, поэтому после перезапуска демона тот же файл не даёт повторной записи. Пока файл отслеживается, запись выдаётся один раз.
-- **Факт.** Адаптер Claude делает из записи факт `process_exited` сессии из файла: pid, путь и время старта процесса из `startedAt`. Время факта — момент обнаружения.
-- **Правило `engine`.** Процесс P сменяется новым процессом той же сессии, если после старта P у сессии есть запись реестра с другим pid или hook-событие с другим `CLAUDE_PID`. Граница P — момент обнаружения или более ранний первый признак нового процесса.
-  - Если до обнаружения новый процесс не появился, а `SessionEnd` не пришёл, сессия с момента обнаружения в состоянии «неизвестно», выполнение — `unknown`. Следующий запуск возвращает её к обычным правилам.
-  - Действие, начатое до границы P и не получившее конца, получает исход `unknown` с основанием `observed` на факт `process_exited`; конец — момент обнаружения. Упавшим (`error`, `failed`) такое действие не показывается (ADR-0006).
-  - Агент, начатый до границы и не завершённый, получает выполнение `unknown`.
-  - Блокирующее ожидание человека, открытое до границы, завершается фактом `process_exited`, как концом сессии: вопрос закрывается без ответа, этап не остаётся в `waiting`.
-- **Ограничения.**
-  - Pid, занятый другим процессом до проверки, выглядит живым процессом. Сессия тогда остаётся «ход идёт», пока свежесть не перейдёт в `quiet` (ADR-0006).
-  - Pid проверяется в пространстве процессов демона, поэтому демон работает на том же хосте и в том же контейнере, что и решатель (ADR-0011).
-  - У Codex файла реестра нет, правило к нему не применяется.
+- **Check.** Once per `collector.processCheckIntervalMs` (5 s by default) the collector checks the processes of registry files already emitted as a snapshot:
+  - the pid is taken from the file name, the check is signal 0 (`process.kill(pid, 0)`; on Windows Node checks the process via `OpenProcess`);
+  - no process (`ESRCH`) — the process has exited; any other response, including `EPERM`, counts as a live process;
+  - first the process is checked, then the file is re-read. A file deleted by that moment is a normal Claude exit: there is no record.
+- **Record.** If the process has exited and the file is still there, the collector emits a `registry` channel record with the `process_exited` position (path, pid, content hash) and the file content. The receive time is the moment of detection. The deduplication key includes the content hash, so after a daemon restart the same file does not produce a repeated record. While the file is tracked, the record is emitted once.
+- **Fact.** The Claude adapter turns the record into a `process_exited` fact of the session from the file: pid, path and process start time from `startedAt`. The fact time is the moment of detection.
+- **`engine` rule.** Process P is superseded by a new process of the same session if, after P started, the session has a registry record with a different pid or a hook event with a different `CLAUDE_PID`. The boundary of P is the moment of detection or the earlier first sign of the new process.
+  - If no new process appeared before detection and `SessionEnd` did not arrive, the session is in the «неизвестно» state from the moment of detection, with execution `unknown`. The next launch returns it to the normal rules.
+  - An action started before the boundary of P and without an end gets the outcome `unknown` with the basis `observed` on the `process_exited` fact; the end is the moment of detection. Such an action is not shown as failed (`error`, `failed`) (ADR-0006).
+  - An agent started before the boundary and not finished gets execution `unknown`.
+  - A blocking human wait opened before the boundary is ended by the `process_exited` fact, as by a session end: the question is closed without an answer, the stage does not remain in `waiting`.
+- **Limitations.**
+  - A pid taken by another process before the check looks like a live process. The session then stays "turn in progress" until freshness turns `quiet` (ADR-0006).
+  - The pid is checked in the daemon's process namespace, so the daemon runs on the same host and in the same container as the solver (ADR-0011).
+  - Codex has no registry file, so the rule does not apply to it.
 
-### Поверхности
+### Surfaces
 
-- Claude CLI, Desktop Local/worktree и Agent SDK обслуживает один адаптер. Поверхность определяется по `entrypoint` и окружению hook.
-- Codex TUI, `exec`, Desktop Local/worktree и SDK обслуживает один адаптер. По `originator`/`source` надёжно различаются только `exec`, субагенты и guardian. SDK узнаётся по `originator: codex_sdk_ts`, пока приложение не переопределило окружение. TUI и Desktop показываются как предположение.
-- Сессии, порождённые Desktop (spawn task, Dispatch, scheduled tasks), связываются с родителем только через метаданные Desktop (решение 4) или явную привязку. До этого связь показывается как неизвестная.
-- SSH-режимы обоих Desktop и свои VM/Docker: демон aang работает на том же хосте, что и решатель (ADR-0011), UI доступен через SSH-туннель (ADR-0003). Сведение нескольких хостов в один UI не предлагается.
-- **Cowork и облачные режимы (Claude Cloud, Codex Cloud, Work Cloud) исключены; UI показывает их как «не наблюдаемо» (одобрено владельцем).** Способ показа: постоянное уведомление в полосе состояния и в `/api/status`. Каталоги Cowork и облачных сессий aang не читает, поэтому отдельные такие сессии не перечисляются (решение 10).
+- Claude CLI, Desktop Local/worktree and Agent SDK are served by one adapter. The surface is determined by `entrypoint` and the hook environment.
+- Codex TUI, `exec`, Desktop Local/worktree and SDK are served by one adapter. By `originator`/`source` only `exec`, subagents and the guardian are reliably distinguished. The SDK is recognized by `originator: codex_sdk_ts` unless the application has overridden the environment. TUI and Desktop are shown as a guess.
+- Sessions spawned by Desktop (spawn task, Dispatch, scheduled tasks) are linked to the parent only via Desktop metadata (decision 4) or an explicit binding. Until then the link is shown as unknown.
+- SSH modes of both Desktops and one's own VM/Docker: the aang daemon runs on the same host as the solver (ADR-0011), the UI is reachable via an SSH tunnel (ADR-0003). Merging several hosts into one UI is not offered.
+- **Cowork and cloud modes (Claude Cloud, Codex Cloud, Work Cloud) are excluded; the UI shows them as «не наблюдаемо» ("not observable") (approved by the owner).** Display method: a persistent notice in the status bar and in `/api/status`. aang does not read Cowork and cloud session directories, so individual such sessions are not listed (decision 10).
 
-## Последствия
+## Consequences
 
-- Сбор не зависит от жизни демона и не требует подключения к процессам вендора.
-- Полнота по ожиданиям зависит от hooks. Корпоративные `allowManagedHooksOnly`/`disableAllHooks` и отсутствие trust в Codex переводят сессии в режим «только файлы». На Windows hooks Codex по умолчанию не ставятся, поэтому сессии Codex там идут в режиме «только файлы», пока пользователь не включит hooks явно (ADR-0013, решение 7).
-- Обработчик на Go — исключение из ADR-0001 ради задержки на критическом пути решателя и работы на Windows (ADR-0013).
-- До обработки spool содержит полные payload, включая секреты из вывода инструментов.
-- Количественного предела spool нет. При мёртвом демоне рост ограничен только сроком аренды; работающий демон реагирует на порог. Это исключение из требования RFC §8 «очереди ограничены», одобренное владельцем (решение 7).
-- Полный обход дерева стоит только `stat`; читаются только новые байты.
-- Проверка активных файлов стоит один `stat` в секунду на каждый файл хвоста, изменённый за последние 10 минут; от размера дерева она не зависит.
+- Collection does not depend on the daemon's lifetime and does not require attaching to vendor processes.
+- Completeness of waits depends on hooks. Enterprise `allowManagedHooksOnly`/`disableAllHooks` and missing trust in Codex move sessions to the «только файлы» mode. On Windows Codex hooks are not installed by default, so Codex sessions there run in the «только файлы» mode until the user enables hooks explicitly (ADR-0013, decision 7).
+- The Go handler is an exception to ADR-0001 for the sake of latency on the solver's critical path and Windows support (ADR-0013).
+- Until processed, the spool contains full payloads, including secrets from tool output.
+- There is no quantitative spool limit. With a dead daemon, growth is bounded only by the lease expiry; a running daemon reacts to the threshold. This is an exception to the RFC §8 requirement "queues are bounded", approved by the owner (decision 7).
+- A full tree scan costs only `stat`; only new bytes are read.
+- The active file check costs one `stat` per second for each tail file modified in the last 10 minutes; it does not depend on the tree size.
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Плагин Claude доставляется через локальный маркетплейс и `claude plugin install`; каталог `~/.claude/skills/aang/.claude-plugin/` — запасной способ. Оба проверяются в плане (D.5).
-2. OTel Codex — opt-in по инструкции; aang конфиг пользователя не меняет.
-3. Реестр `<claude>/sessions/<pid>.json` — подсказка ожидания через fs watch; `claude agents --json` используется только в `aang doctor`.
-4. Из метаданных Desktop `claude-code-sessions/**/local_*.json` читаются только `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`, и только после проверки формата по чек-листу владельца.
-5. Обработчик hook — нативный бинарь на Go для всех ОС (ADR-0013). Прежний вариант с sh отменён решением о поддержке Windows.
-6. Охват — по отслеживаемым проектам с `lookback` 7 дней; `aang watch --all` — для всех сессий.
-7. Исключение из RFC §8 для spool одобрено. Количественного предела объёма нет; есть аренда 24 часа, порог реакции 1 ГБ и отбрасывание файлов старше 7 дней, а объём и срок аренды видны в `aang status`. Транспорт с количественным пределом — после MVP по замерам.
-8. Платформы MVP — macOS, Linux и нативный Windows, включая Claude Desktop и Codex Desktop без WSL (ADR-0013). Решением владельца 2026-10-02 Desktop на Windows в MVP не проверяется (ADR-0013, решение 3).
-9. Граница SDK «без изменения кода» фиксируется в README и показывается режимом сессии в UI.
-10. «Не наблюдаемо» для Cowork и облачных режимов — постоянное уведомление без чтения их каталогов.
+1. The Claude plugin is delivered via a local marketplace and `claude plugin install`; the `~/.claude/skills/aang/.claude-plugin/` directory is the fallback. Both are checked in the plan (D.5).
+2. Codex OTel is opt-in by instruction; aang does not change the user's config.
+3. The registry `<claude>/sessions/<pid>.json` is a wait hint via fs watch; `claude agents --json` is used only in `aang doctor`.
+4. From the Desktop metadata `claude-code-sessions/**/local_*.json`, only `cliSessionId`, `spawnSeed` and `lastSpawnRootDetected` are read, and only after the format is checked by the owner's checklist.
+5. The hook handler is a native Go binary for all OSes (ADR-0013). The former sh variant is cancelled by the decision to support Windows.
+6. Scope is by tracked projects with a 7-day `lookback`; `aang watch --all` is for all sessions.
+7. The RFC §8 exception for the spool is approved. There is no quantitative size limit; there is a 24-hour lease, a 1 GB reaction threshold and discarding of files older than 7 days, and the size and lease expiry are visible in `aang status`. A transport with a quantitative limit — after the MVP, based on measurements.
+8. MVP platforms are macOS, Linux and native Windows, including Claude Desktop and Codex Desktop without WSL (ADR-0013). By the owner's decision of 2026-10-02, Desktop on Windows is not checked in the MVP (ADR-0013, decision 3).
+9. The SDK "no code changes" boundary is recorded in the README and shown by the session mode in the UI.
+10. «не наблюдаемо» for Cowork and cloud modes is a persistent notice without reading their directories.
 
-Принято владельцем 2026-10-02:
+Accepted by the owner 2026-10-02:
 
-11. Файл spool с нераспознанным заголовком остаётся в spool с пробелом `unknown_records` и отбрасывается по сроку `spool.maxAgeDays`. Сырой записью он не сохраняется и в отдельный каталог не переносится.
+11. A spool file with an unrecognized header stays in the spool with an `unknown_records` gap and is discarded by the `spool.maxAgeDays` age. It is not stored as a raw record and is not moved to a separate directory.
 
-Принято владельцем 2026-10-07 по отчёту Q.4 (`docs/research/q4-live-resilience.md`, находка Q4-4):
+Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, finding Q4-4):
 
-12. Потеря hooks посреди сессии видна: ход, видимый в файлах без hook-событий дольше `freshness.hooksInactiveAfterMs`, открывает пробел `hooks_inactive` сессии и переводит её в режим «только файлы», следующее hook-событие закрывает пробел (раздел «Установка», «hooks не активны»). Признак полного режима больше не «липкий». Исправление входит в MVP.
+12. Loss of hooks mid-session is visible: a turn visible in files without hook events for longer than `freshness.hooksInactiveAfterMs` opens a `hooks_inactive` gap of the session and moves it to the «только файлы» mode; the next hook event closes the gap (section "Installation", «hooks не активны»). The full mode flag is no longer "sticky". The fix is part of the MVP.
 
-Принято владельцем 2026-10-07 по отчёту Q.4 (`docs/research/q4-live-resilience.md`, раздел 2, находка Q4-5):
+Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2, finding Q4-5):
 
-13. Живость процесса из реестра Claude используется: если процесс сессии мёртв, а `SessionEnd` не пришёл, сессия показывается в состоянии «неизвестно», а у идущих действий исход `unknown`. Ни одно действие не показывается упавшим (ADR-0006). Способ проверки и правило — раздел «Живость процесса сессии Claude».
+13. Process liveness from the Claude registry is used: if the session process is dead and `SessionEnd` did not arrive, the session is shown in the «неизвестно» state, and in-progress actions get the outcome `unknown`. No action is shown as failed (ADR-0006). The check method and the rule are in the section "Claude session process liveness".
 
-Принято владельцем 2026-10-07 по отчёту Q.4 (`docs/research/q4-live-resilience.md`, раздел 2, находка Q4-1; PR #161):
+Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2, finding Q4-1; PR #161):
 
-14. Дописывание в открытый файл на macOS исправляется в MVP: кроме fs watch, раз в 1–2 с по `stat` проверяются файлы источников, изменённые за последние минуты, без полного обхода корней. Задержка чтения rollout Codex на macOS — не больше 2 с. Значения реализации — 1 с и 10 минут (раздел «Файлы: курсоры, дедупликация, бэкфилл»).
+14. Appends to an open file on macOS are fixed in the MVP: in addition to fs watch, source files modified in the last minutes are checked by `stat` every 1–2 s, without a full scan of the roots. The read latency of Codex rollouts on macOS is no more than 2 s. The implementation values are 1 s and 10 minutes (section "Files: cursors, deduplication, backfill").
 
-Принято владельцем 2026-10-08 по отчёту Q.4 (`docs/research/q4-live-resilience.md`, находка Q4-6) и находке «Свежий профиль» отчёта Q.1 (PR #160):
+Accepted by the owner 2026-10-08 based on the Q.4 report (`docs/research/q4-live-resilience.md`, finding Q4-6) and the "Fresh profile" finding of the Q.1 report (PR #160):
 
-15. Корень рантайма, созданный после старта демона, исправляется в MVP: пока корня нет, демон следит за ближайшим существующим родителем и ставит watch на корень, как только тот появится. Первая сессия в свежем контейнере или VM видна без задержки до 60 с (раздел «Файлы: курсоры, дедупликация, бэкфилл»).
+15. A runtime root created after the daemon starts is fixed in the MVP: while the root is missing, the daemon watches the nearest existing parent and puts a watch on the root as soon as it appears. The first session in a fresh container or VM is visible without a delay of up to 60 s (section "Files: cursors, deduplication, backfill").

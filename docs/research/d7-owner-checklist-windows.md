@@ -1,34 +1,34 @@
-# Ранний ручной чек-лист владельца (D.7): Windows
+# Early manual owner checklist (D.7): Windows
 
-Статус: инструкция по пункту D.7 плана (`docs/plan/mvp.md`) для нативного Windows. Выполняет владелец. Это не отчёт: итог кладётся в общий отчёт D.7 (раздел 6).
-Дата: 2026-10-03. Инструмент — `tools/owner-checklist`. Инструкция для macOS — `docs/research/d7-owner-checklist.md`.
+Status: instructions for plan item D.7 (`docs/plan/mvp.md`) for native Windows. Performed by the owner. This is not a report: the results go into the common D.7 report (section 6).
+Date: 2026-10-03. Tool — `tools/owner-checklist`. Instructions for macOS — `docs/research/d7-owner-checklist.md`.
 
-## 0. Что проверяется
+## 0. What is checked
 
-- Только интерактивный TUI Claude: пункты (a)–(h) раздела 6 спайка (`docs/research/integrations.md`, «Только по документации»). D.8 проверила CLI на Windows без TUI (`docs/research/windows-runtimes.md`), интерактивный TUI там остался непроверенным.
-- Claude Desktop и Codex Desktop на Windows в MVP не проверяются (ADR-0013, решение 3).
-- Все команды — PowerShell. Вместо `/tmp` — `$env:TEMP`, файлы создаются через `New-Item`; Bash и `touch` не нужны.
-- TUI запускается в нативной консоли Windows: Windows Terminal или окно PowerShell. Прогон в WSL — это среда Linux (ADR-0013), он пункт не закрывает.
+- Only the interactive Claude TUI: items (a)–(h) of section 6 of the spike (`docs/research/integrations.md`, "Documentation only"). D.8 checked the CLI on Windows without the TUI (`docs/research/windows-runtimes.md`); the interactive TUI remained unchecked there.
+- Claude Desktop and Codex Desktop on Windows are not checked in the MVP (ADR-0013, decision 3).
+- All commands are PowerShell. Instead of `/tmp` use `$env:TEMP`; files are created with `New-Item`; Bash and `touch` are not needed.
+- The TUI is launched in a native Windows console: Windows Terminal or a PowerShell window. A run in WSL is a Linux environment (ADR-0013) and does not close the item.
 
-Регистратор событий — настоящий `aang-hook.exe` в exec form, как у плагина aang (D.8: Claude запускает его напрямую, без shell). Он пишет во временный spool, в котором `prepare` создаёт действующую аренду; без неё hook ничего не пишет.
+The event recorder is the real `aang-hook.exe` in exec form, as in the aang plugin (D.8: Claude launches it directly, without a shell). It writes to a temporary spool in which `prepare` creates a valid lease; without it the hook writes nothing.
 
-## 1. Что меняется в пользовательских настройках
+## 1. What changes in user settings
 
-На момент D.7 продуктовая установка плагина на Windows была закрыта (`installClaudePlugin` отказывал с `unsupported_platform`). Поэтому `prepare` работает в режиме `--claude plugin-dir`, и TUI подключает плагин флагом `--plugin-dir`. После решений владельца 2026-10-06 `aang install` ставит плагин и на Windows (ADR-0013, решения 6 и 7), а чек-лист по-прежнему работает только с `--plugin-dir` и пользовательские настройки не меняет.
+At the time of D.7, the product plugin installation on Windows was closed (`installClaudePlugin` refused with `unsupported_platform`). Therefore `prepare` works in `--claude plugin-dir` mode, and the TUI loads the plugin with the `--plugin-dir` flag. After the owner decisions of 2026-10-06, `aang install` installs the plugin on Windows too (ADR-0013, decisions 6 and 7), but the checklist still works only with `--plugin-dir` and does not change user settings.
 
-| Что меняется | Когда | Как откатывается |
+| What changes | When | How it is rolled back |
 | --- | --- | --- |
-| Пользовательские настройки Claude и Codex | не меняются | — |
-| Запись проекта `probe-repo` в `%USERPROFILE%\.claude.json` | первый запуск TUI в пробном репозитории, диалог доверия | вручную |
-| Транскрипты в `%USERPROFILE%\.claude\projects\` | во время проверок | `cleanup` печатает список, удаляет владелец |
+| Claude and Codex user settings | not changed | — |
+| The `probe-repo` project entry in `%USERPROFILE%\.claude.json` | first TUI launch in the probe repository, the trust dialog | manually |
+| Transcripts in `%USERPROFILE%\.claude\projects\` | during the checks | `cleanup` prints the list, the owner deletes them |
 
-`--claude marketplace` и `--codex-hooks` на Windows `prepare` отвергает до любых изменений.
+On Windows, `prepare` rejects `--claude marketplace` and `--codex-hooks` before making any changes.
 
-## 2. Подготовка
+## 2. Preparation
 
-Нужны Node 26, pnpm, Go (для сборки `aang-hook.exe`), Git for Windows и Claude Code. Запишите версию: `claude --version`. Проверьте, что в `permissions.allow` файла `%USERPROFILE%\.claude\settings.json` нет правила, разрешающего создание файлов командой оболочки: иначе в пункте (a) не будет запроса разрешения.
+You need Node 26, pnpm, Go (to build `aang-hook.exe`), Git for Windows and Claude Code. Write down the version: `claude --version`. Check that `permissions.allow` in `%USERPROFILE%\.claude\settings.json` has no rule allowing file creation with a shell command: otherwise there will be no permission request in item (a).
 
-Из каталога репозитория aang:
+From the aang repository directory:
 
 ```powershell
 pnpm install
@@ -36,144 +36,144 @@ pnpm build
 node tools\owner-checklist\dist\main.js prepare
 ```
 
-Рабочий каталог по умолчанию — `$env:TEMP\aang-d7`; другой задаёт `--dir`. Каталог должен быть пустым или отсутствовать. Бинарь по умолчанию — `packages\hook\bin\aang-hook.exe` из сборки, другой задаёт `--hook`. Срок аренды по умолчанию 24 ч, другой задаёт `--hours`.
+The default working directory is `$env:TEMP\aang-d7`; `--dir` sets another. The directory must be empty or absent. The default binary is `packages\hook\bin\aang-hook.exe` from the build; `--hook` sets another. The default lease duration is 24 h; `--hours` sets another.
 
-Что создаётся в `$env:TEMP\aang-d7`:
+What is created in `$env:TEMP\aang-d7`:
 
 ```
-aang-home\bin\aang-hook.exe      копия бинаря без изменений
-aang-home\spool\{new,tmp}        spool и аренда spool\lease-<срок в секундах Unix>
-aang-home\claude-plugin\         плагин, сгенерированный продуктовым writeClaudePlugin (exec form)
-probes\env-settings.json         зонд окружения на SessionStart, пишет results\env-probe.jsonl
-probes\failure-settings.json     PreToolUse завершается с кодом 1; UserPromptSubmit висит дольше timeout: 2
-probe-repo\                      git-репозиторий с начальным коммитом
-results\                         результаты collect
-state.json                       что сделала подготовка; по нему работает cleanup
+aang-home\bin\aang-hook.exe      unmodified copy of the binary
+aang-home\spool\{new,tmp}        spool and the lease spool\lease-<expiry in Unix seconds>
+aang-home\claude-plugin\         plugin generated by the product writeClaudePlugin (exec form)
+probes\env-settings.json         environment probe on SessionStart, writes results\env-probe.jsonl
+probes\failure-settings.json     PreToolUse exits with code 1; UserPromptSubmit hangs longer than timeout: 2
+probe-repo\                      git repository with an initial commit
+results\                         collect results
+state.json                       what the preparation did; cleanup works from it
 ```
 
-`prepare` печатает памятку с точными командами. Зонды вызывают `node.exe` со скриптом `tools\owner-checklist\dist\probe.js`, поэтому до `cleanup` не пересобирайте и не переключайте ветку репозитория.
+`prepare` prints a memo with the exact commands. The probes call `node.exe` with the `tools\owner-checklist\dist\probe.js` script, so do not rebuild or switch the repository branch before `cleanup`.
 
-Если аренда истекла раньше конца проверок, новую на сутки создаёт:
+If the lease expires before the checks are over, a new one for a day is created by:
 
 ```powershell
 $expires = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds() + 86400
 New-Item -ItemType File -Path "$env:TEMP\aang-d7\aang-home\spool\lease-$expires"
 ```
 
-Записывайте местное время каждого действия.
+Write down the local time of every action.
 
-## 3. TUI Claude, пункты (a)–(h)
+## 3. Claude TUI, items (a)–(h)
 
-Для сессий откройте отдельное окно Windows Terminal или PowerShell. Окно подготовки оставьте в корне репозитория aang: в нём выполняются сбор и откат (разделы 4 и 5). Запустите сессию в пробном репозитории:
+Open a separate Windows Terminal or PowerShell window for the sessions. Leave the preparation window at the root of the aang repository: collection and rollback run there (sections 4 and 5). Start a session in the probe repository:
 
 ```powershell
 Set-Location "$env:TEMP\aang-d7\probe-repo"
 claude --plugin-dir "$env:TEMP\aang-d7\aang-home\claude-plugin" --settings "$env:TEMP\aang-d7\probes\env-settings.json"
 ```
 
-На первом запуске примите диалог доверия к каталогу. `--settings` передаётся один раз, поэтому зонды окружения и сбоев подключаются в разных сессиях.
+On the first launch, accept the directory trust dialog. `--settings` is passed once, so the environment and failure probes are attached in different sessions.
 
-Claude на Windows выполняет команды своим shell-инструментом: Git Bash или PowerShell, в зависимости от установки. Промпты ниже просят создать файл командой `New-Item`; в сводке это видно как `tool_name` (`Bash` или `PowerShell`). Запишите, какой инструмент использовался.
+Claude on Windows runs commands with its shell tool: Git Bash or PowerShell, depending on the installation. The prompts below ask to create a file with the `New-Item` command; in the summary this shows up as `tool_name` (`Bash` or `PowerShell`). Write down which tool was used.
 
-По документации Claude Code уведомления `permission_prompt` и `idle_prompt` в терминале приходят, только когда пользователь «отошёл». Поэтому в (a) и (b) есть варианты с фокусом в окне терминала и вне его; записывайте, какой был.
+According to the Claude Code documentation, the `permission_prompt` and `idle_prompt` notifications in the terminal arrive only when the user has "stepped away". Therefore (a) and (b) have variants with focus in the terminal window and outside it; write down which one it was.
 
-**(a) Notification(`permission_prompt`) после PermissionRequest.**
+**(a) Notification(`permission_prompt`) after PermissionRequest.**
 
-- a1. Промпт: «Create the file aang-perm-allow.txt by running `New-Item -ItemType File -Path aang-perm-allow.txt` with your shell tool». Когда появится запрос разрешения, переключитесь в другое окно и не трогайте клавиатуру 15 с. Затем разрешите.
-- a2. То же с `aang-perm-allow-2.txt`. Оставьте фокус в терминале, 15 с нажимайте стрелку вверх или вниз примерно раз в 3 с. Запишите время последнего нажатия, подождите ещё 10 с и разрешите.
-- a3. То же с `aang-perm-deny.txt`. Откажите.
+- a1. Prompt: "Create the file aang-perm-allow.txt by running `New-Item -ItemType File -Path aang-perm-allow.txt` with your shell tool". When the permission request appears, switch to another window and do not touch the keyboard for 15 s. Then allow.
+- a2. The same with `aang-perm-allow-2.txt`. Keep the focus in the terminal and press the up or down arrow roughly every 3 s for 15 s. Write down the time of the last key press, wait another 10 s and allow.
+- a3. The same with `aang-perm-deny.txt`. Deny.
 
-Ожидается:
+Expected:
 
-- a1 — PreToolUse → PermissionRequest → Notification(`permission_prompt`) примерно через 6 с → PostToolUse с тем же `tool_use_id`;
-- a2 — уведомление позже, примерно через 6 с после последнего нажатия, или его нет;
-- a3 — PermissionRequest есть, PostToolUse нет, отказ виден в PostToolBatch.
+- a1 — PreToolUse → PermissionRequest → Notification(`permission_prompt`) about 6 s later → PostToolUse with the same `tool_use_id`;
+- a2 — the notification comes later, about 6 s after the last key press, or not at all;
+- a3 — PermissionRequest is present, PostToolUse is absent, the denial is visible in PostToolBatch.
 
-**(b) Notification(`idle_prompt`).** После любого ответа (Stop) переключитесь в другое окно и ничего не вводите 90 с. Ожидается Notification(`idle_prompt`) примерно через 60 с после Stop. Повторите с фокусом в терминале.
+**(b) Notification(`idle_prompt`).** After any response (Stop), switch to another window and type nothing for 90 s. Expected: Notification(`idle_prompt`) about 60 s after Stop. Repeat with the focus in the terminal.
 
-**(c) AskUserQuestion.** Промпт: «Ask me two questions at once with the AskUserQuestion tool, two options each, then reply OK». Перед ответом подождите 10 с, затем ответьте на оба вопроса. Ожидаются PreToolUse(AskUserQuestion) с двумя вопросами и PostToolUse с `answers`. Проверяется, есть ли между ними PermissionRequest и Notification.
+**(c) AskUserQuestion.** Prompt: "Ask me two questions at once with the AskUserQuestion tool, two options each, then reply OK". Wait 10 s before answering, then answer both questions. Expected: PreToolUse(AskUserQuestion) with two questions and PostToolUse with `answers`. What is checked is whether there are PermissionRequest and Notification between them.
 
-**(d) Ошибки hook и зависший hook.** Выйдите из сессии и запустите отдельную:
+**(d) Hook errors and a hanging hook.** Exit the session and start a separate one:
 
 ```powershell
 claude --plugin-dir "$env:TEMP\aang-d7\aang-home\claude-plugin" --settings "$env:TEMP\aang-d7\probes\failure-settings.json"
 ```
 
-Промпт: «Run `Get-Date` with your shell tool, then reply OK». Hook на UserPromptSubmit висит 30 с при `timeout: 2` и задаёт `statusMessage` «aang D.7: hook hangs longer than its 2 s timeout». Hook на PreToolUse завершается с кодом 1 и пишет в stderr «aang D.7: deliberate hook failure».
+Prompt: "Run `Get-Date` with your shell tool, then reply OK". The UserPromptSubmit hook hangs for 30 s with `timeout: 2` and sets the `statusMessage` "aang D.7: hook hangs longer than its 2 s timeout". The PreToolUse hook exits with code 1 and writes "aang D.7: deliberate hook failure" to stderr.
 
-Запишите:
+Write down:
 
-- что показывал спиннер и сколько длилось ожидание;
-- было ли сообщение об отмене по таймауту;
-- как выглядит ошибка `PreToolUse` и где она выводится; подробности открывает Ctrl+O;
-- выполнилась ли команда.
+- what the spinner showed and how long the wait lasted;
+- whether there was a timeout cancellation message;
+- what the `PreToolUse` error looks like and where it is shown; Ctrl+O opens the details;
+- whether the command ran.
 
-Зонд сам завершается через 30 с. Проверьте в диспетчере задач, завершил ли Claude процесс `node.exe` зонда по таймауту или тот дожил до 30 с. Скриншоты приложите к отчёту.
+The probe terminates by itself after 30 s. Check in Task Manager whether Claude terminated the probe's `node.exe` process on the timeout or it survived until 30 s. Attach screenshots to the report.
 
-**(e) SessionEnd.reason.** Завершайте сессии разными способами и записывайте, какую как:
+**(e) SessionEnd.reason.** End sessions in different ways and write down which was ended how:
 
 - `/exit`;
-- двойной Ctrl+C на пустой строке;
-- двойной Ctrl+D;
-- `/clear` внутри сессии: это SessionEnd и новый SessionStart с `source: clear`;
-- закрытие вкладки Windows Terminal.
+- double Ctrl+C on an empty line;
+- double Ctrl+D;
+- `/clear` inside the session: this is SessionEnd and a new SessionStart with `source: clear`;
+- closing the Windows Terminal tab.
 
-Документированные значения: `clear`, `resume`, `logout`, `prompt_input_exit`, `other`.
+Documented values: `clear`, `resume`, `logout`, `prompt_input_exit`, `other`.
 
-**(f) Окружение процесса hook.** Отдельных действий нет: каждая сессия, запущенная с `env-settings.json`, пишет в `results\env-probe.jsonl` значения `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_ENTRYPOINT` и соседних переменных.
+**(f) Hook process environment.** No separate actions: every session started with `env-settings.json` writes the values of `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_ENTRYPOINT` and neighboring variables to `results\env-probe.jsonl`.
 
-**(g) `elicitation_dialog` и `agent_needs_input`.** Сводка перечисляет все встреченные `notification_type`. Если MCP-сервер с elicitation или режим agent view уже есть, вызовите их и запишите как; новые MCP-серверы не ставьте. Если вызвать не удалось, пункт отмечается непроверенным.
+**(g) `elicitation_dialog` and `agent_needs_input`.** The summary lists all `notification_type` values encountered. If an MCP server with elicitation or the agent view mode is already present, invoke them and write down how; do not install new MCP servers. If they could not be invoked, the item is marked unchecked.
 
-**(h) ExitPlanMode.** Отдельная сессия в режиме плана:
+**(h) ExitPlanMode.** A separate session in plan mode:
 
 ```powershell
 claude --permission-mode plan --plugin-dir "$env:TEMP\aang-d7\aang-home\claude-plugin" --settings "$env:TEMP\aang-d7\probes\env-settings.json"
 ```
 
-Промпт: «Plan how to create the file aang-plan.txt containing hi, then present the plan for approval». Одобрите план, затем разрешите создание файла. Ожидаются:
+Prompt: "Plan how to create the file aang-plan.txt containing hi, then present the plan for approval". Approve the plan, then allow the file creation. Expected:
 
-- PreToolUse(ExitPlanMode) с `tool_input.plan` (в сводке — длина) и `planFilePath`;
-- запрос подтверждения плана как PermissionRequest или без него;
+- PreToolUse(ExitPlanMode) with `tool_input.plan` (the summary shows its length) and `planFilePath`;
+- a plan confirmation request as a PermissionRequest or without one;
 - PostToolUse(ExitPlanMode).
 
-## 4. Сбор результатов
+## 4. Collecting results
 
-Сбор, перенос результатов и откат выполняются в окне подготовки, из корня репозитория aang. Если оно закрыто, сначала перейдите в корень репозитория в новом окне: из `probe-repo` относительные пути команд не работают.
+Collection, moving the results and rollback are performed in the preparation window, from the root of the aang repository. If it is closed, first go to the repository root in a new window: the relative paths of the commands do not work from `probe-repo`.
 
 ```powershell
 node tools\owner-checklist\dist\main.js collect --dir "$env:TEMP\aang-d7"
 ```
 
-Команда только читает spool и транскрипты Claude (`$env:CLAUDE_CONFIG_DIR` или `%USERPROFILE%\.claude`), пишет только в `results\` и может повторяться. Состав файлов — как на macOS (`docs/research/d7-owner-checklist.md`, раздел 6). Разделы Desktop и Codex в сводке на Windows пустые.
+The command only reads the spool and Claude transcripts (`$env:CLAUDE_CONFIG_DIR` or `%USERPROFILE%\.claude`), writes only to `results\` and can be repeated. The set of files is the same as on macOS (`docs/research/d7-owner-checklist.md`, section 6). The Desktop and Codex sections of the summary are empty on Windows.
 
-Промпты, ответы, вывод инструментов и содержимое файлов не сохраняются. Пути обезличены: рабочий каталог заменён на `<dir>`, `%USERPROFILE%` — на `~`. Сессии с `cwd` вне рабочего каталога отбрасываются; их число указано в сводке.
+Prompts, responses, tool output and file contents are not saved. Paths are anonymized: the working directory is replaced with `<dir>`, `%USERPROFILE%` with `~`. Sessions with a `cwd` outside the working directory are discarded; their count is given in the summary.
 
-Перед переносом просмотрите файлы. Затем:
+Review the files before moving them. Then:
 
 ```powershell
 New-Item -ItemType Directory -Force -Path docs\research\samples\owner-checklist\windows
 Copy-Item "$env:TEMP\aang-d7\results\*" docs\research\samples\owner-checklist\windows\
 ```
 
-## 5. Откат
+## 5. Rollback
 
-В окне подготовки, из корня репозитория aang:
+In the preparation window, from the root of the aang repository:
 
 ```powershell
 node tools\owner-checklist\dist\main.js cleanup --dir "$env:TEMP\aang-d7"
 ```
 
-С `--keep-results` каталог `results\` остаётся. Команда удаляет рабочий каталог со spool и пробным репозиторием, затем печатает:
+With `--keep-results`, the `results\` directory is kept. The command deletes the working directory with the spool and the probe repository, then prints:
 
-- что не откатывается автоматически: запись проекта в `%USERPROFILE%\.claude.json`;
-- транскрипты Claude проекта `probe-repo`, которые владелец удаляет вручную.
+- what is not rolled back automatically: the project entry in `%USERPROFILE%\.claude.json`;
+- the Claude transcripts of the `probe-repo` project, which the owner deletes manually.
 
-## 6. Отчёт
+## 6. Report
 
-Итог Windows входит в общий отчёт `docs/research/d7-owner-checklist-results.md` отдельным разделом:
+The Windows results go into the common report `docs/research/d7-owner-checklist-results.md` as a separate section:
 
-- версия Windows, терминал (Windows Terminal или консоль PowerShell), версия `claude` и способ установки (нативный установщик или npm);
-- shell-инструмент Claude (`Bash` или `PowerShell`);
-- по каждому пункту (a)–(h) — ожидание, наблюдение по сводке и заметки владельца.
+- Windows version, terminal (Windows Terminal or the PowerShell console), `claude` version and installation method (native installer or npm);
+- Claude's shell tool (`Bash` or `PowerShell`);
+- for each item (a)–(h) — the expectation, the observation from the summary and the owner's notes.
 
-Расхождения с ADR-0013 вносятся в ADR-0013.
+Discrepancies with ADR-0013 are recorded in ADR-0013.

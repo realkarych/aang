@@ -1,244 +1,244 @@
-# Устойчивость на живых сессиях (Q.4)
+# Resilience on live sessions (Q.4)
 
-Статус: отчёт по пункту Q.4 плана (`docs/plan/mvp.md`). Это не ADR: решения не меняются, вопросы владельцу собраны в разделе 2, ручные проверки — в [`q4-owner-checklist.md`](q4-owner-checklist.md).
-Дата: 2026-10-07, обновлён 2026-10-08 по ревью PR #161. Ветка: `feat/q4-live-resilience`.
+Status: report on plan item Q.4 (`docs/plan/mvp.md`). This is not an ADR: decisions do not change, questions to the owner are collected in section 2, manual checks are in [`q4-owner-checklist.md`](q4-owner-checklist.md).
+Date: 2026-10-07, updated 2026-10-08 after the review of PR #161. Branch: `feat/q4-live-resilience`.
 
-## 0. Область, версии, метод
+## 0. Scope, versions, method
 
-Q.4 проверяет пять областей:
+Q.4 checks five areas:
 
-- перезапуск демона;
-- потерю и перенос источников;
-- сбой hooks и trust;
-- расхождение hooks и файлов;
-- неоднозначную родословную.
+- daemon restart;
+- loss and move of sources;
+- hook and trust failure;
+- divergence between hooks and files;
+- ambiguous lineage.
 
-Проверка идёт на настоящих CLI и собранном демоне aang. Сценарии воспроизводимы: их запускает инструмент [`tools/resilience`](../../tools/resilience/README.md). Workflow `Resilience` гоняет их на Linux, macOS и нативном Windows.
+The check runs on the real CLIs and a built aang daemon. The scenarios are reproducible: they are run by the [`tools/resilience`](../../tools/resilience/README.md) tool. The `Resilience` workflow runs them on Linux, macOS and native Windows.
 
-**Версии и среда:**
+**Versions and environment:**
 
 - macOS 27.0.1 (26A434), Apple M4 Pro, arm64; Node 26.10.0;
-- Claude Code 2.1.292 из нативного установщика. Установщик уже обновился до 2.1.293, поэтому прогон закреплён на 2.1.292 через `--claude ~/.local/share/claude/versions/2.1.292`;
-- `codex-cli 0.160.0` из Homebrew;
-- демон и `aang-hook` собраны из этой ветки;
-- CI, workflow `Resilience` на этой ветке: `ubuntu-latest` (ядро 6.17, x64), `macos-latest` (Darwin 25.6, arm64) и `windows-latest` (Windows Server 2025, 10.0.26100, x64). Claude Code 2.1.292 и `@openai/codex@0.160.0` из npm, на Windows Claude Code — из нативного установщика.
+- Claude Code 2.1.292 from the native installer. The installer had already updated to 2.1.293, so the run is pinned to 2.1.292 via `--claude ~/.local/share/claude/versions/2.1.292`;
+- `codex-cli 0.160.0` from Homebrew;
+- the daemon and `aang-hook` are built from this branch;
+- CI, the `Resilience` workflow on this branch: `ubuntu-latest` (kernel 6.17, x64), `macos-latest` (Darwin 25.6, arm64) and `windows-latest` (Windows Server 2025, 10.0.26100, x64). Claude Code 2.1.292 and `@openai/codex@0.160.0` from npm; on Windows Claude Code comes from the native installer.
 
-Машина не была выделенной: параллельно работали другие сессии разработки.
+The machine was not dedicated: other development sessions were running in parallel.
 
-**Метод.** Каждый сценарий работает в своём временном профиле `@aang/testkit`:
+**Method.** Each scenario runs in its own temporary `@aang/testkit` profile:
 
-- `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME` и `AANG_HOME` временные, проект — каталог `проект q4` в профиле `Имя Фамилия`;
-- корни рантаймов `~/.claude/projects` и `~/.codex/sessions` существуют до старта демона, как на машине, где рантайм уже использовался; случай без них — отдельный сценарий;
-- hooks ставит продуктовая команда `aang install`. Доверие hooks Codex подтверждается записью `hooks.state` с хешами из `hooks/list`, как это делает `/hooks`;
-- модель — заглушки `tools/record`: Anthropic Messages для Claude и Responses для Codex. Ответ выбирается по метке `[aang:<ключ>]` в промпте. Настоящая модель не вызывалась, расход нулевой;
-- демону вместо `cli.claude` и `cli.codex` даны шлюзы. Они пропускают в настоящий CLI только `plugin`, `app-server` и `--version`. Поэтому проверка состояния hooks работает на настоящих CLI, а наблюдатель и чат не могут начать сеанс модели: допуск наблюдателя отклоняется, сбор от этого не зависит;
-- интервалы демона — по умолчанию: обход корней раз в 60 с, обход spool раз в 5 с. Исключения указаны в сценариях;
-- шаг «посреди хода» делается через шлюз-команду: заглушка просит CLI выполнить `node gate.mjs <имя>`, и команда ждёт, пока сценарий её не отпустит. Пути в команде записаны через `/` в кавычках, поэтому она одинаково работает в bash и zsh, в Git Bash, где Claude на Windows выполняет Bash, и в PowerShell, где Codex на Windows выполняет команды;
-- проверки читают то, что видит пользователь: `/api/status`, `/api/runs`, `/api/runs/:run`. Счётчики сырых записей и курсоры читаются из БД только на чтение. «Демон всё принял» означает: spool пуст, курсор каждого файла сессии дошёл до конца файла, `change_seq` не меняется 1 с;
-- сценарии идут по одному, поэтому одновременно работает не больше одного CLI решателя.
+- `HOME`, `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `AANG_HOME` are temporary; the project is the directory `проект q4` in the profile `Имя Фамилия`;
+- the runtime roots `~/.claude/projects` and `~/.codex/sessions` exist before the daemon starts, as on a machine where the runtime has already been used; the case without them is a separate scenario;
+- hooks are installed by the product command `aang install`. Trust for Codex hooks is confirmed by writing `hooks.state` with hashes from `hooks/list`, as `/hooks` does;
+- the model is the `tools/record` stubs: Anthropic Messages for Claude and Responses for Codex. The response is chosen by the `[aang:<key>]` tag in the prompt. The real model was not called; the cost is zero;
+- instead of `cli.claude` and `cli.codex`, the daemon is given gateways. They pass only `plugin`, `app-server` and `--version` through to the real CLI. Therefore the hook state check works on the real CLIs, while the observer and the chat cannot start a model session: observer admission is rejected, and collection does not depend on it;
+- daemon intervals are the defaults: root scan every 60 s, spool scan every 5 s. Exceptions are stated in the scenarios;
+- the "mid-turn" step is done via a gate command: the stub asks the CLI to run `node gate.mjs <name>`, and the command waits until the scenario releases it. The paths in the command are written with `/` in quotes, so it works the same in bash and zsh, in Git Bash, where Claude on Windows runs Bash, and in PowerShell, where Codex on Windows runs commands;
+- the checks read what the user sees: `/api/status`, `/api/runs`, `/api/runs/:run`. Raw record counts and cursors are read from the DB read-only. "The daemon has taken everything in" means: the spool is empty, the cursor of every session file has reached the end of the file, `change_seq` does not change for 1 s;
+- scenarios run one at a time, so at most one solver CLI runs at once.
 
-Отчёты прогонов:
+Run reports:
 
-| ОС | Где | Образец | Ревизия | Время прогона (UTC) |
+| OS | Where | Sample | Revision | Run time (UTC) |
 | --- | --- | --- | --- | --- |
-| macOS | машина владельца | [`samples/live-resilience/macos/`](samples/live-resilience/macos/report.json) | `f533b816` | 2026-10-07 21:09–21:13 |
+| macOS | owner's machine | [`samples/live-resilience/macos/`](samples/live-resilience/macos/report.json) | `f533b816` | 2026-10-07 21:09–21:13 |
 | Linux | CI | [`samples/live-resilience/linux/`](samples/live-resilience/linux/report.json) | `5b6bf4f7` | 2026-10-07 22:11–22:15 |
 | Windows | CI | [`samples/live-resilience/windows/`](samples/live-resilience/windows/report.json) | `5b6bf4f7` | 2026-10-07 21:56–22:02 |
 
-Прогон `macos-latest` того же workflow остаётся артефактом CI. Временный каталог в образцах заменён на `<tmp>`, домашний — на `~`, в том числе внутри имён каталогов проектов Claude, которые кодируют путь проекта. Инструмент не пишет отчёт, если в нём остался путь пользователя.
+The `macos-latest` run of the same workflow remains a CI artifact. In the samples, the temporary directory is replaced with `<tmp>` and the home directory with `~`, including inside the names of Claude project directories, which encode the project path. The tool does not write a report if a user path remains in it.
 
-**Обозначения:** ✔ — проверка прошла; ⚑ — проверка не прошла из-за находки раздела 2, сценарий не считается упавшим; ✘ — неожиданный сбой.
+**Legend:** ✔ — the check passed; ⚑ — the check did not pass because of a finding from section 2, the scenario is not counted as failed; ✘ — an unexpected failure.
 
-**Ограничения:**
+**Limitations:**
 
-- модель поддельная: проверяется поведение CLI и демона, а не модели;
-- Desktop, интерактивные TUI и диалог `/hooks` не проверялись. Это чек-лист владельца;
-- Linux и Windows проверялись только в CI (workflow `Resilience`).
+- the model is fake: the behavior of the CLI and the daemon is checked, not the model;
+- Desktop, interactive TUIs and the `/hooks` dialog were not checked. That is the owner's checklist;
+- Linux and Windows were checked only in CI (the `Resilience` workflow).
 
-## 1. Главное
+## 1. Summary
 
-Итог — 23 сценария, ни одного неожиданного сбоя ни на одной ОС: на macOS у владельца 17 ✔ и 6 ⚑, на `macos-latest` в CI так же, на Linux и на Windows в CI по 18 ✔ и 5 ⚑. Сценарии с ⚑ упираются в находки раздела 2. Разница между ОС — только Q4-1, она есть лишь на macOS.
+Result: 23 scenarios, not a single unexpected failure on any OS: on the owner's macOS 17 ✔ and 6 ⚑, the same on `macos-latest` in CI, on Linux and on Windows in CI 18 ✔ and 5 ⚑ each. The ⚑ scenarios hit the findings of section 2. The only difference between OSes is Q4-1, which exists only on macOS.
 
-1. **Перезапуск демона без потерь и дублей.**
-   - SIGKILL посреди хода Claude и Codex: пока демон лежит, hooks продолжают писать в spool, потому что аренда действует. После старта демон принимает spool и остаток файлов один раз. Повторный перезапуск ничего не добавляет.
-   - `aang stop` между ходами: hooks сразу перестают писать, а ход, сделанный при остановке, восстанавливается из транскрипта.
-2. **Потеря и перенос источников работают по ADR-0004.**
-   - Удалённый транскрипт Claude и rollout, удалённый через `codex delete`, помечаются «источник потерян». Наблюдённое остаётся, и после перезапуска пометка сохраняется.
-   - Перенос транскрипта в другой каталог проекта при работающем и при остановленном демоне не теряет сессию и не добавляет ни одной сырой записи. `codex archive` и `unarchive` не теряют тред, его вызовы не дублируются.
-   - Транскрипт, удалённый посреди хода, Claude пишет заново по тому же пути. Демон на мгновение помечает потерю, затем закрывает её и принимает новые строки один раз.
-3. **Сбой hooks виден.**
-   - Без бинаря `aang-hook`, с отключённым плагином или с недоверенными hooks Codex решатель не блокируется. Сессия показывается в режиме «только файлы», `aang status` перечисляет её среди сессий без hooks.
-   - Доверие hooks Codex, его сохранение при повторной установке и потеря при сдвиге позиционного ключа видны в `aang status` без перезапуска демона.
-4. **Режим «только hooks» работает.** `claude -p --no-session-persistence` и `codex exec --ephemeral` не пишут файлов. Их сессии показываются в режиме «только hooks», действия берутся из hooks.
-5. **Родословная без догадок.**
-   - Две ветки одной сессии Claude и ветка ветки — отдельные прогоны со связью «общее происхождение», родитель не назначен.
-   - Скопированная история унаследована и не повторяется как новые действия.
-   - Привязка `fork_parent` назначает родителя, её отзыв снимает его.
-   - Ветка Codex связана со своим источником.
-6. **Нативный Windows ведёт себя так же.** Claude выполняет Bash в Git Bash, Codex — команды в PowerShell, hooks Codex ставятся `aang install --codex` по решениям владельца от 2026-10-06 (PR #150). Все 23 сценария дают на Windows те же результаты, что на Linux.
-7. **Главная находка — Q4-1.** На macOS дописывание в открытый файл не даёт событий `fs.watch`, а Codex пишет rollout именно так. Поэтому содержимое rollout Codex на macOS демон читает не сразу, а при следующем событии или обходе раз в 60 с. Во время долгой команды задержка — 30 с и больше. На Linux (inotify) и на Windows rollout во время команды прочитан за 27–28 мс. Вынесено владельцу (раздел 2).
-8. **Исправлен дефект Q4-2** (PR #159, влит): удаление файла реестра `sessions/<pid>.json` в конце каждой сессии Claude добавляло пробел в `/api/status`. Проверка стала обычной и проходит на всех ОС.
+1. **Daemon restart without losses or duplicates.**
+   - SIGKILL mid-turn for Claude and Codex: while the daemon is down, hooks keep writing to the spool because the lease is valid. After startup the daemon takes in the spool and the rest of the files once. A repeated restart adds nothing.
+   - `aang stop` between turns: hooks stop writing immediately, and the turn made while stopped is recovered from the transcript.
+2. **Loss and move of sources work per ADR-0004.**
+   - A deleted Claude transcript and a rollout deleted via `codex delete` are marked «Источник потерян» ("Source lost"). What was observed stays, and after a restart the mark is kept.
+   - Moving a transcript to another project directory with the daemon running and with it stopped does not lose the session and does not add a single raw record. `codex archive` and `unarchive` do not lose the thread, and its calls are not duplicated.
+   - Claude rewrites a transcript deleted mid-turn at the same path. The daemon briefly marks the loss, then closes it and takes in the new lines once.
+3. **A hook failure is visible.**
+   - Without the `aang-hook` binary, with the plugin disabled or with untrusted Codex hooks, the solver is not blocked. The session is shown in the «только файлы» ("files only") mode, and `aang status` lists it among sessions without hooks.
+   - Codex hook trust, its preservation on reinstallation and its loss when the positional key shifts are visible in `aang status` without a daemon restart.
+4. **The «только hooks» ("hooks only") mode works.** `claude -p --no-session-persistence` and `codex exec --ephemeral` write no files. Their sessions are shown in the «только hooks» mode, and actions are taken from hooks.
+5. **Lineage without guesses.**
+   - Two branches of one Claude session and a branch of a branch are separate runs with an «Общее происхождение» ("Common origin") link; no parent is assigned.
+   - The copied history is inherited and not repeated as new actions.
+   - A `fork_parent` binding assigns the parent; its retraction removes it.
+   - A Codex branch is linked to its source.
+6. **Native Windows behaves the same.** Claude runs Bash in Git Bash, Codex runs commands in PowerShell, Codex hooks are installed by `aang install --codex` per the owner's decisions of 2026-10-06 (PR #150). All 23 scenarios give the same results on Windows as on Linux.
+7. **The main finding is Q4-1.** On macOS, appending to an open file produces no `fs.watch` events, and that is exactly how Codex writes the rollout. Therefore on macOS the daemon reads Codex rollout content not immediately but on the next event or on the scan every 60 s. During a long command the delay is 30 s or more. On Linux (inotify) and on Windows the rollout was read during the command in 27–28 ms. Put to the owner (section 2).
+8. **Defect Q4-2 is fixed** (PR #159, merged): deleting the registry file `sessions/<pid>.json` at the end of every Claude session added a gap in `/api/status`. The check became an ordinary one and passes on all OSes.
 
-## 2. Находки и вопросы владельцу
+## 2. Findings and questions to the owner
 
-Для Q4-1, Q4-4 и Q4-5 нужно решение владельца: они меняют правила ADR-0004 — обнаружение изменений файлов, динамическое «hooks не активны» и использование живости процесса. Реализация до одобрения не начиналась.
+Q4-1, Q4-4 and Q4-5 need an owner decision: they change ADR-0004 rules — detection of file changes, a dynamic «hooks не активны» ("hooks inactive") and use of process liveness. Implementation has not started before approval.
 
-**Q4-1. `fs.watch` на macOS не видит дописывание в открытый файл.** Вопрос владельцу (ADR-0004, «Обнаружение»).
+**Q4-1. `fs.watch` on macOS does not see appends to an open file.** Question to the owner (ADR-0004, "Discovery").
 
-- Что видно: зонд видит 1 событие из 9 записей, последней записи среди них нет. Claude открывает транскрипт заново на каждую запись, и события приходят. Codex держит rollout открытым, и после создания файла событий нет до конца хода. Демон дочитывает rollout только по следующему событию или при обходе раз в 60 с.
-- Где: `sources/codex-rollout-read-during-command` — строки идущей команды прочитаны через 30 с, в момент конца хода; без конца хода задержка до 60 с. То же на `macos-latest` в CI (Darwin 25.6): 1 событие из 9, 30,2 с. На Linux в CI зонд видит 9 событий из 9, rollout прочитан за 28 мс, проверка проходит.
-- Windows: зонд через `ReadDirectoryChangesW` тоже не видит последнюю запись через открытый дескриптор (2 события, видна 1 запись из 9). Но rollout Codex во время команды прочитан за 27 мс, проверка проходит: уведомление об изменении rollout на Windows приходит. Почему запись Codex 0.160.0 даёт уведомление, а запись зонда нет, не исследовалось. Поэтому Q4-1 в этой версии видна только на macOS. Предложенный ниже опрос по `stat` закрыл бы и Windows, если поведение Codex изменится.
-- Предложение: кроме fs watch раз в 1–2 с проверять по `stat` файлы, изменённые за последние минуты. Альтернативы: чаще обходить корни (дорого на больших деревьях) или ставить отдельный watch на каждый активный файл (на macOS это kqueue, но он расходует дескрипторы).
+- What is seen: the probe sees 1 event for 9 writes, and the last write is not among them. Claude reopens the transcript for every write, and events arrive. Codex keeps the rollout open, and after the file is created there are no events until the end of the turn. The daemon reads the rest of the rollout only on the next event or on the scan every 60 s.
+- Where: `sources/codex-rollout-read-during-command` — the lines of the running command were read after 30 s, at the moment the turn ended; without the end of the turn the delay is up to 60 s. The same on `macos-latest` in CI (Darwin 25.6): 1 event for 9 writes, 30.2 s. On Linux in CI the probe sees 9 events for 9 writes, the rollout was read in 28 ms, the check passes.
+- Windows: the probe via `ReadDirectoryChangesW` also does not see the last write through an open handle (2 events, 1 write of 9 visible). But the Codex rollout was read during the command in 27 ms, the check passes: the rollout change notification does arrive on Windows. Why a Codex 0.160.0 write produces a notification and the probe's write does not was not investigated. Therefore in this version Q4-1 is visible only on macOS. The `stat` polling proposed below would cover Windows too if Codex behavior changes.
+- Proposal: in addition to fs watch, every 1–2 s check via `stat` the files changed in the last few minutes. Alternatives: scan the roots more often (expensive on large trees) or set a separate watch on each active file (on macOS that is kqueue, but it consumes descriptors).
 
-**Q4-2. Пробел в `/api/status` от удаления файла реестра.** Исправлено в PR #159, влит в master и в эту ветку.
+**Q4-2. A gap in `/api/status` from deleting a registry file.** Fixed in PR #159, merged into master and into this branch.
 
-- Что видно: удаление `<claude>/sessions/<pid>.json` в конце каждой сессии Claude давало пробел `unknown_records` «registry record (parsed) discarded: it names no session».
-- Где: `restart/claude-stop-between-turns`, `hooks/claude-lease-lost-mid-session`.
-- Исправление: запись без владельца оставляет пробел, только если она `unknown` или `invalid` либо её факты теряются. Проверка `ended sessions leave no gap for their removed registry files` больше не помечена находкой и проходит на трёх ОС.
+- What is seen: deleting `<claude>/sessions/<pid>.json` at the end of every Claude session produced an `unknown_records` gap "registry record (parsed) discarded: it names no session".
+- Where: `restart/claude-stop-between-turns`, `hooks/claude-lease-lost-mid-session`.
+- Fix: a record without an owner leaves a gap only if it is `unknown` or `invalid` or its facts are lost. The check `ended sessions leave no gap for their removed registry files` is no longer marked as a finding and passes on three OSes.
 
-**Q4-3. Запуск треда Codex перечислен дважды.** Описано.
+**Q4-3. A Codex thread start is listed twice.** Documented.
 
-- Что видно: запуск приходит из hook `SessionStart` и из `session_meta` rollout — `["startup","startup"]`, у ветки `["fork","fork"]`. UI сводит их по подписи и времени, API отдаёт оба.
-- Где: `restart/codex-sigkill-mid-turn`, `lineage/codex-forks`, `sources/codex-archive-unarchive-delete`.
-- Предложение: сливать запуск из `session_meta` с запуском того же вида из hook, если такой есть. Правило слияния выбирает владелец или аспект E.
+- What is seen: the start comes from the `SessionStart` hook and from the rollout's `session_meta` — `["startup","startup"]`, for a branch `["fork","fork"]`. The UI merges them by label and time; the API returns both.
+- Where: `restart/codex-sigkill-mid-turn`, `lineage/codex-forks`, `sources/codex-archive-unarchive-delete`.
+- Proposal: merge the start from `session_meta` with a start of the same kind from a hook, if there is one. The merge rule is chosen by the owner or aspect E.
 
-**Q4-4. Потеря hooks посреди сессии не отмечается.** Вопрос владельцу.
+**Q4-4. Loss of hooks mid-session is not marked.** Question to the owner.
 
-- Что видно: если hooks пропали посреди сессии (нет аренды, `aang stop`, недоступный spool), признак полного режима остаётся — он «липкий», и ход без hooks выглядит как обычный. ADR-0004 определяет «hooks не активны» только для сессии целиком.
-- Где: `hooks/claude-lease-lost-mid-session`. `aang status` при этом показывает, что аренды нет.
-- Предложение: открывать пробел `hooks_inactive` сессии, если ход виден в файлах, а hook-событий этого хода нет дольше N секунд, и закрывать его на следующем hook.
+- What is seen: if hooks disappeared mid-session (no lease, `aang stop`, an unavailable spool), the full-mode flag remains — it is "sticky", and a turn without hooks looks like an ordinary one. ADR-0004 defines «hooks не активны» only for the session as a whole.
+- Where: `hooks/claude-lease-lost-mid-session`. `aang status` meanwhile shows that there is no lease.
+- Proposal: open a session gap `hooks_inactive` if a turn is visible in the files but there have been no hook events of this turn for longer than N seconds, and close it on the next hook.
 
-**Q4-5. Сессия с убитым процессом остаётся идущей.** Вопрос владельцу.
+**Q4-5. A session with a killed process stays running.** Question to the owner.
 
-- Что видно: сессия Claude, процесс которой убит посреди инструмента, остаётся в состоянии «ход идёт», действие — «идёт». Через 5 минут свежесть переходит в «нет новых событий», как требует ADR-0006. ADR-0004 называет живость процесса частью подсказки реестра, но продукт её не использует.
-- Где: `divergence/claude-killed-mid-tool`.
-- Предложение: если процесс сессии из реестра мёртв, а `SessionEnd` не пришёл, показывать состояние сессии «неизвестно», а идущие действия — с исходом `unknown`.
+- What is seen: a Claude session whose process was killed in the middle of a tool stays in the "turn in progress" state, the action stays "running". After 5 minutes freshness switches to «нет новых событий» ("no new events"), as ADR-0006 requires. ADR-0004 names process liveness as part of the registry hint, but the product does not use it.
+- Where: `divergence/claude-killed-mid-tool`.
+- Proposal: if the session process from the registry is dead and `SessionEnd` did not arrive, show the session state as "unknown" and running actions with outcome `unknown`.
 
-**Q4-6. Корень рантайма, созданный после старта демона.** Описано, низкий приоритет.
+**Q4-6. A runtime root created after the daemon started.** Documented, low priority.
 
-- Что видно: если `~/.claude/projects` ещё нет при старте демона (первая сессия Claude после установки aang), watch на корень не ставится. Транскрипт находит только обход раз в 60 с — через 59,8 с, до этого сессия видна лишь по hooks.
-- Где: `sources/claude-projects-root-created-after-start`.
-- Предложение: пока корня нет, проверять его появление каждые несколько секунд.
+- What is seen: if `~/.claude/projects` does not exist yet when the daemon starts (the first Claude session after installing aang), no watch is set on the root. Only the scan every 60 s finds the transcript — after 59.8 s; until then the session is visible only through hooks.
+- Where: `sources/claude-projects-root-created-after-start`.
+- Proposal: while the root does not exist, check for its appearance every few seconds.
 
-**Q4-7. Мгновенный пробел `hooks_inactive` на старте сессии Codex.** Описано.
+**Q4-7. A momentary `hooks_inactive` gap at the start of a Codex session.** Documented.
 
-- Что видно: если строки rollout приняты раньше первого файла hook сессии, открывается пробел `hooks_inactive` и через мгновение закрывается. Закрытый пробел остаётся в истории сессии. Бывает не в каждом прогоне.
-- Где: `restart/codex-sigkill-mid-turn`, `sources/codex-rollout-deleted-mid-turn`.
-- Предложение: решать «hooks не активны» не раньше чем через несколько секунд после первой строки файла.
+- What is seen: if rollout lines are taken in before the session's first hook file, a `hooks_inactive` gap opens and closes an instant later. The closed gap stays in the session history. It does not happen in every run.
+- Where: `restart/codex-sigkill-mid-turn`, `sources/codex-rollout-deleted-mid-turn`.
+- Proposal: decide «hooks не активны» no earlier than a few seconds after the first line of the file.
 
-**Q4-8. Исход команды Codex, известной только по hooks.** Описано как ограничение hooks Codex.
+**Q4-8. The outcome of a Codex command known only from hooks.** Documented as a limitation of Codex hooks.
 
-- Что видно: команда Codex, известная только по hooks (`--ephemeral` или потерянный rollout), показывается с выполнением и исходом `unknown`: `PostToolUse` Codex несёт вывод, но не код выхода. Идущей такая команда не считается.
-- Где: `divergence/codex-ephemeral`, `sources/codex-rollout-deleted-mid-turn`.
+- What is seen: a Codex command known only from hooks (`--ephemeral` or a lost rollout) is shown with execution and outcome `unknown`: Codex `PostToolUse` carries the output but not the exit code. Such a command is not considered running.
+- Where: `divergence/codex-ephemeral`, `sources/codex-rollout-deleted-mid-turn`.
 
-**Q4-9. Строка `stop_hook_summary` не разбирается.** Известно, разбор запланирован в F.7d (PR #153).
+**Q4-9. The `stop_hook_summary` line is not parsed.** Known; parsing is planned in F.7d (PR #153).
 
-- Что видно: строку `system/stop_hook_summary` Claude пишет после Stop-hook, в том числе hook aang. Поэтому каждая сессия с hooks aang получает пробел `unknown_records`.
-- Где: все сценарии Claude.
+- What is seen: Claude writes the `system/stop_hook_summary` line after a Stop hook, including the aang hook. Therefore every session with aang hooks gets an `unknown_records` gap.
+- Where: all Claude scenarios.
 
-## 3. Перезапуск демона
+## 3. Daemon restart
 
-| Сценарий | Что делается | Результат |
+| Scenario | What is done | Result |
 | --- | --- | --- |
-| `restart/claude-sigkill-mid-turn` | Ход Claude `echo before` → шлюз → `echo after`. Когда демон показывает идущее действие шлюза, демон получает SIGKILL. Шлюз отпускается, ход и сессия заканчиваются без демона. Затем демон запускается, потом снова SIGKILL и снова запуск. | ✔ Пока демон лежал, hooks записали в spool 7 файлов. После старта каждый `tool_use` транскрипта — ровно одно действие, все с исходом `ok`. Запись usage на каждое сообщение с usage, сессия `ended`, полный режим, свежесть `ok`, spool пуст. Второй перезапуск не меняет ни одного счётчика объектов. |
-| `restart/claude-stop-between-turns` | Ход 1, затем `aang stop`, ход 2 через `--resume` при остановленном aang, затем `aang start` и ход 3. | ✔ При остановке hooks не записали ни одного файла: маркер и снятая аренда. Действие хода 2 восстановлено из транскрипта, ход 3 снова пришёл с hooks, дублей нет. Пробела от удалённых файлов реестра нет (Q4-2 исправлен). |
-| `restart/codex-sigkill-mid-turn` | То же для `codex exec` с доверенными hooks aang. | ✔ 5 файлов spool за время простоя, каждый вызов rollout — одно действие с исходом `ok`, повторный перезапуск ничего не добавляет. ⚑ Q4-3 и в части прогонов Q4-7. |
+| `restart/claude-sigkill-mid-turn` | A Claude turn `echo before` → gate → `echo after`. When the daemon shows the gate action running, the daemon gets SIGKILL. The gate is released, the turn and the session finish without the daemon. Then the daemon is started, then SIGKILL again and another start. | ✔ While the daemon was down, hooks wrote 7 files to the spool. After startup every transcript `tool_use` is exactly one action, all with outcome `ok`. A usage record for every message with usage, the session is `ended`, full mode, freshness `ok`, the spool is empty. The second restart changes no object counter. |
+| `restart/claude-stop-between-turns` | Turn 1, then `aang stop`, turn 2 via `--resume` with aang stopped, then `aang start` and turn 3. | ✔ While stopped, hooks wrote no file: the marker and the removed lease. The action of turn 2 is recovered from the transcript, turn 3 came with hooks again, no duplicates. There is no gap from deleted registry files (Q4-2 fixed). |
+| `restart/codex-sigkill-mid-turn` | The same for `codex exec` with trusted aang hooks. | ✔ 5 spool files during the downtime, each rollout call is one action with outcome `ok`, a repeated restart adds nothing. ⚑ Q4-3 and, in some runs, Q4-7. |
 
-На Windows SIGKILL — это `TerminateProcess`. Результаты те же: 7 и 5 файлов spool за время простоя, ни одного дубля.
+On Windows SIGKILL is `TerminateProcess`. The results are the same: 7 and 5 spool files during the downtime, not a single duplicate.
 
-Ограничения, видимые пользователю, ADR не нарушают:
+Limitations visible to the user do not violate the ADR:
 
-- **ход, сделанный при `aang stop`, теряет всё, что дают только hooks:**
-  - запуск `resume` в списке запусков (после хода 3 он показан один, хотя `--resume` было два);
-  - `SessionEnd` — до следующего хода сессия показана как «ход завершён, ждёт» (`turn_done`), хотя процесс уже вышел;
-  - ожидания одобрений.
+- **a turn made during `aang stop` loses everything that only hooks provide:**
+  - the `resume` start in the list of starts (after turn 3 it is shown once, although there were two `--resume`);
+  - `SessionEnd` — until the next turn the session is shown as "turn done, waiting" (`turn_done`), although the process has already exited;
+  - approval waits.
 
-  Это следствие намеренной остановки по ADR-0004: «spool сразу перестаёт расти». Явной пометки на сессии нет (Q4-4).
-- **время от конца хода до полного приёма файлов** при работающем демоне на macOS — около 0,3 с у Claude и 15–60 мс у Codex. У Codex это верно, только если rollout дописан к концу хода, иначе см. Q4-1.
+  This is a consequence of the intentional stop per ADR-0004: "the spool stops growing immediately". There is no explicit mark on the session (Q4-4).
+- **the time from the end of a turn to full intake of the files** with the daemon running on macOS is about 0.3 s for Claude and 15–60 ms for Codex. For Codex this holds only if the rollout is written through to the end of the turn; otherwise see Q4-1.
 
-## 4. Потеря и перенос источников
+## 4. Loss and move of sources
 
-| Сценарий | Что делается | Результат |
+| Scenario | What is done | Result |
 | --- | --- | --- |
-| `sources/claude-transcript-deleted` | Транскрипт законченной сессии Claude удаляется при работающем демоне, затем перезапуск. | ✔ Сессия — `lost`, открыт пробел `source_lost` с путём поиска. Наблюдённые действия остались. После перезапуска всё так же. |
-| `sources/claude-transcript-moved` | Транскрипт переносится в `projects/<каталог>-moved/` при работающем демоне, затем ещё раз — при остановленном. | ✔ После обоих переносов сессия не потеряна, действия те же, число сырых записей не изменилось: повторное чтение отсечено дедупликацией. |
-| `sources/claude-transcript-deleted-mid-turn` | Транскрипт удаляется, пока ход ждёт в шлюзе. После шлюза Claude дописывает ход. | ✔ Claude открывает файл по пути на каждую запись и создаёт новый файл с остатком хода (одна строка `tool_use`). Демон сначала помечает `source_lost`, затем находит поток по `sessionId` в новом файле и закрывает пробел. Действия старого и нового файла — по одному разу, после перезапуска тоже. |
-| `sources/claude-projects-root-created-after-start` | Демон стартует, когда `~/.claude/projects` ещё нет, затем идёт первая сессия. | ✔ по ADR: транскрипт найден обходом через 59,8 с. До этого сессия видна по hooks в режиме «только hooks». ⚑ Q4-6. |
-| `sources/codex-archive-unarchive-delete` | `codex archive` треда A, `codex unarchive`, `codex exec resume` A. Затем `codex delete --force` треда B и перезапуск. | ✔ Архивированный тред A лежит в `archived_sessions/` и не потерян. После разархивирования и продолжения каждый вызов — одно действие. Тред B — `lost`, после перезапуска тоже. ⚑ Q4-3 (у A запуски `startup`, `startup`, `resume`). |
-| `sources/codex-rollout-read-during-command` | Пока `codex exec` ждёт в шлюзе, измеряется, когда курсор демона дойдёт до конца rollout. Отдельно зонд: 9 дописываний в файл, открываемый на каждую запись, и 9 — через открытый дескриптор. | ⚑ Q4-1: курсор дошёл до конца через 30,1 с, в момент конца хода. Codex отдаёт управление из `exec_command` не позже чем через 30 с. Зонд: через открытие на каждую запись — 9 событий, последняя запись видна; через открытый дескриптор — 1 событие (создание), последней записи нет. |
-| `sources/codex-rollout-deleted-mid-turn` | Rollout удаляется, пока ход ждёт в шлюзе: на macOS демон прочитал его начало, 35 888 из 41 728 байт, на Windows — весь файл. | ✔ Codex продолжает писать в удалённый файл, нового файла нет. Сессия — `lost`, команды после удаления видны из hooks. Исход у них `unknown` (Q4-8). На Windows удаление rollout, открытого Codex, тоже проходит, и результат тот же. |
+| `sources/claude-transcript-deleted` | The transcript of a finished Claude session is deleted with the daemon running, then a restart. | ✔ The session is `lost`, a `source_lost` gap with the search path is open. The observed actions remain. After the restart everything is the same. |
+| `sources/claude-transcript-moved` | The transcript is moved to `projects/<dir>-moved/` with the daemon running, then once more with it stopped. | ✔ After both moves the session is not lost, the actions are the same, the number of raw records did not change: the re-read was cut off by deduplication. |
+| `sources/claude-transcript-deleted-mid-turn` | The transcript is deleted while the turn waits in the gate. After the gate Claude writes the rest of the turn. | ✔ Claude opens the file by path for every write and creates a new file with the rest of the turn (one `tool_use` line). The daemon first marks `source_lost`, then finds the stream by `sessionId` in the new file and closes the gap. The actions of the old and the new file appear once each, after a restart too. |
+| `sources/claude-projects-root-created-after-start` | The daemon starts when `~/.claude/projects` does not exist yet, then the first session runs. | ✔ per the ADR: the transcript is found by the scan after 59.8 s. Until then the session is visible through hooks in the «только hooks» mode. ⚑ Q4-6. |
+| `sources/codex-archive-unarchive-delete` | `codex archive` of thread A, `codex unarchive`, `codex exec resume` A. Then `codex delete --force` of thread B and a restart. | ✔ The archived thread A lies in `archived_sessions/` and is not lost. After unarchiving and continuing, each call is one action. Thread B is `lost`, after a restart too. ⚑ Q4-3 (A has starts `startup`, `startup`, `resume`). |
+| `sources/codex-rollout-read-during-command` | While `codex exec` waits in the gate, it is measured when the daemon cursor reaches the end of the rollout. Separately, a probe: 9 appends to a file opened for every write, and 9 through an open handle. | ⚑ Q4-1: the cursor reached the end after 30.1 s, at the moment the turn ended. Codex returns control from `exec_command` no later than after 30 s. Probe: opening for every write — 9 events, the last write is visible; through an open handle — 1 event (creation), the last write is not there. |
+| `sources/codex-rollout-deleted-mid-turn` | The rollout is deleted while the turn waits in the gate: on macOS the daemon had read its beginning, 35 888 of 41 728 bytes, on Windows the whole file. | ✔ Codex keeps writing to the deleted file; there is no new file. The session is `lost`, commands after the deletion are visible from hooks. Their outcome is `unknown` (Q4-8). On Windows, deleting a rollout opened by Codex also succeeds, and the result is the same. |
 
-Попутно подтверждено:
+Confirmed along the way:
 
-- **инод и размер.** Курсор с другим инодом или меньшим размером запускает поиск потока. Перечитанный файл не порождает дублей ни у Claude (ключ `sessionId` и `uuid`), ни у Codex (ключ `thread_id` и `ordinal`);
-- **изменения при остановленном демоне.** Перенос и удаление, случившиеся, пока демон не работал, обнаруживаются на старте: обход дерева находит отсутствующий путь курсора и запускает поиск.
+- **inode and size.** A cursor with a different inode or a smaller size starts a stream search. A re-read file produces no duplicates either for Claude (key `sessionId` and `uuid`) or for Codex (key `thread_id` and `ordinal`);
+- **changes while the daemon is stopped.** A move or deletion that happened while the daemon was not running is detected at startup: the tree scan finds the missing cursor path and starts a search.
 
-## 5. Сбой hooks и trust
+## 5. Hook and trust failure
 
-| Сценарий | Что делается | Результат |
+| Scenario | What is done | Result |
 | --- | --- | --- |
-| `hooks/claude-hook-binary-missing` | `aang-hook` убран из `<AANG_HOME>/bin`, идёт сессия Claude. Затем бинарь возвращается, и идёт ещё одна сессия. | ✔ Claude выходит с кодом 0: отсутствующий обработчик не блокирует. Первая сессия — «только файлы», свежесть `hooks_inactive`, открыт пробел `hooks_inactive`, в `aang status` она среди `hooks_inactive_sessions`. Вторая сессия — полный режим, в этом списке её нет. Статическое состояние Claude при этом `active`: плагин включён, бинаря нет. Отсутствие бинаря видно только по сессиям. |
-| `hooks/claude-lease-lost-mid-session` | Между ходами одной сессии удаляется аренда spool, проверка аренды демоном отложена (`spool.checkIntervalMs` = 10 мин). Ход 2, затем перезапуск демона и ход 3. | ✔ Без аренды hooks ничего не пишут, `aang status` показывает `lease_expires_at: null`, ход 2 восстановлен из транскрипта. Перезапущенный демон выдаёт аренду, ход 3 снова с hooks. ⚑ Q4-4: сессия остаётся в полном режиме без пометки. |
-| `hooks/codex-hooks-trust` | `aang install --codex`, сессия без подтверждённого доверия. Затем доверие через `hooks.state`, сессия, повторный `aang install --codex`, сессия. В конце в `hooks.json` перед записью aang вставляется чужой hook `PreToolUse`. | ✔ После установки — `untrusted`. Codex пропускает недоверенные hooks, spool пуст, сессия — «только файлы». После доверия `aang status` без перезапуска показывает `active`, следующая сессия — полный режим. Повторная установка не меняет `hooks.json` ни на байт и сохраняет доверие. Чужая запись перед записью aang сдвигает позиционный ключ: запись aang теряет доверие, статус — `untrusted`. |
-| `hooks/claude-plugin-disabled` | `claude plugin disable aang@aang`, сессия, затем `claude plugin enable aang@aang`, сессия. | ✔ `aang status` следует за состоянием: `disabled` → `active`. Сессия с выключенным плагином — «только файлы», со включённым — полный режим. |
-| `hooks/claude-duplicate-plugin` | Плагин aang установлен из маркетплейса. Его копия лежит в запасном каталоге `<claude>/skills/aang`, ещё одна передаётся через `--plugin-dir`. | ✔ Claude 2.1.292 загружает один плагин на имя: с копией в `skills` — `aang@aang` из маркетплейса, с `--plugin-dir` — `aang@inline`. Каждое событие доставляется один раз, двойной регистрации нет. |
+| `hooks/claude-hook-binary-missing` | `aang-hook` is removed from `<AANG_HOME>/bin`, a Claude session runs. Then the binary is put back, and another session runs. | ✔ Claude exits with code 0: a missing handler does not block. The first session is «только файлы», freshness `hooks_inactive`, a `hooks_inactive` gap is open, and in `aang status` it is among `hooks_inactive_sessions`. The second session is in full mode and not in that list. The static Claude state is `active` meanwhile: the plugin is enabled, the binary is missing. The missing binary is visible only through sessions. |
+| `hooks/claude-lease-lost-mid-session` | Between the turns of one session the spool lease is deleted; the daemon's lease check is postponed (`spool.checkIntervalMs` = 10 min). Turn 2, then a daemon restart and turn 3. | ✔ Without a lease hooks write nothing, `aang status` shows `lease_expires_at: null`, turn 2 is recovered from the transcript. The restarted daemon issues a lease, turn 3 is again with hooks. ⚑ Q4-4: the session stays in full mode without a mark. |
+| `hooks/codex-hooks-trust` | `aang install --codex`, a session without confirmed trust. Then trust via `hooks.state`, a session, a repeated `aang install --codex`, a session. At the end, another party's `PreToolUse` hook is inserted into `hooks.json` before the aang entry. | ✔ After installation — `untrusted`. Codex skips untrusted hooks, the spool is empty, the session is «только файлы». After trust, `aang status` shows `active` without a restart, the next session is in full mode. The repeated installation does not change a single byte of `hooks.json` and keeps the trust. The other entry before the aang entry shifts the positional key: the aang entry loses trust, the status is `untrusted`. |
+| `hooks/claude-plugin-disabled` | `claude plugin disable aang@aang`, a session, then `claude plugin enable aang@aang`, a session. | ✔ `aang status` follows the state: `disabled` → `active`. The session with the plugin disabled is «только файлы», with it enabled — full mode. |
+| `hooks/claude-duplicate-plugin` | The aang plugin is installed from the marketplace. Its copy lies in the fallback directory `<claude>/skills/aang`, another one is passed via `--plugin-dir`. | ✔ Claude 2.1.292 loads one plugin per name: with the copy in `skills` — `aang@aang` from the marketplace, with `--plugin-dir` — `aang@inline`. Each event is delivered once; there is no double registration. |
 
-Вывод по двойной регистрации (ADR-0004). Сценарий спайка — два одинаковых payload от двух регистраций — для плагина aang в Claude 2.1.292 не воспроизводится: движок не загружает два плагина с одним именем. Правило движка для двойной регистрации остаётся страховкой на случай другого поведения рантайма. Сценарий `hooks/claude-duplicate-plugin` поймает такое изменение в новой версии.
+Conclusion on double registration (ADR-0004). The spike scenario — two identical payloads from two registrations — is not reproduced for the aang plugin in Claude 2.1.292: the engine does not load two plugins with the same name. The engine rule for double registration remains a safeguard in case the runtime behaves differently. The `hooks/claude-duplicate-plugin` scenario will catch such a change in a new version.
 
-## 6. Расхождение hooks и файлов
+## 6. Divergence between hooks and files
 
-| Сценарий | Что делается | Результат |
+| Scenario | What is done | Result |
 | --- | --- | --- |
-| `divergence/claude-no-session-persistence` | `claude -p --no-session-persistence`: транскрипта нет. | ✔ Режим «только hooks», действие из hooks завершено с `ok`, пробелов нет. |
-| `divergence/codex-ephemeral` | `codex exec --ephemeral`: rollout нет. | ✔ Режим «только hooks», команда из hooks не считается идущей. Выполнение и исход `unknown` (Q4-8). |
-| `divergence/claude-killed-mid-tool` | Процесс Claude получает SIGKILL, пока команда ждёт в шлюзе. В hooks есть `PreToolUse` без `PostToolUse`, в транскрипте — `tool_use` без результата, конца хода нет. `freshness.quietAfterMs` = 5 с. | ✔ Через 5 с тишины свежесть — `quiet`, ни одно действие не показано как упавшее (ADR-0006). ⚑ Q4-5: сессия и действие остаются «идущими». |
-| `divergence/claude-cwd-drift` | Сессия начинается в проекте с `--add-dir <вне корня>` и выполняет `cd <вне корня> && echo outside`, затем `echo still`. Отдельно идёт сессия, начатая вне корня. | ✔ Строки транскрипта после `cd` несут каталог вне корня, но сессия остаётся в охвате по первому `cwd` (ADR-0004): оба действия на месте, `cwd` сессии — начальный. Сессия, начатая вне корня, не принята. Без `--add-dir` Claude возвращает каталог оболочки в проект, и дрейфа нет. На Windows `cd` выполняется в Git Bash, а транскрипт пишет пути Windows; результат тот же. |
+| `divergence/claude-no-session-persistence` | `claude -p --no-session-persistence`: no transcript. | ✔ «только hooks» mode, the action from hooks completed with `ok`, no gaps. |
+| `divergence/codex-ephemeral` | `codex exec --ephemeral`: no rollout. | ✔ «только hooks» mode, the command from hooks is not considered running. Execution and outcome `unknown` (Q4-8). |
+| `divergence/claude-killed-mid-tool` | The Claude process gets SIGKILL while a command waits in the gate. The hooks have `PreToolUse` without `PostToolUse`, the transcript has `tool_use` without a result, no end of turn. `freshness.quietAfterMs` = 5 s. | ✔ After 5 s of silence freshness is `quiet`; no action is shown as failed (ADR-0006). ⚑ Q4-5: the session and the action stay "running". |
+| `divergence/claude-cwd-drift` | A session starts in the project with `--add-dir <outside root>` and runs `cd <outside root> && echo outside`, then `echo still`. Separately, a session started outside the root runs. | ✔ The transcript lines after `cd` carry a directory outside the root, but the session stays in scope by its first `cwd` (ADR-0004): both actions are in place, the session's `cwd` is the initial one. The session started outside the root is not accepted. Without `--add-dir` Claude returns the shell directory to the project, and there is no drift. On Windows `cd` runs in Git Bash, while the transcript records Windows paths; the result is the same. |
 
-Слияние записей hooks и файлов об одном объекте во всех сценариях дало ровно одно действие на `tool_use_id` или `call_id`. Начало действия не позже его конца. Содержимое и исход берутся из файла, если он есть: у Codex исход `ok` приходит только из rollout.
+Merging hook and file records about one object gave exactly one action per `tool_use_id` or `call_id` in all scenarios. An action's start is no later than its end. Content and outcome are taken from the file if there is one: for Codex the outcome `ok` comes only from the rollout.
 
-## 7. Неоднозначная родословная
+## 7. Ambiguous lineage
 
-| Сценарий | Что делается | Результат |
+| Scenario | What is done | Result |
 | --- | --- | --- |
-| `lineage/claude-forks` | Сессия S. Две ветки `--resume S --fork-session` (F1, F2) и ветка ветки `--resume F1 --fork-session` (F3). Затем привязка `fork_parent` F1 → S и её отзыв. | ✔ Четыре прогона, у S — одна сессия. Собственных действий у каждой сессии по одному. Унаследованных: у F1 и F2 — 1, у F3 — 2. Связь «общее происхождение» у каждой ветки перечисляет ровно остальные три сессии, родитель-кандидат не назначен, основание `observed`: проверка сравнивает связь целиком. `forked_from` у веток Claude нет. Привязка ставит F1 родителем прогон S, отзыв снимает. Запуски веток — `fork` из hook `SessionStart`. |
-| `lineage/claude-fork-parent-unseen` | Демон убит. Идут сессия и её ветка, транскрипт родителя удаляется, затем демон запускается. | ✔ Ветка распознана по своему файлу: история до запуска унаследована (1 унаследованное, 1 собственное действие). Проверяется точная связь: ровно одна «общее происхождение» с пустым перечнем сессий, без кандидата в родители, основание `observed`; `forked_from` нет. Родитель виден только по своим hooks из spool, в режиме «только hooks». |
-| `lineage/claude-resume-continue` | Сессия, затем `--resume` и `--continue`. | ✔ Один `sessionId`, один прогон, запуски `startup`, `resume`, `resume`, три собственных действия. |
-| `lineage/codex-forks` | `codex exec fork` треда A. Затем при остановленном демоне тред B и его ветка, rollout B удаляется, демон запускается. | ✔ Ветка — свой прогон с `forked_from` на прогон A, основание `observed`. ⚑ Q4-3 (`["fork","fork"]`). Ветка невиденного источника указывает `forked_from` на прогон, которого нет в `/api/runs`. Id прогона выводится из ключа сессии и не зависит от того, виден ли источник. UI показывает такую связь как «исходный прогон» без ссылки (`RunLink` с `unknown`), так что это не дефект. |
+| `lineage/claude-forks` | Session S. Two branches `--resume S --fork-session` (F1, F2) and a branch of a branch `--resume F1 --fork-session` (F3). Then a `fork_parent` binding F1 → S and its retraction. | ✔ Four runs, S has one session. Each session has one own action. Inherited: F1 and F2 have 1, F3 has 2. The «Общее происхождение» link of each branch lists exactly the other three sessions, no candidate parent is assigned, grounds `observed`: the check compares the link as a whole. Claude branches have no `forked_from`. The binding makes run S the parent of F1, the retraction removes it. The branch starts are `fork` from the `SessionStart` hook. |
+| `lineage/claude-fork-parent-unseen` | The daemon is killed. A session and its branch run, the parent's transcript is deleted, then the daemon is started. | ✔ The branch is recognized by its own file: the history before the start is inherited (1 inherited, 1 own action). The exact link is checked: exactly one «Общее происхождение» with an empty session list, no candidate parent, grounds `observed`; no `forked_from`. The parent is visible only through its own hooks from the spool, in the «только hooks» mode. |
+| `lineage/claude-resume-continue` | A session, then `--resume` and `--continue`. | ✔ One `sessionId`, one run, starts `startup`, `resume`, `resume`, three own actions. |
+| `lineage/codex-forks` | `codex exec fork` of thread A. Then, with the daemon stopped, thread B and its branch; the rollout of B is deleted, the daemon is started. | ✔ The branch is its own run with `forked_from` pointing to run A, grounds `observed`. ⚑ Q4-3 (`["fork","fork"]`). The branch of an unseen source points `forked_from` to a run that is not in `/api/runs`. The run id is derived from the session key and does not depend on whether the source is visible. The UI shows such a link as «исходный прогон» ("source run") without a link (`RunLink` with `unknown`), so this is not a defect. |
 
-`codex delete --force` не удаляет тред, у которого есть ветка: «failed to delete session». Поэтому источник ветки в сценарии удаляется как файл.
+`codex delete --force` does not delete a thread that has a branch: "failed to delete session". Therefore the scenario deletes the branch's source as a file.
 
-## 8. Поведение рантаймов, замеченное попутно
+## 8. Runtime behavior noticed along the way
 
 **Claude Code 2.1.292:**
 
-- открывает транскрипт на каждую запись. Удалённый транскрипт создаёт заново по тому же пути и пишет туда только новые строки;
-- `--no-session-persistence` не пишет транскрипт, hooks при этом приходят полностью, от `SessionStart` до `SessionEnd`;
-- загружает один плагин на имя: маркетплейс важнее `<claude>/skills`, `--plugin-dir` (`@inline`) важнее маркетплейса;
-- после каждого Stop-hook пишет в транскрипт строку `system/stop_hook_summary` (Q4-9).
+- opens the transcript for every write. It recreates a deleted transcript at the same path and writes only new lines there;
+- `--no-session-persistence` does not write a transcript, while hooks arrive in full, from `SessionStart` to `SessionEnd`;
+- loads one plugin per name: the marketplace takes precedence over `<claude>/skills`, `--plugin-dir` (`@inline`) takes precedence over the marketplace;
+- after every Stop hook writes the `system/stop_hook_summary` line to the transcript (Q4-9).
 
 **codex-cli 0.160.0:**
 
-- держит rollout открытым и дописывает целые строки: во время команды последняя строка всегда завершена `\n`. Rollout, удалённый посреди хода, Codex продолжает писать в удалённый файл, нового файла не создаёт;
-- `exec_command` возвращает управление модели не позже чем через 30 с, даже если запрошено `yield_time_ms: 60000`;
-- `codex exec` молча пропускает недоверенные hooks;
-- `codex archive` переносит rollout в плоский `archived_sessions/`, `codex unarchive` возвращает его обратно;
-- `codex delete --force` не удаляет тред, у которого есть ветка.
+- keeps the rollout open and appends whole lines: during a command the last line is always terminated with `\n`. When the rollout is deleted mid-turn, Codex keeps writing to the deleted file and does not create a new one;
+- `exec_command` returns control to the model no later than after 30 s, even if `yield_time_ms: 60000` is requested;
+- `codex exec` silently skips untrusted hooks;
+- `codex archive` moves the rollout to the flat `archived_sessions/`, `codex unarchive` moves it back;
+- `codex delete --force` does not delete a thread that has a branch.
 
-**macOS 27.0.1, Node 26.10.0.** Рекурсивный `fs.watch` сообщает о создании файла и о записи через новое открытие, но не о записи через уже открытый дескриптор (Q4-1).
+**macOS 27.0.1, Node 26.10.0.** Recursive `fs.watch` reports file creation and a write through a new open, but not a write through an already open handle (Q4-1).
 
 **Windows Server 2025, Node 26.10.0:**
 
-- рекурсивный `fs.watch` (`ReadDirectoryChangesW`) тоже не сообщает о последней записи через открытый дескриптор, но rollout Codex во время команды читается сразу (раздел 2, Q4-1);
-- Claude выполняет Bash в Git Bash и пишет в транскрипт пути Windows, в том числе после `cd`;
-- Codex выполняет команды и hooks в PowerShell. Hooks aang для Codex — команды `& '<aang-hook.exe>' codex user '<spool>'`, их доверие и сдвиг позиционного ключа ведут себя как на macOS и Linux.
+- recursive `fs.watch` (`ReadDirectoryChangesW`) also does not report the last write through an open handle, but the Codex rollout is read immediately during a command (section 2, Q4-1);
+- Claude runs Bash in Git Bash and writes Windows paths to the transcript, including after `cd`;
+- Codex runs commands and hooks in PowerShell. aang's hooks for Codex are the commands `& '<aang-hook.exe>' codex user '<spool>'`; their trust and the positional key shift behave as on macOS and Linux.
 
-## 9. Что не покрыто
+## 9. What is not covered
 
-- **Windows, интерактивная часть** — TUI в PowerShell, пункт B6 чек-листа владельца. Автоматическая часть идёт в CI.
-- **Зависание уборки на Windows.** В первом прогоне на Windows (CI, ревизия `b13b3c80`) уборка сценария `lineage/claude-fork-parent-unseen` зависла после всех его проверок, и workflow остановился по лимиту 75 минут. Два следующих прогона на ревизиях `f533b816` и `5b6bf4f7` прошли за 6 минут. Причина не найдена. Теперь выход демона и каждый этап уборки сценария ограничены 60 с; если этап не закончился, сценарий получает ✘. Этапы уборки выполняются независимо от ошибок предыдущих. После зависшего этапа и в конце каждой уборки инструмент снимает, пока они не закончатся, и перечисляет в отчёте: работающие демоны, CLI и команды `aang` сценария с их потомками; на Linux и macOS — все процессы групп CLI и команд `aang` сценария, в том числе после выхода самой команды; процессы, в командной строке или окружении которых есть путь профиля. Если такой процесс работает и через 30 с, сценарий получает ✘. Не находится только процесс вне этих групп, родитель которого завершился, а в командной строке и окружении нет пути профиля. `ps` на macOS не показывает окружение системных программ вроде `/bin/sleep`. На Windows групп процессов нет и окружение инструмент не читает, поэтому там такой процесс находится только по командной строке.
-- **Desktop, интерактивные TUI, диалог `/hooks`, `/clear`** — чек-лист владельца, разделы A и B.
-- **Настоящая модель** — по желанию, пункт C1 чек-листа. Поведение, которое здесь проверялось (файлы, hooks, процессы), от модели не зависит.
-- **Без живой проверки:**
-  - срок spool (7 дней) и порог объёма (1 ГБ) — по времени и объёму они неудобны для живого прогона, их держат интеграционные тесты сборщика и демона;
-  - канал OTel Codex;
-  - перезапуск посреди работы субагентов.
+- **Windows, the interactive part** — TUI in PowerShell, item B6 of the owner's checklist. The automatic part runs in CI.
+- **Cleanup hang on Windows.** In the first run on Windows (CI, revision `b13b3c80`) the cleanup of the `lineage/claude-fork-parent-unseen` scenario hung after all its checks, and the workflow stopped on the 75-minute limit. The next two runs at revisions `f533b816` and `5b6bf4f7` passed in 6 minutes. The cause was not found. Now the daemon exit and each cleanup stage of a scenario are bounded by 60 s; if a stage did not finish, the scenario gets ✘. Cleanup stages run independently of errors in the previous ones. After a hung stage and at the end of every cleanup, the tool kills, until they are gone, and lists in the report: the scenario's running daemons, CLIs and `aang` commands with their descendants; on Linux and macOS, all processes of the process groups of the scenario's CLIs and `aang` commands, including after the command itself exited; processes whose command line or environment contains the profile path. If such a process is still running after 30 s, the scenario gets ✘. The only process not found is one outside these groups whose parent has exited and whose command line and environment do not contain the profile path. `ps` on macOS does not show the environment of system programs like `/bin/sleep`. On Windows there are no process groups and the tool does not read the environment, so there such a process is found only by its command line.
+- **Desktop, interactive TUIs, the `/hooks` dialog, `/clear`** — the owner's checklist, sections A and B.
+- **The real model** — optional, item C1 of the checklist. The behavior checked here (files, hooks, processes) does not depend on the model.
+- **Without a live check:**
+  - the spool retention (7 days) and the size threshold (1 GB) — by time and size they are inconvenient for a live run; they are held by the integration tests of the collector and the daemon;
+  - the Codex OTel channel;
+  - a restart in the middle of subagent work.

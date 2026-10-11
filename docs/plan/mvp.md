@@ -1,63 +1,63 @@
-# План реализации MVP
+# MVP Implementation Plan
 
-Статус: принято владельцем 2026-10-01. Основание: `rfc.md` (§4 задаёт границы), ADR-0001…0012 (приняты), ADR-0013 (поддержка Windows: требование, обработчик hook на Go и остальные технические решения приняты владельцем 2026-10-01).
+Status: accepted by the owner 2026-10-01. Basis: `rfc.md` (§4 sets the boundaries), ADR-0001…0012 (accepted), ADR-0013 (Windows support: the requirement, the Go hook handler and the remaining technical decisions accepted by the owner 2026-10-01).
 
-## Правила выполнения
+## Execution rules
 
-- **Размер PR.** PR логически цельный и ревьюабельный: обычно один-два пункта плана. Жёсткого лимита строк нет (AGENTS.md). Записанные эталонные сессии — сгенерированный код и идут отдельными PR без кода.
-- **Ревью.** Реализацию и исправления ведут сессии Claude Code на Opus. Каждый PR до мержа проходит кросс-ревью в новой сессии Codex на gpt-6-astra с reasoning xhigh.
-- **Одобрение ADR.** Аспект начинается только после одобрения ADR из колонки «ADR» таблицы ниже. ADR-0001…0012 приняты. Обработчик hook на Go (ADR-0013) принят, поэтому D.1 не ждёт остального ADR-0013. Пункты, зависящие от других технических решений ADR-0013 (особенности Windows), начинаются после их одобрения.
-- **Изменения общих пакетов после этапа 0:**
-  - `contract` — отдельные малые PR, которые мержатся раньше зависящих от них PR;
-  - схема `store` — до первого выпуска правится на месте отдельными PR в `store`, мержатся по очереди; миграции появляются после выпуска;
-  - репозитории таблиц пишет аспект-владелец таблиц в своих PR (таблица владения ниже).
-- **Тесты в том же PR.** Приёмку PR проверяют тесты из этого же PR, CI зелёный. Исключения:
-  - PR чистых типов `contract` — проверяются типизацией и первыми потребителями;
-  - инфраструктурный S.1a — проверяется прогоном CI;
-  - проверки на настоящих CLI и чек-листы (A.5, D.5–D.8, F.3, Q) — отчёт в `docs/research/`; D.8 идёт в GitHub Actions, остальные — локально;
-  - записи эталонных сессий (R.4) — проверяются прогонами R.5a и R.5b;
-  - документация (P.3).
-- **Тестирование — по ADR-0012:**
-  - моки только на внешних границах (рантаймы, LLM-CLI, сторонние процессы установки);
-  - функциональные тесты `engine` идут через настоящие адаптеры;
-  - сбои моделируются через SIGKILL (`TerminateProcess` на Windows);
-  - временные пороги в CI — с запасом, строгие — в локальных бенчмарках с тегом.
-- **Платформы.** macOS, Linux и Windows (ADR-0013): CI идёт по матрице трёх ОС, специфика Windows входит в приёмку затронутых пунктов.
+- **PR size.** A PR is logically coherent and reviewable: usually one or two plan items. There is no hard line limit (AGENTS.md). Recorded reference sessions are generated code and go in separate PRs without code.
+- **Review.** Implementation and fixes are done by Claude Code sessions on Opus. Before merge, every PR goes through cross-review in a new Codex session on gpt-6-astra with reasoning xhigh.
+- **ADR approval.** An aspect starts only after the ADRs in the "ADR" column of the table below are approved. ADR-0001…0012 are accepted. The Go hook handler (ADR-0013) is accepted, so D.1 does not wait for the rest of ADR-0013. Items that depend on other technical decisions of ADR-0013 (Windows specifics) start after those are approved.
+- **Changes to shared packages after stage 0:**
+  - `contract` — separate small PRs that are merged before the PRs that depend on them;
+  - the `store` schema — until the first release it is edited in place by separate PRs in `store`, merged one at a time; migrations appear after the release;
+  - table repositories are written by the aspect that owns the tables, in its own PRs (ownership table below).
+- **Tests in the same PR.** PR acceptance is verified by tests from the same PR, CI green. Exceptions:
+  - pure-type `contract` PRs — verified by type checking and by their first consumers;
+  - infrastructure S.1a — verified by a CI run;
+  - checks on real CLIs and checklists (A.5, D.5–D.8, F.3, Q) — a report in `docs/research/`; D.8 runs in GitHub Actions, the rest locally;
+  - recordings of reference sessions (R.4) — verified by the R.5a and R.5b runs;
+  - documentation (P.3).
+- **Testing — per ADR-0012:**
+  - mocks only at external boundaries (runtimes, LLM CLIs, third-party installation processes);
+  - `engine` functional tests go through the real adapters;
+  - failures are simulated with SIGKILL (`TerminateProcess` on Windows);
+  - time thresholds in CI have headroom; strict ones live in tagged local benchmarks.
+- **Platforms.** macOS, Linux and Windows (ADR-0013): CI runs a three-OS matrix; Windows specifics are part of the acceptance of the affected items.
 
-## Обзор
+## Overview
 
-| Аспект | Пакеты | ADR | Старт после | Этап |
+| Aspect | Packages | ADR | Starts after | Stage |
 | --- | --- | --- | --- | --- |
-| S. Каркас, контракт, хранилище | все (каркас), `contract`, `store` | 0001, 0004–0013 | одобрения ADR | 0 |
-| A. Сборщик | `collector` | 0004, 0005, 0011, 0013 | S.2a, S.7 | 1 |
-| B. Адаптер Claude | `adapter-claude` | 0004, 0006, 0009, 0010 | S.2b | 1 |
-| C. Адаптер Codex | `adapter-codex` | 0004, 0006, 0009, 0010 | S.2b | 1 |
-| D. Hook и установка | `hook` | 0004, 0011, 0013 | S.2a | 1 |
-| R. Эталонные сессии и матрица | `tools/record`, `fixtures`, `support` | 0004, 0010, 0013 | D.1, D.2 | 1–2 |
-| E. Приём и объекты наблюдения | `engine` | 0004–0006, 0008, 0009 | S.7, B.1, B.3 | 1 |
-| M. Модель и представление | `engine` | 0005–0008 | S.3b, S.4a, S.6c | 1 |
-| F. Наблюдатель | `observer`, `testkit/fake-cli` | 0002, 0007, 0010, 0013 | S.4a, S.6c | 1 |
-| G. Демон, API, CLI | `daemon`, `cli`, `aang` | 0003–0005, 0010, 0011, 0013 | S.5, S.6a | 1 |
-| T. Тестовая инфраструктура | `testkit` | 0004, 0010, 0012 | S.2a | 1 |
-| H. Веб-интерфейс | `web` | 0008, 0011, 0012 | G.4, G.5, T.4, R.4 | 2 |
-| K. Чат | `observer`, `engine`, `daemon` | 0007, 0008 | M.6, M.7, F.9, G.6 | 2 |
-| U. Расход наблюдателя и отчёт | `engine`, `daemon`, `cli` | 0009 | E.8, F.9, G.4 | 2 |
-| P. Упаковка | корень, `aang`, `daemon` | 0011, 0013 | H, K, U | 3 |
-| Q. Проверка и замеры | — | 0010, 0013, RFC §9 | P | 3 |
+| S. Skeleton, contract, store | all (skeleton), `contract`, `store` | 0001, 0004–0013 | ADR approval | 0 |
+| A. Collector | `collector` | 0004, 0005, 0011, 0013 | S.2a, S.7 | 1 |
+| B. Claude adapter | `adapter-claude` | 0004, 0006, 0009, 0010 | S.2b | 1 |
+| C. Codex adapter | `adapter-codex` | 0004, 0006, 0009, 0010 | S.2b | 1 |
+| D. Hook and installation | `hook` | 0004, 0011, 0013 | S.2a | 1 |
+| R. Reference sessions and matrix | `tools/record`, `fixtures`, `support` | 0004, 0010, 0013 | D.1, D.2 | 1–2 |
+| E. Intake and observation objects | `engine` | 0004–0006, 0008, 0009 | S.7, B.1, B.3 | 1 |
+| M. Model and view | `engine` | 0005–0008 | S.3b, S.4a, S.6c | 1 |
+| F. Observer | `observer`, `testkit/fake-cli` | 0002, 0007, 0010, 0013 | S.4a, S.6c | 1 |
+| G. Daemon, API, CLI | `daemon`, `cli`, `aang` | 0003–0005, 0010, 0011, 0013 | S.5, S.6a | 1 |
+| T. Test infrastructure | `testkit` | 0004, 0010, 0012 | S.2a | 1 |
+| H. Web interface | `web` | 0008, 0011, 0012 | G.4, G.5, T.4, R.4 | 2 |
+| K. Chat | `observer`, `engine`, `daemon` | 0007, 0008 | M.6, M.7, F.9, G.6 | 2 |
+| U. Observer usage and report | `engine`, `daemon`, `cli` | 0009 | E.8, F.9, G.4 | 2 |
+| P. Packaging | root, `aang`, `daemon` | 0011, 0013 | H, K, U | 3 |
+| Q. Verification and measurements | — | 0010, 0013, RFC §9 | P | 3 |
 
 ```mermaid
 flowchart LR
-    S[S. Каркас, контракт, хранилище] --> A[A. Сборщик]
-    S --> B[B. Адаптер Claude]
-    S --> C[C. Адаптер Codex]
-    S --> D[D. Hook и установка]
-    S --> M[M. Модель]
-    S --> F[F. Наблюдатель]
-    S --> G[G. Демон, API, CLI]
-    S --> T[T. Тестовая инфраструктура]
-    B --> E[E. Объекты наблюдения]
+    S[S. Skeleton, contract, store] --> A[A. Collector]
+    S --> B[B. Claude adapter]
+    S --> C[C. Codex adapter]
+    S --> D[D. Hook and installation]
+    S --> M[M. Model]
+    S --> F[F. Observer]
+    S --> G[G. Daemon, API, CLI]
+    S --> T[T. Test infrastructure]
+    B --> E[E. Observation objects]
     C --> E
-    D --> R[R. Эталонные сессии]
+    D --> R[R. Reference sessions]
     E --> M
     M --> F
     A --> G
@@ -65,1049 +65,1049 @@ flowchart LR
     M --> G
     F --> G
     G --> T
-    R --> H[H. Веб-интерфейс]
+    R --> H[H. Web interface]
     T --> H
     G --> H
-    F --> K[K. Чат]
+    F --> K[K. Chat]
     M --> K
-    E --> U[U. Расход]
-    H --> P[P. Упаковка]
+    E --> U[U. Usage]
+    H --> P[P. Packaging]
     K --> P
     U --> P
-    P --> Q[Q. Проверка и замеры]
+    P --> Q[Q. Verification and measurements]
 ```
 
-### Владение таблицами `store`
+### `store` table ownership
 
-| Таблицы (ADR-0005) | Владелец |
+| Tables (ADR-0005) | Owner |
 | --- | --- |
-| сырые записи, факты, курсоры с решением охвата, `gaps` | S.7 |
-| объекты наблюдения, прогоны, связи, `bindings` | E |
-| модель, журнал, версии, `fact_interpretation`, `view_marks`, `attention_views`, `view_rules` | M |
+| raw records, facts, cursors with the scope decision, `gaps` | S.7 |
+| observation objects, runs, links, `bindings` | E |
+| model, journal, versions, `fact_interpretation`, `view_marks`, `attention_views`, `view_rules` | M |
 | `observer_calls` | F |
 | `chat_messages` | K |
 | `settings` | G |
 
-### Сессии и параллельность
+### Sessions and parallelism
 
-- **Этап 0** — две сессии после S.1:
-  - «контракт» (S.1–S.5);
-  - «хранилище» (S.6–S.7).
-- **Этап 1:**
+- **Stage 0** — two sessions after S.1:
+  - "contract" (S.1–S.5);
+  - "store" (S.6–S.7).
+- **Stage 1:**
 
-  | Сессия | Аспекты | Когда начинается |
+  | Session | Aspects | When it starts |
   | --- | --- | --- |
-  | 1 | A | после S.2a и S.7 |
-  | 2 | B, затем B.7, B.8 и B.9 | после S.2b |
-  | 3 | C, затем C.6 | после S.2b |
-  | 4 | D, затем R | после S.2a |
-  | 5 | E | после B.1 и B.3; до них — подготовка по ADR |
-  | 6 | M | после S.6c |
-  | 7 | F | после S.4a |
-  | 8 | G.1, затем T.1–T.3, затем остальной G | после S.5 и S.6a |
+  | 1 | A | after S.2a and S.7 |
+  | 2 | B, then B.7, B.8 and B.9 | after S.2b |
+  | 3 | C, then C.6 | after S.2b |
+  | 4 | D, then R | after S.2a |
+  | 5 | E | after B.1 and B.3; before them — preparation per the ADRs |
+  | 6 | M | after S.6c |
+  | 7 | F | after S.4a |
+  | 8 | G.1, then T.1–T.3, then the rest of G | after S.5 and S.6a |
 
-  Сессии E и M не объединяются: от них зависят G, F, K и H. Сессии G и T объединяются, потому что G.3 ждёт E.1–E.3 и T заполняет это время; G.1 идёт первым, потому что от него зависит T.1.
-- **Этап 2:** H.1 делает одна сессия, затем H делится на три линии (факты и внимание; карта и инспектор; возвращение, чат, расход). K продолжает сессия F, U — сессия E. B.7 и C.6 сессии B и C делают сразу после R.4, до полного контрактного прогона R.5b. B.8 сессия B делает после R.4b, B.9 — после B.8.
+  Sessions E and M are not merged: G, F, K and H depend on them. Sessions G and T are merged because G.3 waits for E.1–E.3 and T fills that time; G.1 goes first because T.1 depends on it.
+- **Stage 2:** H.1 is done by one session, then H splits into three lines (facts and attention; map and inspector; return, chat, usage). K is continued by session F, U by session E. B.7 and C.6 are done by sessions B and C right after R.4, before the full contract run R.5b. B.8 is done by session B after R.4b, B.9 after B.8.
 
-**Критический путь:**
+**Critical path:**
 
 S.1a → S.2a → S.2b → B.1, B.3 → E.1 → E.2 → E.3 → M.6 → G.3 → G.4, G.5 → T.4 → H.1 → H.4 → H.6 → H.8 → P → Q.
 
-Параллельно с ним должны успеть:
+In parallel with it, the following must be ready in time:
 
-- R.1 → R.2 → R.4 — согласованные записи для E2E;
-- F.6 (допуск версии) → F.9 → G.6 — наблюдатель в демоне для H.4–H.6;
-- D.6 → G.7 — первое реальное использование проверки trust;
-- K.2 — для H.8.
+- R.1 → R.2 → R.4 — consistent recordings for E2E;
+- F.6 (version admission) → F.9 → G.6 — the observer in the daemon for H.4–H.6;
+- D.6 → G.7 — the first real use of the trust check;
+- K.2 — for H.8.
 
-## Контрольные точки
+## Checkpoints
 
-| Точка | Состав | Что видит пользователь | E2E (ADR-0012) |
+| Checkpoint | Scope | What the user sees | E2E (ADR-0012) |
 | --- | --- | --- | --- |
-| К1. Факты без LLM | S; A; B.1–B.6; C.1–C.5; D.1–D.6, D.8; E.1–E.7c; M.1, M.6; G.1–G.5, G.7; T.1–T.5; R.1–R.5a; H.1–H.2 | прогоны, сессии, агенты, действия, факты плана; явные запросы в зоне внимания; режимы поддержки; потеря источника | 2, 9, 10, 12, 13 |
-| К2. Смысловая карта | B.7–B.9, C.6, R.2b, R.2c, R.2d, R.4b, R.5b; D.9; M.2–M.5c; F.1–F.9; G.6; T.6; H.3–H.6, H.11 | этапы, три оси, основания, сохранённые версии, инспектор, сохранение выбора, отказ LLM, Codex с OTel | 1, 3, 7, 8, 14, 17 |
-| К3. Возвращение и чат | E.8–E.9; M.7–M.8; G.8–G.12; K; U; H.7–H.10, H.12 | «С последнего просмотра», чат, правила вида, снятие пунктов, расход, перезапуск | 4, 5, 6, 11, 15, 16, 18; варианты по рантаймам и поверхностям |
-| К4. Поставка и поддержка | F.10, P, Q | npm и Docker, матрица поддержки, замеры свежести и экономики | все; Q — на живых сессиях |
+| K1. Facts without an LLM | S; A; B.1–B.6; C.1–C.5; D.1–D.6, D.8; E.1–E.7c; M.1, M.6; G.1–G.5, G.7; T.1–T.5; R.1–R.5a; H.1–H.2 | runs, sessions, agents, actions, plan facts; explicit requests in the attention zone; support modes; source loss | 2, 9, 10, 12, 13 |
+| K2. Semantic map | B.7–B.9, C.6, R.2b, R.2c, R.2d, R.4b, R.5b; D.9; M.2–M.5c; F.1–F.9; G.6; T.6; H.3–H.6, H.11 | stages, three axes, grounds, saved versions, inspector, persisted choice, LLM refusal, Codex with OTel | 1, 3, 7, 8, 14, 17 |
+| K3. Return and chat | E.8–E.9; M.7–M.8; G.8–G.12; K; U; H.7–H.10, H.12 | «С последнего просмотра» ("Since last view"), chat, view rules, dismissing items, usage, restart | 4, 5, 6, 11, 15, 16, 18; variants by runtime and surface |
+| K4. Delivery and support | F.10, P, Q | npm and Docker, support matrix, freshness and economics measurements | all; Q — on live sessions |
 
-## Этап 0. Каркас, контракт, хранилище (S)
+## Stage 0. Skeleton, contract, store (S)
 
-- **S.1a Рабочая область и CI**.
-  - Состав:
-    - pnpm workspace, `tsconfig` strict с project references;
-    - заготовки 12 пакетов из ADR-0011;
-    - Vitest workspace, конфиг Playwright, сведение покрытия `c8`;
-    - тулчейн Go для `aang-hook`;
-    - CI на GitHub Actions по матрице macOS, Linux и Windows: установка, типы, тесты, задание E2E.
-  - Приёмка: `pnpm install && pnpm build && pnpm test` проходит на чистом клоне; CI зелёный на трёх ОС.
-- **S.1b Правила репозитория**.
-  - Состав:
-    - ESLint: направление зависимостей ADR-0011, тестам `engine` разрешены адаптеры;
-    - `tools/check-comments` — запрет комментариев в TS, Go, SQL, YAML, CSS; исключения — shebang и синтаксически значимые директивы.
-  - Приёмка: проверки падают на файлах-нарушителях каждого языка и проходят на чистых.
-  - Тесты: интеграционные, проверки запускаются над временными файлами.
-- **S.2a Контракт: spool, сырые записи, интерфейсы**.
-  - Состав:
-    - брендированные id;
-    - конверт сырой записи;
-    - формат spool-файла (ADR-0004);
-    - интерфейс адаптера (`streamKey`, `rawKey`, `parse`) и сборщика (`start`, порция, `ack`);
-    - функции детерминированных id фактов и объектов (ADR-0005).
-  - Приёмка: типизация; стабильность id проверяют функциональные тесты E.1 и E.9 (юнит-тестов заранее не разрешено, ADR-0012).
-- **S.2b Контракт: факты**.
-  - Состав: объединение видов фактов с `entity_key`, `speaker`, `urgent` и схемами payload по видам ADR-0006, включая git-снимок, снимок JSON-файла, контекст и потерю источника.
-  - Приёмка: типизация; первые потребители — B.1 и C.1.
-- **S.3a Контракт: объекты наблюдения**.
-  - Состав: сессия, агент, действие (контейнер code mode), вопрос, версия артефакта, git-снимок, запись usage, пробел, режим поддержки.
-- **S.3b Контракт: модель и журнал**.
-  - Состав:
-    - прогон, этап, критерий, карточка, пункт внимания, связи;
-    - оси выполнения, основания с интерпретатором и решения человека;
-    - запись журнала и статусы интерпретации;
-    - отметки и правило вида с закрытыми вариантами селектора.
-- **S.4a Контракт: протокол наблюдателя и JSON Schema**.
-  - Состав: вход и выход наблюдателя; операции ADR-0007 как закрытые варианты `anyOf`; генерация схемы.
-  - Приёмка: схема соблюдает ограничения строгого режима из ADR-0007 (объект в корне, `additionalProperties: false`, все поля в `required`, нет свободных словарей, `oneOf`, `allOf`, `not`, `if`).
-  - Тесты: контрактный — проверка ограничений по сгенерированной схеме.
-- **S.4b Контракт: чат и правило вида**.
-  - Состав: вход и выход чата с `needs` (ADR-0008), предложение правила; генерация схемы из S.4a.
-  - Приёмка и тесты: как S.4a.
-- **S.5 Контракт: API, SSE, конфиг, матрица**.
-  - Состав:
-    - DTO всех эндпоинтов ADR-0011;
-    - события SSE, включая `reset`;
-    - схема `config.json` с умолчаниями (корни рантаймов, отслеживаемые корни, `lookback`, сборщик с `fsWatch` и интервалами обхода, наблюдатель с моделями, effort, `crossVendor` и бюджетом, пути CLI, адрес, контракты проверки);
-    - формат `support/matrix.json` с ключом `(рантайм, поверхность, ОС, размещение, версия движка)`.
-  - Приёмка: конфиг по умолчанию загружается и проходит схему.
-  - Тесты: интеграционный — загрузка конфига из временного каталога.
-- **S.6a Хранилище: раннер, lock, транзакции**.
-  - Состав: применение схемы с `PRAGMA user_version`; lock-файл единственного писателя; помощник транзакций; выдача `change_seq`.
-  - Приёмка: второй писатель получает отказ; откат не оставляет частичных строк; повторное открытие ничего не меняет.
-  - Тесты: интеграционные на реальном SQLite.
-- **S.6b Хранилище: схема сырых слоёв**.
-  - Состав: сырые записи, факты, курсоры с потоком и решением охвата, `gaps`.
-  - Тесты: интеграционные — уникальность ключей, ограничения.
-- **S.6c Хранилище: схема модели и служебных таблиц**.
-  - Состав: объекты, прогоны, связи, привязки, blob версий-оснований, модель, журнал, версии, `fact_interpretation` (включая `deferred`), отметки с парой «версия и `change_seq`», правила, чат, `observer_calls` с базовой версией, `pruned_streams`, `settings`.
-  - Тесты: как S.6b.
-- **S.7 Хранилище: репозитории сырых слоёв**.
-  - Состав: вставка с дедупликацией по `dedupe_key`, факты, курсоры с решением охвата, лента «изменения после `change_seq`».
-  - Приёмка: повторная вставка сообщает «дубль» и не создаёт строк; курсор и записи сохраняются одной транзакцией.
-  - Тесты: интеграционные.
+- **S.1a Workspace and CI**.
+  - Scope:
+    - pnpm workspace, strict `tsconfig` with project references;
+    - stubs of the 12 packages from ADR-0011;
+    - Vitest workspace, Playwright config, `c8` coverage merging;
+    - Go toolchain for `aang-hook`;
+    - CI on GitHub Actions over a macOS, Linux and Windows matrix: install, types, tests, the E2E job.
+  - Acceptance: `pnpm install && pnpm build && pnpm test` passes on a clean clone; CI green on three OSes.
+- **S.1b Repository rules**.
+  - Scope:
+    - ESLint: the ADR-0011 dependency direction; `engine` tests are allowed to use adapters;
+    - `tools/check-comments` — a ban on comments in TS, Go, SQL, YAML, CSS; exceptions are shebang and syntactically significant directives.
+  - Acceptance: the checks fail on violating files of each language and pass on clean ones.
+  - Tests: integration; the checks run over temporary files.
+- **S.2a Contract: spool, raw records, interfaces**.
+  - Scope:
+    - branded ids;
+    - the raw record envelope;
+    - the spool file format (ADR-0004);
+    - the adapter interface (`streamKey`, `rawKey`, `parse`) and the collector interface (`start`, batch, `ack`);
+    - functions for deterministic fact and object ids (ADR-0005).
+  - Acceptance: type checking; id stability is verified by the E.1 and E.9 functional tests (unit tests up front are not allowed, ADR-0012).
+- **S.2b Contract: facts**.
+  - Scope: the union of fact kinds with `entity_key`, `speaker`, `urgent` and per-kind payload schemas from ADR-0006, including the git snapshot, the JSON file snapshot, context and source loss.
+  - Acceptance: type checking; the first consumers are B.1 and C.1.
+- **S.3a Contract: observation objects**.
+  - Scope: session, agent, action (code mode container), question, artifact version, git snapshot, usage record, gap, support mode.
+- **S.3b Contract: model and journal**.
+  - Scope:
+    - run, stage, criterion, card, attention item, links;
+    - execution axes, grounds with the interpreter, and human decisions;
+    - journal entry and interpretation statuses;
+    - marks and the view rule with closed selector variants.
+- **S.4a Contract: observer protocol and JSON Schema**.
+  - Scope: observer input and output; the ADR-0007 operations as closed `anyOf` variants; schema generation.
+  - Acceptance: the schema respects the strict-mode constraints from ADR-0007 (an object at the root, `additionalProperties: false`, all fields in `required`, no free-form dictionaries, `oneOf`, `allOf`, `not`, `if`).
+  - Tests: contract — checking the constraints against the generated schema.
+- **S.4b Contract: chat and view rule**.
+  - Scope: chat input and output with `needs` (ADR-0008), the rule proposal; schema generation from S.4a.
+  - Acceptance and tests: as S.4a.
+- **S.5 Contract: API, SSE, config, matrix**.
+  - Scope:
+    - DTOs of all ADR-0011 endpoints;
+    - SSE events, including `reset`;
+    - the `config.json` schema with defaults (runtime roots, watched roots, `lookback`, the collector with `fsWatch` and scan intervals, the observer with models, effort, `crossVendor` and budget, CLI paths, address, check contracts);
+    - the `support/matrix.json` format with the key `(runtime, surface, OS, placement, engine version)`.
+  - Acceptance: the default config loads and passes the schema.
+  - Tests: integration — loading the config from a temporary directory.
+- **S.6a Store: runner, lock, transactions**.
+  - Scope: applying the schema with `PRAGMA user_version`; the single-writer lock file; a transaction helper; issuing `change_seq`.
+  - Acceptance: a second writer is refused; a rollback leaves no partial rows; reopening changes nothing.
+  - Tests: integration on real SQLite.
+- **S.6b Store: raw layer schema**.
+  - Scope: raw records, facts, cursors with the stream and the scope decision, `gaps`.
+  - Tests: integration — key uniqueness, constraints.
+- **S.6c Store: model and service table schema**.
+  - Scope: objects, runs, links, bindings, blobs of ground versions, model, journal, versions, `fact_interpretation` (including `deferred`), marks with the "version and `change_seq`" pair, rules, chat, `observer_calls` with the base version, `pruned_streams`, `settings`.
+  - Tests: as S.6b.
+- **S.7 Store: raw layer repositories**.
+  - Scope: insertion with deduplication by `dedupe_key`, facts, cursors with the scope decision, the "changes after `change_seq`" feed.
+  - Acceptance: a repeated insertion reports "duplicate" and creates no rows; the cursor and the records are saved in one transaction.
+  - Tests: integration.
 
-## Этап 1. Параллельные аспекты
+## Stage 1. Parallel aspects
 
-### A. Сборщик (`collector`)
+### A. Collector (`collector`)
 
 - **A.1 Spool** (S.2a, S.7).
-  - Состав:
-    - fs watch на `spool/new` как сигнал; перечисление каталога при старте, раз в 5 с и сразу после ошибки, переполнения или закрытия watcher с его пересозданием (ADR-0004, ADR-0013);
-    - файлы, выданные в порцию и ещё не подтверждённые, повторно не выдаются;
-    - разбор заголовка; время приёма — `mtime` в наносекундах;
-    - порции; `ack` удаляет файл;
-    - при старте — отбрасывание файлов старше срока с пробелом и очистка `spool/tmp`;
-    - статистика spool.
-  - Приёмка:
-    - событие попадает в порцию за ≤ 1 с в CI (≤ 100 мс локально);
-    - с `collector.fsWatch: false` файл, появившийся в `spool/new` без уведомления и без перезапуска, попадает в порцию в пределах интервала обхода, выдаётся один раз и удаляется только после `ack`;
-    - без `ack` файл остаётся и выдаётся повторно после перезапуска;
-    - устаревшие файлы отбрасываются с пробелом.
-  - Тесты: интеграционные на реальных файлах; формат файлов — по S.2a.
-- **A.2 Хвост JSONL**.
-  - Состав:
-    - рекурсивный watch и обход по `stat` раз в 60 с и сразу после ошибки или переполнения watcher;
-    - пока корня рантайма нет, watch ближайшего существующего родителя и watch корня, как только он появится (ADR-0004, решение 15; находка Q4-6, одобрено владельцем 2026-10-08);
-    - проверка по `stat` раз в 1 с файлов, изменённых за последние 10 минут по `mtime` или по замеченной смене размера или идентичности, без перечисления каталогов (ADR-0004, решение 14; находка Q4-1, одобрено владельцем 2026-10-07);
-    - курсор `(путь, dev, inode, смещение, номер строки, размер, ordinal)`;
-    - только завершённые строки, `\r\n` допускается;
-    - идентичность файла через `fs.stat` с `bigint` (на Windows — серийный номер тома и индекс NTFS);
-    - повтор чтения, если пишущий процесс держит блокировку, затяжная неудача — пробел;
-    - курсоры принимаются на старте и возвращаются в порциях.
-  - Приёмка:
-    - дописывание, неполная последняя строка, разрыв многобайтового символа и перезапуск с курсора не теряют и не повторяют строк;
-    - с `collector.fsWatch: false` дописанные строки читаются в пределах интервала обхода;
-    - файлы в корнях, созданных после старта, в том числе вместе с родителем корня, читаются за ≤ 5 с без обхода корней, и через настоящий демон;
-    - строки, дописанные через дескриптор, который писатель держит открытым, читаются за ≤ 2 с без уведомлений watch и без обхода корней, в том числе при `mtime`, который запись не обновляет, и rollout Codex на macOS через настоящий демон;
-    - 500 файлов отслеживаются без пропусков.
-  - Тесты: интеграционные на трёх ОС; разрыв многобайтового символа — запись половины строки в реальный файл, чтение, дозапись.
-- **A.3 Снимки JSON-файлов**.
-  - Состав: `*.meta.json`, `teams/*/config.json`, `workflows/*.json`, реестр `sessions/*.json`; выдача снимка при изменении содержимого и события исчезновения файла.
-  - Приёмка: последовательность снимков реестра, восстановленная из журнала наблюдений `claude-code-transcripts/sessions-registry-lifecycle-observed.jsonl`, выдаётся без повторов.
-  - Тесты: интеграционные.
-- **A.4 Приёмник OTel**.
-  - Состав: отдельный listener на `127.0.0.1`, путь `/otel/<токен>/v1/logs`, ответ `200` до обработки, отбор `codex.tool_decision`.
-  - Приёмка:
-    - OTLP-запрос, собранный из записей `codex-otel/logs.tool_decision.variants.jsonl` (обёрнутых в конверт по `logs.envelope.tool_decision.approved-user.app-server.json`), даёт записи;
-    - события `logs.other-events.jsonl` на диск не попадают;
-    - неверный токен — 404.
-  - Тесты: интеграционные по HTTP.
-- **A.5 Путь с токеном на настоящем `codex`** (локально, отчёт).
-  - Состав: `codex exec` на заглушке Responses API с `-c otel.…`, указывающим на путь с токеном.
-  - Приёмка: приёмник получает `codex.tool_decision` с `source: Config` (ADR-0004).
-- **A.6 Перенос, архив, потеря** (B.3, C.1).
-  - Состав:
-    - распознавание смены inode, уменьшения и исчезновения файла;
-    - поиск потока через `streamKey` адаптеров: Claude — в `projects/`, Codex — в `archived_sessions/`;
-    - перечитывание; сигнал `source_lost`.
-  - Приёмка: перенос в `*.superseded-*` и `codex archive` продолжают поток; удаление даёт `source_lost`.
-  - Тесты: интеграционные с настоящими адаптерами.
-- **A.7 Бэкфилл и перечитывание**.
-  - Состав: файлы без курсора в пределах `lookback`; `rescan(потоки)` с начала по запросу `engine`.
-  - Приёмка: файлы старше `lookback` не читаются; файлы с курсором читаются с курсора; `rescan` перечитывает с начала.
-  - Тесты: интеграционные.
-- **A.8 Файлы-вложения**.
-  - Состав: чтение текстовых файлов `tool-results/*`, на которые ссылается `persistedOutputPath`, по запросу `engine`; сохранение как сырой записи с хешем.
-  - Приёмка: вывод Bash, вынесенный в файл, доступен после удаления исходного файла.
-  - Тесты: интеграционные.
+  - Scope:
+    - fs watch on `spool/new` as a signal; listing the directory at startup, every 5 s, and right after an error, overflow or watcher close, recreating the watcher (ADR-0004, ADR-0013);
+    - files handed out in a batch and not yet acknowledged are not handed out again;
+    - header parsing; intake time is `mtime` in nanoseconds;
+    - batches; `ack` deletes the file;
+    - at startup — discarding files older than the retention period with a gap, and cleaning `spool/tmp`;
+    - spool statistics.
+  - Acceptance:
+    - an event lands in a batch within ≤ 1 s in CI (≤ 100 ms locally);
+    - with `collector.fsWatch: false`, a file that appears in `spool/new` without a notification and without a restart lands in a batch within the scan interval, is handed out once and is deleted only after `ack`;
+    - without `ack` the file stays and is handed out again after a restart;
+    - stale files are discarded with a gap.
+  - Tests: integration on real files; the file format per S.2a.
+- **A.2 JSONL tail**.
+  - Scope:
+    - recursive watch and a `stat` scan every 60 s and right after a watcher error or overflow;
+    - while the runtime root does not exist, a watch on the nearest existing parent, and a watch on the root as soon as it appears (ADR-0004, decision 15; finding Q4-6, approved by the owner 2026-10-08);
+    - a `stat` check every 1 s of files changed within the last 10 minutes by `mtime` or by an observed change of size or identity, without listing directories (ADR-0004, decision 14; finding Q4-1, approved by the owner 2026-10-07);
+    - cursor `(path, dev, inode, offset, line number, size, ordinal)`;
+    - only complete lines, `\r\n` allowed;
+    - file identity via `fs.stat` with `bigint` (on Windows — the volume serial number and the NTFS index);
+    - a read retry if the writing process holds a lock; a prolonged failure is a gap;
+    - cursors are accepted at startup and returned in batches.
+  - Acceptance:
+    - appending, an incomplete last line, a split multibyte character and a restart from the cursor neither lose nor repeat lines;
+    - with `collector.fsWatch: false`, appended lines are read within the scan interval;
+    - files in roots created after startup, including together with the root's parent, are read within ≤ 5 s without a root scan, and through the real daemon;
+    - lines appended through a descriptor the writer keeps open are read within ≤ 2 s without watch notifications and without a root scan, including with an `mtime` the write does not update, and a Codex rollout on macOS through the real daemon;
+    - 500 files are tracked without misses.
+  - Tests: integration on three OSes; split multibyte character — writing half a line to a real file, reading, appending the rest.
+- **A.3 JSON file snapshots**.
+  - Scope: `*.meta.json`, `teams/*/config.json`, `workflows/*.json`, the `sessions/*.json` registry; emitting a snapshot on a content change, and file disappearance events.
+  - Acceptance: the sequence of registry snapshots reconstructed from the observation log `claude-code-transcripts/sessions-registry-lifecycle-observed.jsonl` is emitted without repeats.
+  - Tests: integration.
+- **A.4 OTel receiver**.
+  - Scope: a separate listener on `127.0.0.1`, path `/otel/<token>/v1/logs`, a `200` response before processing, selecting `codex.tool_decision`.
+  - Acceptance:
+    - an OTLP request assembled from the `codex-otel/logs.tool_decision.variants.jsonl` records (wrapped in the envelope per `logs.envelope.tool_decision.approved-user.app-server.json`) produces records;
+    - `logs.other-events.jsonl` events do not reach disk;
+    - a wrong token — 404.
+  - Tests: integration over HTTP.
+- **A.5 Token path on a real `codex`** (locally, report).
+  - Scope: `codex exec` against a Responses API stub with `-c otel.…` pointing to the token path.
+  - Acceptance: the receiver gets `codex.tool_decision` with `source: Config` (ADR-0004).
+- **A.6 Move, archive, loss** (B.3, C.1).
+  - Scope:
+    - detecting an inode change, file shrinkage and file disappearance;
+    - finding the stream via the adapters' `streamKey`: Claude — in `projects/`, Codex — in `archived_sessions/`;
+    - rereading; the `source_lost` signal.
+  - Acceptance: a move to `*.superseded-*` and `codex archive` continue the stream; deletion produces `source_lost`.
+  - Tests: integration with the real adapters.
+- **A.7 Backfill and rereading**.
+  - Scope: files without a cursor within `lookback`; `rescan(streams)` from the start on request from `engine`.
+  - Acceptance: files older than `lookback` are not read; files with a cursor are read from the cursor; `rescan` rereads from the start.
+  - Tests: integration.
+- **A.8 Attachment files**.
+  - Scope: reading the text files `tool-results/*` referenced by `persistedOutputPath`, on request from `engine`; saving them as a raw record with a hash.
+  - Acceptance: Bash output moved out to a file is available after the original file is deleted.
+  - Tests: integration.
 
-### B. Адаптер Claude (`adapter-claude`)
+### B. Claude adapter (`adapter-claude`)
 
-Образцы — в `docs/research/samples/`: `claude-code-hooks/`, `claude-code-transcripts/`, `claude-agent-sdk/`, `desktop/exp-cc-*`.
+Samples are in `docs/research/samples/`: `claude-code-hooks/`, `claude-code-transcripts/`, `claude-agent-sdk/`, `desktop/exp-cc-*`.
 
-- **B.1 Hooks: инструменты и разрешения**.
-  - Состав:
+- **B.1 Hooks: tools and permissions**.
+  - Scope:
     - `PreToolUse`, `PostToolUse`, `PostToolUseFailure`, `PostToolBatch`, `PermissionRequest`, `PermissionDenied`, `Notification`;
-    - поверхность по заголовку окружения;
-    - ключ содержимого для двойной доставки;
-    - пометка сессии наблюдателя.
-  - Приёмка: каждый образец даёт факты с ожидаемыми видом, сессией, агентом и `tool_use_id`, если он есть в payload.
-  - Тесты: интеграционные на образцах; проверяются ключевые поля.
-- **B.2 Hooks: сессия, ход, агенты, сжатие**.
-  - Состав: `SessionStart` по источникам, `SessionEnd`, `UserPromptSubmit`, `Stop` с `background_tasks`, `SubagentStart`/`SubagentStop`, `PreCompact`/`PostCompact`, `InstructionsLoaded`, `TaskCreated`/`TaskCompleted`, `Elicitation*`; прочие события — общий факт.
-  - Приёмка и тесты: как B.1.
-- **B.3 Транскрипт основного потока**.
-  - Состав:
-    - `streamKey` и `rawKey`;
-    - `user`, `assistant`, `tool_use`/`tool_result` с `toolUseResult`;
-    - служебные строки, `queue-operation`, `compact_boundary`, `isCompactSummary`;
-    - `speaker`, `urgent`, версия;
-    - `thinking` не попадает в содержание;
-    - `parse_state=unknown` для неизвестного.
-  - Приёмка: `session-86f93ed5-main-full.jsonl` и `rec-*` разбираются без `invalid`.
-  - Тесты: интеграционные.
-- **B.4 Субагенты, workflows, teammates**.
-  - Состав:
-    - транскрипт и meta субагента (образцы `subagent-agent-aad616394e806288d.{jsonl,meta.json}`);
-    - журнал и снимок workflow, `teams/*/config.json` — без образцов, разбор помечен непроверенным.
-  - Приёмка: субагент связан с вызовом `Agent` по `meta.toolUseId` и `toolUseResult.agentId`.
-  - Тесты: интеграционные.
-- **B.5 Признаки форка, план, вопросы**.
-  - Состав:
-    - `uuid`, `message.id` и время записей для правила форка;
-    - `ExitPlanMode` и инструменты задач;
-    - `AskUserQuestion` с `answers`;
+    - the surface from the environment header;
+    - the content key for double delivery;
+    - marking the observer's session.
+  - Acceptance: every sample produces facts with the expected kind, session, agent and `tool_use_id`, if it is in the payload.
+  - Tests: integration on samples; key fields are checked.
+- **B.2 Hooks: session, turn, agents, compaction**.
+  - Scope: `SessionStart` by source, `SessionEnd`, `UserPromptSubmit`, `Stop` with `background_tasks`, `SubagentStart`/`SubagentStop`, `PreCompact`/`PostCompact`, `InstructionsLoaded`, `TaskCreated`/`TaskCompleted`, `Elicitation*`; other events — a generic fact.
+  - Acceptance and tests: as B.1.
+- **B.3 Main stream transcript**.
+  - Scope:
+    - `streamKey` and `rawKey`;
+    - `user`, `assistant`, `tool_use`/`tool_result` with `toolUseResult`;
+    - service lines, `queue-operation`, `compact_boundary`, `isCompactSummary`;
+    - `speaker`, `urgent`, version;
+    - `thinking` does not get into the content;
+    - `parse_state=unknown` for anything unknown.
+  - Acceptance: `session-86f93ed5-main-full.jsonl` and `rec-*` parse without `invalid`.
+  - Tests: integration.
+- **B.4 Subagents, workflows, teammates**.
+  - Scope:
+    - the subagent transcript and meta (samples `subagent-agent-aad616394e806288d.{jsonl,meta.json}`);
+    - the workflow journal and snapshot, `teams/*/config.json` — no samples, parsing marked unverified.
+  - Acceptance: the subagent is linked to the `Agent` call by `meta.toolUseId` and `toolUseResult.agentId`.
+  - Tests: integration.
+- **B.5 Fork signs, plan, questions**.
+  - Scope:
+    - `uuid`, `message.id` and record times for the fork rule;
+    - `ExitPlanMode` and task tools;
+    - `AskUserQuestion` with `answers`;
     - `origin.kind`/`promptSource`.
 
-    Разбор плана, ответов и уведомлений без образцов помечен непроверенным.
-  - Приёмка: `session-cdfb3544-fork-full.jsonl` даёт факты, по которым видна граница скопированного блока.
-  - Тесты: интеграционные.
-- **B.6 Usage, `cost-state`, реестр**.
-  - Состав: факты usage (`message.id`, токены, `stop_reason`, `<synthetic>`); итог `cost-state`; снимки реестра с пометкой `entrypoint: aang-observer`.
-  - Приёмка: `rec-cost-state-all.jsonl` и записи основного потока дают ожидаемые ключи и значения.
-  - Тесты: интеграционные.
-- **B.7 Доработка по эталонным сессиям** (R.4). Elicitation, teammates и workflows выделены в B.8: в R.2 нет их сценариев, в R.4 — записей. Выделение принято владельцем 2026-10-04 (#124).
-  - Состав: снять пометки «непроверено» с плана, ответов и уведомлений о фоновых задачах. `TodoWrite` в записях R.4 нет: Claude 2.1.289 заменил его на `TaskCreate`/`TaskUpdate`, поэтому его разбор остаётся непроверенным.
-  - Приёмка: PR добавляет свои сценарии Claude в существующий прогон R.5a и запускает их: без `unknown` среди покрытых типов. R.5b затем делает весь набор обязательным.
-- **B.8 Elicitation, teammates и workflows по эталонным сессиям** (R.4b). Журнал workflow выделен в B.9 по решению владельца 2026-10-07.
-  - Состав: снять пометки «непроверено» с `Elicitation`/`ElicitationResult`, уведомлений `elicitation_dialog`, `elicitation_url_dialog`, `agent_needs_input`, teammates (meta и config команды, `TaskCreated`/`TaskCompleted` с `teammate_name`) и workflows (снимок, meta агентов).
-  - Приёмка: PR добавляет сценарии R.4b в контрактный прогон обязательными и запускает их: без `unknown` среди покрытых типов.
-  - Остаётся непроверенным:
-    - Windows TUI (`teammates`, `input-dialogs`): ручной записи владельца нет, ячейки — `unverified` по таблице применимости R.2b;
-    - `elicitation` в движке Desktop: движок R.4 — 2.1.286, сценарию нужен 2.1.288 или новее.
-- **B.9 Журнал workflow Claude** (B.8). Решение владельца 2026-10-07: журнал выделен из B.8 и одобрено дополнение интерфейса адаптера ADR-0011 — `streamKey(путь, первые строки файла)`. Строки журнала `subagents/workflows/<run>/journal.jsonl` не называют ни сессию, ни запуск, поэтому ключ потока по одним первым строкам не строится и `engine` журнал не принимает.
-  - Состав:
-    - дополнение ADR-0011 и интерфейса адаптера в `contract`: `streamKey` получает путь файла; `collector` и `engine` его передают;
-    - адаптер Claude строит ключ потока журнала по сессии и запуску из пути, адаптер Codex путь не использует;
-    - снять пометку «непроверено» с фактов журнала (`started`, `result`).
-  - Приёмка: контрактный прогон сохраняет строки `launched`/`started`/`result` записей `workflow` R.4b и даёт ожидаемые факты журнала; приём журнала продолжается после перезапуска демона; пробела `unknown_stream_layout` нет.
-  - Тесты: интеграционные и контрактные снимки.
+    Parsing of the plan, answers and notifications without samples is marked unverified.
+  - Acceptance: `session-cdfb3544-fork-full.jsonl` produces facts from which the boundary of the copied block is visible.
+  - Tests: integration.
+- **B.6 Usage, `cost-state`, registry**.
+  - Scope: usage facts (`message.id`, tokens, `stop_reason`, `<synthetic>`); the `cost-state` total; registry snapshots with the `entrypoint: aang-observer` mark.
+  - Acceptance: `rec-cost-state-all.jsonl` and the main stream records produce the expected keys and values.
+  - Tests: integration.
+- **B.7 Refinement from the reference sessions** (R.4). Elicitation, teammates and workflows are split out into B.8: R.2 has no scenarios for them, R.4 has no recordings. The split was accepted by the owner 2026-10-04 (#124).
+  - Scope: remove the "unverified" marks from the plan, answers and background task notifications. There is no `TodoWrite` in the R.4 recordings: Claude 2.1.289 replaced it with `TaskCreate`/`TaskUpdate`, so its parsing stays unverified.
+  - Acceptance: the PR adds its Claude scenarios to the existing R.5a run and runs them: no `unknown` among the covered types. R.5b then makes the whole set mandatory.
+- **B.8 Elicitation, teammates and workflows from the reference sessions** (R.4b). The workflow journal was split out into B.9 by the owner's decision of 2026-10-07.
+  - Scope: remove the "unverified" marks from `Elicitation`/`ElicitationResult`, the `elicitation_dialog`, `elicitation_url_dialog`, `agent_needs_input` notifications, teammates (team meta and config, `TaskCreated`/`TaskCompleted` with `teammate_name`) and workflows (snapshot, agent meta).
+  - Acceptance: the PR adds the R.4b scenarios to the contract run as mandatory and runs them: no `unknown` among the covered types.
+  - Stays unverified:
+    - Windows TUI (`teammates`, `input-dialogs`): there is no manual recording by the owner, the cells are `unverified` per the R.2b applicability table;
+    - `elicitation` in the Desktop engine: the R.4 engine is 2.1.286, the scenario needs 2.1.288 or newer.
+- **B.9 Claude workflow journal** (B.8). Owner decision 2026-10-07: the journal is split out of B.8, and an addition to the ADR-0011 adapter interface is approved — `streamKey(path, first lines of the file)`. The lines of the `subagents/workflows/<run>/journal.jsonl` journal name neither the session nor the run, so a stream key cannot be built from the first lines alone and `engine` does not accept the journal.
+  - Scope:
+    - an addition to ADR-0011 and to the adapter interface in `contract`: `streamKey` receives the file path; `collector` and `engine` pass it;
+    - the Claude adapter builds the journal stream key from the session and the run in the path; the Codex adapter does not use the path;
+    - remove the "unverified" mark from the journal facts (`started`, `result`).
+  - Acceptance: the contract run keeps the `launched`/`started`/`result` lines of the R.4b `workflow` recordings and produces the expected journal facts; journal intake continues after a daemon restart; there is no `unknown_stream_layout` gap.
+  - Tests: integration and contract snapshots.
 
-### C. Адаптер Codex (`adapter-codex`)
+### C. Codex adapter (`adapter-codex`)
 
-Образцы — в `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel/`, `desktop/exp-codex-*`.
+Samples are in `docs/research/samples/`: `codex-cli/`, `codex-sdk/`, `codex-otel/`, `desktop/exp-codex-*`.
 
-- **C.1 Rollout: метаданные и ходы**.
-  - Состав: `streamKey` (`session_meta.id`), `rawKey` (`thread_id`, `ordinal`), `session_meta`, `task_started`/`task_complete`/`turn_aborted`, `turn_context`.
-  - Приёмка: `rollout-real-exec-then-resume-with-compaction.jsonl` разбирается без `invalid`.
-  - Тесты: интеграционные.
-- **C.2 Rollout: элементы и code mode**.
-  - Состав:
-    - `item_completed`: `CommandExecution`, `FileChange`, `AgentMessage` с `questions`, `UserMessage`, `ContextCompaction`, а также `McpToolCall` (без образца, непроверено);
-    - старт по `function_call`/`custom_tool_call`;
-    - ячейка code mode как контейнер вложенных команд.
-  - Приёмка: каждый образец `codex-cli/rollout/` даёт ожидаемые факты.
-  - Тесты: интеграционные.
-- **C.3 Субагенты, fork, сжатие, usage**.
-  - Состав: `SubAgentActivity`, `CollabAgentToolCall`, межагентные сообщения; `compacted`; `token_usage_record` с `thread_id` из `session_meta.id`; `token_count` — только как несуммируемый.
-  - Приёмка: `session_meta.fork.mock.json` даёт `forked_from_id`; на образце rollout сумма записей usage равна последнему `thread_token_usage`.
-  - Тесты: интеграционные.
-- **C.4 Hooks Codex**.
-  - Состав: 12 событий; `tool_use_id` = `call_id`; `agent_id` субагента; снятие обёртки образцов `{"_observed_env_CODEX_vars","stdin"}`.
-  - Приёмка: образцы `codex-cli/hooks/` и `desktop/exp-codex-desktop-appserver-hooks.jsonl` дают ожидаемые факты.
-  - Тесты: интеграционные.
-- **C.5 OTel, поверхность, самоисключение**.
-  - Состав:
-    - `codex.tool_decision` с разделением `source` (`User`, `Config`, `AutomatedReviewer`);
-    - таблица `originator × source`;
-    - пометка сессий наблюдателя.
-  - Приёмка: все варианты OTel распознаны; образцы `session_meta.*` (exec, tui, guardian, субагент, `aang-observer`) классифицированы по ADR-0004.
-  - Тесты: интеграционные.
-- **C.6 План и доработка по эталонным сессиям** (R.4).
-  - Состав: `thread_goal_updated` и записи плана rollout; `McpToolCall`; итог треда без `token_usage_record`.
-  - Приёмка: PR добавляет свои сценарии Codex в существующий прогон R.5a и запускает их: без `unknown` среди покрытых типов. R.5b затем делает весь набор обязательным.
+- **C.1 Rollout: metadata and turns**.
+  - Scope: `streamKey` (`session_meta.id`), `rawKey` (`thread_id`, `ordinal`), `session_meta`, `task_started`/`task_complete`/`turn_aborted`, `turn_context`.
+  - Acceptance: `rollout-real-exec-then-resume-with-compaction.jsonl` parses without `invalid`.
+  - Tests: integration.
+- **C.2 Rollout: items and code mode**.
+  - Scope:
+    - `item_completed`: `CommandExecution`, `FileChange`, `AgentMessage` with `questions`, `UserMessage`, `ContextCompaction`, and also `McpToolCall` (no sample, unverified);
+    - start by `function_call`/`custom_tool_call`;
+    - the code mode cell as a container of nested commands.
+  - Acceptance: every `codex-cli/rollout/` sample produces the expected facts.
+  - Tests: integration.
+- **C.3 Subagents, fork, compaction, usage**.
+  - Scope: `SubAgentActivity`, `CollabAgentToolCall`, inter-agent messages; `compacted`; `token_usage_record` with `thread_id` from `session_meta.id`; `token_count` — only as non-summable.
+  - Acceptance: `session_meta.fork.mock.json` produces `forked_from_id`; on the rollout sample, the sum of the usage records equals the last `thread_token_usage`.
+  - Tests: integration.
+- **C.4 Codex hooks**.
+  - Scope: 12 events; `tool_use_id` = `call_id`; the subagent's `agent_id`; unwrapping the `{"_observed_env_CODEX_vars","stdin"}` sample wrapper.
+  - Acceptance: the `codex-cli/hooks/` and `desktop/exp-codex-desktop-appserver-hooks.jsonl` samples produce the expected facts.
+  - Tests: integration.
+- **C.5 OTel, surface, self-exclusion**.
+  - Scope:
+    - `codex.tool_decision` with `source` split (`User`, `Config`, `AutomatedReviewer`);
+    - the `originator × source` table;
+    - marking the observer's sessions.
+  - Acceptance: all OTel variants are recognized; the `session_meta.*` samples (exec, tui, guardian, subagent, `aang-observer`) are classified per ADR-0004.
+  - Tests: integration.
+- **C.6 Plan and refinement from the reference sessions** (R.4).
+  - Scope: `thread_goal_updated` and rollout plan records; `McpToolCall`; the thread total without `token_usage_record`.
+  - Acceptance: the PR adds its Codex scenarios to the existing R.5a run and runs them: no `unknown` among the covered types. R.5b then makes the whole set mandatory.
 
-### D. Hook и установка (`hook`)
+### D. Hook and installation (`hook`)
 
 - **D.1 `aang-hook`** (S.2a; ADR-0013).
-  - Состав: исполняемый файл на Go по контракту ADR-0004, сборка для macOS, Linux и Windows (amd64, arm64):
-    - путь spool из аргумента команды;
-    - заголовок с тегом регистрации и NUL-разделителями;
-    - аренда `spool/lease-<срок>` и маркер остановки `spool/stopped`;
-    - маркеры наблюдателя;
-    - вычитывание stdin при выходе без записи;
-    - `exit 0` по ADR-0013: разбор аргументов без `flag.ExitOnError`, `recover` на верхнем уровне, потоковое копирование stdin, одна горутина.
-  - Приёмка:
-    - файл появляется в `spool/new` с верным заголовком;
-    - exit 0, пустые stdout и stderr во всех ветках;
-    - нет файла при маркере наблюдателя, при маркере остановки даже с действующей арендой, без аренды и с истёкшей арендой;
-    - exit 0 без записи и вывода при неверном числе аргументов, неизвестном рантайме, несуществующем или недоступном для записи spool, закрытом stdin;
-    - stdin в десятки мегабайт записывается полностью, exit 0;
-    - пороги CI с запасом по ОС; бенчмарк с тегом — p95 ≤ 10 мс для бинаря, запущенного тем же способом, что у рантайма (exec form Claude): на macOS локально, на Linux и Windows — в D.8 на раннерах CI, на Windows ориентир берётся из CI (решение владельца по PR #11). Итоговую задержку установленной конфигурации измеряют D.5 и D.8. Бюджет Claude на Windows — p95 ≤ 25 мс (решение владельца 2026-10-06, ADR-0013, решение 6).
-  - Тесты: интеграционные на трёх ОС; покрытие через `go build -cover`.
-- **D.2 Плагин Claude**.
-  - Состав:
-    - генерация `<AANG_HOME>/claude-plugin`: все события, кроме `Worktree*`, `MessageDisplay` и `PreModelSwitch` (ADR-0004); `timeout: 2`; exec form — `command` с абсолютным путём бинаря, `args` с рантаймом, тегом `plugin` и абсолютным путём spool из текущего `AANG_HOME`;
-    - копия `aang-hook` (`aang-hook.exe` на Windows) в `<AANG_HOME>/bin` без изменений; обновление на месте с переносом занятого файла в сторону на Windows (ADR-0013);
-    - локальный маркетплейс и `claude plugin`;
+  - Scope: a Go executable per the ADR-0004 contract, built for macOS, Linux and Windows (amd64, arm64):
+    - the spool path from a command argument;
+    - a header with the registration tag and NUL separators;
+    - the `spool/lease-<expiry>` lease and the `spool/stopped` stop marker;
+    - observer markers;
+    - draining stdin when exiting without a write;
+    - `exit 0` per ADR-0013: argument parsing without `flag.ExitOnError`, top-level `recover`, streaming copy of stdin, one goroutine.
+  - Acceptance:
+    - the file appears in `spool/new` with a correct header;
+    - exit 0, empty stdout and stderr in all branches;
+    - no file with an observer marker, with a stop marker even with a valid lease, without a lease and with an expired lease;
+    - exit 0 with no write and no output on a wrong number of arguments, an unknown runtime, a nonexistent or non-writable spool, a closed stdin;
+    - stdin of tens of megabytes is written in full, exit 0;
+    - CI thresholds with per-OS headroom; a tagged benchmark — p95 ≤ 10 ms for the binary launched the same way the runtime does it (Claude exec form): on macOS locally, on Linux and Windows — in D.8 on CI runners; on Windows the target is taken from CI (owner decision on PR #11). The end-to-end latency of the installed configuration is measured by D.5 and D.8. The Claude budget on Windows is p95 ≤ 25 ms (owner decision 2026-10-06, ADR-0013, decision 6).
+  - Tests: integration on three OSes; coverage via `go build -cover`.
+- **D.2 Claude plugin**.
+  - Scope:
+    - generating `<AANG_HOME>/claude-plugin`: all events except `Worktree*`, `MessageDisplay` and `PreModelSwitch` (ADR-0004); `timeout: 2`; exec form — `command` with the absolute binary path, `args` with the runtime, the `plugin` tag and the absolute spool path from the current `AANG_HOME`;
+    - a copy of `aang-hook` (`aang-hook.exe` on Windows) in `<AANG_HOME>/bin` unchanged; in-place update, moving the busy file aside on Windows (ADR-0013);
+    - the local marketplace and `claude plugin`;
     - `uninstall`;
-    - проверка включённости плагина.
-  - Приёмка:
-    - повторная установка идемпотентна; аргументы вызовов `claude` соответствуют ожиданию; `uninstall` удаляет плагин;
-    - переопределённый `AANG_HOME` и путь с пробелами и не-ASCII символами попадают в `command` и `args` без искажений;
-    - обновление бинаря во время непрерывных вызовов hook на трёх ОС: строка команды в плагине не меняется, каждый запущенный вызов выполняется старым или новым бинарём и завершается с exit 0. На Windows вызов в окне между двумя переименованиями может не запуститься; это потеря события, кода 2 нет.
-  - Тесты: интеграционные во временном HOME с поддельным `claude`.
-- **D.3 Hooks Codex**.
-  - Состав: запись с тегом `user` и абсолютным путём spool только в конец массивов; путь бинаря в строке команды экранирован для shell рантайма: `sh` на macOS и Linux, PowerShell на Windows — `& '<путь>' 'codex' 'user' '<spool>'` с удвоением одинарной кавычки (D.8); устаревшие записи aang нейтрализуются на месте (`true`, на Windows `exit 0`); резервная копия; `uninstall` нейтрализует записи aang.
-  - Windows (решение владельца 2026-10-06, ADR-0013, решение 7): `aang install` без флагов hooks Codex не ставит, и сессии Codex идут в режиме «только файлы»; `aang install --codex` ставит их явно. `aang install` и `aang status` предупреждают о замедлении 0,25–0,4 с на событие.
-  - Проверка trust на Windows: `codex app-server` запускается через лаунчер D.9 в режиме `stream`. Режим не входит в решение 7, он принят владельцем 2026-10-07 (ADR-0013, техническое решение 4).
-  - Приёмка:
-    - позиции и содержимое чужих записей не меняются — проверяется на `codex-cli/hooks/hooks.json.logger-config.json` и на синтетическом файле с устаревшей записью `aang hook`;
-    - повторная установка с обновлённым бинарём не меняет строку команды aang в `hooks.json`;
-    - путь с пробелами и не-ASCII символами в `AANG_HOME` даёт рабочую строку команды.
-  - Тесты: интеграционные.
-- **D.4 Trust и состояние установки**.
-  - Состав:
-    - собственный `codex app-server` по stdio: `initialize`, `hooks/list`;
-    - сравнение `trustStatus` чужих записей до и после установки;
-    - функция состояния для демона и CLI.
-  - Приёмка:
-    - различаются состояния «не установлено», «не доверено», «активно»; изменение trust чужой записи прерывает установку с откатом;
-    - остановка дерева app-server не подтверждена за 10 с после команды остановки — проверка завершается ошибкой, следующая проверка того же `CODEX_HOME` CLI не запускает до позднего подтверждения; лаунчер Windows, вышедший без файла статуса, — ошибка сразу и тот же запрет до перезапуска процесса (ADR-0013).
-  - Тесты: интеграционные с поддельным `app-server`, который отвечает по выдержке `desktop/exp-codex-desktop-appserver-hooks-list.json` и по построенному варианту `trusted`.
-- **D.5 Доставка плагина на живых CLI** (локально, скрипт и отчёт).
-  - Состав:
-    - маркетплейс и запасной каталог `~/.claude/skills/aang/.claude-plugin/` в CLI и в SDK с `settingSources` по умолчанию;
-    - exec form плагина на установленной версии Claude;
-    - задержка установленного hook со стороны рантайма на macOS и Linux для обоих CLI: бенчмарк с тем же launcher и прирост времени серии событий с hooks aang относительно серии без них (ADR-0013);
-    - поведение Codex при таймауте hook и ненулевом коде выхода.
-  - Приёмка: отчёт подтверждает решение 1 ADR-0004 или переводит доставку на запасной способ; превышение бюджета или блокирующее поведение выносится владельцу.
-  - Итог: `docs/research/d5-plugin-delivery-live.md`. Инструмент — `tools/runtime-check`, набор `delivery`.
-- **D.6 Собственный `app-server` в штатном `~/.codex`** (локально, отчёт).
-  - Состав: побочные эффекты `initialize` и `hooks/list` (sqlite, логи, запуск MCP).
-  - Приёмка: отчёт; при заметных эффектах — правка ADR-0004. Блокирует G.7 и `doctor` в G.12: до отчёта D.4 на штатном `~/.codex` не запускается.
-  - Итог: `docs/research/d6-app-server-live.md`. Сценарий — `docs/research/samples/codex-app-server-live/run.mjs`.
-- **D.7 Ранний ручной чек-лист владельца** (инструкция и скрипт сбора).
-  - Состав:
-    - чек-листы спайка: раздел 11 (оба Desktop) — на macOS; раздел 6, пункты a–h (интерактивный TUI Claude) — на macOS и на Windows. Выполняет владелец. Desktop на Windows в MVP не проверяется (ADR-0013, решение 3);
-    - отдельная инструкция для Windows на нативных командах (PowerShell, `%TEMP%` вместо `/tmp`, без Bash и `touch`); TUI — в нативной консоли Windows, прогон в WSL пункт не закрывает;
-    - регистратор — `aang-hook` во временный spool; скрипт подготовки создаёт в нём действующую аренду, без которой hook ничего не пишет.
-  - Приёмка: результаты в `docs/research/`; ограничения Desktop выносятся владельцу (RFC §4) до этапа 2.
-  - Инструкции: `docs/research/d7-owner-checklist.md` (macOS) и `docs/research/d7-owner-checklist-windows.md`. Скрипт подготовки, сбора и отката — `tools/owner-checklist`.
-- **D.8 Проверка рантаймов на Windows** (GitHub Actions, отчёт; ADR-0013).
-  - Способ (ADR-0013, решение 4): настоящие `claude` и `codex` ставятся на раннер `windows-latest` и направляются на локальные поддельные endpoint модели — Claude через `ANTHROPIC_BASE_URL`, Codex через заглушку Responses API. Секреты не нужны. Хранение настоящей OAuth-авторизации на Windows помечается непроверенным.
-  - Состав:
-    - как Claude Code и Codex исполняют команды hooks на Windows и какая строка команды нужна для `aang-hook.exe`; exec form Claude; профиль с пробелами и не-ASCII символами в пути;
-    - задержка установленного hook со стороны рантайма для обоих CLI: бенчмарк с тем же launcher и прирост времени серии событий с hooks aang относительно серии без них (ADR-0013);
-    - поведение Codex при таймауте hook и ненулевом коде выхода;
-    - пути и форматы транскриптов и rollout, кодирование каталогов проектов, концы строк;
-    - fs watch и блокировки файлов при чтении;
-    - исполняемые файлы CLI и шимы `.cmd`, допуск наблюдателя;
-    - дерево процессов CLI в Job Object по схеме лаунчера D.9: все процессы в задании и завершаются вместе с ним; процессы, которые CLI порождает вне своего дерева (через службы ОС);
-    - строгий бенчмарк `aang-hook` на Linux и Windows (D.1).
+    - checking that the plugin is enabled.
+  - Acceptance:
+    - reinstallation is idempotent; the arguments of the `claude` calls match expectations; `uninstall` removes the plugin;
+    - an overridden `AANG_HOME` and a path with spaces and non-ASCII characters reach `command` and `args` undistorted;
+    - updating the binary during continuous hook calls on three OSes: the command line in the plugin does not change, every launched call runs the old or the new binary and finishes with exit 0. On Windows a call in the window between the two renames may fail to start; that is a lost event, there is no exit code 2.
+  - Tests: integration in a temporary HOME with a fake `claude`.
+- **D.3 Codex hooks**.
+  - Scope: an entry with the `user` tag and the absolute spool path only at the end of the arrays; the binary path in the command line is escaped for the runtime's shell: `sh` on macOS and Linux, PowerShell on Windows — `& '<path>' 'codex' 'user' '<spool>'` with single quotes doubled (D.8); stale aang entries are neutralized in place (`true`, on Windows `exit 0`); a backup copy; `uninstall` neutralizes aang entries.
+  - Windows (owner decision 2026-10-06, ADR-0013, decision 7): `aang install` without flags does not install Codex hooks, and Codex sessions run in «только файлы» ("files only") mode; `aang install --codex` installs them explicitly. `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event.
+  - Trust check on Windows: `codex app-server` is launched through the D.9 launcher in `stream` mode. The mode is not part of decision 7; it was accepted by the owner 2026-10-07 (ADR-0013, technical decision 4).
+  - Acceptance:
+    - the positions and contents of other parties' entries do not change — verified on `codex-cli/hooks/hooks.json.logger-config.json` and on a synthetic file with a stale `aang hook` entry;
+    - reinstallation with an updated binary does not change the aang command line in `hooks.json`;
+    - a path with spaces and non-ASCII characters in `AANG_HOME` produces a working command line.
+  - Tests: integration.
+- **D.4 Trust and installation state**.
+  - Scope:
+    - an own `codex app-server` over stdio: `initialize`, `hooks/list`;
+    - comparing the `trustStatus` of other parties' entries before and after installation;
+    - a state function for the daemon and the CLI.
+  - Acceptance:
+    - the states "not installed", "untrusted", "active" are distinguished; a change in the trust of another party's entry aborts the installation with a rollback;
+    - if the stop of the app-server tree is not confirmed within 10 s after the stop command, the check ends with an error, and the next check of the same `CODEX_HOME` does not launch the CLI until a late confirmation; a Windows launcher that exited without a status file is an immediate error and the same ban until the process restarts (ADR-0013).
+  - Tests: integration with a fake `app-server` that responds per the `desktop/exp-codex-desktop-appserver-hooks-list.json` excerpt and per a constructed `trusted` variant.
+- **D.5 Plugin delivery on live CLIs** (locally, script and report).
+  - Scope:
+    - the marketplace and the fallback directory `~/.claude/skills/aang/.claude-plugin/` in the CLI and in the SDK with default `settingSources`;
+    - the plugin exec form on the installed Claude version;
+    - runtime-side latency of the installed hook on macOS and Linux for both CLIs: a benchmark with the same launcher and the increase in time of a series of events with aang hooks relative to a series without them (ADR-0013);
+    - Codex behavior on a hook timeout and a non-zero exit code.
+  - Acceptance: the report confirms decision 1 of ADR-0004 or switches delivery to the fallback method; a budget overrun or blocking behavior is escalated to the owner.
+  - Result: `docs/research/d5-plugin-delivery-live.md`. Tool — `tools/runtime-check`, the `delivery` suite.
+- **D.6 Own `app-server` in the standard `~/.codex`** (locally, report).
+  - Scope: side effects of `initialize` and `hooks/list` (sqlite, logs, MCP launch).
+  - Acceptance: a report; if the effects are noticeable — an ADR-0004 amendment. Blocks G.7 and `doctor` in G.12: until the report, D.4 does not run on the standard `~/.codex`.
+  - Result: `docs/research/d6-app-server-live.md`. Script — `docs/research/samples/codex-app-server-live/run.mjs`.
+- **D.7 Early manual owner checklist** (instructions and a collection script).
+  - Scope:
+    - the spike checklists: section 11 (both Desktops) — on macOS; section 6, items a–h (interactive Claude TUI) — on macOS and on Windows. Done by the owner. Desktop on Windows is not verified in the MVP (ADR-0013, decision 3);
+    - separate instructions for Windows with native commands (PowerShell, `%TEMP%` instead of `/tmp`, without Bash and `touch`); TUI — in the native Windows console; a run in WSL does not close the item;
+    - the recorder is `aang-hook` into a temporary spool; the preparation script creates a valid lease in it, without which the hook writes nothing.
+  - Acceptance: results in `docs/research/`; Desktop limitations are escalated to the owner (RFC §4) before stage 2.
+  - Instructions: `docs/research/d7-owner-checklist.md` (macOS) and `docs/research/d7-owner-checklist-windows.md`. The preparation, collection and rollback script is `tools/owner-checklist`.
+- **D.8 Runtime verification on Windows** (GitHub Actions, report; ADR-0013).
+  - Method (ADR-0013, decision 4): real `claude` and `codex` are installed on a `windows-latest` runner and pointed at local fake model endpoints — Claude via `ANTHROPIC_BASE_URL`, Codex via a Responses API stub. No secrets are needed. Storage of real OAuth authorization on Windows is marked unverified.
+  - Scope:
+    - how Claude Code and Codex execute hook commands on Windows and which command line `aang-hook.exe` needs; Claude exec form; a profile with spaces and non-ASCII characters in the path;
+    - runtime-side latency of the installed hook for both CLIs: a benchmark with the same launcher and the increase in time of a series of events with aang hooks relative to a series without them (ADR-0013);
+    - Codex behavior on a hook timeout and a non-zero exit code;
+    - transcript and rollout paths and formats, project directory encoding, line endings;
+    - fs watch and file locks during reading;
+    - CLI executables and `.cmd` shims, observer admission;
+    - the CLI process tree in a Job Object per the D.9 launcher scheme: all processes are in the job and terminate together with it; processes the CLI spawns outside its tree (via OS services);
+    - the strict `aang-hook` benchmark on Linux and Windows (D.1).
 
-    Данные Desktop на Windows не проверяются (ADR-0013, решение 3).
-  - Приёмка: отчёт в `docs/research/`. До отчёта установка hooks (D.2, D.3) и запуск наблюдателя (F.2, F.5) на Windows не включаются; найденные расхождения вносятся в ADR-0013. Превышение бюджета hook, блокирующее поведение рантайма и процессы CLI вне задания лаунчера выносятся владельцу. Установка hooks на Windows включена по решениям владельца 2026-10-06 (решения 15 и 16 ниже).
-  - Итог: `docs/research/windows-runtimes.md`. Инструмент — `tools/runtime-check`, workflow — `Runtime check`.
-- **D.9 Лаунчер для Windows** (D.1; ADR-0013).
-  - Состав: режим `aang-hook launch` того же бинаря:
-    - Job Object с kill-on-close без права выхода из задания;
-    - запуск CLI приостановленным, включение в задание, возобновление;
-    - первые n байт stdin — вход CLI, закрытие stdin после них — команда остановки;
-    - режим `stream` (ADR-0013, техническое решение 4, принято владельцем 2026-10-07): вход CLI — весь stdin по мере поступления, а его закрытие — та же команда остановки (`codex app-server`, D.3);
-    - по выходу корня или команде — завершение задания и ожидание, пока в нём не останется активных процессов;
-    - затем файл статуса с кодом выхода корня и подтверждением остановки;
-    - отказ создать или назначить задание — CLI не запускается.
-  - Приёмка:
-    - вход доходит до CLI без искажений, код выхода корня попадает в файл статуса;
-    - корень выходит, оставив потомка без общих каналов: потомок завершается вместе с заданием, файл статуса появляется только после его выхода;
-    - закрытие stdin лаунчера, в том числе выходом процесса, который его запустил, завершает всё дерево;
-    - внешнее завершение лаунчера (`TerminateProcess`) не оставляет процессов задания, файл статуса при этом не появляется;
-    - вызов hook из конфигов (первый аргумент — рантайм) в режим лаунчера не попадает;
-    - в режиме `stream` ответ CLI на первую строку приходит до закрытия stdin, а закрытие stdin останавливает дерево и даёт файл статуса;
-    - приостановленный извне лаунчер не держит вызывающего дольше срока подтверждения остановки (D.4).
-  - Тесты: интеграционные на Windows.
+    Desktop data on Windows is not verified (ADR-0013, decision 3).
+  - Acceptance: a report in `docs/research/`. Until the report, hook installation (D.2, D.3) and launching the observer (F.2, F.5) on Windows are not enabled; discrepancies found are added to ADR-0013. A hook budget overrun, blocking runtime behavior and CLI processes outside the launcher's job are escalated to the owner. Hook installation on Windows was enabled by the owner's decisions of 2026-10-06 (decisions 15 and 16 below).
+  - Result: `docs/research/windows-runtimes.md`. Tool — `tools/runtime-check`, workflow — `Runtime check`.
+- **D.9 Windows launcher** (D.1; ADR-0013).
+  - Scope: an `aang-hook launch` mode of the same binary:
+    - a Job Object with kill-on-close and without the right to break away from the job;
+    - launching the CLI suspended, adding it to the job, resuming;
+    - the first n bytes of stdin are the CLI input; closing stdin after them is the stop command;
+    - `stream` mode (ADR-0013, technical decision 4, accepted by the owner 2026-10-07): the CLI input is all of stdin as it arrives, and its closing is the same stop command (`codex app-server`, D.3);
+    - on the root's exit or on the command — terminating the job and waiting until no active processes remain in it;
+    - then a status file with the root's exit code and the stop confirmation;
+    - failure to create or assign the job — the CLI is not launched.
+  - Acceptance:
+    - the input reaches the CLI undistorted, the root's exit code gets into the status file;
+    - the root exits leaving a descendant without shared pipes: the descendant terminates together with the job, the status file appears only after it exits;
+    - closing the launcher's stdin, including by the exit of the process that launched it, terminates the whole tree;
+    - external termination of the launcher (`TerminateProcess`) leaves no job processes, and no status file appears;
+    - a hook call from the configs (first argument — the runtime) does not get into launcher mode;
+    - in `stream` mode the CLI's response to the first line arrives before stdin is closed, and closing stdin stops the tree and produces the status file;
+    - a launcher suspended from outside does not hold the caller longer than the stop confirmation period (D.4).
+  - Tests: integration on Windows.
 
-### R. Эталонные сессии и матрица поддержки
+### R. Reference sessions and support matrix
 
-- **R.1 Инструмент записи и обезличивание** (D.1, D.2).
-  - Состав:
-    - `tools/record`: временный проект;
-    - hook через `--plugin-dir` с временным spool и действующей арендой в нём;
-    - сбор транскриптов, rollout, spool и JSON-файлов с отметками времени;
-    - обезличивание, включая пути Windows (`C:\Users\<имя>`, `%USERPROFILE%` в экранированном JSON);
-    - манифест с ОС записи, контрольными событиями и ожидаемыми изменениями карты (предикаты или описание для разметчика, ADR-0007);
-    - каталог записи `fixtures/sessions/<рантайм>/<версия движка>/<поверхность>/<ОС>/<сценарий>/` (ADR-0010).
-  - Приёмка: запись проходит проверку обезличивания (нет домашних путей macOS, Linux и Windows, email, id аккаунта и организации).
-  - Тесты: интеграционные для обезличивания и манифеста.
-- **R.2 Сценарии Claude**.
-  - Состав: сценарии ADR-0010 для CLI (`-p`) и SDK — на macOS, Linux и Windows; движка Desktop в эмуляции — на macOS (Desktop на Windows в MVP не проверяется, ADR-0013). Разрешения и вопросы идут через stdio-хост; вопрос `AskUserQuestion`, недоступный в `-p`, — через SDK-хост или ручную запись владельца.
-  - Приёмка: сценарии воспроизводимы локально.
-- **R.2b Сценарии Claude: Elicitation, teammates, workflows** (R.2).
-  - Состав: на поверхностях и ОС R.2 — MCP-сервер с elicitation в форме и по ссылке и ответ хоста; команда agent teams с teammate и его задачами; workflow с агентами.
-  - Приёмка: сценарии воспроизводимы локально и проверяют, что поведение действительно было.
-- **R.2c Сценарии для F.7d: определения агентов и скиллов, hooks решателя, роли Codex** (R.2b, R.3). Решение владельца 2026-10-05 по F.7d: сначала записи.
-  - Состав:
-    - Claude на поверхностях и ОС R.2: плагин с агентом и скиллом через `--plugin-dir`; пользовательский hook с выводом, дающий вложения `hook_*` и `system.stop_hook_summary` с ошибкой hook;
-    - Claude CLI и SDK: агент, заданный на один запуск (`--agents`, у SDK — опция `agents`); в Desktop таких определений нет;
-    - Codex exec на macOS, Linux и Windows: роль агента в `config.toml` (`[agents.<роль>]`) и субагент этой роли рядом с субагентом без роли.
-  - Приёмка: сценарии воспроизводимы локально и проверяют, что поведение действительно было; записи R.4b до F.7d в контрактный прогон не входят.
-- **R.2d Сценарий вопроса Codex Desktop** (R.3). Решение владельца 2026-10-06 по H.12: для E2E 4 нужна запись Codex Desktop с итоговым ответом решателя (`phase: final_answer`), чтобы проверить вопрос наблюдателя и карточку финального текста.
-  - Состав:
-    - сценарий `question` в эмуляции Codex Desktop на macOS по образцу `question` Codex CLI и SDK: асинхронный вопрос `request_user_input_async` и ответ пользователя вторым ходом того же треда;
-    - заглушка Responses API помечает свой текстовый ответ `phase: final_answer`, как модель помечает последнее сообщение хода.
-  - Приёмка: сценарий воспроизводим локально и проверяет, что вопрос и итоговые ответы обоих ходов действительно были.
-- **R.3 Сценарии Codex** (D.3).
-  - Состав:
-    - сценарии с hooks на заглушке Responses API во временном `CODEX_HOME`: exec, TUI через `expect`, субагент, fork, асинхронный вопрос, одобрение с решением через OTel, прерывание;
-    - сценарий с реальной моделью без hooks: resume и сжатие;
-    - те же сценарии на Linux и, после D.8, на Windows. TUI на Windows — через нативный хост ConPTY в `tools/record` (например, `node-pty`) или ручной записью владельца; прогон в WSL записью Windows не считается.
-- **R.4 Записи текущих версий** (сгенерировано).
-  - Состав: версии, установленные на момент записи (ADR-0010): сейчас Claude 2.1.286 (CLI, SDK), движок Claude Desktop, Codex CLI 0.159.3, Codex SDK 0.159.3, сборка Codex Desktop. CLI и SDK обоих рантаймов — на macOS, Linux и Windows; Desktop — на macOS. Записи каждой ОС лежат в своём каталоге. Данные спайка по Codex 0.159.2 эталонами для 0.159.3 не считаются.
-- **R.4b Записи сценариев R.2b, R.2c и R.2d** (сгенерировано).
-  - Состав: версии, ОС и поверхности R.4.
-- **R.5a Контрактный прогон и матрица** (E.2–E.4).
-  - Состав:
-    - адаптеры и `engine` по `fixtures/sessions` → снимки фактов и объектов, инварианты ADR-0010;
-    - генерация и чтение `support/matrix.json`;
-    - обязательный поднабор сценариев: всё, кроме плана, ответов на вопросы, teammates и workflows.
-  - Приёмка:
-    - регрессия адаптера ломает CI; версия вне матрицы получает `unverified`;
-    - записи одного сценария на разных ОС сосуществуют и прогоняются на каждом раннере;
-    - строка ОС без собственных записей остаётся `unverified`, даже если записи другой ОС проходят на её раннере;
-    - строка размещения Docker, VM или SSH-режима остаётся `unverified` до проверки Q.1;
-    - строки Desktop на Windows — `unverified` («не проверено») в MVP (ADR-0013, решение 3).
-  - Тесты: контрактные в CI.
-- **R.5b Полный контрактный gate** (B.7, C.6).
-  - Состав: все сценарии ADR-0010 обязательны; `unknown` среди покрытых типов ломает CI. Сценарии R.4b не ждёт: их делает обязательными B.8.
-  - Приёмка: прогон зелёный на записях R.4.
+- **R.1 Recording tool and anonymization** (D.1, D.2).
+  - Scope:
+    - `tools/record`: a temporary project;
+    - the hook via `--plugin-dir` with a temporary spool and a valid lease in it;
+    - collecting transcripts, rollouts, spool and JSON files with timestamps;
+    - anonymization, including Windows paths (`C:\Users\<name>`, `%USERPROFILE%` in escaped JSON);
+    - a manifest with the recording OS, control events and expected map changes (predicates or a description for the annotator, ADR-0007);
+    - the recording directory `fixtures/sessions/<runtime>/<engine version>/<surface>/<OS>/<scenario>/` (ADR-0010).
+  - Acceptance: the recording passes the anonymization check (no macOS, Linux or Windows home paths, emails, account or organization ids).
+  - Tests: integration for anonymization and the manifest.
+- **R.2 Claude scenarios**.
+  - Scope: the ADR-0010 scenarios for the CLI (`-p`) and the SDK — on macOS, Linux and Windows; the Desktop engine in emulation — on macOS (Desktop on Windows is not verified in the MVP, ADR-0013). Permissions and questions go through a stdio host; the `AskUserQuestion` question, unavailable in `-p`, goes through an SDK host or a manual recording by the owner.
+  - Acceptance: the scenarios are reproducible locally.
+- **R.2b Claude scenarios: Elicitation, teammates, workflows** (R.2).
+  - Scope: on the R.2 surfaces and OSes — an MCP server with form and URL elicitation and a host response; an agent teams team with a teammate and its tasks; a workflow with agents.
+  - Acceptance: the scenarios are reproducible locally and verify that the behavior actually happened.
+- **R.2c Scenarios for F.7d: agent and skill definitions, solver hooks, Codex roles** (R.2b, R.3). Owner decision 2026-10-05 on F.7d: recordings first.
+  - Scope:
+    - Claude on the R.2 surfaces and OSes: a plugin with an agent and a skill via `--plugin-dir`; a user hook with output that produces `hook_*` attachments and `system.stop_hook_summary` with a hook error;
+    - Claude CLI and SDK: an agent defined for a single run (`--agents`, in the SDK the `agents` option); Desktop has no such definitions;
+    - Codex exec on macOS, Linux and Windows: an agent role in `config.toml` (`[agents.<role>]`) and a subagent of that role next to a subagent without a role.
+  - Acceptance: the scenarios are reproducible locally and verify that the behavior actually happened; the R.4b recordings are not part of the contract run before F.7d.
+- **R.2d Codex Desktop question scenario** (R.3). Owner decision 2026-10-06 on H.12: E2E 4 needs a Codex Desktop recording with the solver's final answer (`phase: final_answer`) to verify the observer's question and the final-text card.
+  - Scope:
+    - the `question` scenario in Codex Desktop emulation on macOS, modeled on the Codex CLI and SDK `question`: the asynchronous question `request_user_input_async` and the user's answer as a second turn of the same thread;
+    - the Responses API stub marks its text response `phase: final_answer`, as the model marks the last message of a turn.
+  - Acceptance: the scenario is reproducible locally and verifies that the question and the final answers of both turns actually happened.
+- **R.3 Codex scenarios** (D.3).
+  - Scope:
+    - scenarios with hooks on a Responses API stub in a temporary `CODEX_HOME`: exec, TUI via `expect`, subagent, fork, asynchronous question, approval with a decision via OTel, interruption;
+    - a scenario with a real model without hooks: resume and compaction;
+    - the same scenarios on Linux and, after D.8, on Windows. TUI on Windows — via a native ConPTY host in `tools/record` (for example, `node-pty`) or a manual recording by the owner; a run in WSL does not count as a Windows recording.
+- **R.4 Recordings of current versions** (generated).
+  - Scope: the versions installed at recording time (ADR-0010): currently Claude 2.1.286 (CLI, SDK), the Claude Desktop engine, Codex CLI 0.159.3, Codex SDK 0.159.3, a Codex Desktop build. CLI and SDK of both runtimes — on macOS, Linux and Windows; Desktop — on macOS. The recordings of each OS live in their own directory. The spike data for Codex 0.159.2 do not count as references for 0.159.3.
+- **R.4b Recordings of the R.2b, R.2c and R.2d scenarios** (generated).
+  - Scope: the R.4 versions, OSes and surfaces.
+- **R.5a Contract run and matrix** (E.2–E.4).
+  - Scope:
+    - adapters and `engine` over `fixtures/sessions` → snapshots of facts and objects, ADR-0010 invariants;
+    - generating and reading `support/matrix.json`;
+    - the mandatory subset of scenarios: everything except the plan, answers to questions, teammates and workflows.
+  - Acceptance:
+    - an adapter regression breaks CI; a version outside the matrix gets `unverified`;
+    - recordings of one scenario on different OSes coexist and run on each runner;
+    - an OS row without its own recordings stays `unverified`, even if the recordings of another OS pass on its runner;
+    - a Docker, VM or SSH-mode placement row stays `unverified` until the Q.1 check;
+    - the Desktop rows on Windows are `unverified` ("not verified") in the MVP (ADR-0013, decision 3).
+  - Tests: contract tests in CI.
+- **R.5b Full contract gate** (B.7, C.6).
+  - Scope: all ADR-0010 scenarios are mandatory; `unknown` among the covered types breaks CI. It does not wait for the R.4b scenarios: B.8 makes them mandatory.
+  - Acceptance: the run is green on the R.4 recordings.
 
-### E. Приём и объекты наблюдения (`engine`)
+### E. Intake and observation objects (`engine`)
 
-Тесты подают сырые записи через настоящие адаптеры (ADR-0012).
+Tests feed raw records through the real adapters (ADR-0012).
 
-- **E.1 Транзакция приёма** (B.1, B.3).
-  - Состав:
-    - `ingest(порция)`: адаптеры из реестра; сырые записи, факты, курсор и решение охвата по потоку — в одной транзакции;
-    - охват по первому `cwd` корневой сессии и общему git-каталогу worktree;
-    - отбрасывание сессий наблюдателя;
-    - лента изменений.
-  - Приёмка:
-    - сессия вне корней не оставляет строк;
-    - worktree отслеживаемого репозитория входит в охват;
-    - после SIGKILL дочернего процесса (сборщик и `engine`) сразу после коммита, до `ack`, перезапуск не создаёт дублей.
-  - Тесты: функциональные и интеграционные с реальным git.
-- **E.2 Слияние наблюдений** (B.2, C.1, C.2, C.4).
-  - Состав:
-    - сессии, агенты и действия по ключам ADR-0006;
-    - слияние hooks и файлов;
-    - события без идентификатора вхождения не сливаются; одинаковые события от разных регистраций в окне 2 с связываются как «возможная повторная доставка» (ADR-0004);
-    - запуски.
-  - Приёмка:
-    - вызов из hook и транскрипта — одно действие с самым ранним временем;
-    - два одинаковых `PermissionRequest` одной регистрации с закрытием между ними — два эпизода;
-    - смешанная частичная доставка от двух регистраций — оба запроса видны, группа помечена неоднозначной;
-    - событие от двух регистраций — группа с пометкой и предупреждение о двойной регистрации;
-    - перестановка файлов spool при перезапуске не меняет идентификаторы эпизодов.
-  - Тесты: функциональные.
-- **E.3 Состояние, свежесть, режимы поддержки**.
-  - Состав:
-    - состояние хода и причины ожидания (реестр, `idle_prompt`, фоновые задачи);
-    - `quiet` (5 мин), `lost`, динамическое `hooks_inactive`;
-    - режимы «полный», «только файлы», «только hooks»;
-    - счётчик непознанных записей.
-  - Приёмка: сессия с файлами без hook-событий получает `hooks_inactive`; молчание не меняет выполнение.
-  - Тесты: функциональные с управляемыми часами.
-- **E.4 Связывание прогонов: корни и агенты**.
-  - Состав: корневые сессии, resume, субагенты, teammates, служебные агенты, ложный `SubagentStop` сжатия, `/clear`.
-  - Приёмка: агент сжатия не становится агентом; сессии с одинаковым каталогом без идентификаторов не связываются.
-  - Тесты: функциональные.
-- **E.5 Связывание прогонов: форки, привязки, перенос** (M.1).
-  - Состав:
-    - правило форка Claude, не зависящее от порядка приёма;
-    - перечень общего происхождения;
-    - fork Codex;
-    - явные привязки;
-    - перенос сессии между прогонами с записью в журнал обоих.
-  - Приёмка:
-    - результат одинаков при чтении форка до и после оригинала, а также без оригинала;
-    - перенос возвращает факты в очередь целевого прогона.
-  - Тесты: функциональные с перестановкой порядка чтения.
-- **E.6 Вопросы, решения, пункты внимания по правилам** (M.1, B.2, C.5).
-  - Состав:
-    - таблица открытия и закрытия ADR-0008: прекращение ожидания отдельно от разрешения вопроса;
-    - связь `PermissionRequest` ↔ `PreToolUse` с пометкой неоднозначности;
-    - решения: OTel только с `source: User`, правила по последующим событиям;
-    - мгновенное закрытие автоотказа.
-  - Приёмка:
-    - пункт создаётся в той же транзакции, что и факт запроса;
-    - `source: Config` не даёт решения человека;
-    - `permission` закрывается по `turn_aborted` и концу сессии как «ожидание прекращено»;
-    - неотвеченный вопрос переживает конец сессии и следующий промпт;
-    - ожидание рантайма, разрешение и снятие хранятся раздельно.
-  - Тесты: функциональные.
-- **E.7a Контракты и проверки** (M.1).
-  - Состав: сопоставление действий с контрактами; проверки; упавшая проверка без последующего успеха и её пункт внимания.
-  - Приёмка: упавшая и затем успешная проверка закрывает пункт; несовпавшая команда проверкой не считается.
-  - Тесты: функциональные.
-- **E.7b Снимки и удержание версий** (E.7a, A.8).
-  - Состав:
-    - снимки ADR-0006: `HEAD` и `git status --porcelain --ignored` по маскам, с `GIT_OPTIONAL_LOCKS=0`;
-    - blob версий-оснований: из payload — как версия действия, из файла — с пометкой «состояние на момент чтения»;
-    - предел размера.
-  - Приёмка:
-    - незафиксированный, неотслеживаемый или игнорируемый файл под маской делает снимок нечистым;
-    - отчёт, созданный через Bash и ставший основанием, читается после удаления исходника и перезапуска с пометкой «состояние на момент чтения»;
-    - демон не создаёт `index.lock`.
-  - Тесты: функциональные с реальным git-репозиторием.
-- **E.7c Подтверждение и устаревание** (E.7b).
-  - Состав:
-    - `confirmed` только по контракту, который извлекает проверенный коммит из вывода успешной проверки; коммит должен существовать в репозитории;
-    - во всех остальных случаях `passed_unversioned`; для двух чистых снимков на одном `HEAD` — справочная пометка;
-    - `stale`, когда `HEAD` отличается от проверенного коммита или дерево под масками не чистое: по сигналу fs watch, в конце хода и после перезапуска.
-  - Приёмка:
-    - коммит из вывода проверки (проверка в изолированном `git worktree`) даёт `confirmed`, в том числе при чтении бэкфиллом;
-    - контракт без извлечения коммита при чистом дереве до и после даёт `passed_unversioned` с пометкой;
-    - вход изменён после первого снимка, проверка прочитала изменённый вход, вход возвращён до второго снимка — `passed_unversioned`, подтверждения нет;
-    - игнорируемый или незафиксированный вход под маской — `passed_unversioned`;
-    - после подтверждения правка без уведомления fs watch ловится снимком в конце хода как `stale`.
-  - Тесты: функциональные с реальным git-репозиторием; fs watch в части тестов отключён, чтобы проверить пропуск уведомлений.
-- **E.8 Расход решателя** (B.6, C.3, E.5).
-  - Состав: журнал решателя по ADR-0009, агрегаты, время.
-  - Приёмка:
-    - форк Claude не удваивает расход;
-    - output без `stop_reason` помечен «нижняя оценка»;
-    - сумма Codex совпадает с `thread_token_usage`, кроме форков;
-    - длительность прогона не равна сумме параллельных агентов.
-  - Тесты: функциональные.
-- **E.9 `reparse` и пересборка проекций** (E.2).
-  - Состав: повторный разбор по `normalizer_version`; сохранение id; «основание недоступно».
-  - Приёмка: после `reparse` с изменённым порядком фактов ссылки модели указывают на те же факты.
-  - Тесты: функциональные.
+- **E.1 Intake transaction** (B.1, B.3).
+  - Scope:
+    - `ingest(batch)`: adapters from the registry; raw records, facts, the cursor and the per-stream scope decision — in one transaction;
+    - scope by the first `cwd` of the root session and by the shared git directory of a worktree;
+    - discarding observer sessions;
+    - the change feed.
+  - Acceptance:
+    - a session outside the roots leaves no rows;
+    - a worktree of a watched repository is in scope;
+    - after a SIGKILL of the child process (collector and `engine`) right after the commit, before `ack`, a restart creates no duplicates.
+  - Tests: functional and integration with real git.
+- **E.2 Merging observations** (B.2, C.1, C.2, C.4).
+  - Scope:
+    - sessions, agents and actions by the ADR-0006 keys;
+    - merging hooks and files;
+    - events without an occurrence identifier are not merged; identical events from different registrations within a 2 s window are linked as a "possible redelivery" (ADR-0004);
+    - launches.
+  - Acceptance:
+    - a call from a hook and from the transcript is one action with the earliest time;
+    - two identical `PermissionRequest`s of one registration with a close between them are two episodes;
+    - mixed partial delivery from two registrations — both requests are visible, the group is marked ambiguous;
+    - an event from two registrations — a marked group and a double-registration warning;
+    - reordering spool files on restart does not change episode identifiers.
+  - Tests: functional.
+- **E.3 State, freshness, support modes**.
+  - Scope:
+    - turn state and waiting reasons (registry, `idle_prompt`, background tasks);
+    - `quiet` (5 min), `lost`, dynamic `hooks_inactive`;
+    - the «полный» ("full"), «только файлы» ("files only"), «только hooks» ("hooks only") modes;
+    - a counter of unrecognized records.
+  - Acceptance: a session with files but without hook events gets `hooks_inactive`; silence does not change execution.
+  - Tests: functional with controlled clocks.
+- **E.4 Run linking: roots and agents**.
+  - Scope: root sessions, resume, subagents, teammates, service agents, the false compaction `SubagentStop`, `/clear`.
+  - Acceptance: the compaction agent does not become an agent; sessions with the same directory and without identifiers are not linked.
+  - Tests: functional.
+- **E.5 Run linking: forks, bindings, transfer** (M.1).
+  - Scope:
+    - the Claude fork rule, independent of intake order;
+    - the list of shared origin;
+    - Codex fork;
+    - explicit bindings;
+    - transferring a session between runs with a journal entry in both.
+  - Acceptance:
+    - the result is the same when the fork is read before and after the original, and also without the original;
+    - a transfer returns the facts to the target run's queue.
+  - Tests: functional with a permuted reading order.
+- **E.6 Questions, decisions, attention items by rules** (M.1, B.2, C.5).
+  - Scope:
+    - the ADR-0008 opening and closing table: the end of waiting is separate from the resolution of the question;
+    - the `PermissionRequest` ↔ `PreToolUse` link with an ambiguity mark;
+    - decisions: OTel only with `source: User`, rules by subsequent events;
+    - immediate closing of an auto-denial.
+  - Acceptance:
+    - the item is created in the same transaction as the request fact;
+    - `source: Config` does not produce a human decision;
+    - `permission` is closed by `turn_aborted` and by the end of the session as «ожидание прекращено» ("waiting stopped");
+    - an unanswered question survives the end of the session and the next prompt;
+    - runtime waiting, resolution and dismissal are stored separately.
+  - Tests: functional.
+- **E.7a Contracts and checks** (M.1).
+  - Scope: matching actions against contracts; checks; a failed check without a subsequent success and its attention item.
+  - Acceptance: a failed and then successful check closes the item; a non-matching command does not count as a check.
+  - Tests: functional.
+- **E.7b Snapshots and version retention** (E.7a, A.8).
+  - Scope:
+    - ADR-0006 snapshots: `HEAD` and `git status --porcelain --ignored` by masks, with `GIT_OPTIONAL_LOCKS=0`;
+    - blobs of ground versions: from the payload — as the action's version, from a file — marked "state at read time";
+    - a size limit.
+  - Acceptance:
+    - an uncommitted, untracked or ignored file under a mask makes the snapshot unclean;
+    - a report created via Bash that became a ground is readable after the source is deleted and after a restart, marked "state at read time";
+    - the daemon does not create `index.lock`.
+  - Tests: functional with a real git repository.
+- **E.7c Confirmation and staleness** (E.7b).
+  - Scope:
+    - `confirmed` only by a contract that extracts the verified commit from the output of a successful check; the commit must exist in the repository;
+    - in all other cases `passed_unversioned`; for two clean snapshots on the same `HEAD` — an informational mark;
+    - `stale` when `HEAD` differs from the verified commit or the tree under the masks is not clean: on an fs watch signal, at the end of a turn and after a restart.
+  - Acceptance:
+    - a commit from the check output (the check runs in an isolated `git worktree`) gives `confirmed`, including when read by backfill;
+    - a contract without commit extraction with a clean tree before and after gives `passed_unversioned` with the mark;
+    - the input was changed after the first snapshot, the check read the changed input, the input was restored before the second snapshot — `passed_unversioned`, no confirmation;
+    - an ignored or uncommitted input under a mask — `passed_unversioned`;
+    - after confirmation, an edit without an fs watch notification is caught by the end-of-turn snapshot as `stale`.
+  - Tests: functional with a real git repository; fs watch is disabled in some tests to verify missed notifications.
+- **E.8 Solver usage** (B.6, C.3, E.5).
+  - Scope: the solver journal per ADR-0009, aggregates, time.
+  - Acceptance:
+    - a Claude fork does not double the usage;
+    - output without `stop_reason` is marked «нижняя оценка» ("lower bound");
+    - the Codex sum matches `thread_token_usage`, except for forks;
+    - the run duration is not equal to the sum of parallel agents.
+  - Tests: functional.
+- **E.9 `reparse` and projection rebuild** (E.2).
+  - Scope: reparsing by `normalizer_version`; preserving ids; «основание недоступно» ("ground unavailable").
+  - Acceptance: after `reparse` with a changed fact order, the model's references point to the same facts.
+  - Tests: functional.
 
-### M. Модель и представление (`engine`)
+### M. Model and view (`engine`)
 
-- **M.1 Журнал и версии** (S.3b, S.6c).
-  - Состав: репозитории модели; применение набора изменений (версия, журнал, проекции); пересборка повтором журнала; история изменений сущностей для конфликтов.
-  - Приёмка: пересборка повтором журнала совпадает с исходным состоянием; после перезапуска версия сохраняется.
-  - Тесты: функциональные.
-- **M.2 Проверка операций: схема, ссылки, область, конфликты** (E.1).
-  - Состав:
-    - схема;
-    - ссылки и временные id, принадлежность прогону;
-    - отсутствие циклов вложенности и преемников;
-    - `base_version` из `observer_calls`;
-    - конфликт только при замене, объединении, разделении, переносе цели или правке того же поля пользователем;
-    - применение ответа целиком или отказ целиком с возвратом всех фактов порции в `pending`.
-  - Приёмка:
-    - выдуманный и чужой id отклоняются;
-    - `stage.nest(A, B)` после `stage.nest(B, A)` отклоняется;
-    - подменённая базовая версия отклоняется;
-    - изменение правилом другого поля не даёт конфликта;
-    - общий факт у принятой и отклонённой операций не получает `interpreted`;
-    - перезапуск между попытками возвращает `in_call` в `pending`.
-  - Тесты: функциональные; ответы наблюдателя — фикстуры.
-- **M.3 Проверка операций: основание и инварианты**.
-  - Состав:
-    - основание по `speaker`;
-    - проверка `origin=plan`;
-    - инварианты ADR-0007;
-    - приоритет наблюдаемого правилом состояния;
-    - отчёт об отклонённых операциях.
-  - Приёмка:
-    - «готово» только по словам решателя даёт `claimed`;
-    - LLM не получает `observed`;
-    - пункт внимания от правил нельзя закрыть операцией.
-  - Тесты: функциональные.
-- **M.4 Операции этапов**.
-  - Состав: `stage.*` с историей объединения, разделения и замены.
-  - Приёмка: заменённый этап виден со ссылкой на замену.
-  - Тесты: функциональные.
-- **M.5a Операции привязок и выполнение этапа**.
-  - Состав: `actions.assign`, `agents.participate`, `artifact.link`; выполнение этапа по правилу (активные действия и активные ожидания) и противоречие с LLM.
-  - Приёмка: «завершено» при идущем действии показывается как противоречие; завершённый этап с неблокирующим вопросом остаётся `done` с решением `requested`.
-  - Тесты: функциональные.
-- **M.5b Операции критериев, карточек, описания**.
-  - Состав: `criterion.add`, `criterion.assess` (только интерпретация), `card.add` с координатами, `brief.update`.
-  - Приёмка: `criterion.assess` не даёт `confirmed`; карточка ведёт к фрагменту оригинала.
-  - Тесты: функциональные.
-- **M.5c Операции внимания и решение на этапе**.
-  - Состав: `question.add`, `attention.add`, `attention.resolve` (только для пунктов наблюдателя), `attention.likely_resolved` (для пунктов правил), `attention.priority`; решение человека на этапе.
-  - Приёмка:
-    - этап с активным ожиданием человека — `waiting`, решение `requested`;
-    - `attention.resolve` для пункта правила отклоняет весь ответ;
-    - `attention.likely_resolved` на асинхронный вопрос Codex ставит пометку, а пункт остаётся открытым.
-  - Тесты: функциональные.
-- **M.6 Запросы чтения** (E.2–E.4).
-  - Состав: список прогонов, снимок с `change_seq`, инспектор, разница по версиям, вызовы наблюдателя.
-  - Приёмка: снимок и лента изменений после него дают состояние, равное следующему снимку.
-  - Тесты: функциональные.
-- **M.7 Проекция вида и правила** (E.2, E.8).
-  - Состав: дерево, уровни детализации, селекторы, `collapse`/`hide`/`group`, свёрнутые служебные агенты по умолчанию, инварианты, отмена.
-  - Приёмка:
-    - свёрнутый агент сохраняет итоги расхода и результатов;
-    - вопрос скрытого агента остаётся в зоне внимания;
-    - правило действует на новые элементы.
-  - Тесты: функциональные.
-- **M.8 «С последнего просмотра» и порядок внимания** (E.6, M.5c).
-  - Состав:
-    - атомарная отметка «версия и `change_seq`»;
-    - разница по журналу модели и по объектам наблюдения и внимания;
-    - отметка и снятие пунктов;
-    - порядок с объяснением.
-  - Приёмка:
-    - новые события не двигают отметку;
-    - версия артефакта и вопрос по правилу, появившиеся при недоступном наблюдателе, попадают в разницу;
-    - снятый пункт уходит из зоны и остаётся в истории;
-    - рекомендация LLM порядок не меняет.
-  - Тесты: функциональные.
+- **M.1 Journal and versions** (S.3b, S.6c).
+  - Scope: model repositories; applying a change set (version, journal, projections); rebuilding by replaying the journal; entity change history for conflicts.
+  - Acceptance: a rebuild by journal replay matches the original state; the version persists after a restart.
+  - Tests: functional.
+- **M.2 Operation validation: schema, references, scope, conflicts** (E.1).
+  - Scope:
+    - schema;
+    - references and temporary ids, membership in the run;
+    - no nesting or successor cycles;
+    - `base_version` from `observer_calls`;
+    - a conflict only on replacement, merge, split, target transfer or an edit of the same field by the user;
+    - applying the response as a whole or rejecting it as a whole, returning all facts of the batch to `pending`.
+  - Acceptance:
+    - an invented id and another run's id are rejected;
+    - `stage.nest(A, B)` after `stage.nest(B, A)` is rejected;
+    - a substituted base version is rejected;
+    - a rule changing a different field does not produce a conflict;
+    - a fact shared by an accepted and a rejected operation does not get `interpreted`;
+    - a restart between attempts returns `in_call` to `pending`.
+  - Tests: functional; observer responses are fixtures.
+- **M.3 Operation validation: grounds and invariants**.
+  - Scope:
+    - grounds by `speaker`;
+    - checking `origin=plan`;
+    - ADR-0007 invariants;
+    - priority of the state observed by rules;
+    - a report on rejected operations.
+  - Acceptance:
+    - "done" based only on the solver's words gives `claimed`;
+    - an LLM does not get `observed`;
+    - an attention item from rules cannot be closed by an operation.
+  - Tests: functional.
+- **M.4 Stage operations**.
+  - Scope: `stage.*` with merge, split and replacement history.
+  - Acceptance: a replaced stage is visible with a link to its replacement.
+  - Tests: functional.
+- **M.5a Binding operations and stage execution**.
+  - Scope: `actions.assign`, `agents.participate`, `artifact.link`; stage execution by rule (active actions and active waits) and a contradiction with the LLM.
+  - Acceptance: "completed" while an action is running is shown as a contradiction; a completed stage with a non-blocking question stays `done` with the decision `requested`.
+  - Tests: functional.
+- **M.5b Criterion, card, description operations**.
+  - Scope: `criterion.add`, `criterion.assess` (interpretation only), `card.add` with coordinates, `brief.update`.
+  - Acceptance: `criterion.assess` does not give `confirmed`; a card leads to a fragment of the original.
+  - Tests: functional.
+- **M.5c Attention operations and decision on a stage**.
+  - Scope: `question.add`, `attention.add`, `attention.resolve` (only for observer items), `attention.likely_resolved` (for rule items), `attention.priority`; a human decision on a stage.
+  - Acceptance:
+    - a stage with an active human wait is `waiting`, decision `requested`;
+    - `attention.resolve` for a rule item rejects the whole response;
+    - `attention.likely_resolved` on an asynchronous Codex question sets a mark, and the item stays open.
+  - Tests: functional.
+- **M.6 Read queries** (E.2–E.4).
+  - Scope: the run list, a snapshot with `change_seq`, the inspector, the diff between versions, observer calls.
+  - Acceptance: a snapshot plus the change feed after it gives a state equal to the next snapshot.
+  - Tests: functional.
+- **M.7 View projection and rules** (E.2, E.8).
+  - Scope: the tree, detail levels, selectors, `collapse`/`hide`/`group`, service agents collapsed by default, invariants, undo.
+  - Acceptance:
+    - a collapsed agent keeps its usage and result totals;
+    - a hidden agent's question stays in the attention zone;
+    - a rule applies to new elements.
+  - Tests: functional.
+- **M.8 «С последнего просмотра» ("Since last view") and attention order** (E.6, M.5c).
+  - Scope:
+    - an atomic "version and `change_seq`" mark;
+    - the diff by the model journal and by observation and attention objects;
+    - marking and dismissing items;
+    - ordering with an explanation.
+  - Acceptance:
+    - new events do not move the mark;
+    - an artifact version and a rule-based question that appeared while the observer was unavailable get into the diff;
+    - a dismissed item leaves the zone and stays in history;
+    - an LLM recommendation does not change the order.
+  - Tests: functional.
 
-### F. Наблюдатель (`observer`, `testkit/fake-cli`)
+### F. Observer (`observer`, `testkit/fake-cli`)
 
-- **F.1 Поддельный `claude`** (S.4a).
-  - Состав:
-    - проверка флагов изоляции;
-    - `init` и `result` в формате `observer/claude-stream-b-full-isolation.jsonl`;
-    - ответы по сценарию с подстановкой id фактов и `model_version` из входа;
-    - отказы;
-    - запись входа.
-  - Приёмка: без флага изоляции — ошибка; ответ ссылается на id из входа.
-  - Тесты: интеграционные.
-- **F.2 Запуск Claude** (D.9 для Windows).
-  - Состав:
-    - argv и окружение ADR-0007 с перечнем переменных по ОС (ADR-0013), `crossSessionInbound`;
-    - на Windows — поиск настоящего исполняемого файла вместо шима `.cmd`;
-    - рабочий каталог `os.tmpdir()/aang-observer/empty` с проверкой предков;
-    - `spawn` без shell, разбор `stream-json`, проверка `init`, признак успеха;
-    - общая для всех запусков CLI операция завершения дерева (ADR-0013): группа процессов с проверкой пустоты на macOS и Linux, лаунчер D.9 на Windows. По выходу корня, таймауту или отмене дерево завершается целиком; слот освобождается только при подтверждённой остановке, иначе `unavailable: process_stuck`;
+- **F.1 Fake `claude`** (S.4a).
+  - Scope:
+    - checking the isolation flags;
+    - `init` and `result` in the `observer/claude-stream-b-full-isolation.jsonl` format;
+    - scripted responses with fact ids and `model_version` substituted from the input;
+    - refusals;
+    - recording the input.
+  - Acceptance: without an isolation flag — an error; the response references ids from the input.
+  - Tests: integration.
+- **F.2 Claude launch** (D.9 for Windows).
+  - Scope:
+    - argv and environment per ADR-0007 with a per-OS list of variables (ADR-0013), `crossSessionInbound`;
+    - on Windows — finding the real executable instead of the `.cmd` shim;
+    - working directory `os.tmpdir()/aang-observer/empty` with an ancestor check;
+    - `spawn` without a shell, parsing `stream-json`, checking `init`, the success flag;
+    - a tree termination operation shared by all CLI launches (ADR-0013): a process group with an emptiness check on macOS and Linux, the D.9 launcher on Windows. On the root's exit, a timeout or a cancellation, the tree is terminated entirely; the slot is released only on a confirmed stop, otherwise `unavailable: process_stuck`;
     - usage.
-  - Приёмка:
-    - `subtype: success` при `is_error: true` — ошибка; лишний инструмент в `init` — отказ;
-    - поддельный CLI запускает дочерний процесс, который продолжает работу и держит унаследованные каналы; после таймаута на трёх ОС не остаётся ни корня, ни потомка, слот свободен и следующий вызов запускается;
-    - ранний выход корня на трёх ОС: поддельный CLI выдаёт успешный `result` и выходит до таймаута, оставив живого потомка без общих каналов (`stdio: 'ignore'`, `unref()`). Каналы корня закрыты, но слот освобождается только после того, как backend завершил потомка и подтвердил остановку; в момент освобождения потомка нет, следующий вызов запускается;
-    - остановку нельзя подтвердить: на Windows лаунчер завершён извне, на macOS и Linux в группе остаётся незабранный зомби, чей родитель вышел из группы. Слот остаётся занятым, backend — `unavailable: process_stuck`, состояние с причиной видно в `/api/status` и SSE, следующий вызов не запускается. На macOS и Linux, когда зомби забран, слот освобождается.
-  - Тесты: интеграционные с F.1.
-- **F.3 Ранний замер на настоящих CLI** (локально, отчёт).
-  - Состав: оба backend с профилями спайка на `observer/observer-input.json`, по 10 повторов; позже — на R.4. Дерево процессов обоих CLI в профиле наблюдателя на macOS и Linux: ни один потомок не выходит из группы.
-  - Приёмка: отчёт с распределением задержек и расхода закрывает или уточняет вопросы 1–4 ADR-0007; выход потомка из группы выносится владельцу (ADR-0013).
-  - Итог: `docs/research/f3-observer-measurement.md`. Сценарий — `docs/research/samples/observer-measurement/run.mjs`. Замер на R.4 остаётся за этим пунктом до появления записей.
-- **F.4 Поддельный `codex`**.
-  - Состав: `debug models --bundled`, `exec --json` с `-o`, строка `unsupported` в stderr; настоящий запрос Responses API на заглушку самопроверки; снимок оболочки как у Codex 0.160.0: без `--disable shell_snapshot` `exec` запускает потомка вне своей группы процессов (`setsid`). Сценарий выхода потомка из группы при любом профиле есть у обоих поддельных CLI (решение владельца 2026-10-04 по F.3).
-  - Приёмка и тесты: как F.1.
-- **F.5 Запуск Codex**.
-  - Состав: генерация каталога модели, argv-профиль (пути в значениях `-c` с прямыми слешами; `--disable shell_snapshot` по решению владельца 2026-10-04, ADR-0007, решение 10), разбор `--json` и `last.json`, отклонение по `codex_core::tools::router: error=unsupported`; на Windows — поиск настоящего исполняемого файла или запуск `node` со скриптом пакета; завершение дерева из F.2.
-  - Приёмка:
-    - `-m` совпадает со `slug` каталога; вызов с попыткой инструмента отклоняется;
-    - поддельный `codex`, запущенный обёрткой `node` со скриптом, который порождает настоящий процесс CLI дочерним, как npm-пакет Codex: после таймаута не остаётся ни обёртки, ни дочернего процесса;
-    - обёртка выходит до таймаута, а дочерний процесс CLI продолжает работу без общих с ней каналов: слот не освобождается, пока backend не завершил дочерний процесс и не подтвердил остановку. На трёх ОС.
-  - Тесты: интеграционные с F.4.
-- **F.6 Допуск версии CLI**.
-  - Состав:
-    - заглушка Responses API и временный `CODEX_HOME`, условия ADR-0007 (`body.tools`, `input[additional_tools].tools`, пробные вызовы);
-    - допуск Claude на синтетическом входе: `init`, отсутствие транскрипта, маркер реестра, неисполнение инструментов;
-    - контрольный hook (не `aang-hook`) с положительным и отрицательным контролем для обоих CLI;
-    - на macOS и Linux — проверка каждого вызова допуска снимками таблицы процессов: ни один потомок не покинул группу процессов, ошибка снимка — провал допуска. Это защитная сетка, а не учёт процессов (ADR-0013, решение 3 по техническим вопросам; дополнено решением владельца 2026-10-04 по F.3, ADR-0007, решение 10);
-    - локальный статус допуска;
-    - запрет рабочих вызовов до допуска.
-  - Приёмка:
-    - непустые инструменты отключают backend с причиной;
-    - ветки контрольного hook отличаются только выключателем hooks; у Codex в обеих одинаковый тестовый `--dangerously-bypass-hook-trust`. Без выключателя метка появляется, с ним — нет;
-    - если убрать `--disable hooks` или `--setting-sources ""` из отрицательной ветки, допуск не проходит;
-    - потомок вызова допуска выходит из группы процессов — допуск не проходит, backend `disabled: isolation` с причиной. Это верно и для потомка, который завершается в вызове, и для потомка, который переживает остановку группы. Если убрать `--disable shell_snapshot` из профиля Codex, допуск не проходит. Если снимок таблицы процессов во время вызова не удался, допуск не проходит, даже когда последний снимок удался;
-    - рабочий профиль наблюдателя не содержит bypass доверия;
-    - новая версия до допуска не получает рабочих вызовов;
-    - рабочий вызов не используется как допуск.
-  - Тесты: интеграционные с F.1 и F.4.
-- **F.7a Контекст прогона** (E.2, E.4).
-  - Состав:
-    - разрешённые источники ADR-0007, которые дают имеющиеся факты адаптеров и файлы на диске: задание, инструкции, определения субагентов Claude из файлов `.claude/agents` и каталога конфигурации, вызванные скиллы, MCP-серверы, ветка и git-снимки; остальные источники перечня — F.7d;
-    - запись `context` с хешем, повторная запись только при изменении.
-  - Приёмка: скилл попадает в контекст только по факту вызова; неизменный контекст не дублируется.
-  - Тесты: функциональные.
-- **F.7b Упаковка порции и промпт** (M.6).
-  - Состав: описание прогона, снимок модели, сжатие малозначимых фактов, предел размера, системный промпт на основе `observer/observer-prompt.json`.
-  - Приёмка: вход не превышает предела; все id существуют.
-  - Тесты: функциональные.
-- **F.7c Протокол `needs` и область входа**.
-  - Состав: разрешение запросов (сырые записи, действия, сохранённые версии, контекст); единый фильтр области и `crossVendor`; вырезание блоков мышления. Строка материала усекается до 16 000 символов (решение владельца 2026-10-08, ADR-0007, решение 18).
-  - Приёмка:
-    - `needs` даёт ровно один дозапрос;
-    - запрос записи другой сессии вне области или другого вендора без `crossVendor` не выполняется;
-    - мышление не попадает во вход.
-  - Тесты: функциональные.
-- **F.7d Hooks решателя и определения вне файлов проекта** (F.7a, B.7, C.6, R.4b). Выделение из F.7a принято владельцем 2026-10-03; по решению владельца 2026-10-05 сначала записи сценариев R.2c.
-  - Состав:
-    - факт с именем hook решателя: вид в `contract`, разбор вложений `hook_*` и `system.stop_hook_summary` транскрипта Claude по записям R.4b, у Codex — по эталонным сессиям R.4;
-    - определения агентов и описания скиллов плагинов Claude, определения флага `--agents`;
-    - роли агентов Codex из конфига;
-    - записи `hook` и эти определения в контексте прогона F.7a.
-  - Приёмка:
-    - hook решателя из эталонной сессии даёт запись `hook` с его именем;
-    - плагинный субагент и роль Codex получают определение, плагинный скилл — описание;
-    - источник, формат которого не подтверждён эталонной сессией, в контекст не попадает.
-  - Тесты: функциональные через настоящие адаптеры.
-- **F.8 Очередь и запуск порций** (M.2–M.5c, F.6).
-  - Состав:
-    - статусы интерпретации;
-    - условия запуска: размер, таймер, `urgent`;
-    - не чаще раза в 10 с на прогон;
-    - один вызов на прогон, общий параллелизм 2, отдельный слот чата;
-    - применение результата через M.2–M.5c.
-  - Приёмка:
-    - срочный факт запускает вызов сразу;
-    - редкий факт обрабатывается по таймеру;
-    - отклонённый ответ возвращает все факты порции в `pending`.
-  - Тесты: функциональные с поддельными CLI и управляемыми часами.
-- **F.9 Отказы, догоняющий режим, бюджет**.
-  - Состав:
-    - состояния `ok`, `lagging`, `backoff`, `unavailable`, `disabled`;
-    - таблица ошибок ADR-0007 с отдельными счётчиками и условиями возобновления: `auth status` только после ошибки авторизации, пробы на синтетическом входе после лимита и временных ошибок, новый допуск после нарушения изоляции;
-    - `not_interpreted` только после трёх отказов содержимого или конфликтов одной порции;
-    - предел очереди (2000 фактов или 24 часа) и `deferred`;
-    - догоняющий режим со сжатой сводкой;
-    - бюджет с увеличением таймера;
-    - задержки порций.
-  - Приёмка:
-    - три временных отказа и затем успех не делают факты `not_interpreted`;
-    - при длительном лимите успешный `auth status` не возобновляет вызовы, а пробы идут с растущим интервалом;
-    - после нарушения изоляции вызовы возобновляются только после нового допуска;
-    - сверх предела очереди факты получают `deferred` с видимым пробелом;
-    - порция после трёх отказов содержимого — `not_interpreted`;
-    - превышение бюджета даёт `lagging`, а не остановку.
-  - Тесты: функциональные.
-- **F.10 Контрактные тесты изоляции** (R.5a, F.6).
-  - Состав дополняет F.6 проверкой `crossSessionInbound` сессией-пиром (Claude, локально).
-  - Состав: Codex на заглушке в CI с установленным CLI; Claude локально с тегом; запись колонки изоляции в матрицу.
-  - Приёмка: результат для текущих версий записан в `support/matrix.json`.
+  - Acceptance:
+    - `subtype: success` with `is_error: true` is an error; an extra tool in `init` is a refusal;
+    - the fake CLI launches a child process that keeps running and holds the inherited pipes; after a timeout on three OSes neither the root nor the descendant remains, the slot is free and the next call starts;
+    - early root exit on three OSes: the fake CLI emits a successful `result` and exits before the timeout, leaving a live descendant without shared pipes (`stdio: 'ignore'`, `unref()`). The root's pipes are closed, but the slot is released only after the backend has terminated the descendant and confirmed the stop; at the moment of release there is no descendant, the next call starts;
+    - the stop cannot be confirmed: on Windows the launcher was terminated from outside; on macOS and Linux an unreaped zombie remains in the group, whose parent has left the group. The slot stays busy, the backend is `unavailable: process_stuck`, the state with its reason is visible in `/api/status` and SSE, the next call does not start. On macOS and Linux, once the zombie is reaped, the slot is released.
+  - Tests: integration with F.1.
+- **F.3 Early measurement on real CLIs** (locally, report).
+  - Scope: both backends with the spike profiles on `observer/observer-input.json`, 10 repetitions each; later — on R.4. The process tree of both CLIs in the observer profile on macOS and Linux: no descendant leaves the group.
+  - Acceptance: a report with latency and usage distributions closes or refines questions 1–4 of ADR-0007; a descendant leaving the group is escalated to the owner (ADR-0013).
+  - Result: `docs/research/f3-observer-measurement.md`. Script — `docs/research/samples/observer-measurement/run.mjs`. The measurement on R.4 stays with this item until the recordings appear.
+- **F.4 Fake `codex`**.
+  - Scope: `debug models --bundled`, `exec --json` with `-o`, an `unsupported` line in stderr; a real Responses API request to the self-check stub; a shell snapshot as in Codex 0.160.0: without `--disable shell_snapshot`, `exec` launches a descendant outside its process group (`setsid`). Both fake CLIs have a scenario where a descendant leaves the group under any profile (owner decision 2026-10-04 on F.3).
+  - Acceptance and tests: as F.1.
+- **F.5 Codex launch**.
+  - Scope: generating the model catalog, the argv profile (paths in `-c` values with forward slashes; `--disable shell_snapshot` per the owner decision of 2026-10-04, ADR-0007, decision 10), parsing `--json` and `last.json`, rejection on `codex_core::tools::router: error=unsupported`; on Windows — finding the real executable or launching `node` with the package script; tree termination from F.2.
+  - Acceptance:
+    - `-m` matches the catalog `slug`; a call with a tool attempt is rejected;
+    - a fake `codex` launched by a `node` wrapper with a script that spawns the real CLI process as a child, like the Codex npm package: after a timeout neither the wrapper nor the child process remains;
+    - the wrapper exits before the timeout, and the CLI child process keeps running without pipes shared with it: the slot is not released until the backend has terminated the child process and confirmed the stop. On three OSes.
+  - Tests: integration with F.4.
+- **F.6 CLI version admission**.
+  - Scope:
+    - a Responses API stub and a temporary `CODEX_HOME`, the ADR-0007 conditions (`body.tools`, `input[additional_tools].tools`, probe calls);
+    - Claude admission on a synthetic input: `init`, absence of a transcript, the registry marker, tools not being executed;
+    - a control hook (not `aang-hook`) with positive and negative controls for both CLIs;
+    - on macOS and Linux — checking every admission call with process table snapshots: no descendant has left the process group; a snapshot error is an admission failure. This is a safety net, not process accounting (ADR-0013, decision 3 on technical questions; amended by the owner decision of 2026-10-04 on F.3, ADR-0007, decision 10);
+    - local admission status;
+    - a ban on working calls before admission.
+  - Acceptance:
+    - non-empty tools disable the backend with a reason;
+    - the control hook branches differ only by the hooks switch; for Codex both have the same test `--dangerously-bypass-hook-trust`. Without the switch the label appears, with it — it does not;
+    - if `--disable hooks` or `--setting-sources ""` is removed from the negative branch, admission fails;
+    - a descendant of an admission call leaves the process group — admission fails, backend `disabled: isolation` with a reason. This holds both for a descendant that terminates within the call and for a descendant that survives the group stop. If `--disable shell_snapshot` is removed from the Codex profile, admission fails. If a process table snapshot during the call failed, admission fails, even when the last snapshot succeeded;
+    - the working observer profile does not contain a trust bypass;
+    - a new version gets no working calls before admission;
+    - a working call is not used as admission.
+  - Tests: integration with F.1 and F.4.
+- **F.7a Run context** (E.2, E.4).
+  - Scope:
+    - the allowed ADR-0007 sources that the existing adapter facts and files on disk provide: the task, instructions, Claude subagent definitions from `.claude/agents` files and the configuration directory, invoked skills, MCP servers, the branch and git snapshots; the remaining sources of the list — F.7d;
+    - a `context` record with a hash, rewritten only on a change.
+  - Acceptance: a skill gets into the context only when it is actually invoked; an unchanged context is not duplicated.
+  - Tests: functional.
+- **F.7b Batch packaging and prompt** (M.6).
+  - Scope: the run description, a model snapshot, compression of low-value facts, a size limit, a system prompt based on `observer/observer-prompt.json`.
+  - Acceptance: the input does not exceed the limit; all ids exist.
+  - Tests: functional.
+- **F.7c The `needs` protocol and input scope**.
+  - Scope: resolving requests (raw records, actions, saved versions, context); a single scope filter and `crossVendor`; stripping thinking blocks. A material line is truncated to 16,000 characters (owner decision 2026-10-08, ADR-0007, decision 18).
+  - Acceptance:
+    - `needs` produces exactly one follow-up request;
+    - a request for a record of another session outside the scope, or of another vendor without `crossVendor`, is not fulfilled;
+    - thinking does not get into the input.
+  - Tests: functional.
+- **F.7d Solver hooks and definitions outside project files** (F.7a, B.7, C.6, R.4b). The split from F.7a was accepted by the owner 2026-10-03; per the owner decision of 2026-10-05, the R.2c scenario recordings come first.
+  - Scope:
+    - a fact with the solver hook name: the kind in `contract`, parsing of the `hook_*` attachments and `system.stop_hook_summary` of the Claude transcript from the R.4b recordings, for Codex — from the R.4 reference sessions;
+    - agent definitions and skill descriptions of Claude plugins, definitions from the `--agents` flag;
+    - Codex agent roles from the config;
+    - `hook` records and these definitions in the F.7a run context.
+  - Acceptance:
+    - a solver hook from a reference session produces a `hook` record with its name;
+    - a plugin subagent and a Codex role get a definition, a plugin skill gets a description;
+    - a source whose format is not confirmed by a reference session does not get into the context.
+  - Tests: functional through the real adapters.
+- **F.8 Queue and batch launch** (M.2–M.5c, F.6).
+  - Scope:
+    - interpretation statuses;
+    - launch conditions: size, timer, `urgent`;
+    - no more often than once per 10 s per run;
+    - one call per run, overall parallelism 2, a separate chat slot;
+    - applying the result through M.2–M.5c.
+  - Acceptance:
+    - an urgent fact launches a call immediately;
+    - an infrequent fact is processed by the timer;
+    - a rejected response returns all facts of the batch to `pending`.
+  - Tests: functional with fake CLIs and controlled clocks.
+- **F.9 Failures, catch-up mode, budget**.
+  - Scope:
+    - the states `ok`, `lagging`, `backoff`, `unavailable`, `disabled`;
+    - the ADR-0007 error table with separate counters and resumption conditions: `auth status` only after an authorization error, probes on a synthetic input after a limit and transient errors, a new admission after an isolation violation;
+    - `not_interpreted` only after three content refusals or conflicts of the same batch;
+    - the queue limit (2000 facts or 24 hours) and `deferred`;
+    - catch-up mode with a compressed summary;
+    - a budget with timer increase;
+    - batch delays.
+  - Acceptance:
+    - three transient failures followed by a success do not make facts `not_interpreted`;
+    - under a prolonged limit, a successful `auth status` does not resume calls, and probes go at a growing interval;
+    - after an isolation violation, calls resume only after a new admission;
+    - beyond the queue limit, facts get `deferred` with a visible gap;
+    - a batch after three content refusals — `not_interpreted`;
+    - exceeding the budget gives `lagging`, not a stop.
+  - Tests: functional.
+- **F.10 Isolation contract tests** (R.5a, F.6).
+  - The scope adds to F.6 a check of `crossSessionInbound` with a peer session (Claude, locally).
+  - Scope: Codex on a stub in CI with the CLI installed; Claude locally with a tag; writing the isolation column into the matrix.
+  - Acceptance: the result for the current versions is written to `support/matrix.json`.
 
-### G. Демон, API, CLI (`daemon`, `cli`, `aang`)
+### G. Daemon, API, CLI (`daemon`, `cli`, `aang`)
 
-- **G.1 Жизненный цикл** (S.5, S.6a).
-  - Состав:
-    - конфиг; раскладка `AANG_HOME` с правами 0700 на macOS и Linux и ACL профиля на Windows; lock из `store`;
-    - `aang start [--foreground]` с отсоединённым процессом (`windowsHide` на Windows), `status`; pid-файл;
-    - `stop`: сначала маркер намеренной остановки `spool/stopped`, затем `POST /api/admin/shutdown` — демон удаляет аренду и выходит. Если API недоступен, `stop` сам удаляет аренду и сообщает по pid-файлу, жив ли процесс; живой процесс — остановка не подтверждена (ADR-0013);
-    - `start` снимает маркер после захвата lock; при маркере демон аренду не создаёт и не продлевает, удаляет созданную в гонке и завершается штатно;
-    - аренда spool с продлением раз в час; проверка объёма и маркера раз в минуту с удалением аренды при пороге.
-  - Приёмка:
-    - двойной `start` отклоняется;
-    - `start` создаёт аренду, `stop` удаляет её и оставляет маркер, `status` показывает маркер;
-    - `stop` после SIGKILL демона (`TerminateProcess` на Windows) удаляет аренду, и hook перестаёт писать в spool;
-    - живой демон с недоступным API на трёх ОС: демон приостановлен извне (SIGSTOP на macOS и Linux, приостановка процесса на Windows), `stop` удаляет аренду и сообщает, что процесс жив и остановка не подтверждена; `start` в это время отклоняется, маркер остаётся. Демон возобновлён и проходит цикл продления и проверки объёма (короткие интервалы в конфиге теста): аренда не появляется, hook не пишет в spool, демон завершается сам. Следующий `start` снимает маркер, и запись возобновляется;
-    - при превышении порога аренда удаляется в течение минуты, пишется пробел, а фактический объём spool и прирост после порога видны в `status`;
-    - после SIGKILL демона запись прекращается по истечении аренды — проверяется на коротком сроке аренды.
-  - Тесты: интеграционные с настоящим процессом во временном HOME на трёх ОС.
-- **G.2 Авторизация и статика**.
-  - Состав:
-    - токен, bearer;
-    - одноразовая ссылка → cookie `HttpOnly; SameSite=Strict`;
+- **G.1 Lifecycle** (S.5, S.6a).
+  - Scope:
+    - config; the `AANG_HOME` layout with 0700 permissions on macOS and Linux and a profile ACL on Windows; the lock from `store`;
+    - `aang start [--foreground]` with a detached process (`windowsHide` on Windows), `status`; a pid file;
+    - `stop`: first the intentional stop marker `spool/stopped`, then `POST /api/admin/shutdown` — the daemon deletes the lease and exits. If the API is unavailable, `stop` deletes the lease itself and reports from the pid file whether the process is alive; a live process means the stop is not confirmed (ADR-0013);
+    - `start` removes the marker after acquiring the lock; with the marker present the daemon neither creates nor renews the lease, deletes one created in a race and exits normally;
+    - spool lease renewed every hour; a volume and marker check every minute, deleting the lease when the threshold is reached.
+  - Acceptance:
+    - a double `start` is rejected;
+    - `start` creates the lease, `stop` deletes it and leaves the marker, `status` shows the marker;
+    - `stop` after a SIGKILL of the daemon (`TerminateProcess` on Windows) deletes the lease, and the hook stops writing to the spool;
+    - a live daemon with an unavailable API on three OSes: the daemon is suspended from outside (SIGSTOP on macOS and Linux, process suspension on Windows), `stop` deletes the lease and reports that the process is alive and the stop is not confirmed; `start` is rejected meanwhile, the marker stays. The daemon is resumed and goes through the renewal and volume check cycle (short intervals in the test config): the lease does not appear, the hook does not write to the spool, the daemon exits on its own. The next `start` removes the marker, and writing resumes;
+    - when the threshold is exceeded, the lease is deleted within a minute, a gap is written, and the actual spool volume and the growth after the threshold are visible in `status`;
+    - after a SIGKILL of the daemon, writing stops when the lease expires — verified with a short lease period.
+  - Tests: integration with a real process in a temporary HOME on three OSes.
+- **G.2 Authorization and static files**.
+  - Scope:
+    - token, bearer;
+    - one-time link → cookie `HttpOnly; SameSite=Strict`;
     - `aang open`, `token rotate`;
-    - адрес `127.0.0.1` и `--bind`;
-    - раздача статики `web` с того же origin;
-    - защита от CSRF: изменяющий запрос по cookie принимается только со страницы демона и с JSON (ADR-0003, решение 1).
-  - Приёмка: запрос без токена — 401; одноразовая ссылка работает один раз; статика отдаётся только после авторизации; изменяющий запрос по cookie с другого origin — 403, с типом, отличным от JSON, — 415, запрос CLI с bearer проходит.
-  - Тесты: интеграционные по HTTP.
-- **G.3 Композиция приёма** (A.1–A.4, E.1–E.3).
-  - Состав: сборщик → `engine.ingest` → `ack`; регистрация адаптеров; listener OTel.
-  - Приёмка:
-    - строка транскрипта и hook-событие из временного HOME становятся объектами;
-    - авторизованный `POST /api/admin/shutdown` во время приёма на трёх ОС: текущая транзакция завершается, аренда удалена, файлы без `ack` остаются в spool и после старта принимаются без дублей;
-    - shutdown без токена — 401, демон продолжает работу.
+    - address `127.0.0.1` and `--bind`;
+    - serving the `web` static files from the same origin;
+    - CSRF protection: a mutating cookie request is accepted only from the daemon's page and with JSON (ADR-0003, decision 1).
+  - Acceptance: a request without a token — 401; a one-time link works once; static files are served only after authorization; a mutating cookie request from another origin — 403, with a type other than JSON — 415; a CLI request with a bearer goes through.
+  - Tests: integration over HTTP.
+- **G.3 Intake composition** (A.1–A.4, E.1–E.3).
+  - Scope: collector → `engine.ingest` → `ack`; adapter registration; the OTel listener.
+  - Acceptance:
+    - a transcript line and a hook event from a temporary HOME become objects;
+    - an authorized `POST /api/admin/shutdown` during intake on three OSes: the current transaction completes, the lease is deleted, files without `ack` remain in the spool and are taken in without duplicates after startup;
+    - shutdown without a token — 401, the daemon keeps running.
 
-    Принудительное завершение проверяет восстановление (E.1, E2E 6), а не штатную остановку.
-  - Тесты: интеграционные.
-- **G.4 API чтения** (M.6).
-  - Состав: `/api/status` (база), `/api/runs`, снимок, инспектор, факты и сырые записи, сохранённые версии артефактов, вызовы наблюдателя, `changes` от пары «версия и `change_seq`».
-  - Приёмка: ответы соответствуют DTO из S.5.
-  - Тесты: интеграционные по HTTP.
+    Forced termination verifies recovery (E.1, E2E 6), not a normal stop.
+  - Tests: integration.
+- **G.4 Read API** (M.6).
+  - Scope: `/api/status` (base), `/api/runs`, snapshot, inspector, facts and raw records, saved artifact versions, observer calls, `changes` from the "version and `change_seq`" pair.
+  - Acceptance: the responses match the DTOs from S.5.
+  - Tests: integration over HTTP.
 - **G.5 SSE**.
-  - Состав: `/api/stream?run=`, `Last-Event-ID`, `reset` при устаревшей позиции.
-  - Приёмка: переподключение не теряет и не повторяет событий; устаревшая позиция даёт `reset`.
-  - Тесты: интеграционные.
-- **G.6 Композиция наблюдателя** (F.6, F.9, M.2–M.5c).
-  - Состав: планировщик в демоне; backend по вендору корневой сессии; `crossVendor`; пути CLI из конфига; состояние наблюдателя в `/api/status` и SSE.
-  - Приёмка: факты Codex-сессии в Claude-прогоне без `crossVendor` не отправляются и видны как пробел.
-  - Тесты: интеграционные с поддельными CLI.
-- **G.7 Состояние подключения** (D.4, D.6, E.3, R.5a).
-  - Состав: режимы поддержки (статика D.4, динамика E.3, матрица R.5a); spool и аренда; уведомление «не наблюдаемо»; непроверенные версии и статус допуска наблюдателя.
-  - Приёмка: `/api/status` различает «не установлено», «не доверено», «hooks не активны в сессии», `unverified`.
-  - Тесты: интеграционные.
-- **G.8 API записи: просмотр, правила, привязки** (M.7, M.8, E.5).
-  - Состав: отметка прогона с парой «версия и `change_seq`», отметка и снятие пункта, правила вида, привязки.
-  - Приёмка: привязка переносит сессию и обновляет оба прогона через SSE; снятие пункта ничего не меняет в модели.
-  - Тесты: интеграционные.
-- **G.9 Охват: `watch` и `unwatch`** (A.7, E.1).
-  - Состав: `--lookback`, `--all`; перечитывание ранее отброшенных потоков.
-  - Приёмка: после `watch` файлы проекта в пределах `lookback` перечитываются, несмотря на курсоры.
-  - Тесты: интеграционные.
+  - Scope: `/api/stream?run=`, `Last-Event-ID`, `reset` on a stale position.
+  - Acceptance: reconnection neither loses nor repeats events; a stale position gives `reset`.
+  - Tests: integration.
+- **G.6 Observer composition** (F.6, F.9, M.2–M.5c).
+  - Scope: the scheduler in the daemon; the backend by the vendor of the root session; `crossVendor`; CLI paths from the config; the observer state in `/api/status` and SSE.
+  - Acceptance: facts of a Codex session in a Claude run without `crossVendor` are not sent and are visible as a gap.
+  - Tests: integration with fake CLIs.
+- **G.7 Connection state** (D.4, D.6, E.3, R.5a).
+  - Scope: support modes (static from D.4, dynamic from E.3, matrix from R.5a); spool and lease; the «не наблюдаемо» ("not observable") notification; unverified versions and the observer admission status.
+  - Acceptance: `/api/status` distinguishes "not installed", "untrusted", «hooks не активны в сессии» ("hooks not active in the session"), `unverified`.
+  - Tests: integration.
+- **G.8 Write API: viewing, rules, bindings** (M.7, M.8, E.5).
+  - Scope: the run mark with the "version and `change_seq`" pair, marking and dismissing an item, view rules, bindings.
+  - Acceptance: a binding transfers the session and updates both runs via SSE; dismissing an item changes nothing in the model.
+  - Tests: integration.
+- **G.9 Scope: `watch` and `unwatch`** (A.7, E.1).
+  - Scope: `--lookback`, `--all`; rereading previously discarded streams.
+  - Acceptance: after `watch`, the project files within `lookback` are reread despite the cursors.
+  - Tests: integration.
 - **G.10 `prune`**.
-  - Состав: каскадное удаление слоёв прогона в `store`, `VACUUM`; граница удаления в `pruned_streams`, которую соблюдают бэкфилл, `rescan`, восстановление после переноса и spool; «начало удалено».
-  - Приёмка:
-    - `prune` → `codex archive` или перенос Claude → перезапуск: удалённое не возвращается;
-    - `prune` → файл Claude с тем же `sessionId` уменьшен или заменён новыми записями → приём потока остановлен с пробелом, новые записи не отброшены молча;
-    - продолжение сессии создаёт прогон с пометкой;
-    - файлы spool удалённой сессии со временем до удаления отбрасываются.
-  - Тесты: интеграционные.
+  - Scope: cascading deletion of a run's layers in `store`, `VACUUM`; the deletion boundary in `pruned_streams`, respected by backfill, `rescan`, recovery after a move, and the spool; «начало удалено» ("start deleted").
+  - Acceptance:
+    - `prune` → `codex archive` or a Claude move → restart: what was deleted does not come back;
+    - `prune` → a Claude file with the same `sessionId` shrunk or replaced with new records → stream intake stopped with a gap, new records are not silently discarded;
+    - continuing the session creates a run with a mark;
+    - spool files of a deleted session with a time before the deletion are discarded.
+  - Tests: integration.
 - **G.11 `reparse`** (E.9).
-  - Состав: эндпоинт и команда.
-  - Приёмка: повторный вызов идемпотентен.
-  - Тесты: интеграционные.
-- **G.12 Команды CLI**.
-  - Состав:
+  - Scope: the endpoint and the command.
+  - Acceptance: a repeated call is idempotent.
+  - Tests: integration.
+- **G.12 CLI commands**.
+  - Scope:
     - `watch`/`unwatch`, `bind`, `prune`, `reparse`;
-    - `install`/`uninstall` через `hook`;
+    - `install`/`uninstall` via `hook`;
     - `otel-config [--rotate]`;
-    - `doctor`: установка, trust, версии, проверки наблюдателя, занятый OTel-экспортёр.
-  - Приёмка: `doctor` показывает неактивные hooks, непроверенные версии и конфликт экспортёра.
-  - Тесты: интеграционные против запущенного демона.
+    - `doctor`: installation, trust, versions, observer checks, a busy OTel exporter.
+  - Acceptance: `doctor` shows inactive hooks, unverified versions and an exporter conflict.
+  - Tests: integration against a running daemon.
 
-### T. Тестовая инфраструктура (`testkit`)
+### T. Test infrastructure (`testkit`)
 
-- **T.1 Временный HOME и запуск демона** (S.2a, G.1).
-  - Состав:
-    - построитель `.claude`, `.codex`, `.aang` и конфига;
-    - окружение временного профиля: `HOME` и `USERPROFILE` (на Windows `os.homedir()` берёт его), явные `CLAUDE_CONFIG_DIR`, `CODEX_HOME` и `AANG_HOME`;
-    - запуск собранного демона, ожидание готовности, остановка через shutdown API.
-  - Приёмка: параллельные тесты изолированы.
-  - Тесты: интеграционные.
-- **T.2 Проигрыватель файлов**.
-  - Состав: формат манифеста; JSONL с отметками времени; JSON-файлы; масштаб времени; удаление, перенос, архив.
-  - Приёмка: проигранный файл побайтно совпадает с исходным; интервалы соблюдаются.
-  - Тесты: интеграционные.
-- **T.3 Проигрыватель hooks и OTel** (D.1).
-  - Состав: вызов настоящего `aang-hook` с payload, тегом и окружением, включая двойную регистрацию; без запущенного демона — временный spool с действующей арендой; OTLP-запросы.
-  - Приёмка: hook-события попадают в spool в исходном порядке; двойная регистрация даёт два файла с разными тегами.
-  - Тесты: интеграционные.
-- **T.4 Фикстуры Playwright и покрытие** (G.2–G.5, T.1–T.3, F.1, F.4).
-  - Состав: временный HOME, демон, проигрыватель, сценарий поддельного CLI, авторизованный контекст; сведение V8-покрытия демона; задание E2E в CI.
-  - Приёмка: после проигрывания образца прогон виден через Playwright `request` в `/api/runs`.
-  - Тесты: E2E-пример через API.
-- **T.5 Сценарии из образцов**.
-  - Состав: манифесты для образцов спайка, где не нужно слияние hooks и файлов: транскрипт с субагентом, форк, сжатие, Codex с resume и сжатием, OTel.
-  - Согласованные сценарии с hooks и файлами берутся из R.4.
-- **T.6 Сценарии наблюдателя** (F.1, F.4).
-  - Состав: ответы наблюдателя и чата для E2E 1, 3, 4, 5, 7, 8 с подстановкой id из входа.
-  - Приёмка: сценарии проходят проверку M.2–M.3 на соответствующих записях.
-  - Тесты: функциональные.
+- **T.1 Temporary HOME and daemon launch** (S.2a, G.1).
+  - Scope:
+    - a builder for `.claude`, `.codex`, `.aang` and the config;
+    - the temporary profile environment: `HOME` and `USERPROFILE` (on Windows `os.homedir()` takes it), explicit `CLAUDE_CONFIG_DIR`, `CODEX_HOME` and `AANG_HOME`;
+    - launching the built daemon, waiting for readiness, stopping via the shutdown API.
+  - Acceptance: parallel tests are isolated.
+  - Tests: integration.
+- **T.2 File player**.
+  - Scope: the manifest format; JSONL with timestamps; JSON files; time scale; deletion, move, archive.
+  - Acceptance: a played file matches the source byte for byte; intervals are respected.
+  - Tests: integration.
+- **T.3 Hooks and OTel player** (D.1).
+  - Scope: calling the real `aang-hook` with a payload, a tag and an environment, including double registration; without a running daemon — a temporary spool with a valid lease; OTLP requests.
+  - Acceptance: hook events reach the spool in the original order; double registration produces two files with different tags.
+  - Tests: integration.
+- **T.4 Playwright fixtures and coverage** (G.2–G.5, T.1–T.3, F.1, F.4).
+  - Scope: a temporary HOME, the daemon, the player, a fake CLI scenario, an authorized context; merging the daemon's V8 coverage; the E2E job in CI.
+  - Acceptance: after a sample is played, the run is visible through the Playwright `request` in `/api/runs`.
+  - Tests: an E2E example via the API.
+- **T.5 Scenarios from samples**.
+  - Scope: manifests for spike samples that do not need merging of hooks and files: a transcript with a subagent, a fork, compaction, Codex with resume and compaction, OTel.
+  - Consistent scenarios with hooks and files are taken from R.4.
+- **T.6 Observer scenarios** (F.1, F.4).
+  - Scope: observer and chat responses for E2E 1, 3, 4, 5, 7, 8 with ids substituted from the input.
+  - Acceptance: the scenarios pass the M.2–M.3 check on the corresponding recordings.
+  - Tests: functional.
 
-## Этап 2. Интерфейс, чат, расход
+## Stage 2. Interface, chat, usage
 
-### H. Веб-интерфейс (`web`)
+### H. Web interface (`web`)
 
-E2E каждого PR идут поверх настоящего демона, проигрывателя и поддельного CLI (T.4). Согласованные сессии берутся из R.4.
+The E2E tests of every PR run on top of the real daemon, the player and a fake CLI (T.4). Consistent sessions are taken from R.4.
 
-- **H.1 Оболочка**.
-  - Состав:
-    - вход по cookie, список прогонов;
-    - SSE-клиент с обработкой `reset`;
-    - полоса состояния: наблюдатель и возраст модели, режимы поддержки, потеря источника, непроверенные версии, непознанные записи, spool, «не наблюдаемо».
-  - Приёмка: E2E 13, 9.
+- **H.1 Shell**.
+  - Scope:
+    - cookie login, the run list;
+    - an SSE client handling `reset`;
+    - the status bar: the observer and the model age, support modes, source loss, unverified versions, unrecognized records, spool, «не наблюдаемо» ("not observable").
+  - Acceptance: E2E 13, 9.
 
-**Линия «факты и внимание»**
+**Line "facts and attention"**
 
-- **H.2 Вид до смысла**.
-  - Состав: сессии, агенты, действия, факты плана; свежесть (`quiet`, `lost`, ожидание); зона внимания с пунктами правил.
-  - Приёмка: E2E 2, 10, 12.
-- **H.3 Зона внимания** (M.8).
-  - Состав: порядок с объяснением; метка «рекомендация»; отметка и снятие пункта; «из скрытого элемента»; пометка «сессия завершена».
-  - Приёмка: E2E 3 (часть внимания), E2E 15 (после G.8).
+- **H.2 View before meaning**.
+  - Scope: sessions, agents, actions, plan facts; freshness (`quiet`, `lost`, waiting); the attention zone with rule items.
+  - Acceptance: E2E 2, 10, 12.
+- **H.3 Attention zone** (M.8).
+  - Scope: ordering with an explanation; the «рекомендация» ("recommendation") label; marking and dismissing an item; «из скрытого элемента» ("from a hidden element"); the «сессия завершена» ("session ended") mark.
+  - Acceptance: E2E 3 (attention part), E2E 15 (after G.8).
 
-**Линия «карта и инспектор»** (после G.6 и T.6)
+**Line "map and inspector"** (after G.6 and T.6)
 
-- **H.4 Карта: раскладка**.
-  - Состав: React Flow и ELK; вложенность с раскрытием; рёбра зависимости отличаются от временного порядка; оси — подписью и значком.
-  - Приёмка: E2E 1 (часть карты).
-- **H.5 Карта: обновления и выбор**.
-  - Состав: сохранение выбора и прокрутки; переход к преемнику; стабильная раскладка.
-  - Приёмка: E2E 14.
-- **H.6 Инспектор**.
-  - Состав: сводка, ожидаемый результат, входы и выходы с сохранёнными версиями или пометкой «только ссылка», время, расход, цепочка «основание → факт → сырая запись», история, критерии со снимками и статусом `passed_unversioned`, отклонённые ответы наблюдателя.
-  - Приёмка: E2E 1, 3, 17.
+- **H.4 Map: layout**.
+  - Scope: React Flow and ELK; nesting with expansion; dependency edges differ from temporal order; axes — by a label and an icon.
+  - Acceptance: E2E 1 (map part).
+- **H.5 Map: updates and selection**.
+  - Scope: preserving the selection and scroll; navigating to a successor; a stable layout.
+  - Acceptance: E2E 14.
+- **H.6 Inspector**.
+  - Scope: summary, expected result, inputs and outputs with saved versions or the «только ссылка» ("reference only") mark, time, usage, the "ground → fact → raw record" chain, history, criteria with snapshots and the `passed_unversioned` status, rejected observer responses.
+  - Acceptance: E2E 1, 3, 17.
 
-**Линия «возвращение, чат, расход»**
+**Line "return, chat, usage"**
 
-- **H.7 «С последнего просмотра»** (G.8).
-  - Состав: отметка, разница с основаниями, карточки со ссылкой на оригинал.
-  - Приёмка: E2E 4, 16.
-- **H.8 Чат и правила вида** (K.2).
-  - Состав: панель чата с областью этапа; ссылки; метка версии; список правил с отменой.
-  - Приёмка: E2E 5, 18.
-- **H.9 Расход** (U.1).
-  - Состав: три журнала; привязанная и непривязанная части; «итог по данным Claude Code» с пометкой о выходе; нижние оценки.
-  - Приёмка: E2E 11.
+- **H.7 «С последнего просмотра» ("Since last view")** (G.8).
+  - Scope: the mark, the diff with grounds, cards with a link to the original.
+  - Acceptance: E2E 4, 16.
+- **H.8 Chat and view rules** (K.2).
+  - Scope: a chat panel scoped to a stage; links; a version label; a list of rules with undo.
+  - Acceptance: E2E 5, 18.
+- **H.9 Usage** (U.1).
+  - Scope: three journals; attributed and unattributed parts; "total per Claude Code data" with a note about the exit; lower bounds.
+  - Acceptance: E2E 11.
 
-**Сквозные E2E**
+**End-to-end E2E**
 
-- **H.10 Перезапуск** (G.8, H.7): E2E 6.
-- **H.11 Codex: отказ LLM, OTel, fork** (G.6, R.4): E2E 7, 8.
-- **H.12 Варианты по рантаймам и поверхностям** (R.4): варианты Codex для E2E 1, 4, 5; варианты Desktop и SDK для E2E 1, 4. Вопрос наблюдателя и карточка финального текста в варианте E2E 4 для Codex Desktop — на записи R.4b сценария R.2d.
+- **H.10 Restart** (G.8, H.7): E2E 6.
+- **H.11 Codex: LLM refusal, OTel, fork** (G.6, R.4): E2E 7, 8.
+- **H.12 Variants by runtime and surface** (R.4): Codex variants for E2E 1, 4, 5; Desktop and SDK variants for E2E 1, 4. The observer's question and the final-text card in the E2E 4 variant for Codex Desktop — on the R.4b recording of the R.2d scenario.
 
-### K. Чат
+### K. Chat
 
-- **K.1 Вызов чата** (M.6, F.7c, F.9, G.6).
-  - Состав: вход, системный промпт, схема из S.4b, двухфазный вызов с `needs` через F.7c на том же снимке, проверка цитат, привязка к версии, хранение, SSE, слот чата.
-  - Приёмка:
-    - вопрос о старом основании вне первого входа получает ответ со ссылкой на него через `needs`;
-    - обе фазы используют одну версию карты;
-    - неверная цитата удаляется с пометкой;
-    - «недостаточно данных» доходит до UI.
-  - Тесты: интеграционные с поддельными CLI.
-- **K.2 Правило вида из чата** (M.7, G.8).
-  - Состав: проверка селектора, применение, число затронутых элементов, отмена.
-  - Приёмка: неверный селектор отклоняется с объяснением.
-  - Тесты: функциональные и интеграционные.
+- **K.1 Chat call** (M.6, F.7c, F.9, G.6).
+  - Scope: input, system prompt, the schema from S.4b, a two-phase call with `needs` through F.7c on the same snapshot, citation checking, binding to a version, storage, SSE, the chat slot.
+  - Acceptance:
+    - a question about an old ground outside the first input gets an answer with a link to it via `needs`;
+    - both phases use the same map version;
+    - an invalid citation is removed with a mark;
+    - «недостаточно данных» ("insufficient data") reaches the UI.
+  - Tests: integration with fake CLIs.
+- **K.2 View rule from chat** (M.7, G.8).
+  - Scope: selector validation, application, the number of affected elements, undo.
+  - Acceptance: an invalid selector is rejected with an explanation.
+  - Tests: functional and integration.
 
-### U. Расход наблюдателя и отчёт
+### U. Observer usage and report
 
-- **U.1 Журналы наблюдателя и чата, отчёт** (E.8, F.9, G.4).
-  - Состав: расход и задержки вызовов; расход на активный час; API и `aang usage`.
-  - Приёмка: три журнала не смешиваются; активный час считается по активности решателя.
-  - Тесты: интеграционные.
+- **U.1 Observer and chat journals, report** (E.8, F.9, G.4).
+  - Scope: usage and latency of calls; usage per active hour; the API and `aang usage`.
+  - Acceptance: the three journals are not mixed; an active hour is counted by solver activity.
+  - Tests: integration.
 
-## Этап 3. Поставка и проверка
+## Stage 3. Delivery and verification
 
-### P. Упаковка
+### P. Packaging
 
-- **P.1 npm-пакет**.
-  - Состав: сборка `esbuild`, статика `web`, команда `aang`, `engines.node`; бинари `aang-hook` необязательными пакетами `aang-hook-<os>-<arch>`.
-  - Приёмка: `npm pack` → установка во временный префикс → `aang start`, `status`, `open` и `install` во временном HOME с поддельными CLI на трёх ОС.
-  - Тесты: smoke в CI на macOS, Linux и Windows.
-- **P.2 Docker-образ**.
-  - Состав: `node:26-slim` с aang как базовый слой для образа решателя.
-  - Приёмка: в производном образе с поддельными CLI проигрыватель пишет образец, API отдаёт прогон.
-  - Тесты: smoke в CI.
-- **P.3 Документация установки** (документация).
-  - Состав:
-    - установка, `watch`;
-    - граница SDK и opt-in через `plugins`;
+- **P.1 npm package**.
+  - Scope: an `esbuild` build, the `web` static files, the `aang` command, `engines.node`; the `aang-hook` binaries as optional packages `aang-hook-<os>-<arch>`.
+  - Acceptance: `npm pack` → installation into a temporary prefix → `aang start`, `status`, `open` and `install` in a temporary HOME with fake CLIs on three OSes.
+  - Tests: smoke in CI on macOS, Linux and Windows.
+- **P.2 Docker image**.
+  - Scope: `node:26-slim` with aang as a base layer for the solver image.
+  - Acceptance: in a derived image with fake CLIs, the player writes a sample and the API returns the run.
+  - Tests: smoke in CI.
+- **P.3 Installation documentation** (documentation).
+  - Scope:
+    - installation, `watch`;
+    - the SDK boundary and opt-in via `plugins`;
     - OTel;
-    - SSH-туннель;
+    - SSH tunnel;
     - Docker;
-    - удаление.
+    - removal.
 
-### Q. Проверка и замеры (RFC §9, спайк 13.3)
+### Q. Verification and measurements (RFC §9, spike 13.3)
 
-- **Q.1 Сквозная матрица поверхностей.**
-  - Состав:
-    - чек-листы владельца (D.7 повторно на выпускаемых версиях: Desktop — на macOS, TUI — на macOS и Windows);
-    - нативный Windows: оба CLI и оба SDK; Desktop на Windows в MVP не проверяется и остаётся «не проверено» (ADR-0013, решение 3);
-    - Docker и своя VM, SSH-режим Desktop;
-    - путь OAuth на Linux;
-    - обновление матрицы.
+- **Q.1 End-to-end surface matrix.**
+  - Scope:
+    - owner checklists (D.7 again on the release versions: Desktop — on macOS, TUI — on macOS and Windows);
+    - native Windows: both CLIs and both SDKs; Desktop on Windows is not verified in the MVP and stays "not verified" (ADR-0013, decision 3);
+    - Docker and an own VM, Desktop SSH mode;
+    - the OAuth path on Linux;
+    - updating the matrix.
 
-    Ограничения Desktop выносятся владельцу.
-  - Итог: `docs/research/q1-surface-matrix.md`. Инструмент — `tools/surface-check`, workflow — `Surface matrix`. Чек-листы владельца — `docs/research/q1-owner-checklist.md` (macOS, SSH-режим Desktop, OAuth на Linux) и `docs/research/q1-owner-checklist-windows.md`. Свидетельства проверок размещений и чек-листов для матрицы — `support/verification.json`.
-- **Q.2 Свежесть.**
-  - Состав:
-    - инструмент `tools/freshness`: время до выполнения ожидаемого изменения карты по предикатам манифеста, оценка разметчика для остальных контрольных событий, невыполненные ожидания как нарушения, доля времени дозапросов;
-    - профиль нагрузки фиксируется до замера;
-    - p95 смыслового обновления и полная задержка от `source_ts` с настоящим наблюдателем на этом профиле;
-    - параллельные прогоны, исчерпание лимитов подписки, деградация при отказе.
-  - Ориентиры p95 по итогам F.3: 30 с для прогонов с Claude-наблюдателем и около 40 с для прогонов Codex с Codex-наблюдателем (ADR-0007, решение 11). Effort наблюдателя до Q.2 — умолчание CLI (ADR-0007, решение 12).
-  - Итог: отчёт, решение по ориентирам RFC §8 для обоих backend и по effort. Решение владельца 2026-10-08: effort Claude-наблюдателя по умолчанию — `low`, Codex — умолчание CLI; ориентир около 40 с для Codex подтверждён, для Claude по повторному замеру — около 35 с (ADR-0007, решения 14, 15 и 17).
-- **Q.3 Экономика.**
-  - Состав: расход наблюдателя и чата на активный час, разовые и регулярные затраты отдельно.
-  - Бюджет токенов наблюдателя до Q.3 не ограничен (ADR-0007, решение 13). Итог: решение по бюджету по умолчанию. Решение владельца 2026-10-08: бюджет по умолчанию не ограничен (ADR-0007, решение 16).
-- **Q.4 Устойчивость на живых сессиях.**
-  - Состав:
-    - перезапуск демона;
-    - потеря и перенос источников;
-    - сбой hooks и trust;
-    - расхождение hooks и файлов;
-    - неоднозначная родословная.
-- **Итог этапа.** Объявление поддержки по версиям (ADR-0010) и решение владельца о переходе к продуктовой проверке RFC §9.
+    Desktop limitations are escalated to the owner.
+  - Result: `docs/research/q1-surface-matrix.md`. Tool — `tools/surface-check`, workflow — `Surface matrix`. Owner checklists — `docs/research/q1-owner-checklist.md` (macOS, Desktop SSH mode, OAuth on Linux) and `docs/research/q1-owner-checklist-windows.md`. Evidence of the placement and checklist verifications for the matrix — `support/verification.json`.
+- **Q.2 Freshness.**
+  - Scope:
+    - the `tools/freshness` tool: time until the expected map change is fulfilled per the manifest predicates, an annotator assessment for the remaining control events, unfulfilled expectations as violations, the share of time spent on follow-up requests;
+    - the load profile is fixed before the measurement;
+    - p95 of the semantic update and the full latency from `source_ts` with the real observer on this profile;
+    - parallel runs, exhaustion of subscription limits, degradation on failure.
+  - p95 targets based on F.3: 30 s for runs with a Claude observer and about 40 s for Codex runs with a Codex observer (ADR-0007, decision 11). Observer effort until Q.2 is the CLI default (ADR-0007, decision 12).
+  - Result: a report, a decision on the RFC §8 targets for both backends and on effort. Owner decision 2026-10-08: the default Claude observer effort is `low`, Codex uses the CLI default; the target of about 40 s for Codex is confirmed, for Claude, after a repeat measurement, about 35 s (ADR-0007, decisions 14, 15 and 17).
+- **Q.3 Economics.**
+  - Scope: observer and chat usage per active hour, one-time and recurring costs separately.
+  - The observer token budget is not limited until Q.3 (ADR-0007, decision 13). Result: a decision on the default budget. Owner decision 2026-10-08: the default budget is unlimited (ADR-0007, decision 16).
+- **Q.4 Resilience on live sessions.**
+  - Scope:
+    - daemon restart;
+    - loss and move of sources;
+    - hooks and trust failure;
+    - divergence between hooks and files;
+    - ambiguous lineage.
+- **Stage outcome.** Announcement of support by version (ADR-0010) and the owner's decision on moving to the RFC §9 product validation.
 
-## Покрытие сценариев RFC
+## RFC scenario coverage
 
-| Требование | E2E | Где реализуется |
+| Requirement | E2E | Where implemented |
 | --- | --- | --- |
-| Во время работы: активные этапы, агенты, ожидания, изменения, свежесть (RFC §2) | 1, 2, 7, 8, 10 | E.1–E.3, M, F, G.6, H.2–H.6 |
-| После итерации: «С последнего просмотра», карточки, порядок внимания, нерешённые вопросы после конца сессии (RFC §2, §5) | 3, 4, 15, 16 | E.6, M.5b–M.5c, M.8, H.3, H.7 |
-| Чат со ссылками и правила вида (RFC §4, §5) | 5 | K, M.7, H.8 |
-| Сохранение выбора, цвет с подписью (RFC §5) | 14 | H.4–H.5 |
-| Связи, fork, три оси, основания, подтверждение критерия на установленной версии (RFC §6) | 1, 3, 8, 11, 12 | E.4–E.7c, M.2–M.5c |
-| Сохранённые версии артефактов и доступ к источникам (RFC §6, §7) | 17, 18 | A.8, E.7b, F.7c, K.1, H.6 |
-| Явный запрос ввода без LLM, отказ LLM, перезапуск без дублей (RFC §8) | 2, 6, 7 | A, E.1, E.6, F.9 |
-| Раздельный расход (RFC §8) | 11 | E.8, U, H.9 |
-| Защищённый доступ (ADR-0003) | 13 | G.2, H.1 |
-| Пробелы видны: hooks, источник, версия (RFC §7) | 9, 10 | A.6, E.3, G.7, R.5a, H.1 |
-| Поверхности Desktop и SDK (RFC §4) | варианты 1, 4 | R.2, R.2d, R.4, R.4b, H.12, Q.1 |
+| During work: active stages, agents, waits, changes, freshness (RFC §2) | 1, 2, 7, 8, 10 | E.1–E.3, M, F, G.6, H.2–H.6 |
+| After an iteration: «С последнего просмотра» ("Since last view"), cards, attention order, unresolved questions after the end of the session (RFC §2, §5) | 3, 4, 15, 16 | E.6, M.5b–M.5c, M.8, H.3, H.7 |
+| Chat with links and view rules (RFC §4, §5) | 5 | K, M.7, H.8 |
+| Preserving the selection, color with a label (RFC §5) | 14 | H.4–H.5 |
+| Links, fork, three axes, grounds, criterion confirmation on the established version (RFC §6) | 1, 3, 8, 11, 12 | E.4–E.7c, M.2–M.5c |
+| Saved artifact versions and access to sources (RFC §6, §7) | 17, 18 | A.8, E.7b, F.7c, K.1, H.6 |
+| An explicit input request without an LLM, LLM refusal, restart without duplicates (RFC §8) | 2, 6, 7 | A, E.1, E.6, F.9 |
+| Separate usage (RFC §8) | 11 | E.8, U, H.9 |
+| Secured access (ADR-0003) | 13 | G.2, H.1 |
+| Gaps are visible: hooks, source, version (RFC §7) | 9, 10 | A.6, E.3, G.7, R.5a, H.1 |
+| Desktop and SDK surfaces (RFC §4) | variants 1, 4 | R.2, R.2d, R.4, R.4b, H.12, Q.1 |
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Лимит размера PR в 400 строк в проекте отменён: PR логически цельные и ревьюабельные, по одному-два пункта плана. Записанные эталонные сессии — сгенерированный код.
-2. До восьми параллельных сессий: две на этапе 0, восемь на этапе 1 по таблице выше.
-3. CI — GitHub Actions по матрице macOS, Linux и Windows; для теста изоляции на заглушке в CI установлен `codex`.
-4. Ручные чек-листы Desktop и TUI (D.7) выполняет владелец на этапе 1, на macOS и Windows.
-5. Наблюдатель на версии Claude после автоматического допуска включается с пометкой (ADR-0007, решение 7), поэтому живое использование не ждёт F.10 для каждой новой версии.
-6. MVP поддерживает нативный Windows (ADR-0013); проверка D.8 выполняется на этапе 1.
-7. Обработчик hook `aang-hook` — нативный бинарь на Go для всех ОС, исключение из ADR-0001 (ADR-0013).
+1. The 400-line PR size limit is cancelled in the project: PRs are logically coherent and reviewable, one or two plan items each. Recorded reference sessions are generated code.
+2. Up to eight parallel sessions: two in stage 0, eight in stage 1 per the table above.
+3. CI is GitHub Actions over a macOS, Linux and Windows matrix; `codex` is installed in CI for the isolation test on a stub.
+4. The manual Desktop and TUI checklists (D.7) are done by the owner in stage 1, on macOS and Windows.
+5. The observer on a Claude version is enabled with a mark after automatic admission (ADR-0007, decision 7), so live use does not wait for F.10 for each new version.
+6. The MVP supports native Windows (ADR-0013); the D.8 check is done in stage 1.
+7. The `aang-hook` hook handler is a native Go binary for all OSes, an exception to ADR-0001 (ADR-0013).
 
-Принято владельцем 2026-10-02:
+Accepted by the owner 2026-10-02:
 
-8. D.8 выполняется в GitHub Actions на `windows-latest`: настоящие `claude` и `codex` на раннере, поддельный endpoint модели (Claude — `ANTHROPIC_BASE_URL`, Codex — заглушка Responses API), отчёт в `docs/research/` по результатам CI. Хранение настоящей OAuth-авторизации на Windows помечается непроверенным (ADR-0013, решение 4).
-9. Claude Desktop и Codex Desktop на Windows в MVP не проверяются; в матрице поддержки — явная отметка «не проверено». Это сужение RFC §4 (ADR-0013, решение 3).
-10. Файл spool с нераспознанным заголовком остаётся в spool с пробелом и отбрасывается по сроку `spool.maxAgeDays` (ADR-0004, решение 11).
-11. Строгий бенчмарк `aang-hook` на нативных Linux и Windows — в D.8; на Windows ориентир берётся из CI (решение по PR #11, ADR-0013, решение 5).
+8. D.8 runs in GitHub Actions on `windows-latest`: real `claude` and `codex` on the runner, a fake model endpoint (Claude — `ANTHROPIC_BASE_URL`, Codex — a Responses API stub), a report in `docs/research/` based on the CI results. Storage of real OAuth authorization on Windows is marked unverified (ADR-0013, decision 4).
+9. Claude Desktop and Codex Desktop on Windows are not verified in the MVP; the support matrix has an explicit "not verified" mark. This narrows RFC §4 (ADR-0013, decision 3).
+10. A spool file with an unrecognized header stays in the spool with a gap and is discarded after the `spool.maxAgeDays` period (ADR-0004, decision 11).
+11. The strict `aang-hook` benchmark on native Linux and Windows is in D.8; on Windows the target is taken from CI (decision on PR #11, ADR-0013, decision 5).
 
-Принято владельцем 2026-10-04 по отчёту F.3 (`docs/research/f3-observer-measurement.md`, раздел 2):
+Accepted by the owner 2026-10-04 based on the F.3 report (`docs/research/f3-observer-measurement.md`, section 2):
 
-12. Профиль Codex-наблюдателя выключает снимок оболочки (`--disable shell_snapshot`), а допуск версии F.6 проверяет, что за вызов ни один потомок не покинул группу процессов (ADR-0007, решение 10; ADR-0013, решение 3 по техническим вопросам).
-13. Ориентир свежести p95 для прогонов Codex с Codex-наблюдателем — около 40 с, для Claude — 30 с; окончательная проверка — Q.2 (ADR-0007, решение 11).
-14. Effort наблюдателя не закрепляется до Q.2, бюджет токенов не ограничен до Q.3 (ADR-0007, решения 12 и 13).
+12. The Codex observer profile disables the shell snapshot (`--disable shell_snapshot`), and the F.6 version admission checks that no descendant left the process group during the call (ADR-0007, decision 10; ADR-0013, decision 3 on technical questions).
+13. The p95 freshness target for Codex runs with a Codex observer is about 40 s, for Claude — 30 s; the final check is Q.2 (ADR-0007, decision 11).
+14. Observer effort is not fixed until Q.2, the token budget is not limited until Q.3 (ADR-0007, decisions 12 and 13).
 
-Принято владельцем 2026-10-06 по отчёту D.8 (`docs/research/windows-runtimes.md`, раздел 2):
+Accepted by the owner 2026-10-06 based on the D.8 report (`docs/research/windows-runtimes.md`, section 2):
 
-15. Бюджет `aang-hook.exe` для Claude на Windows — p95 до 25 мс на событие; на macOS и Linux — по-прежнему 10 мс (ADR-0013, решение 6).
-16. Hooks Codex на Windows по умолчанию не ставятся: сессии Codex идут в режиме «только файлы» (ADR-0004), ожидания одобрений не видны. Явный флаг `aang install --codex` включает hooks, `aang install` и `aang status` предупреждают о замедлении 0,25–0,4 с на событие (ADR-0013, решение 7).
+15. The `aang-hook.exe` budget for Claude on Windows is p95 up to 25 ms per event; on macOS and Linux it is still 10 ms (ADR-0013, decision 6).
+16. Codex hooks on Windows are not installed by default: Codex sessions run in «только файлы» ("files only") mode (ADR-0004), approval waits are not visible. The explicit flag `aang install --codex` enables hooks; `aang install` and `aang status` warn about a slowdown of 0.25–0.4 s per event (ADR-0013, decision 7).
 
-Принято владельцем 2026-10-07 по отчёту Q.4 (`docs/research/q4-live-resilience.md`, раздел 2):
+Accepted by the owner 2026-10-07 based on the Q.4 report (`docs/research/q4-live-resilience.md`, section 2):
 
-17. Потеря hooks посреди сессии (Q4-4) исправляется в MVP: ход, видимый в файлах без hook-событий дольше `freshness.hooksInactiveAfterMs`, открывает пробел `hooks_inactive` и переводит сессию в режим «только файлы» до следующего hook-события (ADR-0004, решение 12).
+17. Loss of hooks mid-session (Q4-4) is fixed in the MVP: a turn visible in the files without hook events for longer than `freshness.hooksInactiveAfterMs` opens a `hooks_inactive` gap and switches the session to «только файлы» ("files only") mode until the next hook event (ADR-0004, decision 12).
 
-Одобрено владельцем 2026-10-08 по отчёту Q.2 и Q.3 (`docs/research/q2-q3-live-measurement.md`, раздел 2; PR #163):
+Approved by the owner 2026-10-08 based on the Q.2 and Q.3 report (`docs/research/q2-q3-live-measurement.md`, section 2; PR #163):
 
-18. Effort Claude-наблюдателя по умолчанию — `low`. Ориентиры свежести p95 подтверждены: 30 с для прогонов Claude, около 40 с для прогонов Codex. Effort Codex-наблюдателя — умолчание CLI. Бюджет токенов по умолчанию не ограничен (ADR-0007, решения 14–16). Effort `low` проверяется повторным замером с двумя параллельными прогонами, результат дописывается в отчёт.
-19. Промпт наблюдателя сразу раскладывает явный план (PLAN.md, список задач) в запланированные этапы. После правки отражение плана проверяется у Claude и у Codex.
-20. UI показывает цель прогона `run.goal` (первый промпт, ADR-0006) рядом с брифом, а требование «бриф называет цель» убрано из разметки замеров.
-21. Вызов Claude-наблюдателя без записи изменяемой части входа в кэш исследуется отдельно: стоимость по данным CLI при том же входе и отдельно общее число токенов.
-22. Записи нагрузки замеров хранятся вне репозитория у владельца, отчёт идентифицирует их дайджестами.
+18. The default Claude observer effort is `low`. The p95 freshness targets are confirmed: 30 s for Claude runs, about 40 s for Codex runs. The Codex observer effort is the CLI default. The default token budget is unlimited (ADR-0007, decisions 14–16). Effort `low` is verified by a repeat measurement with two parallel runs; the result is appended to the report.
+19. The observer prompt immediately lays out an explicit plan (PLAN.md, a task list) into planned stages. After the edit, plan reflection is checked for Claude and for Codex.
+20. The UI shows the run goal `run.goal` (the first prompt, ADR-0006) next to the brief, and the requirement "the brief names the goal" is removed from the measurement annotation.
+21. A Claude observer call without writing the changing part of the input to the cache is investigated separately: the cost per CLI data for the same input, and separately the total number of tokens.
+22. The measurement load recordings are kept outside the repository by the owner; the report identifies them by digests.
 
-Одобрено владельцем 2026-10-08 по повторному замеру Q.2 (`docs/research/q2-q3-live-measurement.md`, раздел 9; PR #174):
+Approved by the owner 2026-10-08 based on the Q.2 repeat measurement (`docs/research/q2-q3-live-measurement.md`, section 9; PR #174):
 
-23. Ориентир свежести p95 для прогонов Claude — около 35 с вместо 30 с, effort Claude-наблюдателя остаётся `low` (ADR-0007, решение 17).
-24. Строка материала `needs` наблюдателя усекается до 16 000 символов, строки порции и контекста остаются в 4000 (ADR-0007, решение 18). План Codex из вызова `update_plan` в коде ячейки `exec` адаптер не разбирает: полный PLAN.md наблюдатель получает по `needs`.
+23. The p95 freshness target for Claude runs is about 35 s instead of 30 s; the Claude observer effort stays `low` (ADR-0007, decision 17).
+24. The observer's `needs` material line is truncated to 16,000 characters; batch and context lines stay at 4000 (ADR-0007, decision 18). The adapter does not parse the Codex plan from an `update_plan` call in the code of an `exec` cell: the observer gets the full PLAN.md via `needs`.
 
-Принято владельцем 2026-10-10:
+Accepted by the owner 2026-10-10:
 
-25. CI ускоряется без ослабления проверок. Задание `check` на каждой ОС разбито на параллельные задания: сборка, типы и линт, части Vitest и Playwright, упаковка и отчёт покрытия, который сводит V8-покрытие всех частей через `c8`, как прежде. Задания macOS и Windows идут на push в `master` и на PR, готовые к ревью; draft-PR проверяются только на Ubuntu (`e2e/README.md`, раздел «CI»).
+25. CI is sped up without weakening the checks. The `check` job on each OS is split into parallel jobs: build, types and lint, Vitest and Playwright shards, packaging and the coverage report, which merges the V8 coverage of all shards via `c8`, as before. The macOS and Windows jobs run on push to `master` and on ready-for-review PRs; draft PRs are checked only on Ubuntu (`e2e/README.md`, section "CI").

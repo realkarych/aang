@@ -1,6 +1,6 @@
-# Сценарии из образцов (T.5)
+# Scenarios from samples (T.5)
 
-Манифесты проигрывателя (`PlayerManifest`, T.2) для образцов спайка из `docs/research/samples`, в которых не нужно слияние hooks и файлов. Транскрипты и rollout берутся из образцов по относительному пути, без копий. Согласованные сценарии с hooks и файлами — записи R.4.
+Player manifests (`PlayerManifest`, T.2) for the spike samples from `docs/research/samples` that do not need hooks and files to be merged. Transcripts and rollouts are taken from the samples by relative path, without copies. Coordinated scenarios with hooks and files are the R.4 recordings.
 
 ```ts
 import { createPlayer, loadManifest, sampleScenarioManifest } from '@aang/testkit'
@@ -9,31 +9,31 @@ const player = createPlayer(await loadManifest(sampleScenarioManifest('claude-fo
 await player.play({ until: 'fork' })
 ```
 
-| Сценарий | Что воспроизводит | Метки |
+| Scenario | What it replays | Labels |
 | --- | --- | --- |
-| `claude-subagent` | первый запуск сессии `86f93ed5`: основной транскрипт (34 строки), meta и транскрипт субагента `aad616394e806288d` | `subagent`, `subagent-result` |
-| `claude-fork` | запуск, resume и continue основного транскрипта (52 строки), затем форк `cdfb3544` (49 строк) | `subagent`, `subagent-result`, `resume`, `continue`, `fork` |
-| `claude-compaction` | весь основной транскрипт (97 строк): те же три запуска, ручное сжатие и ход после него | `subagent`, `subagent-result`, `resume`, `continue`, `compaction`, `compact-boundary`, `post-compaction` |
-| `codex-resume-compaction` | rollout `01a0f752`: `codex exec`, затем `exec resume` с автоматическим сжатием (41 строка) | `resume`, `compaction` |
-| `codex-otel` | 24 OTLP-запроса логов: 15 `codex.tool_decision` и 9 других событий, которые приёмник отбрасывает | у каждого решения — имя случая из образца |
+| `claude-subagent` | the first run of session `86f93ed5`: the main transcript (34 lines), the meta and transcript of subagent `aad616394e806288d` | `subagent`, `subagent-result` |
+| `claude-fork` | run, resume and continue of the main transcript (52 lines), then fork `cdfb3544` (49 lines) | `subagent`, `subagent-result`, `resume`, `continue`, `fork` |
+| `claude-compaction` | the whole main transcript (97 lines): the same three runs, a manual compaction and the turn after it | `subagent`, `subagent-result`, `resume`, `continue`, `compaction`, `compact-boundary`, `post-compaction` |
+| `codex-resume-compaction` | rollout `01a0f752`: `codex exec`, then `exec resume` with automatic compaction (41 lines) | `resume`, `compaction` |
+| `codex-otel` | 24 OTLP log requests: 15 `codex.tool_decision` and 9 other events that the receiver discards | each decision has the case name from the sample |
 
-Метка стоит на первом шаге фазы, поэтому `play({ until })` останавливается перед ней.
+A label sits on the first step of a phase, so `play({ until })` stops before it.
 
-## Как получено время шагов
+## How step times were obtained
 
-- **Claude.** Время записи строк — из `claude-code-transcripts/write-timeline-watch.jsonl`, смещение запусков — `run_start` из `sessions-registry-lifecycle-observed.jsonl`. Строки одного файла, увиденные в одну миллисекунду, пишутся одним шагом. При равном времени первым идёт файл с более ранней отметкой записи: субагент завершается раньше, чем результат появляется в родителе. Meta субагента пишется целиком в момент появления файла.
-- **Codex.** Журнала записи rollout в образцах нет, поэтому время шага — отметка `timestamp` записи; записи с одной отметкой пишутся одним шагом. Имя файла построено по времени `session_meta` в UTC.
-- **OTel.** Одна запись на запрос, порядок и время — по `observedTimeUnixNano`. Ресурс — атрибуты `/v1/logs` сервиса из `codex-otel/resource-attributes.by-service.json` в порядке конверта `logs.envelope.tool_decision.approved-user.app-server.json`, область — из того же конверта. Сервис остальных событий определяется по `originator`.
+- **Claude.** Line write times come from `claude-code-transcripts/write-timeline-watch.jsonl`, the run offsets from `run_start` in `sessions-registry-lifecycle-observed.jsonl`. Lines of one file seen in the same millisecond are written as one step. On equal times, the file with the earlier write mark goes first: the subagent finishes before the result appears in the parent. The subagent meta is written whole at the moment the file appears.
+- **Codex.** The samples have no rollout write log, so a step's time is the record's `timestamp` mark; records with the same mark are written as one step. The file name is built from the `session_meta` time in UTC.
+- **OTel.** One record per request, order and time by `observedTimeUnixNano`. The resource is the `/v1/logs` attributes of the service from `codex-otel/resource-attributes.by-service.json` in the order of the envelope `logs.envelope.tool_decision.approved-user.app-server.json`, the scope from the same envelope. The service of the other events is determined by `originator`.
 
-Время первого шага — 0. Полные интервалы сохранены: между запусками спайка проходят минуты, поэтому тесты задают `timeScale`.
+The first step's time is 0. Full intervals are kept: minutes pass between spike runs, so tests set `timeScale`.
 
-Время внутри записей — время спайка. Рабочая очередь наблюдателя ограничена 24 часами по времени факта (ADR-0007), поэтому такие записи наблюдатель получает только сводкой. Тесты, которым нужен ответ наблюдателя на сами факты, проигрывают образец с `recordTime: 'playback'`: каждая ISO-отметка в кавычках в строках, JSON-файлах и payload hooks, в том числе в JSON-тексте внутри строкового значения (с экранированными кавычками на любой глубине вложенности), сдвигается на одну величину в целых секундах, так что самая ранняя отметка источников приходится на последнюю секунду перед созданием проигрывателя, а интервалы между записями сохраняются. Самую раннюю отметку и сутки вокруг отметок определяют только отметки вне JSON-текста в строках: дата в выводе инструмента сдвигается, но начало проигрывания от неё не зависит. Числовые отметки в значениях JSON — секунды, миллисекунды, микросекунды и наносекунды эпохи, числом или строкой цифр на любой глубине вложенности, в том числе в форматированном JSON-тексте с экранированными переводами строк вокруг значения, например `started_at_ms` в rollout Codex и `observedTimeUnixNano` в OTLP, — сдвигаются на ту же величину, если попадают в сутки вокруг ISO-отметок источников; остальные числа, например длительности, счётчики и сброс лимита через несколько суток, не меняются. Если сдвиг совместил бы сдвигаемую числовую отметку с числом, оставленным на месте, все отметки сдвигаются на секунду меньше, пока совпадений не останется: так обратный сдвиг снимка в `tools/support` однозначно возвращает время записи. OTLP-запросы сдвигаются так же, как строки и payload hooks. Доли секунды в отметках остаются как в записи, поэтому длина источника не меняется: проигрыватель сдвигает источник целиком и режет его по тем же строкам и байтам, что и без сдвига, — шаг `bytes` может разорвать отметку или символ UTF-8, а в файле они складываются целыми. `recordTime: { startsAt }` сдвигает записи так же, но самая ранняя отметка приходится на последнюю секунду перед заданным моментом в миллисекундах эпохи: так тест проигрывает часть сессии, например, на сутки раньше. По умолчанию (`recordTime: 'original'`) файлы и запросы совпадают с источниками побайтно.
+Times inside records are spike times. The observer's work queue is limited to 24 hours by fact time (ADR-0007), so the observer receives such records only as a summary. Tests that need the observer's response to the facts themselves play the sample with `recordTime: 'playback'`: every quoted ISO timestamp in lines, JSON files and hook payloads, including in JSON text inside a string value (with escaped quotes at any nesting depth), is shifted by one amount in whole seconds, so that the earliest timestamp of the sources falls on the last second before the player is created, and the intervals between records are kept. The earliest timestamp and the day around the timestamps are determined only by timestamps outside JSON text in lines: a date in tool output is shifted, but the start of playback does not depend on it. Numeric timestamps in JSON values — seconds, milliseconds, microseconds and nanoseconds of the epoch, as a number or a string of digits at any nesting depth, including in formatted JSON text with escaped newlines around the value, for example `started_at_ms` in a Codex rollout and `observedTimeUnixNano` in OTLP — are shifted by the same amount if they fall within the day around the sources' ISO timestamps; other numbers, for example durations, counters and a limit reset several days out, do not change. If the shift would make a shifted numeric timestamp coincide with a number left in place, all timestamps are shifted by one second less until no coincidences remain: this way the reverse shift of a snapshot in `tools/support` unambiguously restores the record time. OTLP requests are shifted the same way as lines and hook payloads. Fractions of a second in timestamps stay as in the record, so the source length does not change: the player shifts the source as a whole and cuts it at the same lines and bytes as without the shift — a `bytes` step may split a timestamp or a UTF-8 character, but in the file they add up whole. `recordTime: { startsAt }` shifts records the same way, but the earliest timestamp falls on the last second before the given moment in epoch milliseconds: this way a test plays part of a session, for example, a day earlier. By default (`recordTime: 'original'`) files and requests match the sources byte for byte.
 
-## Чего нет
+## What is not included
 
-- Снимков реестра `sessions/*.json`: в образцах есть только журнал смены статуса без полного содержимого файла.
-- Hook-событий: образцы hooks и транскриптов сняты в разных сессиях.
+- Registry snapshots `sessions/*.json`: the samples have only the status change log without the full file contents.
+- Hook events: the hook and transcript samples were taken in different sessions.
 
-Рабочие каталоги сессий — `/tmp/aang-spike/cc-transcripts/run` и `/tmp/aang-spike/codex-cli/run1`. Тесты включают их в охват через `watch.all`.
+The sessions' working directories are `/tmp/aang-spike/cc-transcripts/run` and `/tmp/aang-spike/codex-cli/run1`. Tests include them in scope via `watch.all`.
 
-Соответствие манифестов образцам проверяют `packages/testkit/test/sample-scenarios.test.ts` (время каждого шага, файлы на метках, тела OTLP) и `packages/engine/test/sample-scenarios.test.ts` (проход через настоящие сборщик, адаптеры и `engine`).
+Conformance of the manifests to the samples is checked by `packages/testkit/test/sample-scenarios.test.ts` (each step's time, files at labels, OTLP bodies) and `packages/engine/test/sample-scenarios.test.ts` (a pass through the real collector, adapters and `engine`).

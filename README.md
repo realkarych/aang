@@ -1,10 +1,10 @@
 # aang
 
-aang — демон с веб-интерфейсом рядом с агентным рантаймом. Он собирает события прогонов Claude Code и Codex и строит из них обновляемую карту смысловых этапов задачи: что выполняется, кем, что получилось, на каком основании и что требует внимания человека. Требования и границы MVP — в [RFC](rfc.md), архитектурные решения — в [`docs/adr/`](docs/adr/), план — в [`docs/plan/mvp.md`](docs/plan/mvp.md).
+aang is a daemon with a web interface that runs next to an agent runtime. It collects run events from Claude Code and Codex and builds from them a live map of the task's semantic stages: what is being executed, by whom, what came out, on what grounds and what needs human attention. Requirements and MVP boundaries are in the [RFC](rfc.md), architecture decisions are in [`docs/adr/`](docs/adr/), the plan is in [`docs/plan/mvp.md`](docs/plan/mvp.md).
 
-Ниже — установка, подключение рантаймов и удаление.
+Below: installation, connecting runtimes and removal.
 
-## Коротко
+## In short
 
 ```sh
 aang install
@@ -13,22 +13,22 @@ aang watch ~/src/my-project
 aang open
 ```
 
-1. `aang install` подключает hooks Claude Code и Codex. Записи aang в Codex нужно один раз доверить командой `/hooks` (раздел [«Codex»](#codex)).
-2. `aang start` запускает демон.
-3. `aang watch` добавляет проект в охват.
-4. `aang open` печатает ссылку входа в UI.
+1. `aang install` connects the Claude Code and Codex hooks. aang's entries in Codex must be trusted once with the `/hooks` command (section ["Codex"](#codex)).
+2. `aang start` starts the daemon.
+3. `aang watch` adds a project to the scope.
+4. `aang open` prints a UI login link.
 
-## Требования
+## Requirements
 
-- macOS, Linux или Windows без WSL, архитектуры x64 и arm64 ([ADR-0013](docs/adr/0013-windows.md)).
-- Node.js 26 или новее.
-- Claude Code и/или Codex на том же хосте, что и aang. Демон читает файлы рантаймов и принимает их hooks локально.
+- macOS, Linux or Windows without WSL, x64 and arm64 architectures ([ADR-0013](docs/adr/0013-windows.md)).
+- Node.js 26 or newer.
+- Claude Code and/or Codex on the same host as aang. The daemon reads the runtimes' files and receives their hooks locally.
 
-## Установка пакета
+## Installing the package
 
-Пакет aang ещё не опубликован в npm. Пакет `aang` в публичном registry — чужой, не ставьте его. До публикации пакеты собираются из исходников.
+The aang package is not yet published to npm. The `aang` package in the public registry belongs to someone else; do not install it. Until publication, the packages are built from source.
 
-Для сборки нужны git, Node.js 26, pnpm версии из поля `packageManager` в [`package.json`](package.json) и Go версии из [`packages/hook/go.mod`](packages/hook/go.mod):
+Building requires git, Node.js 26, pnpm of the version from the `packageManager` field in [`package.json`](package.json) and Go of the version from [`packages/hook/go.mod`](packages/hook/go.mod):
 
 ```sh
 git clone https://github.com/realkarych/aang.git
@@ -38,163 +38,163 @@ pnpm build
 pnpm package
 ```
 
-`pnpm package` пишет в `dist/npm/` tarball публичного пакета `aang` и шести платформенных пакетов `aang-hook-<os>-<arch>`: `darwin`, `linux` и `win32` для `x64` и `arm64`. Выпускные tarball собирайте на macOS или Linux: Windows не хранит бит исполнения, и бинари для macOS и Linux, упакованные там, не запустятся.
+`pnpm package` writes to `dist/npm/` the tarball of the public `aang` package and of six platform packages `aang-hook-<os>-<arch>`: `darwin`, `linux` and `win32` for `x64` and `arm64`. Build release tarballs on macOS or Linux: Windows does not keep the executable bit, and macOS and Linux binaries packed there will not run.
 
-Поставьте пакет `aang` вместе с платформенным пакетом своей машины. Суффикс платформы печатает `node -p "process.platform + '-' + process.arch"`. Например, на macOS arm64:
+Install the `aang` package together with the platform package for your machine. `node -p "process.platform + '-' + process.arch"` prints the platform suffix. For example, on macOS arm64:
 
 ```sh
 npm install --global dist/npm/aang-0.0.0.tgz dist/npm/aang-hook-darwin-arm64-0.0.0.tgz
 ```
 
-Пакет даёт две команды:
+The package provides two commands:
 
-- `aang` — CLI и демон;
-- `aang-hook` — запускает обработчик hooks своей платформы. Это нативный бинарь на Go из пакета `aang-hook-<os>-<arch>`. Если пакета нет, `aang-hook` называет недостающий пакет и выходит с кодом 1, а `aang install` отказывает.
+- `aang` — the CLI and the daemon;
+- `aang-hook` — runs the hook handler for its platform. It is a native Go binary from the `aang-hook-<os>-<arch>` package. If that package is missing, `aang-hook` names the missing package and exits with code 1, and `aang install` refuses.
 
-Данные aang лежат в `AANG_HOME`: по умолчанию `~/.aang`, на Windows `%USERPROFILE%\.aang`. На macOS и Linux у каталога права 0700, на Windows aang полагается на ACL профиля пользователя.
+aang's data lives in `AANG_HOME`: `~/.aang` by default, `%USERPROFILE%\.aang` on Windows. On macOS and Linux the directory has permissions 0700; on Windows aang relies on the user profile ACL.
 
-## Подключение рантаймов
+## Connecting runtimes
 
 ```sh
 aang install
 ```
 
-Без флагов подключаются оба рантайма, на Windows — только Claude Code (раздел [«Windows»](#windows)). С `--claude` или `--codex` подключаются только выбранные. Рантаймы подключаются по отдельности: сбой одного не мешает другому, но команда завершается с кодом 1. Если на машине один рантайм, передайте его флаг.
+Without flags both runtimes are connected; on Windows only Claude Code (section ["Windows"](#windows)). With `--claude` or `--codex` only the selected ones are connected. Runtimes are connected separately: a failure of one does not prevent the other, but the command exits with code 1. If the machine has only one runtime, pass its flag.
 
-Сначала `aang install` копирует бинарь `aang-hook` без изменений в `<AANG_HOME>/bin/`. Конфиги hooks вызывают эту копию по абсолютному пути и передают ей абсолютный путь spool. Поэтому окружение рантайма на работу hooks не влияет.
+First, `aang install` copies the `aang-hook` binary unchanged into `<AANG_HOME>/bin/`. The hook configs call this copy by absolute path and pass it the absolute spool path. Therefore the runtime's environment does not affect how hooks work.
 
-Hook пишет событие в spool и завершается с кодом 0 без вывода, даже при сбое. Он не обращается к сети и не ждёт демон. Пока демон не запущен, hooks ничего не пишут (раздел «Запуск»).
+A hook writes the event to the spool and exits with code 0 without output, even on failure. It does not access the network and does not wait for the daemon. While the daemon is not running, hooks write nothing (section "Running").
 
 ### Claude Code
 
-- aang генерирует плагин в `<AANG_HOME>/claude-plugin/`. Он регистрирует hooks на все события, кроме `WorktreeCreate`, `WorktreeRemove`, `MessageDisplay` и `PreModelSwitch`, с `timeout: 2`. Команды заданы в exec form, без shell.
-- Плагин ставится в пользовательский scope через локальный маркетплейс `aang`: `claude plugin marketplace add` и `claude plugin install aang@aang`.
-- `aang install` печатает, включён ли плагин. Выключенный плагин включается командой `claude plugin enable aang@aang`.
+- aang generates a plugin in `<AANG_HOME>/claude-plugin/`. It registers hooks for all events except `WorktreeCreate`, `WorktreeRemove`, `MessageDisplay` and `PreModelSwitch`, with `timeout: 2`. The commands are given in exec form, without a shell.
+- The plugin is installed in the user scope via the local marketplace `aang`: `claude plugin marketplace add` and `claude plugin install aang@aang`.
+- `aang install` prints whether the plugin is enabled. A disabled plugin is enabled with `claude plugin enable aang@aang`.
 
-Плагин загружают CLI, Desktop (Local и worktree) и Agent SDK с настройками по умолчанию (раздел [«Agent SDK и Codex SDK»](#agent-sdk-и-codex-sdk)). Команда — `cli.claude` из конфига aang или `claude` из `PATH`, профиль — `runtimes.claude.configDir`, `CLAUDE_CONFIG_DIR` или `~/.claude`.
+The plugin is loaded by the CLI, Desktop (Local and worktree) and the Agent SDK with default settings (section ["Agent SDK and Codex SDK"](#agent-sdk-and-codex-sdk)). The command is `cli.claude` from the aang config or `claude` from `PATH`; the profile is `runtimes.claude.configDir`, `CLAUDE_CONFIG_DIR` or `~/.claude`.
 
 ### Codex
 
-aang ставит hooks в профиль Codex: штатный `~/.codex` или профиль по другому пути, заданный через `runtimes.codex.home` или `CODEX_HOME`. С профилем по другому пути aang читает сессии и ставит hooks только в нём, поэтому Codex запускайте с тем же `CODEX_HOME`.
+aang installs hooks into the Codex profile: the regular `~/.codex` or a profile at another path set via `runtimes.codex.home` or `CODEX_HOME`. With a profile at another path, aang reads sessions and installs hooks only there, so run Codex with the same `CODEX_HOME`.
 
-- aang дописывает свои записи в конец массивов всех 12 событий в `<codex>/hooks.json`. Trust Codex привязан к позиции записи, поэтому чужие записи и их позиции не меняются.
-- Устаревшие записи aang прежних установок не удаляются, а нейтрализуются на месте: их команда заменяется на `true` (на Windows — `exit 0`).
-- Перед изменением файла делается резервная копия `hooks.json.aang-backup-<время>-<суффикс>`, её путь печатается.
-- `config.toml` и `hooks.state` aang не пишет: trust записям aang даёт пользователь.
+- aang appends its entries to the end of the arrays of all 12 events in `<codex>/hooks.json`. Codex trust is bound to the entry position, so other entries and their positions do not change.
+- Stale aang entries from previous installations are not deleted but neutralized in place: their command is replaced with `true` (`exit 0` on Windows).
+- Before the file is changed, a backup `hooks.json.aang-backup-<time>-<suffix>` is made, and its path is printed.
+- aang does not write `config.toml` or `hooks.state`: trust for aang's entries is granted by the user.
 
-После записи `aang install` печатает состояние записей aang. После первой установки они не доверены. Откройте Codex и доверьте их командой `/hooks`. До этого Codex их пропускает, и сессии Codex видны в режиме «только файлы».
+After writing, `aang install` prints the state of aang's entries. After the first installation they are not trusted. Open Codex and trust them with the `/hooks` command. Until then Codex skips them, and Codex sessions are visible in the «только файлы» ("files only") mode.
 
-До и после записи aang сверяет trust чужих записей собственным процессом `codex app-server`: `initialize`, затем `hooks/list`. Если trust чужой записи изменился, установка откатывается.
+Before and after writing, aang verifies the trust of other entries with its own `codex app-server` process: `initialize`, then `hooks/list`. If the trust of another entry changed, the installation is rolled back.
 
-- Процесс работает в профиле Codex и завершается сразу после ответа.
-- К общему демону Codex и к чужим тредам aang не подключается.
-- При старте, ещё до ответа, `codex app-server` сам обращается к сервисам OpenAI от имени пользователя: remote control, список моделей, каталог плагинов. В `CODEX_HOME` он может оставить служебные файлы ([отчёт D.6](docs/research/d6-app-server-live.md)). Поэтому aang запускает его только по событию, а не по таймеру ([ADR-0004](docs/adr/0004-event-collection.md)).
+- The process runs in the Codex profile and exits right after the response.
+- aang does not connect to the shared Codex daemon or to other threads.
+- At startup, even before responding, `codex app-server` itself contacts OpenAI services on behalf of the user: remote control, the model list, the plugin catalog. It may leave service files in `CODEX_HOME` ([D.6 report](docs/research/d6-app-server-live.md)). Therefore aang runs it only on an event, not on a timer ([ADR-0004](docs/adr/0004-event-collection.md)).
 
-Профиль Codex — `runtimes.codex.home` из конфига aang, `CODEX_HOME` или `~/.codex`, команда — `cli.codex` или `codex` из `PATH`.
+The Codex profile is `runtimes.codex.home` from the aang config, `CODEX_HOME` or `~/.codex`; the command is `cli.codex` or `codex` from `PATH`.
 
 ### Windows
 
-Решения по Windows и замеры — в [ADR-0013](docs/adr/0013-windows.md) и [проверке рантаймов на Windows](docs/research/windows-runtimes.md).
+Windows decisions and measurements are in [ADR-0013](docs/adr/0013-windows.md) and the [runtime check on Windows](docs/research/windows-runtimes.md).
 
-- **Claude Code** подключается так же, как на macOS и Linux. Claude запускает `aang-hook.exe` напрямую, без shell. Запуск hook на Windows — p95 18–24 мс против 1–4 мс на macOS и Linux: дорого само создание процесса Windows. Бюджет на Windows — p95 до 25 мс.
-- **Codex.** Hooks Codex `aang install` без флагов на Windows не ставит. Codex запускает команду hook только через PowerShell, и каждое событие обходится в 0,25–0,4 с: сессия с 20 вызовами инструментов идёт 12–14 с вместо 1–2 с. Без hooks сессии Codex видны в режиме «только файлы»: содержимое, связи и usage есть, ожиданий одобрений нет. `aang install` и `aang status` об этом напоминают.
-- `aang install --codex` ставит hooks Codex явно и предупреждает о замедлении. `aang status` повторяет предупреждение, пока записи стоят.
-  - Команда записи — `& '<AANG_HOME>\bin\aang-hook.exe' 'codex' 'user' '<AANG_HOME>\spool'`. Оператор вызова `&` нужен PowerShell, одинарная кавычка в пути удваивается.
-  - Trust чужих записей aang сверяет собственным `codex app-server`, как на macOS и Linux. На Windows он запускается через `aang-hook.exe launch`, который завершает всё дерево процессов CLI (Job Object).
-  - Команду `codex` aang ищет как `codex.exe` в `PATH`. npm-установка Codex кладёт в `PATH` только шим `codex.cmd`, который без shell не запускается. Для неё укажите в конфиге `cli.codex` — абсолютный путь к настоящему `codex.exe` из пакета `@openai/codex-win32-x64` (`…\vendor\x86_64-pc-windows-msvc\bin\codex.exe`). Демон для `aang status` запускает npm-установку Codex сам: через `node` и скрипт пакета.
-- `cli.claude` на Windows — путь к `claude.exe`. Без него `aang install` ищет `claude.exe` в `PATH`; нативный установщик Claude кладёт его в `%USERPROFILE%\.local\bin`, но в `PATH` этот каталог не добавляет.
+- **Claude Code** is connected the same way as on macOS and Linux. Claude runs `aang-hook.exe` directly, without a shell. Hook startup on Windows is p95 18–24 ms versus 1–4 ms on macOS and Linux: Windows process creation itself is expensive. The budget on Windows is p95 up to 25 ms.
+- **Codex.** `aang install` without flags does not install Codex hooks on Windows. Codex runs the hook command only through PowerShell, and each event costs 0.25–0.4 s: a session with 20 tool calls takes 12–14 s instead of 1–2 s. Without hooks, Codex sessions are visible in the «только файлы» mode: content, links and usage are there; approval waits are not. `aang install` and `aang status` remind about this.
+- `aang install --codex` installs Codex hooks explicitly and warns about the slowdown. `aang status` repeats the warning while the entries are in place.
+  - The entry command is `& '<AANG_HOME>\bin\aang-hook.exe' 'codex' 'user' '<AANG_HOME>\spool'`. PowerShell needs the call operator `&`; a single quote in the path is doubled.
+  - aang verifies the trust of other entries with its own `codex app-server`, as on macOS and Linux. On Windows it is started via `aang-hook.exe launch`, which terminates the whole CLI process tree (Job Object).
+  - aang looks for the `codex` command as `codex.exe` in `PATH`. An npm installation of Codex puts only the `codex.cmd` shim into `PATH`, which does not run without a shell. For it, set `cli.codex` in the config to the absolute path of the real `codex.exe` from the `@openai/codex-win32-x64` package (`…\vendor\x86_64-pc-windows-msvc\bin\codex.exe`). For `aang status`, the daemon runs an npm installation of Codex itself: via `node` and the package script.
+- `cli.claude` on Windows is the path to `claude.exe`. Without it, `aang install` looks for `claude.exe` in `PATH`; the native Claude installer puts it in `%USERPROFILE%\.local\bin` but does not add that directory to `PATH`.
 
-### Повторная установка и обновление
+### Reinstalling and updating
 
-`aang install` можно запускать повторно: результат тот же. После обновления пакета aang запустите его снова. Бинарь в `<AANG_HOME>/bin/` заменится на месте, а строки команд в плагине и `hooks.json` не изменятся, поэтому trust Codex сохранится.
+`aang install` can be run repeatedly: the result is the same. After updating the aang package, run it again. The binary in `<AANG_HOME>/bin/` is replaced in place, while the command lines in the plugin and `hooks.json` do not change, so Codex trust is kept.
 
-Пути в конфигах hooks абсолютные. Если `AANG_HOME` изменился, запустите `aang install` заново и снова доверьте новые записи Codex через `/hooks`.
+The paths in the hook configs are absolute. If `AANG_HOME` changed, run `aang install` again and trust the new Codex entries via `/hooks` again.
 
-## Запуск
+## Running
 
-- `aang start` запускает демон в фоне и печатает его адрес, по умолчанию `http://127.0.0.1:4280`. С `--foreground` демон работает в текущем процессе.
-- Демон создаёт аренду spool на 24 часа и продлевает её каждый час. Без действующей аренды hooks ничего не пишут. Если демон упал, события копятся в spool до конца аренды и принимаются после следующего `aang start`.
-- `aang open` печатает одноразовую ссылку входа в UI. Ссылка ставит cookie, работает один раз и действует 5 минут. Для нового входа нужна новая ссылка. `aang token rotate` заменяет токен UI, после него нужно войти заново.
-- `aang status` показывает `AANG_HOME`, состояние демона, число и объём файлов spool, срок аренды и маркер остановки.
-- `aang stop` останавливает демон и сразу прекращает запись hooks. Маркер остановки действует, пока его не снимет следующий `aang start`.
+- `aang start` starts the daemon in the background and prints its address, `http://127.0.0.1:4280` by default. With `--foreground` the daemon runs in the current process.
+- The daemon creates a 24-hour spool lease and renews it every hour. Without a valid lease, hooks write nothing. If the daemon crashed, events accumulate in the spool until the lease ends and are taken in after the next `aang start`.
+- `aang open` prints a one-time UI login link. The link sets a cookie, works once and is valid for 5 minutes. A new login needs a new link. `aang token rotate` replaces the UI token; after it you need to log in again.
+- `aang status` shows `AANG_HOME`, the daemon state, the number and size of spool files, the lease expiry and the stop marker.
+- `aang stop` stops the daemon and immediately stops hook writes. The stop marker stays in effect until the next `aang start` removes it.
 
-Автозапуска через launchd, systemd или службы Windows в MVP нет.
+There is no autostart via launchd, systemd or Windows services in the MVP.
 
-### Охват: `watch`
+### Scope: `watch`
 
-aang собирает только сессии отслеживаемых проектов. Сессия отслеживается, если её первый рабочий каталог лежит внутри отслеживаемого каталога или в git worktree отслеживаемого репозитория. Продолжения и субагенты наследуют решение корневой сессии. Записи остальных сессий отбрасываются при приёме и не сохраняются.
+aang collects only sessions of watched projects. A session is watched if its first working directory lies inside a watched directory or in a git worktree of a watched repository. Continuations and subagents inherit the decision of the root session. Records of other sessions are discarded at intake and not stored.
 
-- `aang watch <каталог>` добавляет каталог и перечитывает его сессии за `lookback`, по умолчанию 7 дней. Перечитываются и сессии, отброшенные раньше.
-- `--lookback <дни>` задаёт срок перечитывания для этого вызова: `--lookback 30` или `--lookback 30d`.
-- `aang watch --all` включает сбор всех сессий. Список отслеживаемых каталогов при этом сохраняется.
-- `aang unwatch <каталог>` удаляет каталог из списка. Пока включён `watch --all`, сессии этого каталога по-прежнему собираются.
-- `aang unwatch --all` выключает сбор всех сессий и возвращает охват к списку каталогов.
-- Чтобы прекратить сбор полностью, выполните `aang unwatch --all` и `aang unwatch` для каждого каталога списка. `aang stop` тоже прекращает сбор, но после следующего `aang start` он возобновится по сохранённому охвату.
+- `aang watch <dir>` adds a directory and re-reads its sessions for `lookback`, 7 days by default. Sessions discarded earlier are re-read too.
+- `--lookback <days>` sets the re-read period for this call: `--lookback 30` or `--lookback 30d`.
+- `aang watch --all` turns on collection of all sessions. The list of watched directories is kept.
+- `aang unwatch <dir>` removes a directory from the list. While `watch --all` is on, sessions of this directory are still collected.
+- `aang unwatch --all` turns off collection of all sessions and returns the scope to the directory list.
+- To stop collection completely, run `aang unwatch --all` and `aang unwatch` for each directory in the list. `aang stop` also stops collection, but after the next `aang start` it resumes with the saved scope.
 
-Записи сессий, вышедших из охвата, отбрасываются при приёме. Уже собранные данные остаются, удаляет прогоны `aang prune`. Команды обращаются к работающему демону. Список отслеживаемых каталогов хранится в базе aang и переживает перезапуск.
+Records of sessions that left the scope are discarded at intake. Data already collected stays; `aang prune` deletes runs. The commands talk to the running daemon. The list of watched directories is stored in the aang database and survives a restart.
 
-## Что видит aang
+## What aang sees
 
-| Режим | Когда | Что видно |
+| Mode | When | What is visible |
 | --- | --- | --- |
-| Полный | hooks активны, файлы рантайма доступны | всё |
-| Только файлы | hooks не активны: не установлены (на Windows так по умолчанию у Codex), плагин выключен, записи Codex не доверены | содержимое, связи и usage; ожидания одобрений не видны |
-| Только hooks | рантайм не пишет транскрипт: Agent SDK с `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | живые события, ожидания, финальный текст; нет содержимого, usage и восстановления |
+| «полный» (full) | hooks are active, runtime files are available | everything |
+| «только файлы» (files only) | hooks are not active: not installed (the default for Codex on Windows), the plugin is disabled, Codex entries are not trusted | content, links and usage; approval waits are not visible |
+| «только hooks» (hooks only) | the runtime does not write a transcript: Agent SDK with `persistSession: false`, `CLAUDE_CODE_SKIP_PROMPT_HISTORY` | live events, waits, the final text; no content, usage or recovery |
 
-- UI показывает режим каждой сессии.
-- Для профилей с интерактивными одобрениями режим «только файлы» — неполная поддержка. Это Claude CLI и Desktop, а также Codex TUI и Desktop с `on-request`. Для `codex exec` и SDK с `approval_policy=never` hooks только ускоряют сбор.
-- Корпоративные политики Claude `allowManagedHooksOnly` и `disableAllHooks` отключают hooks aang. Сессии тогда видны в режиме «только файлы».
+- The UI shows the mode of each session.
+- For profiles with interactive approvals, the «только файлы» mode is incomplete support. These are Claude CLI and Desktop, as well as Codex TUI and Desktop with `on-request`. For `codex exec` and the SDKs with `approval_policy=never`, hooks only speed up collection.
+- The Claude enterprise policies `allowManagedHooksOnly` and `disableAllHooks` disable aang's hooks. Sessions are then visible in the «только файлы» mode.
 
-Поверхности:
+Surfaces:
 
-- Claude Code — CLI, Desktop (Local и worktree) и Agent SDK;
-- Codex — TUI, `exec`, Desktop и Codex SDK.
+- Claude Code — CLI, Desktop (Local and worktree) and Agent SDK;
+- Codex — TUI, `exec`, Desktop and Codex SDK.
 
-Desktop на Windows в MVP не проверяется. Cowork и облачные режимы (Claude Cloud, Codex Cloud, Work Cloud) aang не наблюдает. UI показывает их постоянным уведомлением «не наблюдаемо».
+Desktop on Windows is not checked in the MVP. aang does not observe Cowork and the cloud modes (Claude Cloud, Codex Cloud, Work Cloud). The UI shows them with a persistent notice «Не наблюдаемо» ("Not observable").
 
-### Поддержка версий
+### Version support
 
-Поддержка объявляется по точной версии движка для каждой поверхности, ОС и размещения (локально, Docker, VM, SSH-режим Desktop) в [`support/matrix.json`](support/matrix.json) по [ADR-0010](docs/adr/0010-format-versions.md). Статус следует из результатов проверок (решение владельца 2026-10-08), UI показывает его у встреченной версии в полосе состояния:
+Support is declared per exact engine version for each surface, OS and placement (local, Docker, VM, Desktop SSH mode) in [`support/matrix.json`](support/matrix.json) according to [ADR-0010](docs/adr/0010-format-versions.md). The status follows from check results (owner decision 2026-10-08); the UI shows it for an encountered version in the status bar:
 
-- «поддерживается» (`full`) — пробелов нет: контрактный прогон эталонных записей этой ОС проходит по всем сценариям, E2E 1 и 4 идут на этих записях, размещение и, где нужен, чек-лист владельца пройдены;
-- «с ограничениями» (`limited`) — строка проверена, но с пробелами, и матрица их перечисляет: нет записи сценария, сценарий не проходит, E2E 1 и 4 не идут или не проходят;
-- «не проверена» (`unverified`) — версии нет в матрице, у строки нет своих записей ОС или пройденной проверки размещения, ей нужен чек-лист владельца, который ещё не пройден, или это Desktop на Windows.
+- «поддерживается» ("supported", `full`) — no gaps: the contract run of the reference recordings of this OS passes for all scenarios, E2E 1 and 4 run on these recordings, the placement check and, where needed, the owner's checklist have passed;
+- «с ограничениями» ("limited", `limited`) — the row is checked but has gaps, and the matrix lists them: no recording of a scenario, a scenario does not pass, E2E 1 and 4 do not run or do not pass;
+- «не проверена» ("unverified", `unverified`) — the version is not in the matrix, the row has no recordings of its own OS or no passed placement check, it needs an owner's checklist that has not yet been passed, or it is Desktop on Windows.
 
-Непроверенная версия работает в терпимом режиме: сессии собираются и показываются, неразобранные записи сохраняются.
+An unverified version works in tolerant mode: sessions are collected and shown, unparsed records are stored.
 
-Матрица для Claude Code 2.1.289, Claude Agent SDK с движком 2.1.289, Codex 0.160.0 и Codex SDK 0.160.0:
+Matrix for Claude Code 2.1.289, Claude Agent SDK with engine 2.1.289, Codex 0.160.0 and Codex SDK 0.160.0:
 
-| Поверхность | `full` | `limited` | `unverified` |
+| Surface | `full` | `limited` | `unverified` |
 | --- | --- | --- | --- |
-| Claude Agent SDK, Codex SDK | macOS, Linux (локально, Docker, VM), Windows | — | — |
-| `codex exec` | macOS | Linux (локально, Docker, VM), Windows: нет записи `resume-compaction` с настоящей моделью | — |
-| Claude CLI | — | Linux (локально, Docker, VM): E2E 1 и 4 не идут на записях Linux | macOS, Windows: нет чек-листа TUI владельца |
-| Codex TUI | — | macOS, Linux (локально, Docker, VM): E2E 1 и 4 не идут на записях TUI | Windows: записей нет |
-| Claude Desktop (движок 2.1.286), Codex Desktop (движок 0.159.2) | — | — | macOS: нет чек-листа Desktop владельца; Windows: не проверяется в MVP |
+| Claude Agent SDK, Codex SDK | macOS, Linux (local, Docker, VM), Windows | — | — |
+| `codex exec` | macOS | Linux (local, Docker, VM), Windows: no `resume-compaction` recording with the real model | — |
+| Claude CLI | — | Linux (local, Docker, VM): E2E 1 and 4 do not run on Linux recordings | macOS, Windows: no owner's TUI checklist |
+| Codex TUI | — | macOS, Linux (local, Docker, VM): E2E 1 and 4 do not run on TUI recordings | Windows: no recordings |
+| Claude Desktop (engine 2.1.286), Codex Desktop (engine 0.159.2) | — | — | macOS: no owner's Desktop checklist; Windows: not checked in the MVP |
 
-### Ограничения Desktop
+### Desktop limitations
 
-Владелец принял их 2026-10-08 как известные ограничения MVP (RFC §4; [отчёт Q.1](docs/research/q1-surface-matrix.md), раздел 5):
+The owner accepted them on 2026-10-08 as known MVP limitations (RFC §4; [Q.1 report](docs/research/q1-surface-matrix.md), section 5):
 
-1. Desktop на Windows в MVP не проверяется ([ADR-0013](docs/adr/0013-windows.md), решение 3).
-2. Живой GUI Claude Desktop и Codex Desktop автоматически не проверяется: эталонные записи и E2E Desktop идут на движках Desktop в эмуляции, а строку Desktop проверенной делает только ручной чек-лист владельца.
-3. SSH-режим обоих Desktop проверен только эмуляцией: неизвестно, какой движок, какой версии и с какими источниками настроек Desktop запускает на удалённом хосте и загрузится ли там плагин aang. Записей движков Desktop для Linux нет, поэтому строки `desktop_ssh` остаются без контрактных столбцов.
-4. Codex Desktop aang отличает от других поверхностей Codex только по `originator`, и UI подписывает такие сессии «предположительно».
-5. Сессии, порождённые Desktop (spawn task, Dispatch, запланированные задачи), связаны с родителем только через метаданные Desktop; формат связи проверяет чек-лист владельца.
-6. Движки Desktop обновляются самим приложением и отстают от CLI: сейчас 2.1.286 у Claude Desktop и 0.159.2 у Codex Desktop при CLI 2.1.289 и 0.160.0. Каждой новой версии движка нужны эталонные записи, до них её строка `unverified`.
+1. Desktop on Windows is not checked in the MVP ([ADR-0013](docs/adr/0013-windows.md), decision 3).
+2. The live GUI of Claude Desktop and Codex Desktop is not checked automatically: Desktop reference recordings and E2E run on Desktop engines in emulation, and only the owner's manual checklist makes a Desktop row verified.
+3. The SSH mode of both Desktops is checked only by emulation: it is unknown which engine, of which version and with which settings sources Desktop starts on the remote host, and whether the aang plugin loads there. There are no Desktop engine recordings for Linux, so the `desktop_ssh` rows remain without contract columns.
+4. aang distinguishes Codex Desktop from other Codex surfaces only by `originator`, and the UI labels such sessions «предположительно» ("presumably").
+5. Sessions spawned by Desktop (spawn task, Dispatch, scheduled tasks) are linked to the parent only through Desktop metadata; the owner's checklist verifies the link format.
+6. Desktop engines are updated by the application itself and lag behind the CLI: currently 2.1.286 in Claude Desktop and 0.159.2 in Codex Desktop, with CLIs at 2.1.289 and 0.160.0. Each new engine version needs reference recordings; until then its row is `unverified`.
 
-## Agent SDK и Codex SDK
+## Agent SDK and Codex SDK
 
 ### Claude Agent SDK
 
-Без изменения кода aang видит приложения, которые:
+Without code changes, aang sees applications that:
 
-- загружают пользовательские настройки: `settingSources` не задан (по умолчанию это `user`, `project` и `local`) или включает `'user'`;
-- пишут транскрипт: `persistSession` не равен `false`.
+- load user settings: `settingSources` is not set (by default it is `user`, `project` and `local`) or includes `'user'`;
+- write a transcript: `persistSession` is not `false`.
 
-В такие приложения плагин aang из пользовательского scope загружается так же, как в CLI.
+Into such applications the aang plugin from the user scope is loaded the same way as into the CLI.
 
-Изолированное приложение без `'user'` в `settingSources` подключается одной строкой — плагином aang через `plugins`:
+An isolated application without `'user'` in `settingSources` is connected with one line — the aang plugin via `plugins`:
 
 ```ts
 import { query } from '@anthropic-ai/claude-agent-sdk'
@@ -210,83 +210,83 @@ for await (const message of query({
 }
 ```
 
-В `path` укажите абсолютный путь `<AANG_HOME>/claude-plugin`, каталог создаёт `aang install --claude`. Приложению, которое уже загружает пользовательские настройки, `plugins` не нужен. Иначе каждое событие придёт от двух регистраций, а это ошибка конфигурации.
+In `path`, give the absolute path `<AANG_HOME>/claude-plugin`; the directory is created by `aang install --claude`. An application that already loads user settings does not need `plugins`. Otherwise every event will arrive from two registrations, which is a configuration error.
 
-Ограничения:
+Limitations:
 
-- `persistSession: false`: транскрипта нет, и сессия видна только в режиме «только hooks»;
-- resume из `sessionStore`: SDK отбрасывает `enabledPlugins` и работает во временном `CLAUDE_CONFIG_DIR`. Плагин из пользовательских настроек не загружается, а транскрипт пишется вне корней aang.
+- `persistSession: false`: there is no transcript, and the session is visible only in the «только hooks» mode;
+- resume from `sessionStore`: the SDK drops `enabledPlugins` and works in a temporary `CLAUDE_CONFIG_DIR`. The plugin from user settings is not loaded, and the transcript is written outside aang's roots.
 
 ### Codex SDK
 
-Codex SDK запускает `codex exec`. Rollout он пишет в `CODEX_HOME/sessions` всегда, а hooks берёт из `CODEX_HOME/hooks.json`. Приложение видно без изменения кода, если не переопределяет `CODEX_HOME`. Учтите, что `CodexOptions.env` заменяет окружение процесса целиком. Приложение, которое задаёт в нём другой `CODEX_HOME`, пишет сессии вне корней aang.
+The Codex SDK runs `codex exec`. It always writes the rollout to `CODEX_HOME/sessions` and takes hooks from `CODEX_HOME/hooks.json`. An application is visible without code changes if it does not override `CODEX_HOME`. Note that `CodexOptions.env` replaces the process environment entirely. An application that sets a different `CODEX_HOME` in it writes sessions outside aang's roots.
 
-## OpenTelemetry Codex
+## Codex OpenTelemetry
 
-Решение человека по одобрению в Codex видно только через OpenTelemetry. Без него UI показывает такое решение как «неизвестно». Подключение — по желанию, конфиг Codex aang не меняет.
+A human's approval decision in Codex is visible only through OpenTelemetry. Without it, the UI shows such a decision as «неизвестно» ("unknown"). Connecting it is optional; aang does not change the Codex config.
 
 ```sh
 aang otel-config
 ```
 
-Команда берёт адрес у работающего демона и печатает в stdout секцию для `config.toml` Codex:
+The command takes the address from the running daemon and prints to stdout a section for the Codex `config.toml`:
 
 ```toml
 [otel]
-exporter = { otlp-http = { endpoint = "http://127.0.0.1:4281/otel/<токен приёма>/v1/logs", protocol = "json" } }
+exporter = { otlp-http = { endpoint = "http://127.0.0.1:4281/otel/<intake token>/v1/logs", protocol = "json" } }
 ```
 
-Добавьте её в `<codex>/config.toml`. Если секция `[otel]` в файле уже есть, вторую не добавляйте:
+Add it to `<codex>/config.toml`. If the file already has an `[otel]` section, do not add a second one:
 
-- замените в ней только строку `exporter`, а прежнее значение сохраните, чтобы вернуть его при удалении aang;
-- остальные параметры секции, например `trace_exporter` и `metrics_exporter`, не меняйте;
-- экспортёр логов у Codex один: если он уже отправляет записи в ваш коллектор, выберите один из двух адресов.
+- replace only the `exporter` line in it, and keep the previous value so you can restore it when removing aang;
+- do not change the other parameters of the section, such as `trace_exporter` and `metrics_exporter`;
+- Codex has a single log exporter: if it already sends records to your collector, choose one of the two addresses.
 
-Затем перезапустите демон TUI командой `codex app-server daemon restart` и перезапустите Codex Desktop.
+Then restart the TUI daemon with `codex app-server daemon restart` and restart Codex Desktop.
 
-- Приёмник слушает только loopback, порт `otel.port`, по умолчанию 4281. Он хранит только события `codex.tool_decision`, остальные записи отбрасываются до записи на диск.
-- Токен приёма в адресе отделён от токена UI: `aang token rotate` его не меняет.
-- `aang otel-config --rotate` выдаёт новый токен, и прежний адрес сразу перестаёт принимать записи. Замените строку `exporter` в `config.toml` и снова перезапустите Codex.
+- The receiver listens only on loopback, port `otel.port`, 4281 by default. It stores only `codex.tool_decision` events; other records are discarded before being written to disk.
+- The intake token in the address is separate from the UI token: `aang token rotate` does not change it.
+- `aang otel-config --rotate` issues a new token, and the previous address immediately stops accepting records. Replace the `exporter` line in `config.toml` and restart Codex again.
 
-## Удалённый хост и SSH-туннель
+## Remote host and SSH tunnel
 
-aang работает на том же хосте, что и рантайм:
+aang runs on the same host as the runtime:
 
-- на своей VM;
-- в контейнере (раздел [«Docker»](#docker));
-- на удалённом хосте в SSH-режиме Claude Desktop или Codex Desktop.
+- on your own VM;
+- in a container (section ["Docker"](#docker));
+- on a remote host in the SSH mode of Claude Desktop or Codex Desktop.
 
-Там же выполняются `aang start`, `aang watch` и `aang install`. На каждом хосте свой демон и свой UI, несколько хостов в один UI не сводятся.
+`aang start`, `aang watch` and `aang install` are run there too. Each host has its own daemon and its own UI; several hosts are not combined into one UI.
 
-На своей VM и на хосте SSH-режима Desktop задайте в `<AANG_HOME>/config.json` размещение: `"placement": "vm"` или `"placement": "desktop_ssh"`. Изнутри их не отличить от локального запуска, а поддержка в матрице объявляется для каждого размещения отдельно. Контейнер aang распознаёт сам.
+On your own VM and on a Desktop SSH-mode host, set the placement in `<AANG_HOME>/config.json`: `"placement": "vm"` or `"placement": "desktop_ssh"`. From the inside they cannot be told apart from a local run, and support in the matrix is declared separately for each placement. aang recognizes a container by itself.
 
-Демон по умолчанию слушает только `127.0.0.1:4280`. Для доступа к UI с другой машины откройте SSH-туннель:
+By default the daemon listens only on `127.0.0.1:4280`. To access the UI from another machine, open an SSH tunnel:
 
 ```sh
 ssh -N -L 4280:127.0.0.1:4280 user@host
 ```
 
-Затем выполните `aang open` на удалённом хосте и откройте ссылку `http://127.0.0.1:4280/auth/<код>` в локальном браузере. Локальный порт туннеля должен совпадать с портом демона. Изменяющие запросы UI (отметку просмотра, снятие пунктов внимания, правила вида и чат) демон принимает только со страницы `http://127.0.0.1:<порт демона>` или `http://localhost:<порт демона>` ([ADR-0003](docs/adr/0003-ui-access.md), решение 1). Через другой локальный порт UI откроется и покажет прогоны, но изменения ответят 403.
+Then run `aang open` on the remote host and open the link `http://127.0.0.1:4280/auth/<code>` in the local browser. The local tunnel port must match the daemon port. The daemon accepts UI modifying requests (the view mark, dismissing attention items, view rules and chat) only from the page `http://127.0.0.1:<daemon port>` or `http://localhost:<daemon port>` ([ADR-0003](docs/adr/0003-ui-access.md), decision 1). Through a different local port the UI opens and shows runs, but changes get 403.
 
-Без туннеля можно задать явный адрес прослушивания: `aang start --bind <адрес>` в формате `<хост>`, `<хост>:<порт>` или `[<ipv6>]:<порт>`. Постоянный адрес задают `api.host` и `api.port` в конфиге. Токен обязателен и в этом режиме. Своего TLS в демоне нет, и ссылка входа и cookie передаются открытым текстом. Поэтому за пределами доверенной сети нужен SSH-туннель или внешний прокси с TLS. Для адресов `0.0.0.0` и `::` `aang open` печатает ссылку на loopback, и в ней нужно подставить адрес хоста. Со страницы на адресе хоста UI работает только на чтение: по тому же правилу ADR-0003 изменения отвечают 403. Для полноценного UI с другой машины нужен SSH-туннель с тем же портом.
+Without a tunnel, you can set an explicit listen address: `aang start --bind <address>` in the format `<host>`, `<host>:<port>` or `[<ipv6>]:<port>`. A permanent address is set by `api.host` and `api.port` in the config. The token is mandatory in this mode too. The daemon has no TLS of its own, and the login link and cookie are transmitted in clear text. Therefore outside a trusted network you need an SSH tunnel or an external proxy with TLS. For the addresses `0.0.0.0` and `::`, `aang open` prints a link to loopback, and the host address has to be substituted into it. From a page on the host address the UI is read-only: by the same ADR-0003 rule, changes get 403. A fully functional UI from another machine needs an SSH tunnel with the same port.
 
 ## Docker
 
-Образ `aang` — базовый слой для образа решателя. В производном образе ставятся `claude` и/или `codex`, а демон aang и решатель работают в одном контейнере. Отдельный контейнер aang с общими томами (sidecar) в MVP не поддерживается.
+The `aang` image is a base layer for the solver image. The derived image installs `claude` and/or `codex`, and the aang daemon and the solver run in one container. A separate aang container with shared volumes (sidecar) is not supported in the MVP.
 
-Базовый образ собирается из корня репозитория:
+The base image is built from the repository root:
 
 ```sh
 docker build --tag aang .
 ```
 
-Состав образа:
+Image contents:
 
-- `node:26-slim` с командами `aang` и `aang-hook`, `git` и `tini`;
-- пользователь `node`, `AANG_HOME` — `/home/node/.aang`;
-- точка входа — `tini`. Он забирает завершившиеся процессы при любой команде контейнера, поэтому `aang stop` подтверждает остановку демона и `--init` не нужен.
+- `node:26-slim` with the `aang` and `aang-hook` commands, `git` and `tini`;
+- user `node`, `AANG_HOME` is `/home/node/.aang`;
+- the entry point is `tini`. It reaps exited processes under any container command, so `aang stop` confirms the daemon stop and `--init` is not needed.
 
-Производный образ ставит CLI под `root` и возвращается к `node`:
+The derived image installs the CLIs as `root` and switches back to `node`:
 
 ```dockerfile
 FROM aang
@@ -295,7 +295,7 @@ RUN npm install --global --allow-scripts=@anthropic-ai/claude-code @anthropic-ai
 USER node
 ```
 
-Соберите его и запустите контейнер с проектом и портом UI, опубликованным только на loopback хоста:
+Build it and run the container with the project and the UI port published only on the host's loopback:
 
 ```sh
 docker build --tag solver .
@@ -306,9 +306,9 @@ docker run --detach --name solver \
   solver sleep infinity
 ```
 
-В `src` укажите абсолютный путь проекта на хосте. Он монтируется в `/home/node/work`, этот каталог становится рабочим для `docker exec`, и решатель и aang работают с одним проектом.
+In `src`, give the absolute path of the project on the host. It is mounted at `/home/node/work`, this directory becomes the working directory for `docker exec`, and the solver and aang work with the same project.
 
-Авторизуйте CLI внутри контейнера. `docker exec --interactive --tty solver claude auth login` печатает ссылку входа: откройте её в браузере хоста и вставьте полученный код в терминал. Codex входит по коду устройства: `docker exec --interactive --tty solver codex login --device-auth`. Обычный `codex login` ждёт ответа браузера на `localhost:1455` внутри контейнера, и браузер хоста до него не дойдёт. Вход с настоящей учётной записью и допуск наблюдателя с этой авторизацией проверяет владелец ([чек-лист Q.1](docs/research/q1-owner-checklist.md), раздел 5). Затем запустите aang:
+Authorize the CLIs inside the container. `docker exec --interactive --tty solver claude auth login` prints a login link: open it in the host browser and paste the received code into the terminal. Codex logs in with a device code: `docker exec --interactive --tty solver codex login --device-auth`. A plain `codex login` waits for the browser's response on `localhost:1455` inside the container, and the host browser will not reach it. Login with a real account and observer admission with this authorization are verified by the owner ([Q.1 checklist](docs/research/q1-owner-checklist.md), section 5). Then start aang:
 
 ```sh
 docker exec solver git config --global --add safe.directory /home/node/work
@@ -317,44 +317,44 @@ docker exec solver aang watch /home/node/work
 docker exec solver aang open
 ```
 
-- `safe.directory` нужен, потому что владелец смонтированного каталога в контейнере обычно не пользователь `node`: Docker Desktop показывает его принадлежащим `root`. Без этой настройки git отвечает `detected dubious ownership` и не работает с репозиторием ни для решателя, ни для aang.
-- `--bind 0.0.0.0` нужен, чтобы опубликованный порт доходил до демона. `--publish 127.0.0.1:4280:4280` открывает его только на loopback хоста. Порт на хосте должен совпадать с портом демона в контейнере: с другим портом изменения в UI отвечают 403 (раздел [«Удалённый хост и SSH-туннель»](#удалённый-хост-и-ssh-туннель)).
-- Ссылку из `aang open` откройте в браузере хоста. Если Docker работает на удалённой машине, добавьте SSH-туннель до неё.
-- Docker на Windows запускает контейнеры Linux, поэтому внутри контейнера действуют правила Linux.
+- `safe.directory` is needed because the owner of the mounted directory in the container is usually not the `node` user: Docker Desktop shows it as owned by `root`. Without this setting git answers `detected dubious ownership` and does not work with the repository, neither for the solver nor for aang.
+- `--bind 0.0.0.0` is needed so that the published port reaches the daemon. `--publish 127.0.0.1:4280:4280` opens it only on the host's loopback. The port on the host must match the daemon port in the container: with a different port, changes in the UI get 403 (section ["Remote host and SSH tunnel"](#remote-host-and-ssh-tunnel)).
+- Open the link from `aang open` in the host browser. If Docker runs on a remote machine, add an SSH tunnel to it.
+- Docker on Windows runs Linux containers, so Linux rules apply inside the container.
 
-Hooks подключаются в контейнере так же, как на хосте: `docker exec solver aang install` ставит плагин Claude и hooks Codex с бинарём `aang-hook` образа, записи Codex доверьте через `/hooks` в `docker exec --interactive --tty solver codex`. Без `aang install` сессии решателя видны в режиме «только файлы» (раздел [«Что видит aang»](#что-видит-aang)).
+Hooks are connected in the container the same way as on the host: `docker exec solver aang install` installs the Claude plugin and Codex hooks with the image's `aang-hook` binary; trust the Codex entries via `/hooks` in `docker exec --interactive --tty solver codex`. Without `aang install`, the solver's sessions are visible in the «только файлы» mode (section ["What aang sees"](#what-aang-sees)).
 
-Корни рантаймов (`~/.claude/projects`, `~/.codex/sessions`) в новом контейнере появляются только с первой сессией. Пока их нет, демон замечает их обходом корней раз в 60 с (`collector.rootsScanIntervalMs`), и файлы первой сессии появляются в UI с этой задержкой; hooks приходят сразу.
+The runtime roots (`~/.claude/projects`, `~/.codex/sessions`) appear in a new container only with the first session. While they are absent, the daemon notices them by scanning the roots every 60 s (`collector.rootsScanIntervalMs`), and the files of the first session appear in the UI with this delay; hooks arrive immediately.
 
-## Удаление
+## Removal
 
 ```sh
 aang uninstall
 aang stop
 ```
 
-- `aang uninstall` удаляет плагин Claude и маркетплейс `aang` командами `claude plugin uninstall` и `claude plugin marketplace remove`, а также каталог `<AANG_HOME>/claude-plugin`.
-- Записи aang в `hooks.json` Codex `aang uninstall` нейтрализует на месте (команда `true`, на Windows `exit 0`) и сохраняет резервную копию. Записи не удаляются, потому что trust Codex позиционный: если удалить запись aang вручную, записи после неё сдвинутся и потеряют trust.
-- `<AANG_HOME>` при удалении остаётся. В нём лежат бинарь, база, spool и токены.
+- `aang uninstall` removes the Claude plugin and the `aang` marketplace with `claude plugin uninstall` and `claude plugin marketplace remove`, as well as the `<AANG_HOME>/claude-plugin` directory.
+- `aang uninstall` neutralizes aang's entries in the Codex `hooks.json` in place (command `true`, `exit 0` on Windows) and keeps a backup. The entries are not deleted because Codex trust is positional: if you delete an aang entry manually, the entries after it shift and lose trust.
+- `<AANG_HOME>` stays after removal. It holds the binary, the database, the spool and the tokens.
 
-Чтобы удалить aang полностью:
+To remove aang completely:
 
-1. Удалите пакеты: `npm uninstall --global aang aang-hook-<os>-<arch>`.
-2. Удалите каталог `<AANG_HOME>`. Spool в нём хранит полные payload hooks, в том числе вывод инструментов с возможными секретами.
-3. Если подключали OpenTelemetry, верните в секции `[otel]` `config.toml` Codex прежнее значение `exporter` или удалите строку, если его не было. Всю секцию удаляйте, только если её добавили для aang и других параметров в ней нет. Затем перезапустите Codex.
-4. После проверки удалите резервные копии `hooks.json.aang-backup-*` из профиля Codex.
+1. Remove the packages: `npm uninstall --global aang aang-hook-<os>-<arch>`.
+2. Delete the `<AANG_HOME>` directory. The spool in it holds full hook payloads, including tool output with possible secrets.
+3. If you connected OpenTelemetry, restore the previous `exporter` value in the `[otel]` section of the Codex `config.toml`, or delete the line if there was none. Delete the whole section only if it was added for aang and has no other parameters. Then restart Codex.
+4. After checking, delete the `hooks.json.aang-backup-*` backups from the Codex profile.
 
-## Конфигурация
+## Configuration
 
-`<AANG_HOME>/config.json` можно не создавать. Все пути в нём должны быть абсолютными. Ключи, важные для установки:
+`<AANG_HOME>/config.json` need not be created. All paths in it must be absolute. Keys that matter for installation:
 
-| Ключ | По умолчанию | Назначение |
+| Key | Default | Purpose |
 | --- | --- | --- |
-| `cli.claude`, `cli.codex` | `claude` и `codex` из `PATH` | команды рантаймов |
-| `runtimes.claude.configDir` | `CLAUDE_CONFIG_DIR` или `~/.claude` | профиль Claude |
-| `runtimes.codex.home` | `CODEX_HOME` или `~/.codex` | профиль Codex |
-| `api.host`, `api.port` | `127.0.0.1`, `4280` | адрес API и UI |
-| `otel.port` | `4281` | порт приёмника OpenTelemetry на loopback |
-| `watch.lookbackDays` | `7` | срок бэкфилла при первом старте и перечитывания по `aang watch` |
+| `cli.claude`, `cli.codex` | `claude` and `codex` from `PATH` | runtime commands |
+| `runtimes.claude.configDir` | `CLAUDE_CONFIG_DIR` or `~/.claude` | Claude profile |
+| `runtimes.codex.home` | `CODEX_HOME` or `~/.codex` | Codex profile |
+| `api.host`, `api.port` | `127.0.0.1`, `4280` | API and UI address |
+| `otel.port` | `4281` | OpenTelemetry receiver port on loopback |
+| `watch.lookbackDays` | `7` | backfill period at first start and re-read period for `aang watch` |
 
-Переменная `AANG_HOME` переопределяет каталог aang. Схема конфига — [`packages/contract/src/config.ts`](packages/contract/src/config.ts).
+The `AANG_HOME` variable overrides the aang directory. The config schema is [`packages/contract/src/config.ts`](packages/contract/src/config.ts).

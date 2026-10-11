@@ -1,87 +1,87 @@
-# ADR-0005: Хранилище и журнал
+# ADR-0005: Storage and journal
 
-Статус: принято владельцем 2026-10-01; отзыв объектов наблюдения (решение 3) принят владельцем 2026-10-03.
+Status: accepted by the owner 2026-10-01; retraction of observation objects (decision 3) accepted by the owner 2026-10-03.
 
-## Контекст
+## Context
 
-RFC §7–8 требуют:
+RFC §7–8 require:
 
-- после перезапуска восстанавливать курсоры, этапы и состояние просмотра;
-- не создавать дублей при повторной доставке;
-- не заполнять невосстановимые пропуски догадками;
-- при восстановлении повторять сохранённые изменения модели, а не запросы к LLM.
+- restoring cursors, stages and view state after a restart;
+- not creating duplicates on redelivery;
+- not filling unrecoverable gaps with guesses;
+- on recovery, replaying the saved model changes, not the LLM requests.
 
-ADR-0001 выбрал SQLite через `node:sqlite`. ADR-0002 требует хранить данные локально и бессрочно до ручного удаления. Транскрипты Claude удаляются через 30 дней (спайк, раздел 7), поэтому для возвращения к старым прогонам aang нужна собственная копия сырых записей.
+ADR-0001 chose SQLite via `node:sqlite`. ADR-0002 requires storing data locally and indefinitely until manual deletion. Claude transcripts are deleted after 30 days (spike, section 7), so to return to old runs aang needs its own copy of the raw records.
 
-## Решение
+## Decision
 
-### Размещение
+### Placement
 
-- Один файл `~/.aang/aang.db` (каталог переопределяется `AANG_HOME`), режим WAL. Каталог имеет права 0700 на macOS и Linux; на Windows действует ACL профиля пользователя (ADR-0013).
-- Единственный писатель — процесс демона. CLI работает через API демона.
-- SQL не выходит за пакет `store`; остальные модули работают с типизированными репозиториями. Так замена SQLite остаётся обратимой (ADR-0001).
+- A single file `~/.aang/aang.db` (the directory is overridden by `AANG_HOME`), WAL mode. The directory has permissions 0700 on macOS and Linux; on Windows the user profile ACL applies (ADR-0013).
+- The only writer is the daemon process. The CLI works through the daemon API.
+- SQL does not leave the `store` package; the other modules work with typed repositories. This keeps replacing SQLite reversible (ADR-0001).
 
-### Слои данных
+### Data layers
 
-Каждый слой выводится только из предыдущего и собственных входов.
+Each layer is derived only from the previous one and its own inputs.
 
-| Слой | Что хранит | Как выводится |
+| Layer | What it stores | How it is derived |
 | --- | --- | --- |
-| Сырые записи | `seq` — сквозной порядок приёма; уникальный `dedupe_key` (ADR-0004); канал (`hook`, `transcript`, `rollout`, `otel`, `registry`, `snapshot`, `context`); рантайм; поток; позиция; `observed_at` (момент доступности для сборщика); `source_ts`; payload без изменений; `parse_state`: `parsed`, `unknown` или `invalid` | приём из источника; неизвестные и неразобранные записи тоже сохраняются. Каналы `snapshot` (git-снимки, ADR-0006) и `context` (снимки контекста наблюдателя, ADR-0007) пишет сам демон |
-| Факты | неизменяемые нормализованные наблюдения: `kind`, `entity_key`, `speaker`, `urgent`, идентификаторы рантайма, время, payload, `normalizer_version`, `seq` исходной записи | адаптер из одной сырой записи. Id детерминирован: хеш `dedupe_key`, `kind`, `entity_key` и номера среди фактов того же вида и ключа в записи |
-| Объекты наблюдения | сессии, агенты, действия, вопросы, записи usage, версии артефактов, пробелы (ADR-0006); отзывы объектов: вид, id, ключ, прогон, замена `replaced_by`, `change_seq` | детерминированная проекция фактов по `entity_key`; id — хеш ключа; пересобирается. При уточнении идентичности прежний объект удаляется из объектов и получает отзыв с указанием замены (ADR-0006) |
-| Blob | содержимое версий-оснований (ADR-0006), адресуемое по хешу, со ссылками на версии и пометкой источника: payload действия или чтение файла | демон при удержании версии; удаляется вместе с последней ссылкой |
-| Семантическая модель | текущее состояние этапов, связей, критериев, карточек и зоны внимания по прогону | проекция журнала изменений |
-| Журнал изменений | `model_changes`: версия, операция, сущность, `before`/`after`, автор (`rule`, `observer`, `user`), основание, ссылки на факты, id вызова наблюдателя; `model_versions`: прогон, номер версии, базовая версия, время | правила демона, проверенные изменения наблюдателя, действия пользователя |
-| Интерпретация | `fact_interpretation`: прогон, факт, статус (`pending`, `in_call`, `interpreted`, `deferred`, `not_interpreted`), число попыток, id вызова | очередь наблюдателя (ADR-0007) |
-| Состояние интерфейса | `view_marks` (прогон, версия модели, `change_seq`, время); `attention_views` (пункт внимания, время); `view_rules`; `chat_messages` (вопрос, ответ, цитаты, версия модели) | только явные действия пользователя и ответы чата |
-| Служебное | `cursors`; `observer_calls` (вход, базовая версия, выход, результат проверки с причинами, usage, задержка); `bindings` (явные привязки); `pruned_streams` (граница удаления по потоку); `settings`; `gaps` | демон |
+| Raw records | `seq` — the global intake order; a unique `dedupe_key` (ADR-0004); channel (`hook`, `transcript`, `rollout`, `otel`, `registry`, `snapshot`, `context`); runtime; stream; position; `observed_at` (the moment it became available to the collector); `source_ts`; the payload unchanged; `parse_state`: `parsed`, `unknown` or `invalid` | intake from the source; unknown and unparsed records are stored too. The `snapshot` (git snapshots, ADR-0006) and `context` (observer context snapshots, ADR-0007) channels are written by the daemon itself |
+| Facts | immutable normalized observations: `kind`, `entity_key`, `speaker`, `urgent`, runtime identifiers, time, payload, `normalizer_version`, `seq` of the source record | an adapter from one raw record. The id is deterministic: a hash of `dedupe_key`, `kind`, `entity_key` and the index among facts of the same kind and key in the record |
+| Observation objects | sessions, agents, actions, questions, usage records, artifact versions, gaps (ADR-0006); object retractions: kind, id, key, run, replacement `replaced_by`, `change_seq` | a deterministic projection of facts by `entity_key`; the id is a hash of the key; rebuildable. When an identity is refined, the previous object is removed from the objects and gets a retraction naming the replacement (ADR-0006) |
+| Blob | the content of base versions (ADR-0006), addressed by hash, with references to versions and a source mark: action payload or file read | the daemon, when it retains a version; deleted together with the last reference |
+| Semantic model | the current state of stages, links, criteria, cards and the attention zone per run | a projection of the change journal |
+| Change journal | `model_changes`: version, operation, entity, `before`/`after`, author (`rule`, `observer`, `user`), grounds, fact references, observer call id; `model_versions`: run, version number, base version, time | daemon rules, verified observer changes, user actions |
+| Interpretation | `fact_interpretation`: run, fact, status (`pending`, `in_call`, `interpreted`, `deferred`, `not_interpreted`), attempt count, call id | the observer queue (ADR-0007) |
+| Interface state | `view_marks` (run, model version, `change_seq`, time); `attention_views` (attention item, time); `view_rules`; `chat_messages` (question, answer, citations, model version) | only explicit user actions and chat answers |
+| Service | `cursors`; `observer_calls` (input, base version, output, verification result with reasons, usage, latency); `bindings` (explicit bindings); `pruned_streams` (per-stream deletion boundary); `settings`; `gaps` | the daemon |
 
-- Сквозной счётчик `change_seq` нумерует видимые изменения всех слоёв, включая отзывы объектов наблюдения. Он служит `id` событий SSE и позицией в запросах «изменения с».
-- Отметка просмотра хранит пару «версия модели и `change_seq`», взятую атомарно. Разница «с последнего просмотра» строится по журналу модели от версии и по изменениям и отзывам объектов наблюдения и изменениям внимания от `change_seq` (ADR-0008). Поэтому изменения, которые появились без наблюдателя (новая версия артефакта, вопрос по правилу), в разницу попадают.
-- `gaps` фиксирует известные пропуски: потерю источника, нераспознанные записи, неактивные hooks, отброшенные устаревшие файлы spool, факты, которые наблюдатель не смог осмыслить. Пропуски не заполняются догадками.
+- The global counter `change_seq` numbers the visible changes of all layers, including retractions of observation objects. It serves as the `id` of SSE events and as the position in "changes since" queries.
+- A view mark stores the pair "model version and `change_seq`", taken atomically. The difference "since the last view" is built from the model journal starting at the version, and from the changes and retractions of observation objects and attention changes starting at `change_seq` (ADR-0008). Therefore changes that appeared without the observer (a new artifact version, a question by rule) do get into the difference.
+- `gaps` records known gaps: a lost source, unrecognized records, inactive hooks, discarded stale spool files, facts the observer could not make sense of. Gaps are not filled with guesses.
 
-### Транзакции и восстановление
+### Transactions and recovery
 
-- Приём порции — одна транзакция: сырые записи, факты, объекты и их отзывы, статусы интерпретации `pending`, изменения от детерминированных правил (в том числе перенацеливание связей на замену отозванного объекта) и курсор файла.
-  - Файл spool удаляется после коммита.
-  - Сбой до коммита: чтение повторяется со старого курсора.
-  - Сбой после коммита, но до удаления: повторный приём отсекается по `dedupe_key`.
-- Применение результата наблюдателя — тоже одна транзакция: проверка, изменения, новая версия, статусы интерпретации и запись `observer_calls`.
-- Только в памяти не хранится ничего, что нельзя восстановить. После перезапуска факты со статусом `in_call` возвращаются в `pending`.
-- Проекции модели при повреждении пересобираются повтором журнала, без LLM.
-- `aang reparse` повторно прогоняет адаптеры по сырым записям после смены `normalizer_version` (ADR-0010).
-  - Факты с прежними ключами сохраняют id, поэтому ссылки модели остаются верными.
-  - Новые факты получают статус `pending`.
-  - Ссылка на исчезнувший факт показывается как «основание недоступно».
+- Intake of a batch is one transaction: raw records, facts, objects and their retractions, `pending` interpretation statuses, changes from deterministic rules (including retargeting links to the replacement of a retracted object) and the file cursor.
+  - The spool file is deleted after the commit.
+  - A failure before the commit: reading is repeated from the old cursor.
+  - A failure after the commit but before deletion: the repeated intake is cut off by `dedupe_key`.
+- Applying an observer result is also one transaction: verification, changes, the new version, interpretation statuses and the `observer_calls` record.
+- Nothing that cannot be restored is kept only in memory. After a restart, facts with status `in_call` return to `pending`.
+- Damaged model projections are rebuilt by replaying the journal, without the LLM.
+- `aang reparse` reruns the adapters over the raw records after `normalizer_version` changes (ADR-0010).
+  - Facts with the same keys keep their ids, so model references stay correct.
+  - New facts get the `pending` status.
+  - A reference to a vanished fact is shown as «Основание недоступно» ("Grounds unavailable").
 
-### Миграции и удаление
+### Migrations and deletion
 
-- Миграции — пронумерованные SQL-файлы в `store`, только вперёд. Номер хранится в `PRAGMA user_version`; перед миграцией делается копия файла БД.
-- Срок хранения бессрочный (ADR-0002). `aang prune --run <id>` и `aang prune --before <дата>` удаляют все слои прогона, затем выполняется `VACUUM`.
-  - Для каждого потока прогона в `pruned_streams` сохраняется граница удаления и время удаления. Таблица не зависит от удаляемых данных.
-    - Codex: последний принятый `ordinal` — он есть в каждой строке и не зависит от позиции в файле.
-    - Claude: смещение и хеш префикса файла до этого смещения.
-  - Любое перечитывание — бэкфилл, `rescan`, восстановление после переноса, archive или смены inode — пропускает записи потока до границы.
-    - У Claude граница применяется, только если хеш префикса совпал, то есть это та же последовательность записей.
-    - Если файл с тем же `sessionId` уменьшен или заменён и префикс не совпадает, граница вслепую не применяется. Приём потока останавливается, пишется пробел «поток изменён после удаления», а `aang status` предлагает пользователю принять поток заново целиком или оставить остановленным.
-  - Файлы spool удалённых сессий со временем приёма раньше удаления отбрасываются.
-  - Курсоры сохраняются.
-  - Записи за границей образуют прогон заново с пометкой «начало удалено».
+- Migrations are numbered SQL files in `store`, forward only. The number is stored in `PRAGMA user_version`; a copy of the DB file is made before a migration.
+- Retention is indefinite (ADR-0002). `aang prune --run <id>` and `aang prune --before <date>` delete all layers of a run, then `VACUUM` runs.
+  - For each stream of the run, `pruned_streams` stores the deletion boundary and the deletion time. The table does not depend on the deleted data.
+    - Codex: the last accepted `ordinal` — it is present in every line and does not depend on the position in the file.
+    - Claude: the offset and the hash of the file prefix up to that offset.
+  - Any re-read — backfill, `rescan`, recovery after a move, archive or inode change — skips the stream records up to the boundary.
+    - For Claude, the boundary applies only if the prefix hash matched, that is, it is the same sequence of records.
+    - If a file with the same `sessionId` shrank or was replaced and the prefix does not match, the boundary is not applied blindly. Intake of the stream stops, a gap «поток изменён после удаления» ("stream changed after deletion") is written, and `aang status` offers the user to re-accept the whole stream or leave it stopped.
+  - Spool files of deleted sessions with an intake time earlier than the deletion are discarded.
+  - Cursors are kept.
+  - Records past the boundary form the run anew with the mark «начало удалено» ("start deleted").
 
-## Последствия
+## Consequences
 
-- Возвращение к прогону не зависит от `cleanupPeriodDays`, `codex archive` и удаления транскриптов.
-- Объём БД сопоставим с объёмом исходных файлов отслеживаемых проектов. Сжатие payload откладывается до замеров.
-- Единственный писатель упрощает дедупликацию и транзакции. Lock-файл запрещает запуск двух демонов на одном `AANG_HOME`.
+- Returning to a run does not depend on `cleanupPeriodDays`, `codex archive` or transcript deletion.
+- The DB size is comparable to the size of the source files of the tracked projects. Payload compression is deferred until measurements.
+- A single writer simplifies deduplication and transactions. A lock file forbids running two daemons on one `AANG_HOME`.
 
-## Решения владельца
+## Owner decisions
 
-Принято владельцем 2026-10-01:
+Accepted by the owner 2026-10-01:
 
-1. Payload хранится целиком, без лимита; сжатие — после замеров объёма.
-2. Одна отметка последнего просмотра на прогон.
+1. The payload is stored whole, without a limit; compression comes after size measurements.
+2. One last-view mark per run.
 
-Принято владельцем 2026-10-03:
+Accepted by the owner 2026-10-03:
 
-3. Объект наблюдения может быть отозван с указанием замены (`replaced_by`). Отзыв — видимое изменение со своим `change_seq`: он записывается в транзакции приёма вместе с заменой, и лента изменений отдаёт его потребителям. Правило отзыва и перенацеливания связей — ADR-0006, решение 7.
+3. An observation object can be retracted with a replacement named (`replaced_by`). A retraction is a visible change with its own `change_seq`: it is written in the intake transaction together with the replacement, and the change feed delivers it to consumers. The rule for retraction and link retargeting is ADR-0006, decision 7.

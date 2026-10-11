@@ -1,46 +1,46 @@
-# Ранний ручной чек-лист владельца (D.7): macOS
+# Early manual owner checklist (D.7): macOS
 
-Статус: инструкция по пункту D.7 плана (`docs/plan/mvp.md`). Выполняет владелец. Это не отчёт: результаты и выводы кладутся в отдельный отчёт (раздел 7).
-Дата: 2026-10-03. Инструмент — `tools/owner-checklist`.
+Status: instructions for plan item D.7 (`docs/plan/mvp.md`). Performed by the owner. This is not a report: results and conclusions go into a separate report (section 7).
+Date: 2026-10-03. Tool — `tools/owner-checklist`.
 
-Инструкция для Windows — `docs/research/d7-owner-checklist-windows.md`.
+Instructions for Windows — `docs/research/d7-owner-checklist-windows.md`.
 
-## 0. Что проверяется
+## 0. What is checked
 
-- **Раздел A — интерактивный TUI Claude**, пункты (a)–(h) раздела 6 спайка (`docs/research/integrations.md`, «Только по документации»). Спайк TUI не запускал: принятие диалога доверия меняет `~/.claude.json`.
-- **Раздел B — Claude Desktop, вкладка Code**, шаги 1–6 раздела 11 спайка («Чек-лист ручного эксперимента»).
-- **Раздел C — Codex в ChatGPT Desktop**, шаги 7–10 того же раздела.
+- **Section A — interactive Claude TUI**, items (a)–(h) of section 6 of the spike (`docs/research/integrations.md`, "Documentation only"). The spike did not run the TUI: accepting the trust dialog changes `~/.claude.json`.
+- **Section B — Claude Desktop, Code tab**, steps 1–6 of section 11 of the spike ("Manual experiment checklist").
+- **Section C — Codex in ChatGPT Desktop**, steps 7–10 of the same section.
 
-Регистратор событий — настоящий `aang-hook` (ADR-0004, «Контракт hook-обработчика»). Он пишет во временный spool, в котором `prepare` создаёт действующую аренду; без неё hook ничего не пишет. Для того, чего `aang-hook` не фиксирует, есть два зонда на Node: окружение процесса hook (пункт f) и намеренные сбои hook (пункт d).
+The event recorder is the real `aang-hook` (ADR-0004, "Hook handler contract"). It writes to a temporary spool in which `prepare` creates a valid lease; without it the hook writes nothing. For what `aang-hook` does not capture, there are two Node probes: the hook process environment (item f) and deliberate hook failures (item d).
 
-Desktop на Windows в MVP не проверяется (ADR-0013, решение 3). Ограничения Desktop, найденные здесь, выносятся владельцу до этапа 2 (RFC §4).
+Desktop on Windows is not checked in the MVP (ADR-0013, decision 3). Desktop limitations found here are escalated to the owner before stage 2 (RFC §4).
 
-## 1. Что меняется в пользовательских настройках
+## 1. What changes in user settings
 
-| Что меняется | Когда | Как откатывается |
+| What changes | When | How it is rolled back |
 | --- | --- | --- |
-| Маркетплейс `aang` и плагин `aang@aang` в пользовательском scope Claude (`~/.claude/settings.json`, `~/.claude/plugins/`) | `prepare` с `--claude marketplace` (по умолчанию на macOS): продуктовый `installClaudePlugin`, то есть `claude plugin marketplace add` и `claude plugin install --scope user` | `cleanup`: продуктовый `uninstallClaudePlugin` (`claude plugin uninstall`, `claude plugin marketplace remove`) |
-| Записи aang в `~/.codex/hooks.json`: по одной группе в конце массивов всех 12 событий Codex. Команда — `'<dir>/aang-home/bin/aang-hook' codex user '<dir>/aang-home/spool'` | `prepare --codex-hooks` | `cleanup` удаляет группы aang по точной строке команды. Чужие записи и их позиции не меняются. Если кроме записей aang в файле ничего не менялось, он восстанавливается из резервной копии байт в байт. Если после записи aang кто-то дописал свою, запись aang не удаляется, а нейтрализуется на месте (`true`), чтобы не сдвинуть чужие позиции. Файл, созданный подготовкой, удаляется. Резервная копия `hooks.json.aang-d7-backup-<время>` остаётся рядом: её удаляет владелец |
-| Доверие к hooks aang в `~/.codex/config.toml` (`hooks.state."<путь>:<событие>:i:j"`) | владелец подтверждает доверие (шаг 7) | вручную: aang не пишет `hooks.state` (ADR-0004) |
-| Каталог `~/aang-desktop-probe-outside` | `prepare --codex-hooks` | `cleanup` |
-| Запись проекта `probe-repo` в `~/.claude.json` | первый запуск TUI или Desktop в пробном репозитории, диалог доверия | вручную |
-| Сессии: транскрипты в `~/.claude/projects/`, метафайлы Desktop, rollout в `~/.codex/sessions/`, worktree Codex | во время проверок | `cleanup` печатает список, удаляет владелец |
+| The `aang` marketplace and the `aang@aang` plugin in the Claude user scope (`~/.claude/settings.json`, `~/.claude/plugins/`) | `prepare` with `--claude marketplace` (the default on macOS): the product `installClaudePlugin`, i.e. `claude plugin marketplace add` and `claude plugin install --scope user` | `cleanup`: the product `uninstallClaudePlugin` (`claude plugin uninstall`, `claude plugin marketplace remove`) |
+| aang entries in `~/.codex/hooks.json`: one group at the end of the arrays of all 12 Codex events. The command is `'<dir>/aang-home/bin/aang-hook' codex user '<dir>/aang-home/spool'` | `prepare --codex-hooks` | `cleanup` removes the aang groups by the exact command string. Other entries and their positions do not change. If nothing but the aang entries changed in the file, it is restored from the backup byte for byte. If someone appended their own entry after the aang entry was written, the aang entry is not removed but neutralized in place (`true`), so as not to shift other positions. A file created by the preparation is deleted. The backup `hooks.json.aang-d7-backup-<time>` stays next to it: the owner deletes it |
+| Trust in the aang hooks in `~/.codex/config.toml` (`hooks.state."<path>:<event>:i:j"`) | the owner confirms trust (step 7) | manually: aang does not write `hooks.state` (ADR-0004) |
+| The `~/aang-desktop-probe-outside` directory | `prepare --codex-hooks` | `cleanup` |
+| The `probe-repo` project entry in `~/.claude.json` | the first TUI or Desktop launch in the probe repository, the trust dialog | manually |
+| Sessions: transcripts in `~/.claude/projects/`, Desktop metafiles, rollouts in `~/.codex/sessions/`, Codex worktrees | during the checks | `cleanup` prints a list, the owner deletes |
 
-Пока подготовка не откачена и аренда действует (24 ч по умолчанию), плагин в пользовательском scope пишет в spool события **всех** сессий Claude, а hooks Codex — всех сессий Codex после доверия. Spool содержит полные payload, включая промпты и вывод инструментов (ADR-0004, «Последствия»). Поэтому:
+While the preparation is not rolled back and the lease is valid (24 h by default), the user-scope plugin writes the events of **all** Claude sessions to the spool, and the Codex hooks those of all Codex sessions after trust. The spool contains full payloads, including prompts and tool output (ADR-0004, "Consequences"). Therefore:
 
-- на время чек-листа не работайте в других проектах в Claude и Codex;
-- `cleanup` выполняйте сразу после сбора: он удаляет spool;
-- `collect` по умолчанию берёт только сессии, у которых `cwd` лежит в рабочем каталоге или в `~/.codex/worktrees`; остальные он отбрасывает и считает в сводке.
+- for the duration of the checklist, do not work in other projects in Claude and Codex;
+- run `cleanup` right after collection: it deletes the spool;
+- by default `collect` takes only sessions whose `cwd` lies in the working directory or in `~/.codex/worktrees`; it discards the rest and counts them in the summary.
 
-Устаревшие записи aang в `~/.codex/hooks.json` (например, `aang hook` прежних экспериментов) подготовка не трогает. Продуктовый `installCodexHooks` для чек-листа не используется: он нейтрализует устаревшие записи aang и сверяет доверие через `codex app-server`, а запускать app-server на штатном `~/.codex` до отчёта D.6 нельзя.
+The preparation does not touch stale aang entries in `~/.codex/hooks.json` (for example, `aang hook` from earlier experiments). The product `installCodexHooks` is not used for the checklist: it neutralizes stale aang entries and verifies trust via `codex app-server`, and running the app-server on the regular `~/.codex` is not allowed before the D.6 report.
 
-## 2. Подготовка
+## 2. Preparation
 
-Перед подготовкой:
+Before preparation:
 
-- закройте Claude Desktop и ChatGPT;
-- проверьте, что в `permissions.allow` файла `~/.claude/settings.json` нет правила, разрешающего `touch`: иначе в пунктах (a) и 1a не будет запроса разрешения;
-- запишите версии: `claude --version`, `codex --version`, «О программе» в Claude Desktop и ChatGPT.
+- close Claude Desktop and ChatGPT;
+- check that `permissions.allow` in `~/.claude/settings.json` has no rule allowing `touch`: otherwise items (a) and 1a will have no permission prompt;
+- write down the versions: `claude --version`, `codex --version`, "About" in Claude Desktop and ChatGPT.
 
 ```sh
 cd ~/src/aang
@@ -49,178 +49,178 @@ pnpm build
 node tools/owner-checklist/dist/main.js prepare --dir /tmp/aang-d7 --codex-hooks
 ```
 
-Опции `prepare`:
+`prepare` options:
 
-| Опция | Значение |
+| Option | Meaning |
 | --- | --- |
-| `--dir <путь>` | рабочий каталог; по умолчанию `$TMPDIR/aang-d7`. На macOS удобнее `/tmp/aang-d7`, как в спайке. Каталог должен быть пустым или отсутствовать |
-| `--claude marketplace` | по умолчанию на macOS и Linux: установка плагина продуктовым путём; нужна для Claude Desktop, который запускается без флагов |
-| `--claude plugin-dir` | ничего не регистрирует; TUI запускается с `--plugin-dir`. Достаточно, если проверяется только раздел A |
-| `--codex-hooks` | записи aang в `~/.codex/hooks.json` и каталог `~/aang-desktop-probe-outside`; нужен для раздела C |
-| `--hours <n>` | срок аренды spool, по умолчанию 24 |
-| `--hook <путь>` | бинарь `aang-hook`, по умолчанию `packages/hook/bin/aang-hook` из сборки |
-| `--claude-command <путь>`, `--codex-home <путь>` | другой `claude` для установки плагина и другой `CODEX_HOME` |
+| `--dir <path>` | working directory; by default `$TMPDIR/aang-d7`. On macOS `/tmp/aang-d7` is more convenient, as in the spike. The directory must be empty or absent |
+| `--claude marketplace` | the default on macOS and Linux: installs the plugin via the product path; needed for Claude Desktop, which launches without flags |
+| `--claude plugin-dir` | registers nothing; the TUI is launched with `--plugin-dir`. Sufficient if only section A is checked |
+| `--codex-hooks` | aang entries in `~/.codex/hooks.json` and the `~/aang-desktop-probe-outside` directory; needed for section C |
+| `--hours <n>` | spool lease duration, 24 by default |
+| `--hook <path>` | the `aang-hook` binary, by default `packages/hook/bin/aang-hook` from the build |
+| `--claude-command <path>`, `--codex-home <path>` | a different `claude` for plugin installation and a different `CODEX_HOME` |
 
-Если плагин `aang@aang` уже установлен, `prepare` отказывает и ничего не меняет в настройках Claude. Если подготовка прервалась, сделанное откатывает `cleanup` с тем же `--dir`.
+If the `aang@aang` plugin is already installed, `prepare` refuses and changes nothing in the Claude settings. If the preparation was interrupted, `cleanup` with the same `--dir` rolls back what was done.
 
-Что создаётся в `/tmp/aang-d7`:
+What is created in `/tmp/aang-d7`:
 
 ```
-aang-home/bin/aang-hook          копия бинаря без изменений
-aang-home/spool/{new,tmp}        spool и аренда spool/lease-<срок в секундах Unix>
-aang-home/claude-plugin/         плагин, сгенерированный продуктовым writeClaudePlugin (exec form)
-probes/env-settings.json         зонд окружения на SessionStart, пишет results/env-probe.jsonl
-probes/failure-settings.json     PreToolUse завершается с кодом 1; UserPromptSubmit висит дольше timeout: 2
-probe-repo/                      git-репозиторий с начальным коммитом
-results/                         результаты collect
-state.json                       что сделала подготовка; по нему работает cleanup
+aang-home/bin/aang-hook          unmodified copy of the binary
+aang-home/spool/{new,tmp}        spool and the lease spool/lease-<expiry in Unix seconds>
+aang-home/claude-plugin/         plugin generated by the product writeClaudePlugin (exec form)
+probes/env-settings.json         environment probe on SessionStart, writes results/env-probe.jsonl
+probes/failure-settings.json     PreToolUse exits with code 1; UserPromptSubmit hangs longer than timeout: 2
+probe-repo/                      git repository with an initial commit
+results/                         collect results
+state.json                       what the preparation did; cleanup works from it
 ```
 
-`prepare` печатает памятку с точными командами запуска. Зонды вызывают `node` из сборки (`tools/owner-checklist/dist/probe.js`), поэтому до `cleanup` не пересобирайте и не переключайте ветку репозитория.
+`prepare` prints a memo with the exact launch commands. The probes call `node` from the build (`tools/owner-checklist/dist/probe.js`), so do not rebuild or switch the repository branch before `cleanup`.
 
-Если аренда истекла раньше конца проверок, hook перестаёт писать. Новую аренду на сутки создаёт:
+If the lease expires before the checks are over, the hook stops writing. A new lease for a day is created by:
 
 ```sh
 touch "/tmp/aang-d7/aang-home/spool/lease-$(( $(date +%s) + 86400 ))"
 ```
 
-Результаты можно собирать в любой момент: `collect` только читает и перезаписывает файлы в `results/` (раздел 6). Записывайте местное время каждого действия: по нему сессии сопоставляются со сводкой.
+Results can be collected at any time: `collect` only reads and overwrites files in `results/` (section 6). Write down the local time of every action: sessions are matched against the summary by it.
 
-## 3. Раздел A — интерактивный TUI Claude, пункты (a)–(h)
+## 3. Section A — interactive Claude TUI, items (a)–(h)
 
-Терминал — Terminal.app или iTerm2. Все сессии — в пробном репозитории, в режиме разрешений по умолчанию:
+Terminal — Terminal.app or iTerm2. All sessions are in the probe repository, in the default permission mode:
 
 ```sh
 cd /tmp/aang-d7/probe-repo
 claude --settings /tmp/aang-d7/probes/env-settings.json
 ```
 
-В режиме `plugin-dir` добавьте `--plugin-dir /tmp/aang-d7/aang-home/claude-plugin`; в режиме `marketplace` этот флаг не нужен: плагин уже загружается из пользовательского scope, а второй экземпляр даст двойную регистрацию. `--settings` передаётся один раз, поэтому зонды окружения и сбоев подключаются в разных сессиях. На первом запуске примите диалог доверия к каталогу.
+In `plugin-dir` mode add `--plugin-dir /tmp/aang-d7/aang-home/claude-plugin`; in `marketplace` mode this flag is not needed: the plugin is already loaded from the user scope, and a second instance would cause a double registration. `--settings` is passed once, so the environment and failure probes are attached in different sessions. On the first launch, accept the directory trust dialog.
 
-По документации Claude Code уведомления `permission_prompt` и `idle_prompt` в терминале приходят, только когда пользователь «отошёл». Поэтому в (a) и (b) есть варианты с фокусом в терминале и вне его; записывайте, какой был.
+According to the Claude Code documentation, the `permission_prompt` and `idle_prompt` notifications in the terminal arrive only when the user has "stepped away". Therefore (a) and (b) have variants with focus in the terminal and outside it; write down which one it was.
 
-**(a) Notification(`permission_prompt`) после PermissionRequest.**
+**(a) Notification(`permission_prompt`) after PermissionRequest.**
 
-- a1. Промпт: «Run `touch aang-perm-allow.txt` with Bash». Когда появится запрос разрешения, переключитесь в другое окно и не трогайте клавиатуру 15 с. Затем разрешите.
-- a2. Промпт: «Run `touch aang-perm-allow-2.txt` with Bash». Оставьте фокус в терминале, 15 с нажимайте стрелку вверх или вниз примерно раз в 3 с. Запишите время последнего нажатия, подождите ещё 10 с и разрешите.
-- a3. Промпт: «Run `touch aang-perm-deny.txt` with Bash». Откажите.
+- a1. Prompt: "Run `touch aang-perm-allow.txt` with Bash". When the permission prompt appears, switch to another window and do not touch the keyboard for 15 s. Then allow.
+- a2. Prompt: "Run `touch aang-perm-allow-2.txt` with Bash". Keep focus in the terminal, for 15 s press the up or down arrow about once every 3 s. Write down the time of the last keypress, wait another 10 s and allow.
+- a3. Prompt: "Run `touch aang-perm-deny.txt` with Bash". Deny.
 
-Ожидается:
+Expected:
 
-- a1 — PreToolUse(Bash) → PermissionRequest → Notification(`permission_prompt`) примерно через 6 с → PostToolUse с тем же `tool_use_id`;
-- a2 — уведомление позже, примерно через 6 с после последнего нажатия, или его нет;
-- a3 — PermissionRequest есть, PostToolUse нет, отказ виден в PostToolBatch.
+- a1 — PreToolUse(Bash) → PermissionRequest → Notification(`permission_prompt`) about 6 s later → PostToolUse with the same `tool_use_id`;
+- a2 — the notification later, about 6 s after the last keypress, or none;
+- a3 — PermissionRequest present, no PostToolUse, the denial is visible in PostToolBatch.
 
-**(b) Notification(`idle_prompt`).** После любого ответа (Stop) переключитесь в другое окно и ничего не вводите 90 с. Ожидается Notification(`idle_prompt`) примерно через 60 с после Stop. Повторите с фокусом в терминале.
+**(b) Notification(`idle_prompt`).** After any response (Stop), switch to another window and type nothing for 90 s. Expected: Notification(`idle_prompt`) about 60 s after Stop. Repeat with focus in the terminal.
 
-**(c) AskUserQuestion.** Промпт: «Ask me two questions at once with the AskUserQuestion tool, two options each, then reply OK». Перед ответом подождите 10 с, затем ответьте на оба вопроса. Ожидаются PreToolUse(AskUserQuestion) с двумя вопросами и PostToolUse с `answers`. Проверяется, есть ли между ними PermissionRequest и Notification.
+**(c) AskUserQuestion.** Prompt: "Ask me two questions at once with the AskUserQuestion tool, two options each, then reply OK". Wait 10 s before answering, then answer both questions. Expected: PreToolUse(AskUserQuestion) with two questions and PostToolUse with `answers`. Check whether there are PermissionRequest and Notification between them.
 
-**(d) Ошибки hook и зависший hook.** Выйдите из сессии и запустите отдельную:
+**(d) Hook errors and a hung hook.** Exit the session and start a separate one:
 
 ```sh
 claude --settings /tmp/aang-d7/probes/failure-settings.json
 ```
 
-Промпт: «Run `echo hi` with Bash, then reply OK». Hook на UserPromptSubmit висит 30 с при `timeout: 2` и задаёт `statusMessage` «aang D.7: hook hangs longer than its 2 s timeout». Hook на PreToolUse завершается с кодом 1 и пишет в stderr «aang D.7: deliberate hook failure».
+Prompt: "Run `echo hi` with Bash, then reply OK". The UserPromptSubmit hook hangs for 30 s with `timeout: 2` and sets `statusMessage` "aang D.7: hook hangs longer than its 2 s timeout". The PreToolUse hook exits with code 1 and writes "aang D.7: deliberate hook failure" to stderr.
 
-Запишите:
+Write down:
 
-- что показывал спиннер и сколько длилось ожидание;
-- было ли сообщение об отмене по таймауту;
-- как выглядит ошибка `PreToolUse` (например, «PreToolUse:Bash hook error») и где она выводится; подробности открывает Ctrl+O;
-- выполнилась ли команда.
+- what the spinner showed and how long the wait lasted;
+- whether there was a timeout cancellation message;
+- what the `PreToolUse` error looks like (for example, "PreToolUse:Bash hook error") and where it is shown; Ctrl+O opens the details;
+- whether the command ran.
 
-Скриншоты приложите к отчёту. Этот пункт сводка не проверяет.
+Attach screenshots to the report. The summary does not check this item.
 
-**(e) SessionEnd.reason.** Завершайте сессии разными способами и записывайте, какую как:
+**(e) SessionEnd.reason.** End sessions in different ways and write down which was ended how:
 
 - `/exit`;
-- двойной Ctrl+C на пустой строке;
-- двойной Ctrl+D;
-- `/clear` внутри сессии: это SessionEnd и новый SessionStart с `source: clear`.
+- double Ctrl+C on an empty line;
+- double Ctrl+D;
+- `/clear` inside a session: this is SessionEnd and a new SessionStart with `source: clear`.
 
-Спайк ожидал `prompt_input_exit` при выходе с открытой строкой ввода. Документированные значения: `clear`, `resume`, `logout`, `prompt_input_exit`, `other`.
+The spike expected `prompt_input_exit` when exiting with the input line open. Documented values: `clear`, `resume`, `logout`, `prompt_input_exit`, `other`.
 
-**(f) Окружение процесса hook.** Отдельных действий нет: каждая сессия, запущенная с `env-settings.json`, пишет в `results/env-probe.jsonl` значения `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_ENTRYPOINT` и соседних переменных. В спайке `CLAUDE_CODE_SESSION_ATTENDED=0` было и в stdio-хосте, и в SDK.
+**(f) Hook process environment.** No separate actions: every session started with `env-settings.json` writes the values of `CLAUDE_CODE_SESSION_ATTENDED`, `CLAUDE_CODE_ENTRYPOINT` and neighboring variables to `results/env-probe.jsonl`. In the spike, `CLAUDE_CODE_SESSION_ATTENDED=0` was present both in the stdio host and in the SDK.
 
-**(g) `elicitation_dialog` и `agent_needs_input`.** Сводка перечисляет все встреченные `notification_type`. По документации:
+**(g) `elicitation_dialog` and `agent_needs_input`.** The summary lists all encountered `notification_type` values. According to the documentation:
 
-- `elicitation_dialog` приходит, когда MCP-сервер открывает форму elicitation и ввода нет около 6 с;
-- `agent_needs_input` — когда фоновая сессия ждёт ввода при открытом agent view или teammate agent team задаёт вопрос.
+- `elicitation_dialog` arrives when an MCP server opens an elicitation form and there is no input for about 6 s;
+- `agent_needs_input` — when a background session waits for input while the agent view is open, or an agent team teammate asks a question.
 
-Если такой MCP-сервер или режим уже есть, вызовите их и запишите как. Новые MCP-серверы для этого не ставьте. Если вызвать не удалось, пункт отмечается непроверенным.
+If such an MCP server or mode already exists, trigger them and write down how. Do not install new MCP servers for this. If triggering failed, the item is marked unchecked.
 
-**(h) ExitPlanMode.** Отдельная сессия в режиме плана:
+**(h) ExitPlanMode.** A separate session in plan mode:
 
 ```sh
 claude --permission-mode plan --settings /tmp/aang-d7/probes/env-settings.json
 ```
 
-Промпт: «Plan how to create the file aang-plan.txt containing hi, then present the plan for approval». Одобрите план, затем разрешите создание файла. Ожидаются:
+Prompt: "Plan how to create the file aang-plan.txt containing hi, then present the plan for approval". Approve the plan, then allow the file creation. Expected:
 
-- PreToolUse(ExitPlanMode) с `tool_input.plan` (в сводке — длина) и `planFilePath`;
-- запрос подтверждения плана как PermissionRequest или без него;
+- PreToolUse(ExitPlanMode) with `tool_input.plan` (in the summary — its length) and `planFilePath`;
+- the plan confirmation request as a PermissionRequest or without one;
 - PostToolUse(ExitPlanMode).
 
-## 4. Раздел B — Claude Desktop, вкладка Code, шаги 1–6
+## 4. Section B — Claude Desktop, Code tab, steps 1–6
 
-Нужен режим `marketplace`: Desktop запускает свой встроенный движок без флагов, плагин он берёт из пользовательского scope. После `prepare` перезапустите Claude Desktop (Cmd+Q и снова открыть): запущенные сессии загруженный набор плагинов не меняют.
+`marketplace` mode is required: Desktop launches its built-in engine without flags and takes the plugin from the user scope. After `prepare`, restart Claude Desktop (Cmd+Q and open again): running sessions do not change their loaded plugin set.
 
-Новая сессия: Code → Local, папка `/tmp/aang-d7/probe-repo` (в окне выбора Cmd+Shift+G и путь), режим разрешений Ask.
+New session: Code → Local, folder `/tmp/aang-d7/probe-repo` (in the picker, Cmd+Shift+G and the path), permission mode Ask.
 
-1. Промпт: «Run `echo hi` with Bash, then ask me one question with AskUserQuestion, then reply OK». Ожидаются:
+1. Prompt: "Run `echo hi` with Bash, then ask me one question with AskUserQuestion, then reply OK". Expected:
    - SessionStart, UserPromptSubmit, PreToolUse(Bash), PostToolUse, PreToolUse(AskUserQuestion), Stop;
-   - в окружении hook `CLAUDE_CODE_ENTRYPOINT=claude-desktop` и `CLAUDE_CODE_HOST_SESSION_ID=local_<uuid>` — имя метафайла.
+   - in the hook environment `CLAUDE_CODE_ENTRYPOINT=claude-desktop` and `CLAUDE_CODE_HOST_SESSION_ID=local_<uuid>` — the metafile name.
 
-   `echo` Claude Code одобряет сам, поэтому этот шаг проверяет только обычные события.
-   - 1a. **Детерминированный запрос разрешения.** Промпт: «Run `touch aang-perm-allow.txt` with Bash». Подождите больше 6 с и разрешите. Ожидаются PermissionRequest, Notification(`permission_prompt`) и PostToolUse с тем же `tool_use_id`, что у PreToolUse. В Desktop, по документации, уведомление приходит через 6 с независимо от ввода. Повторите с «Run `touch aang-perm-deny.txt` with Bash» и откажите: PermissionRequest есть, PostToolUse нет, отказ виден в PostToolBatch.
-2. `/compact`. Ожидаются PreCompact и `compact_boundary` в транскрипте.
-3. Промпт: «Use the Agent tool to start a subagent that lists the files in this directory». Ожидаются SubagentStart и SubagentStop, а также файлы `subagents/agent-*.jsonl`.
-   - 3a. Если в Desktop доступны spawn task или Dispatch, породите ими отдельную сессию. Ожидается, что связь с родителем есть только в `spawnSeed` и `lastSpawnRootDetected` метафайла. Формат этих полей — главный вопрос шага: от него зависит решение 4 ADR-0004.
-4. Закройте Desktop (Cmd+Q), откройте снова и продолжите сессию шага 1 промптом «reply OK». Проверьте `SessionStart.source` и то, остался ли тот же `cliSessionId`, то есть тот же транскрипт.
-5. Новая сессия в режиме worktree для того же репозитория, промпт «Run `pwd` with Bash». Ожидается `cwd` внутри `/tmp/aang-d7/probe-repo/.claude/worktrees/…`; каталог проекта в `~/.claude/projects` виден в сводке.
-6. Сначала выполните `collect` (раздел 6) и сохраните копию сводки, потому что метафайл после удаления сессии исчезает:
+   Claude Code approves `echo` by itself, so this step checks only the regular events.
+   - 1a. **Deterministic permission prompt.** Prompt: "Run `touch aang-perm-allow.txt` with Bash". Wait more than 6 s and allow. Expected: PermissionRequest, Notification(`permission_prompt`) and PostToolUse with the same `tool_use_id` as PreToolUse. In Desktop, according to the documentation, the notification arrives after 6 s regardless of input. Repeat with "Run `touch aang-perm-deny.txt` with Bash" and deny: PermissionRequest present, no PostToolUse, the denial is visible in PostToolBatch.
+2. `/compact`. Expected: PreCompact and `compact_boundary` in the transcript.
+3. Prompt: "Use the Agent tool to start a subagent that lists the files in this directory". Expected: SubagentStart and SubagentStop, as well as `subagents/agent-*.jsonl` files.
+   - 3a. If spawn task or Dispatch is available in Desktop, spawn a separate session with them. Expected: the link to the parent exists only in the metafile's `spawnSeed` and `lastSpawnRootDetected`. The format of these fields is the main question of the step: decision 4 of ADR-0004 depends on it.
+4. Close Desktop (Cmd+Q), open it again and continue the step 1 session with the prompt "reply OK". Check `SessionStart.source` and whether the same `cliSessionId` remained, i.e. the same transcript.
+5. A new session in worktree mode for the same repository, prompt "Run `pwd` with Bash". Expected: `cwd` inside `/tmp/aang-d7/probe-repo/.claude/worktrees/…`; the project directory in `~/.claude/projects` is visible in the summary.
+6. First run `collect` (section 6) and save a copy of the summary, because the metafile disappears after the session is deleted:
 
    ```sh
    cp /tmp/aang-d7/results/summary.md /tmp/aang-d7/results/summary-before-step6.md
    cp /tmp/aang-d7/results/files.json /tmp/aang-d7/results/files-before-step6.json
    ```
 
-   Затем заархивируйте сессию шага 1 и удалите её. Снова выполните `collect`. Проверьте маркер `deleted_<uuid>` (раздел «Маркеры удаления» сводки) и то, остался ли транскрипт (таблица «Транскрипты Claude»).
+   Then archive the step 1 session and delete it. Run `collect` again. Check the `deleted_<uuid>` marker (the summary section «Маркеры удаления» ("Deletion markers")) and whether the transcript remained (the table «Транскрипты Claude» ("Claude transcripts")).
 
-## 5. Раздел C — Codex в ChatGPT Desktop, шаги 7–10
+## 5. Section C — Codex in ChatGPT Desktop, steps 7–10
 
-Нужен `prepare --codex-hooks`. Сами не запускайте `codex app-server`: до отчёта D.6 это запрещено.
+`prepare --codex-hooks` is required. Do not run `codex app-server` yourself: it is forbidden before the D.6 report.
 
-7. Откройте ChatGPT (Codex) и подтвердите доверие к hooks aang. Если приложение не предлагает этого само, используйте `/hooks` в терминальном Codex (`codex` в любом каталоге, без промпта): доверие хранится в общем `~/.codex/config.toml`. Проверьте `trustStatus` в ответах `hooks/list` в логах `~/Library/Logs/com.openai.codex/<ГГГГ>/<ММ>/<ДД>/codex-desktop-*.log`. Новые hooks без доверия Codex молча не выполняет, поэтому отсутствие событий Codex в сводке значит, что доверия нет.
-8. Новый чат Local в `/tmp/aang-d7/probe-repo` с одобрением on-request. Промпт: «Run `echo hi`, then reply OK». Безопасная команда в песочнице может пройти без запроса, поэтому шаг проверяет только SessionStart, UserPromptSubmit, PreToolUse, PostToolUse и Stop. `originator` и `source` нового rollout видны в сводке.
-   - 8a. **Детерминированный запрос одобрения.** Выполните `collect` и проверьте в разделе Codex сводки, что `~/aang-desktop-probe-outside` не входит в корни записи. Промпт: «Run `touch ~/aang-desktop-probe-outside/allow.txt` and request escalated permissions for it (`sandbox_permissions: require_escalated`)». Одобрите. Ожидаются PermissionRequest и PostToolUse, файл создан (`ls ~/aang-desktop-probe-outside`). Повторите с `deny.txt` и откажите: PermissionRequest есть, PostToolUse и файла нет. Если OTel-экспорт включён, сверьте `codex.tool_decision` по `call_id` с `tool_use_id` у PreToolUse. Если запрос одобрения не появился, шаг не пройден; это не подтверждение исправных hooks.
-9. Повторите шаг 8 в чате Worktree: `cwd` должен лежать в `~/.codex/worktrees/…`. Затем попросите породить субагента: «Spawn a subagent that runs `echo sub` and reports back». Ожидаются SubagentStart, SubagentStop и rollout субагента с `parent_thread_id`: сводка показывает его строкой «Субагент» в разделе сессии и сверяет `parent_thread_id` с `session_id` родителя. Закройте и снова откройте приложение, продолжите чат. Ожидается `SessionStart.source=resume`.
-10. Чат Cloud, если доступен, промпт «reply OK». Ожидается, что нет ни нового rollout, ни событий в spool. Запишите время чата: в сводке не должно быть сессии Codex с этим временем.
+7. Open ChatGPT (Codex) and confirm trust in the aang hooks. If the app does not offer this by itself, use `/hooks` in terminal Codex (`codex` in any directory, without a prompt): trust is stored in the shared `~/.codex/config.toml`. Check `trustStatus` in the `hooks/list` responses in the logs `~/Library/Logs/com.openai.codex/<YYYY>/<MM>/<DD>/codex-desktop-*.log`. Codex silently does not run new hooks without trust, so the absence of Codex events in the summary means there is no trust.
+8. A new Local chat in `/tmp/aang-d7/probe-repo` with on-request approval. Prompt: "Run `echo hi`, then reply OK". A safe command in the sandbox may pass without a prompt, so the step checks only SessionStart, UserPromptSubmit, PreToolUse, PostToolUse and Stop. The `originator` and `source` of the new rollout are visible in the summary.
+   - 8a. **Deterministic approval request.** Run `collect` and check in the summary's Codex section that `~/aang-desktop-probe-outside` is not among the writable roots. Prompt: "Run `touch ~/aang-desktop-probe-outside/allow.txt` and request escalated permissions for it (`sandbox_permissions: require_escalated`)". Approve. Expected: PermissionRequest and PostToolUse, the file is created (`ls ~/aang-desktop-probe-outside`). Repeat with `deny.txt` and deny: PermissionRequest present, no PostToolUse and no file. If OTel export is enabled, match `codex.tool_decision` by `call_id` against the PreToolUse `tool_use_id`. If the approval request did not appear, the step failed; this is not confirmation of working hooks.
+9. Repeat step 8 in a Worktree chat: `cwd` must lie in `~/.codex/worktrees/…`. Then ask to spawn a subagent: "Spawn a subagent that runs `echo sub` and reports back". Expected: SubagentStart, SubagentStop and a subagent rollout with `parent_thread_id`: the summary shows it as a «Субагент» ("Subagent") line in the session section and matches `parent_thread_id` against the parent's `session_id`. Close and reopen the app, continue the chat. Expected: `SessionStart.source=resume`.
+10. A Cloud chat, if available, prompt "reply OK". Expected: neither a new rollout nor events in the spool. Write down the chat time: the summary must not have a Codex session with this time.
 
-## 6. Сбор результатов
+## 6. Collecting results
 
-Сбор, перенос результатов и откат (раздел 8) выполняются из корня репозитория aang, а не из `probe-repo`, куда терминал переходил для сессий TUI:
+Collection, moving results and rollback (section 8) are run from the aang repository root, not from `probe-repo`, where the terminal went for the TUI sessions:
 
 ```sh
 cd ~/src/aang
 node tools/owner-checklist/dist/main.js collect --dir /tmp/aang-d7
 ```
 
-Команда только читает: spool `new/`, транскрипты Claude (`$CLAUDE_CONFIG_DIR` или `~/.claude`), rollout Codex (`$CODEX_HOME` или `~/.codex`) и метафайлы Claude Desktop (`~/Library/Application Support/Claude/claude-code-sessions`). Пишет она только в `/tmp/aang-d7/results/`. Её можно повторять.
+The command only reads: spool `new/`, Claude transcripts (`$CLAUDE_CONFIG_DIR` or `~/.claude`), Codex rollouts (`$CODEX_HOME` or `~/.codex`) and Claude Desktop metafiles (`~/Library/Application Support/Claude/claude-code-sessions`). It writes only to `/tmp/aang-d7/results/`. It can be repeated.
 
-| Файл | Содержимое |
+| File | Contents |
 | --- | --- |
-| `events.jsonl` | событие на строку: время приёма (mtime файла spool), рантайм, тег, окружение из заголовка spool, `hook_event_name`, `session_id` и только безопасные поля. Например, `tool_name`, `tool_use_id`, `notification_type`, `source`, `reason`, `cwd`, число вопросов AskUserQuestion, наличие `answers`, длина `plan`, наличие `planFilePath`, состав PostToolBatch без текста ответа |
-| `summary.md` | сессии по времени и пункты чек-листа. Задержки уведомлений, цепочки AskUserQuestion и ExitPlanMode, `SessionEnd.reason`, окружение hook, типы Notification, разделы Desktop и Codex. Пункты, которые проверяет только глаз владельца, помечены «заполняет владелец» |
-| `files.json` | транскрипты Claude (`entrypoint`, версии, `compact_boundary`, файлы `subagents/`), rollout Codex и его субагентов (`originator`, `source`, `parent_thread_id`, `approval_policy`, `sandbox_policy`) и метафайлы Desktop |
-| `env-probe.jsonl` | записи зонда окружения (пункт f) |
+| `events.jsonl` | one event per line: receive time (spool file mtime), runtime, tag, environment from the spool header, `hook_event_name`, `session_id` and only safe fields. For example, `tool_name`, `tool_use_id`, `notification_type`, `source`, `reason`, `cwd`, the number of AskUserQuestion questions, presence of `answers`, `plan` length, presence of `planFilePath`, PostToolBatch composition without the response text |
+| `summary.md` | sessions by time and checklist items. Notification latencies, AskUserQuestion and ExitPlanMode chains, `SessionEnd.reason`, hook environment, Notification types, Desktop and Codex sections. Items that only the owner's eye checks are marked «заполняет владелец» ("filled in by the owner") |
+| `files.json` | Claude transcripts (`entrypoint`, versions, `compact_boundary`, `subagents/` files), Codex rollouts and their subagents (`originator`, `source`, `parent_thread_id`, `approval_policy`, `sandbox_policy`) and Desktop metafiles |
+| `env-probe.jsonl` | environment probe records (item f) |
 
-Промпты, ответы модели, вывод инструментов и содержимое файлов не сохраняются. Пути обезличены: рабочий каталог заменён на `<dir>`, домашний каталог — на `~`. Из метафайлов Desktop по решению 4 ADR-0004 берутся значения только `cliSessionId`, `spawnSeed` и `lastSpawnRootDetected`; у остальных ключей выводится только тип. Строки в `spawnSeed` и `lastSpawnRootDetected`, кроме идентификаторов UUID и `local_<uuid>`, заменены длиной. Метафайлы берутся только для сессий из spool, по `cliSessionId` или `CLAUDE_CODE_HOST_SESSION_ID`.
+Prompts, model responses, tool output and file contents are not saved. Paths are anonymized: the working directory is replaced with `<dir>`, the home directory with `~`. Per decision 4 of ADR-0004, only the values of `cliSessionId`, `spawnSeed` and `lastSpawnRootDetected` are taken from Desktop metafiles; for the other keys only the type is output. Strings in `spawnSeed` and `lastSpawnRootDetected`, except UUID identifiers and `local_<uuid>`, are replaced with their length. Metafiles are taken only for sessions from the spool, by `cliSessionId` or `CLAUDE_CODE_HOST_SESSION_ID`.
 
-Сессии с `cwd` вне рабочего каталога и `~/.codex/worktrees` отбрасываются; их число указано в сводке. `--all-sessions` включает все сессии из spool; для `docs/research/` это не нужно.
+Sessions with `cwd` outside the working directory and `~/.codex/worktrees` are discarded; their number is given in the summary. `--all-sessions` includes all sessions from the spool; this is not needed for `docs/research/`.
 
-Перед переносом просмотрите файлы. Затем:
+Review the files before moving them. Then:
 
 ```sh
 cd ~/src/aang
@@ -228,31 +228,31 @@ mkdir -p docs/research/samples/owner-checklist/macos
 cp /tmp/aang-d7/results/* docs/research/samples/owner-checklist/macos/
 ```
 
-## 7. Отчёт
+## 7. Report
 
-Итог оформляется в `docs/research/d7-owner-checklist-results.md`, по образцу `docs/research/windows-runtimes.md`:
+The outcome is written up in `docs/research/d7-owner-checklist-results.md`, following the example of `docs/research/windows-runtimes.md`:
 
-- версии `claude`, Claude Desktop и его встроенного движка (поле «Версии» таблицы транскриптов), ChatGPT и Codex (`cli_version` rollout);
-- по каждому пункту A, B и C — ожидание, наблюдение по сводке и заметки владельца из раздела «Заполняет владелец»;
-- формат `spawnSeed` и `lastSpawnRootDetected`. Подтверждение формата снимает условие решения 4 ADR-0004, расхождение вносится в ADR-0004;
-- ограничения Desktop, которые выносятся владельцу до этапа 2 (RFC §4).
+- versions of `claude`, Claude Desktop and its built-in engine (the «Версии» ("Versions") field of the transcripts table), ChatGPT and Codex (rollout `cli_version`);
+- for each item of A, B and C — the expectation, the observation from the summary and the owner's notes from the «Заполняет владелец» ("Filled in by the owner") section;
+- the format of `spawnSeed` and `lastSpawnRootDetected`. Confirmation of the format lifts the condition of decision 4 of ADR-0004; a discrepancy is recorded in ADR-0004;
+- Desktop limitations that are escalated to the owner before stage 2 (RFC §4).
 
-## 8. Откат
+## 8. Rollback
 
 ```sh
 cd ~/src/aang
 node tools/owner-checklist/dist/main.js cleanup --dir /tmp/aang-d7
 ```
 
-С `--keep-results` каталог `results/` остаётся, остальное удаляется. По `state.json` команда:
+With `--keep-results` the `results/` directory stays, the rest is deleted. Based on `state.json`, the command:
 
-- удаляет плагин и маркетплейс aang из пользовательского scope Claude, если их ставила подготовка;
-- удаляет записи aang из `~/.codex/hooks.json`, как описано в разделе 1;
-- удаляет `~/aang-desktop-probe-outside` и рабочий каталог вместе со spool и пробным репозиторием.
+- removes the aang plugin and marketplace from the Claude user scope, if the preparation installed them;
+- removes the aang entries from `~/.codex/hooks.json`, as described in section 1;
+- deletes `~/aang-desktop-probe-outside` and the working directory together with the spool and the probe repository.
 
-Затем она печатает:
+Then it prints:
 
-- что не откатывается автоматически: резервную копию `hooks.json`, доверие в `config.toml`, запись проекта в `~/.claude.json`;
-- созданные сессии: транскрипты Claude проекта `probe-repo` и его worktree, метафайлы Desktop, rollout Codex и его субагентов, worktree Codex из spool.
+- what is not rolled back automatically: the `hooks.json` backup, the trust in `config.toml`, the project entry in `~/.claude.json`;
+- the created sessions: Claude transcripts of the `probe-repo` project and its worktree, Desktop metafiles, Codex rollouts and their subagents, Codex worktrees from the spool.
 
-Сессии удаляет владелец, как в спайке.
+The owner deletes the sessions, as in the spike.
