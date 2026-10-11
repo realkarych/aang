@@ -1,7 +1,7 @@
 import { endpoints, type RunsResponse } from '@aang/contract'
 import { objectId, runId } from '@aang/contract/ids'
 import { sampleScenarioManifest } from '@aang/testkit'
-import { expect, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, test } from './fixtures.js'
 
 const session = { kind: 'session', runtime: 'claude', session: '86f93ed5-1acd-4c6e-8c60-f1c98335c2ef' } as const
 
@@ -13,7 +13,7 @@ test('a sample played into the profile becomes a run listed by /api/runs for the
   request,
 }) => {
   const listRuns = async (): Promise<RunsResponse> => {
-    const response = await page.request.get(endpoints.runs.path)
+    const response = await getWithoutKeepAlive(page.request, endpoints.runs.path)
     expect(response.status()).toBe(200)
     return endpoints.runs.response.parse(await response.json())
   }
@@ -27,5 +27,5 @@ test('a sample played into the profile becomes a run listed by /api/runs for the
   expect((await listRuns()).runs).toMatchObject([
     { runtime: 'claude', root_session: objectId(session), sessions: 1, support_modes: ['files_only'] },
   ])
-  expect((await request.get(endpoints.runs.path)).status()).toBe(401)
+  expect((await getWithoutKeepAlive(request, endpoints.runs.path)).status()).toBe(401)
 })

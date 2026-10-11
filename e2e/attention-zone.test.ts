@@ -10,7 +10,7 @@ import {
   sampleScenarioManifest,
 } from '@aang/testkit'
 import type { Page } from '@playwright/test'
-import { expect, type HookFields, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { hooksOnly, recording } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf, sessionFile } from './samples.js'
 import { fact, history, historyToggle, openItems, sessionOf, step, zone, zoneItem } from './screens.js'
@@ -64,7 +64,7 @@ const codexAsyncQuestion = (text: string): string => {
 }
 
 const zoneSize = async (page: Page, run: RunId): Promise<number> => {
-  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
   return response.ok() ? endpoints.run.response.parse(await response.json()).view.zone.length : 0
 }
 
@@ -406,7 +406,7 @@ const claudeFinalText = async (text: string): Promise<string> => {
 const observerAdmitted = async (page: Page, vendor: Runtime): Promise<void> => {
   await expect
     .poll(async () => {
-      const response = await page.request.get(endpoints.status.path)
+      const response = await getWithoutKeepAlive(page.request, endpoints.status.path)
       const { backends } = endpoints.status.response.parse(await response.json()).observer
       return backends.find((backend) => backend.vendor === vendor)?.state.state ?? null
     }, observed)
@@ -414,7 +414,7 @@ const observerAdmitted = async (page: Page, vendor: Runtime): Promise<void> => {
 }
 
 const stageOf = async (page: Page, run: RunId, title: string): Promise<Stage | null> => {
-  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
   expect(response.status(), await response.text()).toBe(200)
   return endpoints.run.response.parse(await response.json()).model.stages.find((found) => found.title === title) ?? null
 }

@@ -1,9 +1,9 @@
 import { createHash, type Hash } from 'node:crypto'
 import type { Dirent } from 'node:fs'
 import { lstat, open, readdir, readFile, stat } from 'node:fs/promises'
-import { extname, join, relative } from 'node:path'
+import { extname, join, relative, sep } from 'node:path'
 import { readSpool, type PlayerRoots, type PlayerStep, type Target } from '@aang/testkit'
-import { filesIn, isMissing } from './files.js'
+import { filesIn, isBusy, isMissing, type Unavailable } from './files.js'
 import { type Artifact, type ControlEvent, Segment } from './schema.js'
 
 export type ControlTarget = (
@@ -83,8 +83,8 @@ const wholeDocument = (bytes: Buffer): unknown => {
 const fieldsOf = (value: unknown): Readonly<Record<string, unknown>> | undefined =>
   typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Readonly<Record<string, unknown>> : undefined
 
-const entriesOf = async (directory: string): Promise<Dirent[]> => (await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
-  if (isMissing(error)) return []
+const entriesOf = async (directory: string, unavailable: Unavailable = () => false): Promise<Dirent[]> => (await readdir(directory, { withFileTypes: true }).catch((error: unknown) => {
+  if (isMissing(error) || unavailable(directory, error)) return []
   throw error
 })).sort((a, b) => a.name.localeCompare(b.name))
 
@@ -186,13 +186,13 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     { root: 'codex', directory: join(roots.codex, 'archived_sessions'), prefix: 'archived_sessions', ...codexRegular ? { owner: codexRollout } : {} },
     { root: 'home', directory: join(roots.home, 'project'), prefix: 'project' },
   ]
-  const listed = async (location: Location): Promise<string[]> => {
+  const listed = async (location: Location, unavailable: Unavailable): Promise<string[]> => {
     const { admit } = location
-    if (admit === undefined) return filesIn(location.directory)
+    if (admit === undefined) return filesIn(location.directory, unavailable)
     const files: string[] = []
-    for (const entry of (await entriesOf(location.directory)).filter(({ name }) => admit(name))) {
+    for (const entry of (await entriesOf(location.directory, unavailable)).filter(({ name }) => admit(name))) {
       const path = join(location.directory, entry.name)
-      files.push(...entry.isFile() ? [path] : await filesIn(path))
+      files.push(...entry.isFile() ? [path] : await filesIn(path, unavailable))
     }
     return files
   }
@@ -204,11 +204,15 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   const pluginData = join(roots.claude, 'plugins', 'data')
   const ownPluginData = (name: string): boolean => name === regular?.plugin || name.startsWith(`${regular?.plugin ?? ''}-`)
   const existingPluginData = new Set(claudeRegular ? (await entriesOf(pluginData)).map(({ name }) => name) : [])
-  const foreign = async (file: string, location: Location, final: boolean): Promise<boolean> => {
+  const foreign = async (file: string, location: Location, final: boolean, unavailable: Unavailable): Promise<boolean> => {
     const { owner } = location
     if (owner === undefined || owned.has(file)) return false
     if (ignored.has(file)) return true
-    const bytes = await readBytes(file)
+    const bytes = await readBytes(file).catch((error: unknown) => {
+      if (unavailable(file, error)) return undefined
+      throw error
+    })
+    if (bytes === undefined) return true
     const document = file.endsWith('.jsonl') ? firstLine(bytes) : wholeDocument(bytes)
     if (document === undefined && !final) return true
     if (document !== undefined && document !== null && owner(document)) {
@@ -267,17 +271,24 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
   }
   const scan = async (final = false): Promise<void> => {
     const present = new Set<string>()
+    const unreadable = new Set<string>()
+    const unavailable = (path: string, error: unknown): boolean => {
+      if (final || !isBusy(error)) return false
+      unreadable.add(path)
+      return true
+    }
+    const retained = (file: string): boolean => present.has(file) || [...unreadable].some((path) => file === path || file.startsWith(`${path}${sep}`))
     for (const location of locations) {
-      for (const file of await listed(location)) {
+      for (const file of await listed(location, unavailable)) {
         if (!/\.jsonl?$/.test(file)) continue
-        if (await foreign(file, location, final)) continue
+        if (await foreign(file, location, final, unavailable)) continue
         present.add(file)
         if (location.root === 'claude' && location.prefix === 'projects') {
           const session = sessionOf(relative(location.directory, file).split(/[\\/]/)[1] ?? '')
           if (session !== undefined) sessions.add(session)
         }
         const info = await stat(file, { bigint: true }).catch((error: unknown) => {
-          if (isMissing(error)) return undefined
+          if (isMissing(error) || unavailable(file, error)) return undefined
           throw error
         })
         if (info === undefined) continue
@@ -307,7 +318,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
     }
     for (const [file, target] of kept) {
       const result = await Promise.all([readFile(file), stat(file, { bigint: true })]).catch((error: unknown) => {
-        if (isMissing(error)) return undefined
+        if (isMissing(error) || unavailable(file, error)) return undefined
         throw error
       })
       if (result === undefined) continue
@@ -321,7 +332,7 @@ export const createCapture = async (roots: PlayerRoots, spool: string, started: 
       targets.set(file, target)
     }
     for (const [file, target] of targets) {
-      if (!present.has(file)) {
+      if (!retained(file)) {
         steps.push({ kind: 'remove', at: at(), target })
         contents.delete(file)
         lines.delete(file)

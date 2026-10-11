@@ -39,4 +39,19 @@ export default defineConfig(
     plugins: { aang },
     rules: { 'aang/dependency-direction': 'error', 'aang/esm-only': 'error' },
   },
+  {
+    files: ['e2e/**/*.ts'],
+    ignores: ['e2e/fixtures.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector:
+            "CallExpression[callee.property.name=/^(delete|fetch|get|head|patch|post|put)$/]:matches([callee.object.name='request'], [callee.object.property.name='request'])",
+          message:
+            'Requests of an APIRequestContext go through getWithoutKeepAlive from e2e/fixtures.ts: a pooled keep-alive connection outlives the idle timeout of the daemon, which then resets the next request sent on it.',
+        },
+      ],
+    },
+  },
 )

@@ -71,38 +71,45 @@ const subscribeToWidth = (notify: () => void): (() => void) => {
 
 const directionNow = (): MapDirection => (window.matchMedia(narrowScreen).matches ? 'DOWN' : 'RIGHT')
 
-const useLayout = (map: VisibleMap): Layout => {
-  const [layout, setLayout] = useState<Layout>(null)
+interface LaidOut {
+  readonly map: VisibleMap
+  readonly direction: MapDirection
+  readonly layout: MapLayout | Error
+}
+
+interface LayoutState {
+  readonly layout: Layout
+  readonly upToDate: boolean
+}
+
+const useLayout = (map: VisibleMap): LayoutState => {
+  const [laid, setLaid] = useState<LaidOut | null>(null)
   const direction = useSyncExternalStore(subscribeToWidth, directionNow)
   useEffect(() => {
     let current = true
-    layoutMap(map, direction).then(
-      (next) => {
-        if (current) {
-          setLayout(next)
-        }
-      },
-      (error: unknown) => {
-        if (current) {
-          setLayout(error instanceof Error ? error : new Error(String(error)))
-        }
-      },
-    )
+    const settle = (layout: MapLayout | Error): void => {
+      if (current) {
+        setLaid({ map, direction, layout })
+      }
+    }
+    layoutMap(map, direction).then(settle, (error: unknown) => {
+      settle(error instanceof Error ? error : new Error(String(error)))
+    })
     return () => {
       current = false
     }
   }, [map, direction])
-  return layout
+  return { layout: laid?.layout ?? null, upToDate: laid?.map === map && laid.direction === direction }
 }
 
 interface FollowLayoutProps {
   readonly layout: MapLayout
   readonly following: boolean
   readonly request: number
-  readonly onFitted: () => void
+  readonly onPlaced: (layout: MapLayout) => void
 }
 
-const FollowLayout = ({ layout, following, request, onFitted }: FollowLayoutProps): null => {
+const FollowLayout = ({ layout, following, request, onPlaced }: FollowLayoutProps): null => {
   const { setViewport } = useReactFlow()
   const canvas = useStore((state) => state.domNode)
   const width = useStore((state) => state.width)
@@ -111,9 +118,9 @@ const FollowLayout = ({ layout, following, request, onFitted }: FollowLayoutProp
     const area = { width: canvas?.offsetWidth ?? width, height: canvas?.offsetHeight ?? height }
     if (following && area.width > 0 && area.height > 0) {
       void setViewport(fittedViewport(layout, area))
-      onFitted()
+      onPlaced(layout)
     }
-  }, [layout, following, request, setViewport, onFitted, canvas, width, height])
+  }, [layout, following, request, setViewport, onPlaced, canvas, width, height])
   return null
 }
 
@@ -121,10 +128,12 @@ interface KeepPlaceProps {
   readonly layout: MapLayout
   readonly following: boolean
   readonly selection: StageSelection | null
+  readonly onPlaced: (layout: MapLayout) => void
 }
 
-const KeepPlace = ({ layout, following, selection }: KeepPlaceProps): null => {
+const KeepPlace = ({ layout, following, selection, onPlaced }: KeepPlaceProps): null => {
   const { getViewport, setViewport } = useReactFlow()
+  const canvas = useStore((state) => state.domNode)
   const width = useStore((state) => state.width)
   const height = useStore((state) => state.height)
   const shown = useRef(layout)
@@ -147,7 +156,10 @@ const KeepPlace = ({ layout, following, selection }: KeepPlaceProps): null => {
     if (next.x !== viewport.x || next.y !== viewport.y) {
       void setViewport({ x: next.x, y: next.y, zoom: viewport.zoom })
     }
-  }, [layout, following, selection, width, height, getViewport, setViewport])
+    if (canvas?.offsetWidth === width && canvas.offsetHeight === height) {
+      onPlaced(layout)
+    }
+  }, [layout, following, selection, width, height, canvas, onPlaced, getViewport, setViewport])
   return null
 }
 
@@ -351,12 +363,12 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
       (stage) => views.get(stage.stage.id)?.group ?? null,
     )
   }, [graph, toggled, views])
-  const layout = useLayout(visible)
+  const { layout, upToDate } = useLayout(visible)
   const [following, setFollowing] = useState(true)
   const [fitRequest, setFitRequest] = useState(0)
-  const [fitted, setFitted] = useState(false)
-  const onFitted = useCallback(() => {
-    setFitted(true)
+  const [placed, setPlaced] = useState<MapLayout | null>(null)
+  const onPlaced = useCallback((shown: MapLayout) => {
+    setPlaced(shown)
   }, [])
   const onToggle = useCallback((stage: StageId, open: boolean) => {
     setToggled((current) => new Map(current).set(stage, open))
@@ -385,10 +397,11 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
       <Legend />
       <div
         className="map-canvas"
-        data-fitted={fitted}
+        data-placed={placed !== null}
         style={{ height: `clamp(280px, ${String(Math.ceil(layout.height) + 48)}px, 72vh)` }}
       >
         <ReactFlow
+          aria-busy={!upToDate || placed !== layout}
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
@@ -410,8 +423,8 @@ export const StageMap = ({ snapshot, selection, onSelect }: StageMapProps): Reac
             }
           }}
         >
-          <FollowLayout layout={layout} following={following} request={fitRequest} onFitted={onFitted} />
-          <KeepPlace layout={layout} following={following} selection={selection} />
+          <FollowLayout layout={layout} following={following} request={fitRequest} onPlaced={onPlaced} />
+          <KeepPlace layout={layout} following={following} selection={selection} onPlaced={onPlaced} />
           <Background variant={BackgroundVariant.Cross} gap={32} size={7} color="var(--map-grid)" />
           <Controls
             showInteractive={false}

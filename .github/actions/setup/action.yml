@@ -1,0 +1,27 @@
+name: Setup
+description: Installs pnpm, Node.js, Go and the workspace dependencies, and unpacks the build of this run on request
+inputs:
+  build:
+    description: Unpack the build that the build job of this run made on the same OS
+    default: 'false'
+runs:
+  using: composite
+  steps:
+    - uses: pnpm/action-setup@v6
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .node-version
+        cache: pnpm
+    - uses: actions/setup-go@v7
+      with:
+        go-version-file: packages/hook/go.mod
+        cache: false
+    - run: pnpm install --frozen-lockfile
+      shell: bash
+    - if: inputs.build == 'true'
+      uses: actions/download-artifact@v8
+      with:
+        name: build-${{ runner.os }}
+    - if: inputs.build == 'true'
+      run: tar -xmf build.tar && rm build.tar
+      shell: bash

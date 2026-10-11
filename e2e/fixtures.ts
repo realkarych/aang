@@ -24,7 +24,7 @@ import {
   type Profile,
   type RunningDaemon,
 } from '@aang/testkit'
-import { test as base, expect } from '@playwright/test'
+import { type APIRequestContext, type APIResponse, test as base, expect } from '@playwright/test'
 
 export type PlayerSettings = Pick<PlayerOptions, 'timeScale' | 'recordTime' | 'otlp'>
 
@@ -108,6 +108,14 @@ const installLauncher = async (profile: Profile): Promise<void> => {
   await copyFile(hookBinary, binary)
 }
 
+type GetOptions = NonNullable<Parameters<APIRequestContext['get']>[1]>
+
+export const getWithoutKeepAlive = (
+  request: APIRequestContext,
+  url: string,
+  options: GetOptions = {},
+): Promise<APIResponse> => request.get(url, { ...options, headers: { ...options.headers, connection: 'close' } })
+
 export const test = base.extend<AangOptions & AangFixtures>({
   config: [{}, { option: true }],
   claudeScenario: [{}, { option: true }],
@@ -172,7 +180,7 @@ export const test = base.extend<AangOptions & AangFixtures>({
 
   context: async ({ context, signedIn, signInLink }, use) => {
     if (signedIn) {
-      const response = await context.request.get(await signInLink(), { maxRedirects: 0 })
+      const response = await getWithoutKeepAlive(context.request, await signInLink(), { maxRedirects: 0 })
       expect(response.status(), await response.text()).toBe(200)
     }
     await use(context)

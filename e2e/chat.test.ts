@@ -31,7 +31,7 @@ import {
   sampleScenarioManifest,
 } from '@aang/testkit'
 import type { Locator, Page, Route } from '@playwright/test'
-import { expect, type HookFields, test } from './fixtures.js'
+import { expect, getWithoutKeepAlive, type HookFields, test } from './fixtures.js'
 import { codexRecording, threadsOf } from './recordings.js'
 import { claudeOriginal, codexThread, hookFields, runOf } from './samples.js'
 import { agentsOf, fact, stepsOf, trace, zoneItem } from './screens.js'
@@ -93,13 +93,13 @@ const chatInputs = (calls: readonly FakeCall[]): ChatInput[] =>
   calls.flatMap(({ purpose, prompt }) => (purpose === 'chat' && prompt !== null ? [ChatInput.parse(JSON.parse(prompt))] : []))
 
 const snapshotOf = async (page: Page, run: RunId): Promise<RunSnapshot> => {
-  const response = await page.request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(page.request, endpoints.run.path.replace(':run', run))
   expect(response.status()).toBe(200)
   return endpoints.run.response.parse(await response.json())
 }
 
 const factOf = async (page: Page, id: FactId): Promise<Fact> => {
-  const response = await page.request.get(endpoints.fact.path.replace(':id', id))
+  const response = await getWithoutKeepAlive(page.request, endpoints.fact.path.replace(':id', id))
   expect(response.status()).toBe(200)
   return endpoints.fact.response.parse(await response.json()).fact
 }
@@ -482,7 +482,7 @@ const answersAnOldGround = async ({ page, run, played, phases, calls, gate }: Ol
   expect(opening?.focus).toMatchObject({ kind: 'stage', stage: mainId })
   expect(followUp?.materials).toMatchObject([{ kind: 'journal', entity: { kind: 'stage', id: mainId } }])
   const history = endpoints.chatHistory.response.parse(
-    await (await page.request.get(endpoints.chatHistory.path.replace(':run', run))).json(),
+    await (await getWithoutKeepAlive(page.request, endpoints.chatHistory.path.replace(':run', run))).json(),
   )
   const [message] = history.messages
   expect(message).toMatchObject({ status: 'answered', version, stage: mainId, unconfirmed_citations: false })

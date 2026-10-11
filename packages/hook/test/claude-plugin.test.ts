@@ -61,7 +61,7 @@ describe('Claude plugin installation through the local marketplace', () => {
 
     expect(installation).toEqual({ binary: join(home.aangHome, 'bin', hookBinaryName), plugin: home.paths.claudePlugin })
     expect(home.paths.claudePlugin).toBe(join(home.aangHome, 'claude-plugin'))
-    expect(await readFile(installation.binary)).toEqual(await readFile(binaries.plain))
+    expect((await readFile(installation.binary)).equals(await readFile(binaries.plain))).toBe(true)
     expect(claude.argv()).toEqual(installCalls(home))
     expect(await claudePluginState(claude.cli)).toBe('enabled')
   })
@@ -126,7 +126,7 @@ describe('Claude plugin installation through the local marketplace', () => {
 
     expect(await pluginSnapshot(home)).toEqual(plugin)
     expect((await stat(home.pluginHooksFile)).mtimeMs).toBe(hooksModified)
-    expect(await readFile(home.paths.binary)).toEqual(await readFile(binaries.stripped))
+    expect((await readFile(home.paths.binary)).equals(await readFile(binaries.stripped))).toBe(true)
     expect(claude.argv()).toEqual([...installCalls(home), ...installCalls(home), ...installCalls(home)])
     expect(await claudePluginState(claude.cli)).toBe('enabled')
   })

@@ -17,7 +17,7 @@ import {
   sampleScenarioManifest,
 } from '@aang/testkit'
 import type { APIRequestContext, Locator, Page } from '@playwright/test'
-import { aangEntry, expect, type HookFields, type HookSamples, test } from './fixtures.js'
+import { aangEntry, expect, getWithoutKeepAlive, type HookFields, type HookSamples, test } from './fixtures.js'
 import { claudeOriginal, hookFields, runOf } from './samples.js'
 import {
   change,
@@ -48,7 +48,7 @@ const reportPath = `${claudeOriginal.cwd}/report.md`
 const observed = { timeout: 60_000 }
 
 const snapshotOf = async (request: APIRequestContext): Promise<RunSnapshot | null> => {
-  const response = await request.get(endpoints.run.path.replace(':run', run))
+  const response = await getWithoutKeepAlive(request, endpoints.run.path.replace(':run', run))
   return response.status() === 200 ? endpoints.run.response.parse(await response.json()) : null
 }
 
@@ -73,12 +73,13 @@ const stageId = async (request: APIRequestContext, title: string): Promise<Stage
 }
 
 const recordOf = async (request: APIRequestContext, id: FactId): Promise<string> => {
-  const response = await request.get(endpoints.fact.path.replace(':id', id))
+  const response = await getWithoutKeepAlive(request, endpoints.fact.path.replace(':id', id))
   return `сырая запись № ${String(endpoints.fact.response.parse(await response.json()).fact.seq)}`
 }
 
 const journalRecords = async (request: APIRequestContext, title: string, op: string): Promise<string[]> => {
-  const response = await request.get(
+  const response = await getWithoutKeepAlive(
+    request,
     endpoints.stage.path.replace(':run', run).replace(':stage', await stageId(request, title)),
   )
   const { history } = endpoints.stage.response.parse(await response.json())
@@ -104,6 +105,11 @@ const expectGrounds = async (item: Locator, records: readonly string[]): Promise
 
 const markedVersion = async (page: Page): Promise<string> =>
   /версия карты \d+/.exec((await mark(page).textContent()) ?? '')?.[0] ?? 'нет отметки'
+
+const expectAcceptedTurn = async (page: Page): Promise<void> => {
+  await expect(fact(page, 'Агенты')).toHaveText('2', observed)
+  await expect(fact(page, 'Состояние')).toHaveText('ждёт ввода', observed)
+}
 
 const askUser = (question: string): Readonly<Record<string, unknown>> => ({
   questions: [{ question, header: 'Выбор', options: [{ label: 'Первый' }, { label: 'Второй' }], multiSelect: false }],
@@ -165,7 +171,7 @@ test('a view mark, the continued run and the since-last-view mode with a new res
   const replay = await player(sampleScenarioManifest('claude-fork'), { timeScale: 0 })
   await replay.play({ until: 'resume' })
   await page.goto(`/?run=${run}`)
-  await expect(fact(page, 'Агенты')).toHaveText('2')
+  await expectAcceptedTurn(page)
   await expect(mark(page)).toContainText('Не отмечен просмотренным')
 
   await sinceTab(page).click()
@@ -289,6 +295,7 @@ test.describe('with check contracts', () => {
     const commit = await committed(repository)
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${run}&mode=changes`)
+    await expectAcceptedTurn(page)
     await markButton(page).click()
     await expect(since(page)).toContainText(nothingChanged)
 
@@ -336,7 +343,7 @@ test.describe('with the LLM unavailable', () => {
     const notesPath = `${claudeOriginal.cwd}/notes.md`
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${run}`)
-    await expect(fact(page, 'Агенты')).toHaveText('2')
+    await expectAcceptedTurn(page)
     await markButton(page).click()
     await expect(mark(page)).toContainText('Просмотрен только что, версия карты')
     await page.getByRole('navigation', { name: 'Навигация' }).getByRole('link', { name: 'Прогоны' }).click()
@@ -406,6 +413,7 @@ test('a mark in the changes mode keeps a change the page has not shown yet', asy
   const question = 'Сверить отчёт с источниками?'
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto(`/?run=${run}&mode=changes`)
+  await expectAcceptedTurn(page)
   await markButton(page).click()
   await expect(since(page)).toContainText(nothingChanged)
 
@@ -436,6 +444,7 @@ test('a changes read that hangs times out, says so and recovers without a reload
   const question = 'Отложить публикацию?'
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto(`/?run=${run}&mode=changes`)
+  await expectAcceptedTurn(page)
   await markButton(page).click()
   await expect(since(page)).toContainText(nothingChanged)
 
@@ -454,6 +463,7 @@ test('a changes read that hangs times out, says so and recovers without a reload
 test('a failed mark, changes read or grounds read says so and recovers', async ({ page, player, profile, hook }) => {
   await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
   await page.goto(`/?run=${run}&mode=changes`)
+  await expectAcceptedTurn(page)
   await expect(since(page)).toContainText('Прогон ещё не отмечен просмотренным.')
 
   await page.route('**/viewed', (route) => route.abort('connectionfailed'))
@@ -518,6 +528,7 @@ test.describe('when the sign-in session ends', () => {
   test('a grounds read shows the sign-in screen', async ({ page, player, profile, hook }) => {
     await (await player(sampleScenarioManifest('claude-subagent'), { timeScale: 0 })).play()
     await page.goto(`/?run=${run}&mode=changes`)
+    await expectAcceptedTurn(page)
     await markButton(page).click()
     await expect(since(page)).toContainText(nothingChanged)
     const fields = hookFields(profile, claudeOriginal)
@@ -546,6 +557,7 @@ test.describe('with the observer', () => {
       const replay = await player(sampleScenarioManifest('claude-fork'), { timeScale: 0, recordTime: 'playback' })
       await replay.play({ until: 'resume' })
       await page.goto(`/?run=${run}&mode=changes`)
+      await expectAcceptedTurn(page)
       await expect.poll(() => mapped(page.request), observed).toBe(true)
       await markButton(page).click()
       await expect(since(page)).toContainText(nothingChanged)
@@ -638,6 +650,7 @@ test.describe('with the observer', () => {
       const replay = await player(sampleScenarioManifest('claude-fork'), { timeScale: 0, recordTime: 'playback' })
       await replay.play({ until: 'resume' })
       await page.goto(`/?run=${run}&mode=changes`)
+      await expectAcceptedTurn(page)
       await expect.poll(() => mapped(page.request, outlineStageTitles.publish), observed).toBe(true)
       await markButton(page).click()
       await expect(since(page)).toContainText(nothingChanged)
