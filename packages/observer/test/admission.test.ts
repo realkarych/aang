@@ -1,5 +1,5 @@
 import { execFile } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, readdirSync, writeFileSync } from 'node:fs'
 import { mkdtemp, realpath, mkdir, readFile, rm, writeFile, symlink } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { tmpdir } from 'node:os'
@@ -84,6 +84,34 @@ for (const fault of ['hook_missing', 'hook_leak', 'registry_missing', 'registry_
     expect(await backend.execute({ input })).toMatchObject({ ok: false, error: { class: 'isolation' } })
     expect(cli.calls()).toHaveLength(count)
     expect(JSON.parse(await readFile(options.admissionStatusPath, 'utf8'))).toMatchObject({ admitted: false })
+  })
+}
+
+const registryEntries = (home: string): string[] => {
+  try { return readdirSync(join(home, '.claude', 'sessions')).filter((file) => file.endsWith('.json')) }
+  catch { return [] }
+}
+
+const blockEventLoopUntil = (done: () => boolean): void => {
+  const deadline = Date.now() + 15_000
+  while (!done() && Date.now() < deadline) continue
+}
+
+for (const fault of [undefined, 'registry_marker'] as const) {
+  test(`Claude admission reads the registry marker while the event loop of the backend is blocked for the whole life of the entry${fault === undefined ? '' : `, and ${fault} is still refused`}`, async (context) => {
+    const { root, options } = await sandbox(context)
+    const gate = join(root, 'registry-gate')
+    const cli = installFakeClaude(root, { admissionGate: gate, ...(fault === undefined ? {} : { admissionFault: fault }) })
+    const backend = createClaudeBackend({ ...options, cli, model: 'claude-opus-5-5', builtins })
+    const admission = backend.admit()
+    await until(() => cli.calls().some((call) => call.command === 'print'))
+    writeFileSync(gate, '')
+    blockEventLoopUntil(() => registryEntries(options.environment.HOME).length > 0)
+    blockEventLoopUntil(() => registryEntries(options.environment.HOME).length === 0)
+    expect(await admission).toMatchObject(fault === undefined
+      ? { admitted: true, reason: null }
+      : { admitted: false, reason: 'Claude registry marker was not observed or was incorrect' })
+    expect(cli.calls().filter((call) => call.command === 'print')).toHaveLength(fault === undefined ? 2 : 1)
   })
 }
 
