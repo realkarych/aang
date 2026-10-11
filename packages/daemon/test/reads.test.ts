@@ -29,6 +29,7 @@ import {
   claudeSession,
   claudeTranscript,
   hookEvent,
+  queued,
   transcriptLines,
   waitUntil,
   watchedHome,
@@ -670,6 +671,7 @@ describe.concurrent('the daemon answers read queries with the DTOs of the contra
 
     await hookEvent(home, claudeHook('SessionStart.startup', session, workspace))
     await hookEvent(home, claudeHook('UserPromptSubmit', session, workspace, { prompt_id: 'first' }))
+    await waitUntil(async () => (await queued(home)).length === 0)
     const transcript = await claudeTranscript(home, '-work', session, [prompt('first')])
     const hooked = await api.until(runPath(run), endpoints.run.response, ({ objects }) =>
       objects.sessions.some(({ support_mode: mode }) => mode === 'full'),
