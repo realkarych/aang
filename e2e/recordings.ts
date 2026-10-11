@@ -56,6 +56,20 @@ export const after = (manifest: LoadedManifest, label: string): LoadedManifest =
 export const startingAt = (manifest: LoadedManifest, label: string): LoadedManifest =>
   withSteps(manifest, manifest.steps.slice(labelled(manifest, label)))
 
+export const tornAt = (manifest: LoadedManifest, label: string, head: string, bytes: number): LoadedManifest => {
+  const index = labelled(manifest, label)
+  const step = manifest.steps[index]
+  if (step?.kind !== 'append') {
+    throw new Error(`${manifest.file}: step "${label}" does not append to a file`)
+  }
+  const { at, target, source } = step
+  return withSteps(manifest, [
+    ...manifest.steps.slice(0, index),
+    { at, label: head, kind: 'append', target, source, bytes },
+    ...manifest.steps.slice(index),
+  ])
+}
+
 const rolloutThread = /rollout-[^/]*-([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\.jsonl$/
 
 export const threadsOf = ({ steps }: LoadedManifest): string[] => [
