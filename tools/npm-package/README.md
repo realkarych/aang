@@ -5,6 +5,7 @@
 ## Пакет `aang`
 
 - `dist/aang.js` и `dist/aang-hook.js` — команды `aang` и `aang-hook`. Это бандлы `esbuild` точек входа пакета `aang` (`packages/aang/dist/main.js` и `hook.js`) со всеми внутренними пакетами и сторонними зависимостями (`zod`, `smol-toml`, `yaml`); модули `node:*` остаются внешними. Бандл в формате ESM объявляет `require` через `createRequire(import.meta.url)`: зависимость в формате CommonJS (`yaml`) загружает через него встроенные модули Node. Предупреждение `esbuild` прерывает сборку.
+- `dist/registry-watch.js` — бандл модуля потока, в котором допуск Claude следит за реестром сессий (`packages/observer/dist/registry-watch.js`, раздел о допуске в `packages/observer/README.md`). `observer` запускает его как `./registry-watch.js` относительно себя, а в пакете этот модуль — `dist/aang.js`.
 - `dist/web/` — сборка `web`, каталог экспорта `@aang/web`.
 - `schema/` — миграции `store`. Модуль `store` читает `../schema/` относительно себя, а в пакете этот модуль — `dist/aang.js`.
 - `support/matrix.json` — матрица поддержки (ADR-0010), из которой демон берёт статус версий. Команда `aang` читает `../support/matrix.json` относительно себя, а если такого файла нет — `../../../support/matrix.json`, где матрица лежит в рабочем дереве и в образе Docker.

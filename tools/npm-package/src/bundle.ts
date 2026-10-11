@@ -7,6 +7,7 @@ export const commandFiles = { aang: 'dist/aang.js', 'aang-hook': 'dist/aang-hook
 const entryPoints = [
   { in: join(repository.aang, 'dist', 'main.js'), out: 'aang' },
   { in: join(repository.aang, 'dist', 'hook.js'), out: 'aang-hook' },
+  { in: join(repository.observer, 'dist', 'registry-watch.js'), out: 'registry-watch' },
 ]
 
 const thirdPartyPackage = /^(.*node_modules\/(?:@[^/]+\/)?[^/]+)\//

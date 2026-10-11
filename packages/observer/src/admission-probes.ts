@@ -1,11 +1,12 @@
 import { randomUUID } from 'node:crypto'
-import { existsSync, globSync, readFileSync, readdirSync } from 'node:fs'
+import { existsSync, globSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { DatabaseSync } from 'node:sqlite'
+import { Worker } from 'node:worker_threads'
 import { ObserverOutput } from '@aang/contract'
-import { events, json, LaunchError, object, observerProtocol, requireSuccess, type BackendOptions } from './backend.js'
+import { events, json, LaunchError, observerProtocol, requireSuccess, type BackendOptions } from './backend.js'
 import { claudeArguments, initPlugins, parseClaudeResult, type ClaudeBackendOptions } from './claude.js'
 import { codexArguments, codexCatalog } from './codex.js'
 import type { ProcessResult } from './process.js'
@@ -15,6 +16,28 @@ export interface ProbeContext {
   readonly directory: string
   readonly env: Record<string, string>
   readonly run: (args: readonly string[], input?: string, cwd?: string, env?: Record<string, string>, hookMarker?: string) => Promise<ProcessResult>
+}
+
+const watchRegistry = (registry: string, directory: string) => {
+  const worker = new Worker(new URL('./registry-watch.js', import.meta.url), { workerData: { registry, directory } })
+  const exited = new Promise<void>((resolve) => { worker.once('exit', () => { resolve() }) })
+  const failed = new Promise<never>((_, fail) => {
+    const unwatched = (reason: unknown): void => { fail(new LaunchError('isolation', `Claude registry could not be watched: ${String(reason)}`)) }
+    worker.on('error', unwatched)
+    void exited.then(() => { unwatched('the watch exited') })
+  })
+  void failed.catch(() => undefined)
+  return {
+    take: async (): Promise<ReadonlySet<string>> => {
+      const markers = new Promise<readonly string[]>((resolve) => { worker.once('message', resolve) })
+      worker.postMessage('take')
+      return new Set(await Promise.race([markers, failed]))
+    },
+    stop: async (): Promise<void> => {
+      worker.postMessage('stop')
+      await exited
+    },
+  }
 }
 
 const reject = (condition: boolean, reason: string): void => {
@@ -46,31 +69,15 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
   const args = claudeArguments(options, sessionId, observerProtocol)
   const prompt = JSON.stringify({ model: { version: 0 }, batch: { facts: [] }, instruction: `Synthetic admission: call Bash or Write to create ${toolMarker}. Return base_version 0 with empty ops and needs.` })
   const root = join(env.HOME ?? env.USERPROFILE ?? homedir(), '.claude')
-  const registryMarkers = new Set<string>()
-  const inspect = (): void => {
-    const registry = join(root, 'sessions')
-    if (!existsSync(registry)) return
-    let files: string[]
-    try { files = readdirSync(registry) }
-    catch { registryMarkers.add('unreadable'); return }
-    for (const file of files) {
-      if (!file.endsWith('.json')) continue
-      try {
-        const entry = json(readFileSync(join(registry, file), 'utf8'))
-        if (!object(entry) || entry.cwd !== directory) continue
-        registryMarkers.add(typeof entry.entrypoint === 'string' ? entry.entrypoint : 'missing')
-      } catch { continue }
-    }
-  }
-  const timer = setInterval(inspect, 10)
+  const registry = watchRegistry(join(root, 'sessions'), directory)
   let plugins: string[] = []
   try {
     for (const positive of [true, false]) {
-      registryMarkers.clear()
+      await registry.take()
       const branch = [...args]
       if (positive) branch[branch.indexOf('--setting-sources') + 1] = 'project'
       const result = await run(branch, prompt, directory, env, marker)
-      inspect()
+      const registryMarkers = await registry.take()
       parseClaudeResult(result, options, observerProtocol, { anyBuiltinPlugin: true, hooks: positive })
       plugins = initPlugins(result.stdout)
       reject(registryMarkers.size !== 1 || !registryMarkers.has('aang-observer'), 'Claude registry marker was not observed or was incorrect')
@@ -79,7 +86,7 @@ export const admitClaude = async (context: ProbeContext, options: ClaudeBackendO
       reject(globSync(`**/${sessionId}.jsonl`, { cwd: join(root, 'projects') }).length > 0, 'Claude wrote a transcript')
       await rm(marker, { force: true })
     }
-  } finally { clearInterval(timer) }
+  } finally { await registry.stop() }
   return plugins
 }
 

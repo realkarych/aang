@@ -155,6 +155,20 @@ const runtimesOfRuns = async (url: string, aangHome: string): Promise<string[]> 
   return runs.map(({ runtime }) => runtime).sort()
 }
 
+interface Admission {
+  readonly outcome: string
+  readonly failure: string | null
+}
+
+const claudeAdmission = async (url: string, aangHome: string): Promise<Admission | null> => {
+  const token = (await readFile(join(aangHome, 'token'), 'utf8')).trim()
+  const response = await fetch(`${url}/api/status`, { headers: { authorization: `Bearer ${token}` } })
+  const { observer } = (await response.json()) as {
+    readonly observer: { readonly backends: readonly { readonly vendor: string; readonly admission: Admission | null }[] }
+  }
+  return observer.backends.find(({ vendor }) => vendor === 'claude')?.admission ?? null
+}
+
 describe('the packed aang package installs from a registry and runs', { tags: ['package'] }, () => {
   let packages: readonly PackedPackage[] = []
   let registry: Registry | undefined
@@ -250,7 +264,7 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(isAlive(Number(pid))).toBe(false)
   })
 
-  test('in a temporary HOME the installed aang install deploys the binary of the aang-hook package and registers hooks whose commands deliver events to the running daemon, on Windows the Codex hooks only with --codex', { timeout: commandTimeoutMs }, async ({
+  test('in a temporary HOME the installed aang install deploys the binary of the aang-hook package and registers hooks whose commands deliver events to the running daemon, on Windows the Codex hooks only with --codex, and the running daemon admits the Claude observer', { timeout: commandTimeoutMs }, async ({
     expect,
     onTestFinished,
   }) => {
@@ -322,6 +336,8 @@ describe('the packed aang package installs from a registry and runs', { tags: ['
     expect(fromCodex).toEqual({ code: 0, stdout: '', stderr: '' })
     await waitUntil(async () => (await runtimesOfRuns(url, profile.aangHome)).length === 2)
     expect(await runtimesOfRuns(url, profile.aangHome)).toEqual(['claude', 'codex'])
+    await waitUntil(async () => ![undefined, 'pending'].includes((await claudeAdmission(url, profile.aangHome))?.outcome))
+    expect(await claudeAdmission(url, profile.aangHome)).toMatchObject({ outcome: 'admitted', failure: null })
     const stop = await installed().run('aang', ['stop'], { env })
     expect(stop).toMatchObject({ code: 0, stdout: `aang stopped: pid ${pid}\n` })
   })

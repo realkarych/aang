@@ -8,6 +8,7 @@ export const repository = {
   root,
   aang: join(root, 'packages', 'aang'),
   hook: join(root, 'packages', 'hook'),
+  observer: join(root, 'packages', 'observer'),
   storeSchema: join(root, 'packages', 'store', 'schema'),
   supportMatrix: join(root, 'support', 'matrix.json'),
 }
