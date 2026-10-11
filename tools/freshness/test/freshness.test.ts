@@ -690,7 +690,18 @@ describe('the measurement', () => {
       expect(claude?.calls.accepted).toBe(0)
       expect(claude?.calls.failed).toBeGreaterThan(0)
       expect(claude?.violations).toBeGreaterThanOrEqual(2)
-      expect(claude?.states.find(({ state }) => state === 'unavailable:limit')?.share).toBeGreaterThan(0.5)
+      const sampled = [...Map.groupBy(measurement.states, ({ run }) => run).values()]
+      expect(sampled).not.toEqual([])
+      const sinceStart = sampled.map((samples) => measurement.ended_at - (samples[0]?.at ?? Infinity))
+      const sinceRefusal = sampled.map((samples) => {
+        const states = samples.map(({ state }) => ('reason' in state ? `${state.state}:${state.reason}` : state.state))
+        const refused = states.indexOf('unavailable:limit')
+        expect(states).toEqual(states.map((_, index) => (index < refused ? 'ok' : 'unavailable:limit')))
+        return measurement.ended_at - (samples[refused]?.at ?? Infinity)
+      })
+      const unavailableMs = sinceRefusal.reduce((sum, ms) => sum + ms, 0)
+      const sampledMs = sinceStart.reduce((sum, ms) => sum + ms, 0)
+      expect(claude?.states).toContainEqual({ state: 'unavailable:limit', ms: unavailableMs, share: unavailableMs / sampledMs })
       expect(await readFile(join(space.measurement, 'report.md'), 'utf8')).toContain('| claude | unavailable:limit |')
     },
   )
