@@ -435,140 +435,144 @@ const unfinishedReply = async (): Promise<string> => {
   })
 }
 
-test('a Claude fork shares its origin without doubling usage, and the usage panel keeps the three journals apart (E2E 11)', async ({
-  page,
-  player,
-  profile,
-  daemon,
-}) => {
-  await (await player(sampleScenarioManifest('claude-fork'), { timeScale: 0 })).play()
-  await expect
-    .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
-    .toBe(7)
+test.describe('with the LLM unavailable', () => {
+  test.use({ claudeScenario: { loggedIn: false }, codexScenario: { loggedIn: false } })
 
-  await page.goto('/')
-  await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Расход')
-  await expect(headFact(page, 'Период')).toHaveText('за всё время')
-  await expect(headFact(page, 'Активные часы решателя')).toHaveText('1 активный час')
+  test('a Claude fork shares its origin without doubling usage, and the usage panel keeps the three journals apart (E2E 11)', async ({
+    page,
+    player,
+    profile,
+    daemon,
+  }) => {
+    await (await player(sampleScenarioManifest('claude-fork'), { timeScale: 0 })).play()
+    await expect
+      .poll(async () => (await reportOf(page.request)).totals.solver.records, { timeout: 30_000 })
+      .toBe(7)
 
-  const solver = ledger(page, 'Решатель')
-  await expect(solver.getByText('7 ответов модели', { exact: true })).toBeVisible()
-  await expectSolverTokens(solver, {
-    'Ввод без кэша': ['14', '14'],
-    'Чтение кэша': ['100 625', '100 625'],
-    'Запись в кэш': ['10 415', '10 415'],
-    Вывод: ['228', '228'],
+    await page.goto('/')
+    await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
+    await expect(page.getByRole('heading', { level: 1 })).toHaveText('Расход')
+    await expect(headFact(page, 'Период')).toHaveText('за всё время')
+    await expect(headFact(page, 'Активные часы решателя')).toHaveText('1 активный час')
+
+    const solver = ledger(page, 'Решатель')
+    await expect(solver.getByText('7 ответов модели', { exact: true })).toBeVisible()
+    await expectSolverTokens(solver, {
+      'Ввод без кэша': ['14', '14'],
+      'Чтение кэша': ['100 625', '100 625'],
+      'Запись в кэш': ['10 415', '10 415'],
+      Вывод: ['228', '228'],
+    })
+    await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Чат').getByText('0 вызовов', { exact: true })).toBeVisible()
+    await expect(runRows(page)).toHaveCount(2)
+    await expect(runRows(page).nth(0)).toContainText('ввод 92 284, вывод 223')
+    await expect(runRows(page).nth(0)).toContainText('6 ответов модели')
+    await expect(runRows(page).nth(1)).toContainText('ввод 18 770, вывод 5')
+    await expect(runRows(page).nth(1)).toContainText('1 ответ модели')
+
+    const runsRoute = `**${endpoints.runs.path}`
+    await page.route(runsRoute, (route) => route.abort('connectionfailed'))
+    await runRows(page).nth(1).getByRole('link').click()
+    await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
+    await expect(page.getByText('Расход прогона', { exact: true })).toBeVisible()
+    const origin = page.getByText(/^Общее происхождение/)
+    await expect(origin).toHaveText(
+      'Общее происхождение с другими сессиями. Унаследованная история здесь не учитывается.',
+    )
+    await page.unroute(runsRoute)
+    await expect(origin).toHaveText(guessedSource)
+    await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(originalRun))
+    await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
+    const fork = session(page, 'cdfb3544')
+    await expect(fork.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
+    await expectSolverTokens(fork, {
+      'Ввод без кэша': ['2', '14'],
+      'Чтение кэша': ['18 341', '100 625'],
+      'Запись в кэш': ['427', '10 415'],
+      Вывод: ['5', '228'],
+      'Ответов модели': ['1', '—'],
+      Деньги: ['—', '0,1026 $'],
+    })
+    await expect(fork.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
+    const stages = page.getByRole('table', { name: 'Решатель по этапам' })
+    await expect(page.getByText(/пока карты нет, весь расход решателя не привязан\.$/)).toBeVisible()
+    await expect(amounts(stages, 'Не привязано к этапам')).toHaveText(['2', '18 341', '427', '5', '1'])
+
+    await origin.getByRole('link').click()
+    await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${originalRun}$`))
+    await expect(page.getByText(/^Общее происхождение/)).toHaveCount(0)
+    const original = session(page, '86f93ed5')
+    await expectSolverTokens(original, {
+      'Ввод без кэша': ['12', '12'],
+      'Чтение кэша': ['82 284', '82 284'],
+      'Запись в кэш': ['9 988', '9 988'],
+      Вывод: ['223', '223'],
+      'Ответов модели': ['6', '—'],
+      Деньги: ['—', '0,0954 $'],
+    })
+    await expect(original.getByRole('listitem')).toHaveText([finalTotal])
+    await expect(page.getByText(/^Деньги — по прейскуранту/)).toHaveText(
+      'Деньги — по прейскуранту, как их сообщает рантайм; при подписке это не списание. Codex сообщает только токены.',
+    )
+
+    await stopped(daemon)
+    await expect(page.getByRole('status')).toHaveText(
+      'Не удалось обновить отчёт о расходе. Показаны прежние данные, они могут устареть.',
+      { timeout: 15_000 },
+    )
+    recordCalls(profile.aangHome)
+    const restarted = await restart(daemon, profile)
+
+    await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
+    const observer = ledger(page, 'Наблюдатель')
+    await expect(observer.getByText('1 вызов и 1 проверка допуска', { exact: true })).toBeVisible({ timeout: 15_000 })
+    await expect(page.getByRole('status')).toHaveCount(0)
+    await expectSolverTokens(observer, {
+      'Ввод без кэша': ['110', '110'],
+      'Чтение кэша': ['2 000', '2 000'],
+      'Запись в кэш': ['300', '300'],
+      Вывод: ['55', '55'],
+    })
+    await expect(amounts(observer, 'Деньги').first()).toHaveText('0,3125 $')
+    await expect(callFact(observer, 'Задержка вызова')).toHaveText('медиана 12,0 с, p95 12,0 с, максимум 12,0 с')
+    await expect(callFact(observer, 'Отставание карты')).toHaveText(
+      'медиана 50 мин 10 с, p95 50 мин 10 с, максимум 50 мин 10 с',
+    )
+    await expect(callFact(observer, 'Проверки допуска')).toHaveText('1 вызов вне прогонов: ввод 10, вывод 5, 0,0625 $')
+    const chat = ledger(page, 'Чат')
+    await expect(chat.getByText('1 вызов', { exact: true })).toBeVisible()
+    await expectSolverTokens(chat, {
+      'Ввод без кэша': ['70', '70'],
+      Вывод: ['66', '66'],
+      Деньги: ['0,2813 $', '0,2813 $'],
+    })
+    await expect(callFact(chat, 'Задержка ответа')).toHaveText('медиана 15,0 с, p95 15,0 с, максимум 15,0 с')
+    await expect(ledger(page, 'Решатель').getByText('7 ответов модели', { exact: true })).toBeVisible()
+
+    await page.getByRole('navigation', { name: 'Период' }).getByRole('link', { name: '24 часа' }).click()
+    await expect(page).toHaveURL(/\?view=usage&period=day$/)
+    await expect(headFact(page, 'Период')).toHaveText(/^с /)
+    await expect(headFact(page, 'Активные часы решателя')).toHaveText('нет: расход на активный час не считается')
+    await expect(ledger(page, 'Решатель').getByText('0 ответов модели', { exact: true })).toBeVisible()
+    await expect(amounts(ledger(page, 'Решатель'), 'Вывод')).toHaveText(['0'])
+    await expect(amounts(ledger(page, 'Наблюдатель'), 'Вывод')).toHaveText(['55'])
+    await expect(amounts(ledger(page, 'Чат'), 'Вывод')).toHaveText(['66'])
+    await expect(runRows(page)).toHaveCount(2)
+    await expect(runRows(page).nth(0)).toContainText('нет активности решателя')
+    await expect(runRows(page).nth(0)).toContainText('ввод 2 400, вывод 50, 0,25 $')
+    await expect(runRows(page).nth(1)).toContainText('ввод 1 020, вывод 66, 0,2813 $')
+
+    await runRows(page).nth(1).getByRole('link').click()
+    await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}&period=day$`))
+    await expect(headFact(page, 'Длительность')).toHaveText('нет активности решателя')
+    await expect(page.getByText(/^Итог Claude Code и итог треда относятся/)).toHaveText(
+      'Итог Claude Code и итог треда относятся ко всей сессии или треду, а не только к выбранному периоду.',
+    )
+    await expect(ledger(page, 'Чат').getByText('1 вызов', { exact: true })).toBeVisible()
+    await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
+    await stopped(restarted)
   })
-  await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
-  await expect(ledger(page, 'Чат').getByText('0 вызовов', { exact: true })).toBeVisible()
-  await expect(runRows(page)).toHaveCount(2)
-  await expect(runRows(page).nth(0)).toContainText('ввод 92 284, вывод 223')
-  await expect(runRows(page).nth(0)).toContainText('6 ответов модели')
-  await expect(runRows(page).nth(1)).toContainText('ввод 18 770, вывод 5')
-  await expect(runRows(page).nth(1)).toContainText('1 ответ модели')
-
-  const runsRoute = `**${endpoints.runs.path}`
-  await page.route(runsRoute, (route) => route.abort('connectionfailed'))
-  await runRows(page).nth(1).getByRole('link').click()
-  await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}$`))
-  await expect(page.getByText('Расход прогона', { exact: true })).toBeVisible()
-  const origin = page.getByText(/^Общее происхождение/)
-  await expect(origin).toHaveText(
-    'Общее происхождение с другими сессиями. Унаследованная история здесь не учитывается.',
-  )
-  await page.unroute(runsRoute)
-  await expect(origin).toHaveText(guessedSource)
-  await expect(origin.getByRole('link')).toHaveAttribute('href', usageLink(originalRun))
-  await expect(ledger(page, 'Решатель').getByText('1 ответ модели', { exact: true })).toBeVisible()
-  const fork = session(page, 'cdfb3544')
-  await expect(fork.getByRole('columnheader')).toHaveText(['Учтено aang', 'Итог Claude Code'])
-  await expectSolverTokens(fork, {
-    'Ввод без кэша': ['2', '14'],
-    'Чтение кэша': ['18 341', '100 625'],
-    'Запись в кэш': ['427', '10 415'],
-    Вывод: ['5', '228'],
-    'Ответов модели': ['1', '—'],
-    Деньги: ['—', '0,1026 $'],
-  })
-  await expect(fork.getByRole('listitem')).toHaveText([finalTotal, inheritedTotal])
-  const stages = page.getByRole('table', { name: 'Решатель по этапам' })
-  await expect(page.getByText(/пока карты нет, весь расход решателя не привязан\.$/)).toBeVisible()
-  await expect(amounts(stages, 'Не привязано к этапам')).toHaveText(['2', '18 341', '427', '5', '1'])
-
-  await origin.getByRole('link').click()
-  await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${originalRun}$`))
-  await expect(page.getByText(/^Общее происхождение/)).toHaveCount(0)
-  const original = session(page, '86f93ed5')
-  await expectSolverTokens(original, {
-    'Ввод без кэша': ['12', '12'],
-    'Чтение кэша': ['82 284', '82 284'],
-    'Запись в кэш': ['9 988', '9 988'],
-    Вывод: ['223', '223'],
-    'Ответов модели': ['6', '—'],
-    Деньги: ['—', '0,0954 $'],
-  })
-  await expect(original.getByRole('listitem')).toHaveText([finalTotal])
-  await expect(page.getByText(/^Деньги — по прейскуранту/)).toHaveText(
-    'Деньги — по прейскуранту, как их сообщает рантайм; при подписке это не списание. Codex сообщает только токены.',
-  )
-
-  await stopped(daemon)
-  await expect(page.getByRole('status')).toHaveText(
-    'Не удалось обновить отчёт о расходе. Показаны прежние данные, они могут устареть.',
-    { timeout: 15_000 },
-  )
-  recordCalls(profile.aangHome)
-  const restarted = await restart(daemon, profile)
-
-  await page.getByRole('navigation').getByRole('link', { name: 'Расход', exact: true }).click()
-  const observer = ledger(page, 'Наблюдатель')
-  await expect(observer.getByText('1 вызов и 1 проверка допуска', { exact: true })).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByRole('status')).toHaveCount(0)
-  await expectSolverTokens(observer, {
-    'Ввод без кэша': ['110', '110'],
-    'Чтение кэша': ['2 000', '2 000'],
-    'Запись в кэш': ['300', '300'],
-    Вывод: ['55', '55'],
-  })
-  await expect(amounts(observer, 'Деньги').first()).toHaveText('0,3125 $')
-  await expect(callFact(observer, 'Задержка вызова')).toHaveText('медиана 12,0 с, p95 12,0 с, максимум 12,0 с')
-  await expect(callFact(observer, 'Отставание карты')).toHaveText(
-    'медиана 50 мин 10 с, p95 50 мин 10 с, максимум 50 мин 10 с',
-  )
-  await expect(callFact(observer, 'Проверки допуска')).toHaveText('1 вызов вне прогонов: ввод 10, вывод 5, 0,0625 $')
-  const chat = ledger(page, 'Чат')
-  await expect(chat.getByText('1 вызов', { exact: true })).toBeVisible()
-  await expectSolverTokens(chat, {
-    'Ввод без кэша': ['70', '70'],
-    Вывод: ['66', '66'],
-    Деньги: ['0,2813 $', '0,2813 $'],
-  })
-  await expect(callFact(chat, 'Задержка ответа')).toHaveText('медиана 15,0 с, p95 15,0 с, максимум 15,0 с')
-  await expect(ledger(page, 'Решатель').getByText('7 ответов модели', { exact: true })).toBeVisible()
-
-  await page.getByRole('navigation', { name: 'Период' }).getByRole('link', { name: '24 часа' }).click()
-  await expect(page).toHaveURL(/\?view=usage&period=day$/)
-  await expect(headFact(page, 'Период')).toHaveText(/^с /)
-  await expect(headFact(page, 'Активные часы решателя')).toHaveText('нет: расход на активный час не считается')
-  await expect(ledger(page, 'Решатель').getByText('0 ответов модели', { exact: true })).toBeVisible()
-  await expect(amounts(ledger(page, 'Решатель'), 'Вывод')).toHaveText(['0'])
-  await expect(amounts(ledger(page, 'Наблюдатель'), 'Вывод')).toHaveText(['55'])
-  await expect(amounts(ledger(page, 'Чат'), 'Вывод')).toHaveText(['66'])
-  await expect(runRows(page)).toHaveCount(2)
-  await expect(runRows(page).nth(0)).toContainText('нет активности решателя')
-  await expect(runRows(page).nth(0)).toContainText('ввод 2 400, вывод 50, 0,25 $')
-  await expect(runRows(page).nth(1)).toContainText('ввод 1 020, вывод 66, 0,2813 $')
-
-  await runRows(page).nth(1).getByRole('link').click()
-  await expect(page).toHaveURL(new RegExp(`\\?view=usage&run=${forkRun}&period=day$`))
-  await expect(headFact(page, 'Длительность')).toHaveText('нет активности решателя')
-  await expect(page.getByText(/^Итог Claude Code и итог треда относятся/)).toHaveText(
-    'Итог Claude Code и итог треда относятся ко всей сессии или треду, а не только к выбранному периоду.',
-  )
-  await expect(ledger(page, 'Чат').getByText('1 вызов', { exact: true })).toBeVisible()
-  await expect(ledger(page, 'Наблюдатель').getByText('0 вызовов', { exact: true })).toBeVisible()
-  await stopped(restarted)
 })
 
 test('a Claude total waits for the exit, and a reply without its closing record makes the output a lower bound', async ({
